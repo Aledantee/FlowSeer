@@ -1,0 +1,25 @@
+# FlowSeer SNMP integration T2 — single-node Nokia SR Linux lab.
+#
+# Deployed by the t2 tier's TestMain via the testenv.StartSRLinux
+# wrapper. Cleanup happens through `containerlab destroy --cleanup`
+# either at test-process exit or when StartSRLinux's readiness probe
+# fails partway through.
+#
+# Image: ghcr.io/nokia/srlinux:latest. This
+# image is publicly pullable without a Nokia account. If Nokia changes
+# that policy, swap the kind/image to another containerlab-supported
+# NOS (the harness reaches only through the public SNMP surface, so
+# the swap is mechanical).
+#
+# Startup-config: ../srlinux/startup.cli — provisions the v3 USM
+# user [testenv.SRLinuxUSMConfig] uses for readiness probing.
+
+name: flowseer-t2
+
+topology:
+  nodes:
+    srl1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:latest
+      type: ixrd2
+      startup-config: ../srlinux/startup.cli

@@ -1,0 +1,93 @@
+FAKE-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    OBJECT-TYPE, MODULE-IDENTITY, Integer32, Counter64, TimeTicks
+        FROM SNMPv2-SMI
+    DisplayString, MacAddress
+        FROM SNMPv2-TC;
+
+fakeMIB MODULE-IDENTITY
+    LAST-UPDATED "202605120000Z"
+    ORGANIZATION "FlowSeer Test"
+    CONTACT-INFO "test"
+    DESCRIPTION  "Hand-crafted MIB for mibgen golden tests."
+    ::= { 1 3 6 1 4 1 99999 1 }
+
+fakeScalar OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A simple scalar."
+    ::= { fakeMIB 1 }
+
+fakeStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+        up(1),
+        down(2),
+        testing(3)
+    }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An enum-typed scalar."
+    ::= { fakeMIB 2 }
+
+fakeTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table."
+    ::= { fakeMIB 3 }
+
+fakeEntry OBJECT-TYPE
+    SYNTAX      FakeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeTable."
+    INDEX { fakeIndex }
+    ::= { fakeTable 1 }
+
+FakeEntry ::= SEQUENCE {
+    fakeIndex       Integer32,
+    fakeName        DisplayString,
+    fakeMac         MacAddress,
+    fakeOctets      Counter64,
+    fakeLastChange  TimeTicks
+}
+
+fakeIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row index."
+    ::= { fakeEntry 1 }
+
+fakeName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Name."
+    ::= { fakeEntry 2 }
+
+fakeMac OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "MAC address."
+    ::= { fakeEntry 3 }
+
+fakeOctets OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Counter."
+    ::= { fakeEntry 4 }
+
+fakeLastChange OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Per-row change indicator. The name-suffix heuristic
+                 classifies this column as TierIndicator at codegen
+                 time and structural discovery binds it to fakeTable."
+    ::= { fakeEntry 5 }
+
+END

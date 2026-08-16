@@ -1,0 +1,42 @@
+# FlowSeer SNMP integration T3 — .snmprec manifest.
+#
+# Each entry binds a vendor/device label to a .snmprec capture and
+# the v2c community string snmpsim uses to route requests to it
+# (the "context"). The t3 replay test iterates this list and runs
+# AssertIfTableDenseRows against each replay.
+#
+# Adding a new vendor capture:
+#   1. Drop the .snmprec under testdata/snmprec/<vendor>/<device>.snmprec.
+#   2. Append one entry below pointing at it.
+#   3. Re-run `make t3` (or `go test -tags=snmp_integration_t3 ...`).
+#
+# Capture helper: scripts/capture-snmprec.sh wraps snmpwalk + a small
+# converter for the typical .snmprec format.
+
+entries:
+  - vendor: nokia
+    device: srlinux-24
+    captured_on: 2026-05-13
+    # snmpsim derives the v2c community name from the .snmprec file
+    # path relative to its data dir (without the .snmprec extension).
+    # snmpsim_context must therefore equal that derived community
+    # name; the manifest loader enforces this and rejects mismatches
+    # at load time.
+    snmpsim_context: srlinux/baseline
+    snmprec: srlinux/baseline.snmprec
+    scenarios:
+      - dense-row-collector
+  - vendor: offspec
+    device: wrong-types
+    captured_on: 2026-08-16
+    # Synthetic off-spec corpus (not a vendor capture): every ifTable
+    # value tag deliberately diverges from the IF-MIB declaration in a
+    # way real agents have been reported to do (telegraf #14598,
+    # snmp_exporter #338) — Integer32 columns served as Gauge32,
+    # Gauge32 as Counter32, TimeTicks as INTEGER. Exercises the
+    # fused-decode fallback boundary end to end through the generated
+    # walker (conformance row raw-wrong-typed-column).
+    snmpsim_context: offspec/wrong-types
+    snmprec: offspec/wrong-types.snmprec
+    scenarios:
+      - fused-fallback

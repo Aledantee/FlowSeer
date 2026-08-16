@@ -1,0 +1,12 @@
+# Hermetic test fixture: two modules with a depends_on cycle.
+# Used by TestLoadConfig + topoSort cycle tests.
+search_paths:
+  - ./mibs
+
+modules:
+  - name: MOD-A
+    package: moda
+    depends_on: [MOD-B]
+  - name: MOD-B
+    package: modb
+    depends_on: [MOD-A]

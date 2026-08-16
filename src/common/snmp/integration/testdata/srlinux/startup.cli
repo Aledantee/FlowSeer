@@ -1,0 +1,52 @@
+// FlowSeer SNMP integration T2 — SR Linux startup configuration.
+//
+// Provisions:
+//   - SNMPv2c community "public" (read-only) for sanity probes.
+//   - SNMPv3 USM user "flowseer" with SHA-256 auth + AES-256 priv.
+//     Credentials match testenv.SRLinuxUSMConfig so the readiness
+//     probe and downstream tests agree on the user state.
+//
+// The passphrase literals below are non-secret integration-test
+// values pinned for deterministic test runs against the ephemeral
+// containerlab-managed SR Linux node; do NOT copy them into
+// production USM configurations.
+//
+// Loaded by the containerlab topology's `startup-config` field at
+// boot. The exact SR Linux CLI syntax for SNMP has evolved across
+// 23.x → 24.x; commands below target the 24.x release line. If the
+// containerlab pull resolves to a release where these commands are
+// rejected (visible as a deploy error in
+// `containerlab deploy -t srlinux.clab.yaml`), the iteration target
+// is THIS file — the Go harness assumes only that some valid CLI
+// provisions the documented USM user.
+
+enter candidate
+
+/ system snmp community public {
+    type ro-only
+}
+
+/ system snmp engine-id local-engine-id 80004f0103aabbccdd
+
+/ system snmp v3 user flowseer {
+    authentication {
+        protocol sha2-256
+        password "flowseer-auth-passphrase"
+    }
+    privacy {
+        protocol aes-256-cfb
+        password "flowseer-priv-passphrase"
+    }
+}
+
+/ system snmp network-instance mgmt {
+    admin-state enable
+    udp-server [
+        {
+            ip-address ::
+            port 161
+        }
+    ]
+}
+
+commit save

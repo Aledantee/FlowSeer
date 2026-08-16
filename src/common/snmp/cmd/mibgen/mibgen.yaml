@@ -1,0 +1,67 @@
+# mibgen configuration — first-set MIB modules.
+#
+# Search paths are resolved relative to this file. Module names match
+# the MODULE-IDENTITY declarations inside spec/mib/ietf/<NAME>.
+#
+# depends_on is intentionally empty for every module: every entry lives
+# under the same search path, so gosmi resolves transitive IMPORTS for
+# free (KTD-10). Cross-authority deps (e.g. a vendor MIB → IETF MIB)
+# would be the only reason to add depends_on.
+
+search_paths:
+  - ../../../../../spec/mib/ietf
+  - ../../../../../spec/mib/ieee
+  - ../../../../../spec/mib/mikrotik
+
+modules:
+  - { name: SNMPv2-SMI,        package: snmpv2smi }
+  - { name: SNMPv2-TC,         package: snmpv2tc }
+  - { name: SNMPv2-CONF,       package: snmpv2conf }
+  - { name: IANAifType-MIB,    package: ianaiftype }
+  - { name: SNMPv2-MIB,        package: snmpv2mib }
+  - name: IF-MIB
+    package: ifmib
+    # IF-MIB has three indicators; only the per-row IfLastChange is
+    # structurally discoverable (column inside ifTable's row matches
+    # the *LastChange* heuristic). The two scalars below cover
+    # ifTable and ifStackTable but live in a different subtree
+    # (ifMIBObjects) with multiple table siblings, so the
+    # single-table-sibling structural rule fails — they require
+    # explicit declaration here.
+    indicators:
+      - scalar_oid:    "1.3.6.1.2.1.31.1.5"     # ifTableLastChange (ifMIBObjects.5)
+        covers_tables:
+          - "1.3.6.1.2.1.2.2"                   # ifTable
+      - scalar_oid:    "1.3.6.1.2.1.31.1.6"     # ifStackLastChange (ifMIBObjects.6)
+        covers_tables:
+          - "1.3.6.1.2.1.31.1.2"                # ifStackTable
+  - { name: BRIDGE-MIB,        package: bridgemib }
+  - { name: P-BRIDGE-MIB,      package: pbridgemib }
+  - { name: Q-BRIDGE-MIB,      package: qbridgemib }
+  - name: ENTITY-MIB
+    package: entitymib
+    # ENTITY-MIB's single entLastChangeTime scalar covers five
+    # tables. The scalar's parent (entityGeneral) has multiple table
+    # siblings, so structural discovery cannot bind it. Each
+    # covered table emits its own EntPhysicalTableIndicator etc.
+    # var pointing at the shared scalar.
+    indicators:
+      - scalar_oid:    "1.3.6.1.2.1.47.1.4.1"   # entLastChangeTime
+        covers_tables:
+          - "1.3.6.1.2.1.47.1.1.1"              # entPhysicalTable
+          - "1.3.6.1.2.1.47.1.2.1"              # entLogicalTable
+          - "1.3.6.1.2.1.47.1.3.1"              # entLPMappingTable
+          - "1.3.6.1.2.1.47.1.3.2"              # entAliasMappingTable
+          - "1.3.6.1.2.1.47.1.3.3"              # entPhysicalContainsTable
+  - { name: ENTITY-SENSOR-MIB, package: entitysensormib }
+  - { name: ENTITY-STATE-MIB,  package: entitystatemib }
+  - { name: IP-MIB,            package: ipmib }
+  - { name: HOST-RESOURCES-MIB, package: hostresourcesmib }
+  - { name: LLDP-MIB,          package: lldpmib }
+  - name: MIKROTIK-MIB
+    package: mikrotik
+    # Cross-authority dep: MIKROTIK-MIB lives under spec/mib/mikrotik/
+    # but imports from the SNMPv2-* base modules under spec/mib/ietf/.
+    # gosmi resolves IMPORTS via the combined search_paths; depends_on
+    # only orders the topological sort across path boundaries.
+    depends_on: [SNMPv2-SMI, SNMPv2-TC, SNMPv2-CONF]

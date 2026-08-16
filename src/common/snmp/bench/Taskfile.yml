@@ -1,0 +1,150 @@
+# bench:* — SNMP performance comparison suite (common/snmp/bench/).
+#
+# Included by the root Taskfile with `dir: ./common/snmp/bench`, so every
+# `go` invocation runs inside the standalone bench module (its own go.mod,
+# the one place gosnmp is still a dependency). The main module never sees
+# these targets.
+
+version: '3'
+
+vars:
+  # Count for benchstat-grade stability; override with `task bench:micro COUNT=20`.
+  COUNT: '10'
+
+tasks:
+  micro:
+    desc: 'Tier 1 — in-process micro-benchmarks (FlowSeer vs gosnmp): ns/op, allocs/op, B/op'
+    cmds:
+      - go test -bench . -benchmem -run '^$' -count={{.COUNT}}
+
+  stat:
+    desc: 'Tier 1 with benchstat A/B summary (FlowSeer vs gosnmp). Needs golang.org/x/perf/cmd/benchstat on PATH.'
+    cmds:
+      - go test -bench . -benchmem -run '^$' -count={{.COUNT}} | tee /tmp/snmp-bench.txt
+      - benchstat -col /impl /tmp/snmp-bench.txt
+
+  fanout:
+    desc: 'Concurrency / fan-out throughput harness — aggregate ops/s across concurrency points (build-tagged).'
+    summary: |
+      Drives N concurrent snmp.Sessions against the loopback responder and
+      reports aggregate ops/sec for the single-session high-rate (conc=1),
+      massive fan-out (conc=64/256), and bursty/idle regimes. Also runs the
+      demux-under-concurrency correctness test (TestFanoutNoCrossDelivery).
+
+      FANOUT_COUNT defaults to 6 (lower than the micro COUNT — each point
+      builds many sessions); override with `task bench:fanout FANOUT_COUNT=10`.
+    vars:
+      FANOUT_COUNT: '6'
+    cmds:
+      - go test -tags snmp_bench_fanout -run TestFanout -bench Fanout -benchmem -count={{.FANOUT_COUNT}}
+
+  gc:
+    desc: 'GC-pressure + idle-footprint instrumentation (alloc rate, GC pause, idle per-session heap; build-tagged).'
+    summary: |
+      Reports idle-session footprint (the first-class R2 metric a buffer pool
+      must not regress) separately from sustained-load GC pressure (R3: alloc
+      rate, GC/s, mean pause, peak RSS). GC/RSS numbers are advisory (noisy).
+
+      GC_COUNT defaults to 6; override with `task bench:gc GC_COUNT=10`.
+    vars:
+      GC_COUNT: '6'
+    cmds:
+      - go test -tags snmp_bench_gc -run 'TestIdleFootprintScaling|TestBurstyAllocRate' -bench GCSustained -benchmem -count={{.GC_COUNT}} -v
+
+  profile:
+    desc: 'Emit mem + cpu profiles so every hot spot is attributable to a function before it is touched (R4/R7).'
+    summary: |
+      Profile-first workflow: never optimise a site you have not first seen in
+      a profile. Writes mem.prof + cpu.prof (and the test binary, for symbol
+      resolution + `list`) to the gitignored profiles/ dir.
+
+      BENCH selects the workload (default the alloc-dense flowseer BulkWalk,
+      where the OID double-allocation and []VarBind sizing live):
+
+        task bench:profile                               # micro BulkWalk
+        task bench:profile BENCH='Get/impl=flowseer'     # a different micro op
+        FANOUT=1 task bench:profile                      # fan-out walk instead
+
+      Then attribute allocations / CPU to concrete sites:
+
+        go tool pprof -top -alloc_objects profiles/bench.test profiles/mem.prof
+        go tool pprof -list 'decodeOID|NewOID' profiles/bench.test profiles/mem.prof
+        go tool pprof -http=: profiles/bench.test profiles/cpu.prof
+
+      The fan-out arm (FANOUT=1) is the workload U6/U9 profile against.
+    vars:
+      OUT: 'profiles'
+      BENCH: '{{.BENCH | default "BulkWalk/impl=flowseer"}}'
+      TAGS: '{{if .FANOUT}}-tags snmp_bench_fanout{{end}}'
+      TARGET: '{{if .FANOUT}}FanoutWalk/conc=64{{else}}{{.BENCH}}{{end}}'
+    cmds:
+      - mkdir -p {{.OUT}}
+      - go test {{.TAGS}} -run '^$' -bench '{{.TARGET}}' -benchmem -count=1 -benchtime=2s -memprofile {{.OUT}}/mem.prof -cpuprofile {{.OUT}}/cpu.prof -o {{.OUT}}/bench.test
+      - 'echo "Profiles in {{.OUT}}/. Top allocation sites:"'
+      - go tool pprof -top -nodecount=12 -alloc_objects {{.OUT}}/bench.test {{.OUT}}/mem.prof
+
+  sweep:
+    desc: 'Throughput × target-count sweep: FlowSeer vs gosnmp vs Net-SNMP (native cgo, not CLI). Needs `brew install net-snmp`.'
+    summary: |
+      Compares all three SNMP clients walking the same ifTable across a range
+      of concurrent target counts. The Net-SNMP arm uses an in-process
+      libnetsnmp cgo binding (netsnmp_native.go), so it measures the real
+      Net-SNMP engine WITHOUT the CLI's per-invocation process fork+exec.
+
+        BenchmarkSweep        saturation ops/sec + Go allocs at targets ∈ {1,8,64}
+        TestSweepSaturation   throughput vs target count into collector scale
+                              (targets ∈ {1,64,256,512,1024}, build-once)
+        TestSweepOfferedRate  achieved-vs-offered ops/sec + latency at fixed
+                              per-target rates (the offered-throughput axis)
+
+      Requires cgo + libnetsnmp (Homebrew net-snmp; the cgo paths point at the
+      Homebrew opt prefix — override via CGO_CFLAGS/CGO_LDFLAGS elsewhere).
+      Allocs/op is meaningful only for the two Go clients; Net-SNMP's
+      allocations are C-side and invisible to -benchmem (read it on ops/sec).
+
+      SWEEP_COUNT defaults to 5; override with `task bench:sweep SWEEP_COUNT=10`.
+    vars:
+      SWEEP_COUNT: '5'
+    cmds:
+      - go test -tags snmp_bench_netsnmp -run 'TestNetSnmpNativeSmoke|TestSweepSaturation|TestSweepOfferedRate' -bench BenchmarkSweep -benchmem -count={{.SWEEP_COUNT}} -timeout 30m -v
+
+  gate:
+    desc: 'Perf-gate: benchstat fresh micro run vs committed baseline; hard-fail on allocs/op + B/op regression.'
+    summary: |
+      Turns testdata/baseline-micro.txt into an enforced invariant. Runs the
+      FlowSeer-arm micro benchmarks and benchstat-compares against the
+      baseline, exiting non-zero only on a significant regression in the
+      deterministic metrics (allocs/op, B/op). ns/op is advisory unless
+      GATE_NS=1 (local only); throughput/GC/RSS are not gated here.
+
+      Reachable from the repo root as `task bench:gate` via the bench include.
+
+        task bench:gate                     # full micro suite, COUNT=10
+        task bench:gate COUNT=6              # faster, slightly noisier
+        BENCH=Get task bench:gate           # gate a single benchmark
+        GATE_NS=1 task bench:gate           # also hard-fail on ns/op (local)
+
+      Refresh the baseline deliberately: re-run `task bench:micro COUNT=10`,
+      keep the FlowSeer arm, commit the new testdata/baseline-micro.txt.
+    vars:
+      COUNT: '10'
+    cmds:
+      - COUNT={{.COUNT}} BENCH={{.BENCH | default "."}} GATE_NS={{.GATE_NS | default "0"}} sh bench-gate.sh
+
+  macro:
+    desc: 'Tier 2 — macro wall-clock vs gosnmp + net-snmp (needs a live agent + env gate)'
+    summary: |
+      Runs realistic workloads against a reachable SNMP agent and (when the
+      net-snmp tools + hyperfine are installed) compares all three clients.
+      Build-tagged + env-gated; skips cleanly when the agent is unset.
+
+        FLOWSEER_BENCH_AGENT=10.20.0.1:161 task bench:macro
+
+      Env knobs:
+        FLOWSEER_BENCH_AGENT       host:port of the agent (required)
+        FLOWSEER_BENCH_COMMUNITY   v2c community (default "public")
+        FLOWSEER_BENCH_WALK_ROOT   dotted OID to walk (default ifTable)
+        FLOWSEER_BENCH_V3_USER     enables the v3/USM cold-start benchmark
+        FLOWSEER_BENCH_V3_AUTHPROTO/AUTHPASS/PRIVPROTO/PRIVPASS  v3 creds
+    cmds:
+      - go test -tags snmp_bench_macro -bench . -benchmem -run '^$' -count={{.COUNT}} -v

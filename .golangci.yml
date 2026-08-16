@@ -1,0 +1,62 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - revive
+    - gocritic
+    - unconvert
+    - unparam
+    - misspell
+  settings:
+    errcheck:
+      # CLI/stderr output is best-effort; a failed write has no caller
+      # that could act on it.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    misspell:
+      locale: US
+    revive:
+      # The default rule set, spelled out because defining any rule
+      # replaces it. empty-block is left out: empty for-range bodies
+      # are the idiomatic channel/iterator drain and the rule has no
+      # allowance for them.
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - go.aledante.io/FlowSeer

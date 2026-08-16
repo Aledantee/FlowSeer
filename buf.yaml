@@ -1,0 +1,46 @@
+version: v2
+
+# Two buf v2 modules that share `path: spec/proto` and partition the
+# tree via mutually-exclusive `excludes`. Both modules must share the
+# same root: Ruckus protos cross-import via `ruckus/<group>/...`
+# paths that only resolve when the module root is `spec/proto/`, and
+# preserving the `flowseer/` segment in generated output (managed mode
+# + paths=source_relative is module-rooted) requires the same root.
+# Ruckus carries its four historical lint excepts and `WIRE` breaking;
+# FlowSeer enforces MINIMAL with no excepts and suspends breaking
+# checks (`breaking.use: []`) until first stable release.
+deps:
+  - buf.build/bufbuild/protovalidate
+  - buf.build/googleapis/googleapis
+modules:
+  - path: spec/proto
+    excludes:
+      - spec/proto/flowseer
+    lint:
+      use:
+        - MINIMAL
+      except:
+        - DIRECTORY_SAME_PACKAGE
+        - PACKAGE_DEFINED
+        - PACKAGE_DIRECTORY_MATCH
+        - PACKAGE_SAME_DIRECTORY
+    breaking:
+      use:
+        - WIRE
+
+  - path: spec/proto
+    excludes:
+      - spec/proto/ruckus
+      # Negative-coverage fixtures for spec/proto/layering_test.go.
+      # They deliberately violate the proto layering rules that
+      # layering_test.go enforces and would otherwise either fail
+      # `buf lint` on resolvable-import grounds or be picked up by
+      # `buf gen`. The directories follow Go's `_`-prefix convention
+      # to signal "tooling fixture, not production code".
+      - spec/proto/flowseer/api/_test_fixtures
+      - spec/proto/flowseer/service/_test_fixtures
+    lint:
+      use:
+        - MINIMAL
+    breaking:
+      use: []

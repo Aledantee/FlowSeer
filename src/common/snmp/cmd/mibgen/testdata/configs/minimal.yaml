@@ -1,0 +1,8 @@
+# Hermetic test fixture: a single module with no overrides and a single
+# search path. Used by TestLoadConfig_Minimal.
+search_paths:
+  - ./mibs
+
+modules:
+  - name: SNMPv2-SMI
+    package: snmpv2smi
