@@ -21,4 +21,9 @@ Binding on humans and agents equally; each doc states its own scope.
 - `src/backend/`, `src/common/`, `src/edge/` — Go (`go.aledante.io/FlowSeer`).
 - `spec/proto/` + `spec/mib/` — schema sources of truth; `generated/` is
   `buf generate` output and is never edited by hand.
+- `docs/solutions/` — captured learnings from past work (bugs, conventions,
+  architecture patterns), by category, with YAML frontmatter (`module`, `tags`,
+  `problem_type`); relevant when implementing or debugging in a documented area.
+- `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
+  concepts); relevant when orienting or discussing domain concepts.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).
