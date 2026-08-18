@@ -7,7 +7,7 @@ import (
 	"crypto/sha512"
 	"hash"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // usm_kdf.go derives the localized USM auth/priv keys from a passphrase and
@@ -49,9 +49,9 @@ func authHashFor(proto AuthProtocol) (func() hash.Hash, error) {
 	case AuthSHA512:
 		return sha512.New, nil
 	case AuthProtocolNone:
-		return nil, ae.New().Attr("proto", proto.String()).Msg("no key derivation for AuthProtocolNone")
+		return nil, errs.New().Attr("proto", proto.String()).Msg("no key derivation for AuthProtocolNone")
 	default:
-		return nil, ae.Wrapf("auth protocol %s", ErrUSMProtocolUnsupported, proto)
+		return nil, errs.Wrapf(ErrUSMProtocolUnsupported, "auth protocol %s", proto)
 	}
 }
 
@@ -68,9 +68,9 @@ func privKeyLen(proto PrivProtocol) (int, error) {
 	case Priv3DES, PrivAES256, PrivAES256C:
 		return 32, nil
 	case PrivProtocolNone:
-		return 0, ae.New().Attr("proto", proto.String()).Msg("no key derivation for PrivProtocolNone")
+		return 0, errs.New().Attr("proto", proto.String()).Msg("no key derivation for PrivProtocolNone")
 	default:
-		return 0, ae.Wrapf("priv protocol %s", ErrUSMProtocolUnsupported, proto)
+		return 0, errs.Wrapf(ErrUSMProtocolUnsupported, "priv protocol %s", proto)
 	}
 }
 
@@ -115,7 +115,7 @@ func localizedAuthKey(proto AuthProtocol, passphrase string, engineID []byte) ([
 		return nil, err
 	}
 	if len(engineID) == 0 {
-		return nil, ae.Msg("key derivation requires a known engineID")
+		return nil, errs.Msg("key derivation requires a known engineID")
 	}
 	ku := expandPassphrase(newHash, []byte(passphrase))
 	return localize(newHash, ku, engineID), nil
@@ -146,7 +146,7 @@ func localizedPrivKey(authProto AuthProtocol, privProto PrivProtocol, privPassph
 		return nil, err
 	}
 	if len(engineID) == 0 {
-		return nil, ae.Msg("key derivation requires a known engineID")
+		return nil, errs.Msg("key derivation requires a known engineID")
 	}
 
 	ku := expandPassphrase(newHash, []byte(privPassphrase))
@@ -157,7 +157,7 @@ func localizedPrivKey(authProto AuthProtocol, privProto PrivProtocol, privPassph
 		// The hash is always at least 16 octets, so a 16-octet key is a
 		// straight truncation with no extension.
 		if len(kul) < need {
-			return nil, ae.New().Attr("have", len(kul)).Attr("need", need).
+			return nil, errs.New().Attr("have", len(kul)).Attr("need", need).
 				Msg("localized key shorter than priv key length")
 		}
 		return kul[:need], nil
@@ -166,7 +166,7 @@ func localizedPrivKey(authProto AuthProtocol, privProto PrivProtocol, privPassph
 	case Priv3DES, PrivAES192C, PrivAES256C:
 		return extendReeder(newHash, kul, engineID, need), nil
 	default:
-		return nil, ae.Wrapf("priv protocol %s", ErrUSMProtocolUnsupported, privProto)
+		return nil, errs.Wrapf(ErrUSMProtocolUnsupported, "priv protocol %s", privProto)
 	}
 }
 

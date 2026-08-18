@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"sort"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // netsnmp.go drives the Net-SNMP C tools as the third comparand in the
@@ -72,7 +72,7 @@ func runHyperfine(ctx context.Context, command string, warmup, runs int) (hyperf
 	cmd := exec.CommandContext(ctx, "hyperfine", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return hyperfineStats{}, ae.Wrap("hyperfine", err)
+		return hyperfineStats{}, errs.Wrap(err, "hyperfine")
 	}
 
 	raw, err := os.ReadFile(jsonPath)
@@ -84,7 +84,7 @@ func runHyperfine(ctx context.Context, command string, warmup, runs int) (hyperf
 		return hyperfineStats{}, err
 	}
 	if len(exp.Results) == 0 {
-		return hyperfineStats{}, ae.Msg("hyperfine produced no results")
+		return hyperfineStats{}, errs.Msg("hyperfine produced no results")
 	}
 	r := exp.Results[0]
 	return hyperfineStats{

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // usm_discovery.go drives the RFC 3414 §5 engine discovery and §3.2
@@ -18,14 +18,14 @@ import (
 
 // Discovery / resync sentinels.
 var (
-	ErrResyncExhausted = ae.Msg("USM time-window resync budget exhausted")
-	ErrDiscoveryFailed = ae.Msg("USM engine discovery failed")
+	ErrResyncExhausted = errs.Msg("USM time-window resync budget exhausted")
+	ErrDiscoveryFailed = errs.Msg("USM engine discovery failed")
 
-	ErrReportUnsupportedSecLevel = ae.Msg("USM peer reported unsupported security level")
-	ErrReportUnknownUserName     = ae.Msg("USM peer reported unknown user name")
-	ErrReportWrongDigest         = ae.Msg("USM peer reported wrong digest")
-	ErrReportDecryptionError     = ae.Msg("USM peer reported decryption error")
-	ErrReportUnexpected          = ae.Msg("USM peer returned an unexpected report")
+	ErrReportUnsupportedSecLevel = errs.Msg("USM peer reported unsupported security level")
+	ErrReportUnknownUserName     = errs.Msg("USM peer reported unknown user name")
+	ErrReportWrongDigest         = errs.Msg("USM peer reported wrong digest")
+	ErrReportDecryptionError     = errs.Msg("USM peer reported decryption error")
+	ErrReportUnexpected          = errs.Msg("USM peer returned an unexpected report")
 )
 
 // reportError maps a Report outcome that terminates an operation to a typed

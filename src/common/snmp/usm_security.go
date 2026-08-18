@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // usm_security.go is the single composition point for the USM crypto units
@@ -21,13 +21,13 @@ var (
 	// is weaker than the session requested: an authPriv context
 	// receiving an unencrypted reply, or an authNoPriv context receiving an
 	// unauthenticated one.
-	ErrUSMDowngrade = ae.Msg("reply security level weaker than requested")
+	ErrUSMDowngrade = errs.Msg("reply security level weaker than requested")
 	// ErrUSMNoKeys is returned when an authenticated operation is attempted
 	// before the authoritative engineID is known (discovery has not run).
-	ErrUSMNoKeys = ae.Msg("USM keys not yet derived")
+	ErrUSMNoKeys = errs.Msg("USM keys not yet derived")
 	// errUSMScopedMissing is returned when a verified message carries no
 	// scoped PDU.
-	errUSMScopedMissing = ae.Msg("USM message has no scoped PDU")
+	errUSMScopedMissing = errs.Msg("USM message has no scoped PDU")
 )
 
 // usmContext is the per-session (or per-engine) USM processor. It is built
@@ -75,7 +75,7 @@ func newUSMContext(ctx context.Context, cfg USMConfig) (*usmContext, error) {
 		logCtx:    context.WithoutCancel(ctx),
 	}
 	if u.level == SecurityLevelUnknown {
-		return nil, ae.Msg("USMConfig produces no valid security level")
+		return nil, errs.Msg("USMConfig produces no valid security level")
 	}
 	if len(cfg.EngineID) != 0 {
 		if err := u.setEngine(cfg.EngineID); err != nil {
@@ -90,7 +90,7 @@ func newUSMContext(ctx context.Context, cfg USMConfig) (*usmContext, error) {
 // the only place keys are computed.
 func (u *usmContext) setEngine(engineID []byte) error {
 	if len(engineID) == 0 {
-		return ae.Msg("setEngine requires a non-empty engineID")
+		return errs.Msg("setEngine requires a non-empty engineID")
 	}
 	eid := cloneBytes(engineID)
 
@@ -258,7 +258,7 @@ func (u *usmContext) verifyInbound(dec *v3Decoded) (*scopedPDU, error) {
 		sp, err := decodeScopedPDU(plaintext)
 		if err != nil {
 			// A wrong key yields BER garbage here → DecryptionErrors, no panic.
-			return nil, ae.New().Cause(ErrPrivDecrypt).Msg("scoped PDU BER parse failed after decrypt")
+			return nil, errs.New().Cause(ErrPrivDecrypt).Msg("scoped PDU BER parse failed after decrypt")
 		}
 		return sp, nil
 	}
@@ -306,7 +306,7 @@ func (u *usmContext) inboundGate(dec *v3Decoded) (sp *scopedPDU, isReport bool, 
 		}
 		decoded, derr := decodeScopedPDU(plaintext)
 		if derr != nil {
-			return nil, false, ae.New().Cause(ErrPrivDecrypt).Msg("scoped PDU BER parse failed after decrypt")
+			return nil, false, errs.New().Cause(ErrPrivDecrypt).Msg("scoped PDU BER parse failed after decrypt")
 		}
 		sp = decoded
 	} else {

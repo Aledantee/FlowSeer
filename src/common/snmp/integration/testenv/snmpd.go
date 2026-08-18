@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -60,7 +60,7 @@ func StartSnmpd(ctx context.Context, contextDir string) (target string, cleanup 
 	}
 	ctr, err := testcontainers.GenericContainer(ctx, req)
 	if err != nil {
-		return "", nil, ae.Wrap("start snmpd container", err)
+		return "", nil, errs.Wrap(err, "start snmpd container")
 	}
 	cleanup = func() {
 		_ = ctr.Terminate(context.Background())
@@ -69,18 +69,18 @@ func StartSnmpd(ctx context.Context, contextDir string) (target string, cleanup 
 	host, err := ctr.Host(ctx)
 	if err != nil {
 		cleanup()
-		return "", nil, ae.Wrap("snmpd container host", err)
+		return "", nil, errs.Wrap(err, "snmpd container host")
 	}
 	port, err := ctr.MappedPort(ctx, "161/udp")
 	if err != nil {
 		cleanup()
-		return "", nil, ae.Wrap("snmpd container mapped port", err)
+		return "", nil, errs.Wrap(err, "snmpd container mapped port")
 	}
 	target = net.JoinHostPort(host, port.Port())
 
 	if err := waitForSnmpdReady(ctx, target); err != nil {
 		cleanup()
-		return "", nil, ae.Wrapf("snmpd readiness probe at %s", err, target)
+		return "", nil, errs.Wrapf(err, "snmpd readiness probe at %s", target)
 	}
 	return target, cleanup, nil
 }
@@ -122,7 +122,7 @@ func waitForSnmpdReady(ctx context.Context, target string) error {
 			if lastErr == nil {
 				return probeCtx.Err()
 			}
-			return ae.Wrap("probe exhausted", lastErr)
+			return errs.Wrap(lastErr, "probe exhausted")
 		}
 	}
 }

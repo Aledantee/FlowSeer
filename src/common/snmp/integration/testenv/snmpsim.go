@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -51,7 +51,7 @@ const snmpsimContainerPort = "1024/udp"
 func StartSnmpsim(ctx context.Context, contextDir, dataDir, probeCommunity string) (target string, cleanup func(), err error) {
 	absData, err := filepath.Abs(dataDir)
 	if err != nil {
-		return "", nil, ae.Wrapf("resolve data dir %s", err, dataDir)
+		return "", nil, errs.Wrapf(err, "resolve data dir %s", dataDir)
 	}
 
 	req := testcontainers.GenericContainerRequest{
@@ -74,7 +74,7 @@ func StartSnmpsim(ctx context.Context, contextDir, dataDir, probeCommunity strin
 	}
 	ctr, err := testcontainers.GenericContainer(ctx, req)
 	if err != nil {
-		return "", nil, ae.Wrap("start snmpsim container", err)
+		return "", nil, errs.Wrap(err, "start snmpsim container")
 	}
 	cleanup = func() {
 		_ = ctr.Terminate(context.Background())
@@ -83,18 +83,18 @@ func StartSnmpsim(ctx context.Context, contextDir, dataDir, probeCommunity strin
 	host, err := ctr.Host(ctx)
 	if err != nil {
 		cleanup()
-		return "", nil, ae.Wrap("snmpsim container host", err)
+		return "", nil, errs.Wrap(err, "snmpsim container host")
 	}
 	port, err := ctr.MappedPort(ctx, snmpsimContainerPort)
 	if err != nil {
 		cleanup()
-		return "", nil, ae.Wrap("snmpsim container mapped port", err)
+		return "", nil, errs.Wrap(err, "snmpsim container mapped port")
 	}
 	target = net.JoinHostPort(host, port.Port())
 
 	if err := waitForSnmpsimReady(ctx, target, probeCommunity); err != nil {
 		cleanup()
-		return "", nil, ae.Wrapf("snmpsim readiness probe at %s", err, target)
+		return "", nil, errs.Wrapf(err, "snmpsim readiness probe at %s", target)
 	}
 	return target, cleanup, nil
 }
@@ -135,7 +135,7 @@ func waitForSnmpsimReady(ctx context.Context, target, community string) error {
 			if lastErr == nil {
 				return probeCtx.Err()
 			}
-			return ae.Wrap("probe exhausted", lastErr)
+			return errs.Wrap(lastErr, "probe exhausted")
 		}
 	}
 }

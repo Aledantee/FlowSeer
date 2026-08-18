@@ -9,10 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.aledante.io/ae"
 	"go.aledante.io/as"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // reactor.go is the per-session UDP transport. A single read-loop
@@ -49,12 +50,12 @@ const defaultMaxInFlight = 1024
 var (
 	// errAtCapacity is returned by a send when the in-flight registry is
 	// already at [reactorConfig.maxInFlight]; it is not retryable.
-	errAtCapacity = ae.Msg("in-flight request limit reached")
+	errAtCapacity = errs.Msg("in-flight request limit reached")
 	// errTimeout is the wire-level per-PDU timeout, returned after all
 	// retransmits are exhausted without a reply and without a context
 	// deadline firing. A context deadline surfaces as the unwrapped
 	// context error instead.
-	errTimeout = ae.Msg("request timed out")
+	errTimeout = errs.Msg("request timed out")
 )
 
 // ridCounter is the process-wide request-id source. It is seeded from
@@ -248,7 +249,7 @@ type reactor struct {
 // [reactor.close], not by ctx.
 func newReactor(ctx context.Context, cfg reactorConfig) (*reactor, error) {
 	if cfg.peer == nil {
-		return nil, ae.Msg("reactor requires a peer address")
+		return nil, errs.Msg("reactor requires a peer address")
 	}
 	// Connected socket by default (fast send, kernel source-filtering);
 	// unconnected only for multi-homed/HA peers that answer from a different
@@ -264,7 +265,7 @@ func newReactor(ctx context.Context, cfg reactorConfig) (*reactor, error) {
 		conn, err = net.ListenUDP("udp", nil)
 	}
 	if err != nil {
-		return nil, ae.Wrap("snmp: open udp socket", err)
+		return nil, errs.Wrap(err, "snmp: open udp socket")
 	}
 	maxInFlight := cfg.maxInFlight
 	if maxInFlight <= 0 {
@@ -584,13 +585,13 @@ func (r *reactor) singleAttempt(ctx context.Context, req *message, timeout time.
 	req.pdu.requestID = id
 	datagram, err := encodeMessage(req)
 	if err != nil {
-		return nil, false, ae.Wrap("snmp: encode request", err)
+		return nil, false, errs.Wrap(err, "snmp: encode request")
 	}
 	if _, err := r.send(datagram); err != nil {
 		if r.isClosed() {
 			return nil, false, ErrSessionClosed
 		}
-		return nil, false, ae.Wrap("snmp: write request", err)
+		return nil, false, errs.Wrap(err, "snmp: write request")
 	}
 	if r.inst != nil {
 		r.inst.recordPDUSize(ctx, "tx", len(datagram))
@@ -654,7 +655,7 @@ func (r *reactor) v3SingleAttempt(ctx context.Context, p pdu, boots, etime int32
 
 	datagram, err := r.usm.buildOutbound(msgID, p, boots, etime, true)
 	if err != nil {
-		return nil, false, ae.Wrap("snmp: encode v3 request", err)
+		return nil, false, errs.Wrap(err, "snmp: encode v3 request")
 	}
 	if r.inst != nil {
 		span := trace.SpanFromContext(ctx)
@@ -674,7 +675,7 @@ func (r *reactor) sendWaitV3(ctx context.Context, datagram []byte, w *v3Waiter, 
 		if r.isClosed() {
 			return nil, false, ErrSessionClosed
 		}
-		return nil, false, ae.Wrap("snmp: write request", err)
+		return nil, false, errs.Wrap(err, "snmp: write request")
 	}
 	if r.inst != nil {
 		r.inst.recordPDUSize(ctx, "tx", len(datagram))

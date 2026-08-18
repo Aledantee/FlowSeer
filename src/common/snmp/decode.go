@@ -4,7 +4,7 @@ import (
 	"math"
 	"net"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Wire-type leniency helpers
@@ -67,33 +67,33 @@ import (
 // conditions.
 func DecodeInt32(vb VarBind) (int32, error) {
 	if IsException(vb) {
-		return 0, ae.Wrapf("%s", ErrException, vb.GetHeader().Kind)
+		return 0, errs.Wrapf(ErrException, "%s", vb.GetHeader().Kind)
 	}
 	switch v := vb.(type) {
 	case Integer32Var:
 		return v.Value, nil
 	case Uinteger32Var:
 		if v.Value > math.MaxInt32 {
-			return 0, ae.Wrapf("%T value %d exceeds math.MaxInt32", ErrLossyConversion, v, v.Value)
+			return 0, errs.Wrapf(ErrLossyConversion, "%T value %d exceeds math.MaxInt32", v, v.Value)
 		}
 		return int32(v.Value), nil
 	case Gauge32Var:
 		if v.Value > math.MaxInt32 {
-			return 0, ae.Wrapf("%T value %d exceeds math.MaxInt32", ErrLossyConversion, v, v.Value)
+			return 0, errs.Wrapf(ErrLossyConversion, "%T value %d exceeds math.MaxInt32", v, v.Value)
 		}
 		return int32(v.Value), nil
 	case Counter32Var:
 		if v.Value > math.MaxInt32 {
-			return 0, ae.Wrapf("%T value %d exceeds math.MaxInt32", ErrLossyConversion, v, v.Value)
+			return 0, errs.Wrapf(ErrLossyConversion, "%T value %d exceeds math.MaxInt32", v, v.Value)
 		}
 		return int32(v.Value), nil
 	case TimeTicksVar:
 		if v.Value > math.MaxInt32 {
-			return 0, ae.Wrapf("%T value %d exceeds math.MaxInt32", ErrLossyConversion, v, v.Value)
+			return 0, errs.Wrapf(ErrLossyConversion, "%T value %d exceeds math.MaxInt32", v, v.Value)
 		}
 		return int32(v.Value), nil
 	default:
-		return 0, ae.Wrapf("got %T", ErrTypeMismatch, vb)
+		return 0, errs.Wrapf(ErrTypeMismatch, "got %T", vb)
 	}
 }
 
@@ -102,7 +102,7 @@ func DecodeInt32(vb VarBind) (int32, error) {
 // conditions.
 func DecodeUint32(vb VarBind) (uint32, error) {
 	if IsException(vb) {
-		return 0, ae.Wrapf("%s", ErrException, vb.GetHeader().Kind)
+		return 0, errs.Wrapf(ErrException, "%s", vb.GetHeader().Kind)
 	}
 	switch v := vb.(type) {
 	case Uinteger32Var:
@@ -115,11 +115,11 @@ func DecodeUint32(vb VarBind) (uint32, error) {
 		return v.Value, nil
 	case Integer32Var:
 		if v.Value < 0 {
-			return 0, ae.Wrapf("%T value %d is negative", ErrLossyConversion, v, v.Value)
+			return 0, errs.Wrapf(ErrLossyConversion, "%T value %d is negative", v, v.Value)
 		}
 		return uint32(v.Value), nil
 	default:
-		return 0, ae.Wrapf("got %T", ErrTypeMismatch, vb)
+		return 0, errs.Wrapf(ErrTypeMismatch, "got %T", vb)
 	}
 }
 
@@ -128,7 +128,7 @@ func DecodeUint32(vb VarBind) (uint32, error) {
 // conditions. Widening from any 32-bit variant is never lossy.
 func DecodeUint64(vb VarBind) (uint64, error) {
 	if IsException(vb) {
-		return 0, ae.Wrapf("%s", ErrException, vb.GetHeader().Kind)
+		return 0, errs.Wrapf(ErrException, "%s", vb.GetHeader().Kind)
 	}
 	switch v := vb.(type) {
 	case Counter64Var:
@@ -143,11 +143,11 @@ func DecodeUint64(vb VarBind) (uint64, error) {
 		return uint64(v.Value), nil
 	case Integer32Var:
 		if v.Value < 0 {
-			return 0, ae.Wrapf("%T value %d is negative", ErrLossyConversion, v, v.Value)
+			return 0, errs.Wrapf(ErrLossyConversion, "%T value %d is negative", v, v.Value)
 		}
 		return uint64(v.Value), nil
 	default:
-		return 0, ae.Wrapf("got %T", ErrTypeMismatch, vb)
+		return 0, errs.Wrapf(ErrTypeMismatch, "got %T", vb)
 	}
 }
 
@@ -161,7 +161,7 @@ func DecodeUint64(vb VarBind) (uint64, error) {
 // rule out. Callers may safely mutate the returned slice.
 func DecodeBytes(vb VarBind) ([]byte, error) {
 	if IsException(vb) {
-		return nil, ae.Wrapf("%s", ErrException, vb.GetHeader().Kind)
+		return nil, errs.Wrapf(ErrException, "%s", vb.GetHeader().Kind)
 	}
 	switch v := vb.(type) {
 	case OctetStringVar:
@@ -173,7 +173,7 @@ func DecodeBytes(vb VarBind) ([]byte, error) {
 		copy(out, v.Value)
 		return out, nil
 	default:
-		return nil, ae.Wrapf("got %T", ErrTypeMismatch, vb)
+		return nil, errs.Wrapf(ErrTypeMismatch, "got %T", vb)
 	}
 }
 
@@ -182,12 +182,12 @@ func DecodeBytes(vb VarBind) ([]byte, error) {
 // coerce across structural boundaries.
 func DecodeOID(vb VarBind) (OID, error) {
 	if IsException(vb) {
-		return OID{}, ae.Wrapf("%s", ErrException, vb.GetHeader().Kind)
+		return OID{}, errs.Wrapf(ErrException, "%s", vb.GetHeader().Kind)
 	}
 	if v, ok := vb.(ObjectIDVar); ok {
 		return v.Value, nil
 	}
-	return OID{}, ae.Wrapf("got %T", ErrTypeMismatch, vb)
+	return OID{}, errs.Wrapf(ErrTypeMismatch, "got %T", vb)
 }
 
 // DecodeIP returns vb's value as a [net.IP]. Only IPAddressVar is
@@ -195,10 +195,10 @@ func DecodeOID(vb VarBind) (OID, error) {
 // coerce across structural boundaries.
 func DecodeIP(vb VarBind) (net.IP, error) {
 	if IsException(vb) {
-		return nil, ae.Wrapf("%s", ErrException, vb.GetHeader().Kind)
+		return nil, errs.Wrapf(ErrException, "%s", vb.GetHeader().Kind)
 	}
 	if v, ok := vb.(IPAddressVar); ok {
 		return v.Value, nil
 	}
-	return nil, ae.Wrapf("got %T", ErrTypeMismatch, vb)
+	return nil, errs.Wrapf(ErrTypeMismatch, "got %T", vb)
 }

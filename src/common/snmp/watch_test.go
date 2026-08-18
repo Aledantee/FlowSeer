@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // fakeColumn is a minimal AnyColumn implementation used by tests in
@@ -152,7 +152,7 @@ func TestNewPerRowIndicator_ColumnNotUnderRoot(t *testing.T) {
 	}
 	// The column and table-root OIDs moved from the message into
 	// structured attributes.
-	attrs := ae.Attributes(err)
+	attrs := errs.Attributes(err)
 	if got, ok := attrs["column_oid"].(OID); !ok || got.String() != "1.3.6.1.2.1.31.1.1.5" {
 		t.Errorf("column_oid attr = %v, want 1.3.6.1.2.1.31.1.1.5", attrs["column_oid"])
 	}
@@ -229,7 +229,7 @@ func TestNewScalarIndicator_EmptyTableRootElement(t *testing.T) {
 	if err == nil {
 		t.Fatal("NewScalarIndicator with empty root element = nil err, want error")
 	}
-	if got := ae.Attributes(err)["index"]; got != 1 {
+	if got := errs.Attributes(err)["index"]; got != 1 {
 		t.Errorf("index attr = %v, want 1 (the offending element)", got)
 	}
 }

@@ -3,7 +3,7 @@ package snmp
 import (
 	"fmt"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // PDUErrorStatus is the SNMP agent-side error-status code carried in a
@@ -131,7 +131,7 @@ func (e *PDUError) Unwrap() error { return nil }
 // VarBind variants. The exceptions are values on the wire; this
 // sentinel exists to surface them when a caller specifically asked for a
 // typed Go value and got an exception instead.
-var ErrException = ae.Msg("VarBind is an SNMPv2 exception variant")
+var ErrException = errs.Msg("VarBind is an SNMPv2 exception variant")
 
 // ErrTypeMismatch is the sentinel returned by typed decoders when invoked
 // on a VarBind variant whose wire type does not match the decoder's
@@ -143,7 +143,7 @@ var ErrException = ae.Msg("VarBind is an SNMPv2 exception variant")
 // the leniency helpers distinguish "agent emitted the wrong variant"
 // (this sentinel) from "agent emitted a value outside the target Go
 // type's representable range" (ErrLossyConversion).
-var ErrTypeMismatch = ae.Msg("VarBind variant does not match decoder")
+var ErrTypeMismatch = errs.Msg("VarBind variant does not match decoder")
 
 // ErrLossyConversion is the sentinel returned by the leniency helpers in
 // decode.go when the source VarBind's variant is within the decoder's
@@ -163,4 +163,4 @@ var ErrTypeMismatch = ae.Msg("VarBind variant does not match decoder")
 //
 // The error message carries both the source variant (%T) and the
 // offending value so operators can see exactly what came off the wire.
-var ErrLossyConversion = ae.Msg("VarBind value would lose information when converted to target Go type")
+var ErrLossyConversion = errs.Msg("VarBind value would lose information when converted to target Go type")

@@ -10,8 +10,9 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
-	"go.aledante.io/ae"
 	"go.aledante.io/as"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // usm_priv.go is the USM privacy (encryption) codec. It composes
@@ -33,7 +34,7 @@ import (
 // ErrPrivDecrypt is the leaf sentinel for any privacy-layer decrypt
 // failure (bad ciphertext length, truncated salt). It maps to
 // usmStatsDecryptionErrors. It carries no key material.
-var ErrPrivDecrypt = ae.Msg("USM decryption failed")
+var ErrPrivDecrypt = errs.Msg("USM decryption failed")
 
 // privContext holds the localized priv key and the atomic salt counter for
 // one session or engine entry. The counter is seeded from crypto/rand so a
@@ -57,7 +58,7 @@ func newPrivContext(ctx context.Context, proto PrivProtocol, key []byte) (*privC
 		return nil, err
 	}
 	if len(key) != need {
-		return nil, ae.New().Attr("have", len(key)).Attr("need", need).Attr("proto", proto.String()).
+		return nil, errs.New().Attr("have", len(key)).Attr("need", need).Attr("proto", proto.String()).
 			Msg("priv key length mismatch")
 	}
 	pc := &privContext{proto: proto, key: key, logCtx: context.WithoutCancel(ctx)}
@@ -115,7 +116,7 @@ func (pc *privContext) encrypt(boots, engineTime uint32, plaintext []byte) (ciph
 		ct, err := aesCFB(pc.key, boots, engineTime, salt, plaintext, false)
 		return ct, salt, err
 	default:
-		return nil, nil, ae.Wrapf("priv protocol %s", ErrUSMProtocolUnsupported, pc.proto)
+		return nil, nil, errs.Wrapf(ErrUSMProtocolUnsupported, "priv protocol %s", pc.proto)
 	}
 }
 
@@ -129,11 +130,11 @@ func (pc *privContext) decrypt(boots, engineTime uint32, privParams, ciphertext 
 		return cbcDecrypt(pc.proto, pc.key, privParams, ciphertext)
 	case PrivAES, PrivAES192, PrivAES256, PrivAES192C, PrivAES256C:
 		if len(privParams) != 8 {
-			return nil, ae.New().Attr("len", len(privParams)).Cause(ErrPrivDecrypt).Msg("AES salt wrong length")
+			return nil, errs.New().Attr("len", len(privParams)).Cause(ErrPrivDecrypt).Msg("AES salt wrong length")
 		}
 		return aesCFB(pc.key, boots, engineTime, privParams, ciphertext, true)
 	default:
-		return nil, ae.Wrapf("priv protocol %s", ErrUSMProtocolUnsupported, pc.proto)
+		return nil, errs.Wrapf(ErrUSMProtocolUnsupported, "priv protocol %s", pc.proto)
 	}
 }
 
@@ -143,24 +144,24 @@ func cbcBlock(proto PrivProtocol, key []byte) (cipher.Block, []byte, error) {
 	switch proto {
 	case PrivDES:
 		if len(key) < 16 {
-			return nil, nil, ae.New().Cause(ErrPrivDecrypt).Msg("DES key too short")
+			return nil, nil, errs.New().Cause(ErrPrivDecrypt).Msg("DES key too short")
 		}
 		blk, err := des.NewCipher(key[0:8])
 		if err != nil {
-			return nil, nil, ae.Wrap("DES cipher", err)
+			return nil, nil, errs.Wrap(err, "DES cipher")
 		}
 		return blk, key[8:16], nil
 	case Priv3DES:
 		if len(key) < 32 {
-			return nil, nil, ae.New().Cause(ErrPrivDecrypt).Msg("3DES key too short")
+			return nil, nil, errs.New().Cause(ErrPrivDecrypt).Msg("3DES key too short")
 		}
 		blk, err := des.NewTripleDESCipher(key[0:24])
 		if err != nil {
-			return nil, nil, ae.Wrap("3DES cipher", err)
+			return nil, nil, errs.Wrap(err, "3DES cipher")
 		}
 		return blk, key[24:32], nil
 	default:
-		return nil, nil, ae.Wrapf("priv protocol %s", ErrUSMProtocolUnsupported, proto)
+		return nil, nil, errs.Wrapf(ErrUSMProtocolUnsupported, "priv protocol %s", proto)
 	}
 }
 
@@ -172,7 +173,7 @@ func cbcEncrypt(proto PrivProtocol, key, salt, plaintext []byte) ([]byte, error)
 		return nil, err
 	}
 	if len(salt) != 8 {
-		return nil, ae.New().Attr("len", len(salt)).Cause(ErrPrivDecrypt).Msg("CBC salt wrong length")
+		return nil, errs.New().Attr("len", len(salt)).Cause(ErrPrivDecrypt).Msg("CBC salt wrong length")
 	}
 	iv := xorBytes(preIV, salt)
 	bs := blk.BlockSize()
@@ -194,11 +195,11 @@ func cbcDecrypt(proto PrivProtocol, key, salt, ciphertext []byte) ([]byte, error
 		return nil, err
 	}
 	if len(salt) != 8 {
-		return nil, ae.New().Attr("len", len(salt)).Cause(ErrPrivDecrypt).Msg("CBC salt wrong length")
+		return nil, errs.New().Attr("len", len(salt)).Cause(ErrPrivDecrypt).Msg("CBC salt wrong length")
 	}
 	bs := blk.BlockSize()
 	if len(ciphertext) == 0 || len(ciphertext)%bs != 0 {
-		return nil, ae.New().Attr("len", len(ciphertext)).Cause(ErrPrivDecrypt).Msg("CBC ciphertext not a block multiple")
+		return nil, errs.New().Attr("len", len(ciphertext)).Cause(ErrPrivDecrypt).Msg("CBC ciphertext not a block multiple")
 	}
 	iv := xorBytes(preIV, salt)
 	out := make([]byte, len(ciphertext))
@@ -211,11 +212,11 @@ func cbcDecrypt(proto PrivProtocol, key, salt, ciphertext []byte) ([]byte, error
 // decrypter stream (not the encrypter); the decrypt flag selects it.
 func aesCFB(key []byte, boots, engineTime uint32, salt, in []byte, decrypt bool) ([]byte, error) {
 	if len(salt) != 8 {
-		return nil, ae.New().Attr("len", len(salt)).Cause(ErrPrivDecrypt).Msg("AES salt wrong length")
+		return nil, errs.New().Attr("len", len(salt)).Cause(ErrPrivDecrypt).Msg("AES salt wrong length")
 	}
 	blk, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, ae.Wrap("AES cipher", err)
+		return nil, errs.Wrap(err, "AES cipher")
 	}
 	iv := make([]byte, 16)
 	binary.BigEndian.PutUint32(iv[0:4], boots)

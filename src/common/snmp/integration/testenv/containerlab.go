@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
@@ -114,29 +114,29 @@ func StartSRLinux(ctx context.Context, topologyPath string) (target string, exec
 		"-t", topologyPath, "--reconfigure")
 	if out, deployErr := cmd.CombinedOutput(); deployErr != nil {
 		cleanup()
-		return "", nil, nil, ae.Wrapf("containerlab deploy: %s", deployErr, strings.TrimSpace(string(out)))
+		return "", nil, nil, errs.Wrapf(deployErr, "containerlab deploy: %s", strings.TrimSpace(string(out)))
 	}
 
 	inspectCmd := exec.CommandContext(deployCtx, "containerlab", "inspect", "-t", topologyPath, "--format", "json")
 	inspectOut, inspectErr := inspectCmd.CombinedOutput()
 	if inspectErr != nil {
 		cleanup()
-		return "", nil, nil, ae.Wrapf("containerlab inspect: %s", inspectErr, strings.TrimSpace(string(inspectOut)))
+		return "", nil, nil, errs.Wrapf(inspectErr, "containerlab inspect: %s", strings.TrimSpace(string(inspectOut)))
 	}
 
 	nodes, err := parseClabInspect(inspectOut)
 	if err != nil {
 		cleanup()
-		return "", nil, nil, ae.Wrap("parse inspect JSON", err)
+		return "", nil, nil, errs.Wrap(err, "parse inspect JSON")
 	}
 	if len(nodes) == 0 {
 		cleanup()
-		return "", nil, nil, ae.Msg("containerlab inspect returned zero nodes")
+		return "", nil, nil, errs.Msg("containerlab inspect returned zero nodes")
 	}
 	node := nodes[0]
 	if node.IPv4 == "" {
 		cleanup()
-		return "", nil, nil, ae.New().Attr("node", node.Name).Msg("node has no IPv4 address")
+		return "", nil, nil, errs.New().Attr("node", node.Name).Msg("node has no IPv4 address")
 	}
 	target = net.JoinHostPort(node.IPv4, "161")
 
@@ -153,7 +153,7 @@ func StartSRLinux(ctx context.Context, topologyPath string) (target string, exec
 
 	if err := waitForSRLinuxReady(ctx, target); err != nil {
 		cleanup()
-		return "", nil, nil, ae.Wrapf("SR Linux readiness probe at %s", err, target)
+		return "", nil, nil, errs.Wrapf(err, "SR Linux readiness probe at %s", target)
 	}
 	return target, execFn, cleanup, nil
 }
@@ -232,7 +232,7 @@ func waitForSRLinuxReady(ctx context.Context, target string) error {
 			if lastErr == nil {
 				return probeCtx.Err()
 			}
-			return ae.Wrap("probe exhausted", lastErr)
+			return errs.Wrap(lastErr, "probe exhausted")
 		}
 	}
 }

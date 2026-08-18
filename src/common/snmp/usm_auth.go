@@ -5,7 +5,7 @@ import (
 	"crypto/subtle"
 	"hash"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // usm_auth.go is the USM authentication (HMAC) codec. It composes
@@ -35,9 +35,9 @@ func authParamLen(proto AuthProtocol) (int, error) {
 	case AuthSHA512:
 		return 48, nil
 	case AuthProtocolNone:
-		return 0, ae.New().Attr("proto", proto.String()).Msg("no auth parameters for AuthProtocolNone")
+		return 0, errs.New().Attr("proto", proto.String()).Msg("no auth parameters for AuthProtocolNone")
 	default:
-		return 0, ae.Wrapf("auth protocol %s", ErrUSMProtocolUnsupported, proto)
+		return 0, errs.Wrapf(ErrUSMProtocolUnsupported, "auth protocol %s", proto)
 	}
 }
 
@@ -91,7 +91,7 @@ func authMACOverZeroed(proto AuthProtocol, key, wholeMsg []byte, authStart, auth
 	// Defense-in-depth: callers gate this behind a wrong-length param check,
 	// but never hash a bogus/oversized window rather than risk a panic.
 	if authStart < 0 || window < 0 || authEnd > len(wholeMsg) || window > authParamMaxLen {
-		return nil, ae.New().Attr("start", authStart).Attr("end", authEnd).
+		return nil, errs.New().Attr("start", authStart).Attr("end", authEnd).
 			Cause(ErrAuthFailed).Msg("auth parameter window out of range")
 	}
 	return hmacTrunc(proto, key, func(mac hash.Hash) {
@@ -117,7 +117,7 @@ func verifyAuthMAC(proto AuthProtocol, received []byte, compute func() ([]byte, 
 		return err
 	}
 	if len(received) != trunc {
-		return ae.New().Attr("len", len(received)).Attr("want", trunc).
+		return errs.New().Attr("len", len(received)).Attr("want", trunc).
 			Cause(ErrAuthFailed).Msg("auth parameter wrong length")
 	}
 	want, err := compute()
@@ -154,4 +154,4 @@ func authVerify(proto AuthProtocol, key, wholeMsg, received []byte) error {
 
 // ErrAuthFailed is the leaf sentinel for an HMAC verification failure; it
 // maps to usmStatsWrongDigests. It carries no key material.
-var ErrAuthFailed = ae.Msg("USM authentication failed")
+var ErrAuthFailed = errs.Msg("USM authentication failed")

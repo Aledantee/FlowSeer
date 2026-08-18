@@ -6,13 +6,14 @@ import (
 	"errors"
 	"time"
 
-	"go.aledante.io/ae"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // instrument.go threads injected OpenTelemetry traces and metrics through
@@ -106,29 +107,29 @@ func newInstruments(cfg *SessionConfig, target string, inFlight, dropped func() 
 		base:   base,
 	}
 
-	var errs []error
+	var regErrs []error
 	var err error
 	if in.requests, err = meter.Int64Counter("flowseer.snmp.requests",
 		metric.WithDescription("SNMP request PDUs issued")); err != nil {
-		errs = append(errs, err)
+		regErrs = append(regErrs, err)
 	}
 	if in.errors, err = meter.Int64Counter("flowseer.snmp.errors",
 		metric.WithDescription("SNMP operations that failed, by classified error kind")); err != nil {
-		errs = append(errs, err)
+		regErrs = append(regErrs, err)
 	}
 	if in.retries, err = meter.Int64Counter("flowseer.snmp.retries",
 		metric.WithDescription("SNMP request retransmits")); err != nil {
-		errs = append(errs, err)
+		regErrs = append(regErrs, err)
 	}
 	if in.latency, err = meter.Float64Histogram("flowseer.snmp.request.duration",
 		metric.WithDescription("SNMP per-PDU round-trip latency"),
 		metric.WithUnit("s")); err != nil {
-		errs = append(errs, err)
+		regErrs = append(regErrs, err)
 	}
 	if in.pduSize, err = meter.Int64Histogram("flowseer.snmp.pdu.size",
 		metric.WithDescription("SNMP datagram size on the wire"),
 		metric.WithUnit("By")); err != nil {
-		errs = append(errs, err)
+		regErrs = append(regErrs, err)
 	}
 
 	if _, err = meter.Int64ObservableGauge("flowseer.snmp.in_flight",
@@ -137,7 +138,7 @@ func newInstruments(cfg *SessionConfig, target string, inFlight, dropped func() 
 			o.Observe(inFlight(), metric.WithAttributes(in.base...))
 			return nil
 		})); err != nil {
-		errs = append(errs, err)
+		regErrs = append(regErrs, err)
 	}
 	if _, err = meter.Int64ObservableCounter("flowseer.snmp.dropped",
 		metric.WithDescription("unmatched/late/malformed datagrams dropped by the reactor"),
@@ -145,11 +146,11 @@ func newInstruments(cfg *SessionConfig, target string, inFlight, dropped func() 
 			o.Observe(dropped(), metric.WithAttributes(in.base...))
 			return nil
 		})); err != nil {
-		errs = append(errs, err)
+		regErrs = append(regErrs, err)
 	}
 
-	if joined := errors.Join(errs...); joined != nil {
-		return nil, ae.Wrap("snmp: register instruments", joined)
+	if joined := errors.Join(regErrs...); joined != nil {
+		return nil, errs.Wrap(joined, "snmp: register instruments")
 	}
 	return in, nil
 }

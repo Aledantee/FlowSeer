@@ -5,7 +5,7 @@ import (
 	"iter"
 	"sync"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // ErrSessionClosed is the canonical "session is closed" sentinel,
@@ -20,7 +20,7 @@ import (
 // their session implementations; no separate Backend-private sentinel
 // exists, which keeps gosnmp identifiers from leaking into the public
 // API.
-var ErrSessionClosed = ae.Msg("session is closed")
+var ErrSessionClosed = errs.Msg("session is closed")
 
 // ErrOIDNotIncreasing is the terminal error a Walk/BulkWalk reports via
 // [Walker.Err] when the agent returns an OID that is not strictly greater
@@ -28,13 +28,13 @@ var ErrSessionClosed = ae.Msg("session is closed")
 // [WithIgnoreNonIncreasing]. A repeated *exact* OID is always treated as a
 // cycle and aborts even in skip mode, since no forward progress is
 // possible. Backends without walk guards never produce it.
-var ErrOIDNotIncreasing = ae.Msg("walk OID not increasing")
+var ErrOIDNotIncreasing = errs.Msg("walk OID not increasing")
 
 // ErrMaxWalkVars is the terminal error a Walk/BulkWalk reports via
 // [Walker.Err] when the number of yielded varbinds exceeds the configured
 // [WithMaxWalkVars] budget — the bound that stops a runaway walk against a
 // misbehaving agent.
-var ErrMaxWalkVars = ae.Msg("walk exceeded max varbind budget")
+var ErrMaxWalkVars = errs.Msg("walk exceeded max varbind budget")
 
 // defaultRowBuffer is the buffer size [NewWalker] uses when the caller
 // passes a non-positive bufferSize. It matches the value documented in

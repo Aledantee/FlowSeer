@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"go.aledante.io/ae"
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Version selects the SNMP protocol version a [Session] uses on the wire.
@@ -404,13 +405,13 @@ func (c *SessionConfig) EnforceMinSecurity() error {
 	} else {
 		level = c.USM.Level()
 		if level == SecurityLevelUnknown {
-			return ae.Wrapf("USM level is invalid (auth=%s priv=%s)",
-				ErrSecurityPolicy, c.USM.AuthProtocol, c.USM.PrivProtocol)
+			return errs.Wrapf(ErrSecurityPolicy,
+				"USM level is invalid (auth=%s priv=%s)", c.USM.AuthProtocol, c.USM.PrivProtocol)
 		}
 	}
 	if !meetsMinSecurity(level, floor) {
-		return ae.Wrapf("level %s below minimum %s",
-			ErrSecurityPolicy, level, floor)
+		return errs.Wrapf(ErrSecurityPolicy,
+			"level %s below minimum %s", level, floor)
 	}
 	return nil
 }
@@ -437,4 +438,4 @@ func meetsMinSecurity(level SecurityLevel, floor MinSecurity) bool {
 // configuration's [SecurityLevel] is below the configured
 // [MinSecurity] floor. Inspect the error string for the offending
 // level/minimum pair.
-var ErrSecurityPolicy = ae.Msg("USM security level below configured minimum")
+var ErrSecurityPolicy = errs.Msg("USM security level below configured minimum")

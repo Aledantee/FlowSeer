@@ -4,7 +4,7 @@ import (
 	"math"
 	"net"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // pdu.go is the structured PDU model: the single decoded
@@ -51,11 +51,11 @@ var (
 	// version octet is neither v1 nor v2c. It is checked before community
 	// or varbind decode so a v3 message (or garbage) is rejected up front
 	// rather than mis-parsed under the v1/v2c structure.
-	errUnsupportedVersion = ae.Msg("unsupported message version")
+	errUnsupportedVersion = errs.Msg("unsupported message version")
 	// errMalformedPDU is the umbrella sentinel for a structurally invalid
 	// PDU (wrong field shape, missing varbind list). Specific causes are
 	// wrapped with context.
-	errMalformedPDU = ae.Msg("malformed PDU")
+	errMalformedPDU = errs.Msg("malformed PDU")
 )
 
 // message is the decoded v1/v2c SNMP message envelope: SEQUENCE { version,
@@ -158,20 +158,20 @@ func decodeMessage(buf []byte) (*message, error) {
 func decodeMessageHeader(buf []byte) (*message, []byte, error) {
 	body, _, err := parseSequence(buf, tagSequence, 0)
 	if err != nil {
-		return nil, nil, ae.Wrap("decode message envelope", err)
+		return nil, nil, errs.Wrap(err, "decode message envelope")
 	}
 
 	// version INTEGER — validated before anything else.
 	vTag, vContent, vUsed, err := parseTLV(body)
 	if err != nil {
-		return nil, nil, ae.Wrap("decode version", err)
+		return nil, nil, errs.Wrap(err, "decode version")
 	}
 	if vTag != tagInteger {
-		return nil, nil, ae.Wrapf("decode version: tag 0x%02x", errMalformedPDU, vTag)
+		return nil, nil, errs.Wrapf(errMalformedPDU, "decode version: tag 0x%02x", vTag)
 	}
 	verRaw, err := decodeSignedInt(vContent)
 	if err != nil {
-		return nil, nil, ae.Wrap("decode version", err)
+		return nil, nil, errs.Wrap(err, "decode version")
 	}
 	ver, err := versionFromWire(verRaw)
 	if err != nil {
@@ -181,17 +181,17 @@ func decodeMessageHeader(buf []byte) (*message, []byte, error) {
 	// community OCTET STRING.
 	cTag, cContent, cUsed, err := parseTLV(body[vUsed:])
 	if err != nil {
-		return nil, nil, ae.Wrap("decode community", err)
+		return nil, nil, errs.Wrap(err, "decode community")
 	}
 	if cTag != tagOctetString {
-		return nil, nil, ae.Wrapf("decode community: tag 0x%02x", errMalformedPDU, cTag)
+		return nil, nil, errs.Wrapf(errMalformedPDU, "decode community: tag 0x%02x", cTag)
 	}
 	m := &message{version: ver, community: string(cContent)}
 
 	// pdu fixed fields.
 	tag, content, _, err := parseTLV(body[vUsed+cUsed:])
 	if err != nil {
-		return nil, nil, ae.Wrap("decode PDU header", err)
+		return nil, nil, errs.Wrap(err, "decode PDU header")
 	}
 	typ := pduType(tag)
 	if typ == pduV1Trap {
@@ -221,7 +221,7 @@ func scanCounter64Warnings(ver Version, vbs []VarBind) []error {
 	var warns []error
 	for _, vb := range vbs {
 		if vb.GetHeader().Kind == KindCounter64 {
-			warns = append(warns, ae.Wrapf("at %s", warnCounter64InV1, vb.GetHeader().OID))
+			warns = append(warns, errs.Wrapf(warnCounter64InV1, "at %s", vb.GetHeader().OID))
 		}
 	}
 	return warns
@@ -230,7 +230,7 @@ func scanCounter64Warnings(ver Version, vbs []VarBind) []error {
 // warnCounter64InV1 is the non-fatal decode warning recorded when an SNMPv1
 // message carries a Counter64 varbind (RFC 2576 §3 forbids it). It is a
 // warning, not an error: the value is decoded and preserved.
-var warnCounter64InV1 = ae.Msg("snmp: Counter64 in an SNMPv1 message (RFC 2576 §3)")
+var warnCounter64InV1 = errs.Msg("snmp: Counter64 in an SNMPv1 message (RFC 2576 §3)")
 
 // versionFromWire maps the wire version code to [Version], rejecting
 // v3 and unknown codes with [errUnsupportedVersion] (the value is carried
@@ -242,7 +242,7 @@ func versionFromWire(raw int64) (Version, error) {
 	case wireVersionV2c:
 		return V2c, nil
 	default:
-		return VersionUnset, ae.Wrapf("version code %d", errUnsupportedVersion, raw)
+		return VersionUnset, errs.Wrapf(errUnsupportedVersion, "version code %d", raw)
 	}
 }
 
@@ -253,7 +253,7 @@ func versionFromWire(raw int64) (Version, error) {
 func decodePDU(buf []byte, depth int) (pdu, error) {
 	tag, content, _, err := parseTLV(buf)
 	if err != nil {
-		return pdu{}, ae.Wrap("decode PDU header", err)
+		return pdu{}, errs.Wrap(err, "decode PDU header")
 	}
 	typ := pduType(tag)
 	if typ == pduV1Trap {
@@ -289,7 +289,7 @@ func decodeStandardPDUHeader(typ pduType, content []byte) (pdu, []byte, error) {
 		return pdu{}, nil, err
 	}
 	if reqID < math.MinInt32 || reqID > math.MaxInt32 {
-		return pdu{}, nil, ae.Wrapf("request-id %d out of int32 range", errMalformedPDU, reqID)
+		return pdu{}, nil, errs.Wrapf(errMalformedPDU, "request-id %d out of int32 range", reqID)
 	}
 	field2, rest, err := expectInt(rest, "error-status/non-repeaters")
 	if err != nil {
@@ -316,28 +316,28 @@ func decodeV1TrapPDU(content []byte, depth int) (pdu, error) {
 	// enterprise OID.
 	tag, oidContent, used, err := parseTLV(content)
 	if err != nil {
-		return pdu{}, ae.Wrap("v1 trap: enterprise", err)
+		return pdu{}, errs.Wrap(err, "v1 trap: enterprise")
 	}
 	if tag != tagOID {
-		return pdu{}, ae.Wrapf("v1 trap enterprise tag 0x%02x", errMalformedPDU, tag)
+		return pdu{}, errs.Wrapf(errMalformedPDU, "v1 trap enterprise tag 0x%02x", tag)
 	}
 	enterprise, err := decodeOID(oidContent)
 	if err != nil {
-		return pdu{}, ae.Wrap("v1 trap: enterprise OID", err)
+		return pdu{}, errs.Wrap(err, "v1 trap: enterprise OID")
 	}
 	rest := content[used:]
 
 	// agent-addr IpAddress.
 	tag, addrContent, used, err := parseTLV(rest)
 	if err != nil {
-		return pdu{}, ae.Wrap("v1 trap: agent-addr", err)
+		return pdu{}, errs.Wrap(err, "v1 trap: agent-addr")
 	}
 	if tag != tagIPAddress {
-		return pdu{}, ae.Wrapf("v1 trap agent-addr tag 0x%02x", errMalformedPDU, tag)
+		return pdu{}, errs.Wrapf(errMalformedPDU, "v1 trap agent-addr tag 0x%02x", tag)
 	}
 	agentAddr, err := decodeIPv4(addrContent)
 	if err != nil {
-		return pdu{}, ae.Wrap("v1 trap: agent-addr", err)
+		return pdu{}, errs.Wrap(err, "v1 trap: agent-addr")
 	}
 	rest = rest[used:]
 
@@ -353,14 +353,14 @@ func decodeV1TrapPDU(content []byte, depth int) (pdu, error) {
 	// time-stamp TimeTicks (unsigned).
 	tag, tsContent, used, err := parseTLV(rest)
 	if err != nil {
-		return pdu{}, ae.Wrap("v1 trap: time-stamp", err)
+		return pdu{}, errs.Wrap(err, "v1 trap: time-stamp")
 	}
 	if tag != tagTimeTicks && tag != tagInteger {
-		return pdu{}, ae.Wrapf("v1 trap time-stamp tag 0x%02x", errMalformedPDU, tag)
+		return pdu{}, errs.Wrapf(errMalformedPDU, "v1 trap time-stamp tag 0x%02x", tag)
 	}
 	ts, err := decodeUnsigned(tsContent)
 	if err != nil {
-		return pdu{}, ae.Wrap("v1 trap: time-stamp", err)
+		return pdu{}, errs.Wrap(err, "v1 trap: time-stamp")
 	}
 	rest = rest[used:]
 
@@ -386,14 +386,14 @@ func decodeV1TrapPDU(content []byte, depth int) (pdu, error) {
 func expectInt(buf []byte, label string) (val int64, rest []byte, err error) {
 	tag, content, used, err := parseTLV(buf)
 	if err != nil {
-		return 0, nil, ae.Wrapf("decode %s", err, label)
+		return 0, nil, errs.Wrapf(err, "decode %s", label)
 	}
 	if tag != tagInteger {
-		return 0, nil, ae.Wrapf("decode %s: tag 0x%02x", errMalformedPDU, label, tag)
+		return 0, nil, errs.Wrapf(errMalformedPDU, "decode %s: tag 0x%02x", label, tag)
 	}
 	v, err := decodeSignedInt(content)
 	if err != nil {
-		return 0, nil, ae.Wrapf("decode %s", err, label)
+		return 0, nil, errs.Wrapf(err, "decode %s", label)
 	}
 	return v, buf[used:], nil
 }
@@ -404,7 +404,7 @@ func expectInt(buf []byte, label string) (val int64, rest []byte, err error) {
 func decodeVarBindList(buf []byte, depth int) ([]VarBind, error) {
 	listContent, _, err := parseSequence(buf, tagSequence, depth)
 	if err != nil {
-		return nil, ae.Wrap("decode varbind list", err)
+		return nil, errs.Wrap(err, "decode varbind list")
 	}
 	// Pre-size from the encoded length: a varbind is at least ~10 octets
 	// (SEQUENCE header + a short OID + a value), so listContent/10 is a
@@ -428,22 +428,22 @@ func decodeVarBindList(buf []byte, depth int) ([]VarBind, error) {
 func decodeVarBind(buf []byte, depth int) (VarBind, int, error) {
 	vbContent, consumed, err := parseSequence(buf, tagSequence, depth)
 	if err != nil {
-		return nil, 0, ae.Wrap("decode varbind", err)
+		return nil, 0, errs.Wrap(err, "decode varbind")
 	}
 	nameTag, nameContent, nameUsed, err := parseTLV(vbContent)
 	if err != nil {
-		return nil, 0, ae.Wrap("decode varbind name", err)
+		return nil, 0, errs.Wrap(err, "decode varbind name")
 	}
 	if nameTag != tagOID {
-		return nil, 0, ae.Wrapf("varbind name tag 0x%02x", errMalformedPDU, nameTag)
+		return nil, 0, errs.Wrapf(errMalformedPDU, "varbind name tag 0x%02x", nameTag)
 	}
 	oid, err := decodeOID(nameContent)
 	if err != nil {
-		return nil, 0, ae.Wrap("decode varbind name OID", err)
+		return nil, 0, errs.Wrap(err, "decode varbind name OID")
 	}
 	valTag, valContent, _, err := parseTLV(vbContent[nameUsed:])
 	if err != nil {
-		return nil, 0, ae.Wrap("decode varbind value", err)
+		return nil, 0, errs.Wrap(err, "decode varbind value")
 	}
 	vb, err := decodeValue(oid, valTag, valContent)
 	if err != nil {
@@ -468,26 +468,26 @@ func decodeVarBind(buf []byte, depth int) (VarBind, int, error) {
 func validateRawVarBindList(buf []byte, depth int) error {
 	listContent, _, err := parseSequence(buf, tagSequence, depth)
 	if err != nil {
-		return ae.Wrap("decode varbind list", err)
+		return errs.Wrap(err, "decode varbind list")
 	}
 	for len(listContent) > 0 {
 		vbContent, consumed, err := parseSequence(listContent, tagSequence, depth+1)
 		if err != nil {
-			return ae.Wrap("decode varbind", err)
+			return errs.Wrap(err, "decode varbind")
 		}
 		nameTag, nameContent, nameUsed, err := parseTLV(vbContent)
 		if err != nil {
-			return ae.Wrap("decode varbind name", err)
+			return errs.Wrap(err, "decode varbind name")
 		}
 		if nameTag != tagOID {
-			return ae.Wrapf("varbind name tag 0x%02x", errMalformedPDU, nameTag)
+			return errs.Wrapf(errMalformedPDU, "varbind name tag 0x%02x", nameTag)
 		}
 		if err := validateRawNameOID(nameContent); err != nil {
 			return err
 		}
 		valTag, valContent, _, err := parseTLV(vbContent[nameUsed:])
 		if err != nil {
-			return ae.Wrap("decode varbind value", err)
+			return errs.Wrap(err, "decode varbind value")
 		}
 		if err := validateRawValue(valTag, valContent); err != nil {
 			return err
@@ -501,7 +501,7 @@ func validateRawVarBindList(buf []byte, depth int) error {
 // zero-padding octets (0x80). decodable, but byte order then diverges
 // from numeric arc order, so the raw path refuses the response and the
 // read loop decodes it eagerly instead.
-var errNonCanonicalOID = ae.Msg("non-canonical OID sub-identifier encoding")
+var errNonCanonicalOID = errs.Msg("non-canonical OID sub-identifier encoding")
 
 // validateRawNameOID checks that a varbind name's content octets decode
 // under exactly [decodeOID]'s rules (zero-length sentinel allowed, every
@@ -526,7 +526,7 @@ func validateRawNameOID(b []byte) error {
 	// The first base-128 value expands to two arcs, so the decoded arc
 	// count is reads+1 — the same count [decodeOID] hands to validateSubs.
 	if reads+1 > maxOIDComponents {
-		return ae.New().Attr("count", reads+1).Attr("max", maxOIDComponents).
+		return errs.New().Attr("count", reads+1).Attr("max", maxOIDComponents).
 			Msg("sub-identifier count exceeds SMIv2 maximum")
 	}
 	return nil
@@ -591,10 +591,10 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 	case tagInteger:
 		v, err := decodeSignedInt(content)
 		if err != nil {
-			return nil, ae.Wrapf("Integer32 at %s", err, oid)
+			return nil, errs.Wrapf(err, "Integer32 at %s", oid)
 		}
 		if v < math.MinInt32 || v > math.MaxInt32 {
-			return nil, ae.Wrapf("Integer32 at %s: value %d out of range", errIntOverflow, oid, v)
+			return nil, errs.Wrapf(errIntOverflow, "Integer32 at %s: value %d out of range", oid, v)
 		}
 		return Integer32Var{Header: hdr(KindInteger32), Value: int32(v)}, nil
 
@@ -604,7 +604,7 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 	case tagOID:
 		inner, err := decodeOID(content)
 		if err != nil {
-			return nil, ae.Wrapf("ObjectIdentifier at %s", err, oid)
+			return nil, errs.Wrapf(err, "ObjectIdentifier at %s", oid)
 		}
 		return ObjectIDVar{Header: hdr(KindObjectID), Value: inner}, nil
 
@@ -617,7 +617,7 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 	case tagIPAddress:
 		ip, err := decodeIPv4(content)
 		if err != nil {
-			return nil, ae.Wrapf("IpAddress at %s", err, oid)
+			return nil, errs.Wrapf(err, "IpAddress at %s", oid)
 		}
 		return IPAddressVar{Header: hdr(KindIPAddress), Value: ip}, nil
 
@@ -644,7 +644,7 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 		// decodeUnsigned still rejects a genuinely malformed >8-octet value.
 		v, err := decodeUnsigned(content)
 		if err != nil {
-			return nil, ae.Wrapf("TimeTicks at %s", err, oid)
+			return nil, errs.Wrapf(err, "TimeTicks at %s", oid)
 		}
 		return TimeTicksVar{Header: hdr(KindTimeTicks), Value: uint32(v)}, nil
 
@@ -658,7 +658,7 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 	case tagCounter64:
 		v, err := decodeUnsigned(content)
 		if err != nil {
-			return nil, ae.Wrapf("Counter64 at %s", err, oid)
+			return nil, errs.Wrapf(err, "Counter64 at %s", oid)
 		}
 		return Counter64Var{Header: hdr(KindCounter64), Value: v}, nil
 
@@ -668,7 +668,7 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 	case tagOpaque:
 		isDouble, ok, f, err := opaqueReal(content)
 		if err != nil {
-			return nil, ae.Wrapf("Opaque at %s", err, oid)
+			return nil, errs.Wrapf(err, "Opaque at %s", oid)
 		}
 		switch {
 		case ok && isDouble:
@@ -687,7 +687,7 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 		return EndOfMibViewVar{Header: hdr(KindEndOfMibView)}, nil
 
 	default:
-		return nil, ae.Wrapf("unexpected value tag 0x%02x at %s", errUnexpectedTag, tag, oid)
+		return nil, errs.Wrapf(errUnexpectedTag, "unexpected value tag 0x%02x at %s", tag, oid)
 	}
 }
 
@@ -698,10 +698,10 @@ func decodeValue(oid OID, tag byte, content []byte) (VarBind, error) {
 func decodeUint32(content []byte, oid OID, label string) (uint32, error) {
 	v, err := decodeUnsigned(content)
 	if err != nil {
-		return 0, ae.Wrapf("%s at %s", err, label, oid)
+		return 0, errs.Wrapf(err, "%s at %s", label, oid)
 	}
 	if v > math.MaxUint32 {
-		return 0, ae.Wrapf("%s at %s: value %d overflows uint32", errIntOverflow, label, oid, v)
+		return 0, errs.Wrapf(errIntOverflow, "%s at %s: value %d overflows uint32", label, oid, v)
 	}
 	return uint32(v), nil
 }
@@ -838,7 +838,7 @@ func wireVersionFor(v Version) int {
 // receives traps but never sends them (trap-send is out of scope).
 func encodePDU(p *pdu) ([]byte, error) {
 	if p.typ == pduV1Trap {
-		return nil, ae.Wrap("encode PDU", errMalformedPDU)
+		return nil, errs.Wrap(errMalformedPDU, "encode PDU")
 	}
 	var body []byte
 	body = appendInt(body, int64(p.requestID))
@@ -901,7 +901,7 @@ func encodeVarBind(vb VarBind) ([]byte, error) {
 	case IPAddressVar:
 		enc, err := appendIPv4(x.Value)
 		if err != nil {
-			return nil, ae.Wrapf("encode IpAddress at %s", err, hdr.OID)
+			return nil, errs.Wrapf(err, "encode IpAddress at %s", hdr.OID)
 		}
 		value = enc
 	case NsapAddressVar:
@@ -921,7 +921,7 @@ func encodeVarBind(vb VarBind) ([]byte, error) {
 	case EndOfMibViewVar:
 		value = appendTLV(nil, tagEndOfMibView, nil)
 	default:
-		return nil, ae.Wrapf("unsupported VarBind variant %T", errMalformedPDU, vb)
+		return nil, errs.Wrapf(errMalformedPDU, "unsupported VarBind variant %T", vb)
 	}
 	var body []byte
 	body = appendOID(body, hdr.OID)

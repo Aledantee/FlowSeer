@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.aledante.io/ae"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // session is the [Session] implementation: it builds request PDUs, drives the
@@ -50,7 +51,7 @@ func (s *session) GetNext(ctx context.Context, oids []OID, opts ...CallOption) (
 func (s *session) Set(ctx context.Context, vbs []VarBind, opts ...CallOption) ([]VarBind, error) {
 	for i, vb := range vbs {
 		if IsException(vb) {
-			return nil, ae.New().Attr("type", fmt.Sprintf("%T", vb)).Attr("index", i).
+			return nil, errs.New().Attr("type", fmt.Sprintf("%T", vb)).Attr("index", i).
 				Msg("cannot send SNMPv2 exception VarBind")
 		}
 	}
@@ -308,7 +309,7 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 				if h.OID.HasPrefix(root) && h.OID.Compare(next) > 0 {
 					count++
 					if maxVars > 0 && count > maxVars {
-						walkErr = ae.Wrapf("budget %d exceeded", ErrMaxWalkVars, maxVars)
+						walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
 						w.Fail(walkErr)
 						return
 					}
@@ -327,11 +328,11 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 				case cmp == 0:
 					// Exact-repeat OID is an unambiguous cycle — always
 					// abort, even in skip mode (doc-review A7).
-					walkErr = ae.Wrapf("repeated OID %s", ErrOIDNotIncreasing, h.OID)
+					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "repeated OID %s", h.OID)
 					w.Fail(walkErr)
 					return
 				case cmp < 0 && !ignoreNonIncreasing:
-					walkErr = ae.Wrapf("OID %s <= previous %s", ErrOIDNotIncreasing, h.OID, prev)
+					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "OID %s <= previous %s", h.OID, prev)
 					w.Fail(walkErr)
 					return
 				case cmp < 0 && ignoreNonIncreasing:
@@ -346,7 +347,7 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 
 			count++
 			if maxVars > 0 && count > maxVars {
-				walkErr = ae.Wrapf("budget %d exceeded", ErrMaxWalkVars, maxVars)
+				walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
 				w.Fail(walkErr)
 				return
 			}
@@ -416,21 +417,21 @@ func rawItemsOf(p *pdu) ([]rawWalkItem, error) {
 	if p.rawVBL != nil {
 		listContent, _, err := parseSequence(p.rawVBL, tagSequence, 1)
 		if err != nil {
-			return nil, ae.Wrap("decode varbind list", err)
+			return nil, errs.Wrap(err, "decode varbind list")
 		}
 		items := make([]rawWalkItem, 0, max(1, len(listContent)/10))
 		for len(listContent) > 0 {
 			vbContent, consumed, err := parseSequence(listContent, tagSequence, 2)
 			if err != nil {
-				return nil, ae.Wrap("decode varbind", err)
+				return nil, errs.Wrap(err, "decode varbind")
 			}
 			_, nameContent, nameUsed, err := parseTLV(vbContent)
 			if err != nil {
-				return nil, ae.Wrap("decode varbind name", err)
+				return nil, errs.Wrap(err, "decode varbind name")
 			}
 			valTag, valContent, _, err := parseTLV(vbContent[nameUsed:])
 			if err != nil {
-				return nil, ae.Wrap("decode varbind value", err)
+				return nil, errs.Wrap(err, "decode varbind value")
 			}
 			items = append(items, rawWalkItem{oidC: nameContent, tag: valTag, val: valContent})
 			listContent = listContent[consumed:]
@@ -575,7 +576,7 @@ func (s *session) runWalkRaw(ctx context.Context, w *RawWalker, root OID, callCf
 				if bytes.HasPrefix(it.oidC, rootC) && cmpOIDWire(it.oidC, nextC) > 0 {
 					count++
 					if maxVars > 0 && count > maxVars {
-						walkErr = ae.Wrapf("budget %d exceeded", ErrMaxWalkVars, maxVars)
+						walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
 						w.Fail(walkErr)
 						return
 					}
@@ -592,11 +593,11 @@ func (s *session) runWalkRaw(ctx context.Context, w *RawWalker, root OID, callCf
 			if havePrev {
 				switch cmp := cmpOIDWire(it.oidC, prevC); {
 				case cmp == 0:
-					walkErr = ae.Wrapf("repeated OID %s", ErrOIDNotIncreasing, rawOIDString(it.oidC))
+					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "repeated OID %s", rawOIDString(it.oidC))
 					w.Fail(walkErr)
 					return
 				case cmp < 0 && !ignoreNonIncreasing:
-					walkErr = ae.Wrapf("OID %s <= previous %s", ErrOIDNotIncreasing, rawOIDString(it.oidC), rawOIDString(prevC))
+					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "OID %s <= previous %s", rawOIDString(it.oidC), rawOIDString(prevC))
 					w.Fail(walkErr)
 					return
 				case cmp < 0 && ignoreNonIncreasing:
@@ -608,7 +609,7 @@ func (s *session) runWalkRaw(ctx context.Context, w *RawWalker, root OID, callCf
 
 			count++
 			if maxVars > 0 && count > maxVars {
-				walkErr = ae.Wrapf("budget %d exceeded", ErrMaxWalkVars, maxVars)
+				walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
 				w.Fail(walkErr)
 				return
 			}
@@ -663,10 +664,10 @@ func (s *session) exchange(ctx context.Context, op string, req *message, callCfg
 		res, err := s.r.v3RoundTrip(ctx, req.pdu, timeout, retries)
 		s.inst.recordRequest(ctx, op, time.Since(start))
 		if err != nil {
-			return nil, ae.Wrap(op, err)
+			return nil, errs.Wrap(err, op)
 		}
 		if res.isReport || res.scoped == nil {
-			return nil, ae.Wrap(op, ErrReportUnexpected)
+			return nil, errs.Wrap(ErrReportUnexpected, op)
 		}
 		return &message{version: V3, pdu: res.scoped.pdu}, nil
 	}
@@ -674,11 +675,11 @@ func (s *session) exchange(ctx context.Context, op string, req *message, callCfg
 	resp, err := s.r.roundTrip(ctx, req, timeout, retries)
 	s.inst.recordRequest(ctx, op, time.Since(start))
 	if err != nil {
-		return nil, ae.Wrap(op, err)
+		return nil, errs.Wrap(err, op)
 	}
 
 	if err := validateResponse(resp, s.version, s.community); err != nil {
-		return nil, ae.Wrap(op, err)
+		return nil, errs.Wrap(err, op)
 	}
 
 	return resp, nil

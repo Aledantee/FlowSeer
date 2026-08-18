@@ -10,8 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.aledante.io/ae"
 	"go.aledante.io/as"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // trap_listen.go is the v1/v2c/v3 trap listener. It owns the UDP
@@ -67,11 +68,11 @@ func ListenTraps(ctx context.Context, addr string, opts ...TrapOption) (ts *Trap
 	}
 	udpAddr, err := net.ResolveUDPAddr("udp", bindAddr)
 	if err != nil {
-		return nil, ae.Wrapf("resolve %q", err, bindAddr)
+		return nil, errs.Wrapf(err, "resolve %q", bindAddr)
 	}
 	udpConn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return nil, ae.Wrapf("bind %q", err, bindAddr)
+		return nil, errs.Wrapf(err, "bind %q", bindAddr)
 	}
 
 	ts = NewTrapStream(ctx, cfg.BufferSize())
@@ -176,7 +177,7 @@ func (l *listener) listenLoop() {
 				return // clean shutdown
 			default:
 			}
-			l.ts.fail(ae.Wrap("trap listener", err))
+			l.ts.fail(errs.Wrap(err, "trap listener"))
 			return
 		}
 		l.handlePacket(buf[:n], remote)
@@ -297,7 +298,7 @@ func normaliseTrapAddr(addr string) (string, error) {
 	if i := strings.Index(body, "://"); i >= 0 {
 		scheme := body[:i]
 		if scheme != "udp" {
-			return "", ae.New().Attr("addr", addr).Msg("only udp:// scheme is supported for trap addr")
+			return "", errs.New().Attr("addr", addr).Msg("only udp:// scheme is supported for trap addr")
 		}
 		body = body[i+3:]
 	}

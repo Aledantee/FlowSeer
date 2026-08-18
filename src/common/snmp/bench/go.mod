@@ -14,7 +14,6 @@ replace go.aledante.io/FlowSeer => ../../../..
 require (
 	github.com/gosnmp/gosnmp v1.43.2
 	go.aledante.io/FlowSeer v0.0.0-00010101000000-000000000000
-	go.aledante.io/ae v0.3.0
 )
 
 require (
@@ -43,6 +42,7 @@ require (
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
+	go.aledante.io/ae v0.3.0 // indirect
 	go.aledante.io/as v0.4.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.68.0 // indirect

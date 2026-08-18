@@ -5,7 +5,7 @@ import (
 	"math"
 	"net"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // ber.go is the hand-rolled, SNMP-specific BER codec at the heart of the
@@ -72,34 +72,34 @@ const (
 const maxDecodeDepth = 8
 
 // Codec sentinel errors. They are pointer-identity comparable via
-// [errors.Is] even after [ae.Wrap]/[ae.Wrapf] adds context, so callers
+// [errors.Is] even after [errs.Wrap]/[errs.Wrapf] adds context, so callers
 // (and the fuzz target) can classify a malformed datagram without string
 // matching.
 var (
 	// errTruncated is returned when a TLV's declared length runs past the
 	// end of the available bytes, or a header is incomplete.
-	errTruncated = ae.Msg("truncated TLV")
+	errTruncated = errs.Msg("truncated TLV")
 	// errIndefiniteLength rejects the BER indefinite-form length (0x80);
 	// SNMP uses only definite-form lengths.
-	errIndefiniteLength = ae.Msg("indefinite-form length not supported")
+	errIndefiniteLength = errs.Msg("indefinite-form length not supported")
 	// errLengthOverflow is returned when a length field is larger than the
 	// remaining buffer or would overflow int (gosnmp #552).
-	errLengthOverflow = ae.Msg("length exceeds remaining buffer")
+	errLengthOverflow = errs.Msg("length exceeds remaining buffer")
 	// errHighTagForm rejects multi-octet (high-tag-number) identifiers;
 	// every SNMP tag fits in a single identifier octet.
-	errHighTagForm = ae.Msg("high-tag-number identifier form not supported")
+	errHighTagForm = errs.Msg("high-tag-number identifier form not supported")
 	// errMaxDepth is returned when constructed nesting exceeds
 	// [maxDecodeDepth].
-	errMaxDepth = ae.Msg("nesting depth exceeds maximum")
+	errMaxDepth = errs.Msg("nesting depth exceeds maximum")
 	// errIntOverflow is returned when an INTEGER/unsigned field carries
 	// more significant octets than its Go target can hold.
-	errIntOverflow = ae.Msg("integer value out of range")
+	errIntOverflow = errs.Msg("integer value out of range")
 	// errOIDSubIDOverflow is returned when an OID sub-identifier exceeds
 	// the uint32 range SNMP permits.
-	errOIDSubIDOverflow = ae.Msg("OID sub-identifier overflows uint32")
+	errOIDSubIDOverflow = errs.Msg("OID sub-identifier overflows uint32")
 	// errUnexpectedTag is returned when a decoder is handed content under a
 	// tag it does not handle.
-	errUnexpectedTag = ae.Msg("unexpected tag")
+	errUnexpectedTag = errs.Msg("unexpected tag")
 )
 
 // parseLength decodes a single BER length field from the front of buf.
@@ -113,7 +113,7 @@ var (
 // inside the int range on every supported platform.
 func parseLength(buf []byte) (length int, consumed int, err error) {
 	if len(buf) == 0 {
-		return 0, 0, ae.Wrap("ber: parse length", errTruncated)
+		return 0, 0, errs.Wrap(errTruncated, "ber: parse length")
 	}
 	b0 := buf[0]
 	if b0 < 0x80 {
@@ -124,17 +124,17 @@ func parseLength(buf []byte) (length int, consumed int, err error) {
 	}
 	n := int(b0 & 0x7f)
 	if n > 4 {
-		return 0, 0, ae.Wrapf("ber: long-form length with %d octets", errLengthOverflow, n)
+		return 0, 0, errs.Wrapf(errLengthOverflow, "ber: long-form length with %d octets", n)
 	}
 	if len(buf) < 1+n {
-		return 0, 0, ae.Wrap("ber: parse long-form length", errTruncated)
+		return 0, 0, errs.Wrap(errTruncated, "ber: parse long-form length")
 	}
 	val := 0
 	for i := 0; i < n; i++ {
 		val = (val << 8) | int(buf[1+i])
 	}
 	if val < 0 {
-		return 0, 0, ae.Wrap("ber: long-form length", errLengthOverflow)
+		return 0, 0, errs.Wrap(errLengthOverflow, "ber: long-form length")
 	}
 	return val, 1 + n, nil
 }
@@ -168,11 +168,11 @@ func appendLength(dst []byte, n int) []byte {
 // length and bounds check is performed before any slice is taken.
 func parseTLV(buf []byte) (tag byte, content []byte, consumed int, err error) {
 	if len(buf) < 1 {
-		return 0, nil, 0, ae.Wrap("ber: parse identifier", errTruncated)
+		return 0, nil, 0, errs.Wrap(errTruncated, "ber: parse identifier")
 	}
 	id := buf[0]
 	if id&0x1f == 0x1f {
-		return 0, nil, 0, ae.Wrap("ber: parse identifier", errHighTagForm)
+		return 0, nil, 0, errs.Wrap(errHighTagForm, "ber: parse identifier")
 	}
 	length, lc, err := parseLength(buf[1:])
 	if err != nil {
@@ -183,8 +183,8 @@ func parseTLV(buf []byte) (tag byte, content []byte, consumed int, err error) {
 	// end < start guards the integer-overflow case where a colossal
 	// length wraps; end > len(buf) is the ordinary truncation case.
 	if end < start || end > len(buf) {
-		return 0, nil, 0, ae.Wrapf("ber: content of %d octets exceeds %d remaining",
-			errLengthOverflow, length, len(buf)-start)
+		return 0, nil, 0, errs.Wrapf(errLengthOverflow,
+			"ber: content of %d octets exceeds %d remaining", length, len(buf)-start)
 	}
 	return id, buf[start:end], end, nil
 }
@@ -197,14 +197,14 @@ func parseTLV(buf []byte) (tag byte, content []byte, consumed int, err error) {
 // so every structural decoder inherits it for free.
 func parseSequence(buf []byte, wantTag byte, depth int) (content []byte, consumed int, err error) {
 	if depth > maxDecodeDepth {
-		return nil, 0, ae.Wrapf("ber: depth %d", errMaxDepth, depth)
+		return nil, 0, errs.Wrapf(errMaxDepth, "ber: depth %d", depth)
 	}
 	tag, content, consumed, err := parseTLV(buf)
 	if err != nil {
 		return nil, 0, err
 	}
 	if tag != wantTag {
-		return nil, 0, ae.Wrapf("ber: expected tag 0x%02x, got 0x%02x", errUnexpectedTag, wantTag, tag)
+		return nil, 0, errs.Wrapf(errUnexpectedTag, "ber: expected tag 0x%02x, got 0x%02x", wantTag, tag)
 	}
 	return content, consumed, nil
 }
@@ -215,10 +215,10 @@ func parseSequence(buf []byte, wantTag byte, depth int) (content []byte, consume
 // that need a narrower range (Integer32) range-check the result.
 func decodeSignedInt(b []byte) (int64, error) {
 	if len(b) == 0 {
-		return 0, ae.Wrap("ber: decode integer", errTruncated)
+		return 0, errs.Wrap(errTruncated, "ber: decode integer")
 	}
 	if len(b) > 8 {
-		return 0, ae.Wrapf("ber: integer with %d octets", errIntOverflow, len(b))
+		return 0, errs.Wrapf(errIntOverflow, "ber: integer with %d octets", len(b))
 	}
 	var v int64
 	if b[0]&0x80 != 0 {
@@ -246,7 +246,7 @@ func decodeUnsigned(b []byte) (uint64, error) {
 	}
 	s := b[i:]
 	if len(s) > 8 {
-		return 0, ae.Wrapf("ber: unsigned with %d significant octets", errIntOverflow, len(s))
+		return 0, errs.Wrapf(errIntOverflow, "ber: unsigned with %d significant octets", len(s))
 	}
 	var v uint64
 	for _, c := range s {
@@ -305,7 +305,7 @@ func readBase128(b []byte, off int) (val uint32, consumed int, err error) {
 	i := off
 	for {
 		if i >= len(b) {
-			return 0, 0, ae.Wrap("ber: decode OID sub-identifier", errTruncated)
+			return 0, 0, errs.Wrap(errTruncated, "ber: decode OID sub-identifier")
 		}
 		c := b[i]
 		acc = (acc << 7) | uint64(c&0x7f)
@@ -335,7 +335,7 @@ func decodeIPv4(b []byte) (net.IP, error) {
 		copy(out, b)
 		return out, nil
 	default:
-		return nil, ae.Wrapf("ber: IpAddress with %d octets", errUnexpectedTag, len(b))
+		return nil, errs.Wrapf(errUnexpectedTag, "ber: IpAddress with %d octets", len(b))
 	}
 }
 
@@ -361,19 +361,19 @@ func opaqueReal(content []byte) (isDouble, ok bool, f float64, err error) {
 	}
 	payload := content[2+lc:]
 	if length > len(payload) {
-		return false, false, 0, ae.Wrap("ber: opaque real payload", errTruncated)
+		return false, false, 0, errs.Wrap(errTruncated, "ber: opaque real payload")
 	}
 	payload = payload[:length]
 	switch marker {
 	case opaqueFloatTag:
 		if len(payload) != 4 {
-			return false, false, 0, ae.Wrapf("ber: opaque float with %d octets", errUnexpectedTag, len(payload))
+			return false, false, 0, errs.Wrapf(errUnexpectedTag, "ber: opaque float with %d octets", len(payload))
 		}
 		bits := binary.BigEndian.Uint32(payload)
 		return false, true, float64(math.Float32frombits(bits)), nil
 	default: // opaqueDoubleTag
 		if len(payload) != 8 {
-			return false, false, 0, ae.Wrapf("ber: opaque double with %d octets", errUnexpectedTag, len(payload))
+			return false, false, 0, errs.Wrapf(errUnexpectedTag, "ber: opaque double with %d octets", len(payload))
 		}
 		bits := binary.BigEndian.Uint64(payload)
 		return true, true, math.Float64frombits(bits), nil
@@ -535,7 +535,7 @@ func appendNull(dst []byte) []byte {
 func appendIPv4(ip net.IP) ([]byte, error) {
 	v4 := ip.To4()
 	if v4 == nil {
-		return nil, ae.Wrapf("ber: encode IpAddress %q is not IPv4", errUnexpectedTag, ip.String())
+		return nil, errs.Wrapf(errUnexpectedTag, "ber: encode IpAddress %q is not IPv4", ip.String())
 	}
 	return appendTLV(nil, tagIPAddress, v4), nil
 }
