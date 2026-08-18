@@ -208,8 +208,10 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
 - Sentinel errors and error types exist for callers to branch on — match with
   `errors.Is` / `errors.As`, never string comparison. Export a sentinel only when a
   caller genuinely needs to distinguish it; otherwise keep it unexported.
-- Put the variable part of a message in an attribute (`errs.New().Attr("got", n)`)
-  rather than interpolating it, so it stays queryable in logs. Never attach or
+- Attach a value someone will query or branch on as an attribute
+  (`errs.New().Attr("got", n)`) rather than only interpolating it, so it survives
+  into logs as a field. Interpolating a value that exists to make the message
+  readable is fine — most of `src/common/snmp` does exactly that. Never attach or
   interpolate raw secret material — attach a length and a protocol name instead.
 - Errors that cross a process boundary carry an `errs.NewCode("<package>/<name>")`
   code, their stable identity on the wire. Codes are append-only: never renamed,

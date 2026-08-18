@@ -140,7 +140,7 @@ func (a AuthProtocol) valid() bool {
 //	}
 //
 // The rejection is wrapped with this sentinel via [errs.Wrap]; [errors.Is]
-// matches through the full wrap chain (ae's multi-error Unwrap is walked
+// matches through the full wrap chain (errs' multi-error Unwrap is walked
 // recursively by Go's errors package), so do not rely on err.Error()
 // string-matching to detect the condition.
 var ErrUSMProtocolUnsupported = errs.Msg("USM protocol not implemented")

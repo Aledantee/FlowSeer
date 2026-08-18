@@ -155,3 +155,64 @@ func TestAttributesTolerateOddValues(t *testing.T) {
 		t.Errorf("nil_value = %v, want nil", attrs["nil_value"])
 	}
 }
+
+// SafeAttributes is what a boundary exposes, so it must be a strict subset of
+// Attributes: never a different value for a key, and never a value the merge
+// already decided was shadowed.
+func TestSafeAttributesAreAStrictSubset(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantAll  any
+		wantSafe any
+		safeHas  bool
+	}{
+		{
+			name:     "internal outer shadows safe inner",
+			err:      From(New().PubAttr("proto", "usm-aes").Msg("inner")).Attr("proto", "internal").Msg("outer"),
+			wantAll:  "internal",
+			wantSafe: nil,
+			safeHas:  false,
+		},
+		{
+			name:     "safe outer shadows internal inner",
+			err:      From(New().Attr("proto", "internal").Msg("inner")).PubAttr("proto", "usm-aes").Msg("outer"),
+			wantAll:  "usm-aes",
+			wantSafe: "usm-aes",
+			safeHas:  true,
+		},
+		{
+			name:     "joined branches, safe on the right only",
+			err:      Wrap(errors.Join(New().Attr("proto", "internal").Msg("left"), New().PubAttr("proto", "usm-aes").Msg("right")), "outer"),
+			wantAll:  "internal",
+			wantSafe: nil,
+			safeHas:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			all := Attributes(tc.err)
+			safe := SafeAttributes(tc.err)
+
+			if got := all["proto"]; got != tc.wantAll {
+				t.Errorf("Attributes proto = %v, want %v", got, tc.wantAll)
+			}
+
+			got, ok := safe["proto"]
+			if ok != tc.safeHas {
+				t.Errorf("SafeAttributes has proto = %v, want %v", ok, tc.safeHas)
+			}
+			if ok && got != tc.wantSafe {
+				t.Errorf("SafeAttributes proto = %v, want %v", got, tc.wantSafe)
+			}
+
+			for key, safeVal := range safe {
+				if allVal, present := all[key]; !present || allVal != safeVal {
+					t.Errorf("SafeAttributes[%s] = %v, but Attributes reports %v (present=%v) -- not a subset",
+						key, safeVal, allVal, present)
+				}
+			}
+		})
+	}
+}

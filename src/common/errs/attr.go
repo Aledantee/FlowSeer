@@ -23,18 +23,32 @@ func Attributes(err error) map[string]any {
 // SafeAttributes returns the subset of [Attributes] marked client-safe with
 // [Builder.PubAttr], under the same traversal. It is what a boundary facing
 // untrusted callers may expose.
+//
+// The result is a strict subset: a key whose winning attribute is internal is
+// absent here rather than falling through to a safe value deeper in the chain,
+// so the two extractors never report different values for the same key.
 func SafeAttributes(err error) map[string]any {
 	return collect(err, true)
 }
 
 func collect(err error, safeOnly bool) map[string]any {
-	merged := make(map[string]any)
+	var (
+		merged = make(map[string]any)
+		seen   = make(map[string]struct{})
+	)
 
+	// A key is claimed by the first attribute that carries it, whether or not
+	// that attribute is safe. Filtering before claiming would let an inner
+	// safe value win a key an outer internal value already shadowed, and
+	// SafeAttributes would then report a value Attributes disagrees with.
 	eachAttr(err, func(a attr) {
-		if safeOnly && !a.safe {
+		if _, dup := seen[a.key]; dup {
 			return
 		}
-		if _, seen := merged[a.key]; seen {
+
+		seen[a.key] = struct{}{}
+
+		if safeOnly && !a.safe {
 			return
 		}
 

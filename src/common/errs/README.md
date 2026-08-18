@@ -40,7 +40,8 @@ a local sentinel.
 **Extraction** (`attr.go`) — `Attributes(err)` merges the chain's attributes
 outermost-first, joined branches left to right, first value winning;
 `SafeAttributes(err)` returns only the `PubAttr`-marked subset a boundary may
-expose to an untrusted client.
+expose to an untrusted client — a strict subset, so the two never report
+different values for one key.
 
 **Logging** (`slog.go`) — `Error` implements `slog.LogValuer`: one group with
 the rendered message, the chain's code, the merged attributes, and symbolized

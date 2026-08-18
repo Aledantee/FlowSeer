@@ -69,7 +69,10 @@
 //
 // Attributes are internal by default. [Builder.PubAttr] marks one
 // client-safe, and [SafeAttributes] returns exactly that subset — safety is
-// decided where the value is attached, not guessed at the boundary.
+// decided where the value is attached, not guessed at the boundary. The
+// subset is strict: a key the traversal awards to an internal attribute is
+// absent from [SafeAttributes] rather than falling through to a safe value
+// deeper in the chain, so the two extractors never disagree about a key.
 //
 // Raw secret material never becomes an attribute and never reaches a
 // message: no keys, salts, passwords, or derived key bytes. Attach the

@@ -14,6 +14,13 @@ import (
 	"testing"
 )
 
+// errsImportPath is how a foreign package reaches this one; unqualified is
+// the map key standing for a call that needs no qualifier at all.
+const (
+	errsImportPath = "go.aledante.io/FlowSeer/src/common/errs"
+	unqualified    = "\x00unqualified"
+)
+
 var (
 	testCodePrivDecrypt = NewCode("errstest/priv-decrypt")
 	testCodeAuthFail    = NewCode("errstest/auth-fail")
@@ -174,6 +181,7 @@ func TestCodesEnumeratesRegistry(t *testing.T) {
 // must be well formed and unique.
 func TestDeclaredCodesAreUniqueRepoWide(t *testing.T) {
 	root := repoRoot(t)
+	pkgDir := packageDir(t)
 	declared := make(map[string]string)
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -191,7 +199,7 @@ func TestDeclaredCodesAreUniqueRepoWide(t *testing.T) {
 			return nil
 		}
 
-		for _, decl := range newCodeLiterals(t, path) {
+		for _, decl := range newCodeLiterals(t, path, pkgDir) {
 			if prev, dup := declared[decl.code]; dup {
 				t.Errorf("error code %q declared in both %s and %s", decl.code, prev, decl.pos)
 			}
@@ -217,7 +225,7 @@ type codeDecl struct {
 // newCodeLiterals returns the NewCode declarations in one file. A NewCode
 // call with a non-literal argument fails the test: the gate cannot verify
 // what it cannot read.
-func newCodeLiterals(t *testing.T, path string) []codeDecl {
+func newCodeLiterals(t *testing.T, path, pkgDir string) []codeDecl {
 	t.Helper()
 
 	fset := token.NewFileSet()
@@ -228,9 +236,11 @@ func newCodeLiterals(t *testing.T, path string) []codeDecl {
 
 	var decls []codeDecl
 
+	qualifiers := errsQualifiers(file, filepath.Dir(path) == pkgDir)
+
 	ast.Inspect(file, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
-		if !ok || !isNewCode(call.Fun) {
+		if !ok || !isNewCode(call.Fun, qualifiers) {
 			return true
 		}
 
@@ -260,16 +270,74 @@ func newCodeLiterals(t *testing.T, path string) []codeDecl {
 	return decls
 }
 
-func isNewCode(fun ast.Expr) bool {
+// errsQualifiers returns the local names through which file can reach
+// [NewCode], so the gate follows the import path rather than trusting how the
+// package name happens to be spelled. own marks a file belonging to this
+// package, where NewCode needs no qualifier at all; a dot-import earns the
+// same treatment.
+func errsQualifiers(file *ast.File, own bool) map[string]struct{} {
+	qualifiers := make(map[string]struct{})
+	if own {
+		qualifiers[unqualified] = struct{}{}
+	}
+
+	for _, spec := range file.Imports {
+		path, err := strconv.Unquote(spec.Path.Value)
+		if err != nil || path != errsImportPath {
+			continue
+		}
+
+		name := "errs"
+		if spec.Name != nil {
+			name = spec.Name.Name
+		}
+
+		if name == "." {
+			name = unqualified
+		}
+
+		qualifiers[name] = struct{}{}
+	}
+
+	return qualifiers
+}
+
+func isNewCode(fun ast.Expr, qualifiers map[string]struct{}) bool {
 	switch f := fun.(type) {
 	case *ast.Ident:
+		// Unqualified: only this package's own files and dot-importing ones
+		// reach NewCode without a qualifier. Another package's same-named
+		// function is not this gate's business.
+		if _, ok := qualifiers[unqualified]; !ok {
+			return false
+		}
+
 		return f.Name == "NewCode"
 	case *ast.SelectorExpr:
 		pkg, ok := f.X.(*ast.Ident)
-		return ok && pkg.Name == "errs" && f.Sel.Name == "NewCode"
+		if !ok || f.Sel.Name != "NewCode" {
+			return false
+		}
+
+		_, imported := qualifiers[pkg.Name]
+
+		return imported
 	default:
 		return false
 	}
+}
+
+// packageDir is this package's own directory, where NewCode is reachable
+// without a qualifier.
+func packageDir(t *testing.T) string {
+	t.Helper()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getting working directory: %v", err)
+	}
+
+	return dir
 }
 
 func repoRoot(t *testing.T) string {
@@ -292,5 +360,53 @@ func repoRoot(t *testing.T) string {
 		}
 
 		dir = parent
+	}
+}
+
+// The repo-wide gate resolves NewCode by import path, so it must see a code
+// declared through an aliased or dot import and ignore an unrelated function
+// of the same name. Fixtures live under testdata, which the repo walk skips.
+func TestSourceScanResolvesByImportPath(t *testing.T) {
+	pkgDir := packageDir(t)
+
+	tests := []struct {
+		name string
+		file string
+		want []string
+	}{
+		{name: "aliased import", file: "aliased.go", want: []string{"aliased/code"}},
+		{name: "dot import", file: "dotimport.go", want: []string{"dotted/code"}},
+		{name: "unrelated NewCode", file: "foreign.go", want: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			decls := newCodeLiterals(t, filepath.Join(pkgDir, "testdata", "scan", tc.file), pkgDir)
+
+			got := make([]string, 0, len(decls))
+			for _, d := range decls {
+				got = append(got, d.code)
+			}
+
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("scanned codes = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// This package's own declarations are unqualified, so the gate must still see
+// them without an import to follow.
+func TestSourceScanSeesOwnPackageDeclarations(t *testing.T) {
+	pkgDir := packageDir(t)
+
+	decls := newCodeLiterals(t, filepath.Join(pkgDir, "code.go"), pkgDir)
+	if len(decls) != 0 {
+		t.Errorf("code.go declares %v, want none", decls)
+	}
+
+	src := filepath.Join(pkgDir, "testdata", "scan", "dotimport.go")
+	if got := newCodeLiterals(t, src, filepath.Dir(src)); len(got) != 1 {
+		t.Errorf("own-package scan found %d declarations, want 1", len(got))
 	}
 }

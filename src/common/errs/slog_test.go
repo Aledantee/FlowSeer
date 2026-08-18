@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 )
@@ -158,5 +159,35 @@ func TestNilReceiverIsSafe(t *testing.T) {
 	}
 	if _, ok := CodeOf(nilErr); ok {
 		t.Error("CodeOf() on a nil receiver reported a code")
+	}
+}
+
+// doc.go claims the log record and the extractor cannot disagree. Shadowed
+// keys are where that claim is easiest to break, so assert parity over a
+// chain that shadows the same key at three levels and across a join.
+func TestLogValueMatchesAttributesOnShadowedKeys(t *testing.T) {
+	inner := New().Attr("proto", "inner").Attr("len", 4).Msg("inner")
+	joined := errors.Join(inner, New().Attr("proto", "sibling").Attr("index", 2).Msg("sibling"))
+	err := From(joined).Attr("proto", "outer").PubAttr("target", "10.0.0.1:161").Msg("outer")
+
+	logged := logAttributes(t, err)
+	extracted := Attributes(err)
+
+	if len(logged) != len(extracted) {
+		t.Fatalf("logged %v and extracted %v disagree on key count", logged, extracted)
+	}
+	for key, want := range extracted {
+		got, ok := logged[key]
+		if !ok {
+			t.Errorf("key %s extracted as %v but never logged", key, want)
+			continue
+		}
+		// JSON widens every number to float64; compare through the same lens.
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("logged %s = %v, extracted %v", key, got, want)
+		}
+	}
+	if got := extracted["proto"]; got != "outer" {
+		t.Errorf("proto = %v, want outer (the outermost value)", got)
 	}
 }

@@ -9,7 +9,9 @@ import (
 // payload is a message, an optional [Code], flat attributes, and causes;
 // the captured stack is diagnostic only and never part of the payload.
 //
-// An Error is immutable once built and safe for concurrent use. Build one
+// An Error is immutable once built and safe for concurrent use, provided
+// callers honor the one aliasing rule this package shares with the standard
+// library: the slice [Error.Unwrap] returns must not be modified. Build one
 // with [New], [From], [Msg], [Msgf], [Wrap], or [Wrapf] — the zero value
 // renders as an empty message and carries nothing.
 type Error struct {
@@ -68,6 +70,12 @@ func (e *Error) Error() string {
 
 // Unwrap returns the error's causes, making them visible to [errors.Is] and
 // [errors.As]. The result is nil when the error has no causes.
+//
+// The returned slice aliases the error's own storage and must not be
+// modified — the same contract the standard library's [errors.Join] result
+// carries. Unwrap is called once per node on every [errors.Is] and
+// [errors.As] walk, so copying here would put an allocation on the hottest
+// path this package has; the constraint buys that back.
 func (e *Error) Unwrap() []error {
 	if e == nil || len(e.causes) == 0 {
 		return nil
@@ -94,14 +102,4 @@ func (e *Error) Is(target error) bool {
 	t, ok := target.(*Error)
 
 	return ok && t != nil && t.code == e.code
-}
-
-// ErrorCode returns the error's own code, or the empty [Code] if it has
-// none. Prefer [CodeOf], which searches the whole chain.
-func (e *Error) ErrorCode() Code {
-	if e == nil {
-		return ""
-	}
-
-	return e.code
 }
