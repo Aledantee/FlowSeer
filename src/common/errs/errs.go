@@ -6,8 +6,10 @@ import (
 )
 
 // Error is the concrete error type this package produces. Its semantic
-// payload is a message, an optional [Code], flat attributes, and causes;
-// the captured stack is diagnostic only and never part of the payload.
+// payload is a message, an optional [Code], flat attributes, and causes,
+// plus four fields a mechanism consumes rather than a reader: the
+// client-facing user message and hint, a process exit code, and a retry
+// disposition. The captured stack is diagnostic only and never payload.
 //
 // An Error is immutable once built and safe for concurrent use, provided
 // callers honor the one aliasing rule this package shares with the standard
@@ -15,11 +17,15 @@ import (
 // with [New], [From], [Msg], [Msgf], [Wrap], or [Wrapf] — the zero value
 // renders as an empty message and carries nothing.
 type Error struct {
-	msg    string
-	code   Code
-	attrs  []attr
-	causes []error
-	stack  stack
+	msg      string
+	code     Code
+	attrs    []attr
+	causes   []error
+	userMsg  string
+	hint     string
+	exitCode int
+	retry    retry
+	stack    stack
 }
 
 // Msg returns a new error carrying msg and nothing else. It is the

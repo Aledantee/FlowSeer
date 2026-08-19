@@ -60,6 +60,52 @@ func (b Builder) Code(c Code) Builder {
 	return b
 }
 
+// UserMsg sets the client-facing message: what an end user or an untrusted
+// caller is told, where [Builder.Msg] says what actually failed. It is
+// client-safe by definition and names no internal host, engine ID, or call
+// path — a boundary sends it in place of the internal message, so write it
+// for someone who cannot see the log.
+//
+// The outermost user message in a chain wins; see [UserMessage].
+func (b Builder) UserMsg(msg string) Builder {
+	b.userMsg = msg
+	return b
+}
+
+// Hint sets the remedy that accompanies [Builder.UserMsg]: what to do about
+// the failure, where the user message says what happened. It is client-safe
+// under the same rule and resolves outermost-first; see [Hint].
+func (b Builder) Hint(hint string) Builder {
+	b.hint = hint
+	return b
+}
+
+// ExitCode sets the status a process should exit with when this error ends
+// it. Values must be positive — zero and negative are ignored, since zero
+// means "unset" and would report success. See [ExitCode] for resolution.
+func (b Builder) ExitCode(code int) Builder {
+	if code > 0 {
+		b.exitCode = code
+	}
+
+	return b
+}
+
+// Retryable marks the failure as transient: a poll loop, a broker redelivery,
+// or an RPC boundary may try the operation again. See [Retryable].
+func (b Builder) Retryable() Builder {
+	b.retry = retryYes
+	return b
+}
+
+// Fatal marks the failure as permanent, so a wrapper can overrule a
+// transient cause — a retryable dial failure that has exhausted its budget
+// becomes fatal at the level that gave up. See [Retryable].
+func (b Builder) Fatal() Builder {
+	b.retry = retryNo
+	return b
+}
+
 // Msg sets the message and returns the finished error. It captures an
 // origin stack unless a cause already carries one.
 func (b Builder) Msg(msg string) error {

@@ -7,15 +7,21 @@ import (
 
 // Log group and field keys. They are fixed so log queries can rely on them.
 const (
-	msgKey   = "msg"
-	codeKey  = "code"
-	attrsKey = "attributes"
-	stackKey = "stack"
+	msgKey       = "msg"
+	codeKey      = "code"
+	userMsgKey   = "user_msg"
+	hintKey      = "hint"
+	exitCodeKey  = "exit_code"
+	retryableKey = "retryable"
+	attrsKey     = "attributes"
+	stackKey     = "stack"
 )
 
 // LogValue renders the whole error tree as one group: the rendered message,
-// the chain's [Code] if any, the merged attributes under "attributes", and
-// the captured stacks under "stack" with symbolized frames.
+// the chain's [Code] if any, whichever of the client-facing user message and
+// hint, exit code, and retry disposition the chain sets, the merged
+// attributes under "attributes", and the captured stacks under "stack" with
+// symbolized frames.
 //
 // Attributes are merged with the traversal [Attributes] uses, so the two
 // surfaces cannot disagree, and every key appears once. LogValue never
@@ -32,6 +38,8 @@ func (e *Error) LogValue() slog.Value {
 		attrs = append(attrs, slog.String(codeKey, code.String()))
 	}
 
+	attrs = append(attrs, dispositionAttrs(e)...)
+
 	if merged := mergedLogAttrs(e); len(merged) > 0 {
 		attrs = append(attrs, slog.GroupAttrs(attrsKey, merged...))
 	}
@@ -41,6 +49,32 @@ func (e *Error) LogValue() slog.Value {
 	}
 
 	return slog.GroupValue(attrs...)
+}
+
+// dispositionAttrs renders the fields a mechanism consumes, each only when
+// the chain actually carries it: an unset exit code would otherwise log as
+// [ExitCode]'s default of 1 and an unset disposition as "not retryable",
+// asserting in the log a decision no one made.
+func dispositionAttrs(err error) []slog.Attr {
+	var out []slog.Attr
+
+	if msg := UserMessage(err); msg != "" {
+		out = append(out, slog.String(userMsgKey, msg))
+	}
+
+	if hint := Hint(err); hint != "" {
+		out = append(out, slog.String(hintKey, hint))
+	}
+
+	if code, ok := exitCodeOf(err); ok {
+		out = append(out, slog.Int(exitCodeKey, code))
+	}
+
+	if r := retryOf(err); r != retryUnset {
+		out = append(out, slog.Bool(retryableKey, r == retryYes))
+	}
+
+	return out
 }
 
 // mergedLogAttrs flattens the tree's attributes in traversal order, keeping

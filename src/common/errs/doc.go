@@ -3,15 +3,24 @@
 // # Identity
 //
 // What this package is: a small, owned error type built for a distributed
-// system. Its semantic payload is four fields — message, [Code], attributes,
-// causes — and nothing else; a captured stack rides along as diagnostics,
-// never as payload. It is stdlib-native: errors implement Unwrap, compose
-// with [errors.Is], [errors.As] and [errors.Join], and there is no parallel
-// matching API to learn.
+// system. Its core payload is message, [Code], attributes, and causes; a
+// captured stack rides along as diagnostics, never as payload. It is
+// stdlib-native: errors implement Unwrap, compose with [errors.Is],
+// [errors.As] and [errors.Join], and there is no parallel matching API to
+// learn.
 //
-// What this package is not: a presentation layer. There are no user-facing
-// messages, hints, exit codes, tags, timestamps, trace IDs, or printers.
-// Rendering belongs to the log handler and to the RPC boundary.
+// Four further fields ride along because a mechanism consumes them, not
+// because a reader might like them: the client-facing user message and hint
+// a boundary sends in place of the internal text, the exit code a process
+// ends with, and the retry disposition a poll loop or a broker reads. That
+// is the bar a field has to clear here — [Code] clears it for [errors.Is],
+// client-safe attributes for the boundary filter, these four for the
+// process, the retry loop, and the client.
+//
+// What this package is not: a presentation layer, and not a bag of
+// metadata. There are no printers, tags, timestamps, or trace IDs — the log
+// handler renders, and OpenTelemetry propagates trace identity through
+// [context.Context], where it cannot go stale against a copy on the error.
 //
 // # Surface
 //
@@ -34,7 +43,8 @@
 //	    PubAttr("proto", "usm-aes").
 //	    Msg("privacy decryption failed")
 //
-// Readers extract with [Attributes], [SafeAttributes], and [CodeOf].
+// Readers extract with [Attributes], [SafeAttributes], [CodeOf],
+// [UserMessage], [Hint], [ExitCode], and [Retryable].
 //
 // # Codes
 //
@@ -57,6 +67,45 @@
 // source scan in this package's tests, which reads every NewCode string
 // literal in non-test code and asserts global uniqueness and format —
 // declare codes with a literal argument, or the gate cannot check them.
+//
+// # User messages and hints
+//
+// The message an [Error] carries names hosts, engine IDs, and call paths: it
+// is written for a log an operator reads, and it never reaches an untrusted
+// caller. [Builder.UserMsg] sets what that caller is told instead, and
+// [Builder.Hint] sets the remedy that goes with it — what happened, then
+// what to do about it:
+//
+//	return errs.From(err).
+//	    Code(ErrCodePrivDecrypt).
+//	    UserMsg("could not read the device").
+//	    Hint("check the device's USM credentials").
+//	    Msg("privacy decryption failed")
+//
+// Both are client-safe by definition, both resolve outermost-first through
+// [UserMessage] and [Hint], and both are empty when the chain sets neither —
+// a boundary that finds nothing falls back to a generic string rather than
+// leaking the internal message.
+//
+// Writing them is a judgment, not a formality: the level closest to the
+// caller knows what that caller was trying to do, which is why the outermost
+// wins.
+//
+// # Exit codes and retries
+//
+// [Builder.ExitCode] sets the status a process ends with. [ExitCode]
+// resolves it outermost-first and falls back to 1 for any error that sets
+// none, so a main function can exit on an error without asking whether one
+// was set. It returns 0 only for a nil error. The value is process-local: a
+// peer's exit status says nothing about this process, so it never travels
+// over the wire.
+//
+// [Builder.Retryable] and [Builder.Fatal] express whether the failure is
+// worth trying again, and [Retryable] resolves the outermost error that
+// expressed a view. That lets a wrapper which has spent its retry budget
+// mark itself fatal over a transient cause. A chain where nothing expressed
+// a view is not retryable — retrying is the claim that needs making, and a
+// caller that retries a permanent failure loops forever.
 //
 // # Attributes and safety
 //
@@ -101,9 +150,11 @@
 // design it must follow:
 //
 // The proto message carries the code, the message, the client-safe
-// attributes, and the cause chain. An optional stack field is populated
-// only on trusted internal transit (service to service, broker) and is
-// always absent on a message headed toward a client.
+// attributes, the user message, the hint, the retry disposition, and the
+// cause chain. An optional stack field is populated only on trusted internal
+// transit (service to service, broker) and is always absent on a message
+// headed toward a client. The exit code is not carried at all — it describes
+// the process that failed, not the failure.
 //
 // Decoding is total. A cause whose type the decoder does not recognize
 // degrades to a generic opaque leaf that preserves its message, code, and
@@ -114,8 +165,13 @@
 //
 // Message text and the cause chain are trusted-internal content: they name
 // internal hosts, engine IDs, and call paths. A boundary facing untrusted
-// clients exposes only the code, the client-safe attributes, and a
-// sanitized or generic message.
+// clients exposes only the code, the client-safe attributes, and the user
+// message and hint — the sanitized text an author already wrote for exactly
+// this, falling back to a generic string when the chain carries none.
+//
+// The retry disposition crosses too, because it is what maps an error onto a
+// retryable RPC status; like every peer-supplied field it is a hint about
+// the peer, never an input to a local authorization decision.
 //
 // Decoded errors are accepted only from authenticated, integrity-protected
 // peers. A peer-supplied code or attribute is diagnostic input and never

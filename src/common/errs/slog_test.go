@@ -191,3 +191,67 @@ func TestLogValueMatchesAttributesOnShadowedKeys(t *testing.T) {
 		t.Errorf("proto = %v, want outer (the outermost value)", got)
 	}
 }
+
+// The disposition fields reach the log only when the chain sets them: an
+// exit code defaulting to 1 or a retry disposition defaulting to false would
+// record a decision no author made.
+func TestLogValueOmitsUnsetDispositions(t *testing.T) {
+	record := logRecord(t, Wrap(Msg("refused"), "open session"))
+
+	for _, key := range []string{userMsgKey, hintKey, exitCodeKey, retryableKey} {
+		if got, ok := record[key]; ok {
+			t.Errorf("record carries %s = %v, want it absent", key, got)
+		}
+	}
+}
+
+func TestLogValueRendersDispositions(t *testing.T) {
+	err := From(Msg("refused")).
+		UserMsg("could not read the device").
+		Hint("check that the device is reachable").
+		ExitCode(3).
+		Retryable().
+		Msg("open session")
+
+	record := logRecord(t, err)
+
+	tests := []struct {
+		key  string
+		want any
+	}{
+		{key: userMsgKey, want: "could not read the device"},
+		{key: hintKey, want: "check that the device is reachable"},
+		{key: exitCodeKey, want: float64(3)}, // JSON widens every number.
+		{key: retryableKey, want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.key, func(t *testing.T) {
+			if got := record[tc.key]; got != tc.want {
+				t.Errorf("record[%s] = %v, want %v", tc.key, got, tc.want)
+			}
+		})
+	}
+}
+
+// The log and the extractors read one chain, so they must not disagree about
+// which level's disposition won.
+func TestLogValueMatchesDispositionExtractors(t *testing.T) {
+	err := From(New().UserMsg("inner text").ExitCode(9).Retryable().Msg("inner")).
+		UserMsg("outer text").
+		ExitCode(2).
+		Fatal().
+		Msg("outer")
+
+	record := logRecord(t, err)
+
+	if got, want := record[userMsgKey], UserMessage(err); got != want {
+		t.Errorf("logged user_msg = %v, extracted %v", got, want)
+	}
+	if got, want := record[exitCodeKey], float64(ExitCode(err)); got != want {
+		t.Errorf("logged exit_code = %v, extracted %v", got, want)
+	}
+	if got, want := record[retryableKey], Retryable(err); got != want {
+		t.Errorf("logged retryable = %v, extracted %v", got, want)
+	}
+}

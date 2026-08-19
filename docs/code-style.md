@@ -216,6 +216,18 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
 - Errors that cross a process boundary carry an `errs.NewCode("<package>/<name>")`
   code, their stable identity on the wire. Codes are append-only: never renamed,
   never reused for a different meaning.
+- The error message is written for the log and may name hosts, engine IDs, and
+  call paths. What an end user or an untrusted caller sees goes in `.UserMsg`,
+  with the remedy in `.Hint` — set them at the level closest to that caller,
+  which knows what they were trying to do. Never write the internal message so
+  it can double as both.
+- Mark a transient failure `.Retryable()` where it is diagnosed, and `.Fatal()`
+  at the level that gives up on it, so a poll loop, a broker, or an RPC boundary
+  never has to pattern-match on codes to decide whether to try again. Silence
+  means not retryable.
+- A command that ends the process sets `.ExitCode(n)` on the error that ended
+  it; `main` exits with `errs.ExitCode(err)`, which is 0 for nil and 1 for any
+  error that named no status.
 - Error strings are lowercase and unpunctuated (`"request timed out"`), because they
   compose into larger messages.
 - Context cancellation surfaces as the unwrapped `ctx.Err()`, not a look-alike
