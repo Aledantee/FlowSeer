@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Tier classifies a column by how its value evolves on a watched table.
@@ -168,14 +168,14 @@ type ChangeIndicator struct {
 // On failure the returned ChangeIndicator is the zero value.
 func NewPerRowIndicator(col AnyColumn, tableRoot OID) (ChangeIndicator, error) {
 	if col == nil {
-		return ChangeIndicator{}, ae.Msg("column is nil")
+		return ChangeIndicator{}, errs.Msg("column is nil")
 	}
 	if tableRoot.Len() == 0 {
-		return ChangeIndicator{}, ae.Msg("tableRoot is empty")
+		return ChangeIndicator{}, errs.Msg("tableRoot is empty")
 	}
 	colOID := col.OID()
 	if !colOID.HasPrefix(tableRoot) || colOID.Len() <= tableRoot.Len() {
-		return ChangeIndicator{}, ae.New().
+		return ChangeIndicator{}, errs.New().
 			Attr("column_oid", colOID).Attr("table_root", tableRoot).
 			Msg("column OID is not a strict descendant of tableRoot")
 	}
@@ -199,15 +199,15 @@ func NewPerRowIndicator(col AnyColumn, tableRoot OID) (ChangeIndicator, error) {
 // On failure the returned ChangeIndicator is the zero value.
 func NewScalarIndicator(scalarOID OID, kind Kind, tableRoots []OID) (ChangeIndicator, error) {
 	if scalarOID.Len() == 0 {
-		return ChangeIndicator{}, ae.Msg("scalarOID is empty")
+		return ChangeIndicator{}, errs.Msg("scalarOID is empty")
 	}
 	if len(tableRoots) == 0 {
-		return ChangeIndicator{}, ae.Msg(
+		return ChangeIndicator{}, errs.Msg(
 			"at least one table root required")
 	}
 	for i, r := range tableRoots {
 		if r.Len() == 0 {
-			return ChangeIndicator{}, ae.New().Attr("index", i).
+			return ChangeIndicator{}, errs.New().Attr("index", i).
 				Msg("tableRoots entry is empty")
 		}
 	}
@@ -513,12 +513,12 @@ func WithCadenceBounds(lower, upper time.Duration) WatchOption {
 		c.CadenceMax = upper
 		c.CadenceBoundsSet = true
 		if lower <= 0 {
-			c.recordErr(ae.New().Attr("got", lower).
+			c.recordErr(errs.New().Attr("got", lower).
 				Msg("min must be > 0"))
 			return
 		}
 		if upper < lower {
-			c.recordErr(ae.New().Attr("max", upper).Attr("min", lower).
+			c.recordErr(errs.New().Attr("max", upper).Attr("min", lower).
 				Msg("max must be >= min"))
 			return
 		}
@@ -542,12 +542,12 @@ func WithCadenceStepPolicy(factor float64, ceiling int) WatchOption {
 		c.CadenceStepCeiling = ceiling
 		c.CadenceStepPolicySet = true
 		if factor < 1.0 {
-			c.recordErr(ae.New().Attr("factor", factor).
+			c.recordErr(errs.New().Attr("factor", factor).
 				Msg("factor must be >= 1.0"))
 			return
 		}
 		if ceiling <= 0 {
-			c.recordErr(ae.New().Attr("ceiling", ceiling).
+			c.recordErr(errs.New().Attr("ceiling", ceiling).
 				Msg("ceiling must be > 0"))
 			return
 		}
@@ -568,11 +568,11 @@ func WithCadenceStepPolicy(factor float64, ceiling int) WatchOption {
 func WithCounterCadence(col AnyColumn, interval time.Duration) WatchOption {
 	return func(c *WatchConfig) {
 		if col == nil {
-			c.recordErr(ae.Msg("column is nil"))
+			c.recordErr(errs.Msg("column is nil"))
 			return
 		}
 		if interval <= 0 {
-			c.recordErr(ae.New().Attr("oid", col.OID()).Attr("got", interval).
+			c.recordErr(errs.New().Attr("oid", col.OID()).Attr("got", interval).
 				Msg("interval must be > 0"))
 			return
 		}
@@ -608,14 +608,14 @@ func WithCounterCadence(col AnyColumn, interval time.Duration) WatchOption {
 func WithColumnTier(col AnyColumn, tier Tier) WatchOption {
 	return func(c *WatchConfig) {
 		if col == nil {
-			c.recordErr(ae.Msg("column is nil"))
+			c.recordErr(errs.Msg("column is nil"))
 			return
 		}
 		switch tier {
 		case TierCounter, TierIndicator, TierState, TierStatic:
 			// valid
 		default:
-			c.recordErr(ae.New().Attr("tier", tier).
+			c.recordErr(errs.New().Attr("tier", tier).
 				Msg("tier is not a known classification"))
 			return
 		}
@@ -691,7 +691,7 @@ func WithProbeWindow(ticks int) WatchOption {
 		c.ProbeWindow = ticks
 		c.ProbeWindowSet = true
 		if ticks < 0 {
-			c.recordErr(ae.New().Attr("ticks", ticks).
+			c.recordErr(errs.New().Attr("ticks", ticks).
 				Msg("ticks must be >= 0"))
 			return
 		}
@@ -717,7 +717,7 @@ func WithForcedWalkInterval(interval time.Duration) WatchOption {
 		c.ForcedWalkInterval = interval
 		c.ForcedWalkIntervalSet = true
 		if interval <= 0 {
-			c.recordErr(ae.New().Attr("interval", interval).
+			c.recordErr(errs.New().Attr("interval", interval).
 				Msg("interval must be > 0"))
 			return
 		}
@@ -744,7 +744,7 @@ func WithBulkWalkFallbackThreshold(pdus int) WatchOption {
 		c.BulkWalkFallbackThreshold = pdus
 		c.BulkWalkFallbackThresholdSet = true
 		if pdus < 1 {
-			c.recordErr(ae.New().Attr("pdus", pdus).
+			c.recordErr(errs.New().Attr("pdus", pdus).
 				Msg("pdus must be >= 1"))
 			return
 		}

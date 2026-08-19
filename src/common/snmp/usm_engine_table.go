@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // usm_engine_table.go is the native trap listener's USM security table.
@@ -22,7 +22,7 @@ import (
 // ErrEngineNeedsID is returned by register when the USMConfig has no
 // EngineID — a notification receiver cannot key (or verify) a sender without
 // its authoritative engineID.
-var ErrEngineNeedsID = ae.Msg("RegisterEngine requires a non-empty EngineID")
+var ErrEngineNeedsID = errs.Msg("RegisterEngine requires a non-empty EngineID")
 
 // recvBaseline is the per-sender RFC 3414 §3.2 non-authoritative replay
 // baseline: the highest (boots, time) the receiver has accepted. It is

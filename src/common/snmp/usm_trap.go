@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // usm_trap.go is the non-authoritative SNMPv3 trap reception path
@@ -23,7 +23,7 @@ import (
 func resolveOwnEngineID(configured []byte) ([]byte, error) {
 	if len(configured) != 0 {
 		if n := len(configured); n < 5 || n > 32 {
-			return nil, ae.New().Attr("length", n).Msg("ownEngineID length outside RFC 3411 range [5,32]")
+			return nil, errs.New().Attr("length", n).Msg("ownEngineID length outside RFC 3411 range [5,32]")
 		}
 		return append([]byte(nil), configured...), nil
 	}

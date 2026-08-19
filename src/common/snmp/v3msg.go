@@ -3,7 +3,7 @@ package snmp
 import (
 	"math"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // v3msg.go is the SNMPv3 message envelope codec (RFC 3412 §6). It is a
@@ -38,10 +38,10 @@ const v3MaxMessageSize = maxUDPPayload
 var (
 	// errV3Malformed is the umbrella sentinel for a structurally invalid v3
 	// message; specific causes are wrapped with context.
-	errV3Malformed = ae.Msg("malformed SNMPv3 message")
+	errV3Malformed = errs.Msg("malformed SNMPv3 message")
 	// errV3FlagsInvalid rejects an RFC-invalid msgFlags combination (priv
 	// set without auth).
-	errV3FlagsInvalid = ae.Msg("priv flag set without auth flag")
+	errV3FlagsInvalid = errs.Msg("priv flag set without auth flag")
 )
 
 // msgFlags is the decoded msgFlags octet.
@@ -157,7 +157,7 @@ func encodeV3Message(m *v3Message) ([]byte, error) {
 		}
 		msgData = sp
 	default:
-		return nil, ae.Wrap("encode v3 message", errV3Malformed)
+		return nil, errs.Wrap(errV3Malformed, "encode v3 message")
 	}
 
 	// HeaderData SEQUENCE { msgID, msgMaxSize, msgFlags, msgSecurityModel }.
@@ -211,7 +211,7 @@ type v3Decoded struct {
 func decodeV3Message(datagram []byte) (*v3Decoded, error) {
 	_, bodyStart, err := sequenceContent(datagram, 0, 0)
 	if err != nil {
-		return nil, ae.Wrap("decode v3 envelope", err)
+		return nil, errs.Wrap(err, "decode v3 envelope")
 	}
 	pos := bodyStart
 
@@ -221,7 +221,7 @@ func decodeV3Message(datagram []byte) (*v3Decoded, error) {
 		return nil, err
 	}
 	if ver != wireVersionV3 {
-		return nil, ae.Wrapf("msgVersion %d", errV3Malformed, ver)
+		return nil, errs.Wrapf(errV3Malformed, "msgVersion %d", ver)
 	}
 	pos = next
 
@@ -230,7 +230,7 @@ func decodeV3Message(datagram []byte) (*v3Decoded, error) {
 	// msgGlobalData SEQUENCE.
 	gd, gdStart, err := sequenceContent(datagram, pos, 1)
 	if err != nil {
-		return nil, ae.Wrap("decode msgGlobalData", err)
+		return nil, errs.Wrap(err, "decode msgGlobalData")
 	}
 	if err := decodeGlobalData(m, gd); err != nil {
 		return nil, err
@@ -251,7 +251,7 @@ func decodeV3Message(datagram []byte) (*v3Decoded, error) {
 	// msgData: ScopedPDU (plaintext SEQUENCE) or encryptedPDU (OCTET STRING).
 	tag, _, _, err := parseTLV(datagram[pos:])
 	if err != nil {
-		return nil, ae.Wrap("decode msgData", err)
+		return nil, errs.Wrap(err, "decode msgData")
 	}
 	dec := &v3Decoded{msg: m}
 	switch tag {
@@ -266,7 +266,7 @@ func decodeV3Message(datagram []byte) (*v3Decoded, error) {
 	case tagSequence:
 		spContent, spStart, err := sequenceContent(datagram, pos, 1)
 		if err != nil {
-			return nil, ae.Wrap("decode scopedPDU", err)
+			return nil, errs.Wrap(err, "decode scopedPDU")
 		}
 		sp, err := decodeScopedPDUContent(spContent)
 		if err != nil {
@@ -277,7 +277,7 @@ func decodeV3Message(datagram []byte) (*v3Decoded, error) {
 		// of its content.
 		dec.scopedRaw = cloneBytes(datagram[pos : spStart+len(spContent)])
 	default:
-		return nil, ae.Wrapf("msgData tag 0x%02x", errV3Malformed, tag)
+		return nil, errs.Wrapf(errV3Malformed, "msgData tag 0x%02x", tag)
 	}
 
 	// Reject the RFC-invalid priv-without-auth combination.
@@ -302,7 +302,7 @@ func decodeGlobalData(m *v3Message, gd []byte) error {
 		return err
 	}
 	if id < 0 || id > math.MaxInt32 {
-		return ae.Wrapf("msgID %d out of range", errV3Malformed, id)
+		return errs.Wrapf(errV3Malformed, "msgID %d out of range", id)
 	}
 	m.msgID = int32(id)
 
@@ -311,16 +311,16 @@ func decodeGlobalData(m *v3Message, gd []byte) error {
 		return err
 	}
 	if maxSize < 0 || maxSize > math.MaxInt32 {
-		return ae.Wrapf("msgMaxSize %d out of range", errV3Malformed, maxSize)
+		return errs.Wrapf(errV3Malformed, "msgMaxSize %d out of range", maxSize)
 	}
 	m.msgMaxSize = int32(maxSize)
 
 	fTag, fContent, fUsed, err := parseTLV(rest)
 	if err != nil {
-		return ae.Wrap("decode msgFlags", err)
+		return errs.Wrap(err, "decode msgFlags")
 	}
 	if fTag != tagOctetString || len(fContent) != 1 {
-		return ae.Wrapf("msgFlags tag 0x%02x len %d", errV3Malformed, fTag, len(fContent))
+		return errs.Wrapf(errV3Malformed, "msgFlags tag 0x%02x len %d", fTag, len(fContent))
 	}
 	fb := fContent[0]
 	m.flags = msgFlags{
@@ -345,7 +345,7 @@ func decodeGlobalData(m *v3Message, gd []byte) error {
 func decodeUSMSecParams(m *v3Message, datagram []byte, secContentStart int, _ []byte) (authStart, authEnd int, err error) {
 	seq, seqStart, err := sequenceContent(datagram, secContentStart, 1)
 	if err != nil {
-		return 0, 0, ae.Wrap("decode USM security params", err)
+		return 0, 0, errs.Wrap(err, "decode USM security params")
 	}
 	pos := seqStart
 
@@ -422,7 +422,7 @@ func decodeScopedPDUContent(content []byte) (*scopedPDU, error) {
 func decodeScopedPDU(buf []byte) (*scopedPDU, error) {
 	content, _, err := sequenceContent(buf, 0, 0)
 	if err != nil {
-		return nil, ae.Wrap("decode scopedPDU", err)
+		return nil, errs.Wrap(err, "decode scopedPDU")
 	}
 	return decodeScopedPDUContent(content)
 }
@@ -438,7 +438,7 @@ func decodeScopedPDU(buf []byte) (*scopedPDU, error) {
 func decodeAnyMessage(datagram []byte) (v1v2 *message, v3 *v3Decoded, err error) {
 	_, start, err := sequenceContent(datagram, 0, 0)
 	if err != nil {
-		return nil, nil, ae.Wrap("decode message envelope", err)
+		return nil, nil, errs.Wrap(err, "decode message envelope")
 	}
 	ver, _, err := decodeIntAt(datagram, start, "version")
 	if err != nil {
@@ -472,14 +472,14 @@ func sequenceContent(datagram []byte, pos, depth int) (content []byte, contentSt
 func decodeIntAt(datagram []byte, pos int, label string) (val int64, next int, err error) {
 	tag, content, used, err := parseTLV(datagram[pos:])
 	if err != nil {
-		return 0, 0, ae.Wrapf("decode %s", err, label)
+		return 0, 0, errs.Wrapf(err, "decode %s", label)
 	}
 	if tag != tagInteger {
-		return 0, 0, ae.Wrapf("decode %s: tag 0x%02x", errV3Malformed, label, tag)
+		return 0, 0, errs.Wrapf(errV3Malformed, "decode %s: tag 0x%02x", label, tag)
 	}
 	v, err := decodeSignedInt(content)
 	if err != nil {
-		return 0, 0, ae.Wrapf("decode %s", err, label)
+		return 0, 0, errs.Wrapf(err, "decode %s", label)
 	}
 	return v, pos + used, nil
 }
@@ -490,10 +490,10 @@ func decodeIntAt(datagram []byte, pos int, label string) (val int64, next int, e
 func octetStringAt(datagram []byte, pos int, label string) (content []byte, contentStart, next int, err error) {
 	tag, c, used, err := parseTLV(datagram[pos:])
 	if err != nil {
-		return nil, 0, 0, ae.Wrapf("decode %s", err, label)
+		return nil, 0, 0, errs.Wrapf(err, "decode %s", label)
 	}
 	if tag != tagOctetString {
-		return nil, 0, 0, ae.Wrapf("decode %s: tag 0x%02x", errV3Malformed, label, tag)
+		return nil, 0, 0, errs.Wrapf(errV3Malformed, "decode %s: tag 0x%02x", label, tag)
 	}
 	return c, pos + (used - len(c)), pos + used, nil
 }
@@ -510,10 +510,10 @@ func octetAt(datagram []byte, pos int, label string) (content []byte, next int, 
 func expectOctet(buf []byte, label string) (content, rest []byte, err error) {
 	tag, c, used, err := parseTLV(buf)
 	if err != nil {
-		return nil, nil, ae.Wrapf("decode %s", err, label)
+		return nil, nil, errs.Wrapf(err, "decode %s", label)
 	}
 	if tag != tagOctetString {
-		return nil, nil, ae.Wrapf("decode %s: tag 0x%02x", errV3Malformed, label, tag)
+		return nil, nil, errs.Wrapf(errV3Malformed, "decode %s: tag 0x%02x", label, tag)
 	}
 	return c, buf[used:], nil
 }

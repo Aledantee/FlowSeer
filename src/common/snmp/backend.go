@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // defaultPort is the SNMP agent port used when target omits one.
@@ -33,13 +33,13 @@ var (
 	// configuration. The error never carries the community value
 	// itself — community strings are cleartext shared secrets and must not
 	// appear in error text.
-	ErrCommunityMismatch = ae.Msg("response community does not match session")
+	ErrCommunityMismatch = errs.Msg("response community does not match session")
 	// ErrVersionMismatch is returned when an inbound response or trap
 	// carries a different SNMP version than configured.
-	ErrVersionMismatch = ae.Msg("response version does not match session")
+	ErrVersionMismatch = errs.Msg("response version does not match session")
 	// ErrBulkUnsupported is returned by GetBulk/BulkWalk on an SNMPv1
 	// session — GetBulk is a v2c/v3-only PDU.
-	ErrBulkUnsupported = ae.Msg("GetBulk/BulkWalk requires SNMPv2c")
+	ErrBulkUnsupported = errs.Msg("GetBulk/BulkWalk requires SNMPv2c")
 )
 
 // NewSession constructs a [Session]. Options are applied and validated
@@ -63,7 +63,7 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 		return nil, err
 	}
 	if cfg.Version == VersionUnset {
-		return nil, ae.Msg("an explicit SNMP version is required")
+		return nil, errs.Msg("an explicit SNMP version is required")
 	}
 	if err := cfg.EnforceMinSecurity(); err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 	var usm *usmContext
 	if cfg.Version == V3 || cfg.USM != nil {
 		if cfg.USM == nil {
-			return nil, ae.Msg("SNMPv3 requires snmp.WithUSM")
+			return nil, errs.Msg("SNMPv3 requires snmp.WithUSM")
 		}
 		u, err := newUSMContext(ctx, *cfg.USM)
 		if err != nil {
@@ -90,7 +90,7 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 	}
 	peer, err := net.ResolveUDPAddr("udp", net.JoinHostPort(host, strconv.Itoa(int(port))))
 	if err != nil {
-		return nil, ae.Wrapf("resolve %q", err, target)
+		return nil, errs.Wrapf(err, "resolve %q", target)
 	}
 
 	timeout := defaultDialTimeout
@@ -114,7 +114,7 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 		usm:         usm,
 	})
 	if err != nil {
-		return nil, ae.Wrapf("dial %s", err, target)
+		return nil, errs.Wrapf(err, "dial %s", target)
 	}
 
 	// Resolve the Tracer/Meter once, from the injected providers,
@@ -146,13 +146,13 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 // preserving the same accepted target strings.
 func splitTarget(target string) (string, uint16, error) {
 	if target == "" {
-		return "", 0, ae.Msg("target is empty")
+		return "", 0, errs.Msg("target is empty")
 	}
 	body := target
 	if i := strings.Index(body, "://"); i >= 0 {
 		scheme := body[:i]
 		if scheme != "udp" {
-			return "", 0, ae.New().Attr("target", target).Msg("only udp:// scheme is supported")
+			return "", 0, errs.New().Attr("target", target).Msg("only udp:// scheme is supported")
 		}
 		body = body[i+3:]
 	}
@@ -161,17 +161,17 @@ func splitTarget(target string) (string, uint16, error) {
 		if _, errIP := net.ResolveIPAddr("ip", body); errIP == nil || looksLikeBareHost(body) {
 			return body, defaultPort, nil
 		}
-		return "", 0, ae.Wrapf("parse target %q", err, target)
+		return "", 0, errs.Wrapf(err, "parse target %q", target)
 	}
 	if port == "" {
 		return host, defaultPort, nil
 	}
 	p, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		return "", 0, ae.Wrapf("invalid port in %q", err, target)
+		return "", 0, errs.Wrapf(err, "invalid port in %q", target)
 	}
 	if p == 0 {
-		return "", 0, ae.New().Attr("target", target).Msg("port 0 in target")
+		return "", 0, errs.New().Attr("target", target).Msg("port 0 in target")
 	}
 	return host, uint16(p), nil
 }

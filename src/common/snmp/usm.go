@@ -3,7 +3,7 @@ package snmp
 import (
 	"fmt"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // SecurityLevel is the effective SNMPv3 USM security level implied by a
@@ -139,11 +139,11 @@ func (a AuthProtocol) valid() bool {
 //	    t.Fatalf("got %v, want wrapped ErrUSMProtocolUnsupported", err)
 //	}
 //
-// The rejection is wrapped with this sentinel via [ae.Wrap]; [errors.Is]
-// matches through the full wrap chain (ae's multi-error Unwrap is walked
+// The rejection is wrapped with this sentinel via [errs.Wrap]; [errors.Is]
+// matches through the full wrap chain (errs' multi-error Unwrap is walked
 // recursively by Go's errors package), so do not rely on err.Error()
 // string-matching to detect the condition.
-var ErrUSMProtocolUnsupported = ae.Msg("USM protocol not implemented")
+var ErrUSMProtocolUnsupported = errs.Msg("USM protocol not implemented")
 
 // PrivProtocol identifies an SNMPv3 USM privacy (encryption) protocol.
 // [PrivProtocolNone] disables privacy.
@@ -245,34 +245,34 @@ func (c USMConfig) Level() SecurityLevel {
 // reference the field name only.
 func (c USMConfig) Validate() error {
 	if c.Username == "" {
-		return ae.Msg("USMConfig.Username is empty")
+		return errs.Msg("USMConfig.Username is empty")
 	}
 	if !c.AuthProtocol.valid() {
-		return ae.New().Attr("value", int(c.AuthProtocol)).Msg("USMConfig.AuthProtocol is not a known protocol")
+		return errs.New().Attr("value", int(c.AuthProtocol)).Msg("USMConfig.AuthProtocol is not a known protocol")
 	}
 	if !c.PrivProtocol.valid() {
-		return ae.New().Attr("value", int(c.PrivProtocol)).Msg("USMConfig.PrivProtocol is not a known protocol")
+		return errs.New().Attr("value", int(c.PrivProtocol)).Msg("USMConfig.PrivProtocol is not a known protocol")
 	}
 	if c.AuthProtocol == AuthProtocolNone && c.AuthPassphrase != "" {
-		return ae.Msg("USMConfig.AuthPassphrase set but AuthProtocol is none")
+		return errs.Msg("USMConfig.AuthPassphrase set but AuthProtocol is none")
 	}
 	if c.AuthProtocol != AuthProtocolNone && c.AuthPassphrase == "" {
-		return ae.Msg("USMConfig.AuthPassphrase is empty but AuthProtocol requires it")
+		return errs.Msg("USMConfig.AuthPassphrase is empty but AuthProtocol requires it")
 	}
 	if c.PrivProtocol == PrivProtocolNone && c.PrivPassphrase != "" {
-		return ae.Msg("USMConfig.PrivPassphrase set but PrivProtocol is none")
+		return errs.Msg("USMConfig.PrivPassphrase set but PrivProtocol is none")
 	}
 	if c.PrivProtocol != PrivProtocolNone && c.PrivPassphrase == "" {
-		return ae.Msg("USMConfig.PrivPassphrase is empty but PrivProtocol requires it")
+		return errs.Msg("USMConfig.PrivPassphrase is empty but PrivProtocol requires it")
 	}
 	if c.PrivProtocol != PrivProtocolNone && c.AuthProtocol == AuthProtocolNone {
-		return ae.Msg("USMConfig privacy requires authentication (RFC 3414)")
+		return errs.Msg("USMConfig privacy requires authentication (RFC 3414)")
 	}
 	// RFC 3411 §5: snmpEngineID is 5..32 octets when present. An empty
 	// EngineID stays valid — it signals Backend discovery at session
 	// establishment time, which is the typical client-side configuration.
 	if n := len(c.EngineID); n != 0 && (n < 5 || n > 32) {
-		return ae.New().Attr("length", n).Msg("USMConfig.EngineID length outside RFC 3411 range [5,32]")
+		return errs.New().Attr("length", n).Msg("USMConfig.EngineID length outside RFC 3411 range [5,32]")
 	}
 	return nil
 }

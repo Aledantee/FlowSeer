@@ -197,13 +197,37 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
 
 - **Handle every error.** Handle it or return it — never both (no log-and-return:
   the caller will log it again). `_ =` discards must be justifiable in review.
-- Wrap with context when crossing a meaningful boundary: `fmt.Errorf("open session:
-  %w", err)` — or the project's `go.aledante.io/ae` helpers, which are the norm in
-  this codebase (`ae.Msg` for sentinels). Add context the caller doesn't already
-  have; never prefix with `failed to` at every level.
+- The project's own `src/common/errs` package is the norm: `errs.Msg` for sentinels,
+  error-first `errs.Wrap(err, "open session")` / `errs.Wrapf(err, "dial %s", target)`
+  for context, and the `errs.New()` / `errs.From(err)` builder when the error carries
+  a code or attributes. Its `doc.go` is the authoritative reference. Plain
+  `fmt.Errorf("open session: %w", err)` stays fine where nothing structured is
+  needed.
+- Wrap with context when crossing a meaningful boundary. Add context the caller
+  doesn't already have; never prefix with `failed to` at every level.
 - Sentinel errors and error types exist for callers to branch on — match with
   `errors.Is` / `errors.As`, never string comparison. Export a sentinel only when a
   caller genuinely needs to distinguish it; otherwise keep it unexported.
+- Attach a value someone will query or branch on as an attribute
+  (`errs.New().Attr("got", n)`) rather than only interpolating it, so it survives
+  into logs as a field. Interpolating a value that exists to make the message
+  readable is fine — most of `src/common/snmp` does exactly that. Never attach or
+  interpolate raw secret material — attach a length and a protocol name instead.
+- Errors that cross a process boundary carry an `errs.NewCode("<package>/<name>")`
+  code, their stable identity on the wire. Codes are append-only: never renamed,
+  never reused for a different meaning.
+- The error message is written for the log and may name hosts, engine IDs, and
+  call paths. What an end user or an untrusted caller sees goes in `.UserMsg`,
+  with the remedy in `.Hint` — set them at the level closest to that caller,
+  which knows what they were trying to do. Never write the internal message so
+  it can double as both.
+- Mark a transient failure `.Retryable()` where it is diagnosed, and `.Fatal()`
+  at the level that gives up on it, so a poll loop, a broker, or an RPC boundary
+  never has to pattern-match on codes to decide whether to try again. Silence
+  means not retryable.
+- A command that ends the process sets `.ExitCode(n)` on the error that ended
+  it; `main` exits with `errs.ExitCode(err)`, which is 0 for nil and 1 for any
+  error that named no status.
 - Error strings are lowercase and unpunctuated (`"request timed out"`), because they
   compose into larger messages.
 - Context cancellation surfaces as the unwrapped `ctx.Err()`, not a look-alike

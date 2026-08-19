@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // RowStatus is the SMIv2 RowStatus textual convention (RFC 2579).
@@ -50,14 +50,14 @@ func (s RowStatus) String() string {
 // variant's Kind for diagnostics. Exposed via the sentinel — callers
 // distinguish with errors.Is(err, ErrException).
 func exceptionError(vb VarBind) error {
-	return ae.Wrapf("%s", ErrException, vb.GetHeader().Kind)
+	return errs.Wrapf(ErrException, "%s", vb.GetHeader().Kind)
 }
 
 // typeMismatchError builds a wrapped ErrTypeMismatch with the actual and
 // expected wire kinds, suitable for diagnostics. Callers distinguish with
 // errors.Is(err, ErrTypeMismatch).
 func typeMismatchError(got VarBind, want string) error {
-	return ae.Wrapf("got %T, want %s", ErrTypeMismatch, got, want)
+	return errs.Wrapf(ErrTypeMismatch, "got %T, want %s", got, want)
 }
 
 // DecodeMacAddress decodes the SMIv2 MacAddress textual convention: an
@@ -73,7 +73,7 @@ func DecodeMacAddress(vb VarBind) (net.HardwareAddr, error) {
 		return nil, typeMismatchError(vb, "OctetString")
 	}
 	if len(os.Value) != 6 {
-		return nil, ae.New().Attr("got", len(os.Value)).Msg("expected 6 octets")
+		return nil, errs.New().Attr("got", len(os.Value)).Msg("expected 6 octets")
 	}
 	out := make(net.HardwareAddr, 6)
 	copy(out, os.Value)
@@ -106,7 +106,7 @@ func DecodeDateAndTime(vb VarBind) (time.Time, error) {
 	}
 	b := os.Value
 	if len(b) != 8 && len(b) != 11 {
-		return time.Time{}, ae.New().Attr("got", len(b)).Msg("expected 8 or 11 octets")
+		return time.Time{}, errs.New().Attr("got", len(b)).Msg("expected 8 or 11 octets")
 	}
 	year := int(binary.BigEndian.Uint16(b[0:2]))
 	month := int(b[2])
@@ -116,22 +116,22 @@ func DecodeDateAndTime(vb VarBind) (time.Time, error) {
 	second := int(b[6])
 	deci := int(b[7])
 	if month < 1 || month > 12 || day < 1 || day > 31 {
-		return time.Time{}, ae.New().Attr("month", month).Attr("day", day).Msg("out-of-range month/day")
+		return time.Time{}, errs.New().Attr("month", month).Attr("day", day).Msg("out-of-range month/day")
 	}
 	// RFC 2579 §2 field ranges. second = 60 is permitted for leap-second
 	// representation; time.Date normalises it to the next minute, which
 	// is the documented behavior callers expect.
 	if hour > 23 {
-		return time.Time{}, ae.New().Attr("hour", hour).Msg("out-of-range hour (RFC 2579: 0..23)")
+		return time.Time{}, errs.New().Attr("hour", hour).Msg("out-of-range hour (RFC 2579: 0..23)")
 	}
 	if minute > 59 {
-		return time.Time{}, ae.New().Attr("minute", minute).Msg("out-of-range minute (RFC 2579: 0..59)")
+		return time.Time{}, errs.New().Attr("minute", minute).Msg("out-of-range minute (RFC 2579: 0..59)")
 	}
 	if second > 60 {
-		return time.Time{}, ae.New().Attr("second", second).Msg("out-of-range second (RFC 2579: 0..60)")
+		return time.Time{}, errs.New().Attr("second", second).Msg("out-of-range second (RFC 2579: 0..60)")
 	}
 	if deci > 9 {
-		return time.Time{}, ae.New().Attr("deci_second", deci).Msg("out-of-range deci-second (RFC 2579: 0..9)")
+		return time.Time{}, errs.New().Attr("deci_second", deci).Msg("out-of-range deci-second (RFC 2579: 0..9)")
 	}
 	nsec := deci * int(time.Millisecond/time.Nanosecond) * 100
 
@@ -147,13 +147,13 @@ func DecodeDateAndTime(vb VarBind) (time.Time, error) {
 		case '-':
 			sign = -1
 		default:
-			return time.Time{}, ae.New().Attr("direction", dir).Msg("invalid direction-from-UTC")
+			return time.Time{}, errs.New().Attr("direction", dir).Msg("invalid direction-from-UTC")
 		}
 		if offHours > 13 {
-			return time.Time{}, ae.New().Attr("hours_from_utc", offHours).Msg("out-of-range hours-from-UTC (RFC 2579: 0..13)")
+			return time.Time{}, errs.New().Attr("hours_from_utc", offHours).Msg("out-of-range hours-from-UTC (RFC 2579: 0..13)")
 		}
 		if offMins > 59 {
-			return time.Time{}, ae.New().Attr("minutes_from_utc", offMins).Msg("out-of-range minutes-from-UTC (RFC 2579: 0..59)")
+			return time.Time{}, errs.New().Attr("minutes_from_utc", offMins).Msg("out-of-range minutes-from-UTC (RFC 2579: 0..59)")
 		}
 		offsetSec := sign * (offHours*3600 + offMins*60)
 		// FixedZone name is informational; using the offset gives stable
@@ -180,7 +180,7 @@ func DecodeTruthValue(vb VarBind) (bool, error) {
 	case 2:
 		return false, nil
 	}
-	return false, ae.New().Attr("got", iv.Value).Msg("expected 1 or 2")
+	return false, errs.New().Attr("got", iv.Value).Msg("expected 1 or 2")
 }
 
 // DecodeRowStatus decodes the SMIv2 RowStatus textual convention. Values
@@ -199,7 +199,7 @@ func DecodeRowStatus(vb VarBind) (RowStatus, error) {
 		RowStatusCreateAndGo, RowStatusCreateAndWait, RowStatusDestroy:
 		return RowStatus(iv.Value), nil
 	}
-	return 0, ae.New().Attr("value", iv.Value).Msg("unknown value")
+	return 0, errs.New().Attr("value", iv.Value).Msg("unknown value")
 }
 
 // DecodeDisplayString decodes the SMIv2 DisplayString textual convention.

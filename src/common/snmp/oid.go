@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // OID is an SNMP object identifier represented as a sequence of sub-identifiers.
@@ -93,15 +93,15 @@ func newValidatedOID(subs []uint32) (OID, error) {
 // both construction paths short-circuit the empty case before calling.
 func validateSubs(subs []uint32) error {
 	if len(subs) > maxOIDComponents {
-		return ae.New().Attr("count", len(subs)).Attr("max", maxOIDComponents).
+		return errs.New().Attr("count", len(subs)).Attr("max", maxOIDComponents).
 			Msg("sub-identifier count exceeds SMIv2 maximum")
 	}
 	if subs[0] > 2 {
-		return ae.New().Attr("got", subs[0]).
+		return errs.New().Attr("got", subs[0]).
 			Msg("first sub-identifier must be 0, 1, or 2 per SMIv2 (index 0)")
 	}
 	if len(subs) >= 2 && subs[0] <= 1 && subs[1] > 39 {
-		return ae.New().Attr("first", subs[0]).Attr("got", subs[1]).
+		return errs.New().Attr("first", subs[0]).Attr("got", subs[1]).
 			Msg("second sub-identifier must be in [0, 39] when first is 0 or 1 (index 1)")
 	}
 	return nil
@@ -117,7 +117,7 @@ func validateSubs(subs []uint32) error {
 // validation helper, so the two construction paths cannot drift apart.
 func ParseOID(s string) (OID, error) {
 	if s == "" {
-		return OID{}, ae.Msg("empty OID string")
+		return OID{}, errs.Msg("empty OID string")
 	}
 	// Leading dot is optional: ".1.3" and "1.3" both denote
 	// the same OID. Strip exactly one to keep the rest of the parser
@@ -127,25 +127,25 @@ func ParseOID(s string) (OID, error) {
 		s = s[1:]
 	}
 	if s == "" {
-		return OID{}, ae.Msg("OID string contained only a leading dot")
+		return OID{}, errs.Msg("OID string contained only a leading dot")
 	}
 
 	parts := strings.Split(s, ".")
 	subs := make([]uint32, len(parts))
 	for i, p := range parts {
 		if p == "" {
-			return OID{}, ae.New().Attr("oid", s).Msg("empty sub-identifier in OID")
+			return OID{}, errs.New().Attr("oid", s).Msg("empty sub-identifier in OID")
 		}
 		// strconv.ParseUint with bitSize=32 rejects values exceeding
 		// math.MaxUint32 and also rejects leading '+' or '-'.
 		v, err := strconv.ParseUint(p, 10, 32)
 		if err != nil {
-			return OID{}, ae.Wrapf("invalid OID %q: sub-identifier %q", err, s, p)
+			return OID{}, errs.Wrapf(err, "invalid OID %q: sub-identifier %q", s, p)
 		}
 		subs[i] = uint32(v)
 	}
 	if err := validateSubs(subs); err != nil {
-		return OID{}, ae.Wrapf("invalid OID %q", err, s)
+		return OID{}, errs.Wrapf(err, "invalid OID %q", s)
 	}
 	return OID{subs: subs}, nil
 }

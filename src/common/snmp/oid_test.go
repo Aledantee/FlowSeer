@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 func TestParseOID_RoundTrip(t *testing.T) {
@@ -228,7 +228,7 @@ func TestNewOID_ValidatesSMIv2Rules(t *testing.T) {
 			}
 			// The offending value moved from the message into the "got"
 			// structured attribute.
-			if got := ae.Attributes(err)["got"]; got != tc.wantGot {
+			if got := errs.Attributes(err)["got"]; got != tc.wantGot {
 				t.Errorf("NewOID(%v) got attr = %v, want %d", tc.subs, got, tc.wantGot)
 			}
 		})
@@ -249,7 +249,7 @@ func TestNewOID_LengthLimit(t *testing.T) {
 	if err == nil {
 		t.Fatal("NewOID with 129 sub-ids: expected error")
 	}
-	if got := ae.Attributes(err)["max"]; got != maxOIDComponents {
+	if got := errs.Attributes(err)["max"]; got != maxOIDComponents {
 		t.Errorf("max attr = %v, want %d (the 128-cap)", got, maxOIDComponents)
 	}
 
@@ -359,7 +359,7 @@ func TestMustOID_PanicOnLengthCap(t *testing.T) {
 		if !ok {
 			t.Fatalf("panic value %v is not an error", r)
 		}
-		if got := ae.Attributes(err)["max"]; got != maxOIDComponents {
+		if got := errs.Attributes(err)["max"]; got != maxOIDComponents {
 			t.Errorf("panic error max attr = %v, want %d (the 128-cap)", got, maxOIDComponents)
 		}
 	}()

@@ -5,7 +5,7 @@ import (
 	"iter"
 	"math"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // rawwalk.go — the raw varbind fast path consumed by mibgen-generated
@@ -177,7 +177,7 @@ func DecodeIndexArcs(b []byte) (OID, error) {
 		i += adv
 	}
 	if len(subs) > maxOIDComponents {
-		return OID{}, ae.New().Attr("count", len(subs)).Attr("max", maxOIDComponents).
+		return OID{}, errs.New().Attr("count", len(subs)).Attr("max", maxOIDComponents).
 			Msg("sub-identifier count exceeds SMIv2 maximum")
 	}
 	return OID{subs: subs}, nil

@@ -4,19 +4,19 @@ import (
 	"context"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
 // ErrTrapWaitTimeout is returned by [WaitForTrap] when the deadline
 // elapses before a matching trap arrives.
-var ErrTrapWaitTimeout = ae.Msg("timeout before matching trap arrived")
+var ErrTrapWaitTimeout = errs.Msg("timeout before matching trap arrived")
 
 // ErrTrapStreamClosed is returned by [WaitForTrap] when the
 // underlying [snmp.TrapStream] finishes iteration before any matching
 // trap arrives — e.g., the listener was closed or its pump failed.
-var ErrTrapStreamClosed = ae.Msg("stream closed before matching trap arrived")
+var ErrTrapStreamClosed = errs.Msg("stream closed before matching trap arrived")
 
 // WaitForTrap consumes traps from ts via the Scanner-style
 // [snmp.TrapStream.Next] / [snmp.TrapStream.Current] surface until
@@ -69,10 +69,10 @@ var ErrTrapStreamClosed = ae.Msg("stream closed before matching trap arrived")
 // unchanged.
 func WaitForTrap(ctx context.Context, ts *snmp.TrapStream, match func(snmp.Trap) bool, timeout time.Duration) (snmp.Trap, error) {
 	if ts == nil {
-		return snmp.Trap{}, ae.Msg("nil TrapStream")
+		return snmp.Trap{}, errs.Msg("nil TrapStream")
 	}
 	if match == nil {
-		return snmp.Trap{}, ae.Msg("nil match function")
+		return snmp.Trap{}, errs.Msg("nil match function")
 	}
 
 	hits := make(chan snmp.Trap, 1)

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 func TestDecodeMacAddress(t *testing.T) {
@@ -220,7 +220,7 @@ func TestDecodeDateAndTime_FieldRanges(t *testing.T) {
 			}
 			// The offending value moved from the message into a
 			// structured attribute.
-			if got := ae.Attributes(err)[c.attrKey]; got != c.attrVal {
+			if got := errs.Attributes(err)[c.attrKey]; got != c.attrVal {
 				t.Errorf("error %s attr = %v, want %d", c.attrKey, got, c.attrVal)
 			}
 		})

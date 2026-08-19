@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // defaultWatchEventBuffer is the buffer size [NewWatcher] uses for its
@@ -273,20 +273,20 @@ func NewWatcher[Row any](
 	}
 
 	if sess == nil {
-		return failedWatcher(ae.Msg("session is nil"))
+		return failedWatcher(errs.Msg("session is nil"))
 	}
 	if indicator.isZero() {
-		return failedWatcher(ae.Msg("indicator is the zero value; " +
+		return failedWatcher(errs.Msg("indicator is the zero value; " +
 			"use NewPerRowIndicator or NewScalarIndicator"))
 	}
 	if decode == nil {
-		return failedWatcher(ae.Msg("decode is nil"))
+		return failedWatcher(errs.Msg("decode is nil"))
 	}
 	if equal == nil {
-		return failedWatcher(ae.Msg("equal is nil"))
+		return failedWatcher(errs.Msg("equal is nil"))
 	}
 	if merge == nil {
-		return failedWatcher(ae.Msg("merge is nil"))
+		return failedWatcher(errs.Msg("merge is nil"))
 	}
 
 	cfg := ApplyWatchOptions(opts...)
@@ -294,7 +294,7 @@ func NewWatcher[Row any](
 		return failedWatcher(err)
 	}
 	if !cfg.CadenceBoundsSet {
-		return failedWatcher(ae.Msg("WithCadenceBounds is required " +
+		return failedWatcher(errs.Msg("WithCadenceBounds is required " +
 			"(cadence has no library default)"))
 	}
 
@@ -329,7 +329,7 @@ func NewWatcher[Row any](
 	if indicator.isPerRow() {
 		indicatorKey := indicator.columnOID.String()
 		if _, set := cfg.TierOverrides[indicatorKey]; set {
-			return failedWatcher(ae.New().Attr("column_oid", indicatorKey).
+			return failedWatcher(errs.New().Attr("column_oid", indicatorKey).
 				Msg("cannot override tier of indicator column; " +
 					"the indicator is structurally Tier-Indicator and " +
 					"cannot be re-routed"))
@@ -496,14 +496,14 @@ func deriveTableRoot(indicator ChangeIndicator, cols []AnyColumn) (OID, error) {
 	// Scalar covering multiple tables. Find the (single) coverage
 	// table all cols agree on.
 	if len(cols) == 0 {
-		return OID{}, ae.Msg("scalar indicator covers " +
+		return OID{}, errs.Msg("scalar indicator covers " +
 			"multiple tables; cols must be supplied so the Watcher " +
 			"can derive a single table root")
 	}
 	var match OID
 	for _, c := range cols {
 		if c == nil {
-			return OID{}, ae.Msg("cols contains a nil entry")
+			return OID{}, errs.Msg("cols contains a nil entry")
 		}
 		colOID := c.OID()
 		var hit OID
@@ -514,13 +514,13 @@ func deriveTableRoot(indicator ChangeIndicator, cols []AnyColumn) (OID, error) {
 			}
 		}
 		if hit.Len() == 0 {
-			return OID{}, ae.New().Attr("column_oid", colOID).
+			return OID{}, errs.New().Attr("column_oid", colOID).
 				Msg("column is not under any coverage table of the indicator")
 		}
 		if match.Len() == 0 {
 			match = hit
 		} else if !match.Equal(hit) {
-			return OID{}, ae.New().Attr("table_a", match).Attr("table_b", hit).
+			return OID{}, errs.New().Attr("table_a", match).Attr("table_b", hit).
 				Msg("cols span multiple coverage tables; a single Watcher must operate on one table")
 		}
 	}
@@ -625,9 +625,9 @@ func (w *Watcher[Row]) run() {
 		if r := recover(); r != nil {
 			var err error
 			if e, ok := r.(error); ok {
-				err = ae.Wrap("Watcher.run panicked", e)
+				err = errs.Wrap(e, "Watcher.run panicked")
 			} else {
-				err = ae.New().Attr("panic", r).Msg("Watcher.run panicked")
+				err = errs.New().Attr("panic", r).Msg("Watcher.run panicked")
 			}
 			w.fail(err)
 		}
@@ -1469,7 +1469,7 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 		if !ok {
 			// Row vanished between the indicator walk and the
 			// targeted Get. Note as transient and move on.
-			w.recordTickErr(ae.New().Attr("index", s.idx).
+			w.recordTickErr(errs.New().Attr("index", s.idx).
 				Msg("targeted Get returned no rows for index"))
 			continue
 		}
@@ -1495,7 +1495,7 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 		key := s.idx.String()
 		vbs, ok := rowsByIdx[key]
 		if !ok {
-			w.recordTickErr(ae.New().Attr("index", s.idx).
+			w.recordTickErr(errs.New().Attr("index", s.idx).
 				Msg("targeted Get returned no rows for index"))
 			continue
 		}
@@ -1564,7 +1564,7 @@ func (w *Watcher[Row]) scalarTick() (bool, bool) {
 		return false, true
 	}
 	if len(vbs) == 0 {
-		w.recordTickErr(ae.Msg("Get returned no VarBinds"))
+		w.recordTickErr(errs.Msg("Get returned no VarBinds"))
 		return false, true
 	}
 	current := vbs[0]
@@ -1748,15 +1748,15 @@ func parseRowIndexKey(key string) (OID, error) {
 	for i := 0; i <= len(key); i++ {
 		if i == len(key) || key[i] == '.' {
 			if i == start {
-				return OID{}, ae.New().Attr("key", key).
+				return OID{}, errs.New().Attr("key", key).
 					Msg("empty sub-identifier in row index key")
 			}
 			sub := key[start:i]
 			v64, err := strconv.ParseUint(sub, 10, 32)
 			if err != nil {
-				return OID{}, ae.Wrapf(
-					"parseRowIndexKey: sub-identifier %q overflow",
-					err, sub)
+				return OID{}, errs.Wrapf(
+					err,
+					"parseRowIndexKey: sub-identifier %q overflow", sub)
 			}
 			subs = append(subs, uint32(v64))
 			start = i + 1

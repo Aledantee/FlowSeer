@@ -14,6 +14,16 @@ linters:
     - unparam
     - misspell
   settings:
+    govet:
+      # errs.Wrapf/Msgf forward to fmt.Sprintf, so vet infers them today.
+      # Naming them keeps format-string checking on those ~100 call sites if a
+      # wrapper ever stops forwarding directly.
+      settings:
+        printf:
+          funcs:
+            - (go.aledante.io/FlowSeer/src/common/errs).Wrapf
+            - (go.aledante.io/FlowSeer/src/common/errs).Msgf
+            - (go.aledante.io/FlowSeer/src/common/errs.Builder).Msgf
     errcheck:
       # CLI/stderr output is best-effort; a failed write has no caller
       # that could act on it.

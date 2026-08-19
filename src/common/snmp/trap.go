@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Trap is the decoded form of an SNMPv1 trap, SNMPv2c TRAP2, or SNMPv3
@@ -47,7 +47,7 @@ const defaultTrapBuffer = 256
 // stand-alone TrapStream returns when no Backend is wired in — the
 // Scanner-style triple keeps working, but engine registration has no
 // listener to attach to.
-var ErrTrapStreamNotV3Capable = ae.Msg("TrapStream has no v3 engine handler installed")
+var ErrTrapStreamNotV3Capable = errs.Msg("TrapStream has no v3 engine handler installed")
 
 // TrapStream is the consumer-facing view of a running trap listener.
 // Instances are supplied by the [ListenTraps] function; the trap

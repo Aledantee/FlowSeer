@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.aledante.io/ae"
 	"gopkg.in/yaml.v3"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Manifest is the YAML index of T3 .snmprec captures. One entry per
@@ -76,36 +77,36 @@ type ManifestEntry struct {
 func LoadManifest(path string) (Manifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Manifest{}, ae.Wrapf("manifest %s: read", err, path)
+		return Manifest{}, errs.Wrapf(err, "manifest %s: read", path)
 	}
 	var m Manifest
 	if err := yaml.Unmarshal(data, &m); err != nil {
-		return Manifest{}, ae.Wrapf("manifest %s: decode", err, path)
+		return Manifest{}, errs.Wrapf(err, "manifest %s: decode", path)
 	}
 	manifestDir, err := filepath.Abs(filepath.Dir(path))
 	if err != nil {
-		return Manifest{}, ae.Wrapf("manifest %s: resolve dir", err, path)
+		return Manifest{}, errs.Wrapf(err, "manifest %s: resolve dir", path)
 	}
 	seen := make(map[string]int, len(m.Entries))
 	for i, e := range m.Entries {
 		if e.Vendor == "" {
-			return Manifest{}, ae.New().Attr("entry", i).Attr("manifest", path).
+			return Manifest{}, errs.New().Attr("entry", i).Attr("manifest", path).
 				Msg("manifest entry has empty vendor")
 		}
 		if e.Device == "" {
-			return Manifest{}, ae.New().Attr("entry", i).Attr("vendor", e.Vendor).Attr("manifest", path).
+			return Manifest{}, errs.New().Attr("entry", i).Attr("vendor", e.Vendor).Attr("manifest", path).
 				Msg("manifest entry has empty device")
 		}
 		if e.SnmpsimContext == "" {
-			return Manifest{}, ae.New().Attr("entry", i).Attr("vendor", e.Vendor).Attr("device", e.Device).Attr("manifest", path).
+			return Manifest{}, errs.New().Attr("entry", i).Attr("vendor", e.Vendor).Attr("device", e.Device).Attr("manifest", path).
 				Msg("manifest entry has empty snmpsim_context")
 		}
 		if e.Snmprec == "" {
-			return Manifest{}, ae.New().Attr("entry", i).Attr("vendor", e.Vendor).Attr("device", e.Device).Attr("manifest", path).
+			return Manifest{}, errs.New().Attr("entry", i).Attr("vendor", e.Vendor).Attr("device", e.Device).Attr("manifest", path).
 				Msg("manifest entry has empty snmprec")
 		}
 		if dup, ok := seen[e.SnmpsimContext]; ok {
-			return Manifest{}, ae.New().Attr("snmpsim_context", e.SnmpsimContext).Attr("manifest", path).
+			return Manifest{}, errs.New().Attr("snmpsim_context", e.SnmpsimContext).Attr("manifest", path).
 				Attr("first_entry", dup).Attr("second_entry", i).
 				Msg("duplicate snmpsim_context in manifest")
 		}
@@ -114,7 +115,7 @@ func LoadManifest(path string) (Manifest, error) {
 		// snmpsim's community-to-context derivation rule.
 		wantContext := strings.TrimSuffix(e.Snmprec, ".snmprec")
 		if e.SnmpsimContext != wantContext {
-			return Manifest{}, ae.New().Attr("got", e.SnmpsimContext).Attr("want", wantContext).
+			return Manifest{}, errs.New().Attr("got", e.SnmpsimContext).Attr("want", wantContext).
 				Attr("snmprec", e.Snmprec).Attr("entry", i).Attr("vendor", e.Vendor).
 				Attr("device", e.Device).Attr("manifest", path).
 				Msg("snmpsim_context does not match snmprec path (snmpsim routes by file path without the .snmprec extension)")
@@ -124,16 +125,16 @@ func LoadManifest(path string) (Manifest, error) {
 		// joined target and require it to stay under manifestDir.
 		full, err := filepath.Abs(filepath.Join(manifestDir, e.Snmprec))
 		if err != nil {
-			return Manifest{}, ae.Wrapf("manifest %s: entry %d (%s/%s): resolve snmprec path %s", err, path, i, e.Vendor, e.Device, e.Snmprec)
+			return Manifest{}, errs.Wrapf(err, "manifest %s: entry %d (%s/%s): resolve snmprec path %s", path, i, e.Vendor, e.Device, e.Snmprec)
 		}
 		rel, err := filepath.Rel(manifestDir, full)
 		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return Manifest{}, ae.New().Attr("snmprec", e.Snmprec).Attr("entry", i).
+			return Manifest{}, errs.New().Attr("snmprec", e.Snmprec).Attr("entry", i).
 				Attr("vendor", e.Vendor).Attr("device", e.Device).Attr("manifest", path).
 				Msg("snmprec escapes the manifest directory")
 		}
 		if _, err := os.Stat(full); err != nil {
-			return Manifest{}, ae.Wrapf("manifest %s: entry %d (%s/%s): snmprec file %s", err, path, i, e.Vendor, e.Device, e.Snmprec)
+			return Manifest{}, errs.Wrapf(err, "manifest %s: entry %d (%s/%s): snmprec file %s", path, i, e.Vendor, e.Device, e.Snmprec)
 		}
 	}
 	return m, nil

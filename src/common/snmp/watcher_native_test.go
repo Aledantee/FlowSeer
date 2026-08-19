@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"go.aledante.io/ae"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Watcher integration. These tests prove the native
@@ -35,7 +35,7 @@ func newIfWatcher(t *testing.T, sess Session) (*Watcher[ifWatchRow], error) {
 			if tt, ok := vb.(TimeTicksVar); ok {
 				return tt.Value, nil
 			}
-			return 0, ae.New().Attr("type", fmt.Sprintf("%T", vb)).Msg("want TimeTicks")
+			return 0, errs.New().Attr("type", fmt.Sprintf("%T", vb)).Msg("want TimeTicks")
 		})
 	indicator, err := NewPerRowIndicator(indicatorCol, wIfTableRoot)
 	if err != nil {
@@ -46,7 +46,7 @@ func newIfWatcher(t *testing.T, sess Session) (*Watcher[ifWatchRow], error) {
 			if os, ok := vb.(OctetStringVar); ok {
 				return string(os.Value), nil
 			}
-			return "", ae.New().Attr("type", fmt.Sprintf("%T", vb)).Msg("want OctetString")
+			return "", errs.New().Attr("type", fmt.Sprintf("%T", vb)).Msg("want OctetString")
 		})
 
 	decode := func(idx OID, vbs []VarBind) (ifWatchRow, error) {
