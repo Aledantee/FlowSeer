@@ -1,0 +1,25 @@
+module fixture-aug {
+  yang-version 1.1;
+  namespace "urn:flowseer:fixture-aug";
+  prefix fa;
+
+  import fixture-main {
+    prefix fm;
+  }
+
+  revision 2026-01-03 {
+    description "Fixture baseline.";
+  }
+
+  augment "/fm:servers/fm:server" {
+    leaf owner {
+      type string;
+    }
+  }
+
+  leaf sub-typed {
+    type fm:sub-label;
+    description "References a typedef fixture-main defines in its
+      submodule — resolvable only when the flattener inlines it.";
+  }
+}

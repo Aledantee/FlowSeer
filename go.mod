@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/dave/jennifer v1.7.1
+	github.com/openconfig/goyang v1.6.3
 	github.com/sleepinggenius2/gosmi v0.4.4
 	github.com/testcontainers/testcontainers-go v0.44.0
 	go.aledante.io/ae v0.3.0
@@ -43,6 +44,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect

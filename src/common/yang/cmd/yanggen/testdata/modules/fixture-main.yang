@@ -1,0 +1,31 @@
+module fixture-main {
+  yang-version 1.1;
+  namespace "urn:flowseer:fixture-main";
+  prefix fm;
+
+  import fixture-types {
+    prefix ft;
+  }
+
+  include fixture-main-sub;
+
+  revision 2026-01-02 {
+    description "Fixture baseline.";
+  }
+
+  container servers {
+    list server {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf port {
+        type ft:port-number;
+      }
+      leaf legacy-flag {
+        type boolean;
+        description "Deviated away by fixture-dev.";
+      }
+    }
+  }
+}

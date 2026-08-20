@@ -1,0 +1,16 @@
+module fixture-types {
+  yang-version 1.1;
+  namespace "urn:flowseer:fixture-types";
+  prefix ft;
+
+  revision 2026-01-01 {
+    description "Fixture baseline.";
+  }
+
+  typedef port-number {
+    type uint16 {
+      range "1..65535";
+    }
+    description "A transport port.";
+  }
+}

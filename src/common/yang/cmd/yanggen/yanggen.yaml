@@ -1,0 +1,83 @@
+# yanggen configuration — the full vendored YANG surface (KD5).
+#
+# Paths are resolved relative to this file. Each vendor includes every
+# .yang file under its paths; exclusions are explicit skip entries,
+# each carrying the reason it is excluded. Package names derive
+# deterministically from module names; package_overrides resolves the
+# collisions the mangling cannot.
+
+vendors:
+  - name: cisco-iosxe
+    paths:
+      - ../../../../../spec/yang/cisco/iosxe/2611
+    skip:
+      - pattern: "*-deviation"
+        reason: >-
+          The IOS-XE bundle ships 92 per-platform deviation modules
+          (cat9k, wlc, mcp, vxe, ...). Deviations select a platform;
+          applying every platform's bundle to one tree would distort
+          the base schema, and several target nodes goyang cannot
+          resolve at the vendored revisions. Bindings model the base
+          tree; device-specific divergence surfaces via R8 revision
+          drift and the conformance corpus.
+      - module: Cisco-IOS-XE-sla
+        reason: >-
+          goyang rejects repeated `augment` statements inside one
+          `uses` (RFC 7950 §7.13 uses-augment): "augment: already
+          set". Not on any R11 identity path.
+      - module: Cisco-IOS-XE-utd
+        reason: >-
+          Same goyang uses-augment limitation as Cisco-IOS-XE-sla
+          ("augment: already set"). Not on any R11 identity path.
+      - module: Cisco-IOS-XE-utd-events
+        reason: >-
+          Imports the skipped Cisco-IOS-XE-utd, so goyang cannot
+          resolve it either.
+      - module: Cisco-IOS-XE-utd-oper
+        reason: >-
+          Imports the skipped Cisco-IOS-XE-utd, so goyang cannot
+          resolve it either.
+      - module: Cisco-IOS-XE-ios-events-oper
+        reason: >-
+          Imports the skipped Cisco-IOS-XE-utd, so goyang cannot
+          resolve it either.
+
+  - name: ruckus-icx
+    paths:
+      - ../../../../../spec/yang/ruckus/icx/9.0.00
+      # The ICX bundle imports the RFC 6991/7223 standard modules and
+      # iana-if-type without shipping them; spec/yang/ietf vendors the
+      # standard copies (see its SOURCES.md).
+      - ../../../../../spec/yang/ietf
+    skip:
+      - pattern: "icx-*-dev"
+        reason: >-
+          Ruckus's deviation bundles target nodes that do not exist at
+          the vendored OpenConfig revisions (e.g.
+          icx-openconfig-local-routing-dev deviating
+          /local-routes/state), and goyang applies deviations in map
+          order, so the failures surface nondeterministically.
+          Bindings model the base tree; ICX-specific divergence
+          surfaces via the conformance corpus and lab validation. The
+          icx-*-aug augmentation modules stay in. (This also covers
+          icx-openconfig-if-tunnel-dev, whose deviation target module
+          openconfig-if-tunnel is not vendored at all.)
+
+  - name: aruba-cx
+    paths:
+      - ../../../../../spec/yang/aruba/cx/aoscx-yang
+      # The AOS-CX bundle references upstream OpenConfig/IETF modules
+      # it does not ship (openconfig-platform-common, the
+      # openconfig-system import closure, ietf-yang-types);
+      # spec/yang/openconfig vendors the upstream copies (see its
+      # SOURCES.md). The bundle's own copies, listed first, win on
+      # any overlap.
+      - ../../../../../spec/yang/openconfig
+    skip:
+      - module: hpe-anw-cx-openconfig-deviations
+        reason: >-
+          Aruba's device deviation bundle — same policy as the other
+          vendors' deviation modules: bindings model the base tree,
+          and the bundle imports modules (openconfig-acl) the AOS-CX
+          set neither ships nor otherwise needs. Device divergence
+          surfaces via the conformance corpus and lab validation.

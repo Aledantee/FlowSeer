@@ -1,0 +1,24 @@
+submodule fixture-main-sub {
+  yang-version 1.1;
+  belongs-to fixture-main {
+    prefix fm;
+  }
+
+  revision 2026-01-02 {
+    description "Fixture baseline.";
+  }
+
+  typedef sub-label {
+    type string {
+      length "1..32";
+    }
+    description "Defined in a submodule; visible to importers only
+      through the flattener.";
+  }
+
+  container from-submodule {
+    leaf label {
+      type sub-label;
+    }
+  }
+}
