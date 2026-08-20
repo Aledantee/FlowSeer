@@ -46,19 +46,23 @@ type Path struct {
 }
 
 // String renders the path in the gNMI string form:
-// /module:name[key=value]/child[k1=v1][k2=v2]. Within key values, `\`
-// and `]` are escaped with a backslash per the gNMI path
-// specification. [ParsePath] inverts it.
+// /module:name[key=value]/child[k1=v1][k2=v2]. A segment is
+// module-qualified only on module boundaries — a module equal to the
+// previous segment's is elided, matching the inherit rule
+// [ParsePath] applies on the way back in. Within key values, `\` and
+// `]` are escaped with a backslash per the gNMI path specification.
 func (p Path) String() string {
 	if len(p.Segments) == 0 {
 		return "/"
 	}
 	var b strings.Builder
+	mod := ""
 	for _, seg := range p.Segments {
 		b.WriteByte('/')
-		if seg.Module != "" {
+		if seg.Module != "" && seg.Module != mod {
 			b.WriteString(seg.Module)
 			b.WriteByte(':')
+			mod = seg.Module
 		}
 		b.WriteString(seg.Name)
 		for _, kv := range seg.Keys {

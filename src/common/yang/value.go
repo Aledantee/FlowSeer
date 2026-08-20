@@ -84,6 +84,30 @@ type Type struct {
 	Members []Type
 }
 
+// Shared Type singletons for the parameterless kinds. Generated
+// schemas reference these instead of repeating literals — at the
+// full-surface scale (~1,200 modules) the sharing is a material
+// repo-size and link-time win. Decimal64 and unions carry parameters
+// and stay per-leaf literals.
+var (
+	TInt8       = &Type{Kind: TypeInt8}
+	TInt16      = &Type{Kind: TypeInt16}
+	TInt32      = &Type{Kind: TypeInt32}
+	TInt64      = &Type{Kind: TypeInt64}
+	TUint8      = &Type{Kind: TypeUint8}
+	TUint16     = &Type{Kind: TypeUint16}
+	TUint32     = &Type{Kind: TypeUint32}
+	TUint64     = &Type{Kind: TypeUint64}
+	TBool       = &Type{Kind: TypeBool}
+	TString     = &Type{Kind: TypeString}
+	TEnum       = &Type{Kind: TypeEnum}
+	TBits       = &Type{Kind: TypeBits}
+	TBinary     = &Type{Kind: TypeBinary}
+	TEmpty      = &Type{Kind: TypeEmpty}
+	TIdentity   = &Type{Kind: TypeIdentityRef}
+	TInstanceID = &Type{Kind: TypeInstanceID}
+)
+
 // Identity is a resolved identityref value: the identity's name
 // qualified by the name of the module that defines it.
 type Identity struct {

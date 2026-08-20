@@ -483,3 +483,47 @@ Merge gate remains the repo standard: build + vet + lint + `go test -race ./...`
 - `go.mod` gained only the planned dependencies (goyang, nemith/netconf, openconfig/gnmi); no ygot, no gnmic.
 - New library `doc.go` files state the public contract (lifecycle, concurrency safety, error codes); no README drift introduced.
 - Dead-end and experimental code from abandoned approaches removed from the diff; `generated/` contains only generator output.
+
+---
+
+## Follow-Up Notes
+
+### R9 measurement (recorded 2026-08-20, U4)
+
+Full-surface generation across all three vendors (1,051 modules, 112
+reasoned skips):
+
+- **Generation time:** ~19 s wall (`yanggen` full run, M-series laptop).
+- **Generated source:** 208 MB across 1,051 packages; the IOS-XE
+  `Cisco-IOS-XE-native` module alone is ~85 chunked files. Output is
+  chunked at ~2 MB/file because a single-file emission of native
+  (271 MB) broke the Go compiler's SSA passes ("NewBulk too big") —
+  fixed by emitting descriptors as functions (empty package init) and
+  chunking.
+- **Compile cost:** `go build ./generated/go/yang/...` ≈ 59 s wall /
+  215 CPU-s cold; incremental rebuilds are no-ops thanks to Go's build
+  cache, and Go's import-graph pruning keeps unconsumed packages out
+  of every binary.
+- **Git object growth:** ~21.6 MiB of compressed objects for the full
+  tree (zlib ~10:1 on the highly repetitive generated text).
+
+**Decision: commit the generated output** (matching the
+`generated/go/mib` convention): the repo-weight cost is ~22 MiB of
+git objects, the KTD7 lockfile plus `yanggen -check` gates drift
+without regeneration, and committed bindings keep `go build ./...`
+hermetic for every consumer. Revisit only if the vendored surface
+grows past compiler comfort again; the chunking emitter and
+generator-version flag give the escape hatch.
+
+### Architecture note (U4)
+
+Bindings are typed structs plus one exported `yang.Schema` descriptor
+per node; the three wire codecs are generic schema-driven
+implementations in `src/common/yang` rather than per-field generated
+code. Per-list machinery (composite keys, flat rows with ancestor
+keys, descriptor functions) is generated. This keeps R6/R7 semantics
+(one struct, three wire forms; generated code imports only the
+runtime) at ~1/5 the emitted volume of full per-field codecs.
+Synthetic-row descriptors are emitted for top-level containers;
+deeper subtrees compose `yang.SubtreeDescriptor` from the exported
+schema and path.

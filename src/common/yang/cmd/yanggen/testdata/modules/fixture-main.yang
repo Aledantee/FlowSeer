@@ -22,10 +22,77 @@ module fixture-main {
       leaf port {
         type ft:port-number;
       }
+      leaf listen {
+        type ft:port-or-name;
+        description "Union leaf.";
+      }
+      leaf proto {
+        type identityref {
+          base ft:protocol;
+        }
+      }
+      leaf ratio {
+        type decimal64 {
+          fraction-digits 3;
+        }
+      }
       leaf legacy-flag {
         type boolean;
         description "Deviated away by fixture-dev.";
       }
+      container tls {
+        presence "TLS termination enabled";
+        leaf min-version {
+          type enumeration {
+            enum tls12;
+            enum tls13;
+          }
+        }
+      }
+      list endpoint {
+        key "address port";
+        description "Nested list with a compound key; flattened rows
+          carry the parent server's key (KTD4).";
+        leaf address {
+          type string;
+        }
+        leaf port {
+          type ft:port-number;
+        }
+        leaf enabled {
+          type boolean;
+        }
+      }
+    }
+  }
+
+  container bindings {
+    list binding {
+      key "server-ref";
+      description "List keyed by a leafref, resolved to its target
+        type at generation time.";
+      leaf server-ref {
+        type leafref {
+          path "/fm:servers/fm:server/fm:name";
+        }
+      }
+      leaf weight {
+        type uint8;
+      }
+    }
+  }
+
+  container alarm-state {
+    description "Collides with alarmState under naive mangling.";
+    leaf count {
+      type uint32;
+    }
+  }
+
+  container alarmState {
+    description "Collides with alarm-state under naive mangling.";
+    leaf count {
+      type uint32;
     }
   }
 }
