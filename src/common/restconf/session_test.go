@@ -112,6 +112,7 @@ func TestGetEncodesURIAndAuth(t *testing.T) {
 	}
 }
 
+// Covers conformance matrix row: rc-stale-write-conflict
 func TestPutWithETagStaleConflict(t *testing.T) {
 	s := dialTest(t, hostMetaHandler("/restconf", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -137,6 +138,7 @@ func TestPutWithETagStaleConflict(t *testing.T) {
 	}
 }
 
+// Covers conformance matrix row: rc-etag-absent-unconditional
 func TestPutWithoutETagDegradesToUnconditional(t *testing.T) {
 	var sawIfMatch bool
 	var readBacks int
@@ -166,6 +168,7 @@ func TestPutWithoutETagDegradesToUnconditional(t *testing.T) {
 	}
 }
 
+// Covers conformance matrix row: rc-nonconformant-error-body
 func TestErrorDecodeConformantAndMalformed(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -216,6 +219,7 @@ func TestErrorDecodeConformantAndMalformed(t *testing.T) {
 	}
 }
 
+// Covers conformance matrix row: rc-absent-resource-404
 func TestGetAbsentResourceIsNil(t *testing.T) {
 	s := dialTest(t, hostMetaHandler("/restconf", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "{}", http.StatusNotFound)

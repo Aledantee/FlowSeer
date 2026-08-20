@@ -106,6 +106,7 @@ func rpcError(tag nclib.ErrTag, msg string) error {
 	return nclib.RPCErrors{{Tag: tag, Severity: nclib.SevError, Message: msg}}
 }
 
+// Covers conformance matrix row: nc-candidate-running-readonly
 func TestCapabilitySelectsEditTarget(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -162,6 +163,7 @@ func TestApplyCandidateHappyPath(t *testing.T) {
 // TestApplyValidateFailureDiscardsAndUnlocks is the AE2 unit-level
 // analog: a validate rejection triggers discard-changes plus unlock,
 // and the device's error surfaces to the caller.
+// Covers conformance matrix row: nc-validate-fail-discard-unlock
 func TestApplyValidateFailureDiscardsAndUnlocks(t *testing.T) {
 	f := newFake(capCandidate, capValidate)
 	f.fail["validate"] = rpcError(nclib.ErrOperationFailed, "ip address overlaps")
@@ -196,6 +198,7 @@ func TestApplyValidateFailureDiscardsAndUnlocks(t *testing.T) {
 	}
 }
 
+// Covers conformance matrix row: nc-lock-denied-retryable
 func TestLockContentionIsRetryable(t *testing.T) {
 	f := newFake(capCandidate)
 	f.fail["lock"] = rpcError(nclib.ErrLockDenied, "lock held by session 7")
@@ -229,6 +232,7 @@ func TestGetReturnsDataPayload(t *testing.T) {
 // TestKeepaliveLatchesDeadTransport: a peer that stops responding
 // trips the keepalive guard within the configured deadline and
 // latches Err.
+// Covers conformance matrix row: nc-dead-transport-latch
 func TestKeepaliveLatchesDeadTransport(t *testing.T) {
 	f := newFake(capCandidate)
 	f.mu.Lock()

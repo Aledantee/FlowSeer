@@ -59,6 +59,7 @@ func nextEvent[T any](t *testing.T, ch <-chan T) T {
 	panic("unreachable")
 }
 
+// Covers conformance matrix row: gn-presync-buffering
 func TestStreamWatcherColdStartAndBatches(t *testing.T) {
 	release := make(chan struct{})
 	f := &fakeServer{

@@ -86,6 +86,7 @@ func ifacePath(name string) yang.Path {
 	}}
 }
 
+// Covers conformance matrix row: gn-proto-only-encoding
 func TestProtoOnlyPeerRoundTripsGet(t *testing.T) {
 	f := &fakeServer{
 		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
@@ -135,6 +136,7 @@ func TestEncodingNegotiationPrefersJSONIETF(t *testing.T) {
 	}
 }
 
+// Covers conformance matrix row: gn-stream-termination-latch
 func TestSubscribeStreamOrderAndSync(t *testing.T) {
 	update := func(name, val string) *gpb.SubscribeResponse {
 		return &gpb.SubscribeResponse{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{
@@ -231,6 +233,7 @@ func TestSubscribeOnceEndsCleanly(t *testing.T) {
 	}
 }
 
+// Covers conformance matrix row: gn-per-path-set-error
 func TestSetPartialFailureNamesPath(t *testing.T) {
 	f := &fakeServer{
 		encodings: []gpb.Encoding{gpb.Encoding_JSON_IETF},
