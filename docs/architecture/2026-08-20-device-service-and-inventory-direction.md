@@ -226,6 +226,80 @@ from a scope or operator assignment; topological place from the LLDP neighbor
 data ingestion already collects; physical place (`sysLocation`, platform
 address fields) stored, never trusted for routing.
 
+### Offline is not removed
+
+The wire cannot tell a powered-off device from a decommissioned one, so the
+model never infers "removed". Reachability and lifecycle are two axes, and the
+same word never appears on both:
+
+- **Binding reachability** (machine-owned, per path): `VERIFIED → DEGRADED →
+  UNREACHABLE`, with `last_success`, `unreachable_since`, and the failure kind
+  (timeout, auth failure, ICMP-alive-but-management-dead — they mean different
+  things). This is "offline". It flaps and heals on its own; nobody acts.
+- **Device lifecycle** (operator-owned): `ACTIVE → MISSING → RETIRED`.
+  `MISSING` is the only system-set state and is a *suspicion* about our
+  knowledge — every binding unreachable past the tenant's threshold — not a
+  claim about the box; it may be running elsewhere. `RETIRED` is the only state
+  that means "removed" and is set by a person or an explicit policy. Retired
+  devices keep history, bindings, and placements; reappearance un-retires with
+  a note and never creates a duplicate. The word is "missing" rather than
+  "offline" because the state asks someone to look, whereas "offline" promises
+  it will come back by itself.
+
+Evidence the local-network kind gathers to sharpen the suspicion, all from
+data ingestion already collects: the device's LLDP neighbor entry vanished from
+its uplink switch and that port is now down (unplugged); the same port now
+shows a different chassis ID (replaced, plus a new candidate); its MAC is gone
+from FDB/ARP on the segment; its serial appeared via another integration or
+site (a *move* — merge, new Placement, old binding retired); the same IP now
+answers with a different serial (replaced — retire the old binding);
+ICMP answers but the management protocol does not (a credential or config
+problem, never counted toward MISSING). The device service surfaces this as
+"last seen on switch X port Y at T; port now down".
+
+Policy, per tenant, conservative by default: unreachable longer than the
+threshold (default 24 h) → `MISSING` and an alert; DEGRADED alone fires
+nothing; maintenance windows suppress the transition; auto-retire of
+local-network devices is opt-in, needs a long window and corroborating
+evidence, and is off by default — a ghost in the inventory is annoying, a core
+switch silently retired after a long weekend is worse. Never delete.
+
+### Retiring, by hand and by platform
+
+**Operator retire** is an explicit, small, reversible action: from the device
+view or the Missing list (bulk-selectable), *Retire* → reason (decommissioned /
+replaced by … / moved out of scope / unknown) + optional effective date →
+confirm; one inventory RPC, `RetireDevice(ref, reason, effective_at)`. Effects:
+lifecycle `RETIRED`; all bindings `RETIRED`; the open Placement closes;
+monitoring, alerts, pollers and watchers drop it; the integration's
+credentials are untouched; history, events and topology-over-time stay; an
+audit event records who, when, why. *Unretire* restores bindings to CANDIDATE
+and re-verifies. Retire is not purge: hard deletion exists only as a
+tenant-level "forget" for offboarding or data-protection requests — destructive,
+separately authorized, never a per-device button.
+
+**Platform removal auto-retires**, because a controller's or cloud tenant's
+inventory is authoritative for what it manages — its absence is a statement,
+where a local network's absence is silence. On a successful, complete sync in
+which the platform no longer lists serial S: retire that binding at once; if
+it was the device's only binding, auto-retire the device with reason "removed
+from <integration>"; if other bindings exist the device stays ACTIVE with the
+binding retired and a note ("no longer managed by …"). Guards, without which
+this is the most dangerous feature in the product:
+
+- Only a complete sync counts. A failed, partial, rate-limited, or
+  permission-denied inventory listing retires nothing.
+- A mass-drop threshold (e.g. more than 20 % of an integration's devices gone
+  in one sync, or the API key losing org access) holds everything, marks the
+  integration DEGRADED, and alerts; an operator confirms before anything
+  retires. An expired API key must not empty a tenant.
+- *Unassigned* is not *removed*: a device pulled from a Meraki network but still
+  in the org inventory is a scope/Placement change; only "gone from the
+  platform's inventory" triggers retire.
+- A serial that reappears elsewhere within a short window is a *move*: the
+  reason flips from removed to moved, a binding is created on the new
+  integration, and Placement is updated.
+
 ## Transport: NATS as the integration fabric
 
 ```
