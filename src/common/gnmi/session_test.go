@@ -170,11 +170,12 @@ func TestSubscribeStreamOrderAndSync(t *testing.T) {
 
 	var got []string
 	for ev := range stream.Iter() {
-		switch {
-		case ev.Sync:
+		if ev.Sync {
 			got = append(got, "SYNC")
-		default:
-			got = append(got, ev.Update.Path.String()+"="+ev.Update.Value.String)
+			continue
+		}
+		for _, u := range ev.Updates {
+			got = append(got, u.Path.String()+"="+u.Value.String)
 		}
 	}
 	want := []string{

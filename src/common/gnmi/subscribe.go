@@ -49,18 +49,22 @@ type SubscribeOptions struct {
 	Buffer int
 }
 
-// SubscribeEvent is one element of a subscription stream.
+// SubscribeEvent is one element of a subscription stream — one
+// notification batch, or the sync marker. Batch granularity is
+// deliberate: a row changing several leaves arrives as one event, so
+// consumers can emit exactly one change per row (AE4).
 type SubscribeEvent struct {
 	// Sync marks the device's sync_response: the initial state is
 	// complete (the Watcher's cold-start-complete signal). No other
 	// field is set.
 	Sync bool
-	// Delete marks a deletion of Path.
-	Delete bool
-	// Update carries the update for non-sync, non-delete events.
-	Update Update
-	// Path is set for deletes.
-	Path yang.Path
+	// Updates are the notification's updates, prefixes resolved.
+	Updates []Update
+	// Deletes are the notification's deleted paths, prefixes
+	// resolved.
+	Deletes []yang.Path
+	// Timestamp is the notification's device timestamp.
+	Timestamp time.Time
 }
 
 // Stream is a pump-backed subscription. Consume via [Stream.Iter],
@@ -175,7 +179,7 @@ func (s *Session) subscriptionList(opts SubscribeOptions) *gpb.SubscriptionList 
 	return list
 }
 
-// deliver fans one SubscribeResponse into events; false means the
+// deliver fans one SubscribeResponse into one event; false means the
 // consumer signaled termination.
 func (st *Stream) deliver(resp *gpb.SubscribeResponse) bool {
 	switch r := resp.GetResponse().(type) {
@@ -183,24 +187,20 @@ func (st *Stream) deliver(resp *gpb.SubscribeResponse) bool {
 		return st.pump.Send(SubscribeEvent{Sync: true})
 	case *gpb.SubscribeResponse_Update:
 		n := r.Update
-		ts := time.Unix(0, n.GetTimestamp())
+		ev := SubscribeEvent{Timestamp: time.Unix(0, n.GetTimestamp())}
 		prefix := FromProtoPath(n.GetPrefix())
 		for _, u := range n.GetUpdate() {
-			upd, err := decodeUpdate(prefix, u, ts)
+			upd, err := decodeUpdate(prefix, u, ev.Timestamp)
 			if err != nil {
 				st.pump.Fail(err)
 				return false
 			}
-			if !st.pump.Send(SubscribeEvent{Update: upd}) {
-				return false
-			}
+			ev.Updates = append(ev.Updates, upd)
 		}
 		for _, d := range n.GetDelete() {
-			ev := SubscribeEvent{Delete: true, Path: joinPaths(prefix, FromProtoPath(d))}
-			if !st.pump.Send(ev) {
-				return false
-			}
+			ev.Deletes = append(ev.Deletes, joinPaths(prefix, FromProtoPath(d)))
 		}
+		return st.pump.Send(ev)
 	}
 	return true
 }
