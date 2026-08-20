@@ -1,0 +1,117 @@
+-- -----------------------------------------------------------------------------
+-- MIB NAME : ZTP Common mib
+-- FILE NAME: ZTP.mib
+-- DATE     : 2017/08/14
+-- VERSION  : 1.00
+-- PURPOSE  : To construct the MIB structure of Zero Touch Provisioning 
+--            for proprietary enterprise
+-- -----------------------------------------------------------------------------
+-- MODIFICTION HISTORY:
+-- -----------------------------------------------------------------------------
+-- Version, Date, Author
+-- Description:
+-- [New Object]
+-- [Modification]
+-- Notes: (Requested by who and which project)
+-- 
+-- Version 1.00, 2017/08/14, Jean Chen
+-- This is the first formal version for universal MIB definition.
+-- -----------------------------------------------------------------------------  
+
+ZTP-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+	    MODULE-IDENTITY,OBJECT-TYPE     FROM SNMPv2-SMI
+	    dlink-common-mgmt 		        FROM DLINK-ID-REC-MIB;
+
+	swZTPMIB MODULE-IDENTITY
+	    LAST-UPDATED "1708140000Z"
+	    ORGANIZATION "D-Link Corp."
+	    CONTACT-INFO
+	        "http://support.dlink.com"
+	    DESCRIPTION
+	        "The Zero Touch Provisioning module MIB for the proprietary enterprise."
+	    ::= { dlink-common-mgmt 120}
+	    
+    swZTPMIBObjects	OBJECT IDENTIFIER ::= { swZTPMIB 1 }
+	swZTPMIBNotify  OBJECT IDENTIFIER ::= { swZTPMIB 2 }
+
+-- -----------------------------------------------------------------------------
+-- swZTPRebootState
+-- -----------------------------------------------------------------------------
+   swZTPRebootState OBJECT-TYPE
+        SYNTAX  INTEGER {
+               enabled(1),
+               disabled(2)
+               }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the reboot state of reset button function on the switch.
+            disable: system will not execute reboot when user presses reset button within 5 seconds."
+        ::= { swZTPMIBObjects 1 }
+
+-- -----------------------------------------------------------------------------
+-- swZTPGlobalZTPState
+-- -----------------------------------------------------------------------------
+   swZTPGlobalZTPState OBJECT-TYPE
+        SYNTAX  INTEGER {
+               enabled(1),
+               disabled(2)
+               }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the global state of reset button function to ztp on the switch.
+            disable: system will not execute ZTP when user presses reset button between 5 and 10 seconds."
+        ::= { swZTPMIBObjects 2 }
+
+-- -----------------------------------------------------------------------------
+-- swZTPFactoryState
+-- -----------------------------------------------------------------------------
+   swZTPFactoryState OBJECT-TYPE
+        SYNTAX  INTEGER {  
+               enabled(1),
+               disabled(2)
+               }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the factory state of reset button function on the switch.
+            disable: system will not execute factory default when user presses reset button more than 10 seconds."
+        ::= { swZTPMIBObjects 3 }
+
+-- -----------------------------------------------------------------------------
+--	notificationBidings
+-- -----------------------------------------------------------------------------
+    swZTPMIBNotifyBidings OBJECT IDENTIFIER ::= { swZTPMIBNotifyPrefix 1 }
+
+	swResetButtonMode OBJECT-TYPE
+		SYNTAX		INTEGER(1..3)
+		MAX-ACCESS	accessible-for-notify
+		STATUS		current
+		DESCRIPTION
+			"This object indicates which function is triggered by pressing Reset_Button.
+			 1 - Reset function
+			 2 - ZTP function
+			 3 - Factory Reset function"
+
+		::= { swZTPMIBNotifyBidings 1 }
+
+-- -----------------------------------------------------------------------------
+--  swZTPMIBNotify               OBJECT IDENTIFIER ::= { swZTPMIB 2 }
+-- -----------------------------------------------------------------------------
+    swZTPMIBNotifyPrefix         OBJECT IDENTIFIER ::= { swZTPMIBNotify 0 }
+
+    swResetButtonPressedTrap  NOTIFICATION-TYPE
+        OBJECTS {
+            swResetButtonMode
+        }
+        STATUS      current
+        DESCRIPTION
+             " This Notification indicates that 
+			 it detects Reset_Button being pressed and triggers the ZTP function."
+          ::= { swZTPMIBNotifyPrefix 1 }
+
+
+END

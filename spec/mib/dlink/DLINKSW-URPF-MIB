@@ -1,0 +1,286 @@
+-- *****************************************************************
+-- DLINKSW-URPF-MIB.mib : D-Link uRPF MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+
+DLINKSW-URPF-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE			FROM SNMPv2-SMI
+        TruthValue,DisplayString,RowStatus			
+											FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF
+        InterfaceIndex                      FROM IF-MIB
+        dlinkIndustrialCommon               FROM DLINK-ID-REC-MIB;
+
+	dlinkSwUrpfMIB MODULE-IDENTITY
+        LAST-UPDATED "201310160000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of uRPF(Unicast Reverse Path Forwarding) Information for the
+                 proprietary enterprise."         
+
+        REVISION        "201310160000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module."              
+		::= { dlinkIndustrialCommon 169 }
+
+-- -----------------------------------------------------------------------------    
+    dUrpfMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwUrpfMIB 0 }
+	dUrpfMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwUrpfMIB 1 }
+    dUrpfMIBConformance	 	OBJECT IDENTIFIER ::= { dlinkSwUrpfMIB 2 }
+
+-- ----------------------------------------------------------------------------- 
+	dUrpfGlobalCtrl          OBJECT IDENTIFIER ::= { dUrpfMIBObjects 1 }
+
+	dUrpfGlobalState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "This object is used to control the global state of URPF checking.
+			The setting does not take effect until after the next reboot."
+		::= { dUrpfGlobalCtrl 1 }
+
+-- -----------------------------------------------------------------------------
+	dUrpfConfTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DUrpfConfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains URPF checking settings on each port."
+	    ::= { dUrpfMIBObjects 2 }
+	
+	dUrpfConfEntry OBJECT-TYPE
+	    SYNTAX       DUrpfConfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry contains the brief information of counters of all protocols."
+	    INDEX    { dUrpfIfIndex }
+	    ::= { dUrpfConfTable 1 }
+
+	DUrpfConfEntry ::= 	    SEQUENCE {
+	    dUrpfIfIndex				InterfaceIndex,	
+		dUrpfIfState				TruthValue,
+        dUrpfReachable				INTEGER,
+		dUrpfAllowDefault			TruthValue
+	}
+
+	dUrpfIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex 
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "Specify the index of port interface."
+	    ::= { dUrpfConfEntry 1 }
+
+	dUrpfIfState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "Specifies the state of URPF checking on port."
+		DEFVAL { false }
+		::= { dUrpfConfEntry 2 }
+
+	dUrpfReachable OBJECT-TYPE
+        SYNTAX		    INTEGER {  
+            any(1),
+            rx(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "Specifies the mode how Unicast RPF examines the incoming packets.
+			any(1): merely verify if the source address is present in the routing table  
+					(sometimes referred to as loose mode).
+			rx(2): verify if the source address is present in the routing table and 
+					the incoming  interface matches the source is reachable through 
+					the interface on which the packet was received (sometimes referred 
+					to as strict mode)."
+		DEFVAL { 2 }
+		::= { dUrpfConfEntry 3 }
+
+	dUrpfAllowDefault OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "Specifies allowing the use of the default route for URPF verification."
+		DEFVAL { false }
+		::= { dUrpfConfEntry 4 }
+
+
+-- -----------------------------------------------------------------------------
+	dUrpfAccessGroupTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DUrpfAccessGroupEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains the information of access list used by URPF checking."
+	    ::= { dUrpfMIBObjects 3 }
+	
+	dUrpfAccessGroupEntry OBJECT-TYPE
+	    SYNTAX       DUrpfAccessGroupEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry contains the information of access list used by URPF checking.."
+	    INDEX    { dUrpfAccessGroupIfIndex }
+	    ::= { dUrpfAccessGroupTable 1 }
+
+	DUrpfAccessGroupEntry ::= 	    SEQUENCE {
+	    dUrpfAccessGroupIfIndex		InterfaceIndex,	
+		dUrpfAccessGroupListName	DisplayString,
+		dUrpfAccessGroupRowStatus	RowStatus
+	}
+
+	dUrpfAccessGroupIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex 
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "Specify the index of port interface."
+	    ::= { dUrpfAccessGroupEntry 1 }
+
+	dUrpfAccessGroupListName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..32))
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Specifies the name of the IP Access List to be checked."
+	    ::= { dUrpfAccessGroupEntry 2 }
+
+	dUrpfAccessGroupRowStatus OBJECT-TYPE
+	    SYNTAX          RowStatus 
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) are supported."
+	    ::= { dUrpfAccessGroupEntry 3 }
+
+-- -----------------------------------------------------------------------------
+	dUrpfIPv6AccessGroupTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DUrpfIPv6AccessGroupEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains the information of IPv6 access list used by URPF checking."
+	    ::= { dUrpfMIBObjects 4 }
+	
+	dUrpfIPv6AccessGroupEntry OBJECT-TYPE
+	    SYNTAX       DUrpfIPv6AccessGroupEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry contains the information of IPv6 access list used by URPF checking.."
+	    INDEX    { dUrpfIPv6AccessGroupIfIndex }
+	    ::= { dUrpfIPv6AccessGroupTable 1 }
+
+	DUrpfIPv6AccessGroupEntry ::= 	    SEQUENCE {
+	    dUrpfIPv6AccessGroupIfIndex		InterfaceIndex,	
+		dUrpfIPv6AccessGroupListName	DisplayString,
+		dUrpfIPv6AccessGroupRowStatus	RowStatus
+	}
+
+	dUrpfIPv6AccessGroupIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex 
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "Specify the index of port interface."
+	    ::= { dUrpfIPv6AccessGroupEntry 1 }
+
+	dUrpfIPv6AccessGroupListName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..32))
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Specifies the name of the IPv6 Access List to be checked."
+	    ::= { dUrpfIPv6AccessGroupEntry 2 }
+
+	dUrpfIPv6AccessGroupRowStatus OBJECT-TYPE
+	    SYNTAX          RowStatus 
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) are supported."
+	    ::= { dUrpfIPv6AccessGroupEntry 3 }
+
+-- Conformance Information        
+
+    dUrpfMIBGroups      OBJECT IDENTIFIER ::= { dUrpfMIBConformance 1 }
+    dUrpfMIBCompliances OBJECT IDENTIFIER ::= { dUrpfMIBConformance 2 }
+
+-- Compliance Statements
+
+    dUrpfFullCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION     "The compliance statement"
+        MODULE          -- this module
+        MANDATORY-GROUPS {
+            dUrpfGlobalCtrlGroup,
+            dUrpfConfGroup,
+			dUrpfAccessGroup,
+			dUrpfIPv6AccessGroup
+        }
+			              
+        ::= { dUrpfMIBCompliances 1 }
+
+    -- units of conformance
+
+    dUrpfGlobalCtrlGroup OBJECT-GROUP
+        OBJECTS         {
+			dUrpfGlobalState
+        }
+        STATUS          current
+        DESCRIPTION
+            "The object is used to control global state of URPF checking."
+        ::= { dUrpfMIBGroups 1 }
+
+    dUrpfConfGroup OBJECT-GROUP
+        OBJECTS         {
+			dUrpfIfState,
+            dUrpfReachable,
+            dUrpfAllowDefault
+        }
+        STATUS          current
+        DESCRIPTION
+            "The object is used to change the setting of URPF checking on each port."
+       ::= { dUrpfMIBGroups 2 }
+
+    dUrpfAccessGroup OBJECT-GROUP
+        OBJECTS         {
+			dUrpfAccessGroupListName,
+            dUrpfAccessGroupRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "The object is used to set access list used by URPF checking."
+       ::= { dUrpfMIBGroups 3 }
+
+    dUrpfIPv6AccessGroup OBJECT-GROUP
+        OBJECTS         {
+			dUrpfIPv6AccessGroupListName,
+            dUrpfIPv6AccessGroupRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "The object is used to set IPv6 access list used by URPF checking."
+       ::= { dUrpfMIBGroups 4 }
+
+END

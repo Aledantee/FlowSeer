@@ -1,0 +1,244 @@
+-- *****************************************************************
+-- DLINKSW-CLI-ALIAS-MIB: D-Link CLI Alias MIB
+--
+--  Copyright (c) 2016 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+
+
+DLINKSW-CLI-ALIAS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF
+        RowStatus, DisplayString
+		    FROM SNMPv2-TC
+        dlinkIndustrialCommon
+            FROM DLINK-ID-REC-MIB;
+
+    dlinkSwCliAliasMIB MODULE-IDENTITY
+        LAST-UPDATED    "201602240000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "   D-Link Corporation
+
+                Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                        Taipei City 114, Taiwan, R.O.C
+                Tel:     +886-2-66000123
+                E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for CLI alias function."
+		
+        REVISION        "201602240000Z"
+        DESCRIPTION
+            "Add range for index 'dcaCmdModeIdx'."		
+		
+        REVISION        "201601180000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."
+
+        ::= { dlinkIndustrialCommon 191 }
+
+--
+-- Node definitions
+--
+
+    dcaMIBNotifications OBJECT IDENTIFIER ::= { dlinkSwCliAliasMIB 0 }
+    dcaMIBObjects       OBJECT IDENTIFIER ::= { dlinkSwCliAliasMIB 1 }
+    dcaMIBConformance	OBJECT IDENTIFIER ::= { dlinkSwCliAliasMIB 2 }
+	
+-- -----------------------------------------------------------------------------
+	
+    dcaCmdModeTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DcaCmdModeEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The table is used to display information for CLI Command mode.
+			For example:
+			
+			Command Mode Name            Description
+			---------------------------  --------------------------------------------
+			ca-trustponit                Trustpoint configure mode Definition
+			class-map                    class map configuration mode
+			line                         Line configuration mode
+			configure                    Global configuration mode
+			exec                         Exec mode
+			...
+			"
+        ::= { dcaMIBObjects 1 }	
+	
+	dcaCmdModeEntry OBJECT-TYPE
+        SYNTAX          DcaCmdModeEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry contains Command mode name and description."
+        INDEX   { 
+					dcaCmdModeIdx
+				}
+        ::= { dcaCmdModeTable 1 }	
+		
+    DcaCmdModeEntry ::= SEQUENCE {
+		dcaCmdModeIdx			INTEGER,
+		dcaCmdModeName 			DisplayString,
+		dcaCmdModeDescription	DisplayString
+    }	
+	
+    dcaCmdModeIdx OBJECT-TYPE
+        SYNTAX          INTEGER (1..65535)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the Command mode index."
+        ::= { dcaCmdModeEntry 1 }
+
+    dcaCmdModeName OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the Command mode name."
+        ::= { dcaCmdModeEntry 2 }
+		
+    dcaCmdModeDescription OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the Command mode description."
+        ::= { dcaCmdModeEntry 3 }	
+	
+    dcaAliasTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DcaAliasEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The table is used to display information for CLI alias of specific command mode.
+			For example:
+			
+			Command Alias     Original Command                    Command Mode       
+			----------------  ----------------------------------  -------------------
+			h                 help                                exec
+			lo                logout                              exec
+			p                 ping                                exec
+			s                 show                                exec
+			sr                show running-config                 exec
+			class             access-class                        line
+			...			
+			"
+        ::= { dcaMIBObjects 2 }		
+
+	dcaAliasEntry OBJECT-TYPE
+        SYNTAX          DcaAliasEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry contains command alias and original command syntax for a command mode."
+        INDEX   { 
+					dcaCmdModeIdx,
+					dcaAliasCmd
+				}
+        ::= { dcaAliasTable 1 }
+
+    DcaAliasEntry ::= SEQUENCE {
+		dcaAliasCmd   		DisplayString,
+		dcaOriginalCmd 		DisplayString,
+		dcaAliasModeName 	DisplayString,
+		dcaAliasRowStatus	RowStatus
+    }
+						
+	dcaAliasCmd OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (1..16))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+             "This object indicates the Command alias."
+        ::= { dcaAliasEntry 1 }
+
+	dcaOriginalCmd OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (1..128))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the Original command syntax."
+        ::= { dcaAliasEntry 2 }
+		
+	dcaAliasModeName OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+             "This object indicates the Command mode of the command alias.
+			 Note: It is only used to display the command mode the alias
+			 belongs. When creating a new alias, please use 'dcaCmdModeIdx'
+			 in 'dcaCmdModeTable' to specify the command mode."
+        ::= { dcaAliasEntry 3 }	
+		
+    dcaAliasRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the status of the entry."
+        ::= { dcaAliasEntry 99 }
+		
+-- -----------------------------------------------------------------------------
+-- MIB Notifications statements
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+
+    dcaMIBCompliances    OBJECT IDENTIFIER
+        ::= { dcaMIBConformance 1 }
+
+    dcaMIBGroups    OBJECT IDENTIFIER
+        ::= { dcaMIBConformance 2 } 
+		
+    dcaMIBCompliance    MODULE-COMPLIANCE
+        STATUS                  current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+            DLINKSW-CLI-ALIAS-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS
+        {   
+			dcaCmdModeGroup,
+			dcaAliasGroup           
+        }                 
+        ::= { dcaMIBCompliances 1 }		
+		
+-- -----------------------------------------------------------------------------
+		
+    dcaCmdModeGroup    OBJECT-GROUP
+        OBJECTS
+        { 
+			dcaCmdModeName,
+			dcaCmdModeDescription
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing management of the CLI Command mode."
+        ::= { dcaMIBGroups 1 } 		
+	
+	
+	
+	dcaAliasGroup    OBJECT-GROUP
+        OBJECTS
+        { 
+			dcaAliasModeName,
+			dcaAliasCmd,
+			dcaOriginalCmd,
+			dcaAliasRowStatus
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing management of the CLI Alias feature."
+        ::= { dcaMIBGroups 2 } 		
+
+END

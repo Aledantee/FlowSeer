@@ -1,0 +1,1109 @@
+-- *****************************************************************
+-- DLINKSW-OSPFV2-MIB.mib : D-Link OSPF MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+
+DLINKSW-OSPFV2-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,
+        Integer32,Unsigned32,IpAddress            	FROM SNMPv2-SMI
+        TruthValue,DisplayString, 
+        RowStatus   								FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP				FROM SNMPv2-CONF
+        InterfaceIndex                      		FROM IF-MIB
+        dlinkIndustrialCommon               		FROM DLINK-ID-REC-MIB;
+
+	dlinkSwOspfv2MIB MODULE-IDENTITY
+        LAST-UPDATED "201901070000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of OSPFv2 Information for the
+                 proprietary enterprise."     
+        REVISION        "201308290000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module."       
+
+        REVISION        "201311050000Z"
+        DESCRIPTION
+            "Modify the access of objects dOspfv2PassiveIfDefault, dOspfv2VLinkState"   
+ 
+	REVISION        "201408270000Z"
+        DESCRIPTION
+            "Update RowStatus objects. Remove some objects."
+
+	REVISION        "201503160000Z"
+        DESCRIPTION
+            "Add a new 'isis' value for object dOspfv2RedistProtocol."
+
+	REVISION        "201507210000Z"
+        DESCRIPTION
+            "Add new object dOspfv2LogAdjacencyChanges."
+
+        REVISION        "201509060000Z"
+        DESCRIPTION
+            "Add new objects dOspfv2GRRestartHelperMode,dOspfv2GRRestartHelperMaxGracePeriod and 
+            dOspfv2CompatibleRfc3509."
+
+	REVISION        "201510150000Z"
+        DESCRIPTION
+            "Add new object dOspfv2IfBfdState."
+
+	REVISION        "201512220000Z"
+        DESCRIPTION
+            "Correct typo."
+
+        REVISION        "201705100000Z"
+        DESCRIPTION
+            "Add new objects dOspfv2ReferenceBandwidth."
+
+        REVISION        "201707130000Z"
+        DESCRIPTION
+            "Add new object dOspfv2MaxPathsNum and table dOspfv2DistanceTable 
+            to support multiple ospf process."
+        REVISION        "201901070000Z"
+        DESCRIPTION
+            "Add two MIB objects: dOspfv2CompatibleRFC1583"           
+		::= { dlinkIndustrialCommon 122 }
+    
+	dOspfv2MIBObjects			OBJECT IDENTIFIER ::= { dlinkSwOspfv2MIB 1 }
+    dOspfv2MIBConformance		OBJECT IDENTIFIER ::= { dlinkSwOspfv2MIB 2 }
+
+
+	dOspfv2GlobalCtrl          OBJECT IDENTIFIER ::= { dOspfv2MIBObjects 1 }
+
+	dOspfv2DefMetric OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Specify the default metric value for the redistributed routes."
+		::= { dOspfv2GlobalCtrl 1 }
+
+	dOspfv2PassiveIfDefault OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+           "This object indicates the default passive state for the interfaces 
+           on which the passive state is not explicitly configured.
+           When this object is true(1), the default passive state is enabled.  
+           When false(2), the default passive state is disabled."
+		::= { dOspfv2GlobalCtrl 2 }
+    
+	dOspfv2DefInfoOriginState OBJECT-TYPE
+        SYNTAX 		TruthValue
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Specify to enable or disable defualt information originate function."
+		::= { dOspfv2GlobalCtrl 3 }
+
+	dOspfv2DefInfoOriginAlways OBJECT-TYPE
+        SYNTAX 		TruthValue
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Always generate the default route regardless of existence of a 
+            default route in the redistricted routes."
+		::= { dOspfv2GlobalCtrl 4 }
+
+	dOspfv2DefInfoOriginMetric OBJECT-TYPE
+        SYNTAX Integer32 (0..16777214)
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Always generate the default route regardless of existence of a 
+            default route in the redistricted routes."
+		::= { dOspfv2GlobalCtrl 5 }
+
+	dOspfv2LogAdjacencyChanges OBJECT-TYPE
+	SYNTAX INTEGER {
+		disabled(1),
+		enabled(2),
+		detail(3)
+		}
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Records OSPF neighbors going up or down."
+		::= { dOspfv2GlobalCtrl 6 }
+
+	dOspfv2GRRestartHelperMode OBJECT-TYPE
+	SYNTAX INTEGER {
+		unspecific(1),
+		never(2),
+		only-reload(3),
+		only-upgrade(4)
+		}
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Graceful Restart local policy as helper mode."
+		::= { dOspfv2GlobalCtrl 7 }
+
+	dOspfv2GRRestartHelperMaxGracePeriod OBJECT-TYPE
+	SYNTAX Integer32
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Graceful Restart maximum grace period in seconds accepted by helper."
+		::= { dOspfv2GlobalCtrl 8 }
+
+	dOspfv2CompatibleRfc3509 OBJECT-TYPE
+	SYNTAX 		TruthValue
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Implement ABR behaviors as defined in RFC3509."
+		::= { dOspfv2GlobalCtrl 9 }
+
+    dOspfv2ReferenceBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-write
+        STATUS       current
+        DESCRIPTION
+           "Reference bandwidth in megabits per second (MBPS) for
+            calculating default interface metrics."
+		::= { dOspfv2GlobalCtrl 10 }
+
+	dOspfv2MaxPathsNum OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "the maximum number of parallel routes to the same destination network 
+           learned from the protocol that can be installed in the routing table simultaneously"
+		::= { dOspfv2GlobalCtrl 11 } 
+		
+	dOspfv2CompatibleRFC1583 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Used to configure the method for choosing among multiple 
+           AS external routes advertising the same destination whether 
+           backward compatible to RFC1583."  
+        DEFVAL { false }
+		::= { dOspfv2GlobalCtrl 12 }
+
+
+
+	dOspfv2StubAreaTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DOspfv2StubAreaEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "Opertaions table of OSPFv2 stub areas."
+	    ::= { dOspfv2MIBObjects 2 }
+
+	dOspfv2StubAreaEntry OBJECT-TYPE
+	    SYNTAX       DOspfv2StubAreaEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv2StubAreaTable containing the operational
+	         characteristics of OSPFv2 stub areas."
+	    INDEX    { dOspfv2StubAreaId }
+	    ::= { dOspfv2StubAreaTable 1 }
+
+	DOspfv2StubAreaEntry ::=	    SEQUENCE {
+	    	dOspfv2StubAreaId				IpAddress,	
+	    	dOspfv2StubAreaSummary			TruthValue,
+	    	dOspfv2StubAreaDefCost			Integer32,
+			dOspfv2StubAreaRowStatus		RowStatus
+	}
+
+	dOspfv2StubAreaId OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "The stub area's ID."
+		::= { dOspfv2StubAreaEntry 1 }
+
+	dOspfv2StubAreaSummary OBJECT-TYPE
+        SYNTAX 		TruthValue
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify to import the summary LSA or not."
+		::= { dOspfv2StubAreaEntry 2 }
+
+	dOspfv2StubAreaDefCost OBJECT-TYPE
+        SYNTAX Integer32 (0..16777215)
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify the cost associated with the type 3 default route 
+           that will be automatically injected to the stub area."
+		::= { dOspfv2StubAreaEntry 3 }
+
+	dOspfv2StubAreaRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dOspfv2StubAreaEntry 99 }
+
+	dOspfv2NssaAreaTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DOspfv2NssaAreaEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "Opertaions table of OSPFv2 stub areas."
+	    ::= { dOspfv2MIBObjects 3 }
+
+	dOspfv2NssaAreaEntry OBJECT-TYPE
+	    SYNTAX       DOspfv2NssaAreaEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv2NssaAreaTable containing the operational
+	         characteristics of OSPFv2 stub areas."
+	    INDEX    { dOspfv2NssaAreaId }
+	    ::= { dOspfv2NssaAreaTable 1 }
+
+	DOspfv2NssaAreaEntry ::=	    SEQUENCE {
+	    	dOspfv2NssaAreaId				IpAddress,	
+	    	dOspfv2NssaAreaSummary			TruthValue,
+	    	dOspfv2NssaAreaDefCost			Integer32,
+			dOspfv2NssaAreaRowStatus		RowStatus
+	}
+
+	dOspfv2NssaAreaId OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "The stub area's ID."
+		::= { dOspfv2NssaAreaEntry 1 }
+
+	dOspfv2NssaAreaSummary OBJECT-TYPE
+        SYNTAX 		TruthValue
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify to import the summary LSA or not."
+		::= { dOspfv2NssaAreaEntry 2 }
+
+	dOspfv2NssaAreaDefCost OBJECT-TYPE
+        SYNTAX Integer32 (0..16777215)
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify the cost associated with the default route 
+           that will be automatically injected to the stub area."
+		::= { dOspfv2NssaAreaEntry 3 }
+
+	dOspfv2NssaAreaRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dOspfv2NssaAreaEntry 99 }
+
+	dOspfv2AreaRangeTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DOspfv2AreaRangeEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "Opertaions table of OSPFv2 area ranges."
+	    ::= { dOspfv2MIBObjects 4 }
+
+	dOspfv2AreaRangeEntry OBJECT-TYPE
+	    SYNTAX       DOspfv2AreaRangeEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv2AreaRangeTable containing the operational
+	         characteristics of OSPFv2 area ranges."
+	    INDEX    { dOspfv2AreaRangeAreaId,dOspfv2AreaRangeAreaNet,dOspfv2AreaRangeAreaMask }
+	    ::= { dOspfv2AreaRangeTable 1 }
+
+	DOspfv2AreaRangeEntry ::=	    SEQUENCE {
+	    	dOspfv2AreaRangeAreaId			IpAddress,	
+	    	dOspfv2AreaRangeAreaNet			IpAddress,
+	    	dOspfv2AreaRangeAreaMask		IpAddress,
+	    	dOspfv2AreaRangeEffect			INTEGER,
+			dOspfv2AreaRangeRowStatus		RowStatus
+	}
+
+	dOspfv2AreaRangeAreaId OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the area from which the routes will be summarized."
+		::= { dOspfv2AreaRangeEntry 1 }
+
+
+	dOspfv2AreaRangeAreaNet OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the network address of the summary route."
+		::= { dOspfv2AreaRangeEntry 2 }
+
+	dOspfv2AreaRangeAreaMask OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the network mask of the summary route."
+		::= { dOspfv2AreaRangeEntry 3 }
+
+	dOspfv2AreaRangeEffect OBJECT-TYPE
+        SYNTAX INTEGER {
+               advertise(1),
+               not-advertise(2)
+               }
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify wether to advertise a Type 3 summary LSA for 
+           the specified range of addresses."
+		::= { dOspfv2AreaRangeEntry 4 }
+
+	dOspfv2AreaRangeRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dOspfv2AreaRangeEntry 99 }
+
+
+	dOspfv2NetworkTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DOspfv2NetworkEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table provides a mechanism to specify a network as one that runs
+            OSPFv2."
+	    ::= { dOspfv2MIBObjects 5 }
+	
+	dOspfv2NetworkEntry OBJECT-TYPE
+	    SYNTAX          DOspfv2NetworkEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry in the dOspfv2NetworkTable containing the operational
+	        characteristics of OSPFv2 network."
+	    INDEX    { 
+            dOspfv2NetworkPrefix, 
+            dOspfv2NetworkMask 
+        }
+	    ::= { dOspfv2NetworkTable 1 }
+
+	DOspfv2NetworkEntry ::= 	    SEQUENCE {
+	    dOspfv2NetworkPrefix    	    IpAddress,	
+	    dOspfv2NetworkMask	    	    IpAddress,	
+	    dOspfv2NetworkAreaId	    	IpAddress,
+		dOspfv2NetworkRowStatus			RowStatus
+	}
+
+	dOspfv2NetworkPrefix OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the subnet prefix of the network."
+	    ::= { dOspfv2NetworkEntry 1 }
+
+	dOspfv2NetworkMask OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the mask of the network."
+	    ::= { dOspfv2NetworkEntry 2 }
+
+	dOspfv2NetworkAreaId OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Specify the identifier of the area to be created."
+	    ::= { dOspfv2NetworkEntry 3 }
+
+	dOspfv2NetworkRowStatus OBJECT-TYPE
+     	SYNTAX          RowStatus
+     	MAX-ACCESS      read-create
+     	STATUS          current
+     	DESCRIPTION
+         "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     ::= { dOspfv2NetworkEntry 99 }
+
+	dOspfv2IfTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DOspfv2IfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "Opertaions table of OSPFv2 interface."
+	    ::= { dOspfv2MIBObjects 6 }
+
+	dOspfv2IfEntry OBJECT-TYPE
+	    SYNTAX       DOspfv2IfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv2IfTable containing the operational
+	         characteristics of OSPFv2 interface."
+	    INDEX    { dOspfv2IfIndex }
+	    ::= { dOspfv2IfTable 1 }
+
+	DOspfv2IfEntry ::=	    SEQUENCE {
+	    	dOspfv2IfIndex	    	        InterfaceIndex,
+            dOspfv2IfAddress				IpAddress,
+            dOspfv2IfMask					IpAddress,
+	    	dOspfv2IfAreaId					IpAddress,	
+	    	dOspfv2IfType					INTEGER,
+            dOspfv2IfMetric					Integer32,
+            dOspfv2IfDeadInterval			Integer32,
+            dOspfv2IfHelloInterval			Integer32,
+            dOspfv2IfRetransInterval		Integer32,
+            dOspfv2IfTransitDelay			Integer32,
+            dOspfv2IfPriority				Integer32,
+            dOspfv2IfAuthType			 	INTEGER,
+            dOspfv2IfAuthKey			 	DisplayString,
+            dOspfv2IfAuthKeyId			 	Integer32,
+            dOspfv2IfState			 		INTEGER,
+            dOspfv2IfPassiveMode            INTEGER,
+            dOspfv2IfDR			 			IpAddress,
+            dOspfv2IfBDR			 		IpAddress,
+            dOspfv2IfBfdState				INTEGER
+	}
+
+	dOspfv2IfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The ifIndex value of the OSPFv2 interface."
+	    ::= { dOspfv2IfEntry 1 }
+
+	dOspfv2IfAddress OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "Network address of OSPFv2 interface."
+	    ::= { dOspfv2IfEntry 2 }
+
+	dOspfv2IfMask OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "Network mask of OSPFv2 interface."
+	    ::= { dOspfv2IfEntry 3 }
+
+	dOspfv2IfAreaId OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The area that the OSPFv2 interface is attached to."
+	    ::= { dOspfv2IfEntry 4 }
+
+	dOspfv2IfType OBJECT-TYPE
+	    SYNTAX          INTEGER {
+                        broadcast(1),
+                        ponintToPoint(2)
+                        }
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "The network type of the OSPFv2 interface."
+	    ::= { dOspfv2IfEntry 5 }
+
+	dOspfv2IfMetric OBJECT-TYPE
+	    SYNTAX          Integer32 (1..65535)
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "The cost of the OSPFv2 interface."
+	    ::= { dOspfv2IfEntry 6 }
+
+	dOspfv2IfDeadInterval OBJECT-TYPE
+	    SYNTAX          Integer32 (1..65535)
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "The interval during which at least one hello packet form a 
+             neighbor must be received before it is declared dead."
+	    ::= { dOspfv2IfEntry 7 }
+
+	dOspfv2IfHelloInterval OBJECT-TYPE
+	    SYNTAX          Integer32 (1..65535)
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "The interval between hello packets."
+	    ::= { dOspfv2IfEntry 8 }
+
+	dOspfv2IfRetransInterval OBJECT-TYPE
+	    SYNTAX          Integer32 (1..65535)
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The time for retransmission of LSA
+             to adjacencies belonging to the interface."
+	    ::= { dOspfv2IfEntry 9 }
+
+	dOspfv2IfTransitDelay OBJECT-TYPE
+	    SYNTAX          Integer32 (1..65535)
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The estimated delay of time the router takes to 
+             transmit a LSA packet on the interface."
+	    ::= { dOspfv2IfEntry 10 }
+
+	dOspfv2IfPriority OBJECT-TYPE
+	    SYNTAX          Integer32 (0..255)
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "The router priority that is used to determine 
+             the designated router for the network."
+	    ::= { dOspfv2IfEntry 11 }
+
+	dOspfv2IfAuthType OBJECT-TYPE
+	    SYNTAX          INTEGER {
+                        none(0),
+                        simplePassword(1),
+                        md5(2)
+                        }
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "Specify the type of authentication used on the interface."
+	    ::= { dOspfv2IfEntry 12 }
+
+	dOspfv2IfAuthKey OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..16))
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "Specify the authentication password. It is a simple password when the 
+             dOspfv2IfAuthType is simplePassword(1) and a MD5 key when the 
+             dOspfv2IfAuthType is md5(2)."
+	    ::= { dOspfv2IfEntry 13 }
+
+	dOspfv2IfAuthKeyId OBJECT-TYPE
+	    SYNTAX          Integer32 (1..255)
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "Specify the MD5 key ID."
+	    ::= { dOspfv2IfEntry 14 }
+
+	dOspfv2IfState OBJECT-TYPE
+	    SYNTAX          INTEGER {
+                        down(1),
+                        loopback(2),
+                        waiting(3),
+                        pointToPoint(4),
+                        designatedRouter(5),
+                        backupDesignatedRouter(6),
+                        otherDesignatedRouter(7)
+                        }
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "State of the OSPFv2 interface."
+	    ::= { dOspfv2IfEntry 15 }
+
+	dOspfv2IfPassiveMode OBJECT-TYPE   	    
+	    SYNTAX          INTEGER  {
+            followGlobal(0),
+            disabled(1),
+            enabled(2)
+        }        
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the OSPF passive state on the interface.
+            The value of 'followGlobal' indicates the passive state is not explicitly 
+            specified on the interface, and global default passive state is followed.
+            "
+	    ::= { dOspfv2IfEntry 16 }
+
+	dOspfv2IfDR OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The IP address of the Designated Router."
+	    ::= { dOspfv2IfEntry 17 }
+
+	dOspfv2IfBDR OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The IP address of the Bakcup Designated Router."
+	    ::= { dOspfv2IfEntry 18 }
+
+	dOspfv2IfBfdState OBJECT-TYPE
+	    SYNTAX INTEGER {
+		disabled(1),
+		enabled(2)
+		}
+	    MAX-ACCESS  read-write
+	    STATUS  current
+	    DESCRIPTION
+		"Indicate the opertional state of BFD on this interface."
+		::= { dOspfv2IfEntry 19 }
+
+	dOspfv2VirtualLinkTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DOspfv2VirtualLinkEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "Opertaions table of OSPFv2 virtual links."
+	    ::= { dOspfv2MIBObjects 7 }
+
+	dOspfv2VirtualLinkEntry OBJECT-TYPE
+	    SYNTAX       DOspfv2VirtualLinkEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv2VirtualLinkTable containing the operational
+	         characteristics of OSPFv2 virtual links."
+	    INDEX    { dOspfv2VLinkAreaId,dOspfv2VLinkNbrId }
+	    ::= { dOspfv2VirtualLinkTable 1 }
+
+	DOspfv2VirtualLinkEntry ::=	    SEQUENCE {
+	    	dOspfv2VLinkAreaId				IpAddress,	
+	    	dOspfv2VLinkNbrId				IpAddress,	
+	    	dOspfv2VLinkDeadInterval		Integer32,
+	    	dOspfv2VLinkHelloInterval		Integer32,
+	    	dOspfv2VLinkTransitDelay		Integer32,
+	    	dOspfv2VLinkRetransInterval		Integer32,
+	    	dOspfv2VLinkAuthType			INTEGER,
+	    	dOspfv2VLinkAuthKey				DisplayString,
+	    	dOspfv2VLinkAuthKeyId			Integer32,
+	    	dOspfv2VLinkState				INTEGER,
+			dOspfv2VLinkRowStatus			RowStatus
+	}
+
+	dOspfv2VLinkAreaId OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the identifier of the area to establish the virtual link."
+		::= { dOspfv2VirtualLinkEntry 1 }
+
+	dOspfv2VLinkNbrId OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the Router ID of the virtual link neighbor."
+		::= { dOspfv2VirtualLinkEntry 2 }
+
+	dOspfv2VLinkDeadInterval OBJECT-TYPE
+        SYNTAX Integer32 (1..65535)
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify the interval in seconds that a neighbor is regarded 
+            as off-line if no hello packets are received within that time."
+		::= { dOspfv2VirtualLinkEntry 3 }
+
+	dOspfv2VLinkHelloInterval OBJECT-TYPE
+        SYNTAX Integer32 (1..65535)
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify the interval in seconds that the router sends the hello packet on the virtual link."
+		::= { dOspfv2VirtualLinkEntry 4 }
+
+	dOspfv2VLinkTransitDelay OBJECT-TYPE
+        SYNTAX Integer32 (1..65535)
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+           "Specify the estimated delay of time the router takes to transmit a LSA packet."
+		::= { dOspfv2VirtualLinkEntry 5 }
+
+	dOspfv2VLinkRetransInterval OBJECT-TYPE
+        SYNTAX Integer32 (1..65535)
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+           "Specify time for retransmission of link-state advertisement (LSA) to the adjacency."
+		::= { dOspfv2VirtualLinkEntry 6 }
+
+	dOspfv2VLinkAuthType OBJECT-TYPE
+        SYNTAX INTEGER {
+               null(1),
+               clear-text(2),
+               md5(3)
+               }
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specifies authentication type."
+		::= { dOspfv2VirtualLinkEntry 7 }
+
+	dOspfv2VLinkAuthKey OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..16))
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify up to 8 bytes long password used for password authentication or
+            up to 16 bytes long MD digest key for MD5 message digest authentication."
+		::= { dOspfv2VirtualLinkEntry 8 }
+
+	dOspfv2VLinkAuthKeyId OBJECT-TYPE
+        SYNTAX Integer32 (1..255)
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+           "Specify the MD5 key ID."
+		::= { dOspfv2VirtualLinkEntry 9 }
+
+	dOspfv2VLinkState OBJECT-TYPE
+        SYNTAX INTEGER {
+               down(1),
+               up(2)
+               }
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+           "Indicate the opertional state of virtual link."
+		::= { dOspfv2VirtualLinkEntry 10 }
+
+	dOspfv2VLinkRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dOspfv2VirtualLinkEntry 99 }
+
+	dOspfv2RedistributeTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DOspfv2RedistributeEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table provides mechanism to configure redistribute routes from
+            other routing domain into OSPFv2."
+	    ::= { dOspfv2MIBObjects 8 }
+	
+	dOspfv2RedistributeEntry OBJECT-TYPE
+	    SYNTAX       DOspfv2RedistributeEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv2RedistributeTable containing the operational
+	         characteristics of OSPFv2 redistribution."
+	    INDEX    { dOspfv2RedistProtocol }
+	    ::= { dOspfv2RedistributeTable 1 }
+
+	DOspfv2RedistributeEntry ::=	    SEQUENCE {
+	    dOspfv2RedistProtocol	    	    INTEGER,
+	    dOspfv2RedistMetric	    	    	Unsigned32,	
+	    dOspfv2RedistMetricType 	    	INTEGER,	
+	    dOspfv2RedistRouteMap	    	    DisplayString,
+		dOspfv2RedistRowStatus	            RowStatus
+	}
+
+	dOspfv2RedistProtocol OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            connected(1),
+            static(2),
+            rip(3),
+            bgp(4),
+            isis(5)
+        }
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the source routing protocol to be imported
+            into OSPFv2."
+	    ::= { dOspfv2RedistributeEntry 1 }
+
+	dOspfv2RedistMetric OBJECT-TYPE
+	    SYNTAX          Unsigned32 (0..16777214)
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Specifies the value to be used as metric for the redistributed routes."
+	    ::= { dOspfv2RedistributeEntry 2 }
+
+	dOspfv2RedistMetricType OBJECT-TYPE
+	    SYNTAX       INTEGER {
+               external1(1),
+               external2(2)
+        }
+	    MAX-ACCESS   read-create
+	    STATUS       current
+	    DESCRIPTION
+	        "Specifies the external link type of the route being 
+             redistributed into the OSPF routing domain."
+	    ::= { dOspfv2RedistributeEntry 3 }
+
+	dOspfv2RedistRouteMap OBJECT-TYPE
+	    SYNTAX          DisplayString 
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the name of the route map that is used
+            to filter the routes to be redistributed to the OSPFv2. 
+            A zero length string indiates that the route map is not specified and 
+            all routes are redistributed."
+	    ::= { dOspfv2RedistributeEntry 4 }
+
+
+	dOspfv2RedistRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+         "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dOspfv2RedistributeEntry 99 }
+
+	dOspfv2DistanceTable	OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DOspfv2DistanceEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	       "This table contains a list of administrative distance configuration."
+	    ::= { dOspfv2MIBObjects 9 }
+
+	dOspfv2DistanceEntry OBJECT-TYPE
+	    SYNTAX          DOspfv2DistanceEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	       "An entry contains the administrative distance configuration."
+	    INDEX {  
+	        dOspfv2DistanceType
+	    }
+	    ::= { dOspfv2DistanceTable 1 }
+    
+	DOspfv2DistanceEntry ::=         SEQUENCE {
+	    dOspfv2DistanceType             INTEGER,
+	    dOspfv2Distance                 Integer32      
+	}
+
+	dOspfv2DistanceType OBJECT-TYPE
+	    SYNTAX		    INTEGER  {
+	        intra(1),
+	        inter(2),
+	        extern1(3),
+	        extern2(4)
+	    }
+	    MAX-ACCESS	    not-accessible
+	    STATUS		    current
+	    DESCRIPTION
+	       "This object indicates the type of the distance."
+	    ::= { dOspfv2DistanceEntry 1 }
+
+	dOspfv2Distance OBJECT-TYPE
+	    SYNTAX          Integer32
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the administrative distance of the entry.
+	        The default value depends on the protocol type:
+	        Type        Distance
+	        =========   ========
+	        intra       80
+	        inter       90
+	        extern1     110
+	        extern2     115
+	            "
+	    ::= { dOspfv2DistanceEntry 2 }
+ 
+    -- Conformance Information        
+
+    dOspfv2MIBGroups      OBJECT IDENTIFIER ::= { dOspfv2MIBConformance 1 }
+    dOspfv2MIBCompliances OBJECT IDENTIFIER ::= { dOspfv2MIBConformance 2 }
+
+    -- Compliance Statements
+
+    dOspfv2MIBFullCompliance MODULE-COMPLIANCE
+            STATUS          current
+            DESCRIPTION     "The compliance statement"
+            MODULE          -- this module
+            MANDATORY-GROUPS {
+                            dOspfv2ProcessGroup,
+                            dOspfv2AreaGroup,
+                            dOspfv2StubAreaGroup,
+                            dOspfv2NssaAreaGroup,
+                            dOspfv2AreaRangeGroup,
+                            dOspfv2HostGroup,
+                            dOspfv2NetworkGroup,
+                            dOspfv2IfGroup,
+                            dOspfv2VirtualLinkGroup,
+                            dOspfv2LsdbGroup,
+                            dOspfv2NbrGroup,
+                            dOspfv2VirtNbrGroup,
+                            dOspfv2RedistributeGroup,
+                            dOspfv2DistanceGroup
+                            }
+			
+            GROUP           dOspfv2DefInfoOriginGroup
+            DESCRIPTION
+                "This group is required for default information originate."
+
+             ::= { dOspfv2MIBCompliances 1 }
+
+    -- units of conformance
+
+
+    dOspfv2GlobalCtrlGroup OBJECT-GROUP
+            OBJECTS         {
+                            dOspfv2DefMetric,
+                            dOspfv2PassiveIfDefault,
+                            dOspfv2DefInfoOriginState,
+                            dOspfv2DefInfoOriginAlways,
+                            dOspfv2DefInfoOriginMetric,
+                            dOspfv2LogAdjacencyChanges,
+                            dOspfv2GRRestartHelperMode,
+                            dOspfv2GRRestartHelperMaxGracePeriod,
+                            dOspfv2CompatibleRfc3509,
+                            dOspfv2ReferenceBandwidth,
+                            dOspfv2MaxPathsNum,
+                            dOspfv2CompatibleRFC1583
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPF process configurations."
+            ::= { dOspfv2MIBGroups 1 }
+
+    dOspfv2StubAreaGroup OBJECT-GROUP
+            OBJECTS         {
+							dOspfv2StubAreaSummary,
+                            dOspfv2StubAreaDefCost,
+							dOspfv2StubAreaRowStatus
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPFv2 stub areas."
+            ::= { dOspfv2MIBGroups 2 }
+
+    dOspfv2NssaAreaGroup OBJECT-GROUP
+            OBJECTS         {
+							dOspfv2NssaAreaSummary,
+                            dOspfv2NssaAreaDefCost,
+							dOspfv2NssaAreaRowStatus
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPFv2 NSSA areas."
+            ::= { dOspfv2MIBGroups 3 }
+
+    dOspfv2AreaRangeGroup OBJECT-GROUP
+            OBJECTS         {
+							dOspfv2AreaRangeEffect,
+							dOspfv2AreaRangeRowStatus
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPFv2 area ranges."
+            ::= { dOspfv2MIBGroups 4 }
+
+    dOspfv2NetworkGroup OBJECT-GROUP
+            OBJECTS         {
+							dOspfv2NetworkAreaId,
+							dOspfv2NetworkRowStatus
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPFv2 networks."
+            ::= { dOspfv2MIBGroups 5 }
+
+    dOspfv2IfGroup OBJECT-GROUP
+            OBJECTS         {
+							dOspfv2IfAddress,
+                            dOspfv2IfMask,
+                            dOspfv2IfAreaId,
+                            dOspfv2IfType,
+                            dOspfv2IfMetric,
+                            dOspfv2IfDeadInterval,
+                            dOspfv2IfHelloInterval,
+                            dOspfv2IfRetransInterval,
+                            dOspfv2IfTransitDelay,
+                            dOspfv2IfPriority,
+                            dOspfv2IfAuthType,
+                            dOspfv2IfAuthKey,
+                            dOspfv2IfAuthKeyId,
+                            dOspfv2IfState,
+                            dOspfv2IfPassiveMode,
+                            dOspfv2IfDR,
+                            dOspfv2IfBDR,
+                            dOspfv2IfBfdState
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPFv2 interfaces."
+            ::= { dOspfv2MIBGroups 6 }
+
+    dOspfv2VirtualLinkGroup OBJECT-GROUP
+            OBJECTS         {
+							dOspfv2VLinkDeadInterval,
+                            dOspfv2VLinkHelloInterval,
+                            dOspfv2VLinkTransitDelay,
+                            dOspfv2VLinkRetransInterval,
+                            dOspfv2VLinkAuthType,
+                            dOspfv2VLinkAuthKey,
+                            dOspfv2VLinkAuthKeyId,
+                            dOspfv2VLinkState,
+							dOspfv2VLinkRowStatus
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPFv2 virtual links."
+            ::= { dOspfv2MIBGroups 7 }
+
+    dOspfv2RedistributeGroup OBJECT-GROUP
+            OBJECTS         {
+							dOspfv2RedistMetric,
+                            dOspfv2RedistMetricType,
+                            dOspfv2RedistRouteMap,
+							dOspfv2RedistRowStatus
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring
+                 the redistribution of OSPFv2."
+            ::= { dOspfv2MIBGroups 8 }
+
+    dOspfv2DistanceGroup OBJECT-GROUP
+            OBJECTS         {
+                            dOspfv2Distance
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring
+                 the distance of OSPFv2."
+            ::= { dOspfv2MIBGroups 9 }
+END

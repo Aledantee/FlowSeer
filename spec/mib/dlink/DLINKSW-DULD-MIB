@@ -1,0 +1,192 @@
+--  *****************************************************************
+--  DLINKSW-DULD-MIB.mib : DULD MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+	DLINKSW-DULD-MIB DEFINITIONS ::= BEGIN
+		
+	IMPORTS	          
+	    MODULE-IDENTITY, OBJECT-TYPE
+        	FROM SNMPv2-SMI 
+	    InterfaceIndex
+        	FROM IF-MIB
+	    TruthValue
+        	FROM SNMPv2-TC	
+	    dlinkIndustrialCommon			
+        	FROM DLINK-ID-REC-MIB;	
+		
+	dlinkSwDuldMIB MODULE-IDENTITY
+	    LAST-UPDATED "201502040000Z"
+	    ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+                "        D-Link Corporation
+
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:     +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+                "
+	    DESCRIPTION
+		    "The unidirectional link detection module MIB for the proprietary enterprise."
+		REVISION "201307100000Z"
+        DESCRIPTION
+            "Initial version of this MIB."
+
+	REVISION "201502040000Z"
+        DESCRIPTION
+            "Added the dDuldRecoveryTime for supporting
+             DULD auto recovery time configuration."    
+        ::= { dlinkIndustrialCommon 159 }
+                
+
+    dDuldMIBNotifications      OBJECT IDENTIFIER ::= { dlinkSwDuldMIB 0 }
+    dDuldMIBObjects            OBJECT IDENTIFIER ::= { dlinkSwDuldMIB 1 }
+    dDuldMIBConformance        OBJECT IDENTIFIER ::= { dlinkSwDuldMIB 2 }
+        	
+-- -----------------------------------------------------------------------------        	
+    dDuldMgmt		OBJECT IDENTIFIER ::= { dDuldMIBObjects 1 }
+             
+    dDuldTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF DDuldEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		      "The management information of the unidirectional link detection."
+		::= { dDuldMgmt 1 }
+		
+	dDuldEntry OBJECT-TYPE
+		SYNTAX      DDuldEntry
+		MAX-ACCESS  not-accessible
+		STATUS  current
+		DESCRIPTION
+		      "A list of information contained in swDULDTable."
+		INDEX   { dDuldPort}
+		::= { dDuldTable 1 }
+	
+	DDuldEntry ::= SEQUENCE {
+		dDuldPort		    	InterfaceIndex,
+		dDuldAdminState 		TruthValue,
+		dDuldOperStatus			TruthValue,  
+		dDuldAction 			INTEGER,
+		dDuldDiscoveryTime 		INTEGER, 
+		dDuldLinkStatus  		INTEGER			
+	}
+     
+	dDuldPort OBJECT-TYPE
+		SYNTAX      InterfaceIndex
+		MAX-ACCESS  not-accessible
+		STATUS      current
+		DESCRIPTION
+				"This object indicates the port index."
+		::= { dDuldEntry 1 }	
+		    	
+	dDuldAdminState OBJECT-TYPE
+		SYNTAX  TruthValue
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"This object indicates the unidirectional link detection configuration status.
+			 Setting this object to 'true' enable duld on interface.
+			 Setting this object to 'false' disable duld on interface.
+			 "
+		DEFVAL      { false }
+		::= { dDuldEntry 2 }
+
+	dDuldOperStatus OBJECT-TYPE
+		SYNTAX  TruthValue
+		MAX-ACCESS  read-only
+		STATUS      current
+		DESCRIPTION
+			"This object is determined by local and remote port supporting OAM and unidirectional detection. 
+			If both local and remote port support OAM and unidirectional detection, it is true, else it 
+			is false."
+		::= { dDuldEntry 3 }
+
+	dDuldAction OBJECT-TYPE
+		SYNTAX	INTEGER
+		{
+			shutdown(1),
+			normal(2)
+		}
+		MAX-ACCESS   read-write
+		STATUS      current
+		DESCRIPTION
+			 "This object indicates the mode for unidirectional link detection.
+			  shutdown: if any unidirectional link is detected, disable the port and log an event.
+			  normal: only log an event when a unidirectional link is detected."
+		::= { dDuldEntry 4 }		    	
+
+	dDuldDiscoveryTime OBJECT-TYPE
+		SYNTAX      INTEGER(5..65535)   
+		UNITS		"seconds"
+		MAX-ACCESS   read-write
+		STATUS      current
+		DESCRIPTION
+			 "This object indicates the neighbor's discovery time for unidirectional link detection."
+		DEFVAL      { 5 }
+		::= { dDuldEntry 5 }
+		
+	dDuldLinkStatus OBJECT-TYPE
+		SYNTAX    INTEGER
+		{
+			unknown(1),
+			bidirectional(2),
+			tx-fault(3),
+			rx-fault(4),
+			link-down(5)
+		} 
+		MAX-ACCESS  read-only
+		STATUS      current
+		DESCRIPTION
+			"This object indicates the link status, which is a result of unidirectional link detection."
+		::= {dDuldEntry 6 }       	
+		
+	dDuldRecoveryTime OBJECT-TYPE
+		SYNTAX      INTEGER(0|60..1000000)   
+		UNITS		"seconds"
+		MAX-ACCESS   read-write
+		STATUS      current
+		DESCRIPTION
+			 "This object indicates the time interval used by the auto recovery mechanism to decide 
+		          how long to check the unidirectional link is gone or not.
+		          
+		          The valid range is from 60 to 1000000. 
+		          Zero is a special value which means to disable the auto recovery mechanism."
+		DEFVAL      { 60 }
+		::= { dDuldMgmt 2 }
+
+-------------------------------------------------------------------------------
+    dDuldCompliances  OBJECT IDENTIFIER
+        ::= { dDuldMIBConformance 1 }
+
+    dDuldGroups  OBJECT IDENTIFIER
+        ::= { dDuldMIBConformance 2 } 
+    
+    dDuldCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+			DLINKSW-DULD-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS    {   
+            dDuldBasicCfgGroup           
+        }
+                                                   
+        ::= { dDuldCompliances 1 }
+-- -----------------------------------------------------------------------------        
+    dDuldBasicCfgGroup OBJECT-GROUP
+		OBJECTS { 
+		    dDuldAdminState,
+		    dDuldAction,
+		    dDuldDiscoveryTime,
+		    dDuldRecoveryTime
+		}   
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing basic configuration of DULD 
+			feature."
+		::= { dDuldGroups 1 }
+				 
+END

@@ -1,0 +1,498 @@
+-- *****************************************************************
+-- DLINKSW-RIPNG-MIB.mib : D-Link RIPng MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+DLINKSW-RIPNG-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE, Integer32,Unsigned32    
+                                    		FROM SNMPv2-SMI
+        TruthValue,DisplayString, RowStatus FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF
+        InterfaceIndex                      FROM IF-MIB
+        InetAddressIPv6,InetAddressPrefixLength
+                                            FROM INET-ADDRESS-MIB
+        dlinkIndustrialCommon				FROM DLINK-ID-REC-MIB;
+
+	dlinkSwRipngMIB MODULE-IDENTITY
+        LAST-UPDATED "201512070000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of RIP Information for the
+                 proprietary enterprise."       
+
+        REVISION        "201304240000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module."           
+	   
+		REVISION        "201408050000Z"
+        DESCRIPTION
+            "Modify RowStatus objects to 99. Modify the syntax of dRipngIfDefInfoOrigin.
+			Modify the description of dRipngPoisonReverseEnabled.
+			Remove objects not supported."   
+
+        REVISION        "201503160000Z"
+        DESCRIPTION
+            "Add a new 'isis' value for object dRipngRedistProtocol."           
+
+        REVISION        "201507020000Z"
+        DESCRIPTION
+            "Add passvive interface function." 
+
+        REVISION        "201512070000Z"
+        DESCRIPTION
+            "Add new object 'dRipngIfBfdState' in table 'DRipngIfEntry'." 
+            
+		::= { dlinkIndustrialCommon 121 }
+
+-- -----------------------------------------------------------------------------    
+    dRipngMIBNotifications      OBJECT IDENTIFIER ::= { dlinkSwRipngMIB 0 }
+	dRipngMIBObjects          	OBJECT IDENTIFIER ::= { dlinkSwRipngMIB 1 }
+    dRipngMIBConformance	 	OBJECT IDENTIFIER ::= { dlinkSwRipngMIB 2 }
+
+-- ----------------------------------------------------------------------------- 
+	dRipngGlobalCtrl          	OBJECT IDENTIFIER ::= { dRipngMIBObjects 1 }
+
+	dRipngGlobalEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+           "This object indicates whether the global RIPng is enabled."
+		::= { dRipngGlobalCtrl 1 }
+
+	dRipngDefMetric OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..16)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+           "Set the value used as the default metric for routes redistributed to RIPng."
+		::= { dRipngGlobalCtrl 2 }
+		
+	dRipngPoisonReverseEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+           "This object indicates whether the poison reverse mechanism is enabled."
+		::= { dRipngGlobalCtrl 3 }
+
+	dRipngSplitHorizonEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+           "This object indicates whether the split horizon mechanism is enabled."
+		::= { dRipngGlobalCtrl 4 }
+
+	dRipngUpdateTimer OBJECT-TYPE
+        SYNTAX          Integer32 (1..2147483647)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the update interval in seconds at which the
+            update message is sent."
+        DEFVAL { 30 }
+		::= { dRipngGlobalCtrl 5 }
+
+	dRipngInvalidTimer OBJECT-TYPE
+        SYNTAX          Integer32 (1..2147483647)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the interval of time in seconds after which a
+            route is declared invalid."
+        DEFVAL { 180 }
+		::= { dRipngGlobalCtrl 6 }
+
+	dRipngFlushTimer OBJECT-TYPE
+        SYNTAX          Integer32 (1..2147483647)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the amount of time in seconds that must pass
+            before the route is removed from the garbage list."
+        DEFVAL { 240 }
+		::= { dRipngGlobalCtrl 7 }
+
+	dRipngPassiveIfDefault OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+           "This object indicates the default passive state for the interfaces 
+           on which the passive state is not explicitly configured.
+           When this object is true(1), the default passive state is enabled.  
+           When false(2), the default passive state is disabled."
+		::= { dRipngGlobalCtrl 8 }
+
+-- -----------------------------------------------------------------------------
+	dRipngIfTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipngIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of subnets which require separate 
+            configuration in RIPng."
+	    ::= { dRipngMIBObjects 2 }
+	
+	dRipngIfEntry OBJECT-TYPE
+	    SYNTAX       DRipngIfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dRipngIfTable containing the operational
+	         characteristics of RIPng interface."
+	    INDEX    { dRipngIfIndex }
+	    ::= { dRipngIfTable 1 }
+
+	DRipngIfEntry ::= 	    SEQUENCE {
+	    dRipngIfIndex 	    	        InterfaceIndex,
+	    dRipngIfEnabled	    		    TruthValue,
+	    dRipngIfDefInfoOrigin  		    INTEGER,
+	    dRipngIfDefInfoOriginMetric		Unsigned32,
+	    dRipngIfMetricOffset	    	Unsigned32,
+		dRipngIfPassiveMode  		    INTEGER,
+		dRipngIfBfdState		INTEGER
+	}
+
+	dRipngIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The ifIndex value of the RIPng interface."
+	    ::= { dRipngIfEntry 1 }
+
+	dRipngIfEnabled OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether the RIPng state on the interface is 
+            enabled."
+        DEFVAL { false }
+	    ::= { dRipngIfEntry 2 }
+
+	dRipngIfDefInfoOrigin OBJECT-TYPE
+	    SYNTAX       INTEGER {
+            none(1),
+            onlyDefaultRoute(2),
+            originate(3)
+        }
+	    MAX-ACCESS   read-write
+	    STATUS       current
+	    DESCRIPTION
+	        "This object indicates how the default route is advertised on the 
+            interface.
+            'none' - The advertisement of default route is disabled.
+            'onlyDefaultRoute' - Advertises the default route only. Advertisements of all
+                      other routes are suppressed. 
+            'originate' - Advertise other routes as well as the default route.
+            " 
+        DEFVAL { none }
+	    ::= { dRipngIfEntry 3 }
+
+	dRipngIfDefInfoOriginMetric OBJECT-TYPE
+	    SYNTAX          Unsigned32 (1..16)
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the metric for the advertised default route."
+        DEFVAL { 1 }  
+	    ::= { dRipngIfEntry 4 }
+
+	dRipngIfMetricOffset OBJECT-TYPE
+	    SYNTAX          Unsigned32 (1..16)
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the value to be added to the metric of an
+            IPv6 RIP route received."
+        DEFVAL { 1 }  
+	    ::= { dRipngIfEntry 5 }
+
+	dRipngIfPassiveMode OBJECT-TYPE   	    
+	    SYNTAX          INTEGER  {
+            followGlobal(0),
+            disabled(1),
+            enabled(2)
+        }        
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the RIPng passive state on the interface.
+            The value of 'followGlobal' indicates the passive state is not explicitly 
+            specified on the interface, and global default passive state is followed.
+            "
+	    ::= { dRipngIfEntry 6 }
+
+	dRipngIfBfdState OBJECT-TYPE
+	    SYNTAX INTEGER {
+		disabled(1),
+		enabled(2)
+		}
+	    MAX-ACCESS  read-write
+	    STATUS  current
+	    DESCRIPTION
+		"Indicate the opertional state of BFD on this interface."
+		::= { dRipngIfEntry 7 }
+		
+-- -----------------------------------------------------------------------------
+	dRipngIfSummaryTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipngIfSummaryEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of summary aggregate addresses on RIPng 
+             interfaces."
+	    ::= { dRipngMIBObjects 3 }
+	
+	dRipngIfSummaryEntry OBJECT-TYPE
+	    SYNTAX          DRipngIfSummaryEntry          	                    
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry in the dRipngIfSummaryTable containing the operational
+	         characteristics of summary aggregate address on an interface."
+	    INDEX    { 
+            dRipngIfSumIfIndex, 
+            dRipngIfSumNetworkPrefix, 
+            dRipngIfSumNetworkPrefixLen 
+        }
+	    ::= { dRipngIfSummaryTable 1 }
+
+	DRipngIfSummaryEntry ::= 	    SEQUENCE {
+	    dRipngIfSumIfIndex	    	    InterfaceIndex,	
+	    dRipngIfSumNetworkPrefix 	    InetAddressIPv6,
+	    dRipngIfSumNetworkPrefixLen	    InetAddressPrefixLength,
+	    dRipngIfSumRowStatus            RowStatus   
+	}
+	
+	dRipngIfSumIfIndex OBJECT-TYPE
+    	SYNTAX          InterfaceIndex
+    	MAX-ACCESS      not-accessible
+    	STATUS          current
+    	DESCRIPTION
+            "The ifIndex value of the RIPng interface."
+    	::= { dRipngIfSummaryEntry 1 }
+
+	dRipngIfSumNetworkPrefix OBJECT-TYPE
+	    SYNTAX          InetAddressIPv6
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the network prefix of the entry."
+	    ::= { dRipngIfSummaryEntry 2 }
+
+	dRipngIfSumNetworkPrefixLen OBJECT-TYPE
+	    SYNTAX          InetAddressPrefixLength
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the prefix length of the entry."
+	    ::= { dRipngIfSummaryEntry 3 }
+
+	dRipngIfSumRowStatus OBJECT-TYPE
+     	SYNTAX          RowStatus
+     	MAX-ACCESS      read-create
+     	STATUS          current
+     	DESCRIPTION
+         "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dRipngIfSummaryEntry 99 }
+
+-- -----------------------------------------------------------------------------
+	dRipngRedistributeTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipngRedistributeEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table provides mechanism to configure redistribute routes from
+            other routing domain into RIPng."
+	    ::= { dRipngMIBObjects 4 }
+	
+	dRipngRedistributeEntry OBJECT-TYPE
+	    SYNTAX          DRipngRedistributeEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry in the dngRipRedistributeTable containing the operational
+	         characteristics of RIPng redistribution."
+	    INDEX    { 
+            dRipngRedistProtocol, 
+            dRipngRedistProcessId 
+        }
+	    ::= { dRipngRedistributeTable 1 }
+
+	DRipngRedistributeEntry ::= 	    SEQUENCE {
+	    dRipngRedistProtocol    	    INTEGER,	
+	    dRipngRedistProcessId	    	Unsigned32,
+	    dRipngRedistMetric      	    Unsigned32,	
+	    dRipngRedistMatchType	    	INTEGER,	
+	    dRipngRedistRouteMap    	    DisplayString,	
+	    dRipngRedistRowStatus           RowStatus   
+	}
+
+	dRipngRedistProtocol OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            connected(1),
+            static(2),
+            ospf(3),
+            bgp(4),
+            isis(5)
+        }
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the source routing protocol to be imported
+            into RIPng."
+	    ::= { dRipngRedistributeEntry 1 }
+
+	dRipngRedistProcessId OBJECT-TYPE
+	    SYNTAX          Unsigned32 (0..4294967295)
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The process ID of entry. If the source protocol does not support
+            multiple process, set this object to 0."
+	    ::= { dRipngRedistributeEntry 2 }
+
+	dRipngRedistMetric OBJECT-TYPE
+	    SYNTAX          Unsigned32 (0..16)
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Specifies the value to be used as the metric for the redistributed
+            routes."
+	    ::= { dRipngRedistributeEntry 3 }
+
+	dRipngRedistMatchType OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            internal(1),
+            external1(2),
+            external2(3),
+            nssaExternal1(4),
+            nssaExternal2(5)
+        }
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the types of OSPF routes to be redistributed.
+            This object only takes effect when redistributing OSPF routes."
+	    ::= { dRipngRedistributeEntry 4 }
+
+	dRipngRedistRouteMap OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..16))
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the name of the route map that is used to
+            filter the routes to be redistributed to the RIPng. A zero length
+            string indicates the route map is not specified and all routes are
+            redistributed.."
+	    ::= { dRipngRedistributeEntry 5 }
+
+	dRipngRedistRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dRipngRedistributeEntry 99 }
+
+
+    -- Conformance Information        
+
+    dRipngMIBGroups      OBJECT IDENTIFIER ::= { dRipngMIBConformance 1 }
+    dRipngMIBCompliances OBJECT IDENTIFIER ::= { dRipngMIBConformance 2 }
+
+    -- Compliance Statements
+
+    dRipngMIBFullCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION     "The compliance statement for entities which implement the 
+			            DLINKSW-RIPNG-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS {
+            dRipngGlobalGroup,
+            dRipngIfGroup,
+            dRipngIfSummaryGroup,
+            dRipngRedistributeGroup
+        }	
+
+        ::= { dRipngMIBCompliances 1 }
+
+    -- units of conformance
+
+    dRipngGlobalGroup OBJECT-GROUP
+        OBJECTS         {
+		    dRipngGlobalEnabled,
+			dRipngDefMetric,           
+            dRipngPoisonReverseEnabled,
+            dRipngSplitHorizonEnabled,
+            dRipngUpdateTimer,
+            dRipngInvalidTimer,
+            dRipngFlushTimer,
+			dRipngPassiveIfDefault
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used to control RIPng global configurations."
+        ::= { dRipngMIBGroups 1 }
+
+    dRipngIfGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipngIfEnabled,
+            dRipngIfDefInfoOrigin,
+            dRipngIfDefInfoOriginMetric,
+            dRipngIfMetricOffset,
+			dRipngIfPassiveMode,
+		dRipngIfBfdState
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the RIPng interface."
+        ::= { dRipngMIBGroups 2 }
+
+     dRipngIfSummaryGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipngIfSumRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the summary address on RIPng interface."
+        ::= { dRipngMIBGroups 6 }
+
+    dRipngRedistributeGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipngRedistMetric,
+            dRipngRedistMatchType,
+            dRipngRedistRouteMap,
+            dRipngRedistRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the RIPng route redistribution."
+        ::= { dRipngMIBGroups 3 }
+
+
+END

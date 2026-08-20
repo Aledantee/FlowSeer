@@ -1,0 +1,309 @@
+--  *****************************************************************
+--  DLINKSW-SDCARDMGMT-MIB.mib : SD Card Management MIB
+--
+--  Copyright (c) 2015 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-SDCARDMGMT-MIB DEFINITIONS ::= BEGIN
+
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Unsigned32, NOTIFICATION-TYPE
+                FROM SNMPv2-SMI
+        RowStatus,TruthValue,DisplayString
+            FROM SNMPv2-TC
+        OBJECT-GROUP, MODULE-COMPLIANCE
+            FROM SNMPv2-CONF
+        dlinkIndustrialCommon
+                FROM DLINK-ID-REC-MIB;
+
+    dlinkSwSDcardMgmtMIB MODULE-IDENTITY
+        LAST-UPDATED "201509140000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for SD card management."
+                        
+    ::= { dlinkIndustrialCommon 188 }
+
+-- -----------------------------------------------------------------------------
+    dSDcardMgmtNotifications    OBJECT IDENTIFIER ::= { dlinkSwSDcardMgmtMIB 0 }
+    dSDcardMgmtObjects          OBJECT IDENTIFIER ::= { dlinkSwSDcardMgmtMIB 1 }
+    dSDcardMgmtConformance      OBJECT IDENTIFIER ::= { dlinkSwSDcardMgmtMIB 2 }
+    
+-- -----------------------------------------------------------------------------
+-- SD card Mgmt Control	
+-- -----------------------------------------------------------------------------
+	dSDcardMgmtBackupCtrl	OBJECT IDENTIFIER ::= { dSDcardMgmtObjects 1}  
+	dSDcardMgmtExecCtrl	OBJECT IDENTIFIER ::= { dSDcardMgmtObjects 2}
+	dSDcardMgmtExecConfigCtrl     OBJECT IDENTIFIER ::= { dSDcardMgmtObjects 3}	
+	
+-- -----------------------------------------------------------------------------
+-- Backup Schedule control
+-- -----------------------------------------------------------------------------
+	dSDcardMgmtBackupCtrlTable OBJECT-TYPE
+	    SYNTAX SEQUENCE OF DSDcardMgmtBackupCtrlEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	        "A table that contains information about SD card backup schedules."
+	    ::= { dSDcardMgmtBackupCtrl 1 } 
+
+	dSDcardMgmtBackupCtrlEntry OBJECT-TYPE
+	    SYNTAX DSDcardMgmtBackupCtrlEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	        "A list of SD card backup schedules."
+	    INDEX {dSDcardMgmtBackupEntryName}
+	    ::= { dSDcardMgmtBackupCtrlTable 1 }
+
+	DSDcardMgmtBackupCtrlEntry ::=
+	    SEQUENCE {
+	    		dSDcardMgmtBackupEntryName	    			DisplayString,	        
+	        dSDcardMgmtBackupFilename		          OCTET STRING,
+	        dSDcardMgmtBackupTimeRangeName        DisplayString,
+	        dSDcardMgmtBackupType				        	INTEGER,
+	        dSDcardMgmtBackupState			        	INTEGER,
+	        dSDcardMgmtBackupRowStatus	        	RowStatus	        
+	    }
+
+	dSDcardMgmtBackupEntryName OBJECT-TYPE
+	    SYNTAX DisplayString(SIZE(1..32))
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates the backup entry name."
+	    ::= { dSDcardMgmtBackupCtrlEntry 1 }
+
+	dSDcardMgmtBackupFilename OBJECT-TYPE
+	    SYNTAX OCTET STRING (SIZE (0..799))
+	    MAX-ACCESS read-create
+	    STATUS current
+    	DESCRIPTION
+	        "Indicates the backup filename."
+	    ::= { dSDcardMgmtBackupCtrlEntry 2 }
+
+		dSDcardMgmtBackupTimeRangeName OBJECT-TYPE
+	    SYNTAX DisplayString(SIZE(1..32))
+	    MAX-ACCESS read-create
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates the backup entry time range name."
+	    ::= { dSDcardMgmtBackupCtrlEntry 3 }
+
+	dSDcardMgmtBackupType OBJECT-TYPE
+	    SYNTAX INTEGER {
+	                configuration(1),
+	                log(2)
+	            }
+	    MAX-ACCESS read-create
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates the SD card backup type."
+	    ::= { dSDcardMgmtBackupCtrlEntry 4 }  
+   	    
+	dSDcardMgmtBackupState OBJECT-TYPE
+	    SYNTAX INTEGER {
+                  activate(1),
+                  noactivate(2)
+	            }
+	    MAX-ACCESS read-create
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates the backup schedule state."
+	    ::= { dSDcardMgmtBackupCtrlEntry 5 }
+	    
+    	dSDcardMgmtBackupRowStatus OBJECT-TYPE
+            SYNTAX  RowStatus
+            MAX-ACCESS  read-create
+            STATUS  current
+            DESCRIPTION
+               "Indicates the status of this entry."
+            ::= { dSDcardMgmtBackupCtrlEntry 100 }	
+	    	                                                        
+-- -----------------------------------------------------------------------------
+-- Execute Schedule control 
+-- -----------------------------------------------------------------------------
+	dSDcardMgmtExecCtrlTable OBJECT-TYPE
+	    SYNTAX SEQUENCE OF DSDcardMgmtExecCtrlEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	        "A table that contains information about SD card execute schedules."
+	    ::= { dSDcardMgmtExecCtrl 1 }
+
+	dSDcardMgmtExecCtrlEntry OBJECT-TYPE
+	    SYNTAX DSDcardMgmtExecCtrlEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	        "A list of SD card execute schedules."
+	    INDEX {dSDcardMgmtExecEntryName}
+	    ::= { dSDcardMgmtExecCtrlTable 1 }
+
+	DSDcardMgmtExecCtrlEntry ::=
+	    SEQUENCE {
+	    		dSDcardMgmtExecEntryName    				DisplayString,
+	        dSDcardMgmtExecFileName             OCTET STRING,
+	        dSDcardMgmtExecTimeRangeName 				DisplayString,
+	        dSDcardMgmtExecState   	            INTEGER,
+					dSDcardMgmtExecIncrement            TruthValue,
+	        dSDcardMgmtExecRowStatus            RowStatus	
+	    }
+
+	dSDcardMgmtExecEntryName OBJECT-TYPE
+	    SYNTAX DisplayString(SIZE(1..32))
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	        "Indicate the name of the execute entry."
+	    ::= { dSDcardMgmtExecCtrlEntry 1 }
+
+	dSDcardMgmtExecFileName OBJECT-TYPE
+	    SYNTAX OCTET STRING (SIZE (0..799))
+	    MAX-ACCESS read-create
+	    STATUS current
+	    DESCRIPTION
+	        "Indicate the filename of the script."
+	    ::= { dSDcardMgmtExecCtrlEntry 2 }
+	
+		dSDcardMgmtExecTimeRangeName OBJECT-TYPE
+	    SYNTAX DisplayString(SIZE(1..32))
+	    MAX-ACCESS read-create
+	    STATUS current
+	    DESCRIPTION
+	        "Indicate the execute entry time range name."
+	    ::= { dSDcardMgmtExecCtrlEntry 3 }
+	    	
+	dSDcardMgmtExecState OBJECT-TYPE
+	    SYNTAX INTEGER {
+                  activate(1),
+                  noactivate(2)
+	            }
+	    MAX-ACCESS read-create
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates the schedules execute state."
+	    ::= { dSDcardMgmtExecCtrlEntry 4 }	
+
+	dSDcardMgmtExecIncrement OBJECT-TYPE
+	    SYNTAX TruthValue
+	    MAX-ACCESS read-create
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates whether the current configuration will
+	        remain valid or not before execute the script.
+	        
+	        true(1): the current configuration will not be reset before execute the script.	
+	        false(2): the current configuration will be reset before execute the script."
+	    ::= { dSDcardMgmtExecCtrlEntry 5 }
+            	
+    dSDcardMgmtExecRowStatus OBJECT-TYPE
+       SYNTAX  RowStatus
+       MAX-ACCESS  read-create
+       STATUS  current
+       DESCRIPTION
+          "Indicates the status of this entry."
+       ::= { dSDcardMgmtExecCtrlEntry 100 }	
+        
+-- -----------------------------------------------------------------------------
+-- Execute script
+-- -----------------------------------------------------------------------------
+	dSDcardMgmtExecConfigFilename OBJECT-TYPE
+	    SYNTAX OCTET STRING (SIZE (0..799))
+	    MAX-ACCESS read-write
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates the filename of the script which to be execute."
+	    ::= { dSDcardMgmtExecConfigCtrl 1 }
+	    
+	dSDcardMgmtExecConfigIncrement OBJECT-TYPE
+	    SYNTAX TruthValue
+	    MAX-ACCESS read-write
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates whether the current configuration will
+	        remain valid or not before execute the script.
+	        
+	        true(1): the current configuration will not be reset before execute the script.	
+	        false(2): the current configuration will be reset before execute the script."
+	    ::= { dSDcardMgmtExecConfigCtrl 2 }	   
+	     
+	dSDcardMgmtExecConfigAction OBJECT-TYPE
+	    SYNTAX INTEGER {
+                  other(1),
+                  start(2)
+	            }
+	    MAX-ACCESS read-write
+	    STATUS current
+	    DESCRIPTION
+	        "Indicates whether to execute script or not, which filename specified by dSDcardMgmtExecConfigFilename."
+	    ::= { dSDcardMgmtExecConfigCtrl 3 }	
+			
+    
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- -----------------------------------------------------------------------------   
+    dSDcardMgmtCompliances      OBJECT IDENTIFIER ::= { dSDcardMgmtConformance 1 }
+      
+   dSDcardMgmtMIBCompliance MODULE-COMPLIANCE
+        STATUS   current
+        DESCRIPTION
+                "The compliance statement for entities which
+                 implement the DLINKSW-SDCARDMGMT-MIB."
+        MODULE MANDATORY-GROUPS { 
+                 dSDcardMgmtBackupCtrlGroup,
+                 dSDcardMgmtExecCtrlGroup,
+                 dSDcardMgmtExecConfigGroup
+        }
+                
+        ::= { dSDcardMgmtCompliances 1 }
+
+		dSDcardMgmtGroups       OBJECT IDENTIFIER ::= { dSDcardMgmtConformance 2 }    
+
+    dSDcardMgmtBackupCtrlGroup OBJECT-GROUP
+        OBJECTS {   
+        	dSDcardMgmtBackupFilename,
+	        dSDcardMgmtBackupTimeRangeName,
+	        dSDcardMgmtBackupType,
+	        dSDcardMgmtBackupState,
+	        dSDcardMgmtBackupRowStatus	        		
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects schedule back up operation of SD card management."
+        ::= { dSDcardMgmtGroups 1 }
+    
+    dSDcardMgmtExecCtrlGroup OBJECT-GROUP
+        OBJECTS         {   
+          dSDcardMgmtExecFileName,
+	        dSDcardMgmtExecTimeRangeName,
+	        dSDcardMgmtExecState,
+					dSDcardMgmtExecIncrement,
+	        dSDcardMgmtExecRowStatus	
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects schedule executes configuration operation of SD card management."
+        ::= { dSDcardMgmtGroups 2 }
+        
+    dSDcardMgmtExecConfigGroup OBJECT-GROUP
+        OBJECTS         {   
+            dSDcardMgmtExecConfigFilename,
+            dSDcardMgmtExecConfigIncrement,
+            dSDcardMgmtExecConfigAction
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects executes configuration immediately operation of SD card management."
+        ::= { dSDcardMgmtGroups 3 }
+                 
+END

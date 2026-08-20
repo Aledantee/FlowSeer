@@ -1,0 +1,145 @@
+--  *****************************************************************
+--  DLINKSW-MVRP-MIB.mib : Mvrp MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+DLINKSW-MVRP-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,       
+        Unsigned32
+                FROM SNMPv2-SMI            
+        TruthValue,RowStatus, MacAddress
+                FROM SNMPv2-TC  
+        MODULE-COMPLIANCE, OBJECT-GROUP
+                FROM SNMPv2-CONF                            
+        IEEE8021PbbComponentIdentifier,IEEE8021BridgePortNumber
+                FROM IEEE8021-TC-MIB
+        dlinkIndustrialCommon           
+                FROM DLINK-ID-REC-MIB;
+
+    dlinkSwMvrpMIB MODULE-IDENTITY
+        LAST-UPDATED "202002250000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "         D-Link Corporation
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:    +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines MIB objects for MVRP."
+        REVISION "202002250000Z"
+        DESCRIPTION
+            "fixed typo."           
+        REVISION "201905310000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."           
+    ::= { dlinkIndustrialCommon 224 }
+    
+-- -----------------------------------------------------------------------------
+    dMvrpMIBNotifications     OBJECT IDENTIFIER ::= { dlinkSwMvrpMIB 0 }
+    dMvrpMIBObjects           OBJECT IDENTIFIER ::= { dlinkSwMvrpMIB 1 }
+    dMvrpMIBConformance       OBJECT IDENTIFIER ::= { dlinkSwMvrpMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    dMvrpGlobalMgmt  OBJECT IDENTIFIER ::={dMvrpMIBObjects 1}          
+   
+-- -----------------------------------------------------------------------------                              
+ 
+   dMvrpPortTable OBJECT-TYPE
+       SYNTAX      SEQUENCE OF DMvrpPortEntry
+       MAX-ACCESS  not-accessible
+       STATUS      current
+       DESCRIPTION
+        "A table containing MVRP per-port control."
+       ::= { dMvrpMIBObjects 2 }
+
+   dMvrpPortEntry OBJECT-TYPE
+       SYNTAX      DMvrpPortEntry
+       MAX-ACCESS  not-accessible
+       STATUS      current
+       DESCRIPTION
+        "An entry indicates the MVRP parameters for a port/port-channel."
+       INDEX  { dMvrpBridgeBasePortComponentId,
+                dMvrpBridgeBasePort }
+        ::= { dMvrpPortTable 1 }
+
+   DMvrpPortEntry ::=
+       SEQUENCE {
+         dMvrpBridgeBasePortComponentId
+            IEEE8021PbbComponentIdentifier,
+         dMvrpBridgeBasePort
+            IEEE8021BridgePortNumber,
+         dMvrpPortRegistrationMode
+            INTEGER
+    }   
+    dMvrpBridgeBasePortComponentId OBJECT-TYPE
+        SYNTAX      IEEE8021PbbComponentIdentifier
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "The component identifier is used to distinguish between the
+            multiple virtual Bridge instances within a PBB.  In simple
+            situations where there is only a single component the default
+            value is 1."
+    ::= { dMvrpPortEntry 1 }
+
+    dMvrpBridgeBasePort OBJECT-TYPE
+        SYNTAX      IEEE8021BridgePortNumber
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+           "The port number of the port for which this entry
+           contains Bridge management information."
+        REFERENCE   "12.4.2.1"
+    ::= { dMvrpPortEntry 2 }
+
+    dMvrpPortRegistrationMode OBJECT-TYPE
+		SYNTAX INTEGER  
+		{
+			normal(1),
+			fixed(2),
+			forbidden(3)
+		}
+		MAX-ACCESS read-write
+		STATUS current
+		DESCRIPTION
+			"This command configures the registration mode for this port"
+       ::= { dMvrpPortEntry 3 }  
+        
+
+--  *************************************************************************** 
+--  Conformance
+--  ***************************************************************************
+    dMvrpCompliances  OBJECT IDENTIFIER         ::= { dMvrpMIBConformance 1 }
+
+    dMvrpGroups  OBJECT IDENTIFIER        ::= { dMvrpMIBConformance 2 } 
+    
+    dMvrpCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+            DLINKSW-Mvrp-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS    {   
+            dMvrpBasicCfgGroup
+        }
+                    
+        ::= { dMvrpCompliances 1 }
+
+    dMvrpBasicCfgGroup OBJECT-GROUP
+        OBJECTS             {    
+           dMvrpPortRegistrationMode
+         }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects configures basic Mvrp functions."
+        ::= { dMvrpGroups 1 }
+
+END
+

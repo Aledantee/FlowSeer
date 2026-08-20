@@ -1,0 +1,310 @@
+-- *****************************************************************
+-- DLINKSW-VRF-LITE-MIB.mib : D-Link VRF Lite MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+
+DLINKSW-VRF-LITE-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,
+        Unsigned32                          FROM SNMPv2-SMI
+        TruthValue, DisplayString, 
+        RowStatus   		                FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF
+        InterfaceIndex                      FROM IF-MIB
+        dlinkIndustrialCommon               FROM DLINK-ID-REC-MIB;
+
+	dlinkSwVrfLiteMIB MODULE-IDENTITY
+        LAST-UPDATED    "201511200000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of VRF-lite Information for the
+                 proprietary enterprise."         
+
+        REVISION        "201305100000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module."              
+
+        REVISION        "201408060000Z"
+        DESCRIPTION
+            "Modify the value of RowStatus objects to 99." 
+
+        REVISION        "201511200000Z"
+        DESCRIPTION
+            "Add a node dVrfLiteMaxRoutes for table dVrfLiteMaxRoutesTable." 
+
+		::= { dlinkIndustrialCommon 94 }
+
+-- -----------------------------------------------------------------------------    
+    dVrfLiteMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwVrfLiteMIB 0 }
+	dVrfLiteMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwVrfLiteMIB 1 }
+    dVrfLiteMIBConformance	 	OBJECT IDENTIFIER ::= { dlinkSwVrfLiteMIB 2 }
+
+-- ----------------------------------------------------------------------------- 
+	dVrfGlobalCtrl          OBJECT IDENTIFIER ::= { dVrfLiteMIBObjects 1 }
+
+	dVrfLiteExceedHiRteThsholdNotify OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+           "This object controls the state of printing a warning message on console 
+		   when VRF routes exceed the threshold."
+		::= { dVrfGlobalCtrl 1 }
+
+	dVrfLiteImportMapTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DVrfLiteImportMapEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of VRF-specific route map settings."
+	    ::= { dVrfLiteMIBObjects 2 }
+	
+	dVrfLiteImportMapEntry OBJECT-TYPE
+	    SYNTAX          DVrfLiteImportMapEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry contains the route map setting of a VRF."
+	    INDEX    { dVrfLiteImportMapVrfName }
+	    ::= { dVrfLiteImportMapTable 1 }
+
+	DVrfLiteImportMapEntry ::= 	    SEQUENCE {
+	    dVrfLiteImportMapVrfName 	    	DisplayString,	
+        dVrfLiteImportMapName            	DisplayString,
+	    dVrfLiteImportMapRowStatus	        RowStatus   
+	}
+
+	dVrfLiteImportMapVrfName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(1..32))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of VRF."
+	    ::= { dVrfLiteImportMapEntry 1 }
+
+	dVrfLiteImportMapName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(1..32))
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of import route map."
+	    ::= { dVrfLiteImportMapEntry 2 }
+
+	dVrfLiteImportMapRowStatus OBJECT-TYPE
+     	SYNTAX          RowStatus
+     	MAX-ACCESS      read-create
+     	STATUS          current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dVrfLiteImportMapEntry 99 }
+
+-- -----------------------------------------------------------------------------
+	dVrfLiteForwardingTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DVrfLiteForwardingEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of forwarding interfaces for VRFs."
+	    ::= { dVrfLiteMIBObjects 3 }
+	
+	dVrfLiteForwardingEntry OBJECT-TYPE
+	    SYNTAX          DVrfLiteForwardingEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry contains the information of VRF forwarding instance on an
+            interface.
+            An entry is created when an interface is associated to a VRF instance.
+            An entry is removed to restore to global routing instance.  
+            "
+	    INDEX    { dVrfLiteFwdIfIndex }
+	    ::= { dVrfLiteForwardingTable 1 }
+
+	DVrfLiteForwardingEntry ::= 	    SEQUENCE {
+	    dVrfLiteFwdIfIndex 	    	 InterfaceIndex,	
+        dVrfLiteFwdVrfName           DisplayString,
+	    dVrfLiteFwdRowStatus	     RowStatus   
+	}
+
+	dVrfLiteFwdIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The ifIndex value of the IP interface."
+	    ::= { dVrfLiteForwardingEntry 1 }
+
+	dVrfLiteFwdVrfName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(1..32))
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of the VRF."
+	    ::= { dVrfLiteForwardingEntry 2 }
+
+	dVrfLiteFwdRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dVrfLiteForwardingEntry 99 }
+
+-- -----------------------------------------------------------------------------
+	dVrfLiteMaxRoutesTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DVrfLiteMaxRoutesEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains the maximum routes settings for VRFs."
+	    ::= { dVrfLiteMIBObjects 4 }
+	
+	dVrfLiteMaxRoutesEntry OBJECT-TYPE
+	    SYNTAX          DVrfLiteMaxRoutesEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry contains the maximum routes setting of a VRF."
+	    INDEX    { dVrfLiteMaxRoutesVrfName }
+	    ::= { dVrfLiteMaxRoutesTable 1 }
+
+	DVrfLiteMaxRoutesEntry ::= 	    SEQUENCE {
+	    dVrfLiteMaxRoutesVrfName 	    	DisplayString,	        
+	    dVrfLiteMaxRoutesThreshold          Unsigned32,
+	    dVrfLiteMaxRoutesWarningOnly        TruthValue,
+	    dVrfLiteMaxRoutes                   Unsigned32,
+	    dVrfLiteMaxRoutesRowStatus	        RowStatus   
+	}
+
+	dVrfLiteMaxRoutesVrfName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(1..32))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of the VRF."
+	    ::= { dVrfLiteMaxRoutesEntry 1 }
+	
+	dVrfLiteMaxRoutesThreshold OBJECT-TYPE
+	    SYNTAX          Unsigned32 (1..100)
+        UNITS           "percent"
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Indicates the percentage of limit value as the warning threshold. 
+            Warning message will be printed when the routes number reach 
+            the threshold. If dVrfLiteMaxRoutesWarningOnly is 'false' then 
+            no more routes can be written into hardware."
+	    ::= { dVrfLiteMaxRoutesEntry 2 }
+
+	dVrfLiteMaxRoutesWarningOnly OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "A value of 'true' indicates when the routes number exceeds the
+            threshold, only warning message is printed and more routes can
+            still be written into hardware.
+            A value of 'false' indicates when the routes number exceeds the
+            threshold, no more routes can be written into hardware
+            "         
+	    ::= { dVrfLiteMaxRoutesEntry 3 }
+
+	dVrfLiteMaxRoutes OBJECT-TYPE
+	    SYNTAX          Unsigned32
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Maximum number of routes allowed in the VRF routing table"         
+	    ::= { dVrfLiteMaxRoutesEntry 4 }
+
+	dVrfLiteMaxRoutesRowStatus OBJECT-TYPE
+     	SYNTAX          RowStatus
+     	MAX-ACCESS      read-create
+     	STATUS          current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dVrfLiteMaxRoutesEntry 99 }
+
+
+-- Conformance Information        
+
+    dVrfLiteMIBGroups      OBJECT IDENTIFIER ::= { dVrfLiteMIBConformance 1 }
+    dVrfLiteMIBCompliances OBJECT IDENTIFIER ::= { dVrfLiteMIBConformance 2 }
+
+-- Compliance Statements
+
+    dVrfLiteFullCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION     "The compliance statement"
+        MODULE          -- this module
+        MANDATORY-GROUPS {
+            dVrfLiteGlobalCtrlGroup,
+            dVrfLiteImportMapGroup,
+            dVrfLiteForwardingGroup,
+            dVrfLiteMaxRoutesGroup
+        }
+			             
+        ::= { dVrfLiteMIBCompliances 1 }
+
+    -- units of conformance
+
+    dVrfLiteGlobalCtrlGroup OBJECT-GROUP
+        OBJECTS         {
+			dVrfLiteExceedHiRteThsholdNotify
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects provides VRF-lite global configurations."
+        ::= { dVrfLiteMIBGroups 1 }
+
+    dVrfLiteImportMapGroup OBJECT-GROUP
+        OBJECTS         {
+            dVrfLiteImportMapName,
+            dVrfLiteImportMapRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the imported route maps for VRFs."
+        ::= { dVrfLiteMIBGroups 2 }
+
+    dVrfLiteForwardingGroup OBJECT-GROUP
+        OBJECTS         {
+            dVrfLiteFwdVrfName,
+            dVrfLiteFwdRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the interfaces associated with VRF instance."
+        ::= { dVrfLiteMIBGroups 3 }
+
+    dVrfLiteMaxRoutesGroup OBJECT-GROUP
+        OBJECTS         {            
+            dVrfLiteMaxRoutesThreshold,
+            dVrfLiteMaxRoutesWarningOnly,
+            dVrfLiteMaxRoutes,
+            dVrfLiteMaxRoutesRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the VRF maximum routes threshold."
+        ::= { dVrfLiteMIBGroups 4 }
+
+END

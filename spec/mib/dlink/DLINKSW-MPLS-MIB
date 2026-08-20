@@ -1,0 +1,1381 @@
+--  *****************************************************************
+--  DLINKSW-MPLS-MIB.mib : MPLS MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-MPLS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Unsigned32
+            FROM SNMPv2-SMI
+        RowStatus,TruthValue
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF
+	    SnmpAdminString
+            FROM SNMP-FRAMEWORK-MIB
+        InetAddress, InetAddressType
+            FROM INET-ADDRESS-MIB  
+        MplsLabelDistributionMethod,
+        MplsLabel, MplsOwner
+        	FROM MPLS-TC-STD-MIB        
+        dlinkIndustrialCommon                     
+            FROM DLINK-ID-REC-MIB;              
+
+                                       
+    dlinkSwMplsMIB MODULE-IDENTITY
+        LAST-UPDATED "201308180000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for extending the configuration of 
+            MPLS). "
+            
+        REVISION "201308180000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."
+
+	  REVISION "201705110000Z"
+        DESCRIPTION
+            "Add mib object nodes dMplsLdpDiscoveryHelloAddrKind,dMplsLdpDiscoveryHelloAddr,
+             dMplsLdpStaticTargetedPeerDiscoveryHelloAddrKind,dMplsLdpStaticTargetedPeerDiscoveryHelloAddr 
+	     to set the LDP hello source IP address."
+        ::= { dlinkIndustrialCommon 166 } 
+           
+-- -----------------------------------------------------------------------------
+    dMplsMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwMplsMIB 0 }
+    dMplsMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwMplsMIB 1 }
+    dMplsMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwMplsMIB 2 }
+
+-- -----------------------------------------------------------------------------    
+	dMpls					OBJECT IDENTIFIER ::= { dMplsMIBObjects 1 } 
+-- ----------------------------------------------------------------------------- 
+	dMplsGlobalMgmt			OBJECT IDENTIFIER ::= { dMpls 1 }    
+	
+	dMplsGlobalState        OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates whether the MPLS forward is globally enabled."
+        ::= { dMplsGlobalMgmt 1 }    
+        
+	dMplsTrapState          OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates whether the MPLS trap is enabled."
+        ::= { dMplsGlobalMgmt 2 }  
+        
+	dMplsLabelMin           OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify the lower bound for the range of labels used in dynamic label allocation" 
+		DEFVAL          { 1000 }
+        ::= { dMplsGlobalMgmt 3 }  
+        
+	dMplsLabelMax           OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify the higher bound for the range of labels used in dynamic label allocation"
+        DEFVAL          { 5000 }
+        ::= { dMplsGlobalMgmt 4 }  
+        
+	dMplsStaticLabelMin		OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify the lower bound for the range of labels used in static label allocation"
+        DEFVAL          { 16 }
+        ::= { dMplsGlobalMgmt 5 }   
+        
+	dMplsStaticLabelMax     OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify the higher bound for the range of labels used in static label allocation"
+        DEFVAL          { 999 }
+        ::= { dMplsGlobalMgmt 6 }
+-- ----------------------------------------------------------------------------- 	
+	dMplsInterfaceTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsInterfaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains the interface-specific MPLS parameters."
+        ::= { dMpls 2 }
+
+    dMplsInterfaceEntry OBJECT-TYPE
+        SYNTAX          DMplsInterfaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry indicates the MPLS parameters for an ip interface."
+        INDEX { dMplsInterfaceID }
+        ::= { dMplsInterfaceTable 1 }
+
+    DMplsInterfaceEntry ::=
+        SEQUENCE {
+            dMplsInterfaceID			INTEGER,
+            dMplsInterfaceAdminState	TruthValue
+		}
+
+    dMplsInterfaceID OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the ifIndex of the IP interface."
+        ::= { dMplsInterfaceEntry 1 }
+
+    dMplsInterfaceAdminState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates whether the MPLS is enabled at the IP interface."
+        ::= { dMplsInterfaceEntry 2 }  
+-- ----------------------------------------------------------------------------- 	
+	dMplsLsp				OBJECT IDENTIFIER ::= { dMpls 3 }  
+-- ----------------------------------------------------------------------------	
+	dMplsStaticLspTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsStaticLspEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of MPLS static LSP."
+        ::= { dMplsLsp 1 }
+
+    dMplsStaticLspEntry OBJECT-TYPE
+        SYNTAX          DMplsStaticLspEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the information of a MPLS static LSP."
+        INDEX { dMplsStaticLspName }
+        ::= { dMplsStaticLspTable 1 }
+
+    DMplsStaticLspEntry ::=
+        SEQUENCE {
+            dMplsStaticLspName				SnmpAdminString,								
+            dMplsStaticLspID				INTEGER,
+            dMplsStaticLspType				INTEGER, 
+            dMplsStaticLspFecIpType			InetAddressType,
+            dMplsStaticLspFecIpAddr			InetAddress,
+            dMplsStaticLspFecIpMask			InetAddress,
+            dMplsStaticLspInlabel			MplsLabel, 
+            dMplsStaticLspOutlabel			MplsLabel,
+            dMplsStaticLspNextHopAddrType	InetAddressType,
+            dMplsStaticLspNextHopAddr		InetAddress,
+            dMplsStaticLspRowStatus			RowStatus
+	}
+
+	dMplsStaticLspName OBJECT-TYPE
+        SYNTAX          SnmpAdminString
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the LSP Name of the static LSP entry."
+        ::= { dMplsStaticLspEntry 1 }
+
+    dMplsStaticLspID OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the LSP ID of the static LSP entry."
+        ::= { dMplsStaticLspEntry 2 }
+
+    dMplsStaticLspType OBJECT-TYPE
+        SYNTAX          INTEGER	{
+        	egress(1),
+        	ingress(2),
+        	transit(3)        	
+        } 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the LSP type of the static LSP entry."
+        ::= { dMplsStaticLspEntry 3 }
+   
+	dMplsStaticLspFecIpType OBJECT-TYPE
+        SYNTAX          InetAddressType
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the FEC IP type of the static LSP entry."
+        ::= { dMplsStaticLspEntry 4 }  
+        
+	dMplsStaticLspFecIpAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the FEC IP address of the static LSP entry."
+        ::= { dMplsStaticLspEntry 5 }
+   
+	dMplsStaticLspFecIpMask OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the IP address mask of the static LSP entry."
+        ::= { dMplsStaticLspEntry 6 }   
+        
+    dMplsStaticLspInlabel OBJECT-TYPE
+        SYNTAX          MplsLabel
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the in-label of the static LSP entry. 
+            It is only available for transit & egress LSP."
+        ::= { dMplsStaticLspEntry 7 }
+   
+	dMplsStaticLspOutlabel OBJECT-TYPE
+        SYNTAX          MplsLabel
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the out-label of the static LSP entry. 
+            It is only available for ingress & transit LSP."
+        ::= { dMplsStaticLspEntry 8 }  
+	
+	dMplsStaticLspNextHopAddrType OBJECT-TYPE
+        SYNTAX          InetAddressType
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the nexthop address type of the static LSP entry."
+        ::= { dMplsStaticLspEntry 9 }    
+         
+	dMplsStaticLspNextHopAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the nexthop address of the static LSP entry."
+        ::= { dMplsStaticLspEntry 10 } 
+               
+	dMplsStaticLspRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { dMplsStaticLspEntry 11 }           
+    
+-- -----------------------------------------------------------------------------
+	dMplsLspTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsLspEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of MPLS LSP, which include static & dynamic LSPs."
+        ::= { dMplsLsp 2 }
+
+    dMplsLspEntry OBJECT-TYPE
+        SYNTAX          DMplsLspEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the information of a MPLS LSP."
+        INDEX { dMplsLspXcIndex,
+        		dMplsLspInSegIndex,
+        		dMplsLspOutSegIndex
+       	}
+        ::= { dMplsLspTable 1 }
+
+    DMplsLspEntry ::=
+        SEQUENCE {
+            dMplsLspXcIndex			INTEGER,
+            dMplsLspInSegIndex		INTEGER,
+            dMplsLspOutSegIndex		INTEGER,
+            dMplsLspID				INTEGER,
+            dMplsLspType			INTEGER, 
+            dMplsLspFecIpType		InetAddressType,
+            dMplsLspFecIpAddr		InetAddress,
+            dMplsLspFecIpAddrMask	InetAddress,
+            dMplsLspInlabel			MplsLabel, 
+            dMplsLspOutlabel		MplsLabel,
+            dMplsLspNextHopAddrType	InetAddressType,
+            dMplsLspNextHopAddr		InetAddress,
+            dMplsLspOutInterfaceId	INTEGER,
+            dMplsLspOwner			MplsOwner
+	}
+
+    dMplsLspXcIndex OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Primary index for the conceptual row identifying a
+			group of cross-connect segments. The string
+		 	containing a single octet 0x00 is an invalid index."
+        ::= { dMplsLspEntry 1 }
+    
+	dMplsLspInSegIndex OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Incoming label index.
+ 			If this object is set to the string containing
+ 			a single octet 0x00, this indicates a special
+ 			case outlined in the table??s description above.
+ 			In this case no corresponding mplsInSegmentEntry
+ 			shall exist."
+        ::= { dMplsLspEntry 2 }
+
+    dMplsLspOutSegIndex OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Index of out-segment for LSPs not terminating on
+ 			this LSR if not set to the string containing the
+ 			single octet 0x00. If the segment identified by this
+ 			entry is terminating, then this object MUST be set to
+ 			the string containing a single octet 0x00 to indicate
+ 			that no corresponding mplsOutSegmentEntry shall
+ 			exist."
+        ::= { dMplsLspEntry 3 }          
+        
+    dMplsLspID OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            ""
+        ::= { dMplsLspEntry 4 }
+
+    dMplsLspType OBJECT-TYPE
+        SYNTAX          INTEGER	{
+        	egress(1),
+        	ingress(2),
+        	transit(3)        	
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the LSP type of the LSP entry."
+        ::= { dMplsLspEntry 5 }
+   
+	dMplsLspFecIpType OBJECT-TYPE
+        SYNTAX          InetAddressType
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the FEC IP type of the LSP entry."
+        ::= { dMplsLspEntry 6 }  
+        
+	dMplsLspFecIpAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the FEC IP address of the LSP entry."
+        ::= { dMplsLspEntry 7 }
+   
+	dMplsLspFecIpAddrMask OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the IP address mask of the LSP entry."
+        ::= { dMplsLspEntry 8 }   
+        
+    dMplsLspInlabel OBJECT-TYPE
+        SYNTAX          MplsLabel
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the in-label of the LSP entry. It is 
+            only available for transit & egress LSP."
+        ::= { dMplsLspEntry 9 }
+   
+	dMplsLspOutlabel OBJECT-TYPE
+        SYNTAX          MplsLabel
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the out-label of the LSP entry. It is 
+            only available for ingress & transit LSP."
+        ::= { dMplsLspEntry 10 }  
+         
+	dMplsLspNextHopAddrType OBJECT-TYPE
+        SYNTAX          InetAddressType
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the nexthop address type of the LSP entry."
+        ::= { dMplsLspEntry 11 } 
+
+	dMplsLspNextHopAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the nexthop address of the LSP entry."
+        ::= { dMplsLspEntry 12 } 
+       
+   dMplsLspOutInterfaceId OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the nexthop out interface ID of the LSP entry."
+        ::= { dMplsLspEntry 13 }  
+         
+	dMplsLspOwner OBJECT-TYPE
+        SYNTAX          MplsOwner
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the owner of the LSP entry."
+        ::= { dMplsLspEntry 14 }      
+	
+-- -----------------------------------------------------------------------------  
+	dMplsQos				OBJECT IDENTIFIER ::= { dMpls 4 }               
+	
+	dMplsQosPolicyTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsQosPolicyEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+             "This table contains a list of MPLS QoS policy."
+        ::= { dMplsQos 1 }
+
+    dMplsQosPolicyEntry OBJECT-TYPE
+        SYNTAX          DMplsQosPolicyEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the information of a MPLS QoS policy."
+        INDEX { dMplsQosPolicyName }
+        ::= { dMplsQosPolicyTable 1 }
+
+    DMplsQosPolicyEntry ::=
+        SEQUENCE {            
+        	dMplsQosPolicyName			SnmpAdminString, 
+        	dMplsQosPolicyExpToCosState TruthValue,
+            dMplsQosPolicyExpToCos		OCTET STRING,
+            dMplsQosPolicyTrustExp		TruthValue,
+            dMplsQosPolicyCosToExpState TruthValue,
+        	dMplsQosPolicyCosToExp		OCTET STRING, 
+        	dMplsQosPolicyRowStatus		RowStatus    	
+		}
+
+    dMplsQosPolicyName OBJECT-TYPE
+        SYNTAX          SnmpAdminString
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the name of the MPLS QoS policy."
+        ::= { dMplsQosPolicyEntry 1 } 
+                
+	dMplsQosPolicyExpToCosState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the if create inbound EXP to CoS map of the MPLS QoS policy"
+        ::= { dMplsQosPolicyEntry 2 }  
+        
+	dMplsQosPolicyExpToCos OBJECT-TYPE
+        SYNTAX          OCTET STRING (SIZE (8))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the inbound EXP to CoS map of the MPLS QoS policy.
+            The list is the CoS list which mapping to EXP 0-7."
+        ::= { dMplsQosPolicyEntry 3 }
+   
+	dMplsQosPolicyTrustExp OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the MPLS QoS policy is trusted the incoming label's 
+            topmost EXP as priority."
+        ::= { dMplsQosPolicyEntry 4 }
+        
+	dMplsQosPolicyCosToExpState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the if create outbound CoS to EXP map of the MPLS QoS policy"
+        ::= { dMplsQosPolicyEntry 5 }
+  
+	dMplsQosPolicyCosToExp OBJECT-TYPE
+        SYNTAX          OCTET STRING (SIZE (8))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the outbound CoS to EXP map of the MPLS QoS policy.
+            The list is the EXP list which mapping to CoS 0-7."
+        ::= { dMplsQosPolicyEntry 6 } 
+        
+	dMplsQosPolicyRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { dMplsQosPolicyEntry 7 } 	   
+        
+-- -----------------------------------------------------------------------------
+	dMplsQosMatchIPTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsQosMatchIPEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of IP FEC match with MPLS QoS policy."
+        ::= { dMplsQos 2 }
+
+    dMplsQosMatchIPEntry OBJECT-TYPE
+        SYNTAX          DMplsQosMatchIPEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the IP FEC match with MPLS QoS policy information."
+        INDEX { dMplsQosMatchIPPolicyName,
+        		dMplsQosMatchIPFecAddr,
+        		dMplsQosMatchIPFecMask 
+		}
+        ::= { dMplsQosMatchIPTable 2 }
+
+    DMplsQosMatchIPEntry ::=
+        SEQUENCE {
+            dMplsQosMatchIPPolicyName	SnmpAdminString,
+            dMplsQosMatchIPFecAddr		InetAddress, 
+            dMplsQosMatchIPFecMask		InetAddress,
+            dMplsQosMatchIPFecRowStatus	RowStatus	
+		}
+
+    dMplsQosMatchIPPolicyName OBJECT-TYPE
+        SYNTAX          SnmpAdminString
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the index of the MPLS QoS policy."
+        ::= { dMplsQosMatchIPEntry 1 }
+
+    dMplsQosMatchIPFecAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the FEC IPv4 Address of the match rule."
+        ::= { dMplsQosMatchIPEntry 2 }
+   
+	dMplsQosMatchIPFecMask OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the FEC IPv4 mask of the match rule."
+        ::= { dMplsQosMatchIPEntry 3 }  
+        
+	dMplsQosMatchIPFecRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { dMplsQosMatchIPEntry 4 }
+
+-- -----------------------------------------------------------------------------
+	dMplsQosMatchVCTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsQosMatchVCEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of VC FEC match with MPLS QoS policy."
+        ::= { dMplsQos 3 }
+
+    dMplsQosMatchVCEntry OBJECT-TYPE
+        SYNTAX          DMplsQosMatchVCEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the VC FEC match with MPLS QoS policy information."
+        INDEX { dMplsQosMatchVCPolicyName,
+        		dMplsQosMatchVCID,
+        		dMplsQosMatchVCIpAddr 
+        }
+        ::= { dMplsQosMatchVCTable 3 }
+
+    DMplsQosMatchVCEntry ::=
+        SEQUENCE {
+            dMplsQosMatchVCPolicyName	SnmpAdminString,
+            dMplsQosMatchVCID			INTEGER, 
+            dMplsQosMatchVCIpAddr		InetAddress,
+            dMplsQosMatchVCRowStatus	RowStatus	
+		}
+
+    dMplsQosMatchVCPolicyName OBJECT-TYPE
+        SYNTAX          SnmpAdminString
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the index of the MPLS QoS policy."
+        ::= { dMplsQosMatchVCEntry 1 }
+
+    dMplsQosMatchVCID OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+			"This object indicates the VC FEC VC-ID of the match rule."
+        ::= { dMplsQosMatchVCEntry 2 }
+   
+	dMplsQosMatchVCIpAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the VC FEC IPv4 address of the match rule."
+        ::= { dMplsQosMatchVCEntry 3 }  
+        
+	dMplsQosMatchVCRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { dMplsQosMatchVCEntry 4 }
+               
+-- -----------------------------------------------------------------------------  
+	dMplsLdp				OBJECT IDENTIFIER ::= { dMplsMIBObjects 2 }	          
+-- -----------------------------------------------------------------------------  
+	dMplsLdpGlobalMgmt		OBJECT IDENTIFIER ::= { dMplsLdp 1 }   				
+                
+    dMplsLdpLsrIdKind OBJECT-TYPE
+        SYNTAX          INTEGER {
+        	auto(1),
+        	manual(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the LSR ID kind for MPLS LDP.
+            auto	- LDP will auto select the router ID. If LDP is running, 
+            		LSR ID will not be auto-changed.
+            manual	- Specifies the IPv4 address that will be used as LSR ID. 
+            		The IPv4 address must be an IP address of an existed 
+            		interface"
+        ::= { dMplsLdpGlobalMgmt 1 }   
+
+	dMplsLdpLsrId OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the LSR ID for MPLS LDP, is used to identify 
+            the LSR in the MPLS network. Recommend set the LSR ID to the IP address 
+            of a loopback interface."
+        ::= { dMplsLdpGlobalMgmt 2 }
+
+    dMplsLdpTrapState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the trap state for MPLS LDP."
+        ::= { dMplsLdpGlobalMgmt 3 }
+	
+	dMplsLdpTransportAddrKind OBJECT-TYPE
+        SYNTAX          INTEGER {
+			lsrid(1),
+			interface(2),
+			ipaddress(3)
+		}
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the transport address kind for MPLS LDP. 
+            The transport address is used to establish LDP TCP connection.
+            lsrid 	  - The address of LSR ID is used as transport address 
+            			by all interfaces.
+            interface - The IP address of each interface is used as the 
+            			transport address.
+            ipaddress - The address is used as transport address by all 
+            			interfaces."
+        ::= { dMplsLdpGlobalMgmt 4 } 
+
+	dMplsLdpTransportAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the transport address for MPLS LDP."
+        ::= { dMplsLdpGlobalMgmt 5 }   
+
+    dMplsLdpLspControlMode OBJECT-TYPE
+        SYNTAX          INTEGER {
+			ordered(1),
+			independent(2)
+		}
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the LSP control mode for MPLS LDP. 
+            ordered		- A LSR only binds a label to a FEC if it is the 
+            			egress LSR for that FEC, or if it has already 
+            			received a label binding for that FEC from its 
+            			next hop for that FEC.
+            independent - Each LSR independently binds a label to a FEC 
+            			and distributes the binding to its label distribution 
+            			peers."
+        ::= { dMplsLdpGlobalMgmt 6 }
+
+	dMplsLdpBackOffInitTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (15..65535)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the initial back-off delay time for 
+            MPLS LDP."
+        DEFVAL			{ 15 }
+        ::= { dMplsLdpGlobalMgmt 7 }
+
+	dMplsLdpBackOffMaxTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (120..65535)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+    	DESCRIPTION
+            "This object indicates the maximum back-off delay time for 
+            MPLS LDP."
+        DEFVAL			{ 600 }
+        ::= { dMplsLdpGlobalMgmt 8 }   
+
+    dMplsLdpLinkHelloInterval OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the global link hello interval time 
+            for MPLS LDP."
+        ::= { dMplsLdpGlobalMgmt 9 }
+ 
+	dMplsLdpLoopDetection OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the loop detection function state 
+            for MPLS LDP."
+        ::= { dMplsLdpGlobalMgmt 10 }
+
+	dMplsLdpPhp OBJECT-TYPE
+        SYNTAX          INTEGER {
+			implicit(1),
+			explicit(2)
+		}
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether the Penultimate Hop Popping 
+            (PHP) mode.
+            implicit - The PHP mode is implicit null label mode.
+            explicit - The PHP mode is explicit null label mode."
+        ::= { dMplsLdpGlobalMgmt 11 }   
+
+    dMplsLdpMd5Authentication OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether the MPLS authentication function 
+            is enabled."
+        ::= { dMplsLdpGlobalMgmt 12 } 
+        
+	dMplsLdpGRState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates whether the MPLS LDP graceful restart is enabled. 
+            The graceful restart will be used by the LDP session only 
+            when both local and peer are enabled."
+        ::= { dMplsLdpGlobalMgmt 13 }
+
+	dMplsLdpGRMaxRecoveryTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (12..600)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The max recovery time for the MPLS LDP graceful restart. 
+            If LDP Graceful Restart is enabled and a LDP session 
+            re-established, the device shall complete the exchange of 
+            the label mapping information with its neighbor within the 
+            Recovery Time. After the Recovery Timer expired, the device 
+            shall delete all label forwarding entries that are marked 
+            stale."      
+        DEFVAL			{ 300 }
+        ::= { dMplsLdpGlobalMgmt 14 }   
+
+    dMplsLdpGRNeighborLivenessTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (5..300)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The neighbor liveness time for the MPLS LDP graceful restart.
+            If the LDP session cannot be established within the reconnection 
+            time, all associated stale label forwarding entries shall be 
+            deleted."                                     
+        DEFVAL			{ 120 }
+        ::= { dMplsLdpGlobalMgmt 15 }
+
+	dMplsLdpDiscoveryHelloAddrKind OBJECT-TYPE
+        SYNTAX          INTEGER {
+			lsrid(1),
+			interface(2),
+			ipaddress(3)
+		}
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the discovery hello source address kind for MPLS LDP. 
+            The discovery hello source address is used to send LDP hello message.
+            lsrid     - The address of LSR ID is used as hello source address 
+            			by all interfaces.
+            interface - The IP address of each interface is used as the 
+            			hello source address.
+            ipaddress - The address is used as hello source address by all 
+            			interfaces."
+        ::= { dMplsLdpGlobalMgmt 16 } 
+
+	dMplsLdpDiscoveryHelloAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the discovery hello source address for MPLS LDP."
+        ::= { dMplsLdpGlobalMgmt 17 }         
+-- -----------------------------------------------------------------------------  	
+	dMplsLdpInterfaceTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsLdpInterfaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains the interface-specific MPLS LDP parameters."    
+        ::= { dMplsLdp 2 }
+
+    dMplsLdpInterfaceEntry OBJECT-TYPE
+        SYNTAX          DMplsLdpInterfaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry indicates the MPLS LDP parameters for an IP interface."   
+        INDEX { dMplsLdpInterfaceID }
+        ::= { dMplsLdpInterfaceTable 1 }
+
+    DMplsLdpInterfaceEntry ::=
+        SEQUENCE {
+            dMplsLdpInterfaceID					INTEGER,
+            dMplsLdpInterfaceAdminState			TruthValue,
+            dMplsLdpInterfaceDistribution		MplsLabelDistributionMethod,
+            dMplsLdpInterfaceHelloInterval		Unsigned32,
+            dMplsLdpInterfaceHelloHoldTime		Unsigned32,
+            dMplsLdpInterfaceTargetHelloAccept	TruthValue			
+		}
+
+    dMplsLdpInterfaceID OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the ifIndex of the IP interface." 
+        ::= { dMplsLdpInterfaceEntry 1 }
+
+    dMplsLdpInterfaceAdminState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates whether the MPLS LDP is enabled at the IP interface."  
+        ::= { dMplsLdpInterfaceEntry 2 }
+   
+	dMplsLdpInterfaceDistribution OBJECT-TYPE
+        SYNTAX          MplsLabelDistributionMethod
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates the MPLS LDP label distribution method of the IP interface.
+            If set the mode to Downstream-on-Demand mode, the downstream LSR 
+            advertises a label mapping when an upstream connection makes an explicit 
+            request.
+			If set the mode to Downstream-Unsolicited mode, the downstream LSR 
+			advertises a label mapping when a label is learned in the routing table."
+        ::= { dMplsLdpInterfaceEntry 3 }  
+        
+	dMplsLdpInterfaceHelloInterval OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates the MPLS LDP link hello message interval of the IP interface."
+        ::= { dMplsLdpInterfaceEntry 4 }
+   
+	dMplsLdpInterfaceHelloHoldTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (5..65535)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates the MPLS LDP link hello message hold time of the IP interface."
+        ::= { dMplsLdpInterfaceEntry 5 }
+
+	dMplsLdpInterfaceTargetHelloAccept OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Indicates the MPLS LDP target hello message acceptance of the IP interface.
+            If targeted hello message acceptance is disabled in the interface, and if 
+            the received targeted hello is not coming from the local configured targeted 
+            peer, the message will be ignored."
+        ::= { dMplsLdpInterfaceEntry 6 }
+-- -----------------------------------------------------------------------------  	
+	dMplsLdpStaticTargetedPeerTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsLdpStaticTargetedPeerEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains the MPLS LDP target peer information."
+        ::= { dMplsLdp 3 }
+
+    dMplsLdpStaticTargetedPeerEntry OBJECT-TYPE
+        SYNTAX          DMplsLdpStaticTargetedPeerEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry indicates the parameters for a MPLS LDP target peer."
+        INDEX { dMplsLdpStaticTargetedPeerLsrId }
+        ::= { dMplsLdpStaticTargetedPeerTable 1 }
+
+    DMplsLdpStaticTargetedPeerEntry ::=
+        SEQUENCE {
+            dMplsLdpStaticTargetedPeerLsrId			InetAddress,
+            dMplsLdpStaticTargetedPeerHelloInterval	Unsigned32, 
+            dMplsLdpStaticTargetedPeerHelloHoldTime	Unsigned32,
+            dMplsLdpStaticTargetedPeerRowStatus		RowStatus,
+ 	    	dMplsLdpStaticTargetedPeerDiscoveryHelloAddrKind    INTEGER,
+            dMplsLdpStaticTargetedPeerDiscoveryHelloAddr 	InetAddress	
+		}
+
+    dMplsLdpStaticTargetedPeerLsrId OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the LSR ID of the target peer."
+        ::= { dMplsLdpStaticTargetedPeerEntry 1 }
+
+    dMplsLdpStaticTargetedPeerHelloInterval OBJECT-TYPE
+        SYNTAX          Unsigned32 (5..65535) 
+        UNITS			"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current 
+        DESCRIPTION
+            "Indicates the target hello interval of the target peer."
+        DEFVAL			{ 15 }
+        ::= { dMplsLdpStaticTargetedPeerEntry 2 }
+   
+	dMplsLdpStaticTargetedPeerHelloHoldTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (15..65535)
+        UNITS       	"seconds"
+        MAX-ACCESS      read-write
+        STATUS          current 
+        DESCRIPTION
+            "Indicates the target hello holdtime of the target peer."
+        DEFVAL			{ 45 }
+        ::= { dMplsLdpStaticTargetedPeerEntry 3 }  
+        
+	dMplsLdpStaticTargetedPeerRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { dMplsLdpStaticTargetedPeerEntry 4 }
+
+	dMplsLdpStaticTargetedPeerDiscoveryHelloAddrKind OBJECT-TYPE
+        SYNTAX          INTEGER {
+			lsrid(1),
+			interface(2),
+			ipaddress(3)
+		}
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the static targeted peer discovery hello source address kind for MPLS LDP. 
+            lsrid     - The address of LSR ID is used as hello source address 
+            			by all interfaces.
+            interface - The IP address of each interface is used as the 
+            			hello source address.
+            ipaddress - The address is used as hello source address by all 
+            			interfaces."
+        ::= { dMplsLdpStaticTargetedPeerEntry 5 } 
+
+	dMplsLdpStaticTargetedPeerDiscoveryHelloAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the discovery hello source address for MPLS LDP."
+        ::= { dMplsLdpStaticTargetedPeerEntry 6 } 
+-- -----------------------------------------------------------------------------
+	dMplsLdpLspTriggerTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsLdpLspTriggerEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of MPLS LDP LSP trigger filter rule."
+        ::= { dMplsLdp 4 }
+
+    dMplsLdpLspTriggerEntry OBJECT-TYPE
+        SYNTAX          DMplsLdpLspTriggerEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the information of a MPLS LDP LSP trigger filter rule."
+        INDEX { dMplsLdpLspTriggerSN }
+        ::= { dMplsLdpLspTriggerTable 1 }
+
+    DMplsLdpLspTriggerEntry ::=
+        SEQUENCE {
+            dMplsLdpLspTriggerSN			INTEGER,
+            dMplsLdpLspTriggerAction		INTEGER, 
+            dMplsLdpLspTriggerFecIpType		InetAddressType,
+            dMplsLdpLspTriggerFecIpAddr		InetAddress,
+            dMplsLdpLspTriggerFecIpMask		InetAddress,
+            dMplsLdpLspTriggerRowStatus		RowStatus	
+		}
+
+    dMplsLdpLspTriggerSN OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the sequence number of the MPLS LSP trigger filter rule."
+        ::= { dMplsLdpLspTriggerEntry 1 }
+
+    dMplsLdpLspTriggerAction OBJECT-TYPE
+        SYNTAX          INTEGER	{
+        	permit(1),
+        	deny(2)        
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the action of the MPLS LSP trigger filter rule.
+            permit		- permit LDP establishing LSP for the follows IP prefix FEC.
+            deny		- no permit LDP establishing LSP for the follows IP prefix FEC."
+		::= { dMplsLdpLspTriggerEntry 2 }
+   
+	dMplsLdpLspTriggerFecIpType OBJECT-TYPE
+        SYNTAX          InetAddressType
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the IP prefix FEC IP type of the MPLS LSP trigger 
+            filter rule."
+        ::= { dMplsLdpLspTriggerEntry 3 }
+	
+	dMplsLdpLspTriggerFecIpAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the IP prefix FEC IP Address of the MPLS LSP 
+            trigger filter rule."
+        ::= { dMplsLdpLspTriggerEntry 4 }  
+        
+	dMplsLdpLspTriggerFecIpMask OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the IP prefix FEC IP mask of the MPLS LSP 
+            trigger filter rule."
+        ::= { dMplsLdpLspTriggerEntry 5 }
+   
+	dMplsLdpLspTriggerRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { dMplsLdpLspTriggerEntry 6 }
+-- -----------------------------------------------------------------------------
+    
+   	dMplsLdpNeighborPasswordTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMplsLdpNeighborPasswordEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains the MPLS LDP neighbor password information."
+        ::= { dMplsLdp 5 }
+
+    dMplsLdpNeighborPasswordEntry OBJECT-TYPE
+        SYNTAX          DMplsLdpNeighborPasswordEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry indicates the parameters for a MPLS LDP neighbor password."
+        INDEX { dMplsLdpNeighborPasswordLsrId }
+        ::= { dMplsLdpNeighborPasswordTable 1 }
+
+    DMplsLdpNeighborPasswordEntry ::=
+        SEQUENCE {
+            dMplsLdpNeighborPasswordLsrId		InetAddress,
+            dMplsLdpNeighborPassword			SnmpAdminString,         
+            dMplsLdpNeighborPasswordRowStatus	RowStatus			
+		}
+
+    dMplsLdpNeighborPasswordLsrId OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the LSR ID of the neighbor."
+        ::= { dMplsLdpNeighborPasswordEntry 1 }
+
+    dMplsLdpNeighborPassword OBJECT-TYPE
+        SYNTAX          SnmpAdminString
+        MAX-ACCESS      read-write
+        STATUS          current 
+        DESCRIPTION
+            "Indicates the password of the neighbor."
+        ::= { dMplsLdpNeighborPasswordEntry 2 }
+           
+	dMplsLdpNeighborPasswordRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { dMplsLdpNeighborPasswordEntry 3 }       
+        
+--  *************************************************************************** 
+--  Conformance
+--  ***************************************************************************
+    dMplsCompliances	OBJECT IDENTIFIER		::= { dMplsMIBConformance 1 }
+    dMplsGroups			OBJECT IDENTIFIER		::= { dMplsMIBConformance 2 }  
+    
+	dMplsCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+            DLINKSW-MPLS-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS    {   
+            dMplsBasicCfgGroup
+        }
+        
+        GROUP dMplsLspGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            the MPLS LSP."
+            
+        GROUP dMplsQosGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            the management of MPLS QoS."
+            
+        GROUP dMplsLdpGlobalGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            the management of MPLS LDP global."
+        
+        GROUP dMplsLdpInterfaceGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            the management of MPLS LDP interface."    
+        
+        GROUP dMplsLdpStaticTargetedPeerGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            the management of MPLS LDP static targeted peer."
+        
+        GROUP dMplsLdpLspTriggerGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            the management of MPLS LDP LSP trigger."
+        
+        GROUP dMplsLdpNeighborPasswordGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            the management of MPLS LDP neighbor password."    
+        
+        ::= { dMplsCompliances 1 }
+        
+        dMplsBasicCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            dMplsGlobalState,
+            dMplsTrapState,
+            dMplsLabelMin,
+            dMplsLabelMax,
+            dMplsStaticLabelMin,
+            dMplsStaticLabelMax,
+            dMplsInterfaceAdminState
+        }           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information and 
+            control for configuring MPLS basic feature."
+        ::= { dMplsGroups 1 }
+        
+        dMplsLspGroup OBJECT-GROUP
+        OBJECTS {
+            dMplsStaticLspID,
+            dMplsStaticLspType,
+            dMplsStaticLspFecIpType,
+            dMplsStaticLspFecIpAddr,
+            dMplsStaticLspFecIpMask,
+            dMplsStaticLspInlabel,
+            dMplsStaticLspOutlabel,
+            dMplsStaticLspNextHopAddrType,
+            dMplsStaticLspNextHopAddr,
+            dMplsStaticLspRowStatus,
+			dMplsLspID,
+			dMplsLspType,
+			dMplsLspFecIpType,
+			dMplsLspFecIpAddr,
+			dMplsLspFecIpAddrMask,
+			dMplsLspInlabel,
+			dMplsLspOutlabel,
+			dMplsLspNextHopAddrType,
+			dMplsLspNextHopAddr,
+			dMplsLspOutInterfaceId,
+			dMplsLspOwner            
+        }           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information 
+            and control for configuring MPLS LSP feature."
+        ::= { dMplsGroups 2 }
+        
+        dMplsQosGroup OBJECT-GROUP
+        OBJECTS {
+			dMplsQosPolicyExpToCosState,
+			dMplsQosPolicyExpToCos,
+			dMplsQosPolicyTrustExp,
+			dMplsQosPolicyCosToExpState,
+			dMplsQosPolicyCosToExp,
+			dMplsQosPolicyRowStatus,
+			dMplsQosMatchIPFecRowStatus,
+			dMplsQosMatchVCRowStatus
+        }           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information and 
+            control for configuring MPLS QoS feature."
+        ::= { dMplsGroups 3 }
+        
+        dMplsLdpGlobalGroup OBJECT-GROUP
+        OBJECTS { 
+            dMplsLdpLsrIdKind,
+			dMplsLdpLsrId,
+			dMplsLdpTrapState,
+			dMplsLdpTransportAddrKind,
+			dMplsLdpTransportAddr,
+			dMplsLdpLspControlMode,
+			dMplsLdpBackOffInitTime,
+			dMplsLdpBackOffMaxTime,
+			dMplsLdpLinkHelloInterval,
+			dMplsLdpLoopDetection,
+			dMplsLdpPhp,
+			dMplsLdpMd5Authentication,
+			dMplsLdpGRState,
+			dMplsLdpGRMaxRecoveryTime,
+			dMplsLdpGRNeighborLivenessTime,
+			dMplsLdpDiscoveryHelloAddrKind,
+			dMplsLdpDiscoveryHelloAddr
+		}           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information and 
+            control for configuring MPLS LDP global feature."
+        ::= { dMplsGroups 4 }
+        
+        dMplsLdpInterfaceGroup OBJECT-GROUP
+        OBJECTS {
+			dMplsLdpInterfaceAdminState,      
+			dMplsLdpInterfaceDistribution,    
+			dMplsLdpInterfaceHelloInterval,   
+			dMplsLdpInterfaceHelloHoldTime,   
+			dMplsLdpInterfaceTargetHelloAccept
+		}           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information and 
+            control for configuring MPLS LDP interface feature."
+        ::= { dMplsGroups 5 }
+        
+        dMplsLdpStaticTargetedPeerGroup OBJECT-GROUP
+        OBJECTS {
+			dMplsLdpStaticTargetedPeerHelloInterval,
+			dMplsLdpStaticTargetedPeerHelloHoldTime,
+			dMplsLdpStaticTargetedPeerRowStatus,
+			dMplsLdpStaticTargetedPeerDiscoveryHelloAddrKind,
+			dMplsLdpStaticTargetedPeerDiscoveryHelloAddr
+		}           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information and 
+            control for configuring MPLS LDP static targeted peer feature."
+        ::= { dMplsGroups 6 }
+        
+        dMplsLdpLspTiggerGroup OBJECT-GROUP
+        OBJECTS { 
+			dMplsLdpLspTriggerAction,
+			dMplsLdpLspTriggerFecIpType,
+			dMplsLdpLspTriggerFecIpAddr,
+			dMplsLdpLspTriggerFecIpMask,
+			dMplsLdpLspTriggerRowStatus
+		}           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information 
+            and control for configuring MPLS LDP LSP trigger feature."
+        ::= { dMplsGroups 7 }    
+        
+        dMplsLdpNeighborPasswordGroup OBJECT-GROUP
+        OBJECTS {
+            dMplsLdpNeighborPassword,
+            dMplsLdpNeighborPasswordRowStatus
+		}           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information 
+            and control for configuring MPLS LDP neighbor password."
+        ::= { dMplsGroups 8 }
+END
+
+
+

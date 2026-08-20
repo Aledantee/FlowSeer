@@ -1,0 +1,514 @@
+--  *****************************************************************
+--  DLINKSW-MGMD-EXT-MIB : DLINK MGMD Extension MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-MGMD-EXT-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, mib-2, Unsigned32
+                                         FROM SNMPv2-SMI
+        InetAddress, InetAddressType,InetAddressIPv4
+                                         FROM INET-ADDRESS-MIB
+        RowStatus, TruthValue, DisplayString
+                                         FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP  FROM SNMPv2-CONF
+        InterfaceIndexOrZero, InterfaceIndex
+                                         FROM IF-MIB
+        dlinkIndustrialCommon
+                                         FROM DLINK-ID-REC-MIB;
+
+    dlinkSwMgmdExtMIB MODULE-IDENTITY
+        LAST-UPDATED "201407180000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for IGMP and MLD."
+        REVISION "201305020000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file.
+            "
+	REVISION "201404010000Z"
+        DESCRIPTION
+            "Modify the index of 'dMgmdExtStaticSsmMapEntry'.
+	     Add new object 'dMgmdExtStaticSsmMapRowStatus' to 'dMgmdExtStaticSsmMapEntry'.
+             Modify 'dMgmdExtIfStaticGrpTable'. 
+	    "
+	REVISION "201407180000Z"
+	DESCRIPTION 
+		"Modify the OID of all rowstatus objects to 99."
+        ::= { dlinkIndustrialCommon 56 }
+
+-- -----------------------------------------------------------------------------
+    dMgmdExtNotifications    OBJECT IDENTIFIER ::= { dlinkSwMgmdExtMIB 0 }
+    dMgmdExtObjects          OBJECT IDENTIFIER ::= { dlinkSwMgmdExtMIB 1 }
+    dMgmdExtConformance      OBJECT IDENTIFIER ::= { dlinkSwMgmdExtMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    dMgmdExtClearObjects          OBJECT IDENTIFIER ::= { dMgmdExtObjects 1 }
+
+    dMgmdExtIgmpClearAllGrps  OBJECT-TYPE
+        SYNTAX      INTEGER {
+            clear(1),
+            noOp(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS      current
+        DESCRIPTION
+            "This object is used to clear all IGMP group entries when set
+            to 'clear'.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+        ::= { dMgmdExtClearObjects 1 }
+    
+    dMgmdExtClearIgmpClearGrpByAddr OBJECT-TYPE
+        SYNTAX          InetAddressIPv4 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object is used to clear IGMP group entry based on group address.
+            Setting this object to the group address which you want to clear.
+            When read, a zero IP address is returned."
+        ::= {dMgmdExtClearObjects 2}
+
+    dMgmdExtClearIgmpClearGrpByIfIdx OBJECT-TYPE
+        SYNTAX          InterfaceIndexOrZero
+        MAX-ACCESS      read-write
+        STATUS      current
+        DESCRIPTION
+            "This object indicates the ifIndex of interface on which the IGMP
+            group entries will be cleared.            
+            The special value of zero will be returned when read."
+        ::= {dMgmdExtClearObjects 3}
+
+-- -----------------------------------------------------------------------------
+    dMgmdExtGeneral          OBJECT IDENTIFIER ::= { dMgmdExtObjects 2 }
+
+    dMgmdExtSsmMapEnabled  OBJECT-TYPE
+       SYNTAX          BITS  {
+            igmp(0),
+            mld(1)
+        } 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION           
+            "This object indicates whether the Source Specific Multicast (SSM)
+            mapping feature is enabled on the corresponding protocol. 
+            If igmp(0) bit is set to 1, then SSM mapping for IGMPv1 or v2 hosts
+            is enabled; 
+            If mld(1) bit is set to 1, then the Source Specific Multicast (SSM)
+            mapping feature for MLD hosts is enabled.
+            " 
+        ::= { dMgmdExtGeneral 1 }
+
+-- -----------------------------------------------------------------------------
+    dMgmdExtStaticSsmMapTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMgmdExtStaticSsmMapEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table contains a list of the SSM mapping configurations."
+        ::= { dMgmdExtGeneral 2 }
+
+    dMgmdExtStaticSsmMapEntry OBJECT-TYPE
+        SYNTAX          DMgmdExtStaticSsmMapEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry indicates the information of a static SSM mapping."
+        INDEX   { 
+            dMgmdExtStaticSsmMapAcl, 
+            dMgmdExtStaticSsmMapSrcAddrType,
+	    dMgmdExtStaticSsmMapSrcAddr                      
+        }
+        ::= { dMgmdExtStaticSsmMapTable 1 }
+
+    DMgmdExtStaticSsmMapEntry ::= SEQUENCE {        
+        dMgmdExtStaticSsmMapAcl              DisplayString, 
+        dMgmdExtStaticSsmMapSrcAddrType      InetAddressType,        
+        dMgmdExtStaticSsmMapSrcAddr          InetAddress,
+	 dMgmdExtStaticSsmMapRowStatus        RowStatus
+    }
+       
+    dMgmdExtStaticSsmMapAcl OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the name of the access list that contains 
+            the multicast groups to be mapped.            
+            "
+        ::= { dMgmdExtStaticSsmMapEntry 1 }
+    
+     dMgmdExtStaticSsmMapSrcAddrType OBJECT-TYPE
+        SYNTAX          InetAddressType
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the type of static SSM mapping and also 
+            implies the type of source address to be associated with the 
+            group defined in the access list."
+        ::= { dMgmdExtStaticSsmMapEntry 2 }
+
+    dMgmdExtStaticSsmMapSrcAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the source address to be associated with
+             the group defined in the dMgmdExtStaticSsmMapAcl.
+            "
+        ::= { dMgmdExtStaticSsmMapEntry 3 }
+
+    dMgmdExtStaticSsmMapRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object is used to create a new row or modify or
+            delete an existing row in this table." 
+        ::= { dMgmdExtStaticSsmMapEntry 99 }
+-- -----------------------------------------------------------------------------
+    dMgmdExtInterfaceObjects     OBJECT IDENTIFIER ::= { dMgmdExtObjects 3 }
+
+    dMgmdExtInterfaceTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMgmdExtInterfaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table contains a list of interface specific configuration for
+            IGMP or MLD.
+            "
+        ::= { dMgmdExtInterfaceObjects 1 }
+
+    dMgmdExtInterfaceEntry OBJECT-TYPE
+        SYNTAX          DMgmdExtInterfaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry is created to configure the configuration of IGMP or MLD 
+           with the value which is different from default."
+        INDEX        { 
+            dMgmdExtIfIndex,
+            dMgmdExtIfMgmdType 
+        }
+        ::= { dMgmdExtInterfaceTable 1 }
+
+    DMgmdExtInterfaceEntry ::= SEQUENCE {
+        dMgmdExtIfIndex                        InterfaceIndex,
+        dMgmdExtIfMgmdType                     INTEGER,
+        dMgmdExtIfLastMemberQueryCount         Unsigned32,
+        dMgmdExtIfAccessGroupName              DisplayString,
+        dMgmdExtIfIgnoreSubscriberCheck        TruthValue,
+        dMgmdExtIfExplicitTracking             TruthValue,
+        dMgmdExtIfImmediateLeaveEnabled        TruthValue,
+        dMgmdExtIfImmediateLeaveGroupLst       DisplayString,       
+        dMgmdExtIfGrpLimit                     Unsigned32,
+        dMgmdExtIfGrpLimitExceptAcl            DisplayString,
+        dMgmdExtIfRowStatus                    RowStatus     
+    } 
+
+    dMgmdExtIfIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The ifIndex value of the interface for which IGMP or MLD is
+            configured.  The table is indexed by the ifIndex value and the
+            dMgmdExtIfMgmdType to allow for interfaces that may be
+            configured in both IGMP and MLD modes."
+        ::= { dMgmdExtInterfaceEntry 1 }
+
+    dMgmdExtIfMgmdType OBJECT-TYPE
+        SYNTAX          INTEGER {
+            igmp(1),
+            mld(2)
+        }
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The object indicates the type of the entry."
+        ::= { dMgmdExtInterfaceEntry 2 }
+    
+    dMgmdExtIfLastMemberQueryCount OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..7)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the number of group-specific and group-and-
+            source-specific queries sent by the router before it assumes
+            there are no local members."
+        ::= { dMgmdExtInterfaceEntry 4 }
+  
+    dMgmdExtIfAccessGroupName OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the nam of the associated access list to
+            restrict the receivers on a subnet to only join the multicast groups
+            or the (S, G) channels that are permitted by the access list.
+            "
+        ::= { dMgmdExtInterfaceEntry 5 }
+
+    dMgmdExtIfIgnoreSubscriberCheck OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether to ignore checking the subscriber's
+            source IP when an IGMP report or leave message is received.
+            "
+        DEFVAL { false }
+        ::= { dMgmdExtInterfaceEntry 6 }
+
+    dMgmdExtIfExplicitTracking OBJECT-TYPE
+        SYNTAX          TruthValue 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether to perform explicit tracking of
+            host group membership for IGMP Version 3 or MLD.
+            "
+        DEFVAL { false }
+        ::= { dMgmdExtInterfaceEntry 7 }
+
+    dMgmdExtIfImmediateLeaveEnabled OBJECT-TYPE
+        SYNTAX          TruthValue 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the state of IGMP or MLD immediate-leave on
+            the interface. 
+            "
+        DEFVAL { false }
+        ::= { dMgmdExtInterfaceEntry 8 }
+
+    dMgmdExtIfImmediateLeaveGroupLst OBJECT-TYPE
+        SYNTAX          DisplayString 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the name of access list that lists the group
+            address to enable the immediate leave feature.
+            When dMgmdExtIfImmediateLeaveEnabled is set to 'false', this object 
+            will be reset to zero length string.
+            "
+        ::= { dMgmdExtInterfaceEntry 9 }
+
+    dMgmdExtIfGrpLimit OBJECT-TYPE
+        SYNTAX          Unsigned32 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the maximum number of IGMP or MLD cache
+            entries that can be created. "
+        ::= { dMgmdExtInterfaceEntry 10 }
+    
+    dMgmdExtIfGrpLimitExceptAcl OBJECT-TYPE
+        SYNTAX          DisplayString 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the name of access list, which specifies the
+            group (*,G), or channel (S,G) permitted by the access list will be
+            exempt from the limit.
+            "
+        ::= { dMgmdExtInterfaceEntry 11 }
+
+   dMgmdExtIfRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object is used to create a new row or modify or
+             delete an existing row in this table." 
+        ::= { dMgmdExtInterfaceEntry 99 }
+-- -----------------------------------------------------------------------------
+    dMgmdExtIfStaticGrpTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DMgmdExtIfStaticGrpEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table contains a list of interface specific static membership for
+            groups or channels. 
+            "
+        ::= { dMgmdExtInterfaceObjects 2 }
+
+    dMgmdExtIfStaticGrpEntry OBJECT-TYPE
+        SYNTAX          DMgmdExtIfStaticGrpEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry is created to configure static membership for a group or a
+           channel on an interface when the attached host does not support IGMP
+           or MLD.
+           Once configured, the group member entry is added to the IGMP/MLD cache.
+           "
+        INDEX        { 
+            dMgmdExtIfStaticGrpIfIdx,
+            dMgmdExtIfStaticGrpAddrType,
+            dMgmdExtIfStaticGrpAddr,
+            dMgmdExtIfStaticGrpSrcFilterMode,
+            dMgmdExtIfStaticGrpSrcAddr 
+        }
+        ::= { dMgmdExtIfStaticGrpTable 1 }
+
+    DMgmdExtIfStaticGrpEntry ::= SEQUENCE {
+        dMgmdExtIfStaticGrpIfIdx                InterfaceIndex,
+        dMgmdExtIfStaticGrpAddrType             InetAddressType,
+        dMgmdExtIfStaticGrpAddr                 InetAddress,
+        dMgmdExtIfStaticGrpSrcFilterMode        INTEGER, 
+        dMgmdExtIfStaticGrpSrcAddr              InetAddress,
+        dMgmdExtIfStaticGrpRowStatus            RowStatus
+    }
+
+    dMgmdExtIfStaticGrpIfIdx OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The ifIndex value of the interface on which the static membership
+            is configured.
+            "
+        ::= { dMgmdExtIfStaticGrpEntry 1 }   
+    
+    dMgmdExtIfStaticGrpAddrType OBJECT-TYPE
+        SYNTAX          InetAddressType 
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The type of the static multicast group address."
+        ::= { dMgmdExtIfStaticGrpEntry 2 }
+        
+    dMgmdExtIfStaticGrpAddr OBJECT-TYPE
+        SYNTAX          InetAddress (SIZE(4|16))
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the static multicast group address."
+        ::= { dMgmdExtIfStaticGrpEntry 3 }
+    
+    dMgmdExtIfStaticGrpSrcFilterMode OBJECT-TYPE
+        SYNTAX          INTEGER {
+            include(1),
+            exclude(2)
+        }
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the mode of the corresponding source."
+        ::= { dMgmdExtIfStaticGrpEntry 4 }
+    
+    dMgmdExtIfStaticGrpSrcAddr OBJECT-TYPE
+        SYNTAX          InetAddress (SIZE(4|16))
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the source of the (S,G) channel traffic.
+               The InetAddressType, e.g., IPv4 or IPv6, is identified by the 
+               dMgmdExtIfStaticGrpAddrType variable in the dMgmdExtIfStaticGrpTable
+               table.
+		"
+        ::= { dMgmdExtIfStaticGrpEntry 5 }
+
+    dMgmdExtIfStaticGrpRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object is used to create a new row or modify or
+            delete an existing row in this table." 
+        ::= { dMgmdExtIfStaticGrpEntry 99 }
+
+-- -----------------------------------------------------------------------------
+    dMgmdExtCompliances   OBJECT IDENTIFIER ::= { dMgmdExtConformance 1 }
+ 
+    dMgmdExtCompliance MODULE-COMPLIANCE
+        STATUS      current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+            DLINKSW-MGMD-EXT-MIB."      		 
+        MODULE
+        MANDATORY-GROUPS    {
+            dMgmdExtClearGroup
+        }
+          
+        GROUP        dMgmdExtSsmMapGroup
+        DESCRIPTION
+            "This group is optional."
+
+        GROUP        dMgmdExtInterfaceCtrlGroup
+        DESCRIPTION
+            "This group is optional."
+                             
+        GROUP        dMgmdExtGrpMgmtGroup
+        DESCRIPTION
+            "This group is optional."
+        ::= { dMgmdExtCompliances 1 }
+
+    dMgmdExtGroups   OBJECT IDENTIFIER ::= { dMgmdExtConformance 2 }      
+    
+    dMgmdExtClearGroup OBJECT-GROUP 
+        OBJECTS {
+            dMgmdExtIgmpClearAllGrps,
+            dMgmdExtClearIgmpClearGrpByAddr,
+            dMgmdExtClearIgmpClearGrpByIfIdx                                                               
+        }
+        STATUS      current
+        DESCRIPTION
+            "A collection of objects clears dynamic group member information
+            obtained from the response messages in the IGMP or MLD buffer."
+        ::= { dMgmdExtGroups 1 }
+
+    dMgmdExtSsmMapGroup OBJECT-GROUP
+        OBJECTS {
+            dMgmdExtSsmMapEnabled,
+	     dMgmdExtStaticSsmMapRowStatus
+        }
+        STATUS      current
+        DESCRIPTION
+            "A collection of objects provides the management of the SSM mapping."
+        ::= { dMgmdExtGroups 2 }
+    
+     dMgmdExtInterfaceCtrlGroup OBJECT-GROUP
+        OBJECTS {	   
+            dMgmdExtIfRowStatus,       
+            dMgmdExtIfLastMemberQueryCount,       
+            dMgmdExtIfAccessGroupName,
+            dMgmdExtIfIgnoreSubscriberCheck,
+            dMgmdExtIfExplicitTracking,
+            dMgmdExtIfImmediateLeaveEnabled,
+            dMgmdExtIfImmediateLeaveGroupLst,
+            dMgmdExtIfGrpLimit,
+            dMgmdExtIfGrpLimitExceptAcl
+        }
+        STATUS      current
+        DESCRIPTION
+            "A collection of objects provides the multicast management."
+        ::= { dMgmdExtGroups 3 }
+        
+    dMgmdExtGrpMgmtGroup OBJECT-GROUP
+        OBJECTS {	   
+            dMgmdExtIfStaticGrpRowStatus
+        }
+        STATUS      current
+        DESCRIPTION
+            "A collection of objects provides the management of static membership
+            on an interface for a group or a channel. 
+            "
+        ::= { dMgmdExtGroups 4 }
+ 
+END
+
+
+
+

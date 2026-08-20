@@ -1,0 +1,1160 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "Service-Jobs API Documentation",
+    "version" : "13.26.49"
+  },
+  "security" : [ {
+    "bearer" : [ ]
+  }, {
+    "apiKey" : [ ]
+  }, {
+    "basic" : [ ]
+  } ],
+  "paths" : {
+    "/accounts/{accountId}/authorities/{authorityId}/rights" : {
+      "get" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsPost",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Updates rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        },
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LibSecurityRightList"
+              }
+            }
+          },
+          "required" : true
+        }
+      },
+      "delete" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsDelete",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Deletes rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Rights have been removed"
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs" : {
+      "get" : {
+        "tags" : [ "Jobs" ],
+        "summary" : "Collection of job types.",
+        "description" : "Retrieves the collection of supported job types. Request a new job at a particular job type collection resource. <h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_READ</td><td>Right to read job information.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Collection of job types",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobTypesData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/claim-devices" : {
+      "get" : {
+        "tags" : [ "Claim Devices Job" ],
+        "operationId" : "collectionTypeSpecificClaimDevicesJobs",
+        "summary" : "Collection of jobs by this type.",
+        "description" : "Retrieves the collection of jobs by this type; the collection is limited to the 1 most recent job.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Collection of jobs by this type",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobsData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Claim Devices Job" ],
+        "operationId" : "createClaimDevicesJob",
+        "summary" : "Requests creation of a new job.",
+        "description" : "Requests creation of a job. The invoking user is called 'delegator'. At each time, there can be at most one executing job in the account. This request returns a 400 error status if this limit is exceeded; retry later.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "description" : "Empty JSON object (optional)",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : { }
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Details of the new job.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/claim-devices/{jobId}" : {
+      "get" : {
+        "tags" : [ "Claim Devices Job" ],
+        "operationId" : "getClaimDevicesItem",
+        "summary" : "Job details and state.",
+        "description" : "Retrieves the details and state of the job. The response provides some of the properties only in specific states, see the schema description.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_READ</td><td>Right to read job information.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Job details and state.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "Claim Devices Job" ],
+        "operationId" : "changeClaimDevicesState",
+        "summary" : "Stop/Continue a job.",
+        "description" : "Requests a job state change. The request is only permitted for the delegator user. Returns a 400 error status if the current job state does not support the operation. Continue is supported in state VALIDATION_STOPPED and IMPORT_STOPPED.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        }, {
+          "$ref" : "#/components/parameters/ChangeJobState"
+        } ],
+        "requestBody" : {
+          "description" : "Empty JSON object (optional)",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : { }
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Job details and state.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "<p>A code property value may indicate the error.</p><table><thead><tr><th>Code</th><th>Description</th></tr></thead><tbody><tr><td>1</td><td>Current principal user is not delegator of this job.</td></tr><tbody></table>",
+            "content" : { }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Claim Devices Job" ],
+        "operationId" : "deleteClaimDevicesJob",
+        "summary" : "Deletes the job.",
+        "description" : "Deletes the job. Returns an error if the current job state does not support the operation. Delete succeeds in states CREATED, UPLOAD_ABORTED, UPLOADED, VALIDATION_STOPPED, VALIDATED_ERRORS, VALIDATED, IMPORT_STOPPED, IMPORTED_ERRORS, IMPORTED.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/claim-devices/{jobId}/uploads/{uploadId}" : {
+      "post" : {
+        "tags" : [ "Claim Devices Job" ],
+        "operationId" : "uploadClaimDevicesJob",
+        "summary" : "Provide an upload resource to the job.",
+        "description" : "Provide an upload resource to the job. The request is only permitted for the delegator user. This overwrites any previous upload to the same upload resource.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        }, {
+          "$ref" : "#/components/parameters/UploadId"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "required" : [ "file" ],
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Job details and state.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "<p>A code property value may indicate the error.</p><table><thead><tr><th>Code</th><th>Description</th></tr></thead><tbody><tr><td>1</td><td>Current principal user is not delegator of this job.</td></tr><tbody></table>",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/claim-devices/{jobId}?mode=force" : {
+      "delete" : {
+        "tags" : [ "Claim Devices Job" ],
+        "operationId" : "forceDeleteClaimDevicesJob",
+        "summary" : "Deletes the job.",
+        "description" : "Deletes the job, including its persistent representation. Returns an error if the current job state does not support the operation. Delete succeeds in states CREATED, UPLOAD_ABORTED, UPLOADED, VALIDATION_STOPPED, VALIDATED_ERRORS, VALIDATED, IMPORT_STOPPED, IMPORTED_ERRORS, IMPORTED.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY_PRIVILEGED</td><td>Right in the particular job account and in root account for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/import-sites" : {
+      "get" : {
+        "tags" : [ "Import Sites Job" ],
+        "operationId" : "collectionTypeSpecificImportSitesJobs",
+        "summary" : "Collection of jobs by this type.",
+        "description" : "Retrieves the collection of jobs by this type; the collection is limited to the 1 most recent job.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Collection of jobs by this type",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobsData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Import Sites Job" ],
+        "operationId" : "createImportSitesJob",
+        "summary" : "Requests creation of a new job.",
+        "description" : "Requests creation of a job. The invoking user is called 'delegator'. At each time, there can be at most one executing job in the account. This request returns a 400 error status if this limit is exceeded; retry later.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "description" : "Empty JSON object (optional)",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : { }
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Details of the new job.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/import-sites/{jobId}" : {
+      "get" : {
+        "tags" : [ "Import Sites Job" ],
+        "operationId" : "getImportSitesItem",
+        "summary" : "Job details and state.",
+        "description" : "Retrieves the details and state of the job. The response provides some of the properties only in specific states, see the schema description.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_READ</td><td>Right to read job information.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Job details and state.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "Import Sites Job" ],
+        "operationId" : "changeImportSitesState",
+        "summary" : "Stop/Continue a job.",
+        "description" : "Requests a job state change. The request is only permitted for the delegator user. Returns a 400 error status if the current job state does not support the operation. Continue is supported in state VALIDATION_STOPPED and IMPORT_STOPPED.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        }, {
+          "$ref" : "#/components/parameters/ChangeJobState"
+        } ],
+        "requestBody" : {
+          "description" : "Empty JSON object (optional)",
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : { }
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Job details and state.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "<p>A code property value may indicate the error.</p><table><thead><tr><th>Code</th><th>Description</th></tr></thead><tbody><tr><td>1</td><td>Current principal user is not delegator of this job.</td></tr><tbody></table>",
+            "content" : { }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Import Sites Job" ],
+        "operationId" : "deleteImportSitesJob",
+        "summary" : "Deletes the job.",
+        "description" : "Deletes the job. Returns an error if the current job state does not support the operation. Delete succeeds in states CREATED, UPLOAD_ABORTED, UPLOADED, VALIDATION_STOPPED, VALIDATED_ERRORS, VALIDATED, IMPORT_STOPPED, IMPORTED_ERRORS, IMPORTED.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/import-sites/{jobId}/uploads/{uploadId}" : {
+      "post" : {
+        "tags" : [ "Import Sites Job" ],
+        "operationId" : "uploadImportSitesJob",
+        "summary" : "Provide an upload resource to the job.",
+        "description" : "Provide an upload resource to the job. The request is only permitted for the delegator user. This overwrites any previous upload to the same upload resource.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY</td><td>Right for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        }, {
+          "$ref" : "#/components/parameters/UploadId"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "required" : [ "file" ],
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Job details and state.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportJobData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "<p>A code property value may indicate the error.</p><table><thead><tr><th>Code</th><th>Description</th></tr></thead><tbody><tr><td>1</td><td>Current principal user is not delegator of this job.</td></tr><tbody></table>",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/jobs/import-sites/{jobId}?mode=force" : {
+      "delete" : {
+        "tags" : [ "Import Sites Job" ],
+        "operationId" : "forceDeleteImportSitesJob",
+        "summary" : "Deletes the job.",
+        "description" : "Deletes the job, including its persistent representation. Returns an error if the current job state does not support the operation. Delete succeeds in states CREATED, UPLOAD_ABORTED, UPLOADED, VALIDATION_STOPPED, VALIDATED_ERRORS, VALIDATED, IMPORT_STOPPED, IMPORTED_ERRORS, IMPORTED.<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>JOB_MODIFY_PRIVILEGED</td><td>Right in the particular job account and in root account for creating and modifying jobs.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/JobId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/rights/accounts" : {
+      "get" : {
+        "operationId" : "rightsAccountsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the token accounts",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Account right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityAccountList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/accounts/{accountId}" : {
+      "get" : {
+        "operationId" : "rightsAccountsAccountIdGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the given account",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/public" : {
+      "get" : {
+        "operationId" : "rightsPublicGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists all available rights",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "All available rights",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "CountInt32" : {
+        "minimum" : 0,
+        "type" : "integer",
+        "format" : "int32"
+      },
+      "CountInt64" : {
+        "minimum" : 0,
+        "type" : "integer",
+        "format" : "int64"
+      },
+      "ErrorResponseBody" : {
+        "type" : "object",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "service" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ImportData" : {
+        "type" : "object",
+        "required" : [ "importProgress", "importResult" ],
+        "properties" : {
+          "importProgress" : {
+            "$ref" : "#/components/schemas/ProgressData"
+          },
+          "importResult" : {
+            "$ref" : "#/components/schemas/ResultData"
+          }
+        }
+      },
+      "ImportJobData" : {
+        "allOf" : [ {
+          "type" : "object",
+          "required" : [ "id", "type", "state" ],
+          "properties" : {
+            "id" : {
+              "$ref" : "#/components/schemas/UUID"
+            },
+            "delegatorId" : {
+              "$ref" : "#/components/schemas/UUID"
+            },
+            "type" : {
+              "$ref" : "#/components/schemas/JobTypeData"
+            },
+            "state" : {
+              "$ref" : "#/components/schemas/JobStateData"
+            },
+            "expires" : {
+              "type" : "string",
+              "format" : "date-time"
+            }
+          }
+        }, {
+          "$ref" : "#/components/schemas/UploadsData"
+        }, {
+          "$ref" : "#/components/schemas/ValidationData"
+        }, {
+          "$ref" : "#/components/schemas/ImportData"
+        } ],
+        "description" : "Property 'uploads' is available in states CREATED, UPLOADING, UPLOAD_ABORTED, and UPLOADED; property 'validationProgress' is available in states VALIDATING, VALIDATION_STOPPED, VALIDATED_ERRORS, and VALIDATED; property 'validationResult' is available in states VALIDATION_STOPPED, VALIDATED_ERRORS, and VALIDATED; property 'importProgress' is available in states IMPORTING, IMPORT_STOPPED, IMPORTED_ERRORS, and IMPORTED; property 'importResult' is available in states IMPORT_STOPPED, IMPORTED_ERRORS, and IMPORTED."
+      },
+      "Issues" : {
+        "required" : [ "generalIssues", "lineIssues" ],
+        "type" : "object",
+        "properties" : {
+          "generalIssues" : {
+            "required" : [ "issues" ],
+            "type" : "object",
+            "properties" : {
+              "issues" : {
+                "type" : "array",
+                "properties" : {
+                  "length" : {
+                    "type" : "integer"
+                  }
+                },
+                "items" : {
+                  "required" : [ "message" ],
+                  "type" : "object",
+                  "properties" : {
+                    "message" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              },
+              "issuesCount" : {
+                "$ref" : "#/components/schemas/CountInt32"
+              }
+            }
+          },
+          "lineIssues" : {
+            "required" : [ "issues", "issuesCount" ],
+            "type" : "object",
+            "properties" : {
+              "issues" : {
+                "type" : "array",
+                "properties" : {
+                  "length" : {
+                    "type" : "integer"
+                  }
+                },
+                "items" : {
+                  "required" : [ "lineReference", "message" ],
+                  "type" : "object",
+                  "properties" : {
+                    "lineReference" : {
+                      "type" : "string"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              },
+              "issuesCount" : {
+                "$ref" : "#/components/schemas/CountInt32"
+              }
+            }
+          }
+        }
+      },
+      "JobStateData" : {
+        "type" : "object",
+        "required" : [ "since", "value" ],
+        "properties" : {
+          "since" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "value" : {
+            "type" : "string",
+            "enum" : [ "CREATED", "UPLOADING", "UPLOAD_ABORTED", "UPLOADED", "VALIDATING", "VALIDATION_STOPPED", "VALIDATED_ERRORS", "VALIDATED", "IMPORTING", "IMPORT_STOPPED", "IMPORTED_ERRORS", "IMPORTED", "DELETED" ]
+          }
+        }
+      },
+      "JobTypeData" : {
+        "type" : "string",
+        "enum" : [ "IMPORT_SITES", "CLAIM_DEVICES" ]
+      },
+      "JobTypesData" : {
+        "type" : "object",
+        "required" : [ "size" ],
+        "properties" : {
+          "size" : {
+            "$ref" : "#/components/schemas/CountInt32"
+          }
+        }
+      },
+      "JobsData" : {
+        "type" : "object",
+        "required" : [ "jobs", "size" ],
+        "properties" : {
+          "jobs" : {
+            "$ref" : "#/components/schemas/UUIDList"
+          },
+          "size" : {
+            "type" : "integer"
+          }
+        }
+      },
+      "LibSecurityAccount" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "rights" : {
+            "$ref" : "#/components/schemas/LibSecurityRightList"
+          }
+        }
+      },
+      "LibSecurityAccountList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/LibSecurityAccount"
+        }
+      },
+      "LibSecurityRightList" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string"
+        }
+      },
+      "ProgressData" : {
+        "required" : [ "total", "completed", "unit" ],
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "$ref" : "#/components/schemas/CountInt64"
+          },
+          "completed" : {
+            "$ref" : "#/components/schemas/CountInt64"
+          },
+          "unit" : {
+            "$ref" : "#/components/schemas/UnitData"
+          }
+        }
+      },
+      "ResultData" : {
+        "type" : "object",
+        "required" : [ "numEntitiesExpected", "numEntitiesActual", "issues" ],
+        "properties" : {
+          "numEntitiesExpected" : {
+            "$ref" : "#/components/schemas/CountInt32"
+          },
+          "numEntitiesActual" : {
+            "$ref" : "#/components/schemas/CountInt32"
+          },
+          "issues" : {
+            "$ref" : "#/components/schemas/Issues"
+          }
+        }
+      },
+      "UUID" : {
+        "type" : "string",
+        "format" : "uuid"
+      },
+      "UUIDList" : {
+        "type" : "array",
+        "properties" : {
+          "length" : {
+            "type" : "integer"
+          }
+        },
+        "items" : {
+          "$ref" : "#/components/schemas/UUID"
+        }
+      },
+      "UnitData" : {
+        "type" : "string",
+        "enum" : [ "COUNT", "BYTES" ]
+      },
+      "UploadData" : {
+        "type" : "object",
+        "required" : [ "progress", "uploads" ],
+        "properties" : {
+          "progress" : {
+            "$ref" : "#/components/schemas/ProgressData"
+          },
+          "uploads" : {
+            "type" : "array",
+            "items" : {
+              "required" : [ "id", "progress" ],
+              "type" : "object",
+              "properties" : {
+                "id" : {
+                  "$ref" : "#/components/schemas/UUID"
+                },
+                "progress" : {
+                  "$ref" : "#/components/schemas/ProgressData"
+                }
+              }
+            }
+          }
+        }
+      },
+      "UploadsData" : {
+        "type" : "object",
+        "required" : [ "uploads" ],
+        "properties" : {
+          "uploads" : {
+            "$ref" : "#/components/schemas/UploadData"
+          }
+        }
+      },
+      "ValidationData" : {
+        "type" : "object",
+        "required" : [ "validationProgress", "validationResult" ],
+        "properties" : {
+          "validationProgress" : {
+            "$ref" : "#/components/schemas/ProgressData"
+          },
+          "validationResult" : {
+            "$ref" : "#/components/schemas/ResultData"
+          }
+        }
+      }
+    },
+    "responses" : {
+      "HTTP_400" : {
+        "description" : "Wrong data",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_401" : {
+        "description" : "Not authenticated"
+      },
+      "HTTP_403" : {
+        "description" : "Forbidden",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      }
+    },
+    "parameters" : {
+      "ACCOUNT_ID" : {
+        "name" : "accountId",
+        "in" : "path",
+        "required" : true,
+        "schema" : {
+          "$ref" : "#/components/schemas/UUID"
+        }
+      },
+      "ChangeJobState" : {
+        "name" : "state",
+        "in" : "query",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "enum" : [ "stop", "continue" ]
+        }
+      },
+      "JobId" : {
+        "name" : "jobId",
+        "in" : "path",
+        "required" : true,
+        "schema" : {
+          "$ref" : "#/components/schemas/UUID"
+        }
+      },
+      "TOKEN" : {
+        "name" : "Authorization",
+        "in" : "header",
+        "required" : false,
+        "schema" : {
+          "type" : "string"
+        },
+        "description" : "JWT based Session token"
+      },
+      "UploadId" : {
+        "name" : "uploadId",
+        "in" : "path",
+        "required" : true,
+        "schema" : {
+          "$ref" : "#/components/schemas/UUID"
+        }
+      }
+    },
+    "securitySchemes" : {
+      "apiKey" : {
+        "type" : "apiKey",
+        "in" : "header",
+        "name" : "Authorization",
+        "description" : "Provide an API key for 'Authorization: LMC-API-KEY {value}' header format."
+      },
+      "basic" : {
+        "type" : "http",
+        "scheme" : "basic",
+        "description" : "Provide a username and password. Account IDs may be set optionally."
+      },
+      "bearer" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "description" : "Provide a bearer token for 'Authorization: Bearer {value}' header format."
+      }
+    }
+  }
+}

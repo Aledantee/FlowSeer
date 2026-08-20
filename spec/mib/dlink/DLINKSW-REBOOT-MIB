@@ -1,0 +1,234 @@
+--  *****************************************************************
+--  DLINKSW-REBOOTSCHEDULE-MIB.mib : REBOOTSCHEDULE MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-REBOOT-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE,Integer32
+            FROM SNMPv2-SMI
+        RowStatus, DisplayString
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+	    FROM SNMPv2-CONF
+        dlinkIndustrialCommon           
+            FROM DLINK-ID-REC-MIB;
+
+    dlinkSwRebootMIB MODULE-IDENTITY
+        LAST-UPDATED "201912050000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for reboot function."
+        REVISION "201912050000Z"
+        DESCRIPTION
+            "Add new object dRebootUnit.
+            "
+        REVISION "201410150000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file.
+            "
+        ::= { dlinkIndustrialCommon 183 }
+--
+-- Textual conventions
+--
+	UnitList ::= TEXTUAL-CONVENTION
+		STATUS current
+		DESCRIPTION
+			"Each bit of this octet string represents a stack unit.
+			Each octet within this value specifies a set of eight
+			units, with the first octet specifying unit 1 through
+			8, the second octet specifying unit 9 through 16, etc.
+			Within each octet, the most significant bit represents
+			the lowest numbered unit, and the least significant bit
+			represents the highest numbered unit."
+		SYNTAX OCTET STRING
+-- -----------------------------------------------------------------------------
+    dRebootMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwRebootMIB 0 }
+    dRebootMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwRebootMIB 1 }
+    dRebootMIBConformance      OBJECT IDENTIFIER ::= { dlinkSwRebootMIB 2 }
+
+-- -----------------------------------------------------------------------------   
+    dRebootScheduleTable OBJECT-TYPE
+        SYNTAX  SEQUENCE OF DRebootScheduleTableEntry 
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "The management table for reboot schedule."
+        ::= { dRebootMIBObjects 1 }    
+        
+   dRebootNode OBJECT-TYPE
+        SYNTAX  INTEGER {
+                    none(1),
+                    start(2)
+                }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "Used to restart the switch."
+        ::= {  dRebootMIBObjects 2 }    
+        
+   dRebootUnit OBJECT-TYPE
+		SYNTAX UnitList 
+		MAX-ACCESS read-write
+		STATUS current
+		DESCRIPTION
+			"This object configures the units, which are represented by
+			a bitmap, to be rebooted.     
+			"
+        ::= {  dRebootMIBObjects 3 }
+     
+   dRebootScheduleTableEntry OBJECT-TYPE
+        SYNTAX  DRebootScheduleTableEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A reboot schedule configuration entry."
+        INDEX   { dRebootScheduleIndex }
+        ::= { dRebootScheduleTable 1 }  	
+
+   DRebootScheduleTableEntry  ::= SEQUENCE {
+		dRebootScheduleIndex 		Integer32,
+		dRebootScheduleInterval  	INTEGER,  
+		dRebootScheduleSpceficTime 	OCTET STRING,                          
+		dRebootScheduleDate 		OCTET STRING,
+		dRebootScheduleSave 		INTEGER,
+		dRebootScheduleRowStatus   	RowStatus
+        }
+
+   dRebootScheduleIndex OBJECT-TYPE
+        SYNTAX  Integer32
+        MAX-ACCESS    not-accessible
+        STATUS  current
+        DESCRIPTION
+           	"The table index for the reboot schedule.
+			 If the device only supports to configure one reboot schedule, the index 
+			 must be set to 1."
+        ::= { dRebootScheduleTableEntry 1 } 
+		
+   dRebootScheduleInterval OBJECT-TYPE
+	   SYNTAX  INTEGER (0..43200)
+	   MAX-ACCESS      read-write
+	   STATUS  current
+	   DESCRIPTION
+            "Specifies the reboot happens after a specified time interval is passed. 
+             The range of time interval is 0-43200 minutes.
+             If the value is 0, this object is not used."
+        ::= {  dRebootScheduleTableEntry 2 }
+        
+   dRebootScheduleSpceficTime OBJECT-TYPE
+	   SYNTAX  OCTET STRING (SIZE (2))
+	   MAX-ACCESS      read-write
+	   STATUS  current
+	   DESCRIPTION
+            "Indicates the reboot specific time by schedule.
+                 octets    contents    range
+                 1         hour        0..23
+                 2         min         0..59
+                 For example, 13:30
+                 should be given as 0d 1e."
+        ::= {  dRebootScheduleTableEntry 3 }
+
+   dRebootScheduleDate OBJECT-TYPE
+	   SYNTAX  OCTET STRING (SIZE (4))
+	   MAX-ACCESS      read-write
+	   STATUS  current
+	   DESCRIPTION
+            "Indicates the data of reboot time by schedule.
+				 octets     contents    range
+                 1          monthDay    1..31
+                 2          month       1..12
+                                        where january = 1 december = 12
+                 3-4        year        2000..2100
+                 For example, 06 july 2012
+                 should be given as 06 07 07 dc."
+        ::= {  dRebootScheduleTableEntry 4 }
+		
+	dRebootScheduleSave OBJECT-TYPE
+	   SYNTAX  INTEGER {
+               yes(1),
+               no(2)               
+			   }
+	   MAX-ACCESS  read-write
+	   STATUS  current
+	   DESCRIPTION
+            "Specifies the device will save all configurations before the reboot happens."
+        ::= {  dRebootScheduleTableEntry 5}
+		
+	dRebootScheduleRowStatus OBJECT-TYPE
+	   SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The row status variable, used according to installation
+            and removal conventions for conceptual rows.
+            "
+        ::= {  dRebootScheduleTableEntry 99 }	
+
+-- -----------------------------------------------------------------------------	
+--  Notifications
+-- -----------------------------------------------------------------------------        
+    dRebootScheduleRebootIn5Min NOTIFICATION-TYPE
+        STATUS  current
+        DESCRIPTION
+            "This trap contains the RebootIn5Min."
+                ::= { dRebootMIBNotifications 1 }
+				
+    dRebootScheduleRebootIn1Min NOTIFICATION-TYPE
+        STATUS  current
+        DESCRIPTION
+            "This trap contains the RebootIn1Min."
+                ::= { dRebootMIBNotifications 2 }	
+
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+	dRebootRebootMIBCompliances  OBJECT IDENTIFIER    ::= { dRebootMIBConformance 1 }	
+	dRebootRebootMIBGroup  OBJECT IDENTIFIER    ::= { dRebootMIBConformance 2 }
+-- compliance statements
+	dRebootRebootMIBCompliance MODULE-COMPLIANCE
+        STATUS      current
+        DESCRIPTION
+            "The compliance statement for reboot which
+             implement the DLINKSW-REBOOT-MIB."
+        MODULE      -- this module
+        MANDATORY-GROUPS       {
+            dRebootScheduleGroup,
+            dRebootSystemGroup          
+        }        
+		    ::= { dRebootRebootMIBCompliances 1 }
+	
+    dRebootScheduleGroup OBJECT-GROUP
+		OBJECTS   {   
+			dRebootScheduleInterval,  
+			dRebootScheduleSpceficTime,                          
+			dRebootScheduleDate,
+			dRebootScheduleSave		    
+		}
+		STATUS      current
+		DESCRIPTION 
+		    "A collection of objects configures the reboot schedule feature."
+		::= { dRebootRebootMIBGroup 1 }
+    dRebootSystemGroup OBJECT-GROUP
+		OBJECTS   {   
+			dRebootNode,  
+			dRebootUnit		    
+		}
+		STATUS      current
+		DESCRIPTION 
+		    "Support dRebootNode or dRebootUnit or support both. "
+		::= { dRebootRebootMIBGroup 2 }
+END
+
+
+
+

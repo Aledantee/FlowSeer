@@ -1,0 +1,954 @@
+-- *****************************************************************
+-- DLINK-RIP-MIB.mib : D-Link Access Control List MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+
+DLINKSW-RIP-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,
+        Integer32,Unsigned32,IpAddress      FROM SNMPv2-SMI
+        TruthValue,DateAndTime,DisplayString, 
+        RowStatus   						FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF
+        InterfaceIndex                      FROM IF-MIB
+        dlinkIndustrialCommon               FROM DLINK-ID-REC-MIB;
+
+	dlinkSwRipMIB MODULE-IDENTITY
+        LAST-UPDATED "201511300000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of RIP Information for the
+                 proprietary enterprise."         
+
+        REVISION        "201304230000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module."              
+
+        REVISION        "201408060000Z"
+        DESCRIPTION
+            "Modify the value of RowStatus to 99. Remove unsupported objects."
+
+        REVISION        "201503160000Z"
+        DESCRIPTION
+            "Add a new 'isis' value for object dRipRedistProtocol."
+
+        REVISION        "201509230000Z"
+        DESCRIPTION
+            "Move the node 'dRipPassiveIfDefault' to 'dRipVrfGlobalTable' and renamed to 'dRipVrfGlobalPassiveIfDefault'."
+
+	REVISION        "201510150000Z"
+        DESCRIPTION
+            "Add a node 'dRipIfBfdState' in table 'dRipIfTable'."
+
+        REVISION        "201511300000Z"
+        DESCRIPTION
+            "Add a new 'v1Orv2' value for object dRipIfReceiveVersion."
+
+		::= { dlinkIndustrialCommon 120 }
+
+-- -----------------------------------------------------------------------------    
+    dRipMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwRipMIB 0 }
+	dRipMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwRipMIB 1 }
+    dRipMIBConformance	 	OBJECT IDENTIFIER ::= { dlinkSwRipMIB 2 }
+
+-- ----------------------------------------------------------------------------- 
+	dRipGlobalCtrl          OBJECT IDENTIFIER ::= { dRipMIBObjects 1 }
+
+	dRipGlobalEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "This object indicates whether the global RIP is enabled."
+		::= { dRipGlobalCtrl 1 }
+
+-- -----------------------------------------------------------------------------
+	dRipVrfGlobalTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipVrfGlobalEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of global RIP operational information for
+            VRF address families."
+	    ::= { dRipMIBObjects 2 }
+	
+	dRipVrfGlobalEntry OBJECT-TYPE
+	    SYNTAX       DRipVrfGlobalEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry contains the global RIP operational information in a
+            VRF address family."
+	    INDEX    { dRipVrfGlobalVrfName }
+	    ::= { dRipVrfGlobalTable 1 }
+
+	DRipVrfGlobalEntry ::= 	    SEQUENCE {
+	    dRipVrfGlobalVrfName 	    	    DisplayString,	
+        dRipVrfGlobalAutoSummary            TruthValue,
+	    dRipVrfGlobalDefInfoOrigin	    	TruthValue,
+        dRipVrfGlobalDefInfoOriginMetric    Unsigned32,
+        dRipVrfGlobalDefaultMetric          Unsigned32,
+        dRipVrfGlobalVersion                INTEGER,
+        dRipVrfGlobalUpdateTimer            Integer32,
+        dRipVrfGlobalInvalidTimer           Integer32,
+        dRipVrfGlobalHoldDownTimer          Integer32,        
+        dRipVrfGlobalFlushTimer             Integer32,
+        dRipVrfGlobalPassiveIfDefault		TruthValue,
+	    dRipVrfGlobalRowStatus	            RowStatus   
+	}
+
+	dRipVrfGlobalVrfName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..32))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of VRF address family. A zero length string represents 
+            global IPv4 address family.
+            For the project that doesn't support VRF, only zero length string 
+            is valid for this object.
+            "
+	    ::= { dRipVrfGlobalEntry 1 }
+
+	dRipVrfGlobalAutoSummary OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-create
+        STATUS  current
+        DESCRIPTION
+           "This object indicates whether to enable the automatic summarization
+           of subnet routes into its class-ful network."
+        DEFVAL { true }
+		::= { dRipVrfGlobalEntry 2 }
+
+	dRipVrfGlobalDefInfoOrigin OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+           "This object indicates whether to advertise a default route 
+           in the RIP routing update information."
+        DEFVAL { false }
+		::= { dRipVrfGlobalEntry 3 }
+
+	dRipVrfGlobalDefInfoOriginMetric OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..16)
+        MAX-ACCESS      read-create
+        STATUS  current
+        DESCRIPTION
+           "The metric for advertising a default route 
+           in the RIP routing update information"
+		DEFVAL {1}
+		::= { dRipVrfGlobalEntry 4 }
+
+	dRipVrfGlobalDefaultMetric OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..16)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+           "The default metric for routes redistributed to RIP."
+		DEFVAL {1}
+		::= { dRipVrfGlobalEntry 5 }
+
+	dRipVrfGlobalVersion OBJECT-TYPE
+        SYNTAX INTEGER {
+            default(0),
+            v1(1),
+            v2(2)
+        }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+           "This object indicates the default RIP version for the interfaces
+           on which the send or receive RIP version is not explicitly configured.
+           'default' - Receive both version 1 and version 2 packets and send 
+                       only version 1 packets.
+           'v1' - Only receive and transmit RIP Version 1 packets.
+           'v2' - Only receive and transmit RIP Version 2 packets. 
+           "
+        DEFVAL { default }
+		::= { dRipVrfGlobalEntry 6 }
+
+	dRipVrfGlobalUpdateTimer OBJECT-TYPE
+        SYNTAX          Integer32 (1..2147483647)
+        UNITS           "seconds"
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+           "This object indicates the update interval in seconds at which the
+           update message is sent."
+        DEFVAL { 30 }
+		::= { dRipVrfGlobalEntry 7 }
+
+	dRipVrfGlobalInvalidTimer OBJECT-TYPE
+        SYNTAX          Integer32 (1..2147483647)       
+        UNITS           "seconds"
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+           "This object indicates the interval of time in seconds after which
+           a route is declared invalid."
+        DEFVAL { 180 }
+		::= { dRipVrfGlobalEntry 8 }
+
+	dRipVrfGlobalHoldDownTimer OBJECT-TYPE
+        SYNTAX          Integer32 (1..2147483647)
+        UNITS           "seconds"
+        MAX-ACCESS      read-create
+        STATUS  current
+        DESCRIPTION
+           "This object indicates the interval during which routing information
+           regarding better paths is suppressed."
+        DEFVAL { 180 }
+		::= { dRipVrfGlobalEntry 9 }
+
+	dRipVrfGlobalFlushTimer OBJECT-TYPE
+        SYNTAX          Integer32 (1..2147483647)
+        UNITS           "seconds"
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the amount of time in seconds that must pass 
+            before the route is removed from the garbage list."
+        DEFVAL { 240 }
+		::= { dRipVrfGlobalEntry 10 }
+
+	dRipVrfGlobalPassiveIfDefault OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+           "This object indicates the default passive state for the interfaces 
+           on which the passive state is not explicitly configured.
+           When this object is true(1), the default passive state is enabled.  
+           When false(2), the default passive state is disabled."
+		::= { dRipVrfGlobalEntry 11 }
+		
+	dRipVrfGlobalRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dRipVrfGlobalEntry 99 }
+
+-- -----------------------------------------------------------------------------
+	dRipNeighborTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DRipNeighborEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "This table contains a list of information for RIP neighbors."
+	    ::= { dRipMIBObjects 3 }
+	
+	dRipNeighborEntry OBJECT-TYPE
+	    SYNTAX       DRipNeighborEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dRipNeighborTable containing the operational
+	        characteristics of RIP neighbor."
+	    INDEX    { 
+            dRipNbrVrfName
+        }
+	    ::= { dRipNeighborTable 1 }
+
+	DRipNeighborEntry ::= 	    SEQUENCE {
+	    dRipNbrVrfName 	    	    DisplayString,	
+	    dRipNbrIP  	        	    IpAddress
+	}
+
+	dRipNbrVrfName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..32))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of VRF address family. A zero length string represents 
+            global IPv4 address family.
+            For the project that doesn't support VRF, only zero length string 
+            is valid for this object. 
+            "
+	    ::= { dRipNeighborEntry 1 }
+
+	dRipNbrIP OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "IP address of a peer router with which routing information will be exchanged."
+	    ::= { dRipNeighborEntry 2 }
+
+-- -----------------------------------------------------------------------------
+	dRipNetworkTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipNetworkEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table provides a mechanism to specify a network as one that runs
+            RIP in VRF address family."
+	    ::= { dRipMIBObjects 4 }
+	
+	dRipNetworkEntry OBJECT-TYPE
+	    SYNTAX          DRipNetworkEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry in the dRipNetworkTable containing the operational
+	        characteristics of RIP network."
+	    INDEX    { 
+            dRipNetworkVrfName, 
+            dRipNetworkPrefix, 
+            dRipNetworkMask 
+        }
+	    ::= { dRipNetworkTable 1 }
+
+	DRipNetworkEntry ::= 	    SEQUENCE {
+	    dRipNetworkVrfName	   	    DisplayString,	
+	    dRipNetworkPrefix    	    IpAddress,	
+	    dRipNetworkMask	    	    IpAddress,	
+	    dRipNetworkRowStatus        RowStatus   
+	}
+
+	dRipNetworkVrfName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..32))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of VRF address family. A zero length string represents 
+            global IPv4 address family.
+            For the project that doesn't support VRF, only zero length string 
+            is valid for this object.
+            "
+	    ::= { dRipNetworkEntry 1 }
+
+	dRipNetworkPrefix OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the subnet prefix of the network."
+	    ::= { dRipNetworkEntry 2 }
+
+	dRipNetworkMask OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the mask of the network."
+	    ::= { dRipNetworkEntry 3 }
+
+	dRipNetworkRowStatus OBJECT-TYPE
+     	SYNTAX          RowStatus
+     	MAX-ACCESS      read-create
+     	STATUS          current
+     	DESCRIPTION
+         "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     ::= { dRipNetworkEntry 99 }
+
+-- -----------------------------------------------------------------------------
+	dRipIfTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of subnets which require separate
+            configuration in RIP."
+	    ::= { dRipMIBObjects 5 }
+	
+	dRipIfEntry OBJECT-TYPE
+	    SYNTAX          DRipIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry in the dRipIfTable containing the operational
+	        characteristics of RIP interface."
+	    INDEX    { dRipIfIndex }
+	    ::= { dRipIfTable 1 }
+
+	DRipIfEntry ::= 	    SEQUENCE {
+	    dRipIfIndex	    	            InterfaceIndex,
+        dRipIfAddress                   IpAddress,	
+	    dRipIfMask	    	            IpAddress,
+	    dRipIfReceiveVersion	        INTEGER,
+	    dRipIfSendVersion	            INTEGER,
+	    dRipIfV2SendBroadcastUpdate     TruthValue,
+	    dRipIfPassiveMode  		        INTEGER,
+	    dRipIfAuthType    		        INTEGER,
+	    dRipIfAuthKeyChain 		        DisplayString,
+	    dRipIfBfdState			INTEGER
+	}
+
+	dRipIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The ifIndex value of the RIP interface."
+	    ::= { dRipIfEntry 1 }
+
+	dRipIfAddress OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "Network address of RIP interface."
+	    ::= { dRipIfEntry 2 }
+
+	dRipIfMask OBJECT-TYPE
+	    SYNTAX          IpAddress
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "Network mask of RIP interface."
+	    ::= { dRipIfEntry 3 }
+
+	dRipIfReceiveVersion OBJECT-TYPE
+	    SYNTAX       INTEGER {
+            default(0),
+            v1(1),
+            v2(2),
+            v1Orv2(3)
+        }
+	    MAX-ACCESS   read-write
+	    STATUS       current
+	    DESCRIPTION
+	        "This object indicates the RIP version to receive on the interface. 
+            'default' - The global setting is followed.
+            'v1' - Only receive RIP Version 1 packets.
+            'v2' - Only receive RIP Version 2 packets.
+            'v1Orv2' - Receive both RIP Version 1 and 2 packets.
+            "
+	    ::= { dRipIfEntry 4 }
+
+	dRipIfSendVersion OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            default(0),
+            v1(1),
+            v2(2)
+        }
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the RIP version to send on an interface.
+            'default' - The global setting is followed.
+            'v1' - Only send RIP Version 1 packets.
+            'v2' - Only send RIP Version 2 packets. 
+            "
+	    ::= { dRipIfEntry 5 }
+
+	dRipIfV2SendBroadcastUpdate OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether to send version 2 RIP update packets as 
+	        broadcast packets instead of multicast packets."
+	    ::= { dRipIfEntry 6 }
+
+	dRipIfPassiveMode OBJECT-TYPE   	    
+	    SYNTAX          INTEGER  {
+            followGlobal(0),
+            disabled(1),
+            enabled(2)
+        }        
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the RIP passive state on the interface.
+            The value of 'followGlobal' indicates the passive state is not explicitly 
+            specified on the interface, and global default passive state is followed.
+            "
+	    ::= { dRipIfEntry 7 }
+
+	dRipIfAuthType OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            noAuthentication(0),
+            simplePassword(1),
+            md5(2)
+        }
+		MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the RIP authentication type on the interface."
+	    ::= { dRipIfEntry 8 }
+
+	dRipIfAuthKeyChain OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..32))
+		MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the name of the RIP authentication key chain
+            on the interface."
+	    ::= { dRipIfEntry 9 }
+
+	dRipIfBfdState OBJECT-TYPE
+	    SYNTAX INTEGER {
+		disabled(1),
+		enabled(2)
+		}
+	    MAX-ACCESS  read-write
+	    STATUS  current
+	    DESCRIPTION
+		"Indicate the opertional state of BFD on this interface."
+		::= { dRipIfEntry 10 }
+	    
+-- -----------------------------------------------------------------------------	
+	dRipKeyChainTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipKeyChainEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of authentication key chain
+            configuration."
+	    ::= { dRipMIBObjects 6 }
+	
+	dRipKeyChainEntry OBJECT-TYPE
+	    SYNTAX       DRipKeyChainEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dRipKeyChainTable containing the operational
+	         characteristics of an authentication key chain."
+	    INDEX    { dRipKeyChainName }
+	    ::= { dRipKeyChainTable 1 }
+
+	DRipKeyChainEntry ::= 	    SEQUENCE {
+	    dRipKeyChainName	        DisplayString,	
+	    dRipKeyChainRowStatus       RowStatus   
+	}
+	
+	dRipKeyChainName OBJECT-TYPE
+    	SYNTAX          DisplayString (SIZE(1..32))
+    	MAX-ACCESS      not-accessible
+    	STATUS          current
+    	DESCRIPTION
+            "The name of a key chain."
+    	::= { dRipKeyChainEntry 1 }
+
+	dRipKeyChainRowStatus OBJECT-TYPE
+     	SYNTAX          RowStatus
+     	MAX-ACCESS      read-create
+     	STATUS          current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dRipKeyChainEntry 99 }
+
+-- -----------------------------------------------------------------------------
+	dRipKeyChainConfTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipKeyChainConfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains a list of authentication keys for key chains.
+            The first index element identifies the dRipKeyChainEntry that a 
+            dRipKeyChainConfEntry belongs to. 
+            "
+	    ::= { dRipMIBObjects 7 }
+	
+	dRipKeyChainConfEntry OBJECT-TYPE
+	    SYNTAX       DRipKeyChainConfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dRipKeyChainConfTable containing the operational
+	        characteristics of an authentication key."
+	    INDEX    { 
+           dRipKeyChainName, 
+           dRipKeyKeyID 
+        }
+	    ::= { dRipKeyChainConfTable 1 }
+
+	DRipKeyChainConfEntry ::= 	    SEQUENCE {	    
+	    dRipKeyKeyID	    	        Unsigned32,
+	    dRipKeyString	    	        DisplayString,
+	    dRipKeyAcceptLifeTimeStart 	    DateAndTime,
+	    dRipKeyAcceptLifeTimeType	    INTEGER,
+	    dRipKeyAcceptLifeTimeEnd        DateAndTime,
+	    dRipKeyAcceptLifeTimeDuration	Integer32,
+	    dRipKeySendLifeTimeStart   	   	DateAndTime,
+	    dRipKeySendLifeTimeType    		INTEGER,
+	    dRipKeySendLifeTimeEnd    		DateAndTime,
+	    dRipKeySendLifeTimeDuration		Integer32,
+	    dRipKeyChainConfRowStatus       RowStatus   
+	}
+		
+	dRipKeyKeyID OBJECT-TYPE
+    	SYNTAX          Unsigned32 (0 .. 2147483647)
+    	MAX-ACCESS      not-accessible
+    	STATUS          current
+    	DESCRIPTION
+            "The ID of the authentication key."
+    	::= { dRipKeyChainConfEntry 1 }
+   
+	dRipKeyString OBJECT-TYPE
+    	SYNTAX          DisplayString (SIZE(0..80))
+    	MAX-ACCESS      read-create
+    	STATUS          current
+    	DESCRIPTION
+            "This object indicates the password in clear text form for key. 
+            When read, a zero length string will be returned for security reasons.
+            The encrypted-form key is not provided via SNMP operation.
+            "
+    	::= { dRipKeyChainConfEntry 2 }
+
+	dRipKeyAcceptLifeTimeStart OBJECT-TYPE
+    	SYNTAX          DateAndTime
+    	MAX-ACCESS      read-create
+    	STATUS          current
+    	DESCRIPTION
+            "This object indicates the start-time of time period that the key
+            is valid to be received.
+            The special value of all '00'Hs indicates the time period is not 
+            specified and the received authentication key will be identified as valid
+            forever since now.
+            "
+    	::= { dRipKeyChainConfEntry 3 }
+
+	dRipKeyAcceptLifeTimeType OBJECT-TYPE
+    	SYNTAX     INTEGER {
+            infinite(0),
+            endTime(1),
+            duration(2)
+        }
+    	MAX-ACCESS      read-create
+    	STATUS          current
+    	DESCRIPTION
+            "This object indicates the type to specify end-time of time period that
+            the received key is valid.
+            'infinite' - The key is valid from start-time to forever. 
+            'endTime' - The dRipKeyAcceptLifeTimeEnd is used to specify the end-time
+                        of the time period.
+            'duration' - The dRipKeyAcceptLifeTimeDuration is used to specify the 
+                        duration since start-time that the received key is valid.
+            "
+    	::= { dRipKeyChainConfEntry 4 }
+
+	dRipKeyAcceptLifeTimeEnd OBJECT-TYPE
+    	SYNTAX          DateAndTime
+    	MAX-ACCESS      read-create
+    	STATUS          current
+    	DESCRIPTION
+            "The end-time of the time period that the received key is valid. 
+            This object is meaningful when dRipKeyAcceptLifeTimeType is set to
+            'endTime'."
+    	::= { dRipKeyChainConfEntry 5 }
+
+	dRipKeyAcceptLifeTimeDuration OBJECT-TYPE
+    	SYNTAX          Integer32 (1..2147483647)
+    	MAX-ACCESS      read-create
+    	STATUS          current
+    	DESCRIPTION
+            "The duration of time in seconds since start-time that the received
+            key is valid.
+            This object is meaningful when dRipKeyAcceptLifeTimeType is set to
+            'duration'."
+    	::= { dRipKeyChainConfEntry 6 }
+
+	dRipKeySendLifeTimeStart OBJECT-TYPE
+    	SYNTAX          DateAndTime
+    	MAX-ACCESS      read-create
+    	STATUS     current
+    	DESCRIPTION
+            "This object indicates the start-time of time period during which
+            the authentication key is valid to be sent.
+            The special value of all '00'Hs indicates the time period is not 
+            specified and the authentication key is valid to be sent forever
+            since now.
+            "
+    	::= { dRipKeyChainConfEntry 7 }
+
+	dRipKeySendLifeTimeType OBJECT-TYPE
+    	SYNTAX     INTEGER {
+               infinite(0),
+               endTime(1),
+               duration(2)
+               }
+    	MAX-ACCESS read-create
+    	STATUS     current
+    	DESCRIPTION
+            "This object indicates the type to specify end-time of time period that
+            the authentication key is valid to be sent.
+            'infinite' - The key is valid from start-time to forever. 
+            'endTime' - The dRipKeySendLifeTimeEnd is used to specify the end-time
+                        of the time period.
+            'duration' - The dRipKeySendLifeTimeDuration is used to specify the 
+                        duration since start-time that the key is valid to be sent.
+            "
+    	::= { dRipKeyChainConfEntry 8 }
+
+	dRipKeySendLifeTimeEnd OBJECT-TYPE
+    	SYNTAX          DateAndTime
+    	MAX-ACCESS      read-create
+    	STATUS          current
+    	DESCRIPTION
+            "The end time of the time period that the key is valid to be transmit. 
+            This object is meaningful when dRipKeySendLifeTimeType is set to 
+            'endTime'. "
+    	::= { dRipKeyChainConfEntry 9 }
+
+	dRipKeySendLifeTimeDuration OBJECT-TYPE
+    	SYNTAX          Integer32 (1..2147483647)
+    	MAX-ACCESS      read-create
+    	STATUS          current
+    	DESCRIPTION
+            "The duration of time in seconds since start-time that the key is
+            valid to be transmit.
+            This object is meaningful when dRipKeySendLifeTimeType is set to
+            'duration'."
+    	::= { dRipKeyChainConfEntry 10 }
+
+	dRipKeyChainConfRowStatus OBJECT-TYPE
+     	SYNTAX          RowStatus
+     	MAX-ACCESS      read-create
+     	STATUS          current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dRipKeyChainConfEntry 99 }
+
+-- -----------------------------------------------------------------------------
+	dRipRedistributeTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DRipRedistributeEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table provides mechanism to configure redistribute routes from
+            other routing domain into RIP in VRF address family."
+	    ::= { dRipMIBObjects 8 }
+	
+	dRipRedistributeEntry OBJECT-TYPE
+	    SYNTAX       DRipRedistributeEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dRipRedistributeTable containing the operational
+	         characteristics of RIP redistribution."
+	    INDEX    { 
+            dRipRedistVrfName, 
+            dRipRedistProtocol
+        }
+	    ::= { dRipRedistributeTable 1 }
+
+	DRipRedistributeEntry ::=	    SEQUENCE {
+        dRipRedistVrfName	    	    DisplayString,
+	    dRipRedistProtocol	    	    INTEGER,	
+	    dRipRedistMetric	    	    Unsigned32,	
+	    dRipRedistMatchType 	    	INTEGER,	
+	    dRipRedistRouteMap	    	    DisplayString,	
+	    dRipRedistRowStatus	            RowStatus
+	}
+
+	dRipRedistVrfName OBJECT-TYPE
+	    SYNTAX          DisplayString (SIZE(0..32))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The name of VRF. A zero length string represents global IPv4 
+            address family.
+            For the project that doesn't support VRF, only zero length string 
+            is valid for this object. 
+            "
+	    ::= { dRipRedistributeEntry 1 }
+
+	dRipRedistProtocol OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            connected(1),
+            static(2),
+            ospf(3),
+            bgp(4),
+            isis(5)
+        }
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the source routing protocol to be imported
+            into RIP."
+	    ::= { dRipRedistributeEntry 2 }
+
+	dRipRedistMetric OBJECT-TYPE
+	    SYNTAX          Unsigned32 (0..16)
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Specifies the value to be used as metric for the redistributed routes."
+	    ::= { dRipRedistributeEntry 3 }
+
+	dRipRedistMatchType OBJECT-TYPE
+	    SYNTAX       INTEGER {
+               internal(1),
+               external1(2),
+               external2(3),
+               nssaExternal1(4),
+               nssaExternal2(5)
+        }
+	    MAX-ACCESS   read-create
+	    STATUS       current
+	    DESCRIPTION
+	        "Specify the types of OSPF routes to be redistributed.
+            The option only takes effect when redistributing OSPF routes."
+	    ::= { dRipRedistributeEntry 4 }
+
+	dRipRedistRouteMap OBJECT-TYPE
+	    SYNTAX          DisplayString 
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the name of the route map that is used
+            to filter the routes to be redistributed to the RIP. 
+            A zero length string indiates that the route map is not specified and 
+            all routes are redistributed."
+	    ::= { dRipRedistributeEntry 5 }
+
+	dRipRedistRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+         "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dRipRedistributeEntry 99 }
+
+
+-- Conformance Information        
+
+    dRipMIBGroups      OBJECT IDENTIFIER ::= { dRipMIBConformance 1 }
+    dRipMIBCompliances OBJECT IDENTIFIER ::= { dRipMIBConformance 2 }
+
+-- Compliance Statements
+
+    dRipFullCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION     "The compliance statement"
+        MODULE          -- this module
+        MANDATORY-GROUPS {
+            dRipGlobalCtrlGroup,
+            dRipVrfGlobalGroup,
+			dRipNeighborGroup,
+            dRipNetworkGroup,
+            dRipIfGroup,            
+            dRipKeyChainConfGroup,
+            dRipRedistributeGroup
+        }
+			       
+        GROUP           dRipNeighborGroup
+        DESCRIPTION
+            "This group is required for RIP static neighbor."
+       
+        ::= { dRipMIBCompliances 1 }
+
+    -- units of conformance
+
+    dRipGlobalCtrlGroup OBJECT-GROUP
+        OBJECTS         {
+			dRipGlobalEnabled
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects provides RIP global configurations."
+        ::= { dRipMIBGroups 1 }
+
+    dRipVrfGlobalGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipVrfGlobalAutoSummary,
+            dRipVrfGlobalDefInfoOrigin,
+            dRipVrfGlobalDefInfoOriginMetric,
+            dRipVrfGlobalDefaultMetric,
+            dRipVrfGlobalVersion,
+            dRipVrfGlobalUpdateTimer,
+            dRipVrfGlobalInvalidTimer,
+            dRipVrfGlobalHoldDownTimer,
+            dRipVrfGlobalFlushTimer,
+            dRipVrfGlobalPassiveIfDefault,
+            dRipVrfGlobalRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the RIP global configurations in VRF address family."
+       ::= { dRipMIBGroups 2 }
+
+    dRipNeighborGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipNbrIP
+        }
+        STATUS          current
+        DESCRIPTION
+             "These objects are used for managing/monitoring
+             the RIP static neighbor in VRF address family."
+        ::= { dRipMIBGroups 3 }
+
+    dRipNetworkGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipNetworkRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the RIP network in VRF address family."
+        ::= { dRipMIBGroups 4 }
+
+    dRipIfGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipIfAddress,
+            dRipIfMask,
+            dRipIfReceiveVersion,
+            dRipIfSendVersion,
+            dRipIfV2SendBroadcastUpdate,
+            dRipIfPassiveMode,
+            dRipIfAuthType,
+            dRipIfAuthKeyChain,
+            dRipIfBfdState
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the RIP interface."
+        ::= { dRipMIBGroups 5 }
+   
+    dRipKeyChainConfGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipKeyChainRowStatus,
+            dRipKeyString,
+            dRipKeyAcceptLifeTimeStart,
+            dRipKeyAcceptLifeTimeType,
+            dRipKeyAcceptLifeTimeEnd,
+            dRipKeyAcceptLifeTimeDuration,
+            dRipKeySendLifeTimeStart,
+            dRipKeySendLifeTimeType,
+            dRipKeySendLifeTimeEnd,
+            dRipKeySendLifeTimeDuration,
+            dRipKeyChainConfRowStatus
+        }         
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            key chains and the authentication keys in key chains."
+            ::= { dRipMIBGroups 6 }
+
+    dRipRedistributeGroup OBJECT-GROUP
+        OBJECTS         {
+            dRipRedistMetric,
+            dRipRedistMatchType,
+            dRipRedistRouteMap,
+            dRipRedistRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the redistribution in VRF address family."
+        ::= { dRipMIBGroups 7 }
+
+END

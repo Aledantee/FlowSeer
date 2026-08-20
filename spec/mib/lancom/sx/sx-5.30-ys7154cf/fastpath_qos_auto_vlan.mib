@@ -1,0 +1,479 @@
+FASTPATH-QOS-AUTOVLAN-MIB DEFINITIONS ::= BEGIN
+
+-- Broadcom FastPath Auto-VLAN MIB
+-- Copyright 2016-2021 Broadcom.
+-- This SNMP Management Information Specification
+-- embodies Broadcom's confidential and proprietary
+-- intellectual property. Broadcom retains all title
+-- and ownership in the Specification including any revisions.
+
+-- This Specification is supplied "AS IS", Broadcom 
+-- makes no warranty, either expressed or implied,
+-- as to the use, operation, condition, or performance of the
+-- Specification.
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, IpAddress,
+    Integer32, Unsigned32                FROM SNMPv2-SMI
+
+    TEXTUAL-CONVENTION, RowStatus, MacAddress
+                                         FROM SNMPv2-TC
+    InterfaceIndexOrZero,InterfaceIndex  FROM IF-MIB
+    fastPathQOS                          FROM FASTPATH-QOS-MIB;
+
+    fastPathQOSAutoVlan MODULE-IDENTITY
+        LAST-UPDATED "202109020000Z" -- 02 September 2021 12:00:00 GMT
+        ORGANIZATION "Broadcom Corporation"
+        CONTACT-INFO
+          "                      Customer Support
+          Postal:                Broadcom Corporation
+         1030 Swabia Court
+                                 Suite 400
+                                 Durham, NC 27703
+          Tel:                   +1 919 865 2700"
+        DESCRIPTION
+          "The MIB definitions for Quality of Service - Auto VLAN Flex package."
+
+        -- Revision history.
+        REVISION
+          "202109020000Z" -- 2 Sep 2021 12:00:00 GMT
+        DESCRIPTION
+          "Initial revision."
+    ::= { fastPathQOS 6 }
+
+--*********************************************************************
+--   agentAutoCameraCfgGroup
+--
+--      Note: System-wide configuration is supported for this 
+--            group by using an index value of 0.
+--*********************************************************************
+agentAutoCameraCfgGroup OBJECT IDENTIFIER ::= { fastPathQOSAutoVlan 1 }
+
+agentAutoCameraVLAN OBJECT-TYPE
+     SYNTAX      INTEGER 
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION 
+                 "The VLAN to which all camera traffic is mapped to."
+
+     ::= { agentAutoCameraCfgGroup 1 }
+
+agentAutoCameraOUIPriority OBJECT-TYPE
+     SYNTAX      INTEGER 
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION 
+                 "The priority to which all camera traffic with known OUI is mapped to."
+
+     ::= { agentAutoCameraCfgGroup 2 }
+
+-- Auto camera global status     
+agentAutoCameraOUIMode OBJECT-TYPE 
+     SYNTAX      INTEGER {
+                   enable(1),
+                   disable(2)
+                   }
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+                 "Enables / disables Auto camera mode in the system."
+     DEFVAL { disable }
+
+     ::= { agentAutoCameraCfgGroup 3 }
+
+-- Auto camera Configuration table (per-port)
+agentAutoCameraTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF AgentAutoCameraEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "A table providing configuration of Auto Camera."
+     
+     ::= { agentAutoCameraCfgGroup 4 }             
+
+
+--************** Auto Camera Interface Table **************
+     
+agentAutoCameraEntry OBJECT-TYPE
+     SYNTAX      AgentAutoCameraEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "Auto Camera configuration for a port."
+     INDEX   { agentAutoCameraIntfIndex }
+     ::= { agentAutoCameraTable 1 }
+
+
+AgentAutoCameraEntry::=
+     SEQUENCE {
+        agentAutoCameraIntfIndex
+            InterfaceIndex,
+        agentAutoCameraIntfOUIMode
+            INTEGER,
+        agentAutoCameraOUIPortStatus 
+            INTEGER
+     }
+
+agentAutoCameraIntfIndex OBJECT-TYPE
+     SYNTAX      InterfaceIndex
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+         "This is a unique index for an entry in the  
+         agentAutoCameraTable.  A non-zero value indicates  
+         the ifIndex for the corresponding interface entry  
+         in the ifTable."
+                
+     ::= { agentAutoCameraEntry 1 }
+
+-- Auto camera interface status     
+agentAutoCameraIntfOUIMode OBJECT-TYPE 
+     SYNTAX      INTEGER {
+                   enable(1),
+                   disable(2)
+                   }
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+                 "Enables / disables Auto camera mode on an interface."
+     DEFVAL { disable }
+
+     ::= { agentAutoCameraEntry 2 }
+
+agentAutoCameraOUIPortStatus OBJECT-TYPE
+     SYNTAX      INTEGER {
+                   up(1),
+                   down(2)
+                   }
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION 
+                 "Auto Camera OUI operational status of an interface."
+
+     ::= { agentAutoCameraEntry 3 }
+
+
+--************** Auto Camera OUI Table **************
+
+agentAutoCameraOUITable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF AgentAutoCameraOUIEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "A table providing configuration of Auto Camera OUI entries."
+
+     ::= { agentAutoCameraCfgGroup 5 }
+
+agentAutoCameraOUIEntry OBJECT-TYPE
+     SYNTAX      AgentAutoCameraOUIEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "Auto Camera OUI configuration."
+     INDEX   { agentAutoCameraOUIIndex }
+     ::= { agentAutoCameraOUITable 1 }
+
+AgentAutoCameraOUIEntry::=
+     SEQUENCE {
+        agentAutoCameraOUIIndex
+            Integer32,
+        agentAutoCameraOUI
+            OCTET STRING,
+        agentAutoCameraOUIDesc
+            OCTET STRING,
+        agentAutoCameraOUIRowStatus
+            RowStatus
+     }
+
+agentAutoCameraOUIIndex OBJECT-TYPE
+     SYNTAX      Integer32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+        "The Auto Camera OUI table index."
+     ::= { agentAutoCameraOUIEntry 1 }
+
+agentAutoCameraOUI OBJECT-TYPE
+     SYNTAX      OCTET STRING (SIZE(8))
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "The Organizationally Unique Identifier (OUI), as defined
+        in IEEE std 802-2001, is a 24 bit (three octets) globally
+        unique assigned number referenced by various standards,
+        of the information received from the remote system."
+     ::= { agentAutoCameraOUIEntry 2 }
+
+agentAutoCameraOUIDesc OBJECT-TYPE
+     SYNTAX      OCTET STRING (SIZE(1..32))
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "The Description of the Organizationally Unique Identifier (OUI),
+        as defined in IEEE std 802-2001(up to 32 characters)"
+     ::= { agentAutoCameraOUIEntry 3 }
+
+agentAutoCameraOUIRowStatus OBJECT-TYPE
+     SYNTAX      RowStatus
+     MAX-ACCESS  read-create
+     STATUS      current
+     DESCRIPTION
+     "The row status variable is used according to installation and removal conventions for conceptual rows."
+
+     ::= { agentAutoCameraOUIEntry 4 }
+
+
+--*********************************************************************
+--   agentAutoWifiCfgGroup
+--
+--      Note: System-wide configuration is supported for this 
+--            group by using an index value of 0.
+--*********************************************************************
+agentAutoWifiCfgGroup OBJECT IDENTIFIER ::= { fastPathQOSAutoVlan 2 }
+
+agentAutoWifiVLAN OBJECT-TYPE
+     SYNTAX      INTEGER 
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION 
+                 "The VLAN to which all wifi traffic is mapped to."
+
+     ::= { agentAutoWifiCfgGroup 1 }
+
+agentAutoWifiOUIPriority OBJECT-TYPE
+     SYNTAX      INTEGER 
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION 
+                 "The priority to which all wifi traffic with known OUI is mapped to."
+
+     ::= { agentAutoWifiCfgGroup 2 }
+
+-- Auto wifi global status     
+agentAutoWifiOUIMode OBJECT-TYPE 
+     SYNTAX      INTEGER {
+                   enable(1),
+                   disable(2)
+                   }
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+                 "Enables / disables Auto wifi mode in the system."
+     DEFVAL { disable }
+
+     ::= { agentAutoWifiCfgGroup 3 }
+
+-- Auto wifi Configuration table (per-port)
+agentAutoWifiTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF AgentAutoWifiEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "A table providing configuration of Auto Wifi."
+     
+     ::= { agentAutoWifiCfgGroup 4 }             
+
+
+--************** Auto Wifi Interface Table **************
+     
+agentAutoWifiEntry OBJECT-TYPE
+     SYNTAX      AgentAutoWifiEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "Auto Wifi configuration for a port."
+     INDEX   { agentAutoWifiIntfIndex }
+     ::= { agentAutoWifiTable 1 }
+
+
+AgentAutoWifiEntry::=
+     SEQUENCE {
+        agentAutoWifiIntfIndex
+            InterfaceIndex,
+        agentAutoWifiIntfOUIMode
+            INTEGER,
+        agentAutoWifiOUIPortStatus 
+            INTEGER
+     }
+
+agentAutoWifiIntfIndex OBJECT-TYPE
+     SYNTAX      InterfaceIndex
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+         "This is a unique index for an entry in the  
+         agentAutoWifiTable.  A non-zero value indicates  
+         the ifIndex for the corresponding interface entry  
+         in the ifTable."
+                
+     ::= { agentAutoWifiEntry 1 }
+
+-- Auto wifi interface status     
+agentAutoWifiIntfOUIMode OBJECT-TYPE 
+     SYNTAX      INTEGER {
+                   enable(1),
+                   disable(2)
+                   }
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+                 "Enables / disables Auto wifi mode on an interface."
+     DEFVAL { disable }
+
+     ::= { agentAutoWifiEntry 2 }
+
+agentAutoWifiOUIPortStatus OBJECT-TYPE
+     SYNTAX      INTEGER {
+                   up(1),
+                   down(2)
+                   }
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION 
+                 "Auto Wifi OUI operational status of an interface."
+
+     ::= { agentAutoWifiEntry 3 }
+
+
+--************** Auto Wifi OUI Table **************
+
+agentAutoWifiOUITable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF AgentAutoWifiOUIEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "A table providing configuration of Auto Wifi OUI entries."
+
+     ::= { agentAutoWifiCfgGroup 5 }
+
+agentAutoWifiOUIEntry OBJECT-TYPE
+     SYNTAX      AgentAutoWifiOUIEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "Auto Wifi OUI configuration."
+     INDEX   { agentAutoWifiOUIIndex }
+     ::= { agentAutoWifiOUITable 1 }
+
+AgentAutoWifiOUIEntry::=
+     SEQUENCE {
+        agentAutoWifiOUIIndex
+            Integer32,
+        agentAutoWifiOUI
+            OCTET STRING,
+        agentAutoWifiOUIDesc
+            OCTET STRING,
+        agentAutoWifiOUIRowStatus
+            RowStatus
+     }
+
+agentAutoWifiOUIIndex OBJECT-TYPE
+     SYNTAX      Integer32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+        "The Auto Wifi OUI table index."
+     ::= { agentAutoWifiOUIEntry 1 }
+
+agentAutoWifiOUI OBJECT-TYPE
+     SYNTAX      OCTET STRING (SIZE(8))
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "The Organizationally Unique Identifier (OUI), as defined
+        in IEEE std 802-2001, is a 24 bit (three octets) globally
+        unique assigned number referenced by various standards,
+        of the information received from the remote system."
+     ::= { agentAutoWifiOUIEntry 2 }
+
+agentAutoWifiOUIDesc OBJECT-TYPE
+     SYNTAX      OCTET STRING (SIZE(1..32))
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "The Description of the Organizationally Unique Identifier (OUI),
+        as defined in IEEE std 802-2001(up to 32 characters)"
+     ::= { agentAutoWifiOUIEntry 3 }
+
+agentAutoWifiOUIRowStatus OBJECT-TYPE
+     SYNTAX      RowStatus
+     MAX-ACCESS  read-create
+     STATUS      current
+     DESCRIPTION
+     "The row status variable is used according to installation and removal conventions for conceptual rows."
+
+     ::= { agentAutoWifiOUIEntry 4 }
+
+--*********************************************************************
+--   agentAutoVlanOperGroup
+--
+--*********************************************************************
+agentAutoVlanOperGroup OBJECT IDENTIFIER ::= { fastPathQOSAutoVlan 3 }
+
+agentAutoVlanOperTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF AgentAutoVlanOperEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "A table providing the active auto vlan (Camera and Wifi) sessions programmed in hardware."
+     
+     ::= { agentAutoVlanOperGroup 1 }             
+     
+agentAutoVlanOperEntry OBJECT-TYPE
+     SYNTAX      AgentAutoVlanOperEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+                 "Auto VLAN Session Table."
+     INDEX   { agentAutoVlanOperIndex }
+     ::= { agentAutoVlanOperTable 1 }
+
+AgentAutoVlanOperEntry::=
+     SEQUENCE {
+        agentAutoVlanOperIndex
+            INTEGER,
+        agentAutoVlanMacAddress
+            MacAddress,
+        agentAutoVlanType
+            INTEGER,
+        agentAutoVlanIntfIndex
+            InterfaceIndex
+     }
+
+agentAutoVlanOperIndex OBJECT-TYPE
+     SYNTAX      INTEGER 
+     MAX-ACCESS  not-accessible 
+     STATUS      current
+     DESCRIPTION 
+        "The Auto Vlan oper index."
+     ::= { agentAutoVlanOperEntry 1 }
+
+agentAutoVlanMacAddress OBJECT-TYPE
+     SYNTAX      MacAddress
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION 
+        "The MAC address of the auto vlan entry."
+     ::= { agentAutoVlanOperEntry 2 }
+
+agentAutoVlanType OBJECT-TYPE
+     SYNTAX      INTEGER {
+                     autoCamera(0),
+                     autoWifi(1)
+                  }
+
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION 
+        "The Auto vlan type."
+     ::= { agentAutoVlanOperEntry 3 }
+
+agentAutoVlanIntfIndex OBJECT-TYPE
+     SYNTAX      InterfaceIndex
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION 
+        "This is an interface number where device is connected."
+     ::= { agentAutoVlanOperEntry 4 }
+
+END

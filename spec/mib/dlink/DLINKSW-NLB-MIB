@@ -1,0 +1,233 @@
+--  *****************************************************************
+--  DLINKSW-NLB-MIB.mib : D-Link NLB MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-NLB-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF 
+        MacAddress,
+        RowStatus
+            FROM SNMPv2-TC      
+        PortList,
+        VlanIndex
+            FROM Q-BRIDGE-MIB    
+        dlinkIndustrialCommon		
+            FROM DLINK-ID-REC-MIB;
+
+    dlinkSwNlbMIB MODULE-IDENTITY
+        LAST-UPDATED "201405060000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "The MIB module for managing network load balancing."
+        REVISION "201405060000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file. 
+            "
+    ::= { dlinkIndustrialCommon 176 }
+
+-- -----------------------------------------------------------------------------
+    dNlbMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwNlbMIB 0 }
+    dNlbMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwNlbMIB 1 }
+    dNlbMIBConformance      OBJECT IDENTIFIER ::= { dlinkSwNlbMIB 2 }
+
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
+-- dNlbUnicastFdbTable
+-- -----------------------------------------------------------------------------
+
+    dNlbUnicastFdbTable OBJECT-TYPE
+        SYNTAX  SEQUENCE OF DNlbUnicastFdbEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A table containing filtering information for unicast MAC
+            addresses for forwarding specific ports."
+        ::= { dNlbMIBObjects 1 }
+
+    dNlbUnicastFdbEntry OBJECT-TYPE
+        SYNTAX  DNlbUnicastFdbEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A list of filtering information for unicast MAC addresses
+            for forwarding specific ports."
+        INDEX  { dNlbUnicastFdbMacAddress }
+        ::= { dNlbUnicastFdbTable 1 }
+
+    DNlbUnicastFdbEntry ::=
+        SEQUENCE {
+            dNlbUnicastFdbMacAddress
+                MacAddress,
+            dNlbUnicastFdbEgressPorts
+                PortList,
+            dNlbUnicastFdbRowStatus
+                RowStatus
+        }
+
+    dNlbUnicastFdbMacAddress OBJECT-TYPE
+        SYNTAX  MacAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "The destination MAC address in a frame to which this entry's
+            filtering information applies."
+        ::= { dNlbUnicastFdbEntry 1 }
+
+    dNlbUnicastFdbEgressPorts OBJECT-TYPE
+        SYNTAX  PortList
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "The set of ports for a specific MAC address must be forwarded."
+        ::= { dNlbUnicastFdbEntry 2 }
+
+        
+	dNlbUnicastFdbRowStatus OBJECT-TYPE
+        SYNTAX  RowStatus
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "The status of this conceptual row. To create a row in this
+            table, a manager must set this object to createAndGo (4).
+            To delete a row in this table, a manager must set this object
+            to destroy (6)."
+        ::= { dNlbUnicastFdbEntry 99 }
+
+
+-- -----------------------------------------------------------------------------
+-- dNlbMulticastFdbTable
+-- -----------------------------------------------------------------------------
+
+    dNlbMulticastFdbTable OBJECT-TYPE
+        SYNTAX  SEQUENCE OF DNlbMulticastFdbEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A table containing filtering information for multicast MAC
+            addresses for forwarding specific ports."
+        ::= { dNlbMIBObjects 2 }
+
+    dNlbMulticastFdbEntry OBJECT-TYPE
+        SYNTAX      DNlbMulticastFdbEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "A list of filtering information for multicast MAC addresses
+            for forwarding specific ports."
+        INDEX  { dNlbMulticastFdbVlanIndex, dNlbMulticastFdbMacAddress }
+        ::= { dNlbMulticastFdbTable 1 }
+
+    DNlbMulticastFdbEntry ::=
+        SEQUENCE {
+            dNlbMulticastFdbVlanIndex
+                VlanIndex,
+            dNlbMulticastFdbMacAddress
+                MacAddress,
+            dNlbMulticastFdbEgressPorts
+                PortList,
+            dNlbMulticastFdbRowStatus
+                RowStatus
+        }
+
+    dNlbMulticastFdbVlanIndex OBJECT-TYPE
+        SYNTAX  VlanIndex
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "The VLAN-ID or other identifier referring to this VLAN."
+        ::= { dNlbMulticastFdbEntry 1 }
+
+    dNlbMulticastFdbMacAddress OBJECT-TYPE
+        SYNTAX  MacAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "The destination MAC address in a frame to which this entry's
+            filtering information applies."
+        ::= { dNlbMulticastFdbEntry 2 }
+
+    dNlbMulticastFdbEgressPorts OBJECT-TYPE
+        SYNTAX  PortList
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "The set of ports for a specific MAC address must be forwarded."
+        ::= { dNlbMulticastFdbEntry 3 }
+
+	dNlbMulticastFdbRowStatus OBJECT-TYPE
+        SYNTAX  RowStatus
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "The status of this conceptual row. To create a row in this
+            table, a manager must set this object to createAndGo (4).
+            To delete a row in this table, a manager must set this object
+            to destroy (6)."
+        ::= { dNlbMulticastFdbEntry 99 }
+
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	dNlbCompliances OBJECT IDENTIFIER ::= { dNlbMIBConformance 1 }
+    dNlbGroups      OBJECT IDENTIFIER ::= { dNlbMIBConformance 2 }        
+		
+	dNlbCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINK-NLB-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    dNlbUnicastFdbInfoGroup,
+		    dNlbMulticastFdbInfoGroup
+		}
+				
+		GROUP    dNlbUnicastFdbInfoGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		    the agent only if Unicast NLB feature is supported."
+		   		   
+		GROUP    dNlbMulticastFdbInfoGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		    the agent only if Multicast NLB feature is supported."
+		::= { dNlbCompliances 1 }
+
+	dNlbUnicastFdbInfoGroup OBJECT-GROUP
+		OBJECTS { 		    
+		    dNlbUnicastFdbRowStatus,
+		    dNlbUnicastFdbEgressPorts
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects provides the information for unicast NLB."
+		::= { dNlbGroups 1 }
+	
+	dNlbMulticastFdbInfoGroup OBJECT-GROUP
+		OBJECTS { 		    
+		    dNlbMulticastFdbRowStatus,
+		    dNlbMulticastFdbEgressPorts
+     	}
+		STATUS          current
+		DESCRIPTION 
+			"A collection of objects provides configuration for multicast NLB."
+		::= { dNlbGroups 2 }
+			
+	
+END

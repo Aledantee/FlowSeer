@@ -1,0 +1,166 @@
+--  *****************************************************************
+--  DLINKSW-IP-DEVICE-MONITOR-MIB.mib : IP DEVICE MONITOR MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-IPV6-DEVICE-MONITOR-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        Unsigned32
+            FROM SNMPv2-SMI
+        TruthValue
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE,
+	    OBJECT-GROUP
+		    FROM SNMPv2-CONF        
+        Ipv6Address
+            FROM IPV6-TC
+        InterfaceIndexOrZero
+            FROM IF-MIB       
+        dlinkIndustrialCommon			
+			FROM DLINK-ID-REC-MIB;
+
+
+    dlinkSwIPv6DeviceMonitorMIB MODULE-IDENTITY
+        LAST-UPDATED "202007280000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+                "        D-Link Corporation
+
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:     +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+                "
+        DESCRIPTION
+            "This MIB is support for specific product."
+        REVISION "202007280000Z"
+        DESCRIPTION
+            "Initial version of this MIB."
+	    
+        ::= { dlinkIndustrialCommon 228 }
+
+-- -----------------------------------------------------------------------------
+    dIPv6DevMonitorMIBObjects            OBJECT IDENTIFIER ::= { dlinkSwIPv6DeviceMonitorMIB 1 }
+    dIPv6DevMonitorMIBConformance        OBJECT IDENTIFIER ::= { dlinkSwIPv6DeviceMonitorMIB 2 }
+
+-- ----------------------------------------------------------------------------- 
+    dIPv6DevMonitorMgmt  OBJECT IDENTIFIER ::={dIPv6DevMonitorMIBObjects 1}   
+    
+    dIPv6DevMonitorIPv6Addr OBJECT-TYPE
+        SYNTAX          Ipv6Address		
+        MAX-ACCESS      read-write
+		STATUS current
+		DESCRIPTION
+			"This object configures the monitor device IPv6 address."    
+		::= { dIPv6DevMonitorMgmt 1 }
+	 
+     dIPv6DevMonitorIPv6AddrIf OBJECT-TYPE
+        SYNTAX          InterfaceIndexOrZero
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the ifIndex of the interface on which
+            the monitored device is located. It is used when configuring 
+            monitor device as link local address.
+            "                     
+        ::= { dIPv6DevMonitorMgmt 2 }                           
+
+    dIPv6DevMonitorState OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the state of the function."
+		DEFVAL {false}
+		::= { dIPv6DevMonitorMgmt 3 } 
+        
+    dIPv6DevMonitorInterval OBJECT-TYPE
+        SYNTAX      Unsigned32
+        UNITS           "seconds"
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object specifies the polling interval in seconds."
+		DEFVAL {30}
+        ::= { dIPv6DevMonitorMgmt 4 }    
+        
+    dIPv6DevMonitorTimeout OBJECT-TYPE
+        SYNTAX      Unsigned32
+        UNITS           "seconds"
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object specifies the timeout length in seconds."
+		DEFVAL {5}
+        ::= { dIPv6DevMonitorMgmt 5 }
+	
+    dIPv6DevMonitorRetry OBJECT-TYPE
+        SYNTAX      Unsigned32
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the retry count."
+		DEFVAL {3}
+        ::= { dIPv6DevMonitorMgmt 6 }
+        
+    dIPv6DevMonitorNeighborCache OBJECT-TYPE
+        SYNTAX      INTEGER   
+        {
+         clearAll(1),
+         clearTarget(2)
+        }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object configures the action to clear the neighbor cache.
+            all - clear all ipv6 neighbor caches
+            target - clear the neighbor entry for the monitor device." 
+        DEFVAL {clearAll}
+        ::= { dIPv6DevMonitorMgmt 7 }
+
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	dIPv6DevMonitorCompliances OBJECT IDENTIFIER ::= { dIPv6DevMonitorMIBConformance 1 }
+		
+	dIPv6DevMonitorCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement ip 
+			device monitor function."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    dIPv6DevMonitorBasicGroup
+		}	
+		::= { dIPv6DevMonitorCompliances 1 }
+		       
+		
+	dIPv6DevMonitorGroups OBJECT IDENTIFIER ::= { dIPv6DevMonitorMIBConformance 2 }
+			
+   	dIPv6DevMonitorBasicGroup OBJECT-GROUP
+		OBJECTS { 
+		    dIPv6DevMonitorIPv6Addr,
+            dIPv6DevMonitorIPv6AddrIf, 
+		    dIPv6DevMonitorState,            
+            dIPv6DevMonitorInterval,  
+            dIPv6DevMonitorTimeout,
+            dIPv6DevMonitorRetry,
+            dIPv6DevMonitorNeighborCache
+            
+		}
+		STATUS current
+		DESCRIPTION 
+				"This group contains the collection of objects for device 
+				monitor management."
+		::= { dIPv6DevMonitorGroups 1 }
+         
+
+	
+END
+
+
+

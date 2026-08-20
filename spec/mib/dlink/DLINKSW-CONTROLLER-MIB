@@ -1,0 +1,132 @@
+--  *****************************************************************
+--  DLINKSW-CONTROLLER-MIB.mib : Switch Controller MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-CONTROLLER-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE       
+                FROM SNMPv2-SMI    
+	    TruthValue
+                FROM SNMPv2-TC 
+        MODULE-COMPLIANCE, OBJECT-GROUP 
+                FROM SNMPv2-CONF               
+        dlinkIndustrialCommon
+                FROM DLINK-ID-REC-MIB;
+
+    dlinkSwControllerMIB MODULE-IDENTITY
+        LAST-UPDATED "201907040000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for configuring switch controller."
+        REVISION "201907040000Z"
+        DESCRIPTION
+            "Add new MIB object dHeadOfLinePrevention. 
+            "
+
+        REVISION "201303040000Z"
+        DESCRIPTION
+            " This is the first version of the MIB file. 
+            "
+        ::= { dlinkIndustrialCommon 27 }
+
+-- -----------------------------------------------------------------------------
+    dControllerNotifications    OBJECT IDENTIFIER ::= { dlinkSwControllerMIB 0 }
+    dControllerObjects          OBJECT IDENTIFIER ::= { dlinkSwControllerMIB 1 }
+    dControllerConformance      OBJECT IDENTIFIER ::= { dlinkSwControllerMIB 2 }
+
+-- -----------------------------------------------------------------------------
+
+    dControllerPktFwdCtrl	      OBJECT IDENTIFIER ::= {dControllerObjects 1}
+      
+    dControllerAltStoreFwdEnabled  OBJECT-TYPE
+        SYNTAX        TruthValue
+        MAX-ACCESS    read-write
+        STATUS        current
+        DESCRIPTION   
+            "This object indicates whether ASF (Alternative Store and Forward) is 
+            enabled.
+            The ASF is used to reduce latency for large packets. When ASF is enabled,
+            packets could be forwarded before it has been entirely received. To avoid 
+            underruns, ASF takes place only when all below conditions are fulfilled:
+			1) Ingress port speed is faster or equal to that of egress port; 
+			2) Packet size is larger than predefined value.
+		    The predefined value is chip dependent.
+		    Set to 'true' to enable ASF feature. It allows packets to be sent 
+		    in a cut-through manner. Setting the object to 'false' will disable
+		    ASF."
+        DEFVAL      { false }              
+        ::= { dControllerPktFwdCtrl 1}   
+        
+    dHeadOfLinePrevention  OBJECT-TYPE
+        SYNTAX        TruthValue
+        MAX-ACCESS    read-write
+        STATUS        current
+        DESCRIPTION   
+            "Head-of-line blocking (HOL blocking) is a performance-limiting phenomenon 
+            that occurs when a line of packets are held up by the first packet.The switches
+            with input buffering can suffer HOL blocking because only the oldest packet is 
+            available for forwarding (FIFO). The more recent arrivals cannot be forwarded 
+            if the oldest packet cannot be forwarded because its destination output is busy 
+            (Congestion). The phenomenon can have severe performance-degrading effects.
+            
+            With HoL Prevention, the new arrivals could potentially be forwarded around the 
+            stuck oldest packet to their respective destinations.."
+        DEFVAL { true }                
+        ::= { dControllerObjects 2}  
+     
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- -----------------------------------------------------------------------------       
+    dControllerCompliances OBJECT IDENTIFIER ::= { dControllerConformance 1 }
+		
+	dControllerCompliance MODULE-COMPLIANCE
+		STATUS          current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKSW-CONTROLLER-MIB."
+		MODULE -- this module
+          MANDATORY-GROUPS {
+            dControllerBasicGroup 
+          }
+ 		
+          GROUP dControllerAsfGroup
+          DESCRIPTION
+            "This group is supported if ASF (Alternative Store and Forward) is
+            supported."    
+	    ::= { dControllerCompliances 1 }
+		
+	dControllerGroups OBJECT IDENTIFIER ::= { dControllerConformance 2 }
+		
+    dControllerAsfGroup OBJECT-GROUP
+		OBJECTS { 
+		    dControllerAltStoreFwdEnabled
+		}
+		STATUS current
+		DESCRIPTION 
+			"This group contains the collection of objects which are used to 
+            configure the ASF feature."						
+		::= { dControllerGroups 1 }     
+		
+    dControllerBasicGroup OBJECT-GROUP
+		OBJECTS { 
+		    dHeadOfLinePrevention
+		}
+		STATUS current
+		DESCRIPTION 
+			"This group contains the collection of objects which are basic to 
+            configure the controller."						
+		::= { dControllerGroups 2 }
+      
+END

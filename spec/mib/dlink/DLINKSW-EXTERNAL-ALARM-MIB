@@ -1,0 +1,210 @@
+--  *****************************************************************
+--  DLINKSW-EXTERNAL-ALARM-MIB.mib : External Alarm MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+    DLINKSW-EXTERNAL-ALARM-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE, NOTIFICATION-TYPE, Unsigned32
+            FROM SNMPv2-SMI
+        DisplayString,TruthValue   	        
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE,OBJECT-GROUP, NOTIFICATION-GROUP     
+            FROM SNMPv2-CONF
+        dlinkIndustrialCommon               
+            FROM DLINK-ID-REC-MIB;
+
+    dlinkSwExternalAlarmMIB MODULE-IDENTITY     
+
+	    LAST-UPDATED "201303150000Z"
+	    ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for external alarm function."            
+            
+        REVISION "201303150000Z"
+        DESCRIPTION 
+            "This is the first version of the MIB file."    
+        ::= { dlinkIndustrialCommon 32 }
+
+-- -----------------------------------------------------------------------------
+    dExternalAlarmNotifications    OBJECT IDENTIFIER ::= { dlinkSwExternalAlarmMIB 0 }
+    dExternalAlarmObjects          OBJECT IDENTIFIER ::= { dlinkSwExternalAlarmMIB 1 }
+    dExternalAlarmConformance      OBJECT IDENTIFIER ::= { dlinkSwExternalAlarmMIB 2 }
+
+-- -----------------------------------------------------------------------------   
+    dExternalAlarmNotifyEnabled  OBJECT-TYPE
+        SYNTAX          TruthValue 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION   
+            "This object indicates whether the system generates notification
+            for external alarm.	        
+            "
+        ::= { dExternalAlarmObjects 1}
+
+    dExternalAlarmTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DExternalAlarmEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The table is used to configure and display
+            information for external alarm."
+        ::= { dExternalAlarmObjects 2 }
+
+    dExternalAlarmEntry OBJECT-TYPE
+        SYNTAX          DExternalAlarmEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry contains external alarm state and message
+            information for a particular channel."
+        INDEX   { 
+            dExternalAlarmUnitID,
+         	dExternalAlarmChannel}
+        ::= { dExternalAlarmTable 1 }
+
+    DExternalAlarmEntry ::= SEQUENCE {
+        dExternalAlarmUnitID        Unsigned32,
+        dExternalAlarmChannel		Unsigned32,
+        dExternalAlarmStatus		INTEGER,
+        dExternalAlarmMessage       DisplayString
+    }
+
+    dExternalAlarmUnitID  OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the unit ID."
+        ::= { dExternalAlarmEntry 1 }
+
+    dExternalAlarmChannel OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the channel number of the entry."
+        ::= { dExternalAlarmEntry 2 } 
+        
+	dExternalAlarmStatus  OBJECT-TYPE
+        SYNTAX          INTEGER {
+            normal(0),
+            alarming(1)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION   
+            "If the source is absent or the source is present and is 
+        	in normal state, then the status will be normal. The status 
+        	will be abnormal if the source is in abnormal state."        
+        ::= { dExternalAlarmEntry 3 }   
+    
+    dExternalAlarmMessage OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (0..128))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A textual string containing the module description of external
+            alarm."
+        ::= { dExternalAlarmEntry 4 }
+
+-- -----------------------------------------------------------------------------
+    dExternalAlarmNotificationInfo  OBJECT IDENTIFIER    ::= { dExternalAlarmObjects 3 }
+    
+    dExternalAlarmEventUnitID  OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        MAX-ACCESS      accessible-for-notify
+        STATUS          current
+        DESCRIPTION
+            "The unit ID of the message.
+            " 
+        ::= { dExternalAlarmNotificationInfo 1 }
+ 
+    dExternalAlarmEventChannel  OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        MAX-ACCESS      accessible-for-notify
+        STATUS          current
+        DESCRIPTION
+            "The channel number of the message.
+            " 
+        ::= { dExternalAlarmNotificationInfo 2 }
+-- -----------------------------------------------------------------------------        
+    dExternalAlarmStatusChg NOTIFICATION-TYPE
+        OBJECTS { 
+            dExternalAlarmEventUnitID,
+            dExternalAlarmEventChannel,
+            dExternalAlarmStatus	                       
+        }
+        STATUS  current        		
+        DESCRIPTION
+            "This trap indicates an external alarm state change occurs. When 
+            dExternalAlarmStatus is:
+            'alarming' - an external device enters abnormal state.
+            'normal' - an external device goes back to normal state.
+            "                     
+        ::= { dExternalAlarmNotifications 1 }	
+
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+    dExternalAlarmMIBCompliances  OBJECT IDENTIFIER
+        ::= { dExternalAlarmConformance 1 }
+
+    dExternalAlarmMIBGroups  OBJECT IDENTIFIER
+        ::= { dExternalAlarmConformance 2 }       
+    
+    dExternalAlarmCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+			DLINKSW-EXTERNAL-ALARM-MIB."
+			
+        MODULE          -- this module
+        MANDATORY-GROUPS    {   
+            dExternalAlarmGroup          
+        }                                           
+        ::= { dExternalAlarmMIBCompliances 1 }      
+		
+	dExternalAlarmGroup OBJECT-GROUP
+		OBJECTS { 
+		    dExternalAlarmNotifyEnabled, 
+		   	dExternalAlarmStatus,
+		    dExternalAlarmMessage            
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing management of the external
+			alarm feature."
+		::= { dExternalAlarmMIBGroups 1 }			 
+		
+    dExternalAlarmNotifInfoGroup OBJECT-GROUP
+		OBJECTS { 
+		    dExternalAlarmEventUnitID, 
+		   	dExternalAlarmEventChannel     
+		}
+		STATUS current
+		DESCRIPTION 
+			"This group defines the set of Notification objects for external alarm."
+		::= { dExternalAlarmMIBGroups 2 }	
+
+	dExternalAlarmNotifGroup NOTIFICATION-GROUP
+        NOTIFICATIONS { dExternalAlarmStatusChg }
+        STATUS  current
+        DESCRIPTION
+             "A collection of notifications for indicating the status change of
+             external alarm."
+        ::= { dExternalAlarmMIBGroups 3 }		                            
+			                            
+			  
+END

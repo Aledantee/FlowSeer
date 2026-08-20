@@ -1,0 +1,550 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "Service-Logging API Documentation",
+    "version" : "32.0.17"
+  },
+  "security" : [ {
+    "bearer" : [ ]
+  }, {
+    "apiKey" : [ ]
+  }, {
+    "basic" : [ ]
+  } ],
+  "paths" : {
+    "/accounts/{accountId}/authorities/{authorityId}/rights" : {
+      "get" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsPost",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Updates rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        },
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LibSecurityRightList"
+              }
+            }
+          },
+          "required" : true
+        }
+      },
+      "delete" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsDelete",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Deletes rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Rights have been removed"
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/logs/archives" : {
+      "get" : {
+        "tags" : [ "Logs" ],
+        "summary" : "Get account specific list of log archives.",
+        "description" : "<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>ARCHIVE_ACCESS</td><td>Right to access archives</td></tr><tbody></table>",
+        "operationId" : "getArchives",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArchiveDtos"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/logs/archives/settings" : {
+      "get" : {
+        "tags" : [ "Logs" ],
+        "summary" : "Get account specific log archives settings.",
+        "description" : "Returns whether log archive settings enabled for an account. <h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>ARCHIVE_SETTINGS_READ</td><td>Right to read archive settings</td></tr><tbody></table>",
+        "operationId" : "getArchivesSettings",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArchiveSettingsDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "Logs" ],
+        "summary" : "Put the account specific log archive settings.",
+        "description" : "<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>ARCHIVE_ACCESS</td><td>Right to update the account specific log archive settings</td></tr><tbody></table>",
+        "operationId" : "putArchiveSettings",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ArchiveSettingsDto"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Archive settings",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArchiveSettingsDto"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/logs/archives/{archiveId}" : {
+      "get" : {
+        "tags" : [ "Logs" ],
+        "summary" : "Download log archive by id.",
+        "description" : "<h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>ARCHIVE_ACCESS</td><td>Right to access the log archive</td></tr><tbody></table>",
+        "operationId" : "downloadArchiveById",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        }, {
+          "$ref" : "#/components/parameters/ArchiveId"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/zip" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/rights/accounts" : {
+      "get" : {
+        "operationId" : "rightsAccountsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the token accounts",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Account right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityAccountList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/accounts/{accountId}" : {
+      "get" : {
+        "operationId" : "rightsAccountsAccountIdGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the given account",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/public" : {
+      "get" : {
+        "operationId" : "rightsPublicGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists all available rights",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "All available rights",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ArchiveDto" : {
+        "required" : [ "createdAt", "id", "month", "status", "year" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "scheduled", "creating", "created" ]
+          },
+          "month" : {
+            "type" : "integer"
+          },
+          "year" : {
+            "type" : "integer"
+          },
+          "fileSizeInKiloBytes" : {
+            "type" : "integer"
+          },
+          "logCount" : {
+            "type" : "integer"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ArchiveDtos" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/ArchiveDto"
+        }
+      },
+      "ArchiveSettingsDto" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ErrorResponseBody" : {
+        "type" : "object",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "service" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LibSecurityAccount" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "rights" : {
+            "$ref" : "#/components/schemas/LibSecurityRightList"
+          }
+        }
+      },
+      "LibSecurityAccountList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/LibSecurityAccount"
+        }
+      },
+      "LibSecurityRightList" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string"
+        }
+      }
+    },
+    "responses" : {
+      "HTTP_400" : {
+        "description" : "Wrong data",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_401" : {
+        "description" : "Not authenticated"
+      },
+      "HTTP_403" : {
+        "description" : "Forbidden",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_404" : {
+        "description" : "Not found",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      }
+    },
+    "parameters" : {
+      "AccountId" : {
+        "name" : "accountId",
+        "in" : "path",
+        "description" : "The unique identifier(UUID) of the account/project for which the logs are requested.",
+        "example" : "946dc887-fe79-4fdd-a52f-a62a467a6520",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "ArchiveId" : {
+        "name" : "archiveId",
+        "in" : "path",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "TOKEN" : {
+        "name" : "Authorization",
+        "in" : "header",
+        "description" : "JWT based Session token",
+        "required" : false,
+        "schema" : {
+          "type" : "string"
+        }
+      }
+    },
+    "securitySchemes" : {
+      "apiKey" : {
+        "type" : "apiKey",
+        "in" : "header",
+        "name" : "Authorization",
+        "description" : "Provide an API key for 'Authorization: LMC-API-KEY {value}' header format."
+      },
+      "basic" : {
+        "type" : "http",
+        "scheme" : "basic",
+        "description" : "Provide a username and password. Account IDs may be set optionally."
+      },
+      "bearer" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "description" : "Provide a bearer token for 'Authorization: Bearer {value}' header format."
+      }
+    }
+  }
+}

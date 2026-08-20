@@ -1,0 +1,5417 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "Service-Devices API Documentation",
+    "version" : "33.3.8"
+  },
+  "security" : [ {
+    "bearer" : [ ]
+  }, {
+    "apiKey" : [ ]
+  }, {
+    "basic" : [ ]
+  } ],
+  "paths" : {
+    "/accounts/{accountId}/actions/merges" : {
+      "post" : {
+        "tags" : [ "Actions" ],
+        "summary" : "Merge preconfiguration with device.",
+        "description" : "<p>Initiates a merge of a preconfigured (shadow) device and a physical device</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_SHADOW_CREATE</td><td>Right to create preconfigured (shadow) devices</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "shadowId",
+          "in" : "query",
+          "description" : "Id of the preconfigured device",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "deviceId",
+          "in" : "query",
+          "description" : "Id of the physical device",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "forceNextAvailableFirmwareVersion",
+          "in" : "query",
+          "description" : "Use the next available firmware version if the shadow firmware version is not available",
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Action Data",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MergeActionData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to merge devices.",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/actions/merges/{mergeId}" : {
+      "get" : {
+        "tags" : [ "Actions" ],
+        "summary" : "Reads merge actions.",
+        "description" : "<p>Reads merge actions.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_SHADOW_CREATE</td><td>Right to create preconfigured (shadow) devices</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "mergeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Action Data",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MergeActionData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get a merge action.",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/actions/muting" : {
+      "post" : {
+        "tags" : [ "Actions" ],
+        "summary" : "Alert muting.",
+        "description" : "<p>Requests alert muting updates for multiple resource types</p> </p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to modify the device</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AlertMutingActionDataList"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "List of updated resourceId's",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UUIDList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to change mutings.",
+            "content" : { }
+          },
+          "409" : {
+            "$ref" : "#/components/responses/HTTP_409"
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/actions/onhold" : {
+      "post" : {
+        "tags" : [ "Actions" ],
+        "summary" : "Offline on hold.",
+        "description" : "<p>Requests on hold updates for multiple resource types</p> </p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to modify the device</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OnHoldActionDataList"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "List of updated resourceId's",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UUIDList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to change on hold state.",
+            "content" : { }
+          },
+          "409" : {
+            "$ref" : "#/components/responses/HTTP_409"
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/actions/reboot" : {
+      "post" : {
+        "tags" : [ "Actions" ],
+        "summary" : "Reboot device.",
+        "description" : "<p>Initiates a reboot for the specified devices</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_ACTION_REBOOT</td><td>Right to reboot</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDList"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Empty response",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to reboot one or more of specified devices.",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/authorities/{authorityId}/rights" : {
+      "get" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsPost",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Updates rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        },
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LibSecurityRightList"
+              }
+            }
+          },
+          "required" : true
+        }
+      },
+      "delete" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsDelete",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Deletes rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Rights have been removed"
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/device_statistics" : {
+      "get" : {
+        "tags" : [ "Device statistics" ],
+        "summary" : "Get device statistics of an account",
+        "description" : "<p>Get device statistics</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_STATISTIC_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device statistics",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceStatistics"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get device statistics",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Stream of all devices matching the filter in sort order",
+        "description" : "<p>The response is a stream of all devices matching the filter in sort order. In case of a service error or timeout, the stream stops at any point, leaving the response malformed. The service dedicates limited resources answering this request, caller may need to retry in case of errors.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tr><td>DEVICE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields. If the right is not granted the data won't be part of the response.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PROPERTY_FILTER"
+        }, {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_IDS"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteId"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteName"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteEmpty"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusName"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusNameLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusNameILike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusSerial"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusSerialLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusMac"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusMacLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusIp"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusIpLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModel"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModelLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModelILike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwMajor"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwMinor"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwBuild"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwReleaseType"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwLabelLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwLabelILike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwSourceRevision"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwRelease"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwModLevel"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwMask"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusCfgHash"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusCfgVersion"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFirmwareUpdateInitTime"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFirmwareUpdateTargetVersion"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHeartbeatState"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusClaimingState"
+        }, {
+          "$ref" : "#/components/parameters/QueryCustomFieldValue"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The request was successful.",
+            "content" : {
+              "application/stream+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGetsWithoutConfigStatus"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read device information",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Claim devices",
+        "description" : "<p>Claim devices using PIN and serial</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_CREATE</td><td>Right to claim devices</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceClaimData"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The claimed device",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to claim devices",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/devices-table" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Get devices by device ids",
+        "description" : "<p>Get devices by device ids</p><b>Alternatively take a look to stream API: /accounts/{accountId}/devices</b><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tr><td>DEVICE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields. If the right is not granted the data won't be part of the response.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_IDS_REQUIRED"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceTableList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read device information",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices-table/ids" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "List device ids based on configuration status",
+        "description" : "<p>List device ids based on configuration status. <b>Please note that only the first 1500 ids matching the filter are returned. Please also note that this endpoint is deprecated and only for internal use. Alternatively use /accounts/{accountId}/devices?select=id</b></p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/ConfigStatusFilter"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteId"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteName"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteEmpty"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusName"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusNameLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusSerial"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusSerialLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusMac"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusMacLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusIp"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusIpLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModel"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModelLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModelILike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwMajor"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwMinor"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwBuild"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwReleaseType"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwLabelLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwLabelILike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwSourceRevision"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwRelease"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwModLevel"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwMask"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusCfgHash"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusCfgVersion"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFirmwareUpdateInitTime"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFirmwareUpdateTargetVersion"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHeartbeatState"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusClaimingState"
+        }, {
+          "$ref" : "#/components/parameters/QueryCustomFieldValue"
+        }, {
+          "$ref" : "#/components/parameters/QueryLimit"
+        }, {
+          "$ref" : "#/components/parameters/QueryHasCustomField"
+        }, {
+          "$ref" : "#/components/parameters/QueryAlertingAlert"
+        }, {
+          "name" : "status.aggHeartbeatState",
+          "in" : "query",
+          "description" : "INACTIVE_ONHOLD filters on INACTIVE on-hold devices, INACTIVE excludes on-hold devices; all other values like in status.heartbeatState",
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "INACTIVE", "INACTIVE_ONHOLD", "REDIRECTED", "SHADOW", "UNKNOWN" ]
+          }
+        }, {
+          "$ref" : "#/components/parameters/QUERY_SORT"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "List of filtered device ids",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UUIDList"
+                }
+              }
+            }
+          },
+          "206" : {
+            "description" : "Partial list of filtered devices ids",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UUIDList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to retrieve device ids",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        },
+        "deprecated" : true
+      }
+    },
+    "/accounts/{accountId}/devices/all-ids" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "List all device ids",
+        "description" : "<p>Returns every device UUID for the account, sorted by id. No query filters are applied and no maximum result count is enforced. For filtered or paginated id lists, use <code>/accounts/{accountId}/devices/ids</code>.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "All device ids for the account, sorted by id",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UUIDList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to retrieve device ids",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/ids" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "List device ids",
+        "description" : "<p>List device ids. <b>Please note that only the first 1500 ids matching the filter are returned.</b></p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PROPERTY_FILTER"
+        }, {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_IDS"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteId"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteName"
+        }, {
+          "$ref" : "#/components/parameters/QuerySiteEmpty"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusName"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusNameLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusSerial"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusSerialLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusMac"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusMacLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusIp"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusIpLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModel"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModelLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusModelILike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwMajor"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwMinor"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwBuild"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwReleaseType"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusNotFwLabelLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwLabelLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwLabelILike"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFwSourceRevision"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwRelease"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwModLevel"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHwMask"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusCfgHash"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusCfgVersion"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFirmwareUpdateInitTime"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFirmwareUpdateTargetVersion"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusHeartbeatState"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusClaimingState"
+        }, {
+          "$ref" : "#/components/parameters/QueryCustomFieldValue"
+        }, {
+          "$ref" : "#/components/parameters/QueryStatusFirmwareUpdateInProgress"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "List of filtered device ids",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UUIDList"
+                }
+              }
+            }
+          },
+          "206" : {
+            "description" : "Partial list of filtered devices ids",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UUIDList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to retrieve device ids",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/licenses" : {
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Assign devices licenses",
+        "description" : "<p>Assign device licenses.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to modify device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceLicensesAssignRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Assignment request accepted the deviceIds as of the response and processes asynchronously. Only poll these devices for progress. Other devices might be unclaimed or otherwise incompatible for license assignment.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceIdsDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "422" : {
+            "description" : "The account condition does not allow license assignment.",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/devices/preconfig" : {
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Create shadow devices",
+        "description" : "<p>Create a shadow device (restricted availability)</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_SHADOW_CREATE</td><td>Right to create shadow devices</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceShadowCreateData"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Shadow device data",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to create shadow devices",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Get device",
+        "description" : "<p>Retrieve device information</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tr><td>DEVICE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields. If the right is not granted the data won't be part of the response.</td></tr></tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "$ref" : "#/components/parameters/PROPERTY_FILTER"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device was found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to update device",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given device was not found",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Update device",
+        "description" : "<p>Update device</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to update device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceUpdate"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Device was updated",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "<p>The code property value indicates the error.</p><table><thead><tr><th>Code</th><th>Description</th></tr></thead><tbody><tr><td>37</td><td>Cannot modify serial for a non-shadow device.</td></tr><tr><td>38</td><td>Device with same serial exists already.</td></tr><tbody></table>",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to update device",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given device was not found",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      },
+      "delete" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Delete/Unclaim device",
+        "description" : "<p>Unclaim device</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_DELETE</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "description" : "device id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device was deleted",
+            "content" : { }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to delete device",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given device was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}/compatibles" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Get compatible device",
+        "description" : "<p>Retrieve compatibility information between device by ID and device by serial number</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tr><td>DEVICE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields. If the right is not granted the data won't be part of the response.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "serial",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Compatible device was found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "<p>The code property value indicates the error.</p><table><thead><tr><th>Code</th><th>Description</th></tr></thead><tbody><tr><td>25</td><td>Device with given deviceId or device with given serial is not claimed.</td></tr><tr><td>35</td><td>Device with given deviceId is not offline or device with given serial is not online.</td></tr><tr><td>37</td><td>Device with given deviceId and device with given serial have not the same device model.</td></tr><tr><td>38</td><td>Device features of the device with the given deviceId is not a subset of the device features of the device with the given serial.</td></tr><tr><td>46</td><td>Device features are not unique, i.e. the feature set contains an id more than once.</td><td>51</td><td>Replacement device has deviating firmware version.</td></tr><tbody></table>",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read device",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given device by id or serial was not found in the account",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}/features" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "List device features",
+        "description" : "<p>Get a list of device features</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PROPERTY_FILTER"
+        }, {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "List was successfully retrieved",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LcosFeature"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}/image" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Retrieve device image",
+        "description" : "<p>Get device image</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device image has been found",
+            "content" : {
+              "multipart/form-data" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "description" : "The device was not found or device does not have an image",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Update device image",
+        "description" : "<p>Update or set device image</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE_IMAGE</td><td>Right to update device image information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "required" : [ "file" ],
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Device iamge has been updated",
+            "content" : { }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller was not allowed to update device image",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "Device was not found",
+            "content" : { }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Delete device image",
+        "description" : "<p>Delete device image</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE_IMAGE</td><td>Right to update device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device image has been deleted",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "description" : "The device was not found or device does not have an icon",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}/license" : {
+      "delete" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Releases a device license",
+        "description" : "<p>Relases a device license.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to modify device license</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/PATH_DEVICE_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device license released.",
+            "content" : { }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}/preconfig" : {
+      "put" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Converts a real device to an unpaired preconfigured device",
+        "description" : "<p>Converts a real device to an unpaired preconfigured device (restricted availability)</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_SHADOW_CREATE</td><td>Right to create shadow devices</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Preconfigured device data",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to convert a device to a preconfigured device",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}/transfer" : {
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Transfer device",
+        "description" : "<p>Transfer device between account</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_DELETE</td><td>Right to delete/unclaim a device (source)</td></tr><tr><td>DEVICE_CREATE</td><td>Right to create a device (target)</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceTransfer"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Device was transfered",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to transfer device",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given device was not found",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/firmware/preferences" : {
+      "post" : {
+        "tags" : [ "FirmwarePreferences" ],
+        "summary" : "Add/update rollout firmware preferences.",
+        "description" : "<p>Add/update rollout firmware preferences.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to update device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/components/schemas/DeviceFirmwarePreferenceCreateDTO"
+                }
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "description" : "There are more than 1000 preferences in the account.",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "description" : "A modelId or a firmwareId is invalid.",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      },
+      "get" : {
+        "tags" : [ "FirmwarePreferences" ],
+        "summary" : "Get rollout firmware preferences.",
+        "description" : "<p>Get all rollout firmware preferences of the account.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to update device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "List of rollout firmware preferences.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DeviceFirmwarePreferenceGetDTO"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "FirmwarePreferences" ],
+        "summary" : "Delete all rollout firmware preferences in the account.",
+        "description" : "<p>Delete all rollout firmware preferences in the account.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to update device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/firmware/preferences-confirmed" : {
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Finalizes a previous failed firmware preference process for the devices",
+        "description" : "<p>Finalizes a previous failed firmware preference process for the devices.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to update a device</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceIdsDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Finalized device results",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGets"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "422" : {
+            "description" : "Device is not compatible with this operation, i.e. there is no previous failed firmware preference process.",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/firmware/preferences/{modelId}" : {
+      "delete" : {
+        "tags" : [ "FirmwarePreferences" ],
+        "summary" : "Delete rollout firmware preferences for the model.",
+        "description" : "<p>Delete all rollout firmware preferences in the account for the particular model.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to update device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "name" : "modelId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/firmware/update" : {
+      "get" : {
+        "tags" : [ "Firmware" ],
+        "summary" : "Get firmware versions",
+        "description" : "<p>Get a list of available firmware versions for specified devices</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>FIRMWARE_READ</td><td>Right to read device firmware</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "deviceIds",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "List of firmware data",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DevicesFirmwaresGetDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read available firmware versions for devices",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Firmware" ],
+        "summary" : "Update device firmware",
+        "description" : "<p>Update all devices to the newest or to the specified firmware version</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>FIRMWARE_UPDATE</td><td>Right to update device firmware</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FirmwareUpdateDTOList"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "List of update meta information",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DeviceFirmwareInitUpdateDataResult"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to update firmwares for specified devices",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/license-options" : {
+      "post" : {
+        "tags" : [ "Devices" ],
+        "summary" : "License options",
+        "description" : "<p>Read available license options for devices.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_UPDATE</td><td>Right to modify device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceIdsDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The available license options that can be applied to devices.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DevicesLicenseOptionsDTO"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          },
+          "422" : {
+            "description" : "The account condition does not allow license assignment.",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/limiter" : {
+      "get" : {
+        "tags" : [ "Limiter" ],
+        "summary" : "Get account device limit",
+        "description" : "<p>Get the current limit of maximum number of devices in a child account</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_COUNT_LIMITER_READ</td><td>Right to read the limit (parent context only)</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "parentId",
+          "in" : "query",
+          "description" : "UUID of the parent account id (organization). If set, the authorization will be verified against the parent account id, otherwise against the account id.",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Data successfully fetched",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LimitDataGetDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Limiter" ],
+        "summary" : "Create account device limit",
+        "description" : "<p>Create a limit for the maximum number of devices in a child account</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_COUNT_LIMITER_MODIFY</td><td>Right to update the limit</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "parentId",
+          "in" : "query",
+          "description" : "UUID of the parent account id (organization)",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LimitDataUpdateDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Limit has been set",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      },
+      "delete" : {
+        "tags" : [ "Limiter" ],
+        "summary" : "Delete account device limit",
+        "description" : "<p>Delete the current limit of maximum number of devices in a child account</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_COUNT_LIMITER_MODIFY</td><td>Right to delete the limit</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "parentId",
+          "in" : "query",
+          "description" : "UUID of the parent account id (organization)",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Data successfully deleted",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/meta/firmware" : {
+      "get" : {
+        "tags" : [ "Firmware" ],
+        "summary" : "Get supported firmwares, including custom firmwares, and device features",
+        "description" : "<p>Get supported firmwares, including custom firmwares, and device features</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>FIRMWARE_READ</td><td>Right to retrieve firmware information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/QueryModelName"
+        }, {
+          "$ref" : "#/components/parameters/QueryFirmwareLevel"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Retrieved devices",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceFirmwareInfosGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read information",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given model was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/pairings" : {
+      "get" : {
+        "tags" : [ "Pairing" ],
+        "summary" : "Get accounts pairing token",
+        "description" : "<p>Get an overview about the active accounts pairing token and their validities</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>PAIRING_TOKEN_READ</td><td>Right to retrieve a pairing token</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "list has been fetched",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountPairingTokenListGet"
+                }
+              }
+            }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get a token list for this account",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Pairing" ],
+        "summary" : "Create new pairing token",
+        "description" : "<p>Create new pairing token</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>PAIRING_TOKEN_CREATE</td><td>Right to create pairing token</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PairingTokenCreate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Token has been created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PairingToken"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Wrong data, service interaction issues or max resource limit reached",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to create new tokens for this account",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/pairings/{token}" : {
+      "delete" : {
+        "tags" : [ "Pairing" ],
+        "summary" : "Delete a pairing token",
+        "description" : "<p>Delete an active pairing token currently associated to an account</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>PAIRING_TOKEN_DELETE</td><td>Right to delete a pairing token</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Token has been deleted",
+            "content" : { }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to delete the pairing token",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given pairing token was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/sites" : {
+      "get" : {
+        "tags" : [ "Sites" ],
+        "summary" : "Stream of all sites matching the filter in sort order",
+        "description" : "<p>The response is a stream of all sites matching the filter in sort order. Default filter is set to 'withStateNull=false' (only active sites). In case of a service error or timeout, the stream stops at any point, leaving the response malformed. The service dedicates limited resources answering this request, caller may need to retry in case of errors.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to retrieve site information</td></tr><tr><td>SITE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields. If the right is not granted the data won't be part of the response.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PROPERTY_FILTER"
+        }, {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_IDS"
+        }, {
+          "$ref" : "#/components/parameters/QuerySubnetGroupId"
+        }, {
+          "$ref" : "#/components/parameters/QueryCommentLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryWithStateNull"
+        }, {
+          "$ref" : "#/components/parameters/QueryName"
+        }, {
+          "$ref" : "#/components/parameters/QueryNameLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryINameLike"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_SORT"
+        }, {
+          "$ref" : "#/components/parameters/QueryHasCustomField"
+        }, {
+          "$ref" : "#/components/parameters/QueryCustomFieldValue"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/stream+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SiteGetList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get a site list for this account",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Sites" ],
+        "summary" : "Create new site",
+        "description" : "<p>Create new site.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_CREATE</td><td>Right to create a site</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Site"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Site was created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SiteGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to create sites",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/sites-table" : {
+      "get" : {
+        "tags" : [ "Sites" ],
+        "summary" : "Get sites by site ids",
+        "description" : "<p>Get sites by site id.<b>Please also note that this endpoint is deprecated and only for internal use. Alternatively use /accounts/{accountId}/sites</b></p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to retrieve site information</td></tr><tr><td>SITE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields. If the right is not granted the data won't be part of the response.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_IDS_REQUIRED"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SiteGetList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get a site list for this account",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        },
+        "deprecated" : true
+      }
+    },
+    "/accounts/{accountId}/sites/ids" : {
+      "get" : {
+        "tags" : [ "Sites" ],
+        "summary" : "List site ids",
+        "description" : "<p>List site ids. <b>Please note that only the first 1500 ids matching the filter are returned.</b></p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to retrieve site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_IDS"
+        }, {
+          "$ref" : "#/components/parameters/QuerySubnetGroupId"
+        }, {
+          "$ref" : "#/components/parameters/QueryCommentLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryWithStateNull"
+        }, {
+          "$ref" : "#/components/parameters/QueryName"
+        }, {
+          "$ref" : "#/components/parameters/QueryNameLike"
+        }, {
+          "$ref" : "#/components/parameters/QueryINameLike"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_SORT"
+        }, {
+          "$ref" : "#/components/parameters/QueryHasCustomField"
+        }, {
+          "$ref" : "#/components/parameters/QueryCustomFieldValue"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "site id list has been fetched",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SiteIdList"
+                }
+              }
+            }
+          },
+          "206" : {
+            "description" : "Partial site id list has been fetched",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SiteIdList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get a list of site ids for this account",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/sites/{siteId}" : {
+      "get" : {
+        "tags" : [ "Sites" ],
+        "summary" : "Get details data of a site",
+        "description" : "<p>Get details data of a site<table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to retrieve site information</td></tr><tr><td>SITE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields. If the right is not granted the data won't be part of the response.</td></tr><tbody></table></p>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/PATH_SITE_ID"
+        }, {
+          "$ref" : "#/components/parameters/PROPERTY_FILTER"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "site details",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SiteGet"
+                }
+              }
+            }
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get a site for this account",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given account was not found",
+            "content" : { }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "Sites" ],
+        "summary" : "Update site",
+        "description" : "<p>Update site</p></p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_UPDATE</td><td>Right to update site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/PATH_SITE_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Site"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Site was created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SiteGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to create sites",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given device was not found",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      },
+      "delete" : {
+        "tags" : [ "Sites" ],
+        "summary" : "Delete Site",
+        "description" : "<p>Delete a site. Please note that the corresponding subnet group and monitoring will be removed subsequentially. This might cause misconfiguration. Please make sure that the subnet group or the corresponding network can be safely removed.</p>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/PATH_SITE_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Site was deleted",
+            "content" : { }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to delete site",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given site was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/sites/{siteId}/device_statistics" : {
+      "get" : {
+        "tags" : [ "Device statistics" ],
+        "summary" : "Get device statistics of a site",
+        "description" : "<p>Get device statistics</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_STATISTIC_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device statistics",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceStatistics"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get device statistics",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/sites/{siteId}/devices" : {
+      "get" : {
+        "tags" : [ "Sites" ],
+        "summary" : "Get Devices for given site id",
+        "description" : "Get Devices for given site id<table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to retrieve site information</td></tr><tr><td>DEVICE_CUSTOM_FIELDS_READ</td><td>Right to retrieve custom fields for devices. If the right is not granted the data won't be part of the response.</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/PATH_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/PATH_SITE_ID"
+        }, {
+          "$ref" : "#/components/parameters/PROPERTY_FILTER"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_SORT"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Filtered devices for site id",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceDataGets"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to update registration information",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given device was not found",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/sites/{siteId}/floorplans" : {
+      "get" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Get floorplans",
+        "description" : "<p>Get a list of floorplans</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to read site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Get floorplan data",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FloorplanDataGetList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read site data",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Create a floorplan",
+        "description" : "<p>Create a floorplan</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_UPDATE</td><td>Right to update site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FloorplanData"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to change sites",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      }
+    },
+    "/accounts/{accountId}/sites/{siteId}/floorplans/{floorplanId}" : {
+      "get" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Get floorplans",
+        "description" : "<p>Get floorplan data</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to read site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "floorplanId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Get floorplan data",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FloorplanDataGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read site data",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Update floorplan",
+        "description" : "<p>Update floorplan data</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_UPDATE</td><td>Right to read site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "floorplanId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FloorplanData"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to change sites",
+            "content" : { }
+          }
+        },
+        "x-codegen-request-body-name" : "body"
+      },
+      "delete" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Delete floorplan",
+        "description" : "<p>Delete floorplan data</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_UPDATE</td><td>Right to read site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "floorplanId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to change sites",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/sites/{siteId}/floorplans/{floorplanId}/image" : {
+      "get" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Get floorplan image",
+        "description" : "<p>Get floorplan image</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_READ</td><td>Right to read site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "floorplanId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Return the floorplan image",
+            "content" : {
+              "multipart/form-data" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read site data",
+            "content" : { }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Set floorplan image",
+        "description" : "<p>Set the floorplan image</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_UPDATE</td><td>Right to update site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "floorplanId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "required" : [ "file" ],
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "description" : "floor plan image recource (<=2 mb)",
+                    "format" : "binary"
+                  }
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to change sites",
+            "content" : { }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Floorplan" ],
+        "summary" : "Delete the floorplan image",
+        "description" : "<p>Delete the floorplan image</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SITE_UPDATE</td><td>Right to update site information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "floorplanId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "$ref" : "#/components/responses/HTTP_200"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to change sites",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/device_statistics" : {
+      "get" : {
+        "tags" : [ "Device statistics" ],
+        "summary" : "Get device statistics for multiple accounts' devices",
+        "description" : "<p>Get device statistics</p> (<b>only bearer authentication supported</b>)<p>Maximum number of account statistics: 100</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_STATISTIC_READ</td><td>Right to retrieve device information</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "$ref" : "#/components/parameters/QUERY_IDS"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Device statistics",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceStatisticsList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not authenticated",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/meta/firmware" : {
+      "get" : {
+        "tags" : [ "Firmware" ],
+        "summary" : "Get supported firmwares and device features",
+        "description" : "<p>Get supported firmwares and device features</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>none</td><td>No particular right</td></tr><tbody></table>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/QueryModelName"
+        }, {
+          "$ref" : "#/components/parameters/QueryFirmwareLevel"
+        }, {
+          "name" : "type",
+          "in" : "query",
+          "description" : "Use type=all to get all firmwares (i.e. ignore model blacklist). otherwise, returns versions only if the model is not blacklisted.",
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "all" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Retrieved devices",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceFirmwareInfosGet"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read information",
+            "content" : { }
+          },
+          "404" : {
+            "description" : "The given model was not found",
+            "content" : { }
+          }
+        },
+        "deprecated" : true
+      }
+    },
+    "/meta/models" : {
+      "get" : {
+        "tags" : [ "Devices" ],
+        "summary" : "Get a list of dsc model names",
+        "description" : "<p>Get a list of dsc model names.</p><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>-</td><td>User must be authenticated</td></tr><tbody></table>",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "query",
+          "description" : "Use type=all to get all models. Use type=rollout-firmware-preferences to get models suitable for rollout firmware preferences. Without type parameter returns only models that are not blacklisted.",
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "all", "rollout-firmware-preferences" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Retrieved dsc model names",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ModelNameDTO"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to read information",
+            "content" : { }
+          }
+        }
+      }
+    },
+    "/rights/accounts" : {
+      "get" : {
+        "operationId" : "rightsAccountsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the token accounts",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Account right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityAccountList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/accounts/{accountId}" : {
+      "get" : {
+        "operationId" : "rightsAccountsAccountIdGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the given account",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/public" : {
+      "get" : {
+        "operationId" : "rightsPublicGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists all available rights",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "All available rights",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "AccountPairingTokenListGet" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/PairingToken"
+        }
+      },
+      "AlertMutingActionData" : {
+        "required" : [ "muted", "resourceId", "resourceType" ],
+        "type" : "object",
+        "properties" : {
+          "resourceId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "resourceType" : {
+            "$ref" : "#/components/schemas/AlertResourceType"
+          },
+          "muted" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "AlertMutingActionDataList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/AlertMutingActionData"
+        }
+      },
+      "AlertResourceType" : {
+        "type" : "string",
+        "description" : "Alert resource type.",
+        "enum" : [ "DEVICE" ]
+      },
+      "AlertStateStatistic" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "integer"
+          }
+        }
+      },
+      "ClaimingState" : {
+        "type" : "string",
+        "enum" : [ "CLAIMED", "UNCLAIMED" ]
+      },
+      "ConfigState" : {
+        "type" : "string",
+        "enum" : [ "OUTDATED_CHANGED", "OUTDATED_INVALID", "OUTDATED_ROLLBACKED", "OUTDATED_LOST", "OUTDATED_NONE", "OUTDATED_ABORTED", "OUTDATED_TYPE_UNKNOWN", "UPDATE_REQUESTED", "UPDATING", "TESTING", "ACTUAL", "INIT_PENDING", "INIT_FAILED", "NOT_SUPPORTED", "CONVERSION_PENDING", "SITE_REGISTRATION_PENDING", "UNKNOWN" ]
+      },
+      "ConfigStateCategory" : {
+        "type" : "string",
+        "enum" : [ "CURRENT", "ERROR", "IN_PROGRESS", "OUTDATED" ]
+      },
+      "ConfigStateStatistic" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EnumStatistic"
+        }, {
+          "type" : "object",
+          "properties" : {
+            "current" : {
+              "type" : "integer"
+            },
+            "outdated" : {
+              "type" : "integer"
+            }
+          }
+        } ]
+      },
+      "ConfigStatus" : {
+        "type" : "object",
+        "description" : "Optional property not available on all endpoints.",
+        "properties" : {
+          "state" : {
+            "$ref" : "#/components/schemas/ConfigState"
+          },
+          "category" : {
+            "$ref" : "#/components/schemas/ConfigStateCategory"
+          }
+        }
+      },
+      "CustomFieldData" : {
+        "type" : "object",
+        "properties" : {
+          "fieldId" : {
+            "type" : "string",
+            "description" : "Internal id of the custom field, stays the same when field is renamed",
+            "format" : "uuid",
+            "nullable" : false
+          },
+          "value" : {
+            "type" : "string",
+            "description" : "Value of the custom field"
+          }
+        },
+        "required" : [ "fieldId" ]
+      },
+      "CustomFields" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/CustomFieldData"
+        }
+      },
+      "DeviceAction" : {
+        "type" : "object",
+        "properties" : {
+          "MERGE" : {
+            "$ref" : "#/components/schemas/UUID"
+          }
+        }
+      },
+      "DeviceAddress" : {
+        "type" : "object",
+        "properties" : {
+          "city" : {
+            "type" : "string"
+          },
+          "zipCode" : {
+            "type" : "string"
+          },
+          "street" : {
+            "type" : "string"
+          },
+          "countryCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DeviceAlertingSimple" : {
+        "type" : "object",
+        "properties" : {
+          "hasAlert" : {
+            "type" : "boolean",
+            "description" : "If true, the device has an active alert."
+          },
+          "isMuted" : {
+            "type" : "boolean",
+            "description" : "If true, the device is muted."
+          }
+        }
+      },
+      "DeviceAndLicenseDTO" : {
+        "required" : [ "category", "deviceId", "model", "name" ],
+        "type" : "object",
+        "properties" : {
+          "deviceId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "model" : {
+            "type" : "string",
+            "description" : "Device model"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Device name"
+          },
+          "category" : {
+            "type" : "string",
+            "description" : "Device category"
+          },
+          "deviceLicense" : {
+            "type" : "object",
+            "properties" : {
+              "state" : {
+                "$ref" : "#/components/schemas/LicenseState"
+              },
+              "licensed" : {
+                "type" : "boolean"
+              },
+              "expiring" : {
+                "type" : "boolean"
+              },
+              "expiringAt" : {
+                "type" : "string",
+                "format" : "date-time"
+              },
+              "errorStatus" : {
+                "type" : "integer",
+                "description" : "1: Model undefined; 2: device without category; 3: Device not found; 4: license state inaccurate, former response malformed; 5: license state inaccurate, former request failed;  7: no suitable pool found; 8: category did not match; 9: mode does not support license assignment; 10: device license not found."
+              },
+              "reason" : {
+                "type" : "string",
+                "description" : "Explains the errorStatus."
+              }
+            },
+            "description" : "Device license"
+          }
+        }
+      },
+      "DeviceClaimData" : {
+        "required" : [ "pin", "serial" ],
+        "type" : "object",
+        "properties" : {
+          "pin" : {
+            "type" : "string"
+          },
+          "serial" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "siteId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "location" : {
+            "$ref" : "#/components/schemas/DeviceLocation"
+          },
+          "address" : {
+            "$ref" : "#/components/schemas/DeviceAddress"
+          }
+        }
+      },
+      "DeviceDataGet" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/DeviceDataGetWithoutConfigStatus"
+        }, {
+          "type" : "object",
+          "properties" : {
+            "config" : {
+              "$ref" : "#/components/schemas/ConfigStatus"
+            }
+          }
+        }, {
+          "$ref" : "#/components/schemas/VendorHardwareInfoList"
+        } ]
+      },
+      "DeviceDataGetWithoutConfigStatus" : {
+        "required" : [ "id" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/DeviceStatusData"
+          },
+          "imageId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "siteId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "siteName" : {
+            "type" : "string"
+          },
+          "location" : {
+            "$ref" : "#/components/schemas/DeviceLocation"
+          },
+          "address" : {
+            "$ref" : "#/components/schemas/DeviceAddress"
+          },
+          "site" : {
+            "type" : "object",
+            "properties" : {
+              "countryCode" : {
+                "type" : "string"
+              }
+            }
+          },
+          "comment" : {
+            "type" : "string"
+          },
+          "floorplan" : {
+            "$ref" : "#/components/schemas/DeviceFloorplan"
+          },
+          "customFields" : {
+            "$ref" : "#/components/schemas/CustomFields"
+          },
+          "deviceLicense" : {
+            "type" : "object",
+            "properties" : {
+              "licensed" : {
+                "type" : "boolean"
+              },
+              "expiring" : {
+                "type" : "boolean"
+              },
+              "expiringAt" : {
+                "type" : "string",
+                "format" : "date-time"
+              },
+              "errorStatus" : {
+                "type" : "integer",
+                "description" : "1: Model undefined; 2: device without category; 3: Device not found; 4: license state inaccurate, former response malformed; 5: license state inaccurate, former request failed;  7: no suitable pool found; 8: category did not match; 9: mode does not support license assignment; 10: device license not found."
+              },
+              "state" : {
+                "$ref" : "#/components/schemas/LicenseState"
+              },
+              "reason" : {
+                "type" : "string",
+                "description" : "Explains the errorStatus."
+              }
+            },
+            "description" : "The deviceLicense object is null for licensing api version V1. Depends on licensingApiVersion property from the main DTO."
+          },
+          "ufLicense" : {
+            "$ref" : "#/components/schemas/UFLicense"
+          },
+          "ufPrepaidLicense" : {
+            "$ref" : "#/components/schemas/UFPrepaidLicense"
+          },
+          "licensingApiVersion" : {
+            "type" : "string",
+            "description" : "<p>Possible values are V1 and V2.</p><p>For V1 the license object will contain the license information as before.</p><p>For V2 the deviceLicense object will contain the license information in a new format and the license object will be null.</p>"
+          },
+          "licenseAllocationPending" : {
+            "type" : "boolean",
+            "description" : "If true, an automated process may assign a license to the device at any time soon (if the License-API user does not assign a license explicitly earlier)."
+          },
+          "category" : {
+            "type" : "string",
+            "description" : "<p>A brief name of the license category.</p><p>For models without category we return the String 'UNDEFINED'.</p>"
+          },
+          "firmwareState" : {
+            "$ref" : "#/components/schemas/FirmwareState"
+          },
+          "firmwareUpdateMode" : {
+            "$ref" : "#/components/schemas/FirmwareUpdateMode"
+          },
+          "warrantyState" : {
+            "type" : "string",
+            "enum" : [ "OK", "EXPIRING", "EXPIRED" ]
+          },
+          "uptime" : {
+            "type" : "number",
+            "description" : "Device uptime percentage (between 0.0 and 100.0).",
+            "format" : "float"
+          },
+          "alerting" : {
+            "$ref" : "#/components/schemas/DeviceAlertingSimple"
+          },
+          "deviceStack" : {
+            "required" : [ "activeManagementUnitId", "stacked" ],
+            "type" : "object",
+            "properties" : {
+              "activeManagementUnitId" : {
+                "type" : "integer"
+              },
+              "stacked" : {
+                "type" : "boolean",
+                "description" : "false, if stack not exists or exists and has only one unit and activeManagementId is equal to 1."
+              },
+              "units" : {
+                "type" : "array",
+                "description" : "List of device stack units.",
+                "items" : {
+                  "required" : [ "role", "unitId" ],
+                  "type" : "object",
+                  "properties" : {
+                    "unitId" : {
+                      "type" : "integer"
+                    },
+                    "role" : {
+                      "type" : "string",
+                      "enum" : [ "STACK_MEMBER", "MANAGEMENT_UNIT", "MANAGEMENT_STANDBY", "CONFIG_STAND_BY" ]
+                    },
+                    "serial" : {
+                      "type" : "string"
+                    },
+                    "model" : {
+                      "type" : "string"
+                    },
+                    "mac" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              }
+            },
+            "description" : "This object is defined for stacked devices only."
+          },
+          "offlineOnHold" : {
+            "type" : "boolean",
+            "description" : "If true, the device is marked as planned offline."
+          }
+        }
+      },
+      "DeviceDataGets" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/DeviceDataGet"
+        }
+      },
+      "DeviceDataGetsWithoutConfigStatus" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/DeviceDataGetWithoutConfigStatus"
+        }
+      },
+      "DeviceFeature" : {
+        "required" : [ "id" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "description" : "Feature id / Feature bit index",
+            "format" : "int64"
+          },
+          "de" : {
+            "type" : "string",
+            "description" : "German display name, optional"
+          },
+          "en" : {
+            "type" : "string",
+            "description" : "English display name, optional"
+          }
+        }
+      },
+      "DeviceFirmwareInfo" : {
+        "required" : [ "features", "firmwareDisplayName", "firmwareId" ],
+        "type" : "object",
+        "properties" : {
+          "firmwareId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "firmwareDisplayName" : {
+            "type" : "string",
+            "description" : "Firmware display name"
+          },
+          "features" : {
+            "type" : "array",
+            "description" : "Optional feature ids, may be empty",
+            "items" : {
+              "$ref" : "#/components/schemas/DeviceFeature"
+            }
+          }
+        }
+      },
+      "DeviceFirmwareInfosGet" : {
+        "required" : [ "firmwareInfos" ],
+        "type" : "object",
+        "properties" : {
+          "firmwareInfos" : {
+            "type" : "array",
+            "description" : "Firmware infos associated to a device model",
+            "items" : {
+              "$ref" : "#/components/schemas/DeviceFirmwareInfo"
+            }
+          }
+        }
+      },
+      "DeviceFirmwareInitUpdateDataResult" : {
+        "type" : "object",
+        "properties" : {
+          "deviceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "versionCurrent" : {
+            "type" : "string",
+            "format" : "major.minor.patch"
+          },
+          "versionNew" : {
+            "type" : "string",
+            "format" : "major.minor.patch"
+          },
+          "initiated" : {
+            "type" : "boolean"
+          },
+          "updateInitTime" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "url" : {
+            "type" : "string",
+            "format" : "url"
+          }
+        }
+      },
+      "DeviceFirmwarePreferenceCreateDTO" : {
+        "required" : [ "firmwareId", "modelId" ],
+        "type" : "object",
+        "properties" : {
+          "modelId" : {
+            "type" : "string",
+            "description" : "The model id."
+          },
+          "firmwareId" : {
+            "$ref" : "#/components/schemas/UUID"
+          }
+        }
+      },
+      "DeviceFirmwarePreferenceGetDTO" : {
+        "required" : [ "firmware", "model" ],
+        "type" : "object",
+        "properties" : {
+          "model" : {
+            "$ref" : "#/components/schemas/ModelNameDTO"
+          },
+          "firmware" : {
+            "$ref" : "#/components/schemas/FirmwareInfoGetDTO"
+          }
+        }
+      },
+      "DeviceFloorplan" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "horizontalRatio" : {
+            "type" : "number",
+            "format" : "float"
+          },
+          "verticalRatio" : {
+            "type" : "number",
+            "format" : "float"
+          }
+        }
+      },
+      "DeviceIdsDTO" : {
+        "required" : [ "deviceIds" ],
+        "type" : "object",
+        "properties" : {
+          "deviceIds" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UUID"
+            }
+          }
+        }
+      },
+      "DeviceLicenseAssignRequestDTO" : {
+        "required" : [ "deviceId" ],
+        "type" : "object",
+        "properties" : {
+          "deviceId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "poolId" : {
+            "$ref" : "#/components/schemas/UUID"
+          }
+        }
+      },
+      "DeviceLicensePoolDTO" : {
+        "required" : [ "amount", "category", "durationDays", "poolId" ],
+        "type" : "object",
+        "properties" : {
+          "poolId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "category" : {
+            "type" : "string",
+            "description" : "Device category"
+          },
+          "amount" : {
+            "type" : "integer",
+            "description" : "Number of licenses of the specified category in the pool"
+          },
+          "durationDays" : {
+            "type" : "integer",
+            "description" : "Number of licensed days"
+          }
+        }
+      },
+      "DeviceLicensesAssignRequestDTO" : {
+        "required" : [ "devices", "strategy" ],
+        "type" : "object",
+        "properties" : {
+          "devices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeviceLicenseAssignRequestDTO"
+            }
+          },
+          "strategy" : {
+            "type" : "string",
+            "enum" : [ "SHORTEST_FIRST", "LONGEST_FIRST" ]
+          }
+        }
+      },
+      "DeviceLocation" : {
+        "type" : "object",
+        "properties" : {
+          "latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "description" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DeviceModelLifecycleStatistic" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : "integer"
+          },
+          "eolSoon" : {
+            "type" : "integer"
+          },
+          "eol" : {
+            "type" : "integer"
+          },
+          "eos" : {
+            "type" : "integer"
+          },
+          "_unmatched" : {
+            "type" : "integer"
+          },
+          "_unset" : {
+            "type" : "integer"
+          },
+          "_total" : {
+            "type" : "integer"
+          }
+        }
+      },
+      "DeviceShadowCreateData" : {
+        "required" : [ "features", "firmwareId", "modelId", "name" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "pattern" : "[a-z0-9A-Z!\\$%&'\\(\\)\\+,\\-\\.\\/:;<=>\\?@\\[\\\\\\]\\^_`\\{\\|}~]{4,64}",
+            "type" : "string",
+            "description" : "Device name"
+          },
+          "firmwareId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "modelId" : {
+            "type" : "string",
+            "description" : "Device model name"
+          },
+          "features" : {
+            "type" : "array",
+            "description" : "Active optional feature ids",
+            "items" : {
+              "type" : "number",
+              "format" : "int64"
+            }
+          },
+          "siteId" : {
+            "$ref" : "#/components/schemas/UUID"
+          }
+        }
+      },
+      "DeviceStatistics" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "description" : "Account or site id",
+            "format" : "uuid"
+          },
+          "lastChanged" : {
+            "type" : "string",
+            "description" : "Timestamp of last statistics change",
+            "format" : "date-time"
+          },
+          "heartbeatState" : {
+            "$ref" : "#/components/schemas/HeartbeatStateStatistic"
+          },
+          "warrantyState" : {
+            "$ref" : "#/components/schemas/WarrantyStateStatistic"
+          },
+          "licenseState" : {
+            "$ref" : "#/components/schemas/LicenseStateStatistic"
+          },
+          "firmwareState" : {
+            "$ref" : "#/components/schemas/FirmwareStateStatistic"
+          },
+          "configState" : {
+            "$ref" : "#/components/schemas/ConfigStateStatistic"
+          },
+          "alertState" : {
+            "$ref" : "#/components/schemas/AlertStateStatistic"
+          },
+          "modelLifecycleState" : {
+            "$ref" : "#/components/schemas/DeviceModelLifecycleStatistic"
+          }
+        }
+      },
+      "DeviceStatisticsList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/DeviceStatistics"
+        }
+      },
+      "DeviceStatusData" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/DeviceStatusUpdateData"
+        }, {
+          "type" : "object",
+          "properties" : {
+            "claimingState" : {
+              "$ref" : "#/components/schemas/ClaimingState"
+            }
+          }
+        } ]
+      },
+      "DeviceStatusUpdateData" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "description" : "device name"
+          },
+          "serial" : {
+            "type" : "string",
+            "description" : "device serial number"
+          },
+          "serialPreconfig" : {
+            "type" : "string",
+            "description" : "reserved serial number for the automatic merging of a preconfig"
+          },
+          "mac" : {
+            "type" : "string",
+            "description" : "device mac address"
+          },
+          "ip" : {
+            "type" : "string",
+            "description" : "device ip address"
+          },
+          "model" : {
+            "type" : "string",
+            "description" : "device model"
+          },
+          "type" : {
+            "$ref" : "#/components/schemas/DeviceType"
+          },
+          "fwMajor" : {
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "fwMinor" : {
+            "type" : "integer"
+          },
+          "fwBuild" : {
+            "type" : "integer"
+          },
+          "fwDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "fwReleaseType" : {
+            "type" : "string"
+          },
+          "fwLabel" : {
+            "type" : "string",
+            "description" : "device firmware string (major.minor.build[RUx])"
+          },
+          "fwSourceRevision" : {
+            "type" : "string"
+          },
+          "hwRelease" : {
+            "type" : "string"
+          },
+          "hwModLevel" : {
+            "type" : "string"
+          },
+          "hwMask" : {
+            "type" : "integer"
+          },
+          "hwProductionDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "cfgHash" : {
+            "type" : "string"
+          },
+          "cfgTimeStamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cfgVersion" : {
+            "type" : "integer"
+          },
+          "heartbeatState" : {
+            "$ref" : "#/components/schemas/HeartbeatState"
+          },
+          "firstHeartbeatDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastHeartbeatDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "registrationDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "claimingDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "unclaimingDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "firmwareUpdateInitTime" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "firmwareUpdateTargetVersion" : {
+            "type" : "string"
+          },
+          "firmwarePreferenceState" : {
+            "$ref" : "#/components/schemas/FirmwarePreferenceState"
+          },
+          "cfgModifiedByApi" : {
+            "type" : "boolean"
+          },
+          "pairingType" : {
+            "type" : "string",
+            "enum" : [ "LEGACY", "CLOUD_READY" ]
+          },
+          "warrantyEndDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "lifecycle" : {
+            "$ref" : "#/components/schemas/Lifecycle"
+          }
+        }
+      },
+      "DeviceTable" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "licensingApiVersion" : {
+            "type" : "string",
+            "description" : "<p>Possible values are V1 and V2.</p><p>For V1 the license object will contain the license information as before.</p><p>For V2 the deviceLicense object will contain the license information in a new format and the license object will be null.</p>"
+          },
+          "firmwareState" : {
+            "$ref" : "#/components/schemas/FirmwareState"
+          },
+          "firmwareUpdateMode" : {
+            "$ref" : "#/components/schemas/FirmwareUpdateMode"
+          },
+          "siteId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "siteName" : {
+            "type" : "string"
+          },
+          "licenseAllocationPending" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "object",
+            "properties" : {
+              "name" : {
+                "type" : "string",
+                "description" : "device name"
+              },
+              "model" : {
+                "type" : "string",
+                "description" : "device model"
+              },
+              "type" : {
+                "$ref" : "#/components/schemas/DeviceType"
+              },
+              "serial" : {
+                "type" : "string",
+                "description" : "device serial number"
+              },
+              "serialPreconfig" : {
+                "type" : "string",
+                "description" : "reserved serial number for the automatic merging of a preconfig"
+              },
+              "ip" : {
+                "type" : "string",
+                "description" : "device ip address"
+              },
+              "fwLabel" : {
+                "type" : "string",
+                "description" : "device firmware string (major.minor.build[RUx])"
+              },
+              "fwMajor" : {
+                "minimum" : 1,
+                "type" : "integer"
+              },
+              "fwMinor" : {
+                "type" : "integer"
+              },
+              "fwBuild" : {
+                "type" : "integer"
+              },
+              "hwMask" : {
+                "type" : "integer"
+              },
+              "heartbeatState" : {
+                "$ref" : "#/components/schemas/HeartbeatState"
+              },
+              "claimingDate" : {
+                "type" : "string",
+                "format" : "date-time"
+              },
+              "firmwarePreferenceState" : {
+                "$ref" : "#/components/schemas/FirmwarePreferenceState"
+              },
+              "firstHeartbeatDate" : {
+                "type" : "string",
+                "format" : "date-time"
+              },
+              "lastHeartbeatDate" : {
+                "type" : "string",
+                "format" : "date-time"
+              },
+              "recoveryMode" : {
+                "type" : "boolean"
+              },
+              "lifecycle" : {
+                "$ref" : "#/components/schemas/Lifecycle"
+              }
+            }
+          },
+          "config" : {
+            "$ref" : "#/components/schemas/ConfigStatus"
+          },
+          "deviceLicense" : {
+            "type" : "object",
+            "properties" : {
+              "licensed" : {
+                "type" : "boolean"
+              },
+              "expiring" : {
+                "type" : "boolean"
+              },
+              "expiringAt" : {
+                "type" : "string",
+                "format" : "date-time"
+              },
+              "errorStatus" : {
+                "type" : "integer",
+                "description" : "1: Model undefined; 2: device without category; 3: Device not found; 4: license state inaccurate, former response malformed; 5: license state inaccurate, former request failed;  7: no suitable pool found; 8: category did not match; 9: mode does not support license assignment; 10: device license not found."
+              },
+              "reason" : {
+                "type" : "string",
+                "description" : "Explains the errorStatus."
+              },
+              "state" : {
+                "$ref" : "#/components/schemas/LicenseState"
+              }
+            },
+            "description" : "The deviceLicense object is null for licensing api version V1. Depends on licensingApiVersion property from the main DTO."
+          },
+          "ufLicense" : {
+            "$ref" : "#/components/schemas/UFLicense"
+          },
+          "ufPrepaidLicense" : {
+            "$ref" : "#/components/schemas/UFPrepaidLicense"
+          },
+          "stacked" : {
+            "type" : "boolean",
+            "description" : "false, if stack not exists or exists and has only one unit and activeManagementId is equal to 1."
+          },
+          "stackUnitCount" : {
+            "type" : "integer",
+            "description" : "Stack unit size."
+          },
+          "customFields" : {
+            "$ref" : "#/components/schemas/CustomFields"
+          },
+          "actions" : {
+            "$ref" : "#/components/schemas/DeviceAction"
+          },
+          "alerting" : {
+            "required" : [ "alerts", "hasAlert", "isMuted" ],
+            "type" : "object",
+            "properties" : {
+              "alerts" : {
+                "$ref" : "#/components/schemas/UUIDList"
+              },
+              "hasAlert" : {
+                "type" : "boolean",
+                "description" : "If true, the property 'alerts' holds a list of at most one alert id, the list is empty otherwise."
+              },
+              "isMuted" : {
+                "type" : "boolean",
+                "description" : "If true, the device is muted."
+              }
+            }
+          },
+          "offlineOnHold" : {
+            "type" : "boolean",
+            "description" : "If true, the device is marked as planned offline."
+          }
+        }
+      },
+      "DeviceTableList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/DeviceTable"
+        }
+      },
+      "DeviceTransfer" : {
+        "allOf" : [ {
+          "required" : [ "accountId" ],
+          "type" : "object",
+          "properties" : {
+            "accountId" : {
+              "$ref" : "#/components/schemas/UUID"
+            }
+          }
+        } ]
+      },
+      "DeviceType" : {
+        "type" : "string",
+        "enum" : [ "ROUTER", "SWITCH", "ACCESS_POINT", "FIREWALL", "UNKNOWN" ]
+      },
+      "DeviceUpdate" : {
+        "type" : "object",
+        "properties" : {
+          "serialPreconfig" : {
+            "type" : "string",
+            "description" : "reserved serial number for the automatic merging of a preconfig"
+          },
+          "comment" : {
+            "type" : "string"
+          },
+          "location" : {
+            "$ref" : "#/components/schemas/DeviceLocation"
+          },
+          "address" : {
+            "$ref" : "#/components/schemas/DeviceAddress"
+          },
+          "floorplan" : {
+            "$ref" : "#/components/schemas/DeviceFloorplan"
+          },
+          "siteId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "customFields" : {
+            "$ref" : "#/components/schemas/CustomFields"
+          }
+        }
+      },
+      "DevicesFirmwaresGetDTO" : {
+        "type" : "object",
+        "additionalProperties" : {
+          "$ref" : "#/components/schemas/FirmwaresGetDTO"
+        },
+        "format" : "uuid"
+      },
+      "DevicesLicenseOptionsDTO" : {
+        "required" : [ "devices", "pools" ],
+        "type" : "object",
+        "properties" : {
+          "devices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeviceAndLicenseDTO"
+            }
+          },
+          "pools" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeviceLicensePoolDTO"
+            }
+          }
+        }
+      },
+      "EnumStatistic" : {
+        "type" : "object",
+        "properties" : {
+          "_unset" : {
+            "type" : "integer"
+          },
+          "_matched" : {
+            "type" : "integer"
+          },
+          "_total" : {
+            "type" : "integer"
+          }
+        },
+        "additionalProperties" : {
+          "type" : "integer"
+        }
+      },
+      "ErrorResponseBody" : {
+        "type" : "object",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "service" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FirmwareInfoDTO" : {
+        "type" : "object",
+        "properties" : {
+          "firmwareId" : {
+            "type" : "string",
+            "description" : "Id of the firmware version",
+            "format" : "uuid"
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "Display name of the firmware version (major, minor, build and type)"
+          },
+          "level" : {
+            "$ref" : "#/components/schemas/FirmwareLevel"
+          },
+          "operation" : {
+            "$ref" : "#/components/schemas/FirmwareOperation"
+          },
+          "isCustomFirmware" : {
+            "type" : "boolean",
+            "description" : "Is this a custom firmware"
+          }
+        }
+      },
+      "FirmwareInfoGetDTO" : {
+        "required" : [ "firmwareDisplayName", "firmwareId" ],
+        "type" : "object",
+        "properties" : {
+          "firmwareId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "firmwareDisplayName" : {
+            "type" : "string",
+            "description" : "Firmware display name. Format: 'major.minor.patch type'"
+          }
+        }
+      },
+      "FirmwareLevel" : {
+        "type" : "string",
+        "description" : "Firmware level",
+        "enum" : [ "RELEASE", "RELEASE_CANDIDATE", "ALPHA" ]
+      },
+      "FirmwareOperation" : {
+        "type" : "string",
+        "description" : "Upgrade or downgrade operation",
+        "enum" : [ "UPGRADE", "DOWNGRADE" ]
+      },
+      "FirmwarePreferenceState" : {
+        "type" : "string",
+        "enum" : [ "FW_PREF_UNDEFINED", "FW_PREF_OPEN", "FW_PREF_PENDING", "FW_PREF_DONE", "FW_PREF_FAILED" ]
+      },
+      "FirmwareState" : {
+        "type" : "string",
+        "enum" : [ "ERROR", "CURRENT", "OBSOLETE" ]
+      },
+      "FirmwareStateStatistic" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EnumStatistic"
+        }, {
+          "type" : "object",
+          "properties" : {
+            "current" : {
+              "type" : "integer"
+            },
+            "obsolete" : {
+              "type" : "integer"
+            }
+          }
+        } ]
+      },
+      "FirmwareUpdateDTO" : {
+        "required" : [ "deviceId", "firmwareId" ],
+        "type" : "object",
+        "properties" : {
+          "deviceId" : {
+            "type" : "string",
+            "description" : "Target device id",
+            "format" : "uuid"
+          },
+          "firmwareId" : {
+            "type" : "string",
+            "description" : "Target firmware version id",
+            "format" : "uuid"
+          }
+        }
+      },
+      "FirmwareUpdateDTOList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/FirmwareUpdateDTO"
+        }
+      },
+      "FirmwareUpdateMode" : {
+        "type" : "string",
+        "enum" : [ "LMC", "AFU" ]
+      },
+      "FirmwaresGetDTO" : {
+        "type" : "object",
+        "properties" : {
+          "availableVersions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FirmwareInfoDTO"
+            }
+          },
+          "recommendedId" : {
+            "type" : "string",
+            "description" : "Recommended firmware id for this model",
+            "format" : "uuid"
+          },
+          "deviceLacksRequiredVersion" : {
+            "type" : "boolean",
+            "description" : "Device firmware version does not support a LMC-triggered firmware update"
+          }
+        }
+      },
+      "FloorplanData" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "scale" : {
+            "type" : "number",
+            "description" : "Scale deminator, e.g. scale of 1:50 corresponds with a value of 50.0",
+            "format" : "float"
+          },
+          "imageHeight" : {
+            "type" : "number",
+            "description" : "Floorplan image resource height in px"
+          },
+          "imageWidth" : {
+            "type" : "number",
+            "description" : "Floorplan image resource width in px"
+          }
+        }
+      },
+      "FloorplanDataGet" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "scale" : {
+            "type" : "number",
+            "description" : "Scale deminator, e.g. scale of 1:50 corresponds with a value of 50.0",
+            "format" : "float"
+          },
+          "imageHeight" : {
+            "type" : "number",
+            "description" : "Floorplan image resource height in px"
+          },
+          "imageWidth" : {
+            "type" : "number",
+            "description" : "Floorplan image resource width in px"
+          },
+          "deviceCount" : {
+            "description" : "Device counts for this floorplan. Populated on list GET only."
+          }
+        }
+      },
+      "FloorplanDataGetList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/FloorplanDataGet"
+        }
+      },
+      "HeartbeatState" : {
+        "type" : "string",
+        "enum" : [ "ACTIVE", "INACTIVE", "REDIRECTED", "UNKNOWN", "SHADOW" ]
+      },
+      "HeartbeatStateStatistic" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EnumStatistic"
+        }, {
+          "type" : "object",
+          "properties" : {
+            "active" : {
+              "type" : "integer"
+            },
+            "inactive" : {
+              "type" : "integer"
+            },
+            "redirected" : {
+              "type" : "integer"
+            },
+            "unknown" : {
+              "type" : "integer"
+            }
+          }
+        } ]
+      },
+      "LcosFeature" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer"
+          },
+          "expiresTimestamp" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "index" : {
+            "type" : "integer"
+          },
+          "count" : {
+            "type" : "integer"
+          },
+          "lcosFeatureState" : {
+            "$ref" : "#/components/schemas/LcosFeatureState"
+          }
+        }
+      },
+      "LcosFeatureState" : {
+        "type" : "string",
+        "enum" : [ "LOCKED", "ACTIVE", "HIDDEN", "EXPIRED", "UNUSED" ]
+      },
+      "LibSecurityAccount" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "rights" : {
+            "$ref" : "#/components/schemas/LibSecurityRightList"
+          }
+        }
+      },
+      "LibSecurityAccountList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/LibSecurityAccount"
+        }
+      },
+      "LibSecurityRightList" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string"
+        }
+      },
+      "LicenseState" : {
+        "type" : "string",
+        "enum" : [ "ACTIVE", "EXPIRING", "EXPIRED", "UNKNOWN" ]
+      },
+      "LicenseStateStatistic" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EnumStatistic"
+        }, {
+          "type" : "object",
+          "properties" : {
+            "active" : {
+              "type" : "integer"
+            },
+            "expired" : {
+              "type" : "integer"
+            },
+            "expiring" : {
+              "type" : "integer"
+            },
+            "expirationImminent" : {
+              "type" : "integer"
+            },
+            "reserved" : {
+              "type" : "integer"
+            },
+            "unknown" : {
+              "type" : "integer"
+            }
+          }
+        } ]
+      },
+      "Lifecycle" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "SHIPPING", "EOS", "EOL" ],
+            "description" : "Status is handled as a string and could also contain new values in the future."
+          },
+          "eosDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "eolDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "LimitDataGetDTO" : {
+        "type" : "object",
+        "properties" : {
+          "limit" : {
+            "type" : "integer",
+            "description" : "Current limit"
+          },
+          "count" : {
+            "type" : "integer",
+            "description" : "Current number of claimed physical devices"
+          },
+          "isLimitReached" : {
+            "type" : "boolean",
+            "description" : "If true, the limit has been reached"
+          }
+        }
+      },
+      "LimitDataUpdateDTO" : {
+        "required" : [ "limit" ],
+        "type" : "object",
+        "properties" : {
+          "limit" : {
+            "minimum" : 1,
+            "type" : "integer",
+            "description" : "Maximum number of devices allowed for the child account"
+          }
+        }
+      },
+      "MergeActionData" : {
+        "required" : [ "accountId", "created", "deviceId", "errorCode", "expires", "id", "result", "shadowId", "step" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "shadowId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "deviceId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "accountId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "created" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expires" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "step" : {
+            "type" : "string",
+            "description" : "Indicates the current or last merge action step.",
+            "enum" : [ "CREATING", "CHANGING_FIRMWARE", "MERGING", "ROLLING_OUT" ]
+          },
+          "result" : {
+            "type" : "string",
+            "description" : "Indicates the result of the current or last merge action step.",
+            "enum" : [ "IN_PROGRESS", "EXPIRED", "ERROR", "SUCCESS" ]
+          },
+          "errorCode" : {
+            "type" : "integer",
+            "description" : "<p>In case of result ERROR indicates reason; 0 otherwise.</p> <table> <thead> <tr> <th>ERROR Value</th> <th>Description</th> </tr> </thead> <tbody> <tr> <td>0</td> <td>No error.</td> </tr> <tr> <td>21</td> <td>Preconfigured device and physical device have the same id.</td> </tr> <tr> <td>22</td> <td>Device does not exist.</td> </tr> <tr> <td>23</td> <td>Device is not a preconfigured device.</td> </tr> <tr> <td>24</td> <td>Physical device is a preconfigured device.</td> </tr> <tr> <td>25</td> <td>Physical device is not claimed.</td> </tr> <tr> <td>26</td> <td>Physical device is not in a mergeable heartbeat state.</td> </tr> <tr> <td>27</td> <td>Preconfigured device and physical device have different models.</td> </tr> <tr> <td>28</td> <td>Merge is already in progress.</td> </tr> <tr> <td>29</td> <td>Merge between preconfigured and physical device already in progress.</td> </tr> <tr> <td>30</td> <td>Device is not in account anymore.</td> </tr> <tr> <td>31</td> <td>Device has no firmware version.</td> </tr> <tr> <td>32</td> <td>Could not trigger firmware update for device.</td> </tr> <tr> <td>33</td> <td>The action has expired.</td> </tr> <tr> <td>34</td> <td>Device has an unexpected firmware version info. Most likely because a firmware change has been triggered.</td> </tr> <tr> <td>41</td> <td>Some other error during a merge action that was triggered as part of the claiming.</td> </tr> <tr> <td>42</td> <td>The action failed due to a firmware download error.</td> </tr> <tbody> </table>"
+          }
+        }
+      },
+      "ModelNameDTO" : {
+        "required" : [ "modelDisplayName", "modelId" ],
+        "type" : "object",
+        "properties" : {
+          "modelId" : {
+            "type" : "string",
+            "description" : "The model name as of dsc, treated as technical id, even though no uuid."
+          },
+          "modelDisplayName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OnHoldActionData" : {
+        "required" : [ "onHold", "resourceId", "resourceType" ],
+        "type" : "object",
+        "properties" : {
+          "resourceId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "resourceType" : {
+            "$ref" : "#/components/schemas/OnHoldResourceType"
+          },
+          "onHold" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "OnHoldActionDataList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/OnHoldActionData"
+        }
+      },
+      "OnHoldResourceType" : {
+        "type" : "string",
+        "description" : "OnHold resource type.",
+        "enum" : [ "DEVICE" ]
+      },
+      "PairingToken" : {
+        "required" : [ "expiration", "token" ],
+        "type" : "object",
+        "properties" : {
+          "expiration" : {
+            "type" : "string",
+            "description" : "expiration of the token in seconds",
+            "format" : "date-time"
+          },
+          "token" : {
+            "type" : "string",
+            "description" : "pairing token (token id, preshared key, checksum)"
+          }
+        }
+      },
+      "PairingTokenCreate" : {
+        "required" : [ "validity" ],
+        "type" : "object",
+        "properties" : {
+          "validity" : {
+            "maximum" : 31536000,
+            "minimum" : 0,
+            "type" : "integer",
+            "description" : "validity of the token in seconds (maximum 1 year)"
+          }
+        }
+      },
+      "Site" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "description" : "Name of site"
+          },
+          "comment" : {
+            "maxLength" : 1024,
+            "type" : "string"
+          },
+          "address" : {
+            "$ref" : "#/components/schemas/SiteAddress"
+          },
+          "position" : {
+            "$ref" : "#/components/schemas/SitePosition"
+          },
+          "customFields" : {
+            "$ref" : "#/components/schemas/CustomFields"
+          }
+        }
+      },
+      "SiteAddress" : {
+        "type" : "object",
+        "properties" : {
+          "city" : {
+            "type" : "string"
+          },
+          "zipCode" : {
+            "type" : "string"
+          },
+          "street" : {
+            "type" : "string"
+          },
+          "countryCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SiteGet" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Site"
+        }, {
+          "required" : [ "id" ],
+          "type" : "object",
+          "properties" : {
+            "id" : {
+              "type" : "string",
+              "description" : "ID of site",
+              "format" : "uuid"
+            },
+            "subnetGroupId" : {
+              "type" : "string",
+              "description" : "ID of Subnet-Group in Config-Service.",
+              "format" : "uuid"
+            },
+            "devicesCount" : {
+              "type" : "number",
+              "description" : "total number of devices"
+            },
+            "devicesCountActive" : {
+              "type" : "number",
+              "description" : "number of active devices"
+            },
+            "devicesCountInactive" : {
+              "type" : "number",
+              "description" : "number of inactive devices"
+            },
+            "devicesCountUnknown" : {
+              "type" : "number",
+              "description" : "number of devices being in unknown state"
+            },
+            "customFields" : {
+              "$ref" : "#/components/schemas/CustomFields"
+            }
+          }
+        } ]
+      },
+      "SiteGetList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/SiteGet"
+        }
+      },
+      "SiteIdList" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "SitePosition" : {
+        "type" : "object",
+        "properties" : {
+          "latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "description" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UFLicense" : {
+        "type" : "object",
+        "required" : [ "state", "level" ],
+        "properties" : {
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "PENDING", "OK", "ERROR" ]
+          },
+          "level" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "BASIC", "FULL", "BASIC_SAG", "FULL_SAG" ]
+          },
+          "allocatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "supportedFirmware" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "migrated" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "supportsContainer" : {
+            "type" : "boolean",
+            "nullable" : true
+          }
+        }
+      },
+      "UFPrepaidLicense" : {
+        "type" : "object",
+        "required" : [ "level", "allocatedAt", "expiringAt" ],
+        "properties" : {
+          "level" : {
+            "type" : "string",
+            "enum" : [ "DEMO", "BASIC", "FULL", "BASIC_SAG", "FULL_SAG" ]
+          },
+          "allocatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiringAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "UUID" : {
+        "type" : "string",
+        "format" : "uuid"
+      },
+      "UUIDList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/UUID"
+        }
+      },
+      "VendorHardwareInfo" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "firmwareVersion" : {
+            "type" : "string"
+          }
+        }
+      },
+      "VendorHardwareInfoList" : {
+        "type" : "object",
+        "properties" : {
+          "vendorHardwareInfo" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VendorHardwareInfo"
+            }
+          }
+        }
+      },
+      "WarrantyStateStatistic" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/EnumStatistic"
+        }, {
+          "type" : "object",
+          "properties" : {
+            "ok" : {
+              "type" : "integer"
+            },
+            "expiring" : {
+              "type" : "integer"
+            },
+            "expired" : {
+              "type" : "integer"
+            }
+          }
+        } ]
+      }
+    },
+    "responses" : {
+      "HTTP_200" : {
+        "description" : "Successful"
+      },
+      "HTTP_400" : {
+        "description" : "Wrong data",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_401" : {
+        "description" : "Not authenticated"
+      },
+      "HTTP_403" : {
+        "description" : "Forbidden",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_404" : {
+        "description" : "Not found",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_409" : {
+        "description" : "Conflict",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      }
+    },
+    "parameters" : {
+      "ConfigStatusFilter" : {
+        "name" : "configStatusFilter.category",
+        "in" : "query",
+        "description" : "Configuration state category",
+        "schema" : {
+          "type" : "string",
+          "enum" : [ "CURRENT", "ERROR", "IN_PROGRESS", "OUTDATED", "OUTDATED_INVALID", "UNKNOWN" ]
+        }
+      },
+      "PATH_ACCOUNT_ID" : {
+        "name" : "accountId",
+        "in" : "path",
+        "description" : "Account id of the resource path",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "PATH_DEVICE_ID" : {
+        "name" : "deviceId",
+        "in" : "path",
+        "description" : "Device id of the resource path",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "PATH_SITE_ID" : {
+        "name" : "siteId",
+        "in" : "path",
+        "description" : "Site id of the resource path",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "PROPERTY_FILTER" : {
+        "in" : "query",
+        "name" : "property",
+        "description" : "optional object properties to fetch",
+        "required" : false,
+        "schema" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          }
+        },
+        "explode" : false
+      },
+      "QUERY_IDS" : {
+        "name" : "id",
+        "in" : "query",
+        "description" : "List of resource ids",
+        "style" : "form",
+        "explode" : true,
+        "schema" : {
+          "maxItems" : 50,
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "QUERY_IDS_REQUIRED" : {
+        "name" : "id",
+        "in" : "query",
+        "description" : "List of resource ids",
+        "required" : true,
+        "style" : "form",
+        "explode" : true,
+        "schema" : {
+          "maxItems" : 50,
+          "minItems" : 1,
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "QUERY_SORT" : {
+        "name" : "sort",
+        "in" : "query",
+        "description" : "Sort the result set. Format: '[parameter],[asc|desc]'",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryAlertingAlert" : {
+        "name" : "alerting.hasAlert",
+        "in" : "query",
+        "description" : "Matches if the device has an alert",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "QueryCommentLike" : {
+        "name" : "commentLike",
+        "in" : "query",
+        "description" : "Search by partly case insensitive comment",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryCustomFieldValue" : {
+        "name" : "customFields",
+        "in" : "query",
+        "description" : "Substring filter for custom fields. It's possible to filter by multiple custom fields at once. A full parameter looks like this: `customFields[fieldUUID]=substring`",
+        "style" : "deepObject",
+        "explode" : true,
+        "schema" : {
+          "type" : "object",
+          "additionalProperties" : {
+            "type" : "string"
+          }
+        }
+      },
+      "QueryFirmwareLevel" : {
+        "name" : "level",
+        "in" : "query",
+        "description" : "Firmware level",
+        "schema" : {
+          "type" : "string",
+          "default" : "RELEASE",
+          "enum" : [ "RELEASE", "RELEASE_CANDIDATE", "ALPHA" ]
+        }
+      },
+      "QueryHasCustomField" : {
+        "name" : "hasCustomField",
+        "in" : "query",
+        "description" : "Find entities where the custom field has been set",
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "QueryINameLike" : {
+        "name" : "nameILike",
+        "in" : "query",
+        "description" : "Search by partly case insensitive name",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryLimit" : {
+        "name" : "limit",
+        "in" : "query",
+        "description" : "Limit of the device ids in the table",
+        "schema" : {
+          "maximum" : 1500,
+          "minimum" : 1,
+          "type" : "number",
+          "format" : "int32"
+        }
+      },
+      "QueryModelName" : {
+        "name" : "modelId",
+        "in" : "query",
+        "description" : "Matches the model by name",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryName" : {
+        "name" : "name",
+        "in" : "query",
+        "description" : "Search by exact name",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryNameLike" : {
+        "name" : "nameLike",
+        "in" : "query",
+        "description" : "Search by partly case sensitive name",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QuerySiteEmpty" : {
+        "name" : "siteEmpty",
+        "in" : "query",
+        "description" : "Matches if no site is assigned",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "QuerySiteId" : {
+        "name" : "site.id",
+        "in" : "query",
+        "description" : "Matches the site (by id)",
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "QuerySiteName" : {
+        "name" : "site.name",
+        "in" : "query",
+        "description" : "Matches the site (by name)",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusCfgHash" : {
+        "name" : "status.cfgHash",
+        "in" : "query",
+        "description" : "Matches the configuration hash",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusCfgVersion" : {
+        "name" : "status.cfgVersion",
+        "in" : "query",
+        "description" : "Matches the configuration version",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusClaimingState" : {
+        "name" : "status.claimingState",
+        "in" : "query",
+        "description" : "Matches the claiming state",
+        "schema" : {
+          "type" : "string",
+          "enum" : [ "CLAIMED", "UNCLAIMED" ]
+        }
+      },
+      "QueryStatusFirmwareUpdateInProgress" : {
+        "name" : "status.firmwareUpdateInProgress",
+        "in" : "query",
+        "description" : "Find devices where where the update is in progress or not",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "QueryStatusFirmwareUpdateInitTime" : {
+        "name" : "status.firmwareUpdateInitTime",
+        "in" : "query",
+        "description" : "Matches the firmware update initialization time",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFirmwareUpdateTargetVersion" : {
+        "name" : "status.firmwareUpdateTargetVersion",
+        "in" : "query",
+        "description" : "Matches the firmware update target version",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFwBuild" : {
+        "name" : "status.fwBuild",
+        "in" : "query",
+        "description" : "Matches the device firmware build",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFwLabelILike" : {
+        "name" : "status.fwLabelILike",
+        "in" : "query",
+        "description" : "Matches the device firmware label (case-insensitive)",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFwLabelLike" : {
+        "name" : "status.fwLabelLike",
+        "in" : "query",
+        "description" : "Matches the device firmware label",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFwMajor" : {
+        "name" : "status.fwMajor",
+        "in" : "query",
+        "description" : "Matches the device firmware major",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFwMinor" : {
+        "name" : "status.fwMinor",
+        "in" : "query",
+        "description" : "Matches the device firmware minor",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFwReleaseType" : {
+        "name" : "status.fwReleaseType",
+        "in" : "query",
+        "description" : "Matches the device firmware release type",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusFwSourceRevision" : {
+        "name" : "status.fwSourceRevision",
+        "in" : "query",
+        "description" : "Matches the device firmware source revision",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusHeartbeatState" : {
+        "name" : "status.heartbeatState",
+        "in" : "query",
+        "description" : "Matches the hearbeat state",
+        "schema" : {
+          "type" : "string",
+          "enum" : [ "ACTIVE", "INACTIVE", "REDIRECTED", "SHADOW", "UNKNOWN" ]
+        }
+      },
+      "QueryStatusHwMask" : {
+        "name" : "status.hwMask",
+        "in" : "query",
+        "description" : "Matches the device hardware mask",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusHwModLevel" : {
+        "name" : "status.hwModLevel",
+        "in" : "query",
+        "description" : "Matches the device hardware mod level",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusHwRelease" : {
+        "name" : "status.hwRelease",
+        "in" : "query",
+        "description" : "Matches the device hardware release",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusIp" : {
+        "name" : "status.ip",
+        "in" : "query",
+        "description" : "Matches the device ip address",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusIpLike" : {
+        "name" : "status.ipLike",
+        "in" : "query",
+        "description" : "Matches the partial device ip address",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusMac" : {
+        "name" : "status.mac",
+        "in" : "query",
+        "description" : "Matches the device mac address",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusMacLike" : {
+        "name" : "status.macLike",
+        "in" : "query",
+        "description" : "Matches the partial device mac address",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusModel" : {
+        "name" : "status.model",
+        "in" : "query",
+        "description" : "Matches the device model",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusModelILike" : {
+        "name" : "status.modelILike",
+        "in" : "query",
+        "description" : "Matches the model (case-insensitive)",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusModelLike" : {
+        "name" : "status.modelLike",
+        "in" : "query",
+        "description" : "Matches the model (case-sensitive)",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusName" : {
+        "name" : "status.name",
+        "in" : "query",
+        "description" : "Matches the device name",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusNameILike" : {
+        "name" : "status.nameILike",
+        "in" : "query",
+        "description" : "Matches the partial device name, ignoring case",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusNameLike" : {
+        "name" : "status.nameLike",
+        "in" : "query",
+        "description" : "Matches the partial device name",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusNotFwLabelLike" : {
+        "name" : "status.notFwLabelLike",
+        "in" : "query",
+        "description" : "Matches the device firmware label (negation)",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusSerial" : {
+        "name" : "status.serial",
+        "in" : "query",
+        "description" : "Matches the device serial",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QueryStatusSerialLike" : {
+        "name" : "status.serialLike",
+        "in" : "query",
+        "description" : "Matches the device partial serial",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "QuerySubnetGroupId" : {
+        "name" : "subnetGroupId",
+        "in" : "query",
+        "description" : "Search by list of subnet group ID's",
+        "style" : "form",
+        "explode" : false,
+        "schema" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "QueryWithStateNull" : {
+        "name" : "withStateNull",
+        "in" : "query",
+        "description" : "Filter without state",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "TOKEN" : {
+        "name" : "Authorization",
+        "in" : "header",
+        "description" : "JWT based Session token",
+        "required" : false,
+        "schema" : {
+          "type" : "string"
+        }
+      }
+    },
+    "securitySchemes" : {
+      "apiKey" : {
+        "type" : "apiKey",
+        "in" : "header",
+        "name" : "Authorization",
+        "description" : "Provide an API key for 'Authorization: LMC-API-KEY {value}' header format."
+      },
+      "basic" : {
+        "type" : "http",
+        "scheme" : "basic",
+        "description" : "Provide a username and password. Account IDs may be set optionally."
+      },
+      "bearer" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "description" : "Provide a bearer token for 'Authorization: Bearer {value}' header format."
+      }
+    }
+  }
+}

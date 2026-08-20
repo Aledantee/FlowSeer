@@ -1,0 +1,120 @@
+--  *****************************************************************
+--  DLINKSW-SFTP-SERVER-MIB.mib : Secure FTP Server MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-SFTP-SERVER-MIB DEFINITIONS ::= BEGIN
+
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        Integer32,
+        Unsigned32
+                FROM SNMPv2-SMI
+        TruthValue
+                FROM SNMPv2-TC               
+        OBJECT-GROUP, MODULE-COMPLIANCE            
+            FROM SNMPv2-CONF                                
+        dlinkIndustrialCommon
+                FROM DLINK-ID-REC-MIB;
+
+
+    dlinkSwSftpServerMIB MODULE-IDENTITY
+        LAST-UPDATED "201302180000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for Secure Shell FTP Server."
+        REVISION "201302180000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file.
+            "
+    ::= { dlinkIndustrialCommon 152 }
+
+-- -----------------------------------------------------------------------------
+    dSftpServerNotifications    OBJECT IDENTIFIER ::= { dlinkSwSftpServerMIB 0 }
+    dSftpServerObjects          OBJECT IDENTIFIER ::= { dlinkSwSftpServerMIB 1 }
+    dSftpServerConformance      OBJECT IDENTIFIER ::= { dlinkSwSftpServerMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    dSftpServerGeneral          OBJECT IDENTIFIER ::= { dSftpServerObjects 1 }
+
+    dSftpServerEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether SFTP service is enabled or not."
+        DEFVAL      { false }
+        ::= { dSftpServerGeneral 1 }
+
+    dSftpServerVersion OBJECT-TYPE
+        SYNTAX          Unsigned32 
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the version of SFTP Server running on the
+            switch.
+            "
+        ::= { dSftpServerGeneral 2 }
+
+    dSftpServerTimeout OBJECT-TYPE
+        SYNTAX          Integer32 (30..600)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The idle timer for SFTP server. 
+            If there is no operation after the idle timer for an establised
+            SFTP session, the switch will close this SFTP session actively."
+        DEFVAL      { 120 }
+        ::= { dSftpServerGeneral 3 }
+        
+-- Conformance
+  
+
+    dSftpServerCompliances  OBJECT IDENTIFIER ::= { dSftpServerConformance 1 }
+    dSftpServerGroups       OBJECT IDENTIFIER ::= { dSftpServerConformance 2 }        
+       
+       
+    dSftpServerMIBCompliance MODULE-COMPLIANCE
+        STATUS   current
+        DESCRIPTION
+            "The compliance statement for entities which
+            implement the DLINKSW-SFTP-SERVER-MIB."
+        MODULE MANDATORY-GROUPS { 
+            dSftpServerConfigGroup
+        }
+        
+        ::= { dSftpServerCompliances 1 }
+
+    dSftpServerConfigGroup OBJECT-GROUP
+        OBJECTS             {   
+            dSftpServerEnabled,             
+            dSftpServerTimeout
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides configuration for SFTP Server."
+        ::= { dSftpServerGroups 1 }
+
+    dSftpServerInfoGroup OBJECT-GROUP
+        OBJECTS             {               
+            dSftpServerVersion        
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides information for SFTP Server."
+        ::= { dSftpServerGroups 2 }
+
+END
+

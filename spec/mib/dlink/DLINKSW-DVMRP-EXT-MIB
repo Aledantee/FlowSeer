@@ -1,0 +1,146 @@
+-- *****************************************************************
+-- DLINKSW-DVMRP-EXT-MIB: D-Link DVMRP Extension MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+
+	DLINKSW-DVMRP-EXT-MIB DEFINITIONS ::= BEGIN
+ 
+		IMPORTS
+			dlinkIndustrialCommon			
+				FROM DLINK-ID-REC-MIB			
+			dvmrpInterfaceIfIndex, dvmrpInterfaceEntry			
+				FROM DVMRP-MIB			
+			OBJECT-GROUP, MODULE-COMPLIANCE			
+				FROM SNMPv2-CONF			
+			Unsigned32, OBJECT-TYPE, MODULE-IDENTITY			
+				FROM SNMPv2-SMI;
+	
+	
+		dlinkSwDvmrpExtMIB MODULE-IDENTITY 
+			LAST-UPDATED "201305150000Z"
+			ORGANIZATION 
+				"D-Link Corp."
+			CONTACT-INFO 
+				"   D-Link Corporation
+				
+				Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+				        Taipei City 114, Taiwan, R.O.C
+				Tel:     +886-2-66000123
+				E-mail: tsd@dlink.com.tw
+				"
+			DESCRIPTION 
+				"This MIB module defines objects for managing DVMRP."
+			REVISION "201305150000Z"
+			DESCRIPTION 
+				"Initial revision of this MIB module."
+			::= { dlinkIndustrialCommon 124 }
+
+		
+	
+	
+--
+-- Node definitions
+--
+	
+		dDvmrpExtNotifications OBJECT IDENTIFIER ::= { dlinkSwDvmrpExtMIB 0 }
+
+		
+		dDvmrpExtObjects OBJECT IDENTIFIER ::= { dlinkSwDvmrpExtMIB 1 }
+
+		
+		dDvmrpExtInterfaceTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DDvmrpExtInterfaceEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"The (conceptual) table listing the router's multicast-
+				capable interfaces."
+			::= { dDvmrpExtObjects 1 }
+
+		
+		dDvmrpExtInterfaceEntry OBJECT-TYPE
+			SYNTAX DDvmrpExtInterfaceEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"An entry (conceptual row) in the dDvmrpExtInterfaceTable."
+			AUGMENTS { dvmrpInterfaceEntry }
+			::= { dDvmrpExtInterfaceTable 1 }
+
+		
+		DDvmrpExtInterfaceEntry ::=
+			SEQUENCE { 
+				dDvmrpExtInterfaceNbrTimeout
+					Unsigned32,
+				dDvmrpExtInterfaceProbeTime
+					Unsigned32,
+				dDvmrpExtInterfaceGenerationId
+					Unsigned32
+			 }
+
+		dDvmrpExtInterfaceNbrTimeout OBJECT-TYPE
+			SYNTAX Unsigned32 (1..65535)
+			UNITS "seconds"
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The DVMRP neighbor life time."
+			DEFVAL { 35 }
+			::= { dDvmrpExtInterfaceEntry 2 }
+
+		
+		dDvmrpExtInterfaceProbeTime OBJECT-TYPE
+			SYNTAX Unsigned32 (1..65535)
+			UNITS "seconds"
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The interval that the DVMRP router sends DVMRP Probe messages."
+			DEFVAL { 10 }
+			::= { dDvmrpExtInterfaceEntry 3 }
+
+		
+		dDvmrpExtInterfaceGenerationId OBJECT-TYPE
+			SYNTAX Unsigned32
+			MAX-ACCESS read-only
+			STATUS current
+			DESCRIPTION
+				"The DVMRP enabled router's generation ID."
+			::= { dDvmrpExtInterfaceEntry 4 }
+
+		
+		dDvmrpExtConformance OBJECT IDENTIFIER ::= { dlinkSwDvmrpExtMIB 2 }
+
+		
+		dDvmrpExtCompliances OBJECT IDENTIFIER ::= { dDvmrpExtConformance 1 }
+
+		
+		dDvmrpExtCompliance MODULE-COMPLIANCE
+			STATUS current
+			DESCRIPTION 
+				"The compliance statement for entities which implement the 
+				DLINKSW-DVMRP-EXT-MIB."
+			MODULE -- this module
+				MANDATORY-GROUPS { dDvmrpExtInterfaceGroup }
+			::= { dDvmrpExtCompliances 1 }
+
+		
+		dDvmrpExtGroups OBJECT IDENTIFIER ::= { dDvmrpExtConformance 2 }
+
+		
+		dDvmrpExtInterfaceGroup OBJECT-GROUP
+			OBJECTS { dDvmrpExtInterfaceNbrTimeout, dDvmrpExtInterfaceProbeTime, dDvmrpExtInterfaceGenerationId }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects provides interface management."
+			::= { dDvmrpExtGroups 1 }
+
+		
+	
+	END
+
+--
+-- DLINKSW-DVMRP-EXT-MIB 20130508 - chienho.mib
+--

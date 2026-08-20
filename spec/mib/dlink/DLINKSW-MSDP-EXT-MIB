@@ -1,0 +1,482 @@
+--  *****************************************************************
+--  DLINKSW-MSDP-EXT-MIB: D-Link MSDP Extension MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-MSDP-EXT-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+    	   MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+           experimental, Counter32, Gauge32, TimeTicks, Integer32,
+           IpAddress
+           FROM SNMPv2-SMI                                        -- [RFC2578]	    
+           RowStatus, TruthValue, TimeStamp, DisplayString
+           FROM SNMPv2-TC                                         -- [RFC2579]
+           MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+           FROM SNMPv2-CONF                                       -- [RFC2580]
+           InterfaceIndexOrZero
+           FROM IF-MIB
+           dlinkIndustrialCommon            FROM DLINK-ID-REC-MIB;        		
+
+
+    dlinkSwMsdpExtMIB MODULE-IDENTITY
+        LAST-UPDATED "201408180000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for MSDP management and 
+             monitoring."
+ 
+        REVISION "201408180000Z"
+        DESCRIPTION
+            "Add object 'dMsdpExtPeerRowStatus' to 'dMsdpExtPeerTable'."
+                   
+        REVISION "201406180000Z"
+        DESCRIPTION
+            "Modify the ID of objects 'dMsdpExtFilterSARowStatus' and 'dMsdpExtStaticRpfRowStatus' to 99."
+           
+        REVISION "201404230000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'MSDP'
+            functionality."
+            
+    ::= { dlinkIndustrialCommon 180 }
+
+-- -----------------------------------------------------------------------------
+    dMsdpExtMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwMsdpExtMIB 0 }
+    dMsdpExtMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwMsdpExtMIB 1 }
+    dMsdpExtMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwMsdpExtMIB 2 }
+-- -----------------------------------------------------------------------------   
+    dMsdpExtGlobalObjects         OBJECT IDENTIFIER ::= { dMsdpExtMIBObjects 1 }
+      dMsdpeExtGlobalConnectRetryInterval OBJECT-TYPE
+        SYNTAX     Integer32 (1..65535)
+        UNITS      "seconds"
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "Time interval, in seconds, for the [ConnectRetry-period]
+            for all peers."
+        DEFVAL { 30 }
+        ::= { dMsdpExtGlobalObjects 1 }
+    
+    dMgmdExtGlobalClearAllPeers  OBJECT-TYPE
+        SYNTAX      INTEGER {
+            clear(1),
+            noOp(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS      current
+        DESCRIPTION
+            "This object is used to clear the TCP connection of all MSDP peers
+            when set to 'clear'.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+	    ::= { dMsdpExtGlobalObjects 2 }
+        
+      dMgmdExtGlobalClearPeerByAddr  OBJECT-TYPE
+        SYNTAX          IpAddress 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object is used to clear the TCP connection of an MSDP peer 
+            based on peer address.
+            Setting this object to the peer address which you want to clear.
+            When read, a zero IP address is returned."
+	    ::= { dMsdpExtGlobalObjects 3 }
+	    
+      dMgmdExtGlobalClearAllStatistics  OBJECT-TYPE
+        SYNTAX      INTEGER {
+            clear(1),
+            noOp(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS      current
+        DESCRIPTION
+            "This object is used to clear the statistics of all MSDP peers
+            when set to 'clear'.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+	    ::= { dMsdpExtGlobalObjects 4 }
+        
+      dMgmdExtGlobalClearStatisticsByAddr  OBJECT-TYPE
+        SYNTAX          IpAddress 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object is used to clear the statistics of an MSDP peer 
+            based on peer address.
+            Setting this object to the peer address which you want to clear.
+            When read, a zero IP address is returned."
+	    ::= { dMsdpExtGlobalObjects 5 }    
+	    
+      dMgmdExtGlobalClearAllSACache  OBJECT-TYPE
+        SYNTAX      INTEGER {
+            clear(1),
+            noOp(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS      current
+        DESCRIPTION
+            "This object is used to clear all SA cache entries
+            when set to 'clear'.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+	    ::= { dMsdpExtGlobalObjects 6 }
+        
+      dMgmdExtGlobalClearSACacheByGrpAddr  OBJECT-TYPE
+        SYNTAX          IpAddress 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object is used to clear SA cache entries based 
+            on group address.
+            Setting this object to the group address which you want to clear.
+            When read, a zero IP address is returned."
+	    ::= { dMsdpExtGlobalObjects 7 }
+	    
+    dMsdpExtFilterObjects         OBJECT IDENTIFIER ::= { dMsdpExtMIBObjects 2 }  
+    
+      dMsdpExtFilterSAOriginateEnabled OBJECT-TYPE
+        SYNTAX     TruthValue
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "This object indicates whether to enable SA message originating 
+            filtering configuration."
+        ::= { dMsdpExtFilterObjects 1 }
+        
+     dMsdpExtFilterSAOriginateAcl OBJECT-TYPE
+	SYNTAX DisplayString
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	    "This object indicates the name of access list to define the 
+	    source address and group address pairs for SA message originating 
+	    filtering configuration. 
+	    A zero length string indicates all local sources are filtered.
+	    This object is meaningless when SA orginating filter is disabled.
+	    "
+	::= { dMsdpExtFilterObjects 2 }
+	
+    dMsdpExtFilterSATable OBJECT-TYPE
+    	SYNTAX     SEQUENCE OF DMsdpExtFilterSAEntry
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+            "The (conceptual) table listing the MSDP remote peers which 
+            have configured the SA message filtering."
+    	::= { dMsdpExtFilterObjects 3 }
+    
+    dMsdpExtFilterSAEntry OBJECT-TYPE
+    	SYNTAX     DMsdpExtFilterSAEntry
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+            "An entry (conceptual row) representing an MSDP remote peer 
+            which has configured the SA message filtering."
+    	INDEX      { dMsdpExtFilterSAPeerAddr,
+    		     dMsdpExtFilterSAType}
+    	::= { dMsdpExtFilterSATable 1 }
+    	
+    DMsdpExtFilterSAEntry ::= SEQUENCE {
+        dMsdpExtFilterSAPeerAddr              IpAddress,
+        dMsdpExtFilterSAType                  INTEGER,
+        dMsdpExtFilterSAAcl             DisplayString,
+              dMsdpExtFilterSARowStatus       RowStatus
+    }
+    
+    dMsdpExtFilterSAPeerAddr OBJECT-TYPE
+    	SYNTAX     IpAddress
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+           "The IP address of an MSDP remote peer."
+    	::= { dMsdpExtFilterSAEntry 1 }
+    
+    dMsdpExtFilterSAType  OBJECT-TYPE
+    	    SYNTAX      INTEGER {
+    	        incoming(1),
+    	        outgoing(2),
+    	        request(3)
+    	    }
+    	    MAX-ACCESS      not-accessible
+    	    STATUS      current
+    	    DESCRIPTION
+            "This object indicates type of SA message filtering."
+	    ::= { dMsdpExtFilterSAEntry 2 }
+	           
+    dMsdpExtFilterSAAcl OBJECT-TYPE
+	SYNTAX DisplayString
+	MAX-ACCESS read-create
+	STATUS current
+	DESCRIPTION
+	    "This object indicates the name of access list for SA message 
+	    filtering configuration.
+	    If the value of dMsdpExtFilterSAType is set to 'incoming' or 
+	    'outgoing', the access list defines the source address and group 
+	    address pairs for SA message filtering. 
+	    If the value of dMsdpExtFilterSAType is set to'request', the 
+	    access list defines group addresses for SA message filtering. 
+	    A zero length string indicates all SA messages receives from
+	    the MSDP remote peer are filtered. "
+	::= { dMsdpExtFilterSAEntry 4 }
+
+    dMsdpExtFilterSARowStatus OBJECT-TYPE
+    	SYNTAX     RowStatus
+    	MAX-ACCESS read-create
+    	STATUS     current
+    	DESCRIPTION
+               "This entry's status, by which new entries may be added
+               to the table and old entries deleted."
+       ::= { dMsdpExtFilterSAEntry 99 }
+   
+    dMsdpExtPeerTable OBJECT-TYPE
+    	SYNTAX     SEQUENCE OF DMsdpExtPeerEntry
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+            "The (conceptual) table listing the MSDP peer entries."
+    	::= { dMsdpExtMIBObjects 3 }
+    	
+    dMsdpExtPeerEntry OBJECT-TYPE
+    	SYNTAX     DMsdpExtPeerEntry
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+            "An entry (conceptual row) representing an MSDP peer entry."
+    	INDEX      { dMsdpExtPeerAddr }
+    	::= { dMsdpExtPeerTable 1 }
+    	
+    DMsdpExtPeerEntry ::= SEQUENCE {
+        dMsdpExtPeerAddr                      IpAddress,
+        dMsdpExtPeerConnectIfIndex            InterfaceIndexOrZero,
+        dMsdpExtPeerDescription               DisplayString,
+        dMsdpExtPeerPassword                  DisplayString,
+        dMsdpExtPeerShutdownStatus     	      TruthValue,
+        dMsdpExtPeerNumSaCacheEntries         Integer32,
+        dMsdpExtPeerMaxNumSaCacheEntries      Integer32,
+        dMsdpExtPeerRowStatus                 RowStatus
+    }
+    
+    dMsdpExtPeerAddr OBJECT-TYPE
+    	SYNTAX     IpAddress
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+           	"The address of the remote MSDP peer."
+    	::= { dMsdpExtPeerEntry 1 }
+    
+    dMsdpExtPeerConnectIfIndex OBJECT-TYPE
+    	SYNTAX     InterfaceIndexOrZero
+    	MAX-ACCESS read-write
+    	STATUS     current
+    	DESCRIPTION
+            "The ifIndex value of the local connecting interface of an MSDP
+        peer."
+    	::= { dMsdpExtPeerEntry 2 }	
+    
+    dMsdpExtPeerDescription OBJECT-TYPE
+	SYNTAX DisplayString
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	    "This object indicates a description for an MSDP peer to make it 
+	    easier to identify. 
+	    A zero length string indicates the description is not configured."
+	::= { dMsdpExtPeerEntry 3 }
+	
+    dMsdpExtPeerPassword OBJECT-TYPE
+	SYNTAX DisplayString
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	    "This object indicates a password of MD5 encryption for a TCP 
+	    connection between MSDP peers. 
+	    A zero length string indicates the password is not configured."
+	::= { dMsdpExtPeerEntry 4 }
+	
+    dMsdpExtPeerShutdownStatus OBJECT-TYPE
+    	SYNTAX     TruthValue
+    	MAX-ACCESS read-write
+    	STATUS     current
+    	DESCRIPTION
+           "This object indicates whether the TCP connection between MSDP peers is 
+           shutdown or not."
+    ::= { dMsdpExtPeerEntry 5 }	
+    
+    dMsdpExtPeerNumSaCacheEntries OBJECT-TYPE
+    	SYNTAX     Integer32
+    	MAX-ACCESS read-only
+    	STATUS     current
+    	DESCRIPTION
+           "This object indicates the number SA cache entries learned from the
+           MSDP peer."
+    	::= { dMsdpExtPeerEntry 6 }
+    	
+    dMsdpExtPeerMaxNumSaCacheEntries OBJECT-TYPE
+    	SYNTAX     Integer32 (-1..65535)
+    	MAX-ACCESS read-write
+    	STATUS     current
+    	DESCRIPTION
+           "This object indicates the maximum number of SA cache entries can be 
+           learned from the MSDP peer.
+           If the value of this object is -1, the number of SA cache entries learned
+           from the MSDP peer is no limitation."
+    	::= { dMsdpExtPeerEntry 7 }
+    
+    dMsdpExtPeerRowStatus OBJECT-TYPE
+    	SYNTAX     RowStatus
+    	MAX-ACCESS read-create
+    	STATUS     current
+    	DESCRIPTION
+               "This entry's status, by which new entries may be added
+               to the table and old entries deleted."
+       ::= { dMsdpExtPeerEntry 99 }
+	
+    dMsdpExtStaticRpfTable OBJECT-TYPE
+    	SYNTAX     SEQUENCE OF DMsdpExtStaticRpfEntry
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+            "The (conceptual) table listing the static rpf peer entries."
+    	::= { dMsdpExtMIBObjects 4 }
+    	
+    dMsdpExtStaticRpfEntry OBJECT-TYPE
+    	SYNTAX     DMsdpExtStaticRpfEntry
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+            "An entry (conceptual row) representing a static rpf peer entry."
+    	INDEX      { dMsdpExtStaticRpfPeerAddr }
+    	::= { dMsdpExtStaticRpfTable 1 }
+    	
+    DMsdpExtStaticRpfEntry ::= SEQUENCE {
+        dMsdpExtStaticRpfPeerAddr             IpAddress,
+        dMsdpExtStaticRpfRpAcl                DisplayString,
+	 dMsdpExtStaticRpfRowStatus            RowStatus
+    }
+    
+    dMsdpExtStaticRpfPeerAddr OBJECT-TYPE
+    	SYNTAX     IpAddress
+    	MAX-ACCESS not-accessible
+    	STATUS     current
+    	DESCRIPTION
+           	"The address of an MSDP peer which is configured as a static 
+           	RPF peer."
+    	::= { dMsdpExtStaticRpfEntry 1 }	
+       
+    dMsdpExtStaticRpfRpAcl OBJECT-TYPE
+	SYNTAX DisplayString
+	MAX-ACCESS read-create
+	STATUS current
+	DESCRIPTION
+	    "This object indicates the name of access list to define the 
+	    RP prefix list for static RPF configuration. 
+	    A zero length string indicates the MSDP peer can become the 
+	    static rpf peer for the SA messages from all RPs if there is no
+	    better one."
+	::= { dMsdpExtStaticRpfEntry 3 }
+
+    dMsdpExtStaticRpfRowStatus OBJECT-TYPE
+    	SYNTAX     RowStatus
+    	MAX-ACCESS read-create
+    	STATUS     current
+    	DESCRIPTION
+               "This entry's status, by which new entries may be added
+               to the table and old entries deleted."
+       ::= { dMsdpExtStaticRpfEntry 99 }
+	
+--
+-- Conformance information
+--
+
+	dMsdpExtMIBCompliances OBJECT IDENTIFIER ::= { dMsdpExtMIBConformance 1 }
+	dMsdpExtMIBGroups  OBJECT IDENTIFIER ::= { dMsdpExtMIBConformance 2 }
+
+--
+-- Compliance statements
+--
+		
+	dMsdpExtMIBCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKSW-MSDP-EXT-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    dMsdpExtGlobalCfgGroup,
+		    dMsdpExtFilterSAGroup,  
+		    dMsdpExtPeerCfgGroup,
+		    dMsdpExtStaticRpfCfgGroup
+		}  
+    ::= { dMsdpExtMIBCompliances 1 }            
+
+--
+-- Units of conformance
+--		
+	dMsdpExtGlobalCfgGroup OBJECT-GROUP
+		OBJECTS { 
+		dMsdpeExtGlobalConnectRetryInterval,
+            	dMgmdExtGlobalClearAllPeers,
+            	dMgmdExtGlobalClearPeerByAddr,            
+            	dMgmdExtGlobalClearAllStatistics,
+            	dMgmdExtGlobalClearStatisticsByAddr,
+            	dMgmdExtGlobalClearAllSACache,
+            	dMgmdExtGlobalClearSACacheByGrpAddr,
+            	dMsdpExtFilterSAOriginateEnabled,
+            	dMsdpExtFilterSAOriginateAcl
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing global configuration about 
+			MSDP."
+		::= { dMsdpExtMIBGroups 1 }
+	
+    	dMsdpExtFilterSAGroup OBJECT-GROUP
+		OBJECTS { 
+		dMsdpExtFilterSARowStatus,
+            	dMsdpExtFilterSAAcl
+            	
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing MSDP SA message filtering 
+			configuration."
+		::= { dMsdpExtMIBGroups 2 }   
+	
+    	dMsdpExtPeerCfgGroup OBJECT-GROUP
+		OBJECTS { 		     
+            	dMsdpExtPeerConnectIfIndex,
+            	dMsdpExtPeerDescription,
+            	dMsdpExtPeerPassword,
+        	dMsdpExtPeerShutdownStatus,
+        	dMsdpExtPeerNumSaCacheEntries,
+        	dMsdpExtPeerMaxNumSaCacheEntries,
+        	dMsdpExtPeerRowStatus
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing MSDP peer configuration."
+		::= { dMsdpExtMIBGroups 3 } 		
+	
+	dMsdpExtStaticRpfCfgGroup OBJECT-GROUP
+		OBJECTS { 	
+		dMsdpExtStaticRpfRowStatus,
+            	dMsdpExtStaticRpfRpAcl
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing static RPF peer configuration."
+		::= { dMsdpExtMIBGroups 4 }   
+
+
+END
+

@@ -1,0 +1,494 @@
+module hpe-anw-cx-openconfig-deviations {
+    yang-version "1";
+    namespace "http://arubanetworks.com/yang/cx/openconfig/deviations";
+    prefix "oc-dev";
+
+    import ietf-interfaces { prefix if; }
+    import openconfig-acl { prefix oc-acl; }
+    import openconfig-bfd { prefix oc-bfd; }
+    import openconfig-defined-sets { prefix oc-sets; }
+    import openconfig-interfaces { prefix oc-if; }
+    import openconfig-vlan { prefix oc-vlan; }
+    import openconfig-if-ethernet { prefix oc-eth; }
+    import openconfig-if-poe { prefix oc-poe; }
+    import openconfig-if-aggregate { prefix oc-lag; }
+    import openconfig-keychain { prefix oc-keychain; }
+    import openconfig-network-instance { prefix oc-netinst; }
+    import openconfig-platform { prefix oc-platform; }
+    import openconfig-platform-cpu { prefix oc-cpu; }
+    import openconfig-platform-psu { prefix oc-platform-psu; }
+    import openconfig-alarms { prefix oc-alarms; }
+    import openconfig-routing-policy { prefix oc-rpol; }
+    import openconfig-system { prefix oc-sys; }
+
+    // meta
+    organization "HPE-ANW";
+    contact
+        "HPE-ANW, Inc.
+        Customer Service
+        Postal: 6280 America Center Dr,
+        Alviso, CA 95002, United States";
+    description
+        "This module contains HPE-ANW AOS-CX OpenConfig deviations for all modules";
+
+    revision 2025-11-07 {
+        description "Initial revision";
+    }
+
+    // deviations
+    deviation "/if:interfaces" {
+        deviate not-supported;
+    }
+
+    deviation "/if:interfaces-state" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-acl:acl" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-bfd:bfd" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sets:defined-sets" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-if:config/oc-vlan:tpid" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-if:hold-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-8021q-frames" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-block-errors" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-carrier-errors" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-interrupted-tx" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-mac-control-frames" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-mac-errors-rx" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-maxsize-exceeded" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-single-collision" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:in-symbol-error" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:out-8021q-frames" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:out-mac-control-frames" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:counters/oc-eth:out-mac-pause-frames" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state/oc-eth:standalone-link-training" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-poe:poe/oc-poe:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-vlan:switched-vlan" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-lag:aggregation/oc-vlan:switched-vlan" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-vlan:routed-vlan" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-if:penalty-based-aied" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-if:state/oc-if:counters/oc-if:last-clear" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-if:state/oc-if:last-change" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-if:state/oc-vlan:tpid" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-if:interfaces/oc-if:interface/oc-if:subinterfaces" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-keychain:keychains" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-netinst:network-instances" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:backplane" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:chassis" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:controller-card" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:cpu/oc-platform:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:cpu/oc-cpu:utilization/oc-cpu:state/oc-cpu:max" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:cpu/oc-cpu:utilization/oc-cpu:state/oc-cpu:max-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:cpu/oc-cpu:utilization/oc-cpu:state/oc-cpu:min" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:cpu/oc-cpu:utilization/oc-cpu:state/oc-cpu:min-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:cpu/oc-platform:state" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:fabric" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:fan/oc-platform:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:integrated-circuit" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:port" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:power-supply/oc-platform:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:power-supply/oc-platform:state/oc-platform-psu:enabled" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:properties" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:software-module" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:clei-code" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:empty" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:firmware-version" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:id" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:install-component" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:install-position" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:last-poweroff-reason" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:last-poweroff-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:last-reboot-reason" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:last-reboot-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:last-switchover-reason" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:last-switchover-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:location" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:memory/oc-platform:available" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:mfg-date" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:name" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-alarms:equipment-failure" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-alarms:equipment-mismatch" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:parent" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:pcie" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:software-version" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:switchover-ready" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:alarm-threshold" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:avg" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:instant" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:interval" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:max" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:max-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:min" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:state/oc-platform:temperature/oc-platform:min-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:storage" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-platform:components/oc-platform:component/oc-platform:subcomponents" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-rpol:routing-policy" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:aaa" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:alarms" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:clock/oc-sys:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:hardware-interrupt" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:idle" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:kernel" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:nice" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:software-interrupt" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:total/oc-sys:max" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:total/oc-sys:max-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:total/oc-sys:min" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:total/oc-sys:min-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:user" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:cpus/oc-sys:cpu/oc-sys:state/oc-sys:wait" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:dns" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:license" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:logging" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:mac-address" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:memory/oc-sys:config" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:memory/oc-sys:state/oc-sys:counters/oc-sys:total-ecc-errors" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:memory/oc-sys:state/oc-sys:counters/oc-sys:uncorrectable-ecc-errors" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:messages" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:mount-points" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:ntp" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:processes" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:ssh-server" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:state/oc-sys:boot-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:state/oc-sys:current-datetime" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:state/oc-sys:motd-banner" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:state/oc-sys:up-time" {
+        deviate not-supported;
+    }
+
+    deviation "/oc-sys:system/oc-sys:telnet-server" {
+        deviate not-supported;
+    }
+}

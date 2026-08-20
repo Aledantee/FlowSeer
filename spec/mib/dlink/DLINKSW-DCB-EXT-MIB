@@ -1,0 +1,424 @@
+--  *****************************************************************
+--  DLINKSW-DCB-EXT-MIB.mib : Data Center Bridging Extension MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-DCB-EXT-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS    	        
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        NOTIFICATION-TYPE,        
+        Unsigned32
+            FROM SNMPv2-SMI        
+        RowStatus,
+        DisplayString,
+	    TruthValue
+		    FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+		    FROM SNMPv2-CONF
+        InterfaceIndex, InterfaceIndexOrZero   				
+            FROM IF-MIB                       
+        dlinkIndustrialCommon                     
+            FROM DLINK-ID-REC-MIB;        		
+
+                                       
+    dlinkSwDcbExtMIB MODULE-IDENTITY
+        LAST-UPDATED "201303120000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for extending the configuration of 
+            Data Center Bridging (DCB).
+            Acronyms and terms:
+            ETS: Enhanced Transmission Selection
+            PFC: Priority-based Flow Control
+            "
+            
+        REVISION "201303120000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."
+
+        ::= { dlinkIndustrialCommon 29 } 
+      
+      
+-- -----------------------------------------------------------------------------
+    dDcbExtMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwDcbExtMIB 0 }
+    dDcbExtMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwDcbExtMIB 1 }
+    dDcbExtMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwDcbExtMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    dDcbExtEtsObjects         OBJECT IDENTIFIER ::= { dDcbExtMIBObjects 1 }
+
+    dDcbExtEtsRecoPriAssignmentTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DDcbExtEtsRecoPriAssignmentEntry        
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table controls priority assignment of ETS Recommendation.
+            The entry in each row indicates the traffic class to which the
+            priority is assigned."
+        ::= { dDcbExtEtsObjects 1 }
+
+    dDcbExtEtsRecoPriAssignmentEntry OBJECT-TYPE
+        SYNTAX          DDcbExtEtsRecoPriAssignmentEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry configures the traffic class of priority for ETS 
+            Recommendation.
+            "
+        INDEX        { 
+            dDcbExtEtsRecoPriAssignIfIndex,
+            dDcbExtEtsRecoPriAssignPriority 
+        }
+    ::= { dDcbExtEtsRecoPriAssignmentTable 1 }
+
+    DDcbExtEtsRecoPriAssignmentEntry ::= SEQUENCE {
+        dDcbExtEtsRecoPriAssignIfIndex          InterfaceIndex,
+        dDcbExtEtsRecoPriAssignPriority         Unsigned32,
+        dDcbExtEtsRecoPriAssTrafficClass        Unsigned32
+    }
+
+    dDcbExtEtsRecoPriAssignIfIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the ifIndex of the port."    
+        ::= { dDcbExtEtsRecoPriAssignmentEntry 1 }
+
+    dDcbExtEtsRecoPriAssignPriority OBJECT-TYPE
+        SYNTAX          Unsigned32 ( 0 .. 7 )
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the priority that is assigned to a traffic 
+            class."    
+        ::= { dDcbExtEtsRecoPriAssignmentEntry 2 }
+
+    dDcbExtEtsRecoPriAssTrafficClass OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-write
+        STATUS           current
+        DESCRIPTION
+            "Indicates the traffic class to which this priority is
+            to be assigned."
+        ::= { dDcbExtEtsRecoPriAssignmentEntry 3 }
+
+-- -----------------------------------------------------------------------------
+    dDcbExtPfcObjects         OBJECT IDENTIFIER ::= { dDcbExtMIBObjects 2 }
+    
+    dDcbExtPfcClearCounterObjects         OBJECT IDENTIFIER ::= { dDcbExtPfcObjects 1 }
+
+    dDcbExtPfcClearRxCounterByIf     OBJECT-TYPE
+        SYNTAX          InterfaceIndexOrZero
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION                         
+            "This object indicates the ifIndex of the interface on which
+            the counter of received PFC frames will be cleared.
+            When read, a value of 0 is returned.
+            "
+        ::= { dDcbExtPfcClearCounterObjects 1 }
+
+    dDcbExtPfcClearTxCounterByIf     OBJECT-TYPE
+        SYNTAX          InterfaceIndexOrZero
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION                         
+            "This object indicates the ifIndex of the interface on which
+            the counter of transmitted PFC frames will be cleared.
+            When read, a value of 0 is returned.
+            "
+        ::= { dDcbExtPfcClearCounterObjects 2 }
+ 
+    dDcbExtPfcClearRxTxCounterByIf     OBJECT-TYPE
+        SYNTAX          InterfaceIndexOrZero
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION                         
+            "This object indicates the ifIndex of the interface on which
+            the counter of received and transmitted PFC frames will be cleared.
+            When read, a value of 0 is returned.
+            "
+        ::= { dDcbExtPfcClearCounterObjects 3 } 
+    
+    dDcbExtPfcClearAllCounters OBJECT-TYPE
+        SYNTAX      INTEGER {
+            clear(1),
+            noOp(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS      current
+        DESCRIPTION
+            "This object is used to clear PFC counters on all interfaces when
+            set to 'clear'.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+        ::= { dDcbExtPfcClearCounterObjects 4 }
+
+-- ----------------------------------------------------------------------------- 	
+   	dDcbExtNqosClassMapTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF DDcbExtNqosClassMapEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This table consists of a list of type network-qos class map to 
+            classify the traffic by IEEE 802.1p priority tag (CoS)."
+		::= { dDcbExtPfcObjects 2 }
+
+	dDcbExtNqosClassMapEntry OBJECT-TYPE
+		SYNTAX          DDcbExtNqosClassMapEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "An entry consists of the matching CoS information for a type 
+		    network-qos class map."
+		INDEX   { dDcbExtNqosClassMapName }
+		::= { dDcbExtNqosClassMapTable 1 }
+
+	DDcbExtNqosClassMapEntry ::=  SEQUENCE {
+		dDcbExtNqosClassMapName 	DisplayString,	
+		dDcbExtNqosClassCosLst		BITS,            
+		dDcbExtNqosClassRowStaus	RowStatus
+	}
+
+   	dDcbExtNqosClassMapName OBJECT-TYPE
+		SYNTAX          DisplayString (SIZE(1..32))
+		MAX-ACCESS      not-accessible
+		STATUS          current  
+		DESCRIPTION
+		    "This object indicates the name of the network-qos class map." 
+		::= { dDcbExtNqosClassMapEntry 1 }
+
+    dDcbExtNqosClassCosLst OBJECT-TYPE
+		SYNTAX   BITS {
+            cos0(0),
+            cos1(1),
+            cos2(2),
+            cos3(3),
+            cos4(4),
+            cos5(5),
+            cos6(6),
+            cos7(7)
+        } 
+		MAX-ACCESS      read-create
+		STATUS          current  
+		DESCRIPTION
+		    "This object indicates the IEEE 802.1Q CoS value(s) are included
+            in the class map.
+            "
+		::= { dDcbExtNqosClassMapEntry 2 }
+     						
+	dDcbExtNqosClassRowStaus OBJECT-TYPE
+		SYNTAX          RowStatus
+		MAX-ACCESS      read-create
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the status of this entry."
+		::= { dDcbExtNqosClassMapEntry 3 }
+
+-- ----------------------------------------------------------------------------- 	
+   	dDcbExtPfcPolicyTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF DDcbExtPfcPolicyEntry
+		MAX-ACCESS      not-accessible
+		STATUS  current
+		DESCRIPTION
+		    "This table consists of a list of policies for PFC."
+		::= { dDcbExtPfcObjects 3 }
+    	   
+	dDcbExtPfcPolicyEntry OBJECT-TYPE
+		SYNTAX          DDcbExtPfcPolicyEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "An entry contains the PFC configuration of a class map in a network-qos
+            policy map."
+		INDEX   { 
+            dDcbExtPfcPolicyMapName,
+            dDcbExtPfcPolicyClassName
+        }
+		::= { dDcbExtPfcPolicyTable 1 }
+
+	DDcbExtPfcPolicyEntry ::= 		SEQUENCE {     
+		dDcbExtPfcPolicyMapName	            DisplayString,
+        dDcbExtPfcPolicyClassName           DisplayString,
+        dDcbExtPfcPolicyClsPauseEnabled     TruthValue,
+		dDcbExtPfcPolicyRowStatus           RowStatus
+    } 
+	
+	dDcbExtPfcPolicyMapName OBJECT-TYPE
+		SYNTAX          DisplayString (SIZE(1..32))
+		MAX-ACCESS      not-accessible		
+		STATUS          current  
+		DESCRIPTION
+		    "This object indicates name of the network-qos policy map." 
+		::= { dDcbExtPfcPolicyEntry 1 }	
+		
+    dDcbExtPfcPolicyClassName OBJECT-TYPE
+		SYNTAX          DisplayString (SIZE(0..32))
+		MAX-ACCESS      not-accessible		
+		STATUS          current  
+		DESCRIPTION
+		    "This object indicates the class map name of the entry.
+            A special row with a zero length dDcbExtPfcPolicyClassName 
+            indicates there is no class configuration for the network-qos policy
+            map.  Once one class is configured for the network-qos policy map, 
+            this special row will be removed.
+            " 
+		::= { dDcbExtPfcPolicyEntry 2 }	
+
+    dDcbExtPfcPolicyClsPauseEnabled OBJECT-TYPE
+		SYNTAX          TruthValue
+		MAX-ACCESS      read-create	
+		STATUS          current  
+		DESCRIPTION
+		    "This object indicates the PFC state of the entry.
+            Setting the value to 'true' will enable PFC on a class referenced
+            in a type network-qos policy map.
+            " 
+		::= { dDcbExtPfcPolicyEntry 3 }
+
+	dDcbExtPfcPolicyRowStatus OBJECT-TYPE
+		SYNTAX          RowStatus
+		MAX-ACCESS      read-create
+		STATUS          current
+		DESCRIPTION
+		      "This object indicates the status of this entry."
+		::= { dDcbExtPfcPolicyEntry 4 }
+
+-- ----------------------------------------------------------------------------- 
+	dDcbExtPfcIfServicePolicyTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF DDcbExtPfcIfServicePolicyEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This table consists of a list of interface-specific PFC policy map
+            associations."
+		::= { dDcbExtPfcObjects 4 }
+
+	dDcbExtPfcIfServicePolicyEntry OBJECT-TYPE
+		SYNTAX          DDcbExtPfcIfServicePolicyEntry
+		MAX-ACCESS      not-accessible
+		STATUS  current
+		DESCRIPTION
+		     "An entry is used to attach a PFC policy map to an
+             input interface."
+		INDEX   { 
+            dDcbExtPfcIfSrvPolicyIfIndex
+        }
+		::= { dDcbExtPfcIfServicePolicyTable 1 }
+
+	DDcbExtPfcIfServicePolicyEntry ::=		SEQUENCE {	
+        dDcbExtPfcIfSrvPolicyIfIndex 	  InterfaceIndex,		  		  
+        dDcbExtPfcIfSrvPolicyName 	      DisplayString,
+		dDcbExtPfcIfSrvPolicyRowStaus     RowStatus   		  
+    }
+	
+    dDcbExtPfcIfSrvPolicyIfIndex OBJECT-TYPE
+		SYNTAX          InterfaceIndex
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the ifIndex of the physical port to which 
+            the PFC policy map is attached.
+            "
+		::= { dDcbExtPfcIfServicePolicyEntry 1 }  
+	
+    dDcbExtPfcIfSrvPolicyName OBJECT-TYPE
+		SYNTAX          DisplayString (SIZE(1..32))
+		MAX-ACCESS      read-create
+		STATUS          current
+		DESCRIPTION
+		    "Indicates the name of the PFC policy map to be
+            attached."
+		::= { dDcbExtPfcIfServicePolicyEntry 2 }	
+
+	dDcbExtPfcIfSrvPolicyRowStaus OBJECT-TYPE
+		SYNTAX	RowStatus
+		MAX-ACCESS  read-create
+		STATUS  current
+		DESCRIPTION
+		    "This object indicates the status of this entry."
+		::= { dDcbExtPfcIfServicePolicyEntry 3 }
+
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	dDcbExtCompliances OBJECT IDENTIFIER ::= { dDcbExtMIBConformance 1 }
+		
+	dDcbExtCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKSW-DCB-EXT-MIB."
+		MODULE -- this module
+				
+		GROUP       dDcbExtEtsGroup 
+           DESCRIPTION 
+              "This group is required only if ETS feature
+              is implemented by the agent."
+		
+        GROUP       dDcbExtPfcGroup 
+           DESCRIPTION 
+              "This group is required only if PFC feature
+              is implemented by the agent."
+        
+        GROUP       dDcbExtPfcPolicyCfgGroup 
+           DESCRIPTION 
+              "This group is required only if configuring PFC with policy mechanism
+              is implemented by the agent."
+		::= { dDcbExtCompliances 1 }
+		
+	dDcbExtGroups OBJECT IDENTIFIER ::= { dDcbExtMIBConformance 2 }
+	
+	dDcbExtEtsGroup OBJECT-GROUP
+		OBJECTS { 
+			dDcbExtEtsRecoPriAssTrafficClass
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing ETS configuration."
+		::= { dDcbExtGroups 1 }
+	
+    dDcbExtPfcGroup OBJECT-GROUP
+		OBJECTS { 
+            dDcbExtPfcClearRxCounterByIf,
+            dDcbExtPfcClearTxCounterByIf,
+            dDcbExtPfcClearRxTxCounterByIf,
+            dDcbExtPfcClearAllCounters			
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing management for PFC counters."
+		::= { dDcbExtGroups 2 }
+	
+    dDcbExtPfcPolicyCfgGroup OBJECT-GROUP
+		OBJECTS { 
+            dDcbExtNqosClassCosLst,
+            dDcbExtNqosClassRowStaus,
+            dDcbExtPfcPolicyClsPauseEnabled,            
+            dDcbExtPfcPolicyRowStatus,
+            dDcbExtPfcIfSrvPolicyName,
+            dDcbExtPfcIfSrvPolicyRowStaus 
+		}   
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects configures PFC in class-map/class/policy/
+            service-policy mechanism.
+            "
+		::= { dDcbExtGroups 3 }
+
+
+
+END
+

@@ -1,0 +1,345 @@
+-- *****************************************************************
+-- DLINKSW-BFD-MIB.mib : D-Link Access Control List MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+
+DLINKSW-BFD-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,
+		Unsigned32							FROM SNMPv2-SMI
+        TruthValue,DisplayString			
+											FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF
+        InterfaceIndex                      FROM IF-MIB
+		InetAddressType, InetAddress		FROM INET-ADDRESS-MIB
+        dlinkIndustrialCommon               FROM DLINK-ID-REC-MIB;
+
+	dlinkSwBfdMIB MODULE-IDENTITY
+        LAST-UPDATED "201310280000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of BFD(Bidirectional Forwarding Detection) Information for the
+                 proprietary enterprise."         
+
+        REVISION        "201310280000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module."              
+		::= { dlinkIndustrialCommon 171 }
+
+-- -----------------------------------------------------------------------------    
+    dBfdMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwBfdMIB 0 }
+	dBfdMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwBfdMIB 1 }
+    dBfdMIBConformance	 	OBJECT IDENTIFIER ::= { dlinkSwBfdMIB 2 }
+
+-- ----------------------------------------------------------------------------- 
+	dBfdGlobalCtrl          OBJECT IDENTIFIER ::= { dBfdMIBObjects 1 }
+
+	dBfdGlobalState OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "This object is used to control the global state of BFD function."
+		::= { dBfdGlobalCtrl 1 }
+
+-- -----------------------------------------------------------------------------
+	dBfdConfTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DBfdConfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains BFD settings on each IP interface."
+	    ::= { dBfdMIBObjects 2 }
+	
+	dBfdConfEntry OBJECT-TYPE
+	    SYNTAX       DBfdConfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry contains the configuration of BFD on IP interface."
+	    INDEX    { dBfdIfIndex }
+	    ::= { dBfdConfTable 1 }
+
+	DBfdConfEntry ::= 	    SEQUENCE {
+	    dBfdIfIndex					InterfaceIndex,	
+		dBfdDesiredMinTxInterval	Unsigned32,
+        dBfdRequiredMinRXInterval	Unsigned32,
+		dBfdDetectMultiplier		Unsigned32,
+		dBfdSlowTimers				Unsigned32
+	}
+
+	dBfdIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex 
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "Specifies the index of IP interface."
+	    ::= { dBfdConfEntry 1 }
+
+	dBfdDesiredMinTxInterval OBJECT-TYPE
+        SYNTAX          Unsigned32 (50..1000)
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "Specifies the minimum interval (in milliseconds) that the local 
+			system use when transmitting BFD control packets."
+		::= { dBfdConfEntry 2 }
+
+	dBfdRequiredMinRXInterval OBJECT-TYPE
+        SYNTAX		    Unsigned32 (50..1000)
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "Specifies the minimum interval (in milliseconds) between received 
+			BFD control packets that this system is capable of supporting."
+		::= { dBfdConfEntry 3 }
+
+	dBfdDetectMultiplier OBJECT-TYPE
+        SYNTAX          Unsigned32 (3..99)
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "Specifies the BFD detection time multiplier."
+		::= { dBfdConfEntry 4 }
+
+	dBfdSlowTimers OBJECT-TYPE
+        SYNTAX          Unsigned32 (1000..3000)
+        MAX-ACCESS      read-write
+        STATUS  current
+        DESCRIPTION
+           "This object is used to configure BFD slow timer in milliseconds."
+		::= { dBfdConfEntry 5 }
+
+
+-- -----------------------------------------------------------------------------
+	dBfdSessionTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DBfdSessionEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table contains information of BFD sessions."
+	    ::= { dBfdMIBObjects 3 }
+	
+	dBfdSessionEntry OBJECT-TYPE
+	    SYNTAX       DBfdSessionEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry contains the information of BFD sessions."
+	    INDEX    { dBfdSessAddrInetVer,dBfdSessAddr,dBfdSessLocalDiscr  }
+	    ::= { dBfdSessionTable 1 }
+
+	DBfdSessionEntry ::= 	    SEQUENCE {
+	    dBfdSessAddrInetVer			InetAddressType,	
+		dBfdSessAddr				InetAddress,
+        dBfdSessLocalDiscr			Unsigned32,
+		dBfdSessRemoteDiscr			Unsigned32,
+		dBfdSessIntfName			DisplayString,
+		dBfdSessDectectTime			Unsigned32,
+		dBfdSessStatus				INTEGER,
+		dBfdSessLocalDiag			INTEGER,
+		dBfdSessPollBitSet			TruthValue,
+		dBfdSessRemoteMinTxInterval	Unsigned32,
+		dBfdSessRemoteMinRxInterval	Unsigned32,
+		dBfdSessRemoteMultiplier	Unsigned32,
+		dBfdSessProtocol			DisplayString
+	}
+
+	dBfdSessAddrInetVer OBJECT-TYPE
+	    SYNTAX          InetAddressType 
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The type of dBfdSessAddr."
+	    ::= { dBfdSessionEntry 1 }
+
+	dBfdSessAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS  current
+        DESCRIPTION
+           "The peer address of BFD session."
+		::= { dBfdSessionEntry 2 }
+
+	dBfdSessLocalDiscr OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      not-accessible
+        STATUS  current
+        DESCRIPTION
+           "The the local discriminator of this BFD session, used to demultiplex 
+			multiple BFD sessions between the same pair of systems."
+		::= { dBfdSessionEntry 3 }
+
+	dBfdSessRemoteDiscr OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "The discriminator received from the corresponding remote system."
+		::= { dBfdSessionEntry 4 }
+
+	dBfdSessIntfName OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "The name of IP interface on which the BFD session is built."
+		::= { dBfdSessionEntry 5 }
+
+	dBfdSessDectectTime OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "The detection time."
+		::= { dBfdSessionEntry 6 }
+
+	dBfdSessStatus OBJECT-TYPE
+        SYNTAX          INTEGER {
+			adminDown(1),
+			down(2),
+			init(3),
+			up(4)
+		}
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "The status of BFD session."
+		::= { dBfdSessionEntry 7 }
+
+	dBfdSessLocalDiag OBJECT-TYPE
+        SYNTAX          INTEGER {
+			noDiagnostic(1),
+			controlDetectionTimeExpired(2),
+			echoFunctionFailed(3),
+			neighborSignaledSessionDown(4),
+			forwardingPlaneReset(5),
+			pathDown(6),
+			concatenatedPathDown(7),
+			administrativelyDown(8),
+			reverseConcatenatedPathDown(9)
+		}
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "A diagnostic code specifying the local system's reason for the
+			last change in session state"
+		::= { dBfdSessionEntry 8 }
+
+	dBfdSessPollBitSet OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "Indicates if the Poll bit is set."
+		::= { dBfdSessionEntry 9 }
+
+	dBfdSessRemoteMinTxInterval OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "The last value of Required Min TX Interval received from the
+			remote system in a BFD Control packet."
+		::= { dBfdSessionEntry 10 }
+
+	dBfdSessRemoteMinRxInterval OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "The last value of Required Min RX Interval received from the
+			remote system in a BFD Control packet."
+		::= { dBfdSessionEntry 11 }
+
+	dBfdSessRemoteMultiplier OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "The Detection time multiplier received from the
+			remote system in a BFD Control packet."
+		::= { dBfdSessionEntry 12 }
+
+	dBfdSessProtocol OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS  current
+        DESCRIPTION
+           "Indicates the protocol for which the session is built."
+		::= { dBfdSessionEntry 13 }
+
+
+-- Conformance Information        
+
+    dBfdMIBGroups      OBJECT IDENTIFIER ::= { dBfdMIBConformance 1 }
+    dBfdMIBCompliances OBJECT IDENTIFIER ::= { dBfdMIBConformance 2 }
+
+-- Compliance Statements
+
+    dBfdFullCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION     "The compliance statement"
+        MODULE          -- this module
+        MANDATORY-GROUPS {
+            dBfdGlobalCtrlGroup,
+            dBfdConfGroup,
+			dBfdSessionGroup
+        }
+			              
+        ::= { dBfdMIBCompliances 1 }
+
+    -- units of conformance
+
+    dBfdGlobalCtrlGroup OBJECT-GROUP
+        OBJECTS         {
+			dBfdGlobalState
+        }
+        STATUS          current
+        DESCRIPTION
+            "The object is used to control global state of BFD function."
+        ::= { dBfdMIBGroups 1 }
+
+    dBfdConfGroup OBJECT-GROUP
+        OBJECTS         {
+			dBfdDesiredMinTxInterval,
+            dBfdRequiredMinRXInterval,
+            dBfdDetectMultiplier,
+			dBfdSlowTimers
+        }
+        STATUS          current
+        DESCRIPTION
+            "The object is used to change the setting of BFD on IP interface."
+       ::= { dBfdMIBGroups 2 }
+
+    dBfdSessionGroup OBJECT-GROUP
+        OBJECTS         {
+			dBfdSessRemoteDiscr,
+			dBfdSessIntfName,
+			dBfdSessDectectTime,
+			dBfdSessStatus,
+			dBfdSessLocalDiag,
+			dBfdSessPollBitSet,
+			dBfdSessRemoteMinTxInterval,
+			dBfdSessRemoteMinRxInterval,
+			dBfdSessRemoteMultiplier,
+			dBfdSessProtocol
+		}
+        STATUS          current
+        DESCRIPTION
+            "The object is used to check detail information of BFD sessions."
+       ::= { dBfdMIBGroups 3 }
+
+END

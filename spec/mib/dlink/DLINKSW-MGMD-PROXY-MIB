@@ -1,0 +1,458 @@
+--  *****************************************************************
+--  DLINKSW-MGMD-PROXY-MIB.mib : IGMP/MLD PROXY MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-MGMD-PROXY-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+	    MODULE-IDENTITY, OBJECT-TYPE     FROM SNMPv2-SMI        -- [RFC2578]	    
+	    TruthValue                       FROM SNMPv2-TC         -- [RFC2579]
+	    MODULE-COMPLIANCE, OBJECT-GROUP
+	                                     FROM SNMPv2-CONF       -- [RFC2580]
+	    InterfaceIndexOrZero,InterfaceIndex 
+                                         FROM IF-MIB            -- [RFC2863]
+	    InetAddressType, InetAddress, InetAddressIPv4, 
+	    InetVersion,InetAddressIPv6      FROM INET-ADDRESS-MIB  -- [RFC4001]
+        dlinkIndustrialCommon            FROM DLINK-ID-REC-MIB;        		
+
+
+    dlinkSwMgmdProxyMIB MODULE-IDENTITY
+        LAST-UPDATED "201306170000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for IGMP/MLD Proxy."
+            
+        REVISION "201306170000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'IGMP/MLD Proxy'
+            functionality."
+    ::= { dlinkIndustrialCommon 60 }
+
+-- -----------------------------------------------------------------------------
+    dMgmdProxyMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwMgmdProxyMIB 0 }
+    dMgmdProxyMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwMgmdProxyMIB 1 }
+    dMgmdProxyMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwMgmdProxyMIB 2 }
+-- -----------------------------------------------------------------------------
+    dMgmdProxyIgmpGlobal         OBJECT IDENTIFIER ::= { dMgmdProxyMIBObjects 1 }
+
+	dMgmdProxyIgmpGlobalEnabled OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether the IGMP Proxy is globally 
+	        enabled. "
+	    DEFVAL { false }
+	    ::= { dMgmdProxyIgmpGlobal 1 }
+        
+	dMgmdProxyIgmpUpstreamIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndexOrZero
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "The value of ifIndex for the upstream interface of IGMP
+	        Proxy.
+            A value of zero indicates the upstream interface is not specified.
+            "
+	    ::= { dMgmdProxyIgmpGlobal 2 }
+	
+-- -----------------------------------------------------------------------------
+    dMgmdProxyMldGlobal           OBJECT IDENTIFIER ::= { dMgmdProxyMIBObjects 2 }
+
+	dMgmdProxyMldGlobalEnabled OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether the MLD Proxy is globally enabled. "
+	    DEFVAL { false }
+	    ::= { dMgmdProxyMldGlobal 1 }
+        
+	dMgmdProxyMldUpstreamIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndexOrZero
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "The value of ifIndex for the upstream interface of MLD Proxy.
+            A value of zero indicates the upstream interface is not specified.
+            "
+	    ::= { dMgmdProxyMldGlobal 2 }
+	
+-- -----------------------------------------------------------------------------
+    dMgmdProxyInterfaceCtrl           OBJECT IDENTIFIER ::= { dMgmdProxyMIBObjects 3 }
+
+	dMgmdProxyInterfaceTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DMgmdProxyInterfaceEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the interfaces concerned
+	        with IGMP or MLD Proxy."	
+	    ::= { dMgmdProxyInterfaceCtrl 1 }
+
+	dMgmdProxyInterfaceEntry OBJECT-TYPE
+	    SYNTAX          DMgmdProxyInterfaceEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) representing an interface-specific 
+	        IGMP or MLD Proxy information."
+	    INDEX      { 
+            dMgmdProxyIfIndex,
+	        dMgmdProxyIfIpVersion 
+        }	
+	    ::= { dMgmdProxyInterfaceTable 1 }
+	
+	DMgmdProxyInterfaceEntry ::= SEQUENCE {
+	    dMgmdProxyIfIndex                 	InterfaceIndex,
+	    dMgmdProxyIfIpVersion            	InetVersion, 	    
+	    dMgmdProxyIfDownstreamEnabled   	TruthValue,
+	    dMgmdProxyIfDesignatedFwdEnabled   	TruthValue
+	}
+	
+	dMgmdProxyIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The ifIndex value of this IGMP/MLD Proxy interface."
+	    ::= { dMgmdProxyInterfaceEntry 1 }
+		
+	dMgmdProxyIfIpVersion OBJECT-TYPE
+	    SYNTAX          InetVersion
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The IP version of this proxy interface."
+	    ::= { dMgmdProxyInterfaceEntry 2 }
+			
+	dMgmdProxyIfDownstreamEnabled OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether this interface is an IGMP/MLD proxy downstream 
+	        interface."
+	    DEFVAL { false }
+	    ::= { dMgmdProxyInterfaceEntry 3 }
+	
+	dMgmdProxyIfDesignatedFwdEnabled OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether this interface is a designated forwarder 
+	        interface."
+	    DEFVAL { false }
+	    ::= { dMgmdProxyInterfaceEntry 4 }
+	
+-- -----------------------------------------------------------------------------
+    dMgmdProxyGroupRecord           OBJECT IDENTIFIER ::= { dMgmdProxyMIBObjects 4 }
+
+--
+--  The MGMD Proxy Group Table
+--
+
+	dMgmdProxyGroupTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DMgmdProxyGroupEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the IP multicast groups for
+	        which there are members on any downstream interface."	
+	    ::= { dMgmdProxyGroupRecord 1 }
+	
+	dMgmdProxyGroupEntry OBJECT-TYPE
+	    SYNTAX          DMgmdProxyGroupEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) in the dMgmdProxyGroupTable."	
+	    INDEX      { 
+            dMgmdProxyGroupAddressType, 
+			dMgmdProxyGroupAddress 
+        }
+	
+	    ::= { dMgmdProxyGroupTable 1 }
+	
+	DMgmdProxyGroupEntry ::= SEQUENCE {
+	    dMgmdProxyGroupAddressType        InetAddressType,
+	    dMgmdProxyGroupAddress            InetAddress,
+	    dMgmdProxyGroupSourceFilterMode   INTEGER
+	}
+	
+	dMgmdProxyGroupAddressType OBJECT-TYPE
+	    SYNTAX          InetAddressType -- { ipv4(1), ipv6(2) }
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The address type of the multicast group.  This
+	        value applies to the dMgmdProxyGroupAddress."	
+	    ::= { dMgmdProxyGroupEntry 1 }
+	
+	dMgmdProxyGroupAddress OBJECT-TYPE
+	    SYNTAX          InetAddress (SIZE(4|16))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The IP multicast group address of the entry."	
+	    ::= { dMgmdProxyGroupEntry 2 }
+	
+	dMgmdProxyGroupSourceFilterMode OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            include (1),
+	        exclude (2) 
+        }
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The current group record state, which indicates whether the 
+			state is INCLUDE or EXCLUDE."	
+	    ::= { dMgmdProxyGroupEntry 3 }
+
+--
+--  The MGMD Proxy Source list Table
+--
+
+	dMgmdProxySrcListTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DMgmdProxySrcListEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the source addresses
+	        corresponding to each interface and multicast group pair."	
+	    ::= { dMgmdProxyGroupRecord 2 }
+	
+	dMgmdProxySrcListEntry OBJECT-TYPE
+	    SYNTAX          DMgmdProxySrcListEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) in the dMgmdProxySrcListTable."
+	    INDEX      { 
+            dMgmdProxySrcListGroupAddressType,
+	        dMgmdProxySrcListGroupAddress,
+	        dMgmdProxySrcListHostAddress 
+        }	
+	    ::= { dMgmdProxySrcListTable 1 }
+	
+	DMgmdProxySrcListEntry ::= SEQUENCE {
+	    dMgmdProxySrcListGroupAddressType    InetAddressType,
+	    dMgmdProxySrcListGroupAddress        InetAddress,
+	    dMgmdProxySrcListHostAddress         InetAddress
+	}
+	
+	dMgmdProxySrcListGroupAddressType OBJECT-TYPE
+	    SYNTAX          InetAddressType -- { ipv4(1), ipv6(2) }
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The address type of the multicast group address.
+	        This value applies to the dMgmdProxySrcListGroupAddress and
+            dMgmdProxySrcListHostAddress."	
+	    ::= { dMgmdProxySrcListEntry 1 }
+	
+	dMgmdProxySrcListGroupAddress OBJECT-TYPE
+	    SYNTAX          InetAddress (SIZE(4|16))
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The IP multicast group address for which this entry
+	        contains information."	
+	    ::= { dMgmdProxySrcListEntry 2 }
+	
+	dMgmdProxySrcListHostAddress OBJECT-TYPE
+	    SYNTAX          InetAddress (SIZE(4|16))
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The host address to which this entry corresponds.  The
+	        dMgmdProxyGroupSourceFilterMode value for this group address
+	        and interface indicates whether this host address is
+	        included or excluded."	
+	    ::= { dMgmdProxySrcListEntry 3 }
+
+-- -----------------------------------------------------------------------------
+    dMgmdProxyForwardingCache	OBJECT IDENTIFIER ::= { dMgmdProxyMIBObjects 5 }
+
+--
+--  The IP Multicast Forwarding Next Hop Table
+--
+
+	dMgmdProxyFwdNextHopTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DMgmdProxyFwdNextHopEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table containing information on the next-
+	        hops on outgoing interfaces for forwarding IP multicast
+	        datagrams.  Each entry is one of a list of next-hops on
+	        outgoing interfaces for particular sources sending to a
+	        particular multicast group address."
+	    ::= { dMgmdProxyForwardingCache 1 }
+	
+	dMgmdProxyFwdNextHopEntry OBJECT-TYPE
+	    SYNTAX          DMgmdProxyFwdNextHopEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) in the list of next-hops on
+	        outgoing interfaces to which IP multicast datagrams from
+	        particular sources to a IP multicast group address are
+	        routed."
+	    INDEX      { 
+            dMgmdProxyFwdNextHopGrpAddrType,
+            dMgmdProxyFwdNextHopGrpAddr, 
+			dMgmdProxyFwdNextHopSourceAddr,
+			dMgmdProxyFwdNextHopInIfIndex,
+	        dMgmdProxyFwdNextHopIfIndex
+        }
+	    ::= { dMgmdProxyFwdNextHopTable 1 }
+	
+	DMgmdProxyFwdNextHopEntry ::= SEQUENCE {
+        dMgmdProxyFwdNextHopGrpAddrType	    InetAddressType,
+	    dMgmdProxyFwdNextHopGrpAddr         InetAddress,
+	    dMgmdProxyFwdNextHopSourceAddr      InetAddress,
+	    dMgmdProxyFwdNextHopInIfIndex       InterfaceIndex,
+	    dMgmdProxyFwdNextHopIfIndex         InterfaceIndex
+	}
+	
+    dMgmdProxyFwdNextHopGrpAddrType OBJECT-TYPE
+	    SYNTAX     InetAddressType -- { ipv4(1), ipv6(2) }
+	    MAX-ACCESS not-accessible
+	    STATUS     current
+	    DESCRIPTION
+	        "The address type of the entry.  This value applies
+			to the dMgmdProxyFwdNextHopGrpAddr and dMgmdProxyFwdNextHopSourceAddr."	
+	    ::= { dMgmdProxyFwdNextHopEntry 1 }
+
+	dMgmdProxyFwdNextHopGrpAddr OBJECT-TYPE
+	    SYNTAX          InetAddress
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The IP multicast group for which this entry specifies a
+	        next-hop on an outgoing interface."
+	    ::= { dMgmdProxyFwdNextHopEntry 2 }
+	
+	dMgmdProxyFwdNextHopSourceAddr OBJECT-TYPE
+	    SYNTAX          InetAddress
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The network address identifies the sources for which
+			this entry specifies a next-hop on an outgoing interface."
+	    ::= { dMgmdProxyFwdNextHopEntry 3 }
+	
+	dMgmdProxyFwdNextHopInIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The value of ifIndex of the receiving interface on which IP
+	        datagrams sent by these sources to this multicast address."
+	    ::= { dMgmdProxyFwdNextHopEntry 4 }
+	
+	dMgmdProxyFwdNextHopIfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "The ifIndex value of the interface for the outgoing
+	        interface for this next-hop.           
+            "
+	    ::= { dMgmdProxyFwdNextHopEntry 5 }
+	
+		
+--
+-- Conformance information
+--
+
+	dMgmdProxyMIBCompliances OBJECT IDENTIFIER ::= { dMgmdProxyMIBConformance 1 }
+	dMgmdProxyMIBGroups  OBJECT IDENTIFIER ::= { dMgmdProxyMIBConformance 2 }
+
+--
+-- Compliance statements
+--
+		
+	dMgmdProxyMIBCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKSW-MGMD-PROXY-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    dMgmdProxyGblCfgGroup,
+		    dMgmdProxyIfCfgGroup,  
+		    dMgmdProxyGrpInfoGroup
+		}
+
+        OBJECT   dMgmdProxyMldGlobalEnabled
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is required when MLD Proxy is supported."
+  
+       OBJECT   dMgmdProxyMldUpstreamIfIndex
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is required when MLD Proxy is supported."
+
+	    OBJECT dMgmdProxyIfDesignatedFwdEnabled
+        DESCRIPTION
+            "This object is optional."
+          
+    ::= { dMgmdProxyMIBCompliances 1 }            
+
+--
+-- Units of conformance
+--		
+	dMgmdProxyGblCfgGroup OBJECT-GROUP
+		OBJECTS { 
+		    dMgmdProxyIgmpGlobalEnabled,
+            dMgmdProxyIgmpUpstreamIfIndex,
+            dMgmdProxyMldGlobalEnabled,            
+            dMgmdProxyMldUpstreamIfIndex
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing global configuration about 
+			IGMP/MLD Proxy."
+		::= { dMgmdProxyMIBGroups 1 }
+	
+    dMgmdProxyIfCfgGroup OBJECT-GROUP
+		OBJECTS { 		     
+		    dMgmdProxyIfDownstreamEnabled,
+            dMgmdProxyIfDesignatedFwdEnabled
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing IGMP/MLD Proxy per interface 
+			configuration."
+		::= { dMgmdProxyMIBGroups 2 }       
+			     
+	dMgmdProxyGrpInfoGroup OBJECT-GROUP
+		OBJECTS { 
+		    dMgmdProxyGroupSourceFilterMode,
+            dMgmdProxySrcListHostAddress,            
+            dMgmdProxyFwdNextHopIfIndex
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing multicast group information about
+            IGMP/MLD Proxy."
+		::= { dMgmdProxyMIBGroups 3 }
+   
+
+
+END
+

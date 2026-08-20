@@ -1,0 +1,158 @@
+--  *****************************************************************
+--  DLINKSW-PBR-MIB.mib : Policy Based Route MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-PBR-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        NOTIFICATION-TYPE,
+        OBJECT-TYPE,
+        Unsigned32
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, 
+        OBJECT-GROUP
+		    FROM SNMPv2-CONF
+        InterfaceIndex        
+            FROM IF-MIB 
+        InetAddressType
+            FROM INET-ADDRESS-MIB
+        DisplayString,
+        RowStatus
+            FROM SNMPv2-TC
+        dlinkIndustrialCommon
+            FROM DLINK-ID-REC-MIB;
+
+
+    dlinkSwPbrMIB MODULE-IDENTITY
+        LAST-UPDATED "201411170000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "         D-Link Corporation
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:    +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "        
+        DESCRIPTION
+            "This MIB module defines objects for Policy Based Route."
+
+        REVISION "201301180000Z"
+        DESCRIPTION "This is the first version of the MIB file for 
+                     'Policy Based Route' functionality."
+
+        REVISION "201411170000Z"
+        DESCRIPTION "Support IPv6."
+
+		::= { dlinkIndustrialCommon 92 }
+
+-- -----------------------------------------------------------------------------
+    dPbrMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwPbrMIB 0 }
+    dPbrMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwPbrMIB 1 }
+    dPbrMIBConformance      OBJECT IDENTIFIER ::= { dlinkSwPbrMIB 2 }
+
+-- -----------------------------------------------------------------------------
+-- dPbrMIBObjects
+-- -----------------------------------------------------------------------------
+    dPbrRmapTableNum  OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Indicates the number of entries present in the dPbrRmapTable."
+        ::= { dPbrMIBObjects 1 }
+        
+    dPbrRmapTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF DPbrRmapEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Table lists the policy based route settings for VLAN interfaces.
+            The Policy Based Route can enforce the policy to route the packet 
+            received on an interface."
+        ::= { dPbrMIBObjects 2 }
+
+    dPbrRmapEntry OBJECT-TYPE
+        SYNTAX      DPbrRmapEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Each entry in the dPbrRmapTable contains the name of associated route
+            map."              
+        INDEX   { dPbrRmapIfIndex, dPbrRmapInetAddrType}
+        ::= { dPbrRmapTable 1 }
+
+    DPbrRmapEntry ::= SEQUENCE {
+        dPbrRmapIfIndex         InterfaceIndex,
+        dPbrRmapInetAddrType	InetAddressType,
+        dPbrRmapName            DisplayString,
+        dPbrRmapRowStatus      	RowStatus
+    }
+
+    dPbrRmapIfIndex     OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The ifIndex of the VLAN interface."
+        ::= { dPbrRmapEntry 1 }
+
+    dPbrRmapInetAddrType OBJECT-TYPE
+        SYNTAX       InetAddressType
+        MAX-ACCESS   not-accessible
+        STATUS       current
+        DESCRIPTION
+           "The IP address type of this interface. 
+            ipv4(1) and ipv6(2) are the only two values supported in this MIB module."
+           ::= { dPbrRmapEntry 2 }
+           
+    dPbrRmapName        OBJECT-TYPE
+        SYNTAX          DisplayString 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the associated route map which is used for 
+            routing policy."
+        ::= { dPbrRmapEntry 3 }
+        
+    dPbrRmapRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The status of this conceptual row. This object is used to create,
+            delete or modify route map association for a VLAN interface."
+        ::= { dPbrRmapEntry 4 }
+
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************
+    dPbrMIBCompliances  OBJECT IDENTIFIER ::= { dPbrMIBConformance 1 }
+    dPbrMIBGroups       OBJECT IDENTIFIER ::= { dPbrMIBConformance 2 }
+	
+	dPbrMIBCompliance   MODULE-COMPLIANCE
+        STATUS          current   
+        DESCRIPTION
+            "The compliance statement for DLINKSW-PBR-MIB."
+        MODULE -- this module
+        MANDATORY-GROUPS {  
+            dPbrRmapBasicGroup 
+        }                                                     
+        ::= { dPbrMIBCompliances 1 }
+        
+    dPbrRmapBasicGroup OBJECT-GROUP
+        OBJECTS    {      
+            dPbrRmapTableNum,                 
+            dPbrRmapName,          
+            dPbrRmapRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "The collection of objects provides information for Policy
+            Based Route table and route map configuration for VLAN 
+            interfaces."
+        ::= { dPbrMIBGroups 1 }                  
+    
+END
+

@@ -1,0 +1,23 @@
+-- *****************************************************************************
+-- proprietary management MIB
+-- *****************************************************************************
+
+
+
+SWDGS1250PRIMGMT-MIB    DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY             FROM SNMPv2-SMI
+        dlink-products   FROM DLINK-ID-REC-MIB;
+
+-- 
+--   DGS1250 series Product 
+-- 
+
+    dlink-Dgs1250Prod						OBJECT IDENTIFIER ::= { dlink-products 165 }
+    dlink-Dgs1250Prod-DGS-1250-28Xax			OBJECT IDENTIFIER ::= { dlink-Dgs1250Prod 1 }
+    dlink-Dgs1250Prod-DGS-1250-28XMPax			OBJECT IDENTIFIER ::= { dlink-Dgs1250Prod 2 }
+    dlink-Dgs1250Prod-DGS-1250-52Xax			OBJECT IDENTIFIER ::= { dlink-Dgs1250Prod 3 }
+    dlink-Dgs1250Prod-DGS-1250-52XMPax			OBJECT IDENTIFIER ::= { dlink-Dgs1250Prod 4 }
+
+END
