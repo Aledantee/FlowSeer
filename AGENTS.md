@@ -12,7 +12,8 @@ Binding on humans and agents equally; each doc states its own scope.
   the rules coding agents must follow. Its comment rules and agent rules apply to
   every language in the repo.
 - [`docs/code-style-proto.md`](docs/code-style-proto.md) — protobuf schemas under
-  `spec/proto/` (buf modules, naming, evolution, protovalidate).
+  `spec/proto/` (buf modules, edition 2024, presence, symbol visibility, naming,
+  evolution, protovalidate, and what editions change in generated Go).
 - [`docs/code-style-web.md`](docs/code-style-web.md) — the TypeScript web frontend
   (`frontend/web/`; own toolchain, the Go rules do not govern it).
 
