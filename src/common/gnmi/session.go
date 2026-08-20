@@ -313,7 +313,7 @@ func (s *Session) Set(ctx context.Context, req SetRequest) error {
 	// Deprecated per-result messages are still what several
 	// implementations use for partial failure; surface the first.
 	for _, r := range resp.GetResponse() {
-		if msg := r.GetMessage(); msg != nil && msg.GetMessage() != "" {
+		if msg := r.GetMessage(); msg != nil && msg.GetMessage() != "" { //nolint:staticcheck // deprecated upstream but the only per-path failure channel real devices use
 			return errs.New().
 				Code(ErrCodeRPC).
 				Attr("failed_path", FromProtoPath(r.GetPath()).String()).
@@ -329,7 +329,7 @@ func (s *Session) setError(err error, resp *gpb.SetResponse) error {
 	mapped := s.mapError("Set", err)
 	if resp != nil {
 		for _, r := range resp.GetResponse() {
-			if msg := r.GetMessage(); msg != nil && msg.GetMessage() != "" {
+			if msg := r.GetMessage(); msg != nil && msg.GetMessage() != "" { //nolint:staticcheck // deprecated upstream but the only per-path failure channel real devices use
 				return errs.From(mapped).
 					Attr("failed_path", FromProtoPath(r.GetPath()).String()).
 					Msgf("Set failed for %s", FromProtoPath(r.GetPath()).String())

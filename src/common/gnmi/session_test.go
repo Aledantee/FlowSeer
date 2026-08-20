@@ -236,7 +236,7 @@ func TestSetPartialFailureNamesPath(t *testing.T) {
 		setResp: &gpb.SetResponse{Response: []*gpb.UpdateResult{{
 			Path:    &gpb.Path{Elem: []*gpb.PathElem{{Name: "system"}, {Name: "config"}, {Name: "hostname"}}},
 			Op:      gpb.UpdateResult_UPDATE,
-			Message: &gpb.Error{Message: "hostname is read-only on this platform"},
+			Message: &gpb.Error{Message: "hostname is read-only on this platform"}, //nolint:staticcheck // deprecated upstream; exercised deliberately
 		}}},
 	}
 	s := dialFake(t, f)
