@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/pump"
 )
 
 // rawwalk.go — the raw varbind fast path consumed by mibgen-generated
@@ -240,7 +241,7 @@ func base128Len(b []byte) int {
 // machine; consumers iterate via [RawWalker.Iter] and must check
 // [RawWalker.Err] after the loop, exactly as with [Walker].
 type RawWalker struct {
-	*pump[RawVarBind]
+	pump *pump.Pump[RawVarBind]
 }
 
 // NewRawWalker constructs a RawWalker tied to ctx with the given buffer
@@ -250,7 +251,7 @@ func NewRawWalker(ctx context.Context, bufferSize int) *RawWalker {
 	if bufferSize <= 0 {
 		bufferSize = defaultRowBuffer
 	}
-	return &RawWalker{pump: newPump[RawVarBind](ctx, bufferSize)}
+	return &RawWalker{pump: pump.New[RawVarBind](ctx, bufferSize)}
 }
 
 // Pump runs fn in a new goroutine with the same contract as
@@ -260,30 +261,35 @@ func NewRawWalker(ctx context.Context, bufferSize int) *RawWalker {
 func (w *RawWalker) Pump(fn func(ctx context.Context)) {
 	go func() {
 		defer w.Done()
-		fn(w.ctx)
+		fn(w.pump.Context())
 	}()
 }
 
 // Send delivers one raw varbind to the consumer; false means the
 // consumer has signaled termination. Same contract as [Walker.Send].
-func (w *RawWalker) Send(rv RawVarBind) bool { return w.send(rv) }
+func (w *RawWalker) Send(rv RawVarBind) bool { return w.pump.Send(rv) }
 
 // Fail records err as the terminal error and closes the data channel.
 // Same contract as [Walker.Fail].
-func (w *RawWalker) Fail(err error) { w.fail(err) }
+func (w *RawWalker) Fail(err error) { w.pump.Fail(err) }
 
 // Done signals normal completion. Same contract as [Walker.Done].
-func (w *RawWalker) Done() { w.done() }
+func (w *RawWalker) Done() { w.pump.Done() }
+
+// Err returns the first terminal error recorded via [RawWalker.Fail],
+// or nil if the walk completed naturally or is still running. Same
+// contract as [Walker.Err].
+func (w *RawWalker) Err() error { return w.pump.Err() }
 
 // Iter returns the range-over-function form of the raw walk. Breaking
 // out of the loop terminates the pump; check [RawWalker.Err] after the
 // loop.
 func (w *RawWalker) Iter() iter.Seq[RawVarBind] {
 	return func(yield func(RawVarBind) bool) {
-		for rv := range w.ch {
+		for rv := range w.pump.Data() {
 			if !yield(rv) {
-				w.signalStop()
-				for range w.ch {
+				w.pump.SignalStop()
+				for range w.pump.Data() {
 				}
 				return
 			}
@@ -294,8 +300,8 @@ func (w *RawWalker) Iter() iter.Seq[RawVarBind] {
 // Close signals the pump to terminate early. Same contract as
 // [Walker.Close].
 func (w *RawWalker) Close() error {
-	w.signalStop()
-	w.cancel()
+	w.pump.SignalStop()
+	w.pump.Cancel()
 	return nil
 }
 

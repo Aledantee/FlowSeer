@@ -166,7 +166,7 @@ func (l *listener) watchStop() {
 // other socket error.
 func (l *listener) listenLoop() {
 	defer close(l.loopDone)
-	defer l.ts.done()
+	defer l.ts.pump.Done()
 
 	buf := make([]byte, trapBufSize)
 	for {
@@ -177,7 +177,7 @@ func (l *listener) listenLoop() {
 				return // clean shutdown
 			default:
 			}
-			l.ts.fail(errs.Wrap(err, "trap listener"))
+			l.ts.pump.Fail(errs.Wrap(err, "trap listener"))
 			return
 		}
 		l.handlePacket(buf[:n], remote)

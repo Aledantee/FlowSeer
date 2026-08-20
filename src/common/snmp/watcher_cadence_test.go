@@ -147,7 +147,7 @@ func TestWatcher_AdaptiveCadence_QuietTicksStep(t *testing.T) {
 	defer func() { _ = w.Close() }()
 
 	// Cold-start emits the Added; drain it.
-	<-w.ch
+	<-w.pump.Data()
 
 	// Sample the stateInterval continuously so we capture the
 	// maximum interval observed regardless of where the cadence
@@ -242,7 +242,7 @@ func TestWatcher_AdaptiveCadence_AdvanceResets(t *testing.T) {
 	defer func() { _ = w.Close() }()
 
 	// Drain cold-start Added.
-	<-w.ch
+	<-w.pump.Data()
 
 	// Sample the stateInterval continuously in a separate
 	// goroutine so we capture the post-advance minimum even if a
@@ -275,7 +275,7 @@ func TestWatcher_AdaptiveCadence_AdvanceResets(t *testing.T) {
 loop:
 	for {
 		select {
-		case ev := <-w.ch:
+		case ev := <-w.pump.Data():
 			if ev.Kind == ChangeKindModified {
 				break loop
 			}
@@ -387,7 +387,7 @@ func TestWatcher_CounterTier_FiresOnOwnCadence(t *testing.T) {
 	defer func() { _ = w.Close() }()
 
 	// Drain cold-start.
-	<-w.ch
+	<-w.pump.Data()
 
 	// Wait for at least 3 Counter-tier Modified events.
 	counterModifieds := 0
@@ -395,7 +395,7 @@ func TestWatcher_CounterTier_FiresOnOwnCadence(t *testing.T) {
 loop:
 	for {
 		select {
-		case ev := <-w.ch:
+		case ev := <-w.pump.Data():
 			if ev.Kind == ChangeKindModified {
 				counterModifieds++
 				if counterModifieds >= 3 {
@@ -441,7 +441,7 @@ func TestWatcher_CounterTier_NoColumnsNoExtraTicks(t *testing.T) {
 	}
 	defer func() { _ = w.Close() }()
 
-	<-w.ch // cold-start
+	<-w.pump.Data() // cold-start
 
 	time.Sleep(150 * time.Millisecond)
 	// No Get calls should have fired (no Counter-tier and no
@@ -564,14 +564,14 @@ func TestWatcher_StaticTier_RespectedByOverride(t *testing.T) {
 	defer func() { _ = w.Close() }()
 
 	// Drain cold-start (1 Added).
-	<-w.ch
+	<-w.pump.Data()
 
 	// Wait for the indicator-advance Modified.
 	timeout := time.After(1 * time.Second)
 loop:
 	for {
 		select {
-		case ev := <-w.ch:
+		case ev := <-w.pump.Data():
 			if ev.Kind == ChangeKindModified {
 				// The Modified event should reflect the new
 				// Status (2) but NOT a new IfDescr (because

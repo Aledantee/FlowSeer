@@ -139,7 +139,7 @@ func TestWatcher_PerRow_QuietTick_NoEvents(t *testing.T) {
 	}
 	// Wait for ~5 ticks of quiet; assert no additional events.
 	select {
-	case ev := <-w.ch:
+	case ev := <-w.pump.Data():
 		t.Errorf("unexpected event after quiet ticks: %+v", ev)
 	case <-time.After(150 * time.Millisecond):
 		// expected
@@ -317,7 +317,7 @@ func TestWatcher_PerRow_IndicatorAdvanceButRowEqual_NoEmit(t *testing.T) {
 	}
 	// Confirm no Modified follows within a tick window.
 	select {
-	case ev := <-w.ch:
+	case ev := <-w.pump.Data():
 		t.Errorf("unexpected Modified event: %+v", ev)
 	case <-time.After(80 * time.Millisecond):
 		// expected
@@ -1005,7 +1005,7 @@ func drainEvents[Row any](t *testing.T, w *Watcher[Row], n int, deadline time.Du
 	defer timer.Stop()
 	for len(out) < n {
 		select {
-		case ev, ok := <-w.ch:
+		case ev, ok := <-w.pump.Data():
 			if !ok {
 				return out
 			}

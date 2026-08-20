@@ -466,7 +466,7 @@ loop:
 		default:
 		}
 		select {
-		case ev, ok := <-w.ch:
+		case ev, ok := <-w.pump.Data():
 			if !ok {
 				break loop
 			}
@@ -503,7 +503,7 @@ loop:
 	// Steady state: after cold-start no further events should arrive
 	// within a short window (the indicator never advances).
 	select {
-	case ev, ok := <-w.ch:
+	case ev, ok := <-w.pump.Data():
 		if ok {
 			t.Errorf("unexpected post-cold-start event: %+v", ev)
 		}
@@ -527,7 +527,7 @@ loop:
 	// any in-flight events the close path may emit.
 	_ = w.Close()
 	for {
-		ev, ok := <-w.ch
+		ev, ok := <-w.pump.Data()
 		if !ok {
 			break
 		}
@@ -559,7 +559,7 @@ func TestWatcher_EmptyColdStart(t *testing.T) {
 
 	// Expect no events; the steady-state loop is alive.
 	select {
-	case ev, ok := <-w.ch:
+	case ev, ok := <-w.pump.Data():
 		if ok {
 			t.Errorf("unexpected event after empty cold-start: %+v", ev)
 		}
@@ -574,7 +574,7 @@ func TestWatcher_EmptyColdStart(t *testing.T) {
 	// data race with the tick loop (#17). Drain any in-flight events.
 	_ = w.Close()
 	for {
-		ev, ok := <-w.ch
+		ev, ok := <-w.pump.Data()
 		if !ok {
 			break
 		}
@@ -671,7 +671,7 @@ func TestWatcher_CloseIsIdempotent(t *testing.T) {
 	}
 
 	// Drain cold-start before closing.
-	<-w.ch
+	<-w.pump.Data()
 
 	if err := w.Close(); err != nil {
 		t.Errorf("Close #1: %v", err)
@@ -819,7 +819,7 @@ func TestWatcher_NestedWalkerNoLeakAcrossCycles(t *testing.T) {
 			t.Fatalf("cycle %d NewWatcher: %v", cycle, err)
 		}
 		// Drain a single event then Close (mid-cold-start).
-		<-w.ch
+		<-w.pump.Data()
 		_ = w.Close()
 
 		// Each cycle must return goroutine count to baseline within

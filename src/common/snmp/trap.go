@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/pump"
 )
 
 // Trap is the decoded form of an SNMPv1 trap, SNMPv2c TRAP2, or SNMPv3
@@ -77,7 +78,7 @@ var ErrTrapStreamNotV3Capable = errs.Msg("TrapStream has no v3 engine handler in
 //
 // # Synchronization model
 //
-// TrapStream embeds a generic [*pump] of [Trap] which owns the shared
+// TrapStream wraps the shared [pump.Pump] of [Trap], which owns the shared
 // channel-pump state machine (data channel, stop signal, idempotent
 // close guards, send/close RWMutex, derived context, and first-
 // terminal-error latch). TrapStream-specific state — the atomic drop
@@ -85,13 +86,13 @@ var ErrTrapStreamNotV3Capable = errs.Msg("TrapStream has no v3 engine handler in
 // the "current" latch for the Scanner shape — lives on TrapStream
 // itself.
 type TrapStream struct {
-	*pump[Trap]
+	pump *pump.Pump[Trap]
 
 	// dropped is the monotonic count of traps lost to buffer overflow or
 	// rate-limiting. Loaded with acquire semantics by [TrapStream.Dropped].
 	dropped atomic.Uint64
 
-	// currentMu guards current. Distinct from the embedded pump's
+	// currentMu guards current. Distinct from the wrapped pump's
 	// terminal-error mutex so a Current/Next call cannot block on a
 	// concurrent Fail/Err read.
 	currentMu sync.Mutex
@@ -128,7 +129,7 @@ func NewTrapStream(ctx context.Context, bufferSize int) *TrapStream {
 		bufferSize = defaultTrapBuffer
 	}
 	ts := &TrapStream{
-		pump: newPump[Trap](ctx, bufferSize),
+		pump: pump.New[Trap](ctx, bufferSize),
 	}
 	// Spawn a small watcher goroutine so a ctx cancel triggers Fail
 	// with ctx.Err() — matching the Walker contract that a canceled
@@ -142,17 +143,17 @@ func NewTrapStream(ctx context.Context, bufferSize int) *TrapStream {
 // as either stop or ctx.Done() fires.
 func (ts *TrapStream) watchCtx() {
 	select {
-	case <-ts.ctx.Done():
+	case <-ts.pump.Context().Done():
 		// Only record context errors as terminal; a clean Close /
 		// Done also cancels the context but those code paths beat
 		// us to closing stop first.
 		select {
-		case <-ts.stop:
+		case <-ts.pump.Stopped():
 			return
 		default:
 		}
-		ts.fail(ts.ctx.Err())
-	case <-ts.stop:
+		ts.pump.Fail(ts.pump.Context().Err())
+	case <-ts.pump.Stopped():
 		return
 	}
 }
@@ -170,7 +171,7 @@ func (ts *TrapStream) watchCtx() {
 // terminating, Push silently drops the value without incrementing the
 // drop counter — a clean shutdown is not a loss event.
 func (ts *TrapStream) Push(t Trap) {
-	_, dropped := ts.trySendDropOldest(t)
+	_, dropped := ts.pump.TrySendDropOldest(t)
 	if dropped > 0 {
 		ts.dropped.Add(uint64(dropped))
 	}
@@ -191,7 +192,7 @@ func (ts *TrapStream) installEngineHandler(fn func(USMConfig) error) {
 // mirroring [context.Context.Done]. The listener selects on it to know
 // when to release its resources.
 func (ts *TrapStream) stopped() <-chan struct{} {
-	return ts.stop
+	return ts.pump.Stopped()
 }
 
 // installCloser registers a listener-side teardown callback that
@@ -227,10 +228,10 @@ func (ts *TrapStream) recordDropped() {
 // The name mirrors [Walker.Iter] for symmetry across the library.
 func (ts *TrapStream) Iter() iter.Seq[Trap] {
 	return func(yield func(Trap) bool) {
-		for t := range ts.ch {
+		for t := range ts.pump.Data() {
 			if !yield(t) {
-				ts.signalStop()
-				for range ts.ch {
+				ts.pump.SignalStop()
+				for range ts.pump.Data() {
 				}
 				return
 			}
@@ -243,7 +244,7 @@ func (ts *TrapStream) Iter() iter.Seq[Trap] {
 // canceled. Callers should check [TrapStream.Err] after Next returns
 // false.
 func (ts *TrapStream) Next() bool {
-	t, ok := ts.recv()
+	t, ok := ts.pump.Recv()
 	if ok {
 		ts.currentMu.Lock()
 		ts.current = t
@@ -275,6 +276,11 @@ func (ts *TrapStream) Current() Trap {
 func (ts *TrapStream) Dropped() uint64 {
 	return ts.dropped.Load()
 }
+
+// Err returns the stream's first terminal error (e.g. a canceled
+// context surfaced by the ctx watcher), or nil if the stream shut down
+// cleanly or is still running. Same contract as [Walker.Err].
+func (ts *TrapStream) Err() error { return ts.pump.Err() }
 
 // RegisterEngine installs a [USMConfig] entry in the running
 // listener's v3 security table. Required for dynamic device discovery
@@ -324,8 +330,8 @@ func (ts *TrapStream) RegisterEngine(cfg USMConfig) error {
 func (ts *TrapStream) Close() error {
 	// done() = signalStop + closeData; both are idempotent and safe
 	// to interleave with cancel().
-	ts.done()
-	ts.cancel()
+	ts.pump.Done()
+	ts.pump.Cancel()
 	// Pull the closer atomically so we invoke it at most once even
 	// under concurrent Close calls.
 	ts.closerMu.Lock()
