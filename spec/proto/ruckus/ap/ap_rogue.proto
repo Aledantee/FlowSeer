@@ -1,0 +1,410 @@
+edition = "2024";
+
+// Proto2-equivalent feature pins: these files were published by Ruckus as
+// proto2; the pins keep wire format and semantics identical under edition 2024.
+option features.enum_type = CLOSED;
+option features.repeated_field_encoding = EXPANDED;
+option features.utf8_validation = NONE;
+option features.json_format = LEGACY_BEST_EFFORT;
+option features.enforce_naming_style = STYLE_LEGACY;
+
+/**
+ * Copyright 2013 Ruckus Wireless, Inc. All rights reserved.
+ *
+ * RUCKUS WIRELESS, INC. CONFIDENTIAL - 
+ * This is an unpublished, proprietary work of Ruckus Wireless, Inc., and is 
+ * fully protected under copyright and trade secret laws. You may not view, 
+ * use, disclose, copy, or distribute this file or any information contained 
+ * herein except pursuant to a valid license from Ruckus. 
+ */
+option java_package = "com.ruckuswireless.scg.protobuf";
+import "ruckus/ap/ap_common.proto";
+
+message ReportType {
+
+	enum RogueType {
+	           /**
+	             * @description Rogue type possible value
+	             * @since 3.5
+	             */
+                DISCOVERY = 0;
+				/**
+	             * @description Rogue type possible value
+	             * @since 3.5
+	             */
+                UPDATE = 1;
+				/**
+	             * @description Rogue type possible value
+	             * @since 3.5
+	             */
+                DISAPPEAR = 2;
+        }
+
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description Mac address of rogue AP.
+	 * @since 3.5
+	 */
+	string rogueMac = 1;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description peer node rssi value
+	 * @since 3.5
+	 */
+	uint32 rssi = 2;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description is encryption or not (encrypted or open)
+	 * @since 3.5
+	 */
+	string encryption = 3;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description peer node radio type
+	 * @since 3.5
+	 */
+	string radio = 4;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description peer node channel used
+	 * @since 3.5
+	 */
+	uint32 channel = 5;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description last detected time for this peer node
+	 * @since 3.5
+	 */
+	uint64 timeStamp = 6;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description peer node ssid
+	 * @since 3.5
+	 */
+	string ssid = 7;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description peer node wlanId
+	 * @since 3.5
+	 */
+	int32 wlanId = 8;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description peer node mac address
+	 * @since 3.5
+	 */
+	string rogueAPMac = 9;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description is event send out for this peer node
+	 * @since 3.5
+	 */
+	int32 isSendEvent = 10;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description current rouge type for this peer node
+	 * @since 3.5
+	 */
+	string type = 11;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description previous channel is used by peer node
+	 * @since 3.5
+	 */
+	uint32 prevReportChannel = 12;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description previous rogue type for this peer node
+	 * @since 3.5
+	 */
+	string prevReportType = 13;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description this peer node rogue type status(discover, update, disappear)
+	 * @since 3.5
+	 */
+	RogueType rogueType = 14;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description current rouge type for this peer node
+	 * @since 3.5
+	 */
+	uint32 rogueTypeInfo = 15;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description encryption type for this peer node
+	 */
+	string encrypt_type = 16;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description authentication type for this peer node
+	 */
+	string auth_type = 17;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description beacon interval for this peer node
+	 */
+	uint32 beacon_intval = 18;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description received packet count for this peer node
+	 */
+	uint32 rx_packet_count = 19;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description station count for this peer node
+	 */
+	uint32 sta_count = 20;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description peer node is allowed list or not
+	 */
+	string allowListed = 21;
+	 /**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description mesh network formed for this peer node or not
+	  */
+	string mesh_formed = 22;
+	 /**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description mac address of the mesh AP connected to this peer node
+	  */
+	string mesh_root_mac = 23;
+	 /**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description peer node mac address
+	  */
+	string eud_ap_mac = 24;
+	 /**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description signature based rule name for this peer node
+	  */
+	string sbd_matched_rule_name = 25;
+	 /**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description signature based rule scope type for this peer node
+	  */
+	int32 sbd_scope_type = 26;
+	 /**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description peer node SSID
+	  */
+	string eud_ssid = 27;
+	/**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description peer node RFband
+	  */
+	string rfband = 28;
+	/**
+	  * @property snapshot
+	  * @aggregation NULL
+	  * @description rogue ssid of peer node
+	  */
+	string rogue_ssid = 29;
+}
+
+message RogueAPStats {
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description version number for this stats report
+	 * @since 3.5
+	 */
+	uint32 version = 1 [features.field_presence = LEGACY_REQUIRED];
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description ap mac address
+	 * @since 3.5
+	 */
+	string apMac = 2;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description ap name
+	 * @since 3.5
+	 */
+	string apName = 3;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description zone UUID
+	 * @since 3.5
+	 */
+	string zone_id = 4;
+	/**
+	 * @property snapshot
+	 * @aggregation NULL
+	 * @description is malicious protected or not
+	 * @since 3.5
+	 */
+	string protect = 5;
+    /**
+     * @property Serialization
+     * @aggregation NULL
+     * @description Serialization data for all of rouge entry
+     * @since 3.5
+     */
+	repeated ReportType apRogueUpdate = 6;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP group UUID
+     * @since 3.5
+     */
+	string apgroup_id = 7;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Cluster UUID
+     * @since 3.5
+     */
+	string cluster_id = 8;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Domain UUID
+     * @since 3.5
+     */
+	string domain_id = 9;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP tenant UUID
+     * @since 3.5
+     */
+	string aptenant_id = 10;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description MAP uuid
+     * @since 3.5
+     */
+	string map_id = 11;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP tenant name
+     * @since 3.5
+     */
+	string aptenant_name = 12;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Zone name
+     * @since 3.5
+     */
+	string zone_name = 13;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP group name
+     * @since 3.5
+     */
+	string apgroup_name = 14;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Domain name
+     * @since 3.5
+     */
+	string domain_name = 15;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description An indication to flush all rouge stats when first report
+     * @since 3.5
+     */
+	int32  controllerShouldFlush = 16;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Timestamp for generating this stats report
+     * @since 3.5
+     */
+	uint64 sampleTime = 17;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Interval time for aggregating data
+     * @since 3.5
+     */
+	uint32 aggregationInterval = 18;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Timestamp for generating this stats report
+     * @since 3.5
+     */
+	uint64 timestamp = 19;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 1: new rogue ap report, 2: full rogue ap listing report, 3: new rogue client report, 4: full rogue client listing report
+     * @since 5.1
+     */
+	uint32 operation_type = 20;
+    /**
+     * @property snapshot
+     * @aggregation SUM
+     * @description Timestamp for generating this stats report
+     * @since 5.2
+     */
+	uint64 totPpduDur = 21;
+    /**
+     * @property snapshot
+     * @aggregation SUM
+     * @description Timestamp for generating this stats report
+     * @since 5.2
+     */
+	uint64 totScanTime = 22;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description The serial number in AP borad data
+     * @since 6.0
+     */
+    string serialNumber = 23;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Indicate AP all radio band deploy
+     * @since 6.1
+     */
+    string apRadioDeploy = 24;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description ideal stats required for ACX APs
+     * @since 6.1
+     */
+    AttributeMap ideal_stats_required = 25;
+}

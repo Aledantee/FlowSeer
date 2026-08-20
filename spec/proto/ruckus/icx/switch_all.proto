@@ -1,0 +1,98 @@
+edition = "2024";
+
+import "ruckus/icx/switches.proto";
+
+package com.ruckuswireless.scg.protobuf.icx;
+
+// Proto2-equivalent feature pins: these files were published by Ruckus as
+// proto2; the pins keep wire format and semantics identical under edition 2024.
+option features.enum_type = CLOSED;
+option features.repeated_field_encoding = EXPANDED;
+option features.utf8_validation = NONE;
+option features.json_format = LEGACY_BEST_EFFORT;
+option features.enforce_naming_style = STYLE_LEGACY;
+
+message SwitchMessage {
+    /**
+     * @property
+     * @aggregation
+     * @description
+     * @since 5.1.1
+     */
+    uint32 version = 1;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Status of switch, ex: CPU, Memory, System Information, System Network Information.
+     * @since 5.1.1
+     */
+    SwitchStatus switchStatus = 2;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Stats of switch for statistical analysis, ex Network Traffic, CPU, Memory.
+     * @since 5.1.1
+     */
+    SwitchStats switchStats = 3;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Status of port, ex: CPU, Memory, Port Information(Network, PoE, Traffic, Packets In/Out).
+     * @since 5.1.1
+     */
+    repeated PortStatus portStatuses = 4;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Stats of port for statistical analysis, ex: Port Network Traffic.
+     * @since 5.1.1
+     */
+    repeated PortStats portStats = 5;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Status of connected device, ex: Remote Port Information(Device Name, Mac Address, Type, Description), Local Port Information(Name, Mac Address).
+     * @since 5.1.1
+     */
+    repeated ConnectedDeviceStatus connectedDevicesStatus = 6;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Status of switch unit, ex: Switch Unit Information(ID, Uptime, Status, Serial Number).
+     * @since 5.1.1
+     */
+    repeated SwitchUnitStatus switchUnitStatuses = 7;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Visibility of switch client; Deprecated since SZ version 5.2 please consumes the SwitchClientStatus at index 9 instead.
+     * @since 5.1.2
+     */
+    repeated SwitchClientVisibility switchClientVisibility = 8;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description status of switch client
+     * @since 5.1.2
+     */
+     SwitchClientStatus switchClientStatus = 9;
+    /**
+    * @property snapshot
+    * @aggregation NULL
+    * @description status of LAG port
+    * @since 5.2.1_alto
+    */
+    repeated LAGStatus lagStatuses = 10;
+
+    string domainId = 11;
+    string domainName = 12;
+    string switchGroupLevelOneId = 13;
+    string switchGroupLevelOneName = 14;
+    string switchGroupLevelTwoId = 15;
+    string switchGroupLevelTwoName = 16;
+    string switchId = 17;
+    string switchName = 18;
+    int32 page = 19;
+    int32 total = 20;
+
+}

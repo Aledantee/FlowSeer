@@ -28,17 +28,25 @@ The comment discipline and the *Rules for coding agents* in
 
 `buf.yaml` splits `spec/proto/` into two modules:
 
-- **`spec/proto/ruckus/`** — vendor telemetry schemas. Mirrors of upstream; they keep
-  their historical lint excepts, their original `syntax` declaration, and `WIRE`
-  breaking checks. Do not "clean up" vendor protos to match our conventions and do not
-  migrate them to editions — fidelity to the vendor wire format wins.
+- **`spec/proto/ruckus/`** — vendor telemetry schemas. Mirrors of upstream, mechanically
+  converted from Ruckus's proto2 to edition 2024: file-level proto2-equivalent feature
+  pins (`enum_type = CLOSED`, `repeated_field_encoding = EXPANDED`,
+  `utf8_validation = NONE`, `json_format = LEGACY_BEST_EFFORT`,
+  `enforce_naming_style = STYLE_LEGACY`) plus per-field
+  `features.field_presence = LEGACY_REQUIRED` where the vendor wrote `required`. The
+  resulting descriptors are wire-identical to the vendor's proto2 originals
+  (see `spec/proto/ruckus/SOURCES.md`). They keep their historical lint excepts and
+  `WIRE` breaking checks. Beyond that mechanical conversion, do not "clean up" vendor
+  protos to match our conventions — no renames, no feature-pin changes, no
+  restructuring; fidelity to the vendor wire format wins.
 - **`spec/proto/flowseer/`** — schemas we own. Edition 2024, no exceptions. The
   `MINIMAL` lint category is the enforced floor; the conventions below are the actual
   bar, held in review.
 
-Editions and `syntax` files interoperate freely — an edition 2024 file may import a
-proto3 vendor file and vice versa. The split above is a source-convention boundary,
-not a compatibility one.
+Both modules are edition 2024, but they follow different standards: vendor files pin
+proto2 semantics wholesale at file scope — exactly what the rules below tell you never
+to do in FlowSeer-owned schemas. The split is a source-convention boundary, not a
+compatibility one.
 
 ## FlowSeer-owned schemas
 

@@ -1,0 +1,327 @@
+edition = "2024";
+
+// Proto2-equivalent feature pins: these files were published by Ruckus as
+// proto2; the pins keep wire format and semantics identical under edition 2024.
+option features.enum_type = CLOSED;
+option features.repeated_field_encoding = EXPANDED;
+option features.utf8_validation = NONE;
+option features.json_format = LEGACY_BEST_EFFORT;
+option features.enforce_naming_style = STYLE_LEGACY;
+
+/**
+ * Copyright 2013 Ruckus Wireless, Inc. All rights reserved.
+ *
+ * RUCKUS WIRELESS, INC. CONFIDENTIAL - 
+ * This is an unpublished, proprietary work of Ruckus Wireless, Inc., and is 
+ * fully protected under copyright and trade secret laws. You may not view, 
+ * use, disclose, copy, or distribute this file or any information contained 
+ * herein except pursuant to a valid license from Ruckus. 
+ */
+option java_package = "com.ruckuswireless.scg.protobuf";
+
+import "ruckus/ap/ap_common.proto";
+
+message APPeer {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string ip_learned = 1;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string basemac = 2 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint64 rx = 3;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint64 tx = 4;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint64 timestamp = 5;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string stat = 6;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint64 last_rx_from_now = 7;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 rssi0 = 8;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 rssi0x = 9;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 rssi1 = 10;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 rssi1x = 11;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 chan0 = 12;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 chan1 = 13;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 lastupdate = 14;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string conn_lrv = 15;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string conn_ip = 16;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string conn_status = 17;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint64 conn_lastupdate = 18;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string ipv6_learned = 19;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 6.1
+     */
+    uint32 rssi2 = 20;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 6.1
+     */
+    uint32 rssi2x = 21;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 6.1
+     */
+    uint32 chan2 = 22;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 11mc measurement distance in meters
+     * @since 7.0
+     */
+    uint32 distance = 23;
+}
+
+message APPeerReport {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint32 version = 1 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string apMac = 2;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint64 timestamp = 3;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    uint64 seqNumber = 4;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string zone_id = 5;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    repeated APPeer peerstat = 6;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string apgroup_id = 7;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string cluster_id = 8;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string domain_id = 9;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string aptenant_id = 10;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description 
+     * @since 5.2
+     */
+    string map_id = 11;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP tenant name
+     * @since 5.2
+     */
+    string aptenant_name = 12;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Zone name
+     * @since 5.2
+     */
+    string zone_name = 13;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP group name
+     * @since 5.2
+     */
+    string apgroup_name = 14;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Domain name
+     * @since 5.2
+     */
+    string domain_name = 15;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description indicate ap all radio band deploy
+     * @since 6.1
+     */
+    string apRadioDeploy = 16;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description ideal stats required for ACX APs
+     * @since 6.1
+     */
+    AttributeMap ideal_stats_required = 17;
+
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description ture if the ap is rebooted and exceed a reboot threshold, which is the duration from the previous shutdown time to the boot up time.
+     * the value is true will trigger a flow in the controller to check if AP is moved based on the peers report and send back to the geo-location or delete geo-location config accordingly.
+     * @since 7.0
+     */
+    bool reboot = 18;
+
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP's serial number
+     * @since 7.0
+     */
+    string serialNumber = 19;
+}
+
+

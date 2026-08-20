@@ -1,0 +1,34 @@
+edition = "2024";
+
+// Proto2-equivalent feature pins: these files were published by Ruckus as
+// proto2; the pins keep wire format and semantics identical under edition 2024.
+option features.enum_type = CLOSED;
+option features.repeated_field_encoding = EXPANDED;
+option features.utf8_validation = NONE;
+option features.json_format = LEGACY_BEST_EFFORT;
+option features.enforce_naming_style = STYLE_LEGACY;
+
+option java_package = "com.ruckuswireless.scg.protobuf.sci";
+
+import "ruckus/ap/ap_rogue.proto";
+
+/**
+ * @internal
+ **/
+message SciRogueMessage {
+    RogueAPStats apRogue = 1;
+    repeated RoguePolicyMessage roguePolicies = 2;
+}
+ 
+ 
+/**
+ * @internal
+ **/
+message RoguePolicyMessage {
+    string rogueMac = 1;
+    string policyName = 2;
+    string ruleName = 3;
+    string type = 4;
+    string policyDescription = 5;
+}
+

@@ -1,0 +1,789 @@
+edition = "2024";
+
+// Proto2-equivalent feature pins: these files were published by Ruckus as
+// proto2; the pins keep wire format and semantics identical under edition 2024.
+option features.enum_type = CLOSED;
+option features.repeated_field_encoding = EXPANDED;
+option features.utf8_validation = NONE;
+option features.json_format = LEGACY_BEST_EFFORT;
+option features.enforce_naming_style = STYLE_LEGACY;
+
+/**
+ * Copyright 2013 Ruckus Wireless, Inc. All rights reserved.
+ *
+ * RUCKUS WIRELESS, INC. CONFIDENTIAL - 
+ * This is an unpublished, proprietary work of Ruckus Wireless, Inc., and is 
+ * fully protected under copyright and trade secret laws. You may not view, 
+ * use, disclose, copy, or distribute this file or any information contained 
+ * herein except pursuant to a valid license from Ruckus. 
+ */
+option java_package = "com.ruckuswireless.scg.protobuf";
+import "ruckus/nanopb/nanopb.proto";
+
+message FlowMessage {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Application name
+     * @since 3.5
+     */
+    string app = 1 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Application destination port number
+     * @since 3.5
+     */
+    uint32 port = 2 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Destination MAC address
+     * @since 3.5
+     */
+    string client_mac = 3 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP MAC address
+     * @since 3.5
+     */
+    string ap_mac = 4 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN SSID
+     * @since 3.5
+     */
+    string ssid = 5 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description Rx bytes for this application
+     * @since 3.5
+     */
+    uint64 uplink = 6 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description Tx bytes for this application
+     * @since 3.5
+     */
+    uint64 downlink = 7 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description Tx + rx bytes for the application
+     * @since 3.5
+     */
+    uint64 total = 8 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Application category
+     * @since 3.5
+     */
+    string category = 9;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN group identifier
+     * @since 3.5
+     */
+    string wlangroup_id = 10;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WSG WLAN identifier 
+     * @since 3.5
+     */
+    uint32 wsgwlan_id = 11;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN tenant identifier
+     * @since 3.5
+     */
+    string wlantenant_id = 12;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Radio mode for the radio interface
+     * @since 3.5
+     */
+    uint32 apradiotype_id = 13;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN group name
+     * @since 3.5
+     */
+    string wlangroup_name = 14;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN tenant name
+     * @since 3.5
+     */
+    string wlantenant_name = 15;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN radio id
+     * @since 3.5
+     */
+    uint32 radio_id = 16;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients IPv4 address
+     * @since 3.5
+     */
+    string client_ipv4 = 17;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients IPv6 Address
+     * @since 3.5.1
+     */
+    string client_ipv6 = 18;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients host name
+     * @since 3.5
+     */
+    string client_hostname = 19;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description App_Id
+     * @since 7.0
+     */
+    uint32 app_id = 20;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description MLD MAC address for MLO clients
+     * @since 7.2
+     */
+    string mld_mac = 21;
+}
+
+message UrlFilteringMsg {
+    enum Action {
+        /**
+         * @description Web Reputation action value Allow
+         * @since 6.1
+        */
+        Allow = 1;
+        /**
+         * @description Web Reputation action value Block
+         * @since 6.1
+        */
+        Block = 2;
+    }
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description client access URL
+     * @since 3.6
+     */
+    string url = 1;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description URL's category ID
+     * @since 3.6
+     */
+    uint32 cat_id = 2;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description URL's category Name
+     * @since 3.6
+     */
+    string cat_name = 3;
+    /**
+     * @property snapshot
+     * @aggregation SUM
+     * @description Count number of client access the URL
+     * @since 3.6
+     */
+    uint32 num_hits = 4;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients mac address
+     * @since 3.6
+     */
+    string client_mac = 5;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP mac address
+     * avoid using this. Use the outside apMac
+     * kept for backward compatibility
+     * @since 3.6
+     */
+    string ap_mac = 6;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description wlan SSID where clients is connected
+     * @since 3.6
+     */
+    string ssid = 7;
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description uplink bytes sent from client
+     * @since 3.6
+     */
+    uint64 uplink = 8;
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description Downlink bytes received by client
+     * @since 3.6
+     */
+    uint64 downlink = 9;
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description Total of sent and received bytes by the client 
+     * @since 3.6
+     */
+    uint64 total = 10;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN group identifier 
+     * @since 3.6
+     */
+    string wlangroup_id = 11;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WSG WLAN identifier 
+     * @since 3.6
+     */
+    uint32 wsgwlan_id = 12;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN tenant identifier 
+     * @since 3.6
+     */
+    string wlantenant_id = 13;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description radio mode of the radio interface 
+     * @since 3.6
+     */
+    uint32 apradiotype_id = 14;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN group name 
+     * @since 3.6
+     */
+    string wlangroup_name = 15;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WLAN tenant name 
+     * @since 3.6
+     */
+    string wlantenant_name = 16;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description radio interface identifier 
+     * @since 3.6
+     */
+    uint32 radio_id = 17;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients IPv4 address 
+     * @since 3.6
+     */
+    string client_ipv4 = 18;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients IPv6 address 
+     * @since 3.6
+     */
+    string client_ipv6 = 19;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients hostname 
+     * @since 3.6
+     */
+    string client_hostname = 20;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description URL Filtering session start timestamp 
+     * @since 5.1.1
+     */
+    uint64 session_start = 21;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description URL Filtering session start timestamp 
+     * @since 5.1.1
+     */
+    uint64 session_stop = 22;
+
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description URL's web reputation score
+     * @since 6.1
+     */
+    uint32 web_reputation_score = 23;
+    /**
+     * @property snapshot
+     * @aggregation SUM
+     * @description Web reputation Action of the URL
+     * @since 6.1
+     */
+    Action web_reputation_action = 24;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description MLD MAC address for MLO clients
+     * @since 7.2
+     */
+    string mld_mac = 25;
+}
+    
+/**
+    * Accumulated call quality score histogram within a report interval
+    * @since 5.2
+    */
+message WFCCallQualityMsg
+{
+    /* Epoch timestamp in miliseconds */ 
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Epoch timestamp in milisecond
+     * @since 5.2
+     */
+    uint64 timestamp = 1;
+
+    /* Call Quality Score. 
+     * Range [1 - 100]. Lower the value, better call quality 
+     */
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Accumulated call quality score histogram within a report interval
+     * @since 5.2
+     */
+    uint32 score = 2;
+}
+
+message WifiCallingMsg {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Operator name 
+     * @since 5.0
+     */
+    string operator_name = 1;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Call priority 
+     * @since 5.0
+     */
+    uint32 priority = 2;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Call start time 
+     * @since 5.0
+     */
+    uint64 timestamp_start = 3;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Call stop time
+     * @since 5.0
+     */
+    uint64 timestamp_end = 4;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients mac address 
+     * @since 5.0
+     */
+    string client_mac = 5;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP mac address 
+     * avoid using this. Use the outside apMac
+     * kept for backward compatibility
+     * @since 5.0
+     */
+    string ap_mac = 6;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description wlan ssid
+     * @since 5.0
+     */
+    string ssid = 7;
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description Bytes sent by client 
+     * @since 5.0
+     */
+    uint64 uplink = 8;
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description Bytes received by client 
+     * @since 5.0
+     */
+    uint64 downlink = 9;
+    /**
+     * @property delta
+     * @aggregation SUM
+     * @description total of sent and received bytes by client 
+     * @since 5.0
+     */
+    uint64 total = 10;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description wlan group identifier
+     * @since 5.0
+     */
+    string wlangroup_id = 11;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WSG wlan identifier
+     * @since 5.0
+     */
+    uint32 wsgwlan_id = 12;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description wlan tenant identifier 
+     * @since 5.0
+     */
+    string wlantenant_id = 13;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP radio mode 
+     * @since 5.0
+     */
+    uint32 apradiotype_id = 14;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description wlan group name 
+     * @since 5.0
+     */
+    string wlangroup_name = 15;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description wlan tanent name
+     * @since 5.0
+     */
+    string wlantenant_name = 16;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description radio interface identifier
+     * @since 5.0
+     */
+    uint32 radio_id = 17;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients IPv4 Address
+     * @since 5.0
+     */
+    string client_ipv4 = 18;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients IPv6 address 
+     * @since 5.0
+     */
+    string client_ipv6 = 19;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Clients hostname
+     * @since 5.0
+     */
+    string client_hostname = 20;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description FQDN of operator epdg gateway 
+     * @since 5.0
+     */
+    string epdg_fqdn = 21;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Call Quality Score
+     * @since 5.2
+     */
+    repeated WFCCallQualityMsg wfc_score_dir1 = 22;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Call Quality Score
+     * @since 5.2
+     */
+    repeated WFCCallQualityMsg wfc_score_dir2 = 23;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description MLD MAC address for MLO clients
+     * @since 7.2
+     */
+    string mld_mac = 24;
+}
+
+message ServerInfo {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Server IP address
+     * @since 6.1.1
+     */
+    string server_ip = 1 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Lan latency 
+     * @since 6.1.1
+     */
+    float lan_latency = 2;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Wan latency
+     * @since 6.1.1
+     */
+    float wan_latency = 3;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Page Download Time 
+     * @since 6.1.1
+     */
+    float page_download_time = 4;
+}
+
+message ApplicationData {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Application identifier 
+     * @since 6.1.1
+     */
+    uint32 app_id = 1 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Server Information 
+     * @since 6.1.1
+     */
+    repeated ServerInfo server_info = 2 [(nanopb).type = FT_POINTER];
+}
+
+message ClientInfo {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Client IP address 
+     * @since 6.1.1
+     */
+    string client_ip = 1 [features.field_presence = LEGACY_REQUIRED];
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Client Mac address 
+     * @since 6.1.1
+     */
+    string client_mac = 2;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Application Data information 
+     * @since 6.1.1
+     */
+    repeated ApplicationData app_data = 3 [(nanopb).type = FT_POINTER];
+}
+
+message ApplicationMetrics {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Client information contains App data 
+     * @since 6.1.1
+     */
+    repeated ClientInfo client_info = 1 [(nanopb).type = FT_POINTER];
+}
+
+message ArcMessage {
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Arc data verion number
+     * @since 3.5
+     */
+    string ver = 1;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Zone UUID
+     * @since 3.5
+     */
+    string zone_id = 2;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP group UUID
+     * @since 3.5
+     */
+    string apgroup_id = 3;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description ARC stats message type
+     * @since 3.5
+     */
+    repeated FlowMessage rep_flow = 4;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description timestamp for the message reported
+     * @since 3.5
+     */
+    uint64 timestamp = 5;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description cluster identifier
+     * @since 3.5
+     */
+    string cluster_id = 6;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description domain identifier
+     * @since 3.5
+     */
+    string domain_id = 7;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP tenant identifier
+     * @since 3.5
+     */
+    string aptenant_id = 8;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description MAP identifier
+     * @since 3.5
+     */
+    string map_id = 9;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP tenant name
+     * @since 3.5
+     */
+    string aptenant_name = 10;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Zone name
+     * @since 3.5
+     */
+    string zone_name = 11;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP group name
+     * @since 3.5
+     */
+    string apgroup_name = 12;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Domain name
+     * @since 3.5
+     */
+    string domain_name = 13;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AVC data sampling timestamp
+     * @since 3.5
+     */
+    uint64 sampleTime = 14;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Stats aggregation interval
+     * @since 3.5
+     */
+    uint32 aggregationInterval = 15;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description AP MAC address
+     * @since 3.5
+     */
+    string apMac = 16;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description URL Filtering Stats message type
+     * @since 3.6
+     */
+    repeated UrlFilteringMsg url_info = 17;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description WiFi Calling stats message type
+     * @since 5.0
+     */
+    repeated WifiCallingMsg wfc_info = 18;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Indicate AP all radio band deploy
+     * @since 6.1
+     */
+     string apRadioDeploy = 19;
+    /**
+     * @property snapshot
+     * @aggregation NULL
+     * @description Application QOE score
+     * @since 6.1.1
+     */
+     ApplicationMetrics app_metrics = 20;
+}
