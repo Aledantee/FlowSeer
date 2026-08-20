@@ -433,7 +433,9 @@ snapshots.
    unpopulated in this repository and there is no `docs/conventions/`; the
    entity conventions this model assumes (per-entity Config/State/Event
    families, Local/Global refs, device refs) must exist before the inventory
-   protos can be written against them.
+   protos can be written against them. The package partition, the
+   primitive/entity split, and the interface shape are fixed in
+   [the network model structure direction](2026-08-20-network-model-structure-direction.md).
 2. **Write the device-API and integration contracts as specs now** —
    capability matrix as a hard rule, announce/execute/events, binding routing,
    error mapping, budgets, guarantee levels, idempotency — so the

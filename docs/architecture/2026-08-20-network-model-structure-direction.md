@@ -1,0 +1,529 @@
+---
+title: Network Model Structure - Direction
+type: direction
+date: 2026-08-20
+updated: 2026-08-20
+topic: network-model-structure
+status: accepted-direction
+---
+
+# Network Model Structure - Direction
+
+How the FlowSeer-owned protobuf schemas under `spec/proto/flowseer/` are
+partitioned: which packages exist, what kind of message each holds, who may
+import whom, and how the interface — the one concept every layer touches — is
+modelled. This record fixes the shape so the entity conventions, the first
+`.proto` files, and the protocol-library mappers build toward one target. It
+refines sequencing item 1 of
+[the device service direction](2026-08-20-device-service-and-inventory-direction.md)
+and is grounded in a survey of how YANG model families, NMS/source-of-truth
+products, observed-state platforms, automation layers, vendor cloud APIs, and
+the standard MIBs structure the same concepts (see Sources). Where this
+direction deviates from that prior art it says so and why.
+
+## Decision in one paragraph
+
+Two kinds of message, two trees, one import rule. **Primitives** under
+`flowseer/net/…` are networking *values* — an address, a VLAN, a neighbor
+entry, an interface — with no identity, tenant, lifecycle, or provenance.
+**Entities** under `flowseer/device/…`, `flowseer/inventory/…`, and above
+carry refs, lifecycle, the Config/State/Event triad, and embed primitives by
+value. Address types live in a leaf package; layer packages hold interface
+*facets* and protocol-agnostic *tables*; each protocol owns its own package;
+the interface is one message whose kind is a `oneof` and whose routed persona
+is an optional cross-kind facet. Imports flow strictly upward and a layering
+test enforces it.
+
+## The package tree
+
+```
+spec/proto/flowseer/
+  core/v1/              refs (DeviceRef, TenantRef, ScopeRef, IntegrationRef, InterfaceRef),
+                        Observation (observed_at + answering binding), lifecycle enums
+  net/
+    addr/v1/            MacAddress, Oui, IpAddress, IpPrefix
+    phy/v1/             EthernetFacet: medium, speed, duplex, auto-negotiation, PoE, transceiver
+    l2/v1/              the vlan_id rule, Vlan, SwitchportFacet, AggregationFacet, FdbEntry
+    l3/v1/              IpFacet, NeighborEntry, Route, Vrf
+    interface/v1/       Interface (oneof kind) and one message per kind arm
+    wlan/v1/            Radio, Bss, WirelessClient — a peer of l2, not a child
+    protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
+  device/v1/            Device, Interface entity, device-level tables as State
+  inventory/v1/         Integration, Binding, Placement, IntegrationScope
+  integration/v1/       announce / execute / events, first-party kind configs
+  service/v1/           ConnectRPC services
+  event/v1/             the event envelope
+```
+
+Import layering, acyclic, enforced by `spec/proto/layering_test.go`:
+
+```
+core ← net/addr ← net/{phy, l2, l3} ← net/interface ← net/protocol/* ← net/wlan
+     ← device ← inventory ← integration ← service ← event
+```
+
+`net/*` never imports `device/`. Layers never import a protocol. `addr`
+imports nothing but `core`. The test uses negative fixtures under
+`_test_fixtures/` directories (already excluded in `buf.yaml`).
+
+## Why this shape
+
+### Primitives versus entities
+
+A primitive is reusable precisely because it does not know which device it
+came from. A discovery candidate's fingerprint, a topology edge, an ingestion
+event, a host attachment, and the device service's response all need `Vlan`,
+`LldpNeighbor`, `Interface` — none of them should drag in a `DeviceRef`, a
+tenant, or a lifecycle. The moment a `net/` message grows a ref, it has become
+an entity in disguise and moves up the tree. Prior art draws the same line at
+the type-system level: NetBox separates field types (`MACAddressField`,
+`IPAddressField`) from models; Infrahub separates attribute kinds
+(`MacAddress`, `IPHost`) from nodes; YANG separates `typedef` modules from data
+trees.
+
+### Address types are a leaf, and MAC is not an L2 type
+
+Every schema family surveyed keeps address *types* out of layer models: IETF
+`ietf-yang-types` (`mac-address`, next to counters and timestamps) and
+`ietf-inet-types`; OpenConfig `openconfig-yang-types` / `openconfig-inet-types`;
+SNMP `SNMPv2-TC MacAddress` and `INET-ADDRESS-MIB`; SAI `saitypes.h`; Go's
+dependency-free `net/netip`. RFC 8407 §4.12 states the rule: shared derived
+types go in a separate module so they can be reused without coupling. A MAC is
+used as a key by L2 (FDB), L3 (neighbor cache), device identity (base MAC),
+wireless (client identity), and discovery; an IP prefix by routes, seeds,
+integration configs, and LLDP management addresses. Putting `MacAddress` in
+`l2` would make `l2` a de-facto base package imported by everything. VLAN-id
+types, by contrast, sit with VLAN models everywhere (`ieee802-dot1q-types`,
+`openconfig-vlan-types`), so the VLAN-id rule lives in `l2`, not `addr`.
+
+### `l2` / `l3` as package names, function names inside
+
+The survey is clear that tree roots are named by function — OpenConfig's
+`interfaces`, `vlan`, `lldp`, `network-instance`; SuzieQ's `interfaces`,
+`vlan`, `macs`, `arpnd`, `routes`; IP Fabric's `addressing`, `neighbors`,
+`routing`; SONiC's `PORT`, `VLAN`, `INTERFACE`, `NEIGH`, `ROUTE`, `FDB` — and
+that layer words survive mainly as qualifiers (`L2VSI`/`L3VRF`,
+`ietf-l2-topology`, NX-OS `layer=Layer2|Layer3`). The exception is exactly the
+content of these two packages: the *per-layer persona of an interface* is
+named by layer in Ansible (`interfaces` / `l2_interfaces` / `l3_interfaces`),
+Infrahub (`InterfaceLayer2` / `InterfaceLayer3` generics), SAI (`BRIDGE_PORT`
+vs `ROUTER_INTERFACE`), Junos (`family ethernet-switching` / `family inet`),
+and Meraki's WLC API (`interfaces/l2`, `interfaces/l3`). FlowSeer keeps
+`l2`/`l3` as packages because that is what they mostly hold and it keeps v1 at
+a handful of packages; messages inside are function-named (`Vlan`, `FdbEntry`,
+`IpFacet`, `Route`), never `L2Thing`. If either package grows past roughly
+eight entities, split it by function (`vlan`, `bridging`, `ip`, `routing`).
+
+### Facets versus tables
+
+Each layer package holds two shapes, and the distinction matters for where a
+message is embedded:
+
+- A **facet** is a bundle of per-interface attributes for one layer
+  (`SwitchportFacet`: mode, access/native/tagged VLANs; `IpFacet`: addresses,
+  VRF, IP MTU, forwarding; `EthernetFacet`: speed, duplex, PoE). Facets are
+  embedded by value in `net.interface.Interface`.
+- A **table** is device-scoped state whose rows reference interfaces: the FDB
+  keyed `(vlan, mac) → interface`, the IP neighbor cache keyed
+  `(interface, ip) → mac`, the VLAN database, routes keyed `(vrf, prefix)`.
+  Tables hang off the device entity's State with an interface reference in
+  each row, never under the interface. This is how OpenConfig
+  (`network-instance/fdb`), IEEE (`bridge/component/filtering-database`),
+  Q-BRIDGE-MIB, SAI (`FDB_ENTRY(bv_id, mac)`), SuzieQ, and IP Fabric all place
+  the MAC table. **Deviation:** YANG nests the ARP/ND cache under each
+  interface; FlowSeer follows IP-MIB, SAI, SuzieQ, and IP Fabric and keeps it a
+  device table with an interface column, because every consumer (discovery,
+  topology, "where is this IP") queries it device-wide.
+
+### VLAN membership has one canonical direction
+
+VLAN definitions (`Vlan`: id, name, status) are a device-level table.
+Membership is stored **port-side** in the `SwitchportFacet` — as OpenConfig
+`switched-vlan`, Ansible `l2_interfaces`, and NetBox `untagged_vlan` /
+`tagged_vlans` do. The VLAN→members view that NAPALM `get_vlans`, OpenConfig's
+read-only `vlan/members`, and Q-BRIDGE `PortList` expose is a *projection*
+computed by consumers, never a second stored field. Storing both would be the
+mirror drift Rule 1 exists to prevent.
+
+### Protocols own their packages
+
+LLDP, STP, LACP, and later BGP, OSPF, VRRP, CDP each get
+`net/protocol/<x>/v1/` holding *everything the protocol owns*: its global
+config and local-system block, its per-port config, its neighbor/peer/state
+table, and — only if a parser ever needs it — the wire-faithful PDU decode, in
+the same package. OpenConfig's `openconfig-lldp`, `openconfig-stp`,
+`openconfig-lacp` as standalone modules, IEEE's `ieee802-dot1ab-lldp`, and the
+`lldp` tables in SuzieQ, Ansible, and Genie are the precedent. The rule that
+decides between a layer package and a protocol package: *if the table exists
+regardless of which protocol populates it (neighbor cache, FDB, RIB) it is a
+layer table; if it is the protocol's own table (LLDP neighbors, STP port
+state, BGP peers, LACP partner) it is `protocol/<x>`.* Protocols sit above the
+layers because they reference layer types (LLDP-EXT-DOT1 carries a VLAN id,
+MSTP references VLANs, BGP references prefixes and VRFs); layers never
+reference a protocol — `AggregationFacet` holds static LAG membership, LACP
+partner state lives in `protocol/lacp` referencing the LAG interface by name.
+An earlier idea of splitting "normalized neighbor" (in `l2`) from "PDU decode"
+(in `protocol/lldp`) is rejected: it creates two packages that must be kept in
+sync for one protocol.
+
+### Wireless is a peer of L2
+
+Radios are not interfaces: UniFi models `interfaces{ports[], radios[]}` as
+sibling arrays, Meraki exposes radios through `wireless/radio/settings` and
+BSS lists rather than the port resources, OpenConfig keeps `wifi/` as a
+separate tree that reuses `system` but not `interfaces`. `net/wlan` therefore
+holds `Radio`, `Bss`, `WirelessClient` as a peer of `l2` and imports `addr`
+and `l2` (a BSS maps to a VLAN id), never the reverse.
+
+## The interface
+
+The interface is the one concept every layer touches, so it gets its own
+package and the most deliberate shape.
+
+### Kind is a `oneof`; the routed persona is a cross-kind facet
+
+Prior art models interfaces three ways: one wide row with all layers as
+columns plus a mode discriminator (NetBox, LibreNMS, SuzieQ, IP Fabric,
+Batfish, Genie); a base interface plus per-layer sub-blocks conditional on
+type (IETF `ietf-interfaces` + `ietf-ip`, OpenConfig `ethernet` /
+`aggregation` / `subinterfaces/ipv4` / `routed-vlan` under `when type = …`,
+Junos families); or separate per-layer objects pointing at the port (SAI,
+SONiC, NX-OS DME, Meraki switch "routing interfaces"). FlowSeer takes the
+second and expresses it with protobuf semantics rather than YANG `when`
+conditions:
+
+```protobuf
+edition = "2024";
+package flowseer.net.interface.v1;
+
+message Interface {
+  // Common to every kind.
+  string name = 1;                              // device-local identity
+  uint32 if_index = 2;                          // when the source has one
+  AdminStatus admin_status = 3;
+  OperStatus oper_status = 4;
+  uint32 mtu = 5;
+  flowseer.net.addr.v1.MacAddress mac = 6;
+  string description = 7;
+
+  // What the interface is. Kind-specific attributes live in the arm, so an
+  // SVI can never carry an Ethernet facet and a loopback can never carry
+  // switchport config. Adding a kind is adding an arm.
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+    PhysicalInterface   physical   = 10;  // ethernet facet, switchport facet, lag parent
+    LagInterface        lag        = 11;  // aggregation facet, switchport facet
+    VlanInterface       vlan       = 12;  // SVI: the VLAN id it routes
+    Subinterface        sub        = 13;  // parent name, 802.1Q tag(s)
+    LoopbackInterface   loopback   = 14;
+    TunnelInterface     tunnel     = 15;
+    ManagementInterface management = 16;
+    OtherInterface      other      = 17;  // carries the IANA ifType; nothing is dropped
+  }
+
+  // The routed persona. Present ⇔ routed. One message for a routed port, a
+  // routed LAG, an SVI, a loopback — not one per underlying kind.
+  flowseer.net.l3.v1.IpFacet ip = 20;
+}
+```
+
+Why this and not the alternatives:
+
+- **A kind enum plus optional facets** needs CEL rules to forbid invalid
+  combinations (`ethernet` only when `PHYSICAL`); the `oneof` makes them
+  unrepresentable, gives Go an exhaustive `WhichKind()` switch and TS a
+  discriminated union, and is the same pattern the device service direction
+  uses for `IntegrationConfig`.
+- **"Physical interface" versus "routed interface" as the axis** is rejected.
+  Physical is a *kind*; routed is a *persona*; they are orthogonal. A routed
+  port, a routed LAG, an SVI, and a loopback share one identical L3 facet;
+  Junos shows both personas on one port across units. Models that split them
+  either duplicate the L3 facet per underlying kind (SONiC `INTERFACE` /
+  `VLAN_INTERFACE` / `PORTCHANNEL_INTERFACE` / `LOOPBACK_INTERFACE`) or add a
+  typed back-reference object (SAI `ROUTER_INTERFACE{type, port|vlan|…}`).
+  Presence on `ip` is the discriminator and costs nothing.
+- **`SwitchportFacet` appears in two arms** (`physical`, `lag`). That is one
+  message type used twice, not two definitions; it does not trip Rule 1.
+- **Layering is by name**: `PhysicalInterface.lag_parent` and
+  `Subinterface.parent` are interface names within the same device — the
+  `ifStackTable` relationship — so the value message stays ref-free.
+- **`OtherInterface`** exists so an SNMP walk over the ~280 IANA `ifType`s
+  never has to drop a row; it carries the raw type and the common fields.
+
+### Hardware ports are a later, separate object
+
+The physical *port as hardware* — lanes, connector, transceiver, PoE PSE
+channel — is the one genuinely separate object in prior art (OpenConfig
+`components/component[port]` ↔ `interfaces/interface/state/hardware-port`,
+ENTITY-MIB `entPhysical` ↔ `ifIndex` via `entAliasMappingTable`). For v1 the
+`EthernetFacet` carries what IF-MIB and ETHERLIKE-MIB give; a platform
+component tree with a link to the interface arrives with ENTITY-MIB mapping.
+
+### One interface identity
+
+SNMP exposes three port-numbering spaces (`ifIndex`, `dot1dBasePort`,
+`pethPsePortIndex`, plus `LldpPortNumber` which is one of the first two);
+Meraki has `portId` strings, `interfaceId`s, appliance port integers, and AP
+port names with no shared identity across product families; SmartZone keys
+APs by MAC, RUCKUS One by serial. The normalized model has **one** interface
+identity (`name`, plus `if_index` when known). Resolving the other spaces is
+the SNMP mapper's and each adapter's job, never the schema's.
+
+## Protobuf conventions this model relies on
+
+The [style guide](../code-style-proto.md) governs; these are the decisions it
+leaves to the model, made here so every file under `net/` is written the same
+way. They are chosen for protobuf and edition 2024 semantics, not copied from
+YANG or SQL habits. Every claim about compiler or validator behaviour below
+was checked against primary documentation and reproduced locally (buf 1.72.0,
+protoc-gen-go from protobuf-go 1.36.12 with the opaque API, protovalidate-go
+1.3.0) on 2026-08-20; the edition 2024 defaults relied on are
+`field_presence = EXPLICIT`, `enum_type = OPEN`,
+`repeated_field_encoding = PACKED`, `enforce_naming_style = STYLE2024`,
+`default_symbol_visibility = EXPORT_TOP_LEVEL`, and Go `api_level =
+API_OPAQUE`.
+
+1. **Explicit presence is the discriminator; zero is a value.** Every singular
+   field tracks presence, so *unset* means "the source did not provide this"
+   (direction rule 5) and `0`/`""` are real values: `length = 0` on a prefix
+   is the default route; `access_vlan` unset means "no access VLAN reported",
+   not VLAN 0. `mtu = 0` set explicitly survives a marshal/unmarshal round
+   trip with `HasMtu() == true` (verified). Every field's comment answers
+   "what does absent mean here". No `IMPLICIT` presence anywhere in `net/`; no
+   sentinel values (`-1`, `""`, `UNKNOWN` strings) to encode absence. The
+   `optional` label does not exist in edition 2024 (`unexpected 'optional'`),
+   so there is nothing to write — presence is the default.
+2. **Facets are message fields, so optionality is presence.** A routed
+   interface is one with `ip` set; a switched one has `switchport` set in its
+   arm; both may be set. No `is_routed` booleans that can disagree with the
+   facet — protobuf's own guidance is not to use a boolean for something that
+   may grow more states.
+3. **Addresses are canonical bytes in structured messages.**
+   `MacAddress{bytes octets}` with a CEL rule `size() == 6 || size() == 8`
+   (EUI-48 / EUI-64; note `bytes {min_len: 6, max_len: 8}` would wrongly
+   accept 7 — verified); `IpAddress{bytes octets, string zone}` with
+   `bytes.ip` (which in protovalidate is exactly "size is 4 or 16");
+   `IpPrefix{IpAddress address, uint32 length}` with a message-level CEL rule
+   bounding `length` by the family. These are not the obsolete
+   `google.protobuf` presence wrappers — protobuf.dev says those are
+   unnecessary under explicit presence — they are structured values whose
+   shape (family + zone, address + length) needs a message anyway, and the
+   message gives Go and TS a named type with one home for the rule. Bytes are
+   canonical: no `fe80::1` versus `FE80:0:0::1`, no `aa:bb` versus `AA-BB`
+   normalization before correlation by serial + base MAC, and a direct
+   `netip.AddrFromSlice` / `net.HardwareAddr` conversion. The costs are real
+   and accepted: ProtoJSON renders bytes as base64, so raw JSON is not
+   human-readable (display formatting is a library concern); Google's own
+   APIs and `google.type` use plain strings for IPs and MACs, and protovalidate
+   has no MAC rule at all, so FlowSeer defines its own. The choice is one-way:
+   `string` ↔ `bytes` is a breaking change under every buf breaking category.
+4. **Small domain scalars use predefined rules, not wrapper messages.**
+   protovalidate *predefined rules* extend a standard rule message with a
+   named CEL rule that any field of that type can switch on. `net/l2` defines
+   `extend buf.validate.UInt32Rules { bool vlan_id = 5xxxx
+   [(buf.validate.predefined).cel = { … "!rule || (this >= 1u && this <=
+   4094u)" }] }` once, and fields write `uint32 access_vlan = 1
+   [(buf.validate.field).uint32.(vlan_id) = true]` — including inside
+   `repeated.items`. Verified to compile, lint, and enforce in edition 2024
+   (rejects 0 and 4095, skips when unset, reports `tagged_vlans[1]`). A
+   `VlanId{uint32 id}` wrapper is rejected: it costs a length-prefixed
+   submessage on every FDB row, introduces a second presence (the wrapper set
+   but its `id` unset), and buys only a type name that the rule's `id` already
+   provides. Extension numbers come from the private range 50000–99999; the
+   generated package carrying the extension must be linked into every
+   validating binary (Go: a blank import) so the registry resolves it.
+5. **Enums: zero is `_UNSPECIFIED`, prefixed values, open by default.**
+   Edition 2024 enums are open: an unknown value from a newer producer is
+   stored in the field as its number rather than dropped into unknown fields
+   (language conformance varies; the generated Go here honours it). Zero is
+   `<ENUM>_UNSPECIFIED` per the style guide and buf's `ENUM_ZERO_VALUE_SUFFIX`,
+   and is never the documented default for a meaningful field — absence
+   already says "not set".
+6. **Tables are repeated rows, never maps.** Rows carry their key fields
+   (`FdbEntry{vlan, mac, interface}`, `NeighborEntry{interface, ip, mac}`).
+   Protobuf map keys may be only integral or string types — not `bytes`, not
+   messages, not composites — and map ordering is undefined on the wire and
+   in iteration; repeated rows are uniform, keep deterministic serialization,
+   and let a row grow fields.
+7. **`oneof` for closed kinds, with `(buf.validate.oneof).required`.** A
+   `oneof` is the protobuf sum type; a kind enum next to optional messages is
+   a sum type reconstructed by hand and enforced by CEL. `required` means
+   "exactly one member set" and is enforced (verified: `kind: exactly one
+   field is required in oneof`). The opaque Go API generates `WhichKind()`
+   with `Interface_Physical_case` constants plus `HasKind()`/`ClearKind()`.
+   Two consequences from the language guide: a reader seeing `Kind_not_set`
+   may be looking at an arm added by a newer producer, so consumers treat it
+   as "unknown kind", not "no kind"; and moving a field into or out of a
+   `oneof` loses data across versions, so `ip` staying outside the `oneof` is
+   permanent.
+8. **References inside a primitive are by local name; refs are entity
+   concerns.** `net/` messages name other interfaces by `name`; only
+   `core/v1` refs (`DeviceRef`, `InterfaceRef`) appear in `device/` and above.
+9. **Provenance sits on State, not on primitives.** `observed_at` and the
+   answering binding are fields of the entity's State (`core.Observation`);
+   a `Vlan` or `Route` carries no timestamp of its own. Observed-state
+   systems that stamp each row (Netdisco `time_first/last`) do so because
+   rows are their unit of storage; FlowSeer's unit is the entity State.
+10. **Field numbers and symbol visibility.** Numbers 1–15 (single-byte tags)
+    go to the fields every consumer reads; arms and facets from 10 and 20
+    upward in blocks; deleted numbers are `reserved`, never reused. Under
+    edition 2024's `EXPORT_TOP_LEVEL` default, *nested* messages are local
+    and cannot be used as field types from another file (verified: `found
+    unexported message type`), so every `oneof` arm message and every facet
+    is a top-level message in its own file — which the style guide's
+    one-entity-per-file rule and buf's "avoid nested messages" already want.
+    Nothing in `net/` is `local`; everything is imported upward.
+11. **Validation at the boundary, from the schema.** protovalidate rules on
+    the primitives (`vlan_id`, address sizes, `IpPrefix` family consistency)
+    run through the Connect interceptor and the web client; no hand-written
+    checks that duplicate them. Two semantics to write rules against: a rule
+    on an explicit-presence field is *skipped when the field is unset* unless
+    `required` is set (verified), which is exactly the "unset = not provided"
+    contract; and `required` checks presence only — `Interface.name` needs
+    `required` *and* `string.min_len = 1`, because `""` set explicitly passes
+    `required` (verified).
+
+## Where this deviates from prior art, on purpose
+
+- ARP/ND is a device table, not per-interface as in YANG (see *Facets versus
+  tables*).
+- Addresses are bytes, not strings as in every REST API and in NetBox.
+- LLDP neighbors live in `protocol/lldp`, not in a link-layer package as in
+  the earlier FlowSeer incarnation's `net/link/lldp` + `net/protocol/lldp`.
+- No kind enum on the interface; the `oneof` is the kind.
+- No per-kind L3 objects (SONiC/SAI/Meraki style); one `IpFacet`.
+- VLAN membership stored port-side only; no `members` list on `Vlan`.
+- Radios are not interfaces.
+
+## What this enables, in order
+
+Each layer lands as protos + the layering test + one Go mapper from the SNMP
+library (whose generated `ifmib`, `lldpmib`, `qbridgemib`, `bridgemib`,
+`ipmib`, `entitymib` bindings already exist) + a wire-contract test, in one
+commit with regenerated `generated/`:
+
+1. `core/v1` and the entity conventions document it assumes.
+2. `net/addr`, `net/phy`, `net/interface` with the `physical`, `lag`, `vlan`,
+   `loopback`, `other` arms; `device/v1` Device identity and the Interface
+   entity — proven by the hand-done R11 identity read via SNMP.
+3. `net/l2` (the `vlan_id` rule, `Vlan`, `SwitchportFacet`, `AggregationFacet`,
+   `FdbEntry`) and `net/protocol/lldp` — three of the five v1 capabilities
+   (interfaces, neighbors, VLANs) via `qbridgemib`/`bridgemib`/`lldpmib`.
+4. `inventory/v1`, `integration/v1`, `service/v1` — once there is something
+   real to bind and route.
+5. `net/l3` (`IpFacet`, `NeighborEntry`, `Route`, `Vrf`) via `ipmib`; needed by
+   discovery's table-walk sources anyway.
+6. `net/wlan`; further `protocol/*` on demand; hardware components with
+   ENTITY-MIB.
+
+## Open questions
+
+- **Host/Client entity family.** Netdisco's device-side (`device_*`) versus
+  node-side (`node`, `node_ip`: hosts seen *through* devices, keyed by MAC
+  with first/last-seen) split, mirrored by Meraki/UniFi/SmartZone "client"
+  records, says FlowSeer needs an entity for end hosts distinct from
+  Device/Interface — also what discovery's ARP/FDB crawl produces. Reserved,
+  not in v1; `net/wlan.WirelessClient` and a future `host/v1` must share one
+  shape.
+- **Subinterface encapsulation** detail (single vs double tag, TPID) and
+  whether `VlanInterface` and `Subinterface` converge on one tag-match
+  message as in OpenConfig `subinterface/vlan/match`.
+- **IPv6 zones** on `IpAddress` — keep the `zone` field or drop it until a
+  link-local consumer exists.
+- **Cross-device VLAN entity** (NetBox makes VLAN a site-scoped object; here it
+  is per-device State). Likely an inventory-level projection later, not a
+  stored entity.
+- **Config/State on interfaces**: OpenConfig's sibling `config`/`state` with
+  intended values copied into state (to diff intended vs applied) versus
+  NMDA's single tree with a datastore axis. The entity triad is the frame;
+  whether `InterfaceState` carries a copy of applied config is decided when
+  the first `Apply*` write lands.
+
+## Sources
+
+Researched 2026-08-20 from primary sources (RFCs, model repositories, product
+documentation, API references).
+
+- YANG/IETF/IEEE: RFC 6991 (`ietf-yang-types`, `ietf-inet-types`), RFC 8343
+  (`ietf-interfaces`), RFC 8344 (`ietf-ip`), RFC 8349 (`ietf-routing`),
+  RFC 8529 (`ietf-network-instance`), RFC 8345/8346/8944 (network topology,
+  L3 and L2 overlays), RFC 8348 (`ietf-hardware`), RFC 8407 (author
+  guidelines, §4.12 types modules), RFC 8342 (NMDA);
+  `ieee802-dot1q-bridge.yang`, `ieee802-dot1q-types.yang`,
+  `ieee802-dot1ab-lldp.yang` — https://www.rfc-editor.org/ ,
+  https://ieee802.org/1/files/public/YANGs/
+- OpenConfig: `release/models/{types,interfaces,vlan,lldp,network-instance,
+  platform,system,wifi}` and the style guide —
+  https://github.com/openconfig/public ; draft-openconfig-netmod-opstate.
+- NMS / SoT: NetBox apps and models (`dcim.Interface`, `dcim.MACAddress` 4.2,
+  `ipam.VLAN`, `ipam.IPAddress`, `dcim.Cable`/`CablePath`, Diode, Discovery)
+  — https://github.com/netbox-community/netbox , https://netboxlabs.com/docs ;
+  Nautobot core model (`Controller`, `ControllerManagedDeviceGroup`,
+  `IPAddressToInterface`, Namespace) — https://docs.nautobot.com ; Infrahub
+  schema and schema library (`InterfaceLayer2`/`InterfaceLayer3`) —
+  https://docs.infrahub.app , https://github.com/opsmill/schema-library ;
+  LibreNMS migrations (`ports`, `ipv4_mac`, `ports_fdb`, `vlans`,
+  `ports_vlans`, `links`) — https://github.com/librenms/librenms ; Netdisco
+  schema (`device_*` vs `node`/`node_ip`) — https://github.com/netdisco/netdisco
+- Observed-state platforms: SuzieQ schemas (`interfaces`, `vlan`, `macs`,
+  `arpnd`, `address`, `routes`, `lldp`, `topology`) —
+  https://github.com/netenglabs/suzieq ; IP Fabric table catalogue
+  (`addressing/{arp,mac,managed-devs}`, `neighbors/all`) —
+  https://docs.ipfabric.io ; Batfish questions (`interfaceProperties`,
+  `ipOwners`, `edges` with `layer1`/`layer3`) — https://batfish.readthedocs.io ;
+  Arista Sysdb paths, NX-OS DME (`l1PhysIf.layer`, `sys/ipv4/inst/dom-…`),
+  Junos `unit … family` hierarchy — vendor documentation.
+- Automation layers and packet libraries: Ansible resource modules
+  (`interfaces` / `l2_interfaces` / `l3_interfaces`, `lldp_global`,
+  `lldp_interfaces`, `vlans`) — https://docs.ansible.com ,
+  https://github.com/ansible-collections ; NAPALM getters and models —
+  https://napalm.readthedocs.io ; Genie ops — https://github.com/CiscoTestAutomation/genielibs ;
+  gopacket `layers`, scapy `layers/l2.py` and `contrib/lldp.py`; Go
+  `net/netip` and https://tailscale.com/blog/netaddr-new-ip-type-for-go ;
+  SONiC CONFIG_DB/APPL_DB schema — https://github.com/sonic-net/sonic-buildimage ,
+  https://github.com/sonic-net/sonic-swss-common ; SAI object model —
+  https://github.com/opencomputeproject/SAI ; gNOI `layer2` service —
+  https://github.com/openconfig/gnoi
+- Vendor platforms and MIBs: Meraki Dashboard API v1 (devices, switch ports,
+  routing interfaces, appliance VLANs, `lldpCdp`, `topology/linkLayer`,
+  clients, live tools) — https://developer.cisco.com/meraki/api-v1/ ; UniFi
+  Network Integration API and legacy controller API — https://developer.ui.com ,
+  https://github.com/beezly/unifi-apis ; RUCKUS SmartZone public API and
+  switch-management API, RUCKUS One — https://docs.ruckuswireless.com ,
+  https://docs.ruckus.cloud ; LANCOM Management Cloud —
+  https://knowledgebase.lancom-systems.de ; IF-MIB (RFC 2863), ETHERLIKE-MIB
+  (RFC 3635), BRIDGE-MIB (RFC 4188), Q-BRIDGE-MIB (RFC 4363), IP-MIB
+  (RFC 4293), IP-FORWARD-MIB (RFC 4292), ENTITY-MIB (RFC 6933),
+  POWER-ETHERNET-MIB (RFC 3621), SNMPv2-TC (RFC 2579), INET-ADDRESS-MIB
+  (RFC 4001), LLDP-MIB and extensions, IEEE8023-LAG-MIB.
+- Protobuf and protovalidate: edition 2024 feature defaults and migration
+  notes — https://protobuf.dev/editions/features/ ,
+  https://protobuf.dev/editions/overview/ ,
+  https://protobuf.dev/reference/protobuf/edition-2024-spec/ ; symbol
+  visibility — https://protobuf.dev/programming-guides/symbol_visibility/ ;
+  language guide (oneof, maps, presence) —
+  https://protobuf.dev/programming-guides/editions/ ,
+  https://protobuf.dev/programming-guides/field_presence/ ; enums —
+  https://protobuf.dev/programming-guides/enum/ ; opaque Go API —
+  https://protobuf.dev/reference/go/go-generated-opaque/ ; best practices —
+  https://protobuf.dev/best-practices/dos-donts/ ,
+  https://protobuf.dev/best-practices/1-1-1/ ; wrappers are obsolete —
+  https://protobuf.dev/reference/protobuf/google.protobuf/#wrappers ; ProtoJSON
+  — https://protobuf.dev/programming-guides/json/ ; protovalidate rules,
+  predefined rules, CEL extensions —
+  https://protovalidate.com/reference/rules/ ,
+  https://protovalidate.com/schemas/predefined-rules/ ,
+  https://protovalidate.com/reference/cel_extensions/ ,
+  https://github.com/bufbuild/protovalidate/blob/main/proto/protovalidate/buf/validate/validate.proto ;
+  buf style guide, lint and breaking rules —
+  https://buf.build/docs/best-practices/style-guide/ ,
+  https://buf.build/docs/lint/rules/ , https://buf.build/docs/breaking/rules/ ;
+  `google.type` has no address types —
+  https://github.com/googleapis/googleapis/tree/master/google/type ; Google
+  Compute API uses string IPs/MACs — `google/cloud/compute/v1/compute.proto`.
+- Repository: `docs/code-style-proto.md` (edition 2024 presence, `oneof` +
+  protovalidate, opaque Go API); `buf.yaml` (layering-test fixture excludes);
+  `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`
+  (rule 5 presence semantics, sequencing item 1, capability list);
+  `generated/go/mib/` (existing `ifmib`, `lldpmib`, `qbridgemib`, `bridgemib`,
+  `ipmib`, `entitymib` bindings).
