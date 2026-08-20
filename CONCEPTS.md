@@ -194,6 +194,55 @@ hardware can fail it, while timing and throughput are advisory, because a gate
 that false-trips gets disabled and then protects nothing. It never rewrites its
 own baseline — accepting new numbers is a reviewed, deliberate change.
 
+## Errors
+
+### Error Code
+An error's stable identity across process boundaries: a namespaced
+`<package>/<name>` string that two errors can share so they match as the same
+failure even when they hold no pointer identity in common — which is how a
+decoded error from a peer matches the local sentinel it stands for.
+
+Codes are a wire contract, so they are append-only: never renamed, never reused
+for a different meaning. They are globally unique across the project, and a
+duplicate declaration fails loudly at startup rather than surfacing later as a
+false match. Because uniqueness must hold across packages that are never linked
+into the same binary, it is enforced by a repo-wide source scan and not only by
+the runtime registry.
+
+### Public Attribute
+An attribute explicitly marked as safe to show an untrusted caller, as opposed to
+an ordinary attribute, which is internal. Safety is declared where the value is
+attached — by the code that knows what the value is — never inferred at the
+boundary that emits it.
+
+The public set is a strict subset of the full set: when the same key is carried
+both internally and publicly, the internal value claims the key and the key is
+then simply absent from the public view, rather than falling through to the
+public value. Logs are a trusted surface and receive internal attributes; the
+distinction exists for the client boundary. Raw secret material is never an
+attribute at all — the length and the protocol name are, the key or salt is not.
+
+### Retry Disposition
+An error's answer to "is this worth trying again?", read by the mechanisms that
+must decide — a poll loop's backoff, a broker's redelivery, an RPC boundary
+choosing a status code — so that none of them has to pattern-match on codes.
+
+Three states, not two: retryable, fatal, and *no view expressed*. The third is
+what lets a wrapper that has exhausted its budget declare a transient cause fatal
+while an undecided wrapper defers to its cause. The outermost error that
+expressed a view decides. Silence means not retryable — retrying is the claim
+that needs making, since a caller that retries a permanent failure loops forever.
+
+### User Message
+The client-facing message an error carries, sent in place of the internal one at
+a boundary facing untrusted callers. The internal message is written for the log
+and may name hosts, engine IDs, and call paths; the two are deliberately separate
+so neither is compromised trying to serve both audiences. An accompanying Hint
+carries the remedy under the same client-safe rule.
+
+Both resolve to the outermost value in the chain, because the level closest to
+the caller knows what that caller was trying to do.
+
 ## Flagged ambiguities
 
 - "Backend" and "driver" had been used for the SNMP wire implementation — there
