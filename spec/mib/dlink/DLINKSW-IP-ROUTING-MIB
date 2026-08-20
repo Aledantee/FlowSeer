@@ -1,0 +1,905 @@
+-- *****************************************************************
+-- DLINKSW-IP-ROUTING-MIB.mib : D-Link IP Routing MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+
+DLINKSW-IP-ROUTING-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE, Unsigned32, Integer32
+                       				        FROM SNMPv2-SMI
+        TruthValue,DisplayString,RowStatus	FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF  
+        InterfaceIndex                      FROM IF-MIB                                              
+        InetAddressType, InetAddress,InetAddressPrefixLength,
+        InetVersion                    		FROM INET-ADDRESS-MIB
+        dlinkIndustrialCommon               FROM DLINK-ID-REC-MIB;
+
+	dlinkSwIpRoutingMIB MODULE-IDENTITY
+        LAST-UPDATED    "201601040000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of IP Routing Information for the
+                 proprietary enterprise."                       
+       
+        REVISION        "201304150000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module." 
+    
+        REVISION 	"201308290000Z"
+        DESCRIPTION
+            "Change the position of all RowStatus type objects.
+            Add a new value 'ospfInter' for obejct dIpRoutingProtoDistanceType"
+
+	REVISION 	"201408250000Z"
+        DESCRIPTION
+            "Change the description of dIpRoutingProtoDistance.
+			Change the position of all RowStatus type objects.
+			Modify the dIpRoutingEcmpLoadBalanceMgmt.
+			Change the max length of VRF name to 12 charactors."
+
+        REVISION 	"201503160000Z"
+        DESCRIPTION
+            "Add a new value 'isis' for object dIpRoutingProtoDistanceType.
+             Add a new value 'isis' for object dIpRoutingRouteSummarySrcType."
+
+        REVISION 	"201503250000Z"
+        DESCRIPTION
+            "Modify the default setting of IS-IS distance value."
+
+        REVISION 	"201503270000Z"
+        DESCRIPTION
+             "Add a new value 'slaac' for object dIpRoutingRouteSummarySrcType."
+
+        REVISION 	"201511190000Z"
+        DESCRIPTION
+             "Add a new node 'dIPRoutingPrefixListHitCount' for table dIpRoutingPrefixListTable."
+
+        REVISION 	"201601040000Z"
+        DESCRIPTION
+             "Add a new node 'dIpRoutingEcmpAdvanceCtlMode'."
+
+		::= { dlinkIndustrialCommon 126 }
+
+    dIpRoutingNotifications     OBJECT IDENTIFIER ::= { dlinkSwIpRoutingMIB 0 }
+	dIpRoutingObjects		    OBJECT IDENTIFIER ::= { dlinkSwIpRoutingMIB 1 }
+	dIpRoutingConformance	    OBJECT IDENTIFIER ::= { dlinkSwIpRoutingMIB 2 }
+
+-- -----------------------------------------------------------------------------	
+	dIpRoutingGlobal OBJECT IDENTIFIER ::= { dIpRoutingObjects 1 }
+
+    dIpRoutingIpv6UnicastRouting OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the state of IPv6 unicast routing function."
+        DEFVAL  { false }
+        ::= { dIpRoutingGlobal 1 }
+
+    dIpRoutingV6UcastRoutingLongPfx OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether to support the IPv6 route with prefix
+            length larger than 64 bits."
+        DEFVAL  { false }
+        ::= { dIpRoutingGlobal 2 }
+
+    dIpRoutingEcmpAdvanceCtlMode OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the max number of ecmp or multipath routes                can be supported."
+        ::= { dIpRoutingGlobal 3 }
+
+-- -----------------------------------------------------------------------------	
+    dIpRoutingRouteObjects OBJECT IDENTIFIER ::= { dIpRoutingObjects 2 }
+
+    dIpRoutingRoutePolicyTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DIpRoutingRoutePolicyEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "This table contains a list of route policies which can be used to
+           specify inetCidrRoutePolicy of the inetCidrRouteEntry in 
+           inetCidrRouteTable, which is defined in IP-FORWARD-MIB."
+        ::= { dIpRoutingRouteObjects 1 }
+
+    dIpRoutingRoutePolicyEntry OBJECT-TYPE
+        SYNTAX          DIpRoutingRoutePolicyEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry contains the information for a route policy to provide
+           the additional configuration is not available at inetCidrRouteEntry.
+           An entry of this table is created before configuring inetCidrRoutePolicy.  
+           When the OID of dIpRoutingRoutePolicyEntry.<I>, 'I' is the value of 
+           dIpRoutingRoutePolicyIndex, is specified for inetCidrRoutePolicy,
+           the corresponding parameters of the entry are associated for 
+           the route.
+           "
+        INDEX {  dIpRoutingRoutePolicyIndex }
+        ::= { dIpRoutingRoutePolicyTable 1 }
+    
+    DIpRoutingRoutePolicyEntry ::=         SEQUENCE {
+        dIpRoutingRoutePolicyIndex      Unsigned32,
+        dIpRoutingRoutePolicyVrf        DisplayString,
+        dIpRoutingRoutePolicyWeight     Unsigned32,
+		dIpRoutingRoutePolicyRowStatus  RowStatus
+    }
+	              
+    dIpRoutingRoutePolicyIndex OBJECT-TYPE
+        SYNTAX		    Unsigned32 (1..4294967295)
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object uniquely identifies a route policy."
+        ::= { dIpRoutingRoutePolicyEntry 1 }
+    
+    dIpRoutingRoutePolicyVrf OBJECT-TYPE
+        SYNTAX		    DisplayString (SIZE (0..12))
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the name of the routing forwarding instance.
+           A zero length string indicates the entry is applied to global routing
+           domain.
+           "
+        ::= { dIpRoutingRoutePolicyEntry 2 }
+        
+    dIpRoutingRoutePolicyWeight OBJECT-TYPE
+        SYNTAX		    Unsigned32
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the weight number. This number is used to 
+           replicate identical route path (multiple copies) in routing table, 
+           so the path get more chance to be hit for traffic routing.
+           The valid range is project dependent.
+           "
+        DEFVAL { 1 }  
+        ::= { dIpRoutingRoutePolicyEntry 3 }       
+
+     dIpRoutingRoutePolicyRowStatus OBJECT-TYPE
+        SYNTAX   	    RowStatus
+        MAX-ACCESS      read-create
+        STATUS  	    current
+        DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) are supported."
+        ::= { dIpRoutingRoutePolicyEntry 99 } 
+
+-- ----------------------------------------------------------------------------- 
+    dIpRoutingRouteSummaryTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DIpRoutingRouteSummaryEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "This table contains a list of brief information for the working
+           routing entries."
+        ::= { dIpRoutingRouteObjects 2 }
+
+    dIpRoutingRouteSummaryEntry OBJECT-TYPE
+        SYNTAX          DIpRoutingRouteSummaryEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry contains the brief information for the working
+           routing entries of a type.
+           "
+        INDEX {  
+            dIpRoutingRouteSummaryInetVer,
+            dIpRoutingRouteSummarySrcType,
+            dIpRoutingRouteSummaryVrf
+        }
+        ::= { dIpRoutingRouteSummaryTable 1 }
+    
+    DIpRoutingRouteSummaryEntry ::=         SEQUENCE {        
+        dIpRoutingRouteSummaryInetVer          InetVersion,
+        dIpRoutingRouteSummarySrcType          INTEGER,
+        dIpRoutingRouteSummaryVrf              DisplayString, 
+        dIpRoutingRouteSummaryRouteNum         Unsigned32
+    }
+	    
+    dIpRoutingRouteSummaryInetVer OBJECT-TYPE
+        SYNTAX		    InetVersion
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the version of the IP protocol of the entry."
+        ::= { dIpRoutingRouteSummaryEntry 1 }
+              
+    dIpRoutingRouteSummarySrcType OBJECT-TYPE
+        SYNTAX		    INTEGER {  
+            connected(1),
+            static(2),
+            ripOrRipng(3),
+            ospf(4),
+            bgp(5),
+            total(6),
+            multiPath(7),
+            isis(8),
+            slaac(9)
+        }
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the type of the summary information.
+            'static'     - Routing entries that are static connected.
+            'ripOrRipng' - Routing entries that are learned via RIP/RIPng.
+            'ospf'       - Routing entries that are learned via OSPF.
+            'bgp'	     - Routing entries that are learned via BGP.
+            'total'	     - The total number of the working routing entries.
+            'multiPath'  - The number of routes that can be reached by multiple paths.
+            'isis'       - Routing entries that are learned via IS-IS.
+            'slaac'      - Stateless address autoconfiguration.
+           "
+        ::= { dIpRoutingRouteSummaryEntry 2 }
+    
+    dIpRoutingRouteSummaryVrf OBJECT-TYPE
+        SYNTAX		    DisplayString (SIZE (0..12))
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the VRF name of the entry.
+           A zero length string indicates the entry is applied to global routing
+           domain. 
+           "
+        ::= { dIpRoutingRouteSummaryEntry 3 }
+
+    dIpRoutingRouteSummaryRouteNum OBJECT-TYPE
+        SYNTAX		    Unsigned32
+        MAX-ACCESS	    read-only
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the sum of routes for the type."
+        ::= { dIpRoutingRouteSummaryEntry 4 }
+
+-- -----------------------------------------------------------------------------   	             
+    dIpRoutingProtocolDistanceTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DIpRoutingProtocolDistanceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "This table contains a list of administrative distance configuration
+           for routing protocols."
+        ::= { dIpRoutingObjects 3 }
+
+    dIpRoutingProtocolDistanceEntry OBJECT-TYPE
+        SYNTAX          DIpRoutingProtocolDistanceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry contains the administrative distance configuration of a 
+           routing protocol.
+           An entry appears in this table when the administrative distance
+           is configurable.
+           "
+        INDEX {  
+            dIpRoutingProtoDistanceInetVer,
+            dIpRoutingProtoDistanceType,
+            dIpRoutingProtoVrf
+        }
+        ::= { dIpRoutingProtocolDistanceTable 1 }
+    
+    DIpRoutingProtocolDistanceEntry ::=         SEQUENCE {
+        dIpRoutingProtoDistanceInetVer          InetVersion,
+        dIpRoutingProtoDistanceType             INTEGER,
+        dIpRoutingProtoVrf                      DisplayString,
+        dIpRoutingProtoDistance                 Integer32      
+    }
+	              
+    dIpRoutingProtoDistanceInetVer OBJECT-TYPE
+        SYNTAX		    InetVersion
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the version of the IP protocol used for the
+           distance."
+        ::= { dIpRoutingProtocolDistanceEntry 1 }
+
+    dIpRoutingProtoDistanceType OBJECT-TYPE
+        SYNTAX		    INTEGER  {
+            connected(1),
+			static(2),
+			default(3),
+            bgpExternal(4),
+            bgpInternal(5),
+            bgpLocal(6),
+            ospfIntra(7),
+            ospfInter(8),
+            ospfExtern1(9),
+            ospfExtern2(10),
+            ripOrRipng(11),
+            isis(12)
+        }
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the type of the distance.           
+           "
+        ::= { dIpRoutingProtocolDistanceEntry 2 }
+   
+    dIpRoutingProtoVrf OBJECT-TYPE
+        SYNTAX		    DisplayString (SIZE (0..12))
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the name of the routing forwarding instance
+           for the entry. 
+            A zero length string indicates the entry is applied to global routing
+           domain. 
+           "
+        ::= { dIpRoutingProtocolDistanceEntry 3 }
+
+    dIpRoutingProtoDistance OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the administrative distance of the entry.
+            This object becomes default value when set to -1.
+            The default value depends on the protocol type:
+            Protocol Type    IPv4 Default Distance   IPv6 Default Distance
+            ==============   =====================   =====================
+            connected                0                       0
+            static                  60                       1
+            default                  1                       1
+            bgpExternal             70                      70
+            bgpInternal            130                     130
+            ospfIntra               80                     110
+            OspfInter               90                     110
+            ospfExtern1            110                     110
+            ospfExtern2            115                     110
+            ripOrRipng             100                     120
+            isis                   116                     116
+            "        
+        ::= { dIpRoutingProtocolDistanceEntry 4 }
+ 
+-- ----------------------------------------------------------------------------- 
+    dIpRoutingEcmpLoadBalanceMgmt OBJECT IDENTIFIER ::= { dIpRoutingObjects 4 }
+        
+    dIpRoutingEcmpLoadBalanceHashAlgorithm  OBJECT-TYPE
+        SYNTAX INTEGER{
+            sourceIp(1),
+            crc32Lower(2),
+			crc32Upper(3)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object configures ECMP hash algorithm.
+            sourceIp(1) -  If set, the lower bits of source IP address are used.
+            crc32Lower(2) -  If set, the lower bits of CRC32 are used.
+            crc32Upper(3) -  If set, the upper bits of CRC32 are used.
+			"
+		DEFVAL  { 1 }
+        ::= { dIpRoutingEcmpLoadBalanceMgmt 1 }
+
+    dIpRoutingEcmpLoadBalanceHashKeyDestIP  OBJECT-TYPE
+        SYNTAX			TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object configures the key of ECMP hashing.
+            If set, destination IP address is used as the key of ECMP hasing."
+		DEFVAL  { false }
+		::= { dIpRoutingEcmpLoadBalanceMgmt 2 }
+
+    dIpRoutingEcmpLoadBalanceHashKeyTcpUdpPort  OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object configures the key of ECMP hashing.
+            If set, TCP/UDP port number is  is used as the key of ECMP hasing."
+        DEFVAL  { false }
+		::= { dIpRoutingEcmpLoadBalanceMgmt 3 }
+   
+-- -----------------------------------------------------------------------------        
+    dIpRoutingProtocolMaxPathsTable	OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DIpRoutingProtocolMaxPathsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "This table contains a list of configurations for the protocol-specific
+           max number of parallel routes that can be installed in the routing table."
+        ::= { dIpRoutingObjects 5 }
+
+    dIpRoutingProtocolMaxPathsEntry OBJECT-TYPE
+        SYNTAX          DIpRoutingProtocolMaxPathsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry contains the information about maximum number of parallel
+           routes of the IP routing protocol that can be installed in the routing
+           table.
+           An entry appears in this table when the max number of parallel routes
+           is configurable.
+           "
+        INDEX {  
+            dIpRoutingProtoMaxPathsInetVer,
+            dIpRoutingProtoMaxPathsType,
+            dIpRoutingProtoMaxPathsVrf
+        }
+        ::= { dIpRoutingProtocolMaxPathsTable 1 }
+    
+    DIpRoutingProtocolMaxPathsEntry ::=         SEQUENCE {
+        dIpRoutingProtoMaxPathsInetVer          InetVersion,
+        dIpRoutingProtoMaxPathsType             INTEGER,
+        dIpRoutingProtoMaxPathsVrf              DisplayString,
+        dIpRoutingProtoMaxPathsNum              Integer32     
+    }
+	              
+    dIpRoutingProtoMaxPathsInetVer OBJECT-TYPE
+        SYNTAX		    InetVersion
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the version of the IP protocol used for the
+           entry."
+        ::= { dIpRoutingProtocolMaxPathsEntry 1 }
+
+    dIpRoutingProtoMaxPathsType OBJECT-TYPE
+        SYNTAX		    INTEGER  {
+            ospf(1),
+            ripOrRipng(2)
+        }
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the protocol type of the entry.           
+           "
+        ::= { dIpRoutingProtocolMaxPathsEntry 2 }
+    
+   dIpRoutingProtoMaxPathsVrf OBJECT-TYPE
+        SYNTAX		    DisplayString (SIZE (0..12))
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the VRF name of the entry.
+           A zero length string indicates the entry is applied to global routing
+           domain. 
+           "
+        ::= { dIpRoutingProtocolMaxPathsEntry 3 }
+
+   dIpRoutingProtoMaxPathsNum OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the max number of parallel routes of the entry.
+            This object becomes default value when set to -1.
+            The default value is 1.
+            "        
+        ::= { dIpRoutingProtocolMaxPathsEntry 4 }
+
+-- -----------------------------------------------------------------------------
+	dIpRoutingDistListTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DIpRoutingDistListEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of interface-specific distribution list 
+            configurations to filter routes."
+        ::= { dIpRoutingObjects 6 }
+
+    dIpRoutingDistListEntry OBJECT-TYPE
+        SYNTAX         DIpRoutingDistListEntry
+        MAX-ACCESS     not-accessible
+        STATUS         current
+        DESCRIPTION
+            "This object contains the information of distribution list on one
+            interface to filter learned route or advertising route."
+        INDEX {         
+            dIpRoutingDistListInetVer,
+            dIpRoutingDistListProtocolType,
+            dIpRoutingDistListIfIndex, 
+            dIpRoutingDistListDir            
+        }
+        ::= { dIpRoutingDistListTable 1 }
+
+    DIpRoutingDistListEntry ::=
+        SEQUENCE {
+            dIpRoutingDistListInetVer           InetVersion,
+            dIpRoutingDistListProtocolType      INTEGER,
+            dIpRoutingDistListIfIndex           InterfaceIndex,  
+            dIpRoutingDistListDir               INTEGER, 
+            dIpRoutingDistListAclName           DisplayString,
+			dIpRoutingDistListRowStatus         RowStatus
+        }
+ 
+    dIpRoutingDistListInetVer OBJECT-TYPE
+        SYNTAX		    InetVersion
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the version of the IP protocol used for the
+           entry."
+        ::= { dIpRoutingDistListEntry 1 }
+
+    dIpRoutingDistListProtocolType OBJECT-TYPE
+        SYNTAX		    INTEGER  {
+            ospf(1),
+            ripOrRipng(2)           
+        }
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the routing protocol for which the distribution
+           list is used."
+        ::= { dIpRoutingDistListEntry 2 }
+
+    dIpRoutingDistListIfIndex OBJECT-TYPE
+        SYNTAX		    InterfaceIndex
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "The ifIndex value of the interface on which the distribute list is
+           used."
+        ::= { dIpRoutingDistListEntry 3 }
+
+    dIpRoutingDistListDir OBJECT-TYPE
+        SYNTAX		    INTEGER  {
+            in(1),
+            out(2)
+        }
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "The direction on which the distribute list is used.
+           'in'  - apply the distribute list to incoming route updates.
+           'out' - apply the distribute list to outgoing route updates.
+           "
+        ::= { dIpRoutingDistListEntry 4 }
+
+    dIpRoutingDistListAclName OBJECT-TYPE
+        SYNTAX		    DisplayString (SIZE (1..32))
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "The access list name of the entry."
+        ::= { dIpRoutingDistListEntry 5 }
+           
+     dIpRoutingDistListRowStatus OBJECT-TYPE
+        SYNTAX   	    RowStatus
+        MAX-ACCESS      read-create
+        STATUS  	    current
+        DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) are supported."
+        ::= { dIpRoutingDistListEntry 99 }   
+		
+-- -----------------------------------------------------------------------------	
+	dIpRoutingPrefixListTable  OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DIpRoutingPrefixListEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table consists of a list of IP prefixes. 
+            The initial 2 index elements identify the prefix list that a prefix
+            belongs to.
+            "
+        ::= { dIpRoutingObjects 7 }
+
+    dIpRoutingPrefixListEntry OBJECT-TYPE
+        SYNTAX          DIpRoutingPrefixListEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry contains the information of an IP prefix."
+        INDEX {            
+            dIpRoutingPrefixListAddrType,
+            dIpRoutingPrefixListName,
+            dIpRoutingPrefixListSeqNum
+        }
+        ::= { dIpRoutingPrefixListTable 1 }
+
+    DIpRoutingPrefixListEntry ::=        SEQUENCE {
+        dIpRoutingPrefixListAddrType        InetAddressType,
+        dIpRoutingPrefixListName            DisplayString,           
+        dIpRoutingPrefixListSeqNum          Unsigned32,
+        dIpRoutingPrefixListAction          INTEGER,
+        dIpRoutingPrefixListNetAddr         InetAddress, 
+        dIpRoutingPrefixListPrefixLen       InetAddressPrefixLength,
+        dIpRoutingPrefixListGeValue         Unsigned32,
+        dIpRoutingPrefixListLeValue         Unsigned32,
+        dIPRoutingPrefixListHitCount        Unsigned32,
+		dIpRoutingPrefixListRowStatus       RowStatus
+    }
+
+    dIpRoutingPrefixListAddrType OBJECT-TYPE
+        SYNTAX		    InetAddressType
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the address type of the prefix."
+        ::= { dIpRoutingPrefixListEntry 1 }
+
+    dIpRoutingPrefixListName OBJECT-TYPE
+        SYNTAX		    DisplayString (SIZE (1..32))
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the name of the prefix list."
+        ::= { dIpRoutingPrefixListEntry 2 }
+
+    dIpRoutingPrefixListSeqNum OBJECT-TYPE
+        SYNTAX		    Unsigned32 ( 0 | 1..65535)
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "The checking sequence of the prefix within a prefix list.            
+           The lower the number is, the higher the precedence of the permit/deny rule.
+           The special value of 0 means the sequence number will be automatically 
+           determined by the agent.
+           "
+        ::= { dIpRoutingPrefixListEntry 3 }
+
+    dIpRoutingPrefixListAction OBJECT-TYPE
+        SYNTAX		    INTEGER {
+            permit(1),
+            deny(2)
+        }
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates whether to permit or deny the matched route entry."
+        ::= { dIpRoutingPrefixListEntry 4 }
+  
+    dIpRoutingPrefixListNetAddr OBJECT-TYPE
+        SYNTAX		    InetAddress
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the network address (prefix)."
+        ::= { dIpRoutingPrefixListEntry 5 }
+
+    dIpRoutingPrefixListPrefixLen OBJECT-TYPE
+        SYNTAX		    InetAddressPrefixLength
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "The length of network address (prefix)."
+        ::= { dIpRoutingPrefixListEntry 6 }
+
+    dIpRoutingPrefixListGeValue OBJECT-TYPE
+        SYNTAX		    Unsigned32(0 | 1..128)
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "The minimum prefix length of the route that can be matched.
+           The special value of 0 indicates this object is not specified. 
+           "
+        DEFVAL { 0 }
+        ::= { dIpRoutingPrefixListEntry 7 }
+
+    dIpRoutingPrefixListLeValue  OBJECT-TYPE
+        SYNTAX		    Unsigned32 (0 | 1..128)
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "The maximum prefix length of the route that can be matched.
+           The special value of 0 indicates this object is not specified.
+           "
+        DEFVAL { 0 }
+        ::= { dIpRoutingPrefixListEntry 8 }  
+        
+    dIPRoutingPrefixListHitCount  OBJECT-TYPE
+        SYNTAX		    Unsigned32
+        MAX-ACCESS	    read-only
+        STATUS		    current
+        DESCRIPTION
+           "Counter that the prefix list entry has been matched."
+        ::= { dIpRoutingPrefixListEntry 9 }  
+        
+    dIpRoutingPrefixListRowStatus OBJECT-TYPE
+        SYNTAX   	RowStatus
+        MAX-ACCESS  read-create
+        STATUS  	current
+        DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) are supported."
+        ::= { dIpRoutingPrefixListEntry 99 }
+
+-- -----------------------------------------------------------------------------	
+	dIpRoutingPfxLstDescrTable  OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DIpRoutingPfxLstDescrEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table consists of a list of descriptions for IP prefix lists."
+        ::= { dIpRoutingObjects 18 }
+
+    dIpRoutingPfxLstDescrEntry OBJECT-TYPE
+        SYNTAX          DIpRoutingPfxLstDescrEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An entry contains the description of an IP prefix list."
+        INDEX {            
+            dIpRoutingPfxLstDescrPfxAddrType,
+            dIpRoutingPfxLstDescrLstName        
+        }
+        ::= { dIpRoutingPfxLstDescrTable 1 }
+
+    DIpRoutingPfxLstDescrEntry ::=        SEQUENCE {
+        dIpRoutingPfxLstDescrPfxAddrType    InetAddressType,
+        dIpRoutingPfxLstDescrLstName        DisplayString,        
+        dIpRoutingPfxLstDescrContent        DisplayString,
+		dIpRoutingPfxLstDescrRowStatus      RowStatus
+    }
+
+    dIpRoutingPfxLstDescrPfxAddrType OBJECT-TYPE
+        SYNTAX		    InetAddressType
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the address type of the prefix list."
+        ::= { dIpRoutingPfxLstDescrEntry 1 }
+
+    dIpRoutingPfxLstDescrLstName OBJECT-TYPE
+        SYNTAX		    DisplayString (SIZE (1..32))
+        MAX-ACCESS	    not-accessible
+        STATUS		    current
+        DESCRIPTION
+           "This object indicates the name of the prefix list."
+        ::= { dIpRoutingPfxLstDescrEntry 2 }
+
+    dIpRoutingPfxLstDescrContent OBJECT-TYPE
+        SYNTAX		    DisplayString 
+        MAX-ACCESS	    read-create
+        STATUS		    current
+        DESCRIPTION
+           "Specify the description for prefix list."
+        ::= { dIpRoutingPfxLstDescrEntry 3 }
+     
+    dIpRoutingPfxLstDescrRowStatus OBJECT-TYPE
+        SYNTAX   	RowStatus
+        MAX-ACCESS  read-create
+        STATUS  	current
+        DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) are supported."
+        ::= { dIpRoutingPfxLstDescrEntry 99 } 
+
+-- -----------------------------------------------------------------------------	       
+    -- Conformance Information        
+
+    dIpRoutingGroups      OBJECT IDENTIFIER ::= { dIpRoutingConformance 1 }
+    dIpRoutingCompliances OBJECT IDENTIFIER ::= { dIpRoutingConformance 2 }
+
+    -- Compliance Statements
+
+    dIpRoutingCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION     "The compliance statement for entities which implement the 
+			                DLINKSW-IP-ROUTING-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS {              
+            dIpRoutingProtocolDistanceGroup,
+            dIpRoutingRouteMgmtGroup                          
+        }
+			
+        GROUP           dIpRoutingV6UnicastRoutingGroup
+        DESCRIPTION
+            "This group is required for IPv6 unicast routing."
+
+        GROUP           dIpRoutingEcmpGroup
+        DESCRIPTION
+            "This group is required for supporting configurable ECMP hash algorithm."
+
+        GROUP           dIpRoutingMaxPathGroup
+        DESCRIPTION
+            "This group is required for supporting multiple next hop of IP routes."
+
+        GROUP           dIpRoutingDistributeListGroup
+        DESCRIPTION
+             "This group is required for filtering routes."          
+
+        GROUP           dIpRoutingPrefixListGroup
+        DESCRIPTION
+             "This group is required for IP prefix list." 
+     
+        ::= { dIpRoutingCompliances 1 }
+			
+-- units of conformance
+
+    dIpRoutingV6UnicastRoutingGroup OBJECT-GROUP
+        OBJECTS         {
+			dIpRoutingIpv6UnicastRouting,
+			dIpRoutingV6UcastRoutingLongPfx
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used to control IPv6 unicast routing function."
+        ::= { dIpRoutingGroups 1 }
+   
+    dIpRoutingRouteMgmtGroup OBJECT-GROUP
+        OBJECTS         {
+            dIpRoutingRoutePolicyVrf,
+            dIpRoutingRoutePolicyWeight,
+            dIpRoutingRouteSummaryRouteNum,
+            dIpRoutingRoutePolicyRowStatus,
+            dIpRoutingEcmpAdvanceCtlMode
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring routing table."
+        ::= { dIpRoutingGroups 2 }
+
+    dIpRoutingProtocolDistanceGroup OBJECT-GROUP
+        OBJECTS         {
+            dIpRoutingProtoDistance
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring administrative
+            distance of IP protocol routes."
+        ::= { dIpRoutingGroups 3 }
+   
+    dIpRoutingEcmpGroup OBJECT-GROUP
+        OBJECTS         {
+            dIpRoutingEcmpLoadBalanceHashAlgorithm,
+			dIpRoutingEcmpLoadBalanceHashKeyDestIP,
+			dIpRoutingEcmpLoadBalanceHashKeyTcpUdpPort
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring the ECMP algorithm."
+        ::= { dIpRoutingGroups 4 }
+
+    dIpRoutingMaxPathGroup OBJECT-GROUP
+        OBJECTS         {
+            dIpRoutingProtoMaxPathsNum
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring
+            the maximum number of next hop of IP protocol routes."
+        ::= { dIpRoutingGroups 5 }
+
+    dIpRoutingDistributeListGroup OBJECT-GROUP
+        OBJECTS         {
+            dIpRoutingDistListAclName,
+			dIpRoutingDistListRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring the distribute list 
+            to filter routes."
+        ::= { dIpRoutingGroups 6 }
+  
+    dIpRoutingPrefixListGroup OBJECT-GROUP
+        OBJECTS         {
+            dIpRoutingPrefixListAction,
+            dIpRoutingPrefixListNetAddr,
+            dIpRoutingPrefixListPrefixLen,
+            dIpRoutingPrefixListGeValue,
+            dIpRoutingPrefixListLeValue,
+            dIPRoutingPrefixListHitCount,
+            dIpRoutingPfxLstDescrContent,
+			dIpRoutingPrefixListRowStatus,
+			dIpRoutingPfxLstDescrRowStatus
+        }
+        STATUS          current
+        DESCRIPTION
+            "These objects are used for managing/monitoring the IP prefix list."
+        ::= { dIpRoutingGroups 7 }
+              
+END
+

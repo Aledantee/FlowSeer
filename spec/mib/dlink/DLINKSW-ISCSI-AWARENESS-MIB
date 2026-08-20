@@ -1,0 +1,398 @@
+-- *****************************************************************
+-- DLINKSW-ISCSI-AWARENESS-MIB.mib : D-Link iSCSI Awareness MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+DLINKSW-ISCSI-AWARENESS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,IpAddress
+            FROM SNMPv2-SMI   
+        RowStatus,DisplayString,TruthValue
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+		    FROM SNMPv2-CONF        
+        dlinkIndustrialCommon	
+            FROM DLINK-ID-REC-MIB;
+		
+   	              
+    dlinkSwIscsiMIB MODULE-IDENTITY
+        LAST-UPDATED "201507100000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "         D-Link Corporation
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:    +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+		    "The Structure of iSCSI Awareness Infomation for the 
+		     proprietary enterprise."
+        REVISION "201507100000Z"
+        DESCRIPTION
+            "Initial version of this MIB module." 
+        REVISION "201509250000Z"
+        DESCRIPTION
+            "Modify value range:
+            1. dIscsiCosTrafficClassVpt from 1~8 to 0~7
+            2. dIscsiCosTrafficClassDscp from 1~64 to 0~63"
+        ::= { dlinkIndustrialCommon 186 }
+
+-- -----------------------------------------------------------------------------
+    dIscsiMIBNotifications		OBJECT IDENTIFIER ::= { dlinkSwIscsiMIB 0 }
+	dIscsiMIBObjects     		OBJECT IDENTIFIER ::= { dlinkSwIscsiMIB 1 }
+	dIscsiMIBConformance		OBJECT IDENTIFIER ::= { dlinkSwIscsiMIB 2 }
+	
+	dIscsiGlobalCtrl     		OBJECT IDENTIFIER ::= { dIscsiMIBObjects 1 }                                                                                                                                                 
+-- ----------------------------------------------------------------------------- 		
+	dIscsiEnable OBJECT-TYPE
+		SYNTAX          TruthValue
+		MAX-ACCESS      read-write		
+		STATUS          current  
+		DESCRIPTION
+		    "The state of iSCSI awareness. 
+		    If true, iSCSI awareness is globally enabled and
+		    if false, iSCSI awareness is disabled."      
+		DEFVAL         { false }
+		::= { dIscsiGlobalCtrl 1 }	
+
+	dIscsiAgingTime OBJECT-TYPE
+		SYNTAX          INTEGER (1..43200)
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		      "The aging time for iSCSI sessions.
+		      The valid range is 1 to 43200 miniutes"
+		::= { dIscsiGlobalCtrl 2 }
+   	    
+   	dIscsiCosCtrl	OBJECT IDENTIFIER ::= { dIscsiGlobalCtrl 3 }  
+   	
+   	dIscsiCosRemarkEnable OBJECT-TYPE
+		SYNTAX          TruthValue
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		      "The remark state of iSCSI frames.
+		      If true, mark the iSCSI frames with the 
+		      configured VPT/DSCP when egressing the switch"      
+		DEFVAL         { false }
+		::= { dIscsiCosCtrl 1 }     
+		
+   	dIscsiCosTrafficClassVpt OBJECT-TYPE
+		SYNTAX          INTEGER (-1 | 0..7)
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		      "The VLAN priority tag to assign iSCSI session packets. 
+		      Because just assign either VPT or DSCP,using VPT or DSCP 
+		      depend on the last setting, -1 is only used to indicate 
+		      last setting is DSCP"      
+		::= { dIscsiCosCtrl 2 }
+
+   	dIscsiCosTrafficClassDscp OBJECT-TYPE
+		SYNTAX          INTEGER (-1 | 0..63)
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		      "The DSCP to assign iSCSI session packets.
+		      Because just assign either VPT or DSCP,using VPT or DSCP 
+		      depend on the last setting, -1 is only used to indicate 
+		      last setting is VPT"      
+		::= { dIscsiCosCtrl 3 }
+
+-- ----------------------------------------------------------------------------- 	
+   	dIscsiTargetTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF DIscsiTargetEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This table consists of a list of iSCSI flows."
+		::= { dIscsiMIBObjects 4 }
+    	   
+	dIscsiTargetEntry OBJECT-TYPE
+		SYNTAX  DIscsiTargetEntry
+		MAX-ACCESS  not-accessible
+		STATUS  current
+		DESCRIPTION
+		     "An entry consists iSCSI flows with TCP port, IP address, targetname field
+		     The iSCSI flows defined in this entry should be trapped to cpu for examination.
+             "
+		INDEX   { dIscsiTargetPort,
+				dIscsiTargetAddress	 }
+		::= { dIscsiTargetTable 1 }
+
+	DIscsiTargetEntry ::= SEQUENCE {      		  
+	    dIscsiTargetPort       	INTEGER,  
+		dIscsiTargetAddress		IpAddress,                       
+		dIscsiTargetName       	DisplayString,
+		dIscsiTargetRowStatus  	RowStatus		         
+    } 
+		
+   	dIscsiTargetPort OBJECT-TYPE
+		SYNTAX          INTEGER (0..65535)
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the TCP port number on which iSCSI target listen to requests."
+		::= { dIscsiTargetEntry 1 }    
+	
+	dIscsiTargetAddress OBJECT-TYPE
+		SYNTAX          IpAddress
+		MAX-ACCESS      read-only
+		STATUS  current
+		DESCRIPTION
+		      "This object indicates the IP address of the iSCSI target."     
+		::= { dIscsiTargetEntry 2 }
+	
+    dIscsiTargetName OBJECT-TYPE
+		SYNTAX          DisplayString
+		MAX-ACCESS      read-create
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the iSCSI name of the iSCSI target."  
+		::= { dIscsiTargetEntry 3 }
+	
+	dIscsiTargetRowStatus OBJECT-TYPE
+		SYNTAX          RowStatus
+		MAX-ACCESS      read-create
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the status of this entry."  
+		::= { dIscsiTargetEntry 99 }			    		 
+-- ----------------------------------------------------------------------------- 	
+   	dIscsiSessionTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF DIscsiSessionEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This table display the iSCSI sessions."
+		::= { dIscsiMIBObjects 5 }
+
+	dIscsiSessionEntry OBJECT-TYPE
+		SYNTAX          DIscsiSessionEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "An entry display the iSCSI sessions."
+		INDEX   { dIscsiSessionSessionID }
+		::= { dIscsiSessionTable 1 }
+
+	DIscsiSessionEntry ::=  SEQUENCE {
+		dIscsiSessionSessionID 	  		INTEGER,
+		dIscsiSessionTargetName 	  	DisplayString,	
+		dIscsiSessionInitiatorName		DisplayString
+	}
+
+	dIscsiSessionSessionID OBJECT-TYPE
+		SYNTAX          INTEGER
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the sessionID of iSCSI session."
+		::= { dIscsiSessionEntry 1 }
+		
+   	dIscsiSessionTargetName OBJECT-TYPE
+		SYNTAX          DisplayString 
+		MAX-ACCESS      read-only
+		STATUS          current  
+		DESCRIPTION
+		    "This object indicates the name of iSCSI session target." 
+		::= { dIscsiSessionEntry 2 }
+
+    dIscsiSessionInitiatorName OBJECT-TYPE
+		SYNTAX  		DisplayString		
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the name of iSCSI session initiator, 
+		    corresponding target is specified in dIscsiSessionTargetName."   
+		::= { dIscsiSessionEntry 3 }
+ 								
+-- ----------------------------------------------------------------------------- 	
+   	dIscsiSessionDetailTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF DIscsiSessionDetailEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This table display the iSCSI sessions detail."
+		::= { dIscsiMIBObjects 6 }
+
+	dIscsiSessionDetailEntry OBJECT-TYPE
+		SYNTAX          DIscsiSessionDetailEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "An entry display the iSCSI sessions detail."
+		INDEX   { dIscsiSessionDetailSessionID }
+		::= { dIscsiSessionDetailTable 1 }
+
+	DIscsiSessionDetailEntry ::=  SEQUENCE {
+		dIscsiSessionDetailSessionID			INTEGER,  
+		dIscsiSessionDetailTargetName			DisplayString,
+		dIscsiSessionDetailInitiatorName 	  	DisplayString,	   
+		dIscsiSessionDetailTimeStarted	  		DisplayString,
+		dIscsiSessionDetailTimeForAgingOut		INTEGER,
+		dIscsiSessionDetailISID					DisplayString,
+		dIscsiSessionDetailInitiatorAddress		IpAddress,            
+		dIscsiSessionDetailInitiatorPort	  	INTEGER,
+		dIscsiSessionDetailTargetAddress		IpAddress,
+		dIscsiSessionDetailTargetPort			INTEGER   
+	}
+	
+	dIscsiSessionDetailSessionID OBJECT-TYPE
+		SYNTAX          INTEGER
+		MAX-ACCESS       not-accessible
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the SessionID of iSCSI session."
+		::= { dIscsiSessionDetailEntry 1 }
+
+	dIscsiSessionDetailTargetName OBJECT-TYPE
+		SYNTAX          DisplayString 
+		MAX-ACCESS      read-only
+		STATUS          current  
+		DESCRIPTION
+		    "This object indicates the name of iSCSI session target." 
+		::= { dIscsiSessionDetailEntry 2 }
+
+	dIscsiSessionDetailInitiatorName OBJECT-TYPE
+		SYNTAX  		DisplayString		
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the name of iSCSI session initiator, 
+		    corresponding target is specified in dIscsiSessionInitiatorName."   
+		::= { dIscsiSessionDetailEntry 3 }
+	
+	dIscsiSessionDetailTimeStarted OBJECT-TYPE
+		SYNTAX          DisplayString
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the start time of iSCSI session."
+		::= { dIscsiSessionDetailEntry 4 }  
+	
+	dIscsiSessionDetailTimeForAgingOut OBJECT-TYPE
+		SYNTAX          INTEGER
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the aging time of iSCSI session,
+		    when session time is aging out, it should be deleted from this table"
+		::= { dIscsiSessionDetailEntry 5 }  
+		
+	dIscsiSessionDetailISID OBJECT-TYPE
+		SYNTAX          DisplayString
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the ISID of iSCSI session."
+		::= { dIscsiSessionDetailEntry 6 }  
+		
+	dIscsiSessionDetailInitiatorAddress OBJECT-TYPE
+		SYNTAX          IpAddress
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the IP address of iSCSI session initiator."
+		::= { dIscsiSessionDetailEntry 7 }  
+	
+	dIscsiSessionDetailInitiatorPort OBJECT-TYPE
+		SYNTAX          INTEGER
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the TCP port of iSCSI session initiator"
+		::= { dIscsiSessionDetailEntry 8 }  
+		
+	dIscsiSessionDetailTargetAddress OBJECT-TYPE
+		SYNTAX          IpAddress
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the IP address of iSCSI session target."
+		::= { dIscsiSessionDetailEntry 9 }    
+	
+	dIscsiSessionDetailTargetPort OBJECT-TYPE
+		SYNTAX          INTEGER
+		MAX-ACCESS      read-only
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates the TCP port of iSCSI session target."
+		::= { dIscsiSessionDetailEntry 10 }           
+		
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	dIscsiCompliances OBJECT IDENTIFIER ::= { dIscsiMIBConformance 1 }
+		
+	dIscsiCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINK-ISCSI-AWARENESS-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    dIscsiGlobalGroup,
+		    dIscsiTargetTableGroup, 
+		    dIscsiSessionTableGroup,
+		    dIscsiSessionDetailTableGroup		   
+		}    
+		::= { dIscsiCompliances 1 }
+		
+	dIscsiGroups OBJECT IDENTIFIER ::= { dIscsiMIBConformance 2 }
+		
+	dIscsiGlobalGroup OBJECT-GROUP
+		OBJECTS {
+		    dIscsiEnable,
+		    dIscsiAgingTime,		   
+		    dIscsiCosRemarkEnable, 
+		    dIscsiCosTrafficClassVpt,		   
+		    dIscsiCosTrafficClassDscp
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing the gloal configuration for iSCSI Awareness"
+		::= { dIscsiGroups 1 }
+
+	dIscsiTargetTableGroup OBJECT-GROUP
+		OBJECTS {
+		    dIscsiTargetAddress,
+		    dIscsiTargetName,
+		    dIscsiTargetRowStatus		   		     	   
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing the information of configuring iSCSI target port,address,name"
+		::= { dIscsiGroups 2 }
+	        
+	dIscsiSessionTableGroup OBJECT-GROUP
+		OBJECTS {		        
+		        dIscsiSessionTargetName,
+		        dIscsiSessionInitiatorName        		        		        		        
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects about the information of iSCSI session table"
+		::= { dIscsiGroups 3 }	        
+		
+	dIscsiSessionDetailTableGroup OBJECT-GROUP
+		OBJECTS {
+			dIscsiSessionDetailTargetName,
+			dIscsiSessionDetailInitiatorName,	   
+			dIscsiSessionDetailTimeStarted,
+			dIscsiSessionDetailTimeForAgingOut,
+			dIscsiSessionDetailISID,
+			dIscsiSessionDetailInitiatorAddress,            
+			dIscsiSessionDetailInitiatorPort,
+			dIscsiSessionDetailTargetAddress,
+			dIscsiSessionDetailTargetPort 	
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects about the information of iSCSI session detail."
+		::= { dIscsiGroups 4 } 
+END

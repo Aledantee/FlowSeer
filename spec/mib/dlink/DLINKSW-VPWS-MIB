@@ -1,0 +1,290 @@
+--  *****************************************************************
+--  DLINKSW-VPWS-MIB.mib : VPWS MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-VPWS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,Unsigned32,
+        Integer32
+            FROM SNMPv2-SMI
+        RowStatus,DisplayString,TruthValue,MacAddress
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+            FROM SNMPv2-CONF
+        ifIndex, InterfaceIndex, InterfaceIndexOrZero
+            FROM IF-MIB          
+        pwIndex 
+            FROM PW-STD-MIB
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB              -- [RFC4001]
+        PwIDType, PwIndexType
+            FROM PW-TC-STD-MIB                 -- [RFC5542]
+        pwEnetPwInstance
+            FROM PW-ENET-STD-MIB
+        dlinkIndustrialCommon        
+            FROM DLINK-ID-REC-MIB
+        VlanIdOrNone
+            FROM Q-BRIDGE-MIB;                 -- [RFC4363]
+
+    dlinkSwVpwsMIB    MODULE-IDENTITY
+        LAST-UPDATED "201306260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for VPWS."
+            
+        REVISION "201306260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'VPWS'
+            functionality."
+            
+        REVISION "201409230000Z"
+        DESCRIPTION
+            "Add node 'dVpwsEnetEgressVlanMode', 'dVpwsEnetAdditionVlan', 
+            'dVpwsEnetVlanRangeMax' and 'dVpwsEnetPwTpid' in
+            'dVpwsEnetTable'."
+      ::= { dlinkIndustrialCommon 157 } 
+
+-- 
+--    MIB OBJECTS     
+-- ---------------------------------------------------------------------------------------------
+    dVpwsNotifications    OBJECT IDENTIFIER ::= { dlinkSwVpwsMIB 0 }
+    dVpwsObjects          OBJECT IDENTIFIER ::= { dlinkSwVpwsMIB 1 }
+    dVpwsConformance      OBJECT IDENTIFIER ::= { dlinkSwVpwsMIB 2 }
+-- ---------------------------------------------------------------------------------------------
+    dVpwsBackupPwTable    OBJECT-TYPE
+        SYNTAX              SEQUENCE OF DVpwsBackupPwEntry
+        MAX-ACCESS          not-accessible
+        STATUS              current
+        DESCRIPTION            
+            "This table specifies information for configuring 
+            and status monitoring for VPWS backup PW.
+            Backup Pseudowires created by this table will also 
+            be presented in the pwTable."            
+        ::= { dVpwsObjects 1 }
+
+    dVpwsBackupPwEntry    OBJECT-TYPE
+        SYNTAX         DVpwsBackupPwEntry
+        MAX-ACCESS     not-accessible       
+        STATUS         current
+        DESCRIPTION            
+            "A row in this table represents a VPWS backup pseudowire (PW).  
+            It is indexed by pwIndex in pwTable."
+        INDEX  { pwIndex }
+        ::= { dVpwsBackupPwTable 1 }
+
+    DVpwsBackupPwEntry ::= SEQUENCE     {
+        dVpwsBackupPwPrimaryIndex            PwIndexType,
+        dVpwsBackupPwPeerAddrType            InetAddressType,
+        dVpwsBackupPwPeerAddr                InetAddress,
+        dVpwsBackupPwPwID                    PwIDType,
+        dVpwsBackupPwBackupDelay             Unsigned32,
+        dVpwsBackupPwRowStatus               RowStatus
+    }
+
+    dVpwsBackupPwPrimaryIndex OBJECT-TYPE
+        SYNTAX        PwIndexType
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Index of primary PW in pwTable."
+        ::= { dVpwsBackupPwEntry 1 }
+
+    dVpwsBackupPwPeerAddrType OBJECT-TYPE
+        SYNTAX        InetAddressType
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Denotes the address type of the peer node."
+        DEFVAL { ipv4 }
+        ::= { dVpwsBackupPwEntry 2 }
+
+    dVpwsBackupPwPeerAddr OBJECT-TYPE
+        SYNTAX        InetAddress
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "This object contains the value of the peer node address
+            of the PW/PE maintenance protocol entity."
+        ::= { dVpwsBackupPwEntry 3 }
+
+    dVpwsBackupPwPwID OBJECT-TYPE
+        SYNTAX        PwIDType
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Pseudowire identifier of VPWS backup PW."
+        ::= { dVpwsBackupPwEntry 4 }
+
+    dVpwsBackupPwBackupDelay OBJECT-TYPE
+        SYNTAX        Unsigned32
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Backup delay time of VPWS backup PW in seconds. 
+            Value greater than 180 indicates never switch back."
+        DEFVAL { 4294967295 }
+        ::= { dVpwsBackupPwEntry 5 }
+
+    dVpwsBackupPwRowStatus OBJECT-TYPE
+        SYNTAX        RowStatus
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "For creating, modifying, and deleting this row."
+        ::= { dVpwsBackupPwEntry 99 }
+
+-- ---------------------------------------------------------------------------------------------
+    dVpwsEnetTable    OBJECT-TYPE
+        SYNTAX              SEQUENCE OF DVpwsEnetEntry
+        MAX-ACCESS          not-accessible
+        STATUS              current
+        DESCRIPTION            
+            "This table represents status of VPWS enet.
+            Enet are presented in the pwEnetTable."            
+        ::= { dVpwsObjects 2 }
+
+    dVpwsEnetEntry    OBJECT-TYPE
+        SYNTAX         DVpwsEnetEntry
+        MAX-ACCESS     not-accessible       
+        STATUS         current
+        DESCRIPTION            
+            "A row in this table represents status of a VPWS enet."
+        INDEX  { pwIndex, pwEnetPwInstance }
+        ::= { dVpwsEnetTable 1 }
+
+    DVpwsEnetEntry ::= SEQUENCE     {
+        dVpwsEnetOperStatus         INTEGER,
+        dVpwsEnetEgressVlanMode     INTEGER,
+        dVpwsEnetAdditionVlan       VlanIdOrNone,
+        dVpwsEnetVlanRangeMax       VlanIdOrNone,
+        dVpwsEnetPwTpid             OCTET STRING
+    }
+
+    dVpwsEnetOperStatus OBJECT-TYPE
+        SYNTAX          INTEGER {
+                        unknown  (1),
+                        up  (2),
+                        down (3)
+                        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The value of this object indicates operation status of the enet."
+        ::= { dVpwsEnetEntry 1 }
+        
+    dVpwsEnetEgressVlanMode  OBJECT-TYPE
+        SYNTAX     INTEGER {
+                 default(0),
+                 changeVlan(1),
+                 removeVlan(2)
+        }
+        MAX-ACCESS  read-write
+        STATUS     current
+        DESCRIPTION
+            "This object indicates the mode of egress VLAN handling between 
+            the PW encapsulation and the port or the virtual port associated 
+            with the PW.
+
+            - 'default' indicates the default configuration. It's removeVlan for 
+              eth port based AC and changeVlan to AC VID for eth-VLAN based AC.
+
+            - 'changeVlan' indicates that the outer-tag of the packet will be 
+              changed to AC VID before egress on the AC. 
+              Can only be applied on eth-VLAN based AC.
+
+            - 'removeVlan' indicates that the outer-tag of the packet will be 
+              stripped before egress on the AC.
+            "
+        DEFVAL { default }
+        ::= { dVpwsEnetEntry 2 }
+
+    dVpwsEnetAdditionVlan  OBJECT-TYPE
+        SYNTAX     VlanIdOrNone
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "This object defines the addtion AC VLAN."
+        DEFVAL  { 0 }
+        ::= { dVpwsEnetEntry 3 }
+
+    dVpwsEnetVlanRangeMax  OBJECT-TYPE
+        SYNTAX     VlanIdOrNone
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "This object defines the max VLAN ID for VLAN range."
+        DEFVAL  { 0 }
+        ::= { dVpwsEnetEntry 4 }
+
+    dVpwsEnetPwTpid  OBJECT-TYPE
+        SYNTAX     OCTET STRING (SIZE (2))
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "This object defines the TPID value should be added or changed if 
+            'pwEnetVlanMode' equals to 'noChange' or 'changeVlan'.
+            "
+        ::= { dVpwsEnetEntry 5 }
+
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- -----------------------------------------------------------------------------   
+    dVpwsCompliances      OBJECT IDENTIFIER ::= { dVpwsConformance 1 }
+    dvpwsGroups           OBJECT IDENTIFIER ::= { dVpwsConformance 2 }        
+       
+    dVpwsMIBCompliance MODULE-COMPLIANCE
+        STATUS   current
+        DESCRIPTION
+                "The compliance statement for entities which
+                 implement the DLINKSW-VPWS-MIB."
+        MODULE MANDATORY-GROUPS { 
+                 dVpwsBackupPwGroup,
+                 dVpwsEnetGroup
+        }
+        
+        ::= { dVpwsCompliances 1 }
+
+    dVpwsBackupPwGroup OBJECT-GROUP
+        OBJECTS 
+        {
+            dVpwsBackupPwPrimaryIndex,
+            dVpwsBackupPwPeerAddrType,
+            dVpwsBackupPwPeerAddr,
+            dVpwsBackupPwPwID,
+            dVpwsBackupPwBackupDelay,
+            dVpwsBackupPwRowStatus
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects manage and show VPWS backup PWs."
+        ::= { dvpwsGroups 1 }
+    
+    dVpwsEnetGroup OBJECT-GROUP
+        OBJECTS         
+        {   
+            dVpwsEnetOperStatus,
+            dVpwsEnetEgressVlanMode,
+            dVpwsEnetAdditionVlan,
+            dVpwsEnetVlanRangeMax,
+            dVpwsEnetPwTpid
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects show VPWS enet."
+        ::= { dvpwsGroups 2 }
+             
+-- ---------------------------------------------------------------------------------------------
+
+END
+

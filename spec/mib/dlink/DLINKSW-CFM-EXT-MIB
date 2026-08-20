@@ -1,0 +1,1562 @@
+--  *****************************************************************
+--  DLINKSW-CFM-EXT-MIB.mib : CFM Extension MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+DLINKSW-CFM-EXT-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, Counter32,
+        Unsigned32,Integer32
+             FROM SNMPv2-SMI
+        DateAndTime, TruthValue, MacAddress       
+             FROM SNMPv2-TC
+        CounterBasedGauge64
+             FROM HCNUM-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+             FROM SNMPv2-CONF
+        InterfaceIndex
+             FROM IF-MIB 
+        dot1agCfmMdIndex,dot1agCfmMaIndex,dot1agCfmMepIdentifier,
+        Dot1agCfmMDLevel, Dot1agCfmMepId    
+             FROM IEEE8021-CFM-MIB     
+        VlanId     
+             FROM Q-BRIDGE-MIB
+        dlinkIndustrialCommon           
+             FROM DLINK-ID-REC-MIB;
+        
+    dlinkSwCfmMIB MODULE-IDENTITY     
+
+        LAST-UPDATED "201304280000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for extending the configuration of 
+            CFM (Connectivity Fault Management). "             
+
+        REVISION "201304280000Z"
+        DESCRIPTION 
+            "This is the first version of this MIB."    
+        ::= { dlinkIndustrialCommon 86 }
+
+-- -----------------------------------------------------------------------------
+    dCfmMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwCfmMIB 0 }
+    dCfmMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwCfmMIB 1 }
+    dCfmMIBConformance      OBJECT IDENTIFIER ::= { dlinkSwCfmMIB 2 } 
+
+    dCfmNotifyMgmt        OBJECT IDENTIFIER   ::= { dCfmMIBObjects 1 }       
+    dCfmCtrl              OBJECT IDENTIFIER   ::= { dCfmMIBObjects 2 }
+    dCfmFaultMgmt         OBJECT IDENTIFIER   ::= { dCfmMIBObjects 3 }
+    dCfmPmMgmt            OBJECT IDENTIFIER   ::= { dCfmMIBObjects 4 } 
+    dCfmNotificationInfo  OBJECT IDENTIFIER   ::= { dCfmMIBObjects 5 }
+-- -----------------------------------------------------------------------------    
+   dCfmAisNotifyEnabled   OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the CFM AIS notification state."
+        DEFVAL { false }
+        ::= { dCfmNotifyMgmt 1 }
+                 
+   dCfmLockNotifyEnabled   OBJECT-TYPE
+        SYNTAX          TruthValue 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the CFM lock notification state."
+        DEFVAL { false }
+        ::= { dCfmNotifyMgmt 2 }
+    
+-- -----------------------------------------------------------------------------
+    dCfmCtrlCfmEnabled  OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+             "This object indicates whether the global state of CFM is enabled."
+        DEFVAL { false }
+        ::={dCfmCtrl 1}
+    
+    dCfmCtrlCfmMpLtrAll  OBJECT-TYPE
+        SYNTAX  TruthValue
+        MAX-ACCESS  read-write
+        STATUS   current
+        DESCRIPTION
+             "This object indicates the state of 'all MPs reply LTRs' function."
+        DEFVAL { false }
+        ::={dCfmCtrl 2}
+        
+    dCfmCtrlCfmCounterCcmDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the CCM packet counters of all the MEPs.
+            Reset to false by the device after the CCM packet counters has been deleted."
+        DEFVAL { false }
+        ::= { dCfmCtrl 3 } 
+
+-- -----------------------------------------------------------------------------                
+    dCfmCtrlCfmPortTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCfmCtrlCfmPortEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table contains of a list interface specific CFM configurations."   
+        ::= { dCfmCtrl 4 }
+        
+    dCfmCtrlCfmPortEntry OBJECT-TYPE
+        SYNTAX          DCfmCtrlCfmPortEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents the CFM configurations of an interface."
+        INDEX { 
+            dCfmCtrlCfmPortIndex
+        }
+        ::= { dCfmCtrlCfmPortTable 1 }
+
+    DCfmCtrlCfmPortEntry ::= SEQUENCE {
+            dCfmCtrlCfmPortIndex         InterfaceIndex,
+            dCfmCtrlCfmPortEnabled       TruthValue,
+            dCfmCtrlCfmPortPktRxAll      Counter32,              
+            dCfmCtrlCfmPortPktRxCcm      Counter32,         
+            dCfmCtrlCfmPortPktRxLbm      Counter32, 
+            dCfmCtrlCfmPortPktRxLbr      Counter32, 
+            dCfmCtrlCfmPortPktRxLtm      Counter32,               
+            dCfmCtrlCfmPortPktRxLtr      Counter32,  
+            dCfmCtrlCfmPortPktRxVidDrop  Counter32,  
+            dCfmCtrlCfmPortPktRxOpcoDrop Counter32,
+            dCfmCtrlCfmPortPktRxDelete   TruthValue,      
+            dCfmCtrlCfmPortPktTxAll      Counter32,  
+            dCfmCtrlCfmPortPktTxCcm      Counter32,      
+            dCfmCtrlCfmPortPktTxLbm      Counter32,      
+            dCfmCtrlCfmPortPktTxLbr      Counter32,  
+            dCfmCtrlCfmPortPktTxLtm      Counter32,      
+            dCfmCtrlCfmPortPktTxLtr      Counter32,      
+            dCfmCtrlCfmPortPktTxDelete   TruthValue
+    }
+
+    dCfmCtrlCfmPortIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the ifIndex of the interface."
+        ::= { dCfmCtrlCfmPortEntry 1 }
+
+    dCfmCtrlCfmPortEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the CFM state of the interface."
+        ::= { dCfmCtrlCfmPortEntry 2 } 
+                
+    dCfmCtrlCfmPortPktRxAll OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many packets of all the CFM types have
+            been received on the interface."
+        ::= { dCfmCtrlCfmPortEntry 3 }  
+                
+    dCfmCtrlCfmPortPktRxCcm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many CCM packets have been received 
+             on the interface."
+        ::= { dCfmCtrlCfmPortEntry 4 }         
+        
+    dCfmCtrlCfmPortPktRxLbm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LBM (loopback message) packets
+            have been received on the interface."
+        ::= { dCfmCtrlCfmPortEntry 5 }     
+        
+    dCfmCtrlCfmPortPktRxLbr OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LBR (loopback response) packets
+            have been received on the interface."
+        ::= { dCfmCtrlCfmPortEntry 6 }  
+        
+    dCfmCtrlCfmPortPktRxLtm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LTM (linktrace message) packets
+            have been received on the interface."
+        ::= { dCfmCtrlCfmPortEntry 7 } 
+                
+    dCfmCtrlCfmPortPktRxLtr OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LTR (linktrace response) packets
+            has been received on the interface."
+        ::= { dCfmCtrlCfmPortEntry 8 }
+        
+    dCfmCtrlCfmPortPktRxVidDrop OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many received packets are dropped out of
+            the VLAN on the interface."
+        ::= { dCfmCtrlCfmPortEntry 9 }
+        
+    dCfmCtrlCfmPortPktRxOpcoDrop OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many received packets are dropped when
+            cannot match the normal opcode on the interface."
+        ::= { dCfmCtrlCfmPortEntry 10 } 
+        
+    dCfmCtrlCfmPortPktRxDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the receiving packet counters
+            on the interface. Reset to false by the device after the packet 
+            counters have been deleted."
+        DEFVAL { false }
+        ::= { dCfmCtrlCfmPortEntry 11 } 
+        
+    dCfmCtrlCfmPortPktTxAll OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many packets of all the CFM types have
+            been transmitted on the interface."
+        ::= { dCfmCtrlCfmPortEntry 12 }
+    
+    dCfmCtrlCfmPortPktTxCcm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many CCM packets have been transmitted 
+            on the interface."
+        ::= { dCfmCtrlCfmPortEntry 13 }   
+        
+    dCfmCtrlCfmPortPktTxLbm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LBM (loopback message) packets have
+            been transmitted on the interface."
+        ::= { dCfmCtrlCfmPortEntry 14 } 
+        
+    dCfmCtrlCfmPortPktTxLbr OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LBR (loopback response) packets have
+            been transmitted on the interface."
+        ::= { dCfmCtrlCfmPortEntry 15 }  
+        
+    dCfmCtrlCfmPortPktTxLtm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LTM (linktrace message) packets have
+            been transmitted on the interface."
+        ::= { dCfmCtrlCfmPortEntry 16 }  
+        
+    dCfmCtrlCfmPortPktTxLtr OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LTR (linktrace response) packets have
+            been transmitted on the interface."
+        ::= { dCfmCtrlCfmPortEntry 17 } 
+        
+    dCfmCtrlCfmPortPktTxDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the transmitting packet counters
+            on the interface. 
+            Reset to false by the device after the packet counters have been deleted."
+        DEFVAL { false }
+        ::= { dCfmCtrlCfmPortEntry 18 } 
+        
+-- -----------------------------------------------------------------------------         
+    dCfmCtrlCfmMaTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF DCfmCtrlCfmMaEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "A table contains of a list of CFM mode configurations for MAs."
+        ::= { dCfmCtrl 5 }
+
+    dCfmCtrlCfmMaEntry OBJECT-TYPE
+        SYNTAX          DCfmCtrlCfmMaEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents the CFM mode of a MA."
+        INDEX { 
+            dot1agCfmMdIndex, 
+            dot1agCfmMaIndex 
+        }
+        ::= { dCfmCtrlCfmMaTable 1 }
+        
+    DCfmCtrlCfmMaEntry ::= SEQUENCE {
+        dCfmCtrlCfmMaMode   INTEGER
+    }
+
+    dCfmCtrlCfmMaMode OBJECT-TYPE
+        SYNTAX          INTEGER {
+            software(1),
+            hardware(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how CFM works in the MA.
+            CFM hardware mode is used to improve the performance of CCM process.
+            In CFM hardware mode, CCM packet is processed by hardware and CPU 
+            needs not be involved in general.
+            "            
+        ::= { dCfmCtrlCfmMaEntry 1 }
+
+-- -----------------------------------------------------------------------------           
+    dCfmCtrlCfmMepTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF DCfmCtrlCfmMepEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "A table contains a list of MEP-specific CFM mode information."
+        ::= { dCfmCtrl 6 }
+
+    dCfmCtrlCfmMepEntry OBJECT-TYPE
+        SYNTAX      DCfmCtrlCfmMepEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "An entry contains CFM mode information of a MEP."
+        INDEX  { 
+            dot1agCfmMdIndex, 
+            dot1agCfmMaIndex, 
+            dot1agCfmMepIdentifier
+        }
+        ::= { dCfmCtrlCfmMepTable 1 }
+
+    DCfmCtrlCfmMepEntry ::= SEQUENCE {
+            dCfmCtrlCfmMepMode          INTEGER,
+            dCfmCtrlCfmMepXconCcm       Counter32,
+            dCfmCtrlCfmMepErrorCcm      Counter32,
+            dCfmCtrlCfmMepNormalCcm     Counter32,
+            dCfmCtrlCfmMepLtDelete      TruthValue
+    }
+
+    dCfmCtrlCfmMepMode OBJECT-TYPE
+        SYNTAX  INTEGER {
+            software(1),
+            hardware(2)
+        }
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the CFM mode of the entry."
+        ::= { dCfmCtrlCfmMepEntry 1 }
+       
+   dCfmCtrlCfmMepXconCcm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many Cross-connect CCMs have been received 
+             on the MEP."
+        ::= { dCfmCtrlCfmMepEntry 2 } 
+    
+   dCfmCtrlCfmMepErrorCcm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many invalid CCMs have been received 
+             on the MEP."
+        ::= { dCfmCtrlCfmMepEntry 3 } 
+        
+   dCfmCtrlCfmMepNormalCcm OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many normal CCMs have been received 
+             on the MEP."
+        ::= { dCfmCtrlCfmMepEntry 4 } 
+                
+   dCfmCtrlCfmMepLtDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the linktrace responses. 
+            Reset to false by the device after the linktrace responses have
+            been deleted."
+        DEFVAL { false }
+        ::= { dCfmCtrlCfmMepEntry 5 }      
+   
+-- -----------------------------------------------------------------------------                
+    dCfmCtrlCfmMipCcmTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCfmCtrlCfmMipCcmEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table contains of a list of MIP CCM database entries."   
+        ::= { dCfmCtrl 7 }
+        
+    dCfmCtrlCfmMipCcmEntry OBJECT-TYPE
+        SYNTAX          DCfmCtrlCfmMipCcmEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents a MIP CCM database entry."
+        INDEX { 
+            dCfmCtrlCfmMipCcmVid,
+            dCfmCtrlCfmMipCcmMacAddress
+        }
+        ::= { dCfmCtrlCfmMipCcmTable 1 }
+
+    DCfmCtrlCfmMipCcmEntry ::= SEQUENCE {
+            dCfmCtrlCfmMipCcmVid             VlanId,
+            dCfmCtrlCfmMipCcmMacAddress      MacAddress,
+            dCfmCtrlCfmMipCcmPort            InterfaceIndex            
+    }
+
+    dCfmCtrlCfmMipCcmVid OBJECT-TYPE
+        SYNTAX          VlanId
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the VLAN ID of MIP CCM entry."
+        ::= { dCfmCtrlCfmMipCcmEntry 1 }
+
+    dCfmCtrlCfmMipCcmMacAddress OBJECT-TYPE
+        SYNTAX          MacAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the MAC address of MIP CCM entry."
+        ::= { dCfmCtrlCfmMipCcmEntry 2 } 
+        
+    dCfmCtrlCfmMipCcmPort OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the interface of MIP CCM entry."
+        ::= { dCfmCtrlCfmMipCcmEntry 3 }  
+         
+-- -----------------------------------------------------------------------------
+    dCfmFaultMgmtTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCfmFaultMgmtEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table that contains a list configuration for fault management in
+            MEPs." 
+       ::= { dCfmFaultMgmt 1 }
+       
+    dCfmFaultMgmtEntry OBJECT-TYPE
+        SYNTAX          DCfmFaultMgmtEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents the parameters for fault management in a MEP." 
+        INDEX {  
+            dot1agCfmMdIndex,
+            dot1agCfmMaIndex,
+            dot1agCfmMepIdentifier
+        }
+       ::= { dCfmFaultMgmtTable 1 }
+       
+    DCfmFaultMgmtEntry ::= SEQUENCE {
+            dCfmFaultMgmtAisEnabled         TruthValue,
+            dCfmFaultMgmtAisPeriod          INTEGER,
+            dCfmFaultMgmtAisLevel           Dot1agCfmMDLevel,
+            dCfmFaultMgmtAisStatus          INTEGER,
+            dCfmFaultMgmtLockEnabled        TruthValue,
+            dCfmFaultMgmtLockPeriod         INTEGER,
+            dCfmFaultMgmtLockLevel          Dot1agCfmMDLevel,
+            dCfmFaultMgmtLockStatus         INTEGER,
+            dCfmFaultMgmtLockCtrlAction     INTEGER
+     }
+
+    dCfmFaultMgmtAisEnabled  OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the state of CFM AIS function.
+            Setting this object to 'true' enables CFM AIS function.
+            "
+        DEFVAL { false }
+        ::= { dCfmFaultMgmtEntry 1 }
+        
+    dCfmFaultMgmtAisPeriod OBJECT-TYPE
+        SYNTAX  INTEGER{
+            oneSecond(1),
+            oneMinute(2)
+        } 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the transmitting interval of the AIS PDU."
+        DEFVAL { oneSecond }
+        ::= { dCfmFaultMgmtEntry 2 }
+        
+    dCfmFaultMgmtAisLevel OBJECT-TYPE
+        SYNTAX          Dot1agCfmMDLevel
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the client level to which the MEP sends AIS
+            PDU."
+        ::= { dCfmFaultMgmtEntry 3 }
+        
+    dCfmFaultMgmtAisStatus OBJECT-TYPE
+        SYNTAX  INTEGER{
+                detected(1),
+                cleared(2)
+        } 
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the status of AIS function."
+        ::= { dCfmFaultMgmtEntry 4 }
+        
+    dCfmFaultMgmtLockEnabled OBJECT-TYPE
+        SYNTAX  TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the CFM LCK (Locked Signal Function) state."
+        DEFVAL { false }
+        ::= { dCfmFaultMgmtEntry 5 }  
+
+    dCfmFaultMgmtLockPeriod OBJECT-TYPE
+        SYNTAX  INTEGER{
+            oneSecond(1),
+            oneMinute(2)
+        } 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the transmitting interval of the LCK PDU."
+        ::= { dCfmFaultMgmtEntry 6 }
+        
+    dCfmFaultMgmtLockLevel OBJECT-TYPE
+        SYNTAX          Dot1agCfmMDLevel
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the client level to which the MEP sends the
+            LCK PDU."
+        ::= { dCfmFaultMgmtEntry 7 }        
+    
+    dCfmFaultMgmtLockStatus OBJECT-TYPE
+        SYNTAX  INTEGER{
+            detected(1),
+            cleared(2)
+        } 
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the status of CFM LCK function."
+        ::= { dCfmFaultMgmtEntry 8 }  
+        
+    dCfmFaultMgmtLockCtrlAction OBJECT-TYPE
+        SYNTAX  INTEGER{
+            start(1),
+            stop(2)
+        } 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the status of the CFM management lock action.
+            Setting this object to 'start' or 'stop' to control the transmitting
+            of LCK PDUs to a client level MEP.
+            "
+        ::= { dCfmFaultMgmtEntry 9 }   
+ 
+-- ----------------------------------------------------------------------------- 
+    dCfmPmMepTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCfmPmMepEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table that contains CFM performance monitoring 
+            configuration and information of MEPs. 
+            CFM performance monitoring includes frame loss measurement (ETH-LM)
+            and frame delay measurement (ETH-DM)."              
+        ::= { dCfmPmMgmt 1 }
+        
+    dCfmPmMepEntry OBJECT-TYPE
+        SYNTAX          DCfmPmMepEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents the CFM performance monitoring configuration and 
+            information for a MEP.
+            " 
+        INDEX {  
+            dot1agCfmMdIndex,
+            dot1agCfmMaIndex,
+            dot1agCfmMepIdentifier
+        }
+        ::= { dCfmPmMepTable 1 }
+
+    DCfmPmMepEntry ::= SEQUENCE {
+        dCfmPmMepLmEnabled             TruthValue,
+        dCfmPmMepLmDestMacAddress      MacAddress,
+        dCfmPmMepLmPeriod              INTEGER,
+        dCfmPmMepLmPriority            Unsigned32,
+        dCfmPmMepLmTestStatus          TruthValue,
+        dCfmPmMepLmResultsDelete       TruthValue,
+        dCfmPmMepLmStatisticsDelete    TruthValue,
+        dCfmPmMepLmResults             Counter32,
+        dCfmPmMepLmPduLmmTransmitted   Counter32,
+        dCfmPmMepLmPduLmrReceived      Counter32,
+        dCfmPmMepLmPduLmmReceived      Counter32,
+        dCfmPmMepLmPduLmrTransmitted   Counter32,
+        dCfmPmMepDmEnabled             TruthValue,
+        dCfmPmMepDmDestMacAddress      MacAddress,
+        dCfmPmMepDmPeriodInterval      INTEGER,
+        dCfmPmMepDmPercentile          Unsigned32,
+        dCfmPmMepDmPriority            Unsigned32,
+        dCfmPmMepDmTestStatus          TruthValue,
+        dCfmPmMepDmResultsDelete       TruthValue,
+        dCfmPmMepDmStatisticsDelete    TruthValue,
+        dCfmPmMepDmResults             Counter32,
+        dCfmPmMepDmPduDmmTransmitted   Counter32,
+        dCfmPmMepDmPduDmrReceived      Counter32,
+        dCfmPmMepDmPduDmmReceived      Counter32,
+        dCfmPmMepDmPduDmrTransmitted   Counter32
+    }      
+              
+    dCfmPmMepLmEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the administrative state of frame loss 
+             measurement function in a MEP." 
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 1 } 
+        
+    dCfmPmMepLmDestMacAddress OBJECT-TYPE
+        SYNTAX      MacAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the target unicast MAC address field to be 
+             transmitted in a frame loss measurement test." 
+        ::= { dCfmPmMepEntry 2 } 
+        
+    dCfmPmMepLmPeriod OBJECT-TYPE
+        SYNTAX  INTEGER {
+                period100ms (1),
+                period1sec  (2),
+                period10sec (3)
+         }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the transmission period of LMM message in a 
+             frame loss measurement test."
+        DEFVAL { period1sec } 
+        ::= { dCfmPmMepEntry 3 } 
+        
+    dCfmPmMepLmPriority OBJECT-TYPE
+        SYNTAX         Unsigned32 (0..7) 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the pdu prioirty of LMM message in a frame loss           
+             measurement test. It also determines the CoS instance with which 
+             the frame loss measurement test is specified. The default value 
+             is MEP priority."
+        ::= { dCfmPmMepEntry 4 } 
+   
+   dCfmPmMepLmTestStatus OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to start a frame loss measurement test. 
+             Reset to false by the device after the frame loss measurement test 
+             has been ended."
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 5 } 
+             
+   dCfmPmMepLmResultsDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the frame loss measurement 
+             results. Reset to false by the device after the frame loss measurement 
+             results has been deleted."
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 6 } 
+
+   dCfmPmMepLmStatisticsDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the statistics of ETH-LM 
+             frames (LMM, LMR). Reset to 'false' by the device after the statistics 
+             of ETH-LM frames has been cleared."
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 7 } 
+   
+   dCfmPmMepLmResults OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many the frame loss measurement results 
+             exist."
+        ::= { dCfmPmMepEntry 8 } 
+    
+   dCfmPmMepLmPduLmmTransmitted OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LMM messages has been transmitted 
+            on the MEP."
+        ::= { dCfmPmMepEntry 9 } 
+   
+   dCfmPmMepLmPduLmrReceived OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LMR messages has been received 
+            on the MEP."
+        ::= { dCfmPmMepEntry 10 } 
+   
+   dCfmPmMepLmPduLmmReceived OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LMM messages has been received 
+             on the MEP."
+        ::= { dCfmPmMepEntry 11 } 
+   
+   dCfmPmMepLmPduLmrTransmitted OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many LMR messages has been transmitted 
+             on the MEP."
+        ::= { dCfmPmMepEntry 12 } 
+   
+   dCfmPmMepDmEnabled OBJECT-TYPE
+        SYNTAX     TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the administrative state of frame delay 
+             measurement function." 
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 13 } 
+        
+    dCfmPmMepDmDestMacAddress OBJECT-TYPE
+        SYNTAX          MacAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the target unicast MAC address field to be 
+             transmitted in a frame delay measurement test." 
+        ::= { dCfmPmMepEntry 14 } 
+        
+    dCfmPmMepDmPeriodInterval OBJECT-TYPE
+        SYNTAX   INTEGER {
+                 period100msInterval1sec  (1),
+                 period1secInterval10sec  (2),
+                 period10secInterval1min  (3)
+         }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the transmission period of DMM message and
+            the diagnostic interval in a frame delay measurement test."
+        DEFVAL { period1secInterval10sec } 
+        ::= { dCfmPmMepEntry 15 } 
+        
+    dCfmPmMepDmPercentile OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..100)  
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the percentile of frame delay and frame 
+             delay variation measurement."
+         DEFVAL { 75 }
+        ::= { dCfmPmMepEntry 16 } 
+   
+   dCfmPmMepDmPriority OBJECT-TYPE
+        SYNTAX      Unsigned32 (0..7)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the PDU prioirty of DMM message in a delay 
+             measurement test. It also decides the CoS instance with which 
+             the frame delay measurement test is specified. The default value 
+             is MEP priority."
+        ::= { dCfmPmMepEntry 17 } 
+
+   dCfmPmMepDmTestStatus OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to start a frame delay measurement 
+             test. Reset to false by the device after the frame delay 
+             measurement test has been ended."
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 18 } 
+     
+    dCfmPmMepDmResultsDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the frame delay measurement 
+             results. Reset to false by the device after the frame delay 
+             measurement results has been deleted."
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 19 } 
+
+   dCfmPmMepDmStatisticsDelete OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "A Boolean flag set to true to delete the statistics of ETH-DM 
+             frames (DMM, DMR). Reset to false by the device after the statistics 
+             of ETH-DM frames has been cleared."
+        DEFVAL { false }
+        ::= { dCfmPmMepEntry 20 } 
+   
+    dCfmPmMepDmResults OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many the frame delay measurement results 
+             exist."
+        ::= { dCfmPmMepEntry 21 } 
+         
+   dCfmPmMepDmPduDmmTransmitted OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many DMM messages has been transmitted 
+             on the MEP."
+        ::= { dCfmPmMepEntry 22 } 
+   
+   dCfmPmMepDmPduDmrReceived OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many DMR messages has been received 
+             on the MEP."
+        ::= { dCfmPmMepEntry 23 } 
+   
+   dCfmPmMepDmPduDmmReceived OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many DMM messages has been received 
+             on the MEP."
+        ::= { dCfmPmMepEntry 24 } 
+   
+    dCfmPmMepDmPduDmrTransmitted OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates how many DMR messages has been transmitted 
+             on the MEP."
+        ::= { dCfmPmMepEntry 25 } 
+
+-- -----------------------------------------------------------------------------    
+    dCfmPmLmResultTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCfmPmLmResultEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table that contains a list of configuration and information of
+            CFM frame loss measurement tests. 
+            When the test results are deleted for the MEP, the corresponding 
+            entries will be removed.                    
+            "   
+        ::= { dCfmPmMgmt 2 }
+        
+    dCfmPmLmResultEntry OBJECT-TYPE
+        SYNTAX          DCfmPmLmResultEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents the parameters and information of a frame loss
+            measurement test.            
+            " 
+        INDEX {  
+            dot1agCfmMdIndex,
+            dot1agCfmMaIndex,
+            dot1agCfmMepIdentifier,
+            dCfmPmLmIdentifier
+        }
+        ::= { dCfmPmLmResultTable 1 }
+
+    DCfmPmLmResultEntry ::= SEQUENCE {                
+        dCfmPmLmIdentifier              Unsigned32,
+        dCfmPmLmDestMacAddress          MacAddress,
+        dCfmPmLmPeriod                  INTEGER,
+        dCfmPmLmPriority                Unsigned32,
+        dCfmPmLmStatus                  INTEGER,                  
+        dCfmPmLmFarEnd                  Integer32,
+        dCfmPmLmNearEnd                 Integer32,
+        dCfmPmLmStartTime               DateAndTime
+    }   
+                              
+    dCfmPmLmIdentifier OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..4294967295)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An integer value uniquely identifying the entry in the table.           
+           "
+        ::= { dCfmPmLmResultEntry 1 } 
+          
+    dCfmPmLmDestMacAddress OBJECT-TYPE
+        SYNTAX          MacAddress
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the target unicast MAC address in a frame 
+            loss measurement result." 
+        ::= { dCfmPmLmResultEntry 2 } 
+                
+    dCfmPmLmPeriod OBJECT-TYPE
+        SYNTAX  INTEGER {
+                period100ms (1),
+                period1sec  (2),
+                period10sec (3)
+         }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the transmission period of LMM message in a 
+             frame loss measurement result."
+        DEFVAL { period1sec } 
+        ::= { dCfmPmLmResultEntry 3 } 
+        
+    dCfmPmLmPriority OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..7) 
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the priority of the ETH-LM frames (LMM, LMR) 
+             in the frame loss measurement result."
+        ::= { dCfmPmLmResultEntry 4 } 
+        
+   dCfmPmLmStatus OBJECT-TYPE
+        SYNTAX          INTEGER {
+            running (1),
+            success (2),
+            failed  (3),
+            aborted (4)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the status in the frame loss measurement 
+             result."
+        ::= { dCfmPmLmResultEntry 5 } 
+             
+   dCfmPmLmFarEnd OBJECT-TYPE
+        SYNTAX          Integer32 (-1..100)
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the far-end Frame Loss Ratio (FLR) which
+             is expressed as a percentage. 
+            
+             It is valid when the status of the frame loss measurement result 
+             is success. The value is expressed as a percentage except that 
+             the value -1 indicates the result is not applicable."
+        ::= { dCfmPmLmResultEntry 6 } 
+   
+   dCfmPmLmNearEnd OBJECT-TYPE
+        SYNTAX          Integer32 (-1..100)
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the near-end frame loss measurement result. 
+             It is valid when the status of the frame loss measurement result 
+             is success. The value is expressed as a percentage except that 
+             the value -1 indicates the result is not applicable."
+        ::= { dCfmPmLmResultEntry 7 } 
+   
+   dCfmPmLmStartTime OBJECT-TYPE
+        SYNTAX          DateAndTime
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the time at which the loss 
+             measurement test start."
+        ::= { dCfmPmLmResultEntry 8 } 
+
+-- ----------------------------------------------------------------------------- 
+    dCfmPmDmResultTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCfmPmDmResultEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table that contains a list of configuration and information of frame
+            delay measurement result.
+            When the test results are deleted for the MEP, the corresponding 
+            entries will be removed.              
+            "     
+        ::= { dCfmPmMgmt 3 }
+        
+    dCfmPmDmResultEntry OBJECT-TYPE
+        SYNTAX          DCfmPmDmResultEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents the parameters and information of a frame
+            delay measurement result.            
+            " 
+        INDEX {  
+            dot1agCfmMdIndex,
+            dot1agCfmMaIndex,
+            dot1agCfmMepIdentifier,
+            dCfmPmDmIdentifier
+        }
+        ::= { dCfmPmDmResultTable 1 }
+
+    DCfmPmDmResultEntry ::= SEQUENCE {        
+        dCfmPmDmIdentifier          Unsigned32,       
+        dCfmPmDmDestMacAddress      MacAddress,
+        dCfmPmDmPeriodInterval      INTEGER,
+        dCfmPmDmPercentile          Unsigned32,
+        dCfmPmDmPriority            Unsigned32,  
+        dCfmPmDmStatus              INTEGER,  
+        dCfmPmDmFrameDelay          CounterBasedGauge64,
+        dCfmPmDmDelayVariation      CounterBasedGauge64,
+        dCfmPmDmStartTime           DateAndTime
+    }   
+    
+    dCfmPmDmIdentifier OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..4294967295)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "An integer value uniquely identifying the entry in the table.           
+           "
+        ::= { dCfmPmDmResultEntry 1 } 
+                     
+    dCfmPmDmDestMacAddress OBJECT-TYPE
+        SYNTAX      MacAddress
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the target unicast MAC address field to be 
+             transmitted in a frame delay measurement result." 
+        ::= { dCfmPmDmResultEntry 2 } 
+                
+    dCfmPmDmPeriodInterval OBJECT-TYPE
+        SYNTAX   INTEGER {
+                 period100msInterval1sec  (1),
+                 period1secInterval10sec  (2),
+                 period10secInterval1min  (3)
+         }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the transmission period of DMM message and
+             the diagnostic interval in a frame delay measurement result."
+        DEFVAL { period1secInterval10sec } 
+        ::= { dCfmPmDmResultEntry 3 } 
+        
+    dCfmPmDmPercentile OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..100) 
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the percentile of frame delay and frame 
+             delay variation measurement."
+         DEFVAL { 75 }
+        ::= { dCfmPmDmResultEntry 4 } 
+   
+    dCfmPmDmPriority OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..7)
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the priority of the ETH-DM frames (DMM, DMR) 
+             in the frame delay measurement result."
+        ::= { dCfmPmDmResultEntry 5 } 
+        
+    dCfmPmDmStatus OBJECT-TYPE
+        SYNTAX   INTEGER {
+            running (1),
+            success (2),
+            failed  (3),
+            aborted (4)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the status in the frame delay measurement 
+             result."
+        ::= { dCfmPmDmResultEntry 6 } 
+            
+    dCfmPmDmFrameDelay OBJECT-TYPE
+        SYNTAX          CounterBasedGauge64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the frame delay value (nanoseconds) in the 
+             frame delay measurement result."
+        ::= { dCfmPmDmResultEntry 7 } 
+   
+   dCfmPmDmDelayVariation OBJECT-TYPE
+        SYNTAX          CounterBasedGauge64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the frame delay variation value (nanoseconds) in the 
+             frame delay measurement result."
+        ::= { dCfmPmDmResultEntry 8 } 
+   
+   dCfmPmDmStartTime OBJECT-TYPE
+        SYNTAX          DateAndTime
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the time at which the delay 
+             measurement test start."
+        ::= { dCfmPmDmResultEntry 9 }
+
+-- -----------------------------------------------------------------------------
+    dCfmEventMdIndex OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      accessible-for-notify
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the dot1agCfmMdIndex of the Maintenance Domain." 
+        ::= { dCfmNotificationInfo 1 }
+
+    dCfmEventMaIndex OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      accessible-for-notify
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the dot1agCfmMaIndex of the Maintenance
+            Association (MA)." 
+        ::= { dCfmNotificationInfo 2 }
+ 
+    dCfmEventMepIdentifier OBJECT-TYPE
+        SYNTAX          Dot1agCfmMepId
+        MAX-ACCESS      accessible-for-notify
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the dot1agCfmMepIdentifier of the MEP." 
+        ::= { dCfmNotificationInfo 3 }
+
+-- -----------------------------------------------------------------------------      
+   dCfmAisOccurred   NOTIFICATION-TYPE
+        OBJECTS   {
+            dCfmEventMdIndex,
+            dCfmEventMaIndex,
+            dCfmEventMepIdentifier  
+        }
+        STATUS          current
+        DESCRIPTION
+            "A notification is generated when local MEP enters AIS status."
+        ::= { dCfmMIBNotifications 1 }
+        
+    dCfmAisCleared   NOTIFICATION-TYPE
+        OBJECTS   {
+            dCfmEventMdIndex,
+            dCfmEventMaIndex,
+            dCfmEventMepIdentifier  
+        }
+        STATUS          current
+        DESCRIPTION
+            "A notification is generated when local MEP exits AIS status."
+        ::= { dCfmMIBNotifications 2 } 
+   
+    dCfmLockOccurred   NOTIFICATION-TYPE
+        OBJECTS   {
+            dCfmEventMdIndex,
+            dCfmEventMaIndex,
+            dCfmEventMepIdentifier  
+        }
+        STATUS          current
+        DESCRIPTION
+            "A notification is generated when local MEP enters lock status."
+        ::= { dCfmMIBNotifications 3 } 
+
+   
+    dCfmLockCleared   NOTIFICATION-TYPE
+        OBJECTS   {
+            dCfmEventMdIndex,
+            dCfmEventMaIndex,
+            dCfmEventMepIdentifier  
+        }
+        STATUS          current
+        DESCRIPTION
+            "A notification is generated when local MEP exits lock status."
+        ::= { dCfmMIBNotifications 4 } 
+                   
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+        dCfmCompliances  OBJECT IDENTIFIER    ::= { dCfmMIBConformance 1 }
+    
+        dCfmCompliance   MODULE-COMPLIANCE
+            STATUS current
+            DESCRIPTION 
+                "The compliance statement for entities which implement the 
+                DLINKSW-CFM-EXT-MIB."
+            MODULE -- this module
+            MANDATORY-GROUPS
+            {
+                dCfmCtrlCfmGlobalCfgGroup
+            }
+            
+            GROUP           dCfmCtrlCfmMpLtrAllCfgGroup
+            DESCRIPTION
+                "This group is required only if CFM 'all MPs reply LTRs' is configurable by the agent."
+                
+            GROUP           dCfmCtrlCfmCounterCcmDeleteCfgGroup
+            DESCRIPTION
+                "This group is required only if CFM ccm packet counter is deleted by the agent."
+            
+            GROUP           dCfmCtrlCfmPortCfgGroup
+            DESCRIPTION
+                "This group is required only if CFM is per-port configurable by the agent."   
+
+            GROUP           dCfmFaultMgmtCfgGroup
+            DESCRIPTION
+                "This group is required only if the fault management (FM) feature
+                is implemented by the agent."
+                                            
+            GROUP           dCfmPmMepCfgGroup
+            DESCRIPTION
+                "This group is required only if the frame loss measurement function
+                and the frame delay measurement function are implemented by the agent."
+                                                
+            GROUP           dCfmLmResultCfgGroup
+            DESCRIPTION
+                "This group is required only if the result of the frame loss measurement function
+                is dispalyed." 
+            
+            GROUP           dCfmDmResultCfgGroup
+            DESCRIPTION
+                "This group is required only if the result of the frame delay measurement function
+                is dispalyed."       
+                            
+            GROUP           dCfmCtrlCfmMaCfgGroup
+            DESCRIPTION
+                "Implementation of this group is optional."
+ 
+            GROUP           dCfmCtrlCfmMepCfgGroup
+            DESCRIPTION
+                "Implementation of this group is optional."  
+                  
+            GROUP           dCfmCtrlCfmMipCcmInfoGroup
+            DESCRIPTION
+                "Implementation of this group is optional."             
+                  
+            GROUP           dCfmAisNotifyStateCfgGroup
+            DESCRIPTION
+                "Implementation of this group is optional." 
+    
+            GROUP           dCfmLockNotifyStateCfgGroup
+            DESCRIPTION
+                "Implementation of this group is optional." 
+            
+            GROUP           dCfmNotifyInfoGroup
+            DESCRIPTION
+                "Implementation of this group is optional." 
+
+            GROUP           dCfmAisNotificationsGroup
+            DESCRIPTION
+                "Implementation of this group is optional." 
+
+            GROUP           dCfmLockNotificationsGroup
+            DESCRIPTION
+                "Implementation of this group is optional."  
+            ::= { dCfmCompliances 1 }
+        
+    dCfmGroups OBJECT IDENTIFIER ::= { dCfmMIBConformance 2 }
+    
+    dCfmCtrlCfmGlobalCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmCtrlCfmEnabled
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the state of CFM global state."
+            ::= { dCfmGroups 1 }
+            
+    dCfmCtrlCfmMpLtrAllCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmCtrlCfmMpLtrAll
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the state of 'all MPs reply LTRs' function."
+            ::= { dCfmGroups 2 }
+            
+    dCfmCtrlCfmCounterCcmDeleteCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmCtrlCfmCounterCcmDelete
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the function to delete the cfm ccm counter."
+            ::= { dCfmGroups 3 }
+    
+    dCfmCtrlCfmPortCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmCtrlCfmPortEnabled,
+                dCfmCtrlCfmPortPktRxAll,              
+                dCfmCtrlCfmPortPktRxCcm,        
+                dCfmCtrlCfmPortPktRxLbm,
+                dCfmCtrlCfmPortPktRxLbr, 
+                dCfmCtrlCfmPortPktRxLtm,               
+                dCfmCtrlCfmPortPktRxLtr, 
+                dCfmCtrlCfmPortPktRxVidDrop, 
+                dCfmCtrlCfmPortPktRxOpcoDrop, 
+                dCfmCtrlCfmPortPktRxDelete,    
+                dCfmCtrlCfmPortPktTxAll, 
+                dCfmCtrlCfmPortPktTxCcm,     
+                dCfmCtrlCfmPortPktTxLbm,     
+                dCfmCtrlCfmPortPktTxLbr, 
+                dCfmCtrlCfmPortPktTxLtm,     
+                dCfmCtrlCfmPortPktTxLtr,     
+                dCfmCtrlCfmPortPktTxDelete
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the CFM state on specified ports."
+            ::= { dCfmGroups 4 }
+    
+    dCfmFaultMgmtCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmFaultMgmtAisEnabled,
+                dCfmFaultMgmtAisPeriod,
+                dCfmFaultMgmtAisLevel,
+                dCfmFaultMgmtAisStatus,
+                dCfmFaultMgmtLockEnabled,
+                dCfmFaultMgmtLockPeriod,
+                dCfmFaultMgmtLockLevel,
+                dCfmFaultMgmtLockStatus,
+                dCfmFaultMgmtLockCtrlAction     
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the configuration
+            of CFM AIS and LOCK function."
+            ::= { dCfmGroups 5 }
+                        
+    dCfmPmMepCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            dCfmPmMepLmEnabled,
+            dCfmPmMepLmDestMacAddress,
+            dCfmPmMepLmPeriod,
+            dCfmPmMepLmPriority,
+            dCfmPmMepLmTestStatus,
+            dCfmPmMepLmResultsDelete,
+            dCfmPmMepLmStatisticsDelete,
+            dCfmPmMepLmResults,
+            dCfmPmMepLmPduLmmTransmitted,
+            dCfmPmMepLmPduLmrReceived,
+            dCfmPmMepLmPduLmmReceived,
+            dCfmPmMepLmPduLmrTransmitted,
+            dCfmPmMepDmEnabled,
+            dCfmPmMepDmDestMacAddress,
+            dCfmPmMepDmPeriodInterval,
+            dCfmPmMepDmPercentile,
+            dCfmPmMepDmPriority,
+            dCfmPmMepDmTestStatus,
+            dCfmPmMepDmResultsDelete,
+            dCfmPmMepDmStatisticsDelete,
+            dCfmPmMepDmResults,
+            dCfmPmMepDmPduDmmTransmitted,
+            dCfmPmMepDmPduDmrReceived,
+            dCfmPmMepDmPduDmmReceived,
+            dCfmPmMepDmPduDmrTransmitted
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the configuration
+            of the action of the lock control function."
+            ::= { dCfmGroups 6 }
+                
+    dCfmLmResultCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            dCfmPmLmDestMacAddress,
+            dCfmPmLmStatus, 
+            dCfmPmLmPeriod,
+            dCfmPmLmPriority,                 
+            dCfmPmLmFarEnd,
+            dCfmPmLmNearEnd,
+            dCfmPmLmStartTime
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the results
+            of frame loss measurement."
+            ::= { dCfmGroups 7 }
+                    
+    dCfmDmResultCfgGroup OBJECT-GROUP
+        OBJECTS {     
+            dCfmPmDmDestMacAddress,
+            dCfmPmDmStatus,  
+            dCfmPmDmPeriodInterval,
+            dCfmPmDmPercentile,
+            dCfmPmDmPriority,  
+            dCfmPmDmFrameDelay,
+            dCfmPmDmDelayVariation,
+            dCfmPmDmStartTime
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the results
+            of frame delay measurement."
+            ::= { dCfmGroups 8 }    
+                        
+    dCfmCtrlCfmMaCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmCtrlCfmMaMode
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the CFM mode of specified MAs."
+            ::= { dCfmGroups 9 }
+            
+    dCfmCtrlCfmMepCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmCtrlCfmMepMode,
+                dCfmCtrlCfmMepXconCcm,
+                dCfmCtrlCfmMepErrorCcm,
+                dCfmCtrlCfmMepNormalCcm,
+                dCfmCtrlCfmMepLtDelete
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the CFM information of specified MEPs."
+            ::= { dCfmGroups 10 }
+            
+    dCfmCtrlCfmMipCcmInfoGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmCtrlCfmMipCcmPort
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the information of CFM MIP CCM
+            Database."
+            ::= { dCfmGroups 11 }
+                
+    dCfmAisNotifyStateCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmAisNotifyEnabled
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the configuration of CFM AIS
+            notification state."
+            ::= { dCfmGroups 12 }
+            
+    dCfmLockNotifyStateCfgGroup OBJECT-GROUP
+        OBJECTS { 
+                dCfmLockNotifyEnabled
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the configuration of CFM lock 
+            notification state."
+            ::= { dCfmGroups 13 }
+    
+    dCfmNotifyInfoGroup OBJECT-GROUP
+        OBJECTS { 
+            dCfmEventMdIndex,
+            dCfmEventMaIndex,
+            dCfmEventMepIdentifier
+        }
+        STATUS current
+        DESCRIPTION 
+            "A set of objects providing details of an CFM event
+            "
+        ::= { dCfmGroups 14 }
+    
+    dCfmAisNotificationsGroup NOTIFICATION-GROUP
+        NOTIFICATIONS {
+            dCfmAisOccurred,
+            dCfmAisCleared
+        }
+        STATUS      current
+        DESCRIPTION
+            "Objects for the CFM AIS Notifications group."
+        ::= { dCfmGroups 15 }
+   
+    dCfmLockNotificationsGroup NOTIFICATION-GROUP
+        NOTIFICATIONS {
+            dCfmLockOccurred,
+            dCfmLockCleared
+        }
+        STATUS      current
+        DESCRIPTION
+            "Objects for the CFM lock Notifications group."
+        ::= { dCfmGroups 16 }
+      
+END

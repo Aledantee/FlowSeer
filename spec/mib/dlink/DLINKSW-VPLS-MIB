@@ -1,0 +1,836 @@
+--  *****************************************************************
+--  DLINKSW-VPLS-MIB.mib : VPLS MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-VPLS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,Unsigned32,
+        Integer32
+            FROM SNMPv2-SMI
+        RowStatus,DisplayString,TruthValue,MacAddress
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+            FROM SNMPv2-CONF
+        ifIndex, InterfaceIndex, InterfaceIndexOrZero
+            FROM IF-MIB          
+        pwIndex 
+            FROM PW-STD-MIB
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB              -- [RFC4001]
+        PwIDType, PwIndexType, PwOperStatusTC
+            FROM PW-TC-STD-MIB                 -- [RFC5542]
+        IANAPwTypeTC
+            FROM IANA-PWE3-MIB                 -- [RFC5601]
+        VlanIdOrAnyOrNone, VlanIdOrNone
+            FROM Q-BRIDGE-MIB                  -- [RFC4363]
+        dlinkIndustrialCommon        
+            FROM DLINK-ID-REC-MIB;
+
+    dlinkSwVplsMIB    MODULE-IDENTITY
+        LAST-UPDATED "201306260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+            
+            Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+            Taipei City 114, Taiwan, R.O.C
+            Tel:     +886-2-66000123
+            E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for VPLS."
+        
+        REVISION "201306260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."
+            
+        REVISION "201409230000Z"
+        DESCRIPTION
+            "
+            1. Add node 'dVplsConfigVlanMode', 'dVplsConfigPwVlan', 
+            'dVplsConfigPwTpid' and 'dVplsConfigEgressVlanMode' in
+            'dVplsConfigTable'.
+            2. Add node 'dVplsAcBindAdditionVlan' and 'dVplsAcBindVlanRangeMax'
+            in 'dVplsAcBindTable'.
+            "
+    ::= { dlinkIndustrialCommon 158 } 
+
+-- 
+--    MIB OBJECTS     
+-- ---------------------------------------------------------------------------------------------
+    dVplsNotifications    OBJECT IDENTIFIER ::= { dlinkSwVplsMIB 0 }
+    dVplsObjects          OBJECT IDENTIFIER ::= { dlinkSwVplsMIB 1 }
+    dVplsConformance      OBJECT IDENTIFIER ::= { dlinkSwVplsMIB 2 }
+-- ---------------------------------------------------------------------------------------------
+
+  dVplsPwDown NOTIFICATION-TYPE
+     OBJECTS { dVplsPwBindOperStatus }
+     STATUS  current
+     DESCRIPTION
+         "This notification is generated when the dVplsPwBindOperStatus
+          object in the dVplsPwBindTable is about to enter the down(2) 
+          state from any other state."
+     ::= { dVplsNotifications  1 }
+
+  dVplsPwUp NOTIFICATION-TYPE
+     OBJECTS { dVplsPwBindOperStatus }
+     STATUS  current
+     DESCRIPTION
+         "This notification is generated when the dVplsPwBindOperStatus
+          object in the dVplsPwBindTable is about to enter the up(1) 
+          state from any other state."
+     ::= { dVplsNotifications 2 }
+
+  dVplsPwDeleted NOTIFICATION-TYPE
+     OBJECTS { dVplsPwBindPwID,
+               dVplsPwBindPeerAddrType,
+               dVplsPwBindPeerAddr
+     }
+     STATUS  current
+     DESCRIPTION
+         "This notification is generated when the VPLS PW has been deleted,
+         i.e., when the pwRowStatus has been set to destroy(6) or the PW
+         has been deleted by a non-MIB application."
+     ::= { dVplsNotifications  3 }
+
+-- ---------------------------------------------------------------------------------------------
+
+    dVplsConfigIndexNext OBJECT-TYPE
+        SYNTAX        INTEGER
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "This object contains an appropriate value to be used for
+            dVplsConfigIndex when creating entries in the dVplsConfigTable.  
+            The value 0 indicates that no unassigned entries are available."
+        ::= { dVplsObjects 1 }
+
+-- ---------------------------------------------------------------------------------------------
+    dVplsConfigTable    OBJECT-TYPE
+        SYNTAX        SEQUENCE OF DVplsConfigEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION            
+            "This table specifies information for configuring and
+            status monitoring for VPLS instances."            
+        ::= { dVplsObjects 2 }
+    
+    dVplsConfigEntry    OBJECT-TYPE
+        SYNTAX        DVplsConfigEntry
+        MAX-ACCESS    not-accessible       
+        STATUS        current
+        DESCRIPTION            
+            "A row in this table represents a VPLS instance.  
+            It is indexed by dVplsConfigIndex."
+        INDEX  { dVplsConfigIndex }
+        ::= { dVplsConfigTable 1 }
+
+    DVplsConfigEntry ::= SEQUENCE     {
+        dVplsConfigIndex                Unsigned32,
+        dVplsConfigName                 DisplayString,
+        dVplsConfigID                   PwIDType,
+        dVplsConfigServiceType          IANAPwTypeTC,
+        dVplsConfigMtu                  Unsigned32,
+        dVplsConfigMacLimit             Unsigned32,
+        dVplsConfigOperStatus           INTEGER,
+        dVplsConfigPeerCount            Unsigned32,
+        dVplsConfigAcCount              Unsigned32,
+        dVplsConfigAcBindIndexNext      INTEGER,
+        dVplsConfigVlanMode             INTEGER,
+        dVplsConfigPwVlan               VlanIdOrNone,
+        dVplsConfigPwTpid               OCTET STRING,
+        dVplsConfigEgressVlanMode       INTEGER,
+        dVplsConfigRowStatus            RowStatus
+    }
+
+    dVplsConfigIndex OBJECT-TYPE
+        SYNTAX        Unsigned32
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+            "Specifies index of the VPLS instance."
+        ::= { dVplsConfigEntry 1 }
+
+    dVplsConfigName OBJECT-TYPE
+        SYNTAX        DisplayString(SIZE(1..32))
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Specifies the VPLS instance name."
+        ::= { dVplsConfigEntry 2 }
+
+    dVplsConfigID OBJECT-TYPE
+        SYNTAX        PwIDType
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Specifies VPN ID of a VPLS. 
+            If not configured, the value should be set to 0."
+        ::= { dVplsConfigEntry 3 }
+
+    dVplsConfigServiceType OBJECT-TYPE
+        SYNTAX        IANAPwTypeTC
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Specifies the type of emulated service in a VPLS."
+        DEFVAL { ethernetTagged }
+        ::= { dVplsConfigEntry 4 }
+
+    dVplsConfigMtu OBJECT-TYPE
+        SYNTAX        Unsigned32 (0..65535)
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Specifies local AC link MTU of a VPLS that will be 
+            advertised to remote peers in this VPLS."
+        DEFVAL { 1500 }
+        ::= { dVplsConfigEntry 5 }
+
+    dVplsConfigMacLimit OBJECT-TYPE
+        SYNTAX        Unsigned32 (0..1000000)
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Specifies the limited number of learned MAC addresses in a VPLS. 
+            If set to 0, there is no MAC address learning limitation in this VPLS. 
+            If set to a very big value is equivalent to no limitation."
+        DEFVAL { 0 }
+        ::= { dVplsConfigEntry 6 }
+
+    dVplsConfigOperStatus OBJECT-TYPE
+        SYNTAX  INTEGER {
+                other(0),
+                up(1),
+                down(2)
+                }
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "The current operational state of this VPLS Service."
+        ::= { dVplsConfigEntry 7 }
+
+    dVplsConfigPeerCount OBJECT-TYPE
+        SYNTAX        Unsigned32
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "This objects specifies the number of peers
+            (pseudowires) present in this VPLS instance."
+        DEFVAL { 0 }
+        ::= { dVplsConfigEntry 8 }
+
+    dVplsConfigAcCount OBJECT-TYPE
+        SYNTAX        Unsigned32
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "This objects specifies the number of ACs
+            present in this VPLS instance. The AC which
+            oper status is unknown (e.g Port based AC but
+            the port is added to LACP group.) will not
+            been counted."
+        DEFVAL { 0 }
+        ::= { dVplsConfigEntry 9 }
+        
+    dVplsConfigAcBindIndexNext OBJECT-TYPE
+        SYNTAX            INTEGER
+        MAX-ACCESS        read-only
+        STATUS            current
+        DESCRIPTION
+            "This object contains an appropriate value to be used for
+            dVplsAcBindIndex when creating entries binding on this
+            VPLS instance in the dVplsAcBindTable.  
+            The value 0 indicates that no unassigned entries are available."
+        ::= { dVplsConfigEntry 10 }
+        
+    dVplsConfigVlanMode  OBJECT-TYPE
+        SYNTAX     INTEGER {
+                 other(0),
+                 portBased(1),
+                 noChange(2),
+                 changeVlan(3),
+                 addVlan(4),
+                 removeVlan(5)
+        }
+        MAX-ACCESS  read-create
+        STATUS     current
+        DESCRIPTION
+            "This object indicates the mode of VLAN handling between the
+             port or the virtual port associated with the PW and the
+             PW encapsulation.
+
+           - 'other' indicates an operation that is not defined by
+              this MIB module.
+
+            - 'portBased' indicates that the forwarder will forward
+              packets between the port and the PW independent of their
+              structure (i.e., there are no service-delimiting VLAN tags
+              from the PE standpoint).
+
+            - 'noChange' indicates that the PW contains the original
+               user VLAN, as specified in pwEnetPortVlan; i.e., the
+               VLAN on the PE-CE link is the service-delimiting tag
+               and is kept 'as is' on the PW.
+
+            - 'changeVlan' indicates that the VLAN field on the PW
+              may be different than the VLAN field on the user's
+              port.  The VLAN on the PE-CE link is the service-delimiting
+              tag but has a different value on the PW.
+
+            - 'addVlan' indicates that a VLAN field will be added
+              on the PSN-bound direction (i.e., on the PW). pwEnetPwVlan
+              indicates the value that will be added.
+
+            - 'removeVlan' indicates that the encapsulation on the
+              PW does not include the service-delimiting VLAN field.
+              Note that PRI bits transparency is lost in this case.
+
+            - Implementation of 'portsbased', 'removeVlan', and 'other' 
+              is OPTIONAL.
+            "
+        ::= { dVplsConfigEntry 11 }
+
+    dVplsConfigPwVlan  OBJECT-TYPE
+        SYNTAX     VlanIdOrNone
+        MAX-ACCESS  read-create
+        STATUS     current
+        DESCRIPTION
+            "This object indicates the VLAN ID to be added or changed in encapsulation
+            if 'dVplsConfigVlanMode' equals to 'noChange' or 'changeVlan'."
+        ::= { dVplsConfigEntry 12 }
+        
+    dVplsConfigPwTpid  OBJECT-TYPE
+        SYNTAX     OCTET STRING (SIZE (2))
+        MAX-ACCESS read-create
+        STATUS     current
+        DESCRIPTION
+            "This object defines the TPID value should be added or changed if 
+            'dVplsConfigVlanMode' equals to 'noChange' or 'changeVlan'.
+            "
+        ::= { dVplsConfigEntry 13 }
+
+    dVplsConfigEgressVlanMode  OBJECT-TYPE
+        SYNTAX     INTEGER {
+                 default(0),
+                 changeVlan(1),
+                 removeVlan(2)
+        }
+        MAX-ACCESS  read-create
+        STATUS     current
+        DESCRIPTION
+            "This object indicates the mode of egress VLAN handling between 
+            the PW encapsulation and the port or the virtual port associated 
+            with the PW.
+
+            - 'default' indicates the default configuration. It's removeVlan for 
+              eth port based AC and changeVlan to AC VID for eth-VLAN based AC.
+
+            - 'changeVlan' indicates that the outer-tag of the packet will be 
+              changed to AC VID before egress on the AC. 
+              Can only be applied on eth-VLAN based AC.
+
+            - 'removeVlan' indicates that the outer-tag of the packet will be 
+              stripped before egress on the AC.
+            "
+        DEFVAL { default }
+        ::= { dVplsConfigEntry 14 }
+
+    dVplsConfigRowStatus OBJECT-TYPE
+        SYNTAX        RowStatus
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "For creating, modifying, and deleting this row."
+        ::= { dVplsConfigEntry 99 }
+
+---------------------------------------------------------------------------------------------
+    dVplsPwBindTable    OBJECT-TYPE
+        SYNTAX              SEQUENCE OF DVplsPwBindEntry
+        MAX-ACCESS          not-accessible
+        STATUS              current
+        DESCRIPTION            
+            "This table provides an association between a
+            VPLS service and the corresponding pseudowires.
+            A service can have more than one pseudowire association."            
+        ::= { dVplsObjects 3 }
+    
+    dVplsPwBindEntry    OBJECT-TYPE
+        SYNTAX         DVplsPwBindEntry
+        MAX-ACCESS     not-accessible       
+        STATUS         current
+        DESCRIPTION            
+            "Each row represents an association between a
+            VPLS instance and one or more pseudowire."
+        INDEX  { dVplsConfigIndex, dVplsPwBindIndex }
+        ::= { dVplsPwBindTable 1 }
+    
+    DVplsPwBindEntry ::= SEQUENCE     {
+        dVplsPwBindIndex                PwIndexType,
+        dVplsPwBindPeerAddrType         InetAddressType,
+        dVplsPwBindPeerAddr             InetAddress,
+        dVplsPwBindPwID                 PwIDType,
+        dVplsPwBindType                 INTEGER,
+        dVplsPwBindRole                 INTEGER,
+        dVplsPwBindBackupDelay          Unsigned32,
+        dVplsPwBindOperStatus           PwOperStatusTC,
+        dVplsPwBindRowStatus            RowStatus
+    }
+
+    dVplsPwBindIndex OBJECT-TYPE
+        SYNTAX        PwIndexType
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+            "A unique index for the conceptual row identifying a PW within
+            this table. 
+            It will represent the row in pwTable as pwIndex.
+            When creating entries in this table, available value should
+            be got by pwIndexNext in PW-STD-MIB."
+        ::= { dVplsPwBindEntry 1 }
+
+    dVplsPwBindPeerAddrType OBJECT-TYPE
+        SYNTAX        InetAddressType
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Denotes the address type of the peer node."
+        DEFVAL { ipv4 }
+        ::= { dVplsPwBindEntry 2 }
+
+    dVplsPwBindPeerAddr OBJECT-TYPE
+        SYNTAX        InetAddress
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "This object contains the value of the peer node address
+            of the PW/PE maintenance protocol entity."
+        ::= { dVplsPwBindEntry 3 }
+
+    dVplsPwBindPwID OBJECT-TYPE
+        SYNTAX        PwIDType
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Pseudowire identifier of the PW."
+        ::= { dVplsPwBindEntry 4 }
+
+    dVplsPwBindType OBJECT-TYPE
+        SYNTAX   INTEGER {
+                    mesh  (1),
+                    spoke (2)
+                    }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The value of this object indicates whether the 
+            pseudowire binding is of type mesh or spoke."
+        DEFVAL { mesh }
+        ::= { dVplsPwBindEntry 5 }
+
+    dVplsPwBindRole OBJECT-TYPE
+        SYNTAX    INTEGER {
+                    standalone  (1),
+                    primary  (2),
+                    backup (3)
+                    }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The value of this object indicates
+            role of the pseudowire."
+        ::= { dVplsPwBindEntry 6 }
+
+    dVplsPwBindBackupDelay OBJECT-TYPE
+        SYNTAX        Unsigned32
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "Backup delay time of VPLS backup PW in seconds. 
+            Value greater than 180 indicates never switch back."
+        DEFVAL { 4294967295 }
+        ::= { dVplsPwBindEntry 7 }
+
+    dVplsPwBindOperStatus OBJECT-TYPE
+        SYNTAX        PwOperStatusTC
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "This object indicates the operational status of the PW."
+        ::= { dVplsPwBindEntry 8 }
+
+    dVplsPwBindRowStatus OBJECT-TYPE
+        SYNTAX        RowStatus
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "For creating, modifying, and deleting this row."
+        ::= { dVplsPwBindEntry 99 }
+
+-- ---------------------------------------------------------------------------------------------
+    dVplsAcBindTable    OBJECT-TYPE
+        SYNTAX              SEQUENCE OF DVplsAcBindEntry
+        MAX-ACCESS          not-accessible
+        STATUS              current
+        DESCRIPTION            
+            "This table provides an association between a
+            VPLS service and the corresponding AC (Attachment Circuit).
+            A service can have more than one AC association."             
+        ::= { dVplsObjects 4 }
+
+    dVplsAcBindEntry    OBJECT-TYPE
+        SYNTAX         DVplsAcBindEntry
+        MAX-ACCESS     not-accessible       
+        STATUS         current
+        DESCRIPTION            
+            "Each row represents an association between a
+            VPLS instance and one or more AC."
+        INDEX  { dVplsConfigIndex, dVplsAcBindIndex }
+        ::= { dVplsAcBindTable 1 }
+
+    DVplsAcBindEntry ::= SEQUENCE     {
+        dVplsAcBindIndex                Unsigned32,
+        dVplsAcBindPortVlan             VlanIdOrAnyOrNone,
+        dVplsAcBindPortIfIndex          InterfaceIndexOrZero,
+        dVplsAcBindOperStatus           INTEGER,
+        dVplsAcBindAdditionVlan         VlanIdOrNone,
+        dVplsAcBindVlanRangeMax         VlanIdOrNone,
+        dVplsAcBindRowStatus            RowStatus
+    }
+
+    dVplsAcBindIndex OBJECT-TYPE
+        SYNTAX        Unsigned32
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+            "A unique index for the conceptual row identifying 
+            a AC within this table.
+            
+            When creating entries in this table, available 
+            value should be get by dVplsConfigAcBindIndexNext 
+            of the corresponding dVplsConfigEntry."
+        ::= { dVplsAcBindEntry 1 }
+
+    dVplsAcBindPortVlan  OBJECT-TYPE
+        SYNTAX     VlanIdOrAnyOrNone
+        MAX-ACCESS read-create
+        STATUS     current
+        DESCRIPTION
+            "This object specifies AC's ingress vlan of the PW 
+            if the AC is identified by (port, vlan) pair.
+            
+            For port based AC, the value must be set to 4095."
+        ::= { dVplsAcBindEntry 2 }
+
+    dVplsAcBindPortIfIndex  OBJECT-TYPE
+        SYNTAX      InterfaceIndexOrZero
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "This object is used to specify the ifIndex of the Ethernet
+             port associated with this PW."
+        ::= { dVplsAcBindEntry 3 }
+
+    dVplsAcBindOperStatus OBJECT-TYPE
+        SYNTAX    INTEGER {
+                unknown  (0),
+                up  (1),
+                down (2)
+                }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The value of this object indicates operation status of the AC."
+        ::= { dVplsAcBindEntry 4 }
+
+    dVplsAcBindAdditionVlan  OBJECT-TYPE
+        SYNTAX     VlanIdOrNone
+        MAX-ACCESS read-create
+        STATUS     current
+        DESCRIPTION
+            "This object defines the addtion AC VLAN."
+        DEFVAL  { 0 }
+        ::= { dVplsAcBindEntry 5 }
+
+    dVplsAcBindVlanRangeMax  OBJECT-TYPE
+        SYNTAX     VlanIdOrNone
+        MAX-ACCESS read-create
+        STATUS     current
+        DESCRIPTION
+            "This object defines the max VLAN ID for VLAN range."
+        DEFVAL  { 0 }
+        ::= { dVplsAcBindEntry 6 }
+
+    dVplsAcBindRowStatus OBJECT-TYPE
+        SYNTAX        RowStatus
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+         "For creating, modifying, and deleting this row."
+        ::= { dVplsAcBindEntry 99 }
+
+-- ---------------------------------------------------------------------------------------------
+    dVplsMacAddressTable    OBJECT-TYPE
+        SYNTAX              SEQUENCE OF DVplsMacAddressEntry
+        MAX-ACCESS          not-accessible
+        STATUS              current
+        DESCRIPTION            
+            "This table contains a list of VPLS MAC address information."             
+        ::= { dVplsObjects 5 }
+
+    dVplsMacAddressEntry    OBJECT-TYPE
+        SYNTAX         DVplsMacAddressEntry
+        MAX-ACCESS     not-accessible       
+        STATUS         current
+        DESCRIPTION            
+            "Each row represents a VPLS MAC address.
+            It's indexed by dVplsConfigIndex in dVplsConfigTable
+            and the MAC address."
+        INDEX  { dVplsConfigIndex, dVplsMacAddressMacAddr }
+        ::= { dVplsMacAddressTable 1 }
+
+    DVplsMacAddressEntry ::= SEQUENCE     {
+        dVplsMacAddressMacAddr                  MacAddress,
+        dVplsMacAddressVpType                   INTEGER,
+        dVplsMacAddressVpIndex                  Unsigned32
+    }
+
+    dVplsMacAddressMacAddr  OBJECT-TYPE
+        SYNTAX     MacAddress
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The MAC address of the entry."
+        ::= { dVplsMacAddressEntry 1 }
+
+    dVplsMacAddressVpType  OBJECT-TYPE
+       SYNTAX  INTEGER {
+                ac  (1),
+                pw  (2)
+                }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object indicates the type of the virtual port binding of this entry."
+        ::= { dVplsMacAddressEntry 2 }
+
+    dVplsMacAddressVpIndex  OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "Virtual port index of the entry.
+            
+            If dVplsMacAddressVpType is ac(1), it indicates the
+            dVplsAcBindIndex in dVplsAcBindTable.
+            
+            If dVplsMacAddressVpType is pw(2), it indicates the
+            dVplsPwBindIndex in dVplsPwBindTable."
+        ::= { dVplsMacAddressEntry 3 }
+
+-- ---------------------------------------------------------------------------------------------
+    dVplsMacAddressClearCtrl    OBJECT IDENTIFIER ::= { dVplsObjects 6 }
+
+    dVplsMacAddressClearVplsIndex    OBJECT-TYPE
+        SYNTAX          INTEGER
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION    
+            "Clear MAC address of the specified VPLS index.
+            The value should be dVplsConfigIndex in dVplsConfigTable.
+            If set to 0, it means clear all MAC address despite of the
+            other settings."
+        ::= { dVplsMacAddressClearCtrl 1 }
+
+    dVplsMacAddressClearActionType    OBJECT-TYPE
+           SYNTAX   INTEGER {
+            vpls     (0),
+            ac       (1),
+            pw       (2),
+            macAddr  (3)
+            }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION    
+            "Indicates type of clear action.
+            
+            - vpls (0):     Clear all MAC address of the VPLS instance 
+                            specified by dVplsMacAddressClearVplsIndex.
+                            
+            - ac (1):       Clear all MAC address of the AC specified
+                            by dVplsMacAddressClearVplsIndex and
+                            dVplsMacAddressClearVpIndex pair.
+                            
+            - pw (2):       Clear all MAC address of the pw specified
+                            by dVplsMacAddressClearVplsIndex and
+                            dVplsMacAddressClearVpIndex pair.
+                            
+            - macAddr (3):  Clear the MAC address specified
+                            by dVplsMacAddressClearVplsIndex and
+                            dVplsMacAddressClearMacAddr pair.
+            "
+        ::= { dVplsMacAddressClearCtrl 2 }
+ 
+    dVplsMacAddressClearVpIndex    OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION    
+            "Clear MAC address of the specified VP index.
+            
+            If dVplsMacAddressClearActionType is set to ac(1),
+            the value should be dVplsAcBindIndex in dVplsAcBindTable.
+            
+            If dVplsMacAddressClearActionType is set to pw(2),
+            the value should be dVplsPwBindIndex in dVplsPwBindTable.
+            
+            For dVplsMacAddressClearActionType set to other value, 
+            it takes no effect."
+        ::= { dVplsMacAddressClearCtrl 3 }
+ 
+    dVplsMacAddressClearMacAddr  OBJECT-TYPE
+        SYNTAX      MacAddress
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The MAC address to be clear.
+            It only effect when dVplsMacAddressClearActionType
+            is set to macAddr (3)."
+        ::= { dVplsMacAddressClearCtrl 4 }
+
+    dVplsMacAddressClearAction    OBJECT-TYPE
+        SYNTAX    INTEGER {
+                    clear  (1),
+                    noOp  (2)
+                    }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION    
+            "Clear VPLS MAC address if set to cleer(1).
+            Do nothing if set to noOp(2)."
+        ::= { dVplsMacAddressClearCtrl 5 }
+
+-- -----------------------------------------------------------------------------
+  dVplsPwUpDownNotifyEnable  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "If this object is set to true(1), then it enables
+         the emission of dVplsPwUp and dVplsPwDown
+         notifications; otherwise, these notifications are not
+         emitted."
+     DEFVAL { false }
+     ::= { dVplsObjects 7 }
+ 
+  dVplsPwDeletedNotifyEnable  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "If this object is set to true(1), then it enables
+         the emission of dVplsPwDeleted notification; otherwise,
+         these notifications are not emitted."
+     DEFVAL { false }
+     ::= { dVplsObjects 8 }
+
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- -----------------------------------------------------------------------------   
+    dVplsCompliances      OBJECT IDENTIFIER ::= { dVplsConformance 1 }
+    dvplsGroups           OBJECT IDENTIFIER ::= { dVplsConformance 2 }        
+       
+    dVplsMIBCompliance MODULE-COMPLIANCE
+        STATUS   current
+        DESCRIPTION
+                "The compliance statement for entities which
+                 implement the DLINKSW-VPLS-MIB."
+        MODULE MANDATORY-GROUPS { 
+                 dVplsInstanceGroup,
+                 dVplsPwGroup,
+                 dVplsAcGroup,
+                 dVplsMacAddrGroup
+        }
+        
+        ::= { dVplsCompliances 1 }
+
+    dVplsInstanceGroup OBJECT-GROUP
+        OBJECTS 
+        {
+            dVplsConfigName,
+            dVplsConfigID,
+            dVplsConfigServiceType,
+            dVplsConfigMtu,
+            dVplsConfigMacLimit,
+            dVplsConfigOperStatus,
+            dVplsConfigPeerCount,
+            dVplsConfigAcCount,
+            dVplsConfigAcBindIndexNext,
+            dVplsConfigVlanMode,
+            dVplsConfigPwVlan,
+            dVplsConfigPwTpid,
+            dVplsConfigEgressVlanMode,
+            dVplsConfigRowStatus
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects manage and show VPLS instances."
+        ::= { dvplsGroups 1 }
+    
+    dVplsPwGroup OBJECT-GROUP
+        OBJECTS         
+        {   
+            dVplsPwBindPeerAddrType,
+            dVplsPwBindPeerAddr,
+            dVplsPwBindPwID,
+            dVplsPwBindType,
+            dVplsPwBindRole,
+            dVplsPwBindBackupDelay,
+            dVplsPwBindOperStatus,
+            dVplsPwBindRowStatus,
+            dVplsPwUpDownNotifyEnable,
+            dVplsPwDeletedNotifyEnable
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects manage and show VPLS PWs."
+        ::= { dvplsGroups 2 }
+             
+    dVplsAcGroup OBJECT-GROUP
+        OBJECTS         
+        {
+            dVplsAcBindPortVlan,
+            dVplsAcBindPortIfIndex,
+            dVplsAcBindOperStatus,
+            dVplsAcBindAdditionVlan,
+            dVplsAcBindVlanRangeMax,
+            dVplsAcBindRowStatus
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects manage and show VPLS ACs."
+        ::= { dvplsGroups 3 }
+              
+    dVplsMacAddrGroup OBJECT-GROUP
+        OBJECTS         
+        {   
+            dVplsMacAddressVpType,
+            dVplsMacAddressVpIndex,
+            dVplsMacAddressClearVplsIndex,
+            dVplsMacAddressClearActionType,
+            dVplsMacAddressClearVpIndex,
+            dVplsMacAddressClearMacAddr,
+            dVplsMacAddressClearAction
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects manage and show VPLS MAC addresses."
+        ::= { dvplsGroups 4 }
+              
+-- ---------------------------------------------------------------------------------------------
+
+END
+

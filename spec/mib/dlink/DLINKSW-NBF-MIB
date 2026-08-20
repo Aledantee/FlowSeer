@@ -1,0 +1,158 @@
+--  *****************************************************************
+--  DLINKSW-NBF-MIB.mib : NetBIOS Filter MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+DLINKSW-NBF-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+    TruthValue
+        FROM SNMPv2-TC
+    ifIndex
+        FROM IF-MIB
+    dlinkIndustrialCommon
+        FROM DLINK-ID-REC-MIB;
+
+
+dlinkSwNetBiosFilterMIB MODULE-IDENTITY
+    LAST-UPDATED    "201304020000Z"
+    ORGANIZATION    "D-Link Corp."
+    CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+    DESCRIPTION
+        "The MIB module defines objects for NetBIOS Filter feature."
+    
+    REVISION        "201304020000Z"
+    DESCRIPTION
+        "Initial revision of this MIB module."
+    ::= { dlinkIndustrialCommon 160 }
+
+
+dlinkSwNetBiosFilterMIBNotifs  OBJECT IDENTIFIER
+    ::= { dlinkSwNetBiosFilterMIB 0 }
+
+dlinkSwNetBiosFilterMIBObjects  OBJECT IDENTIFIER
+    ::= { dlinkSwNetBiosFilterMIB 1 }
+
+dlinkSwNetBiosFilterMIBConformance  OBJECT IDENTIFIER
+    ::= { dlinkSwNetBiosFilterMIB 2 }
+
+-- -----------------------------------------------------------------------------
+dNbfIfDenyNetbiosConfigTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF DNbfIfDenyNetbiosConfigEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table provides the mechanism to enable or disable
+        NetBIOS filter at each physical interface capable of
+        this feature.
+        "
+    ::= { dlinkSwNetBiosFilterMIBObjects 1 }
+
+dNbfIfDenyNetbiosConfigEntry OBJECT-TYPE
+    SYNTAX          DNbfIfDenyNetbiosConfigEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A row instance contains the configuration to enable
+        or disable NetBIOS Filter at each physical interface."
+    INDEX           { ifIndex } 
+    ::= { dNbfIfDenyNetbiosConfigTable 1 }
+
+DNbfIfDenyNetbiosConfigEntry ::= SEQUENCE {
+    dNbfIfDenyNetbios      TruthValue
+}
+
+dNbfIfDenyNetbios OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object indicates deny NetBIOS packet at this interface."
+    ::= { dNbfIfDenyNetbiosConfigEntry 1 }
+
+dNbfIfDenyExtNetbiosConfigTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF DNbfIfDenyExtNetbiosConfigEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table provides the mechanism to enable or disable
+        NetBIOS filter at each physical interface capable of
+        this feature.
+        "
+    ::= { dlinkSwNetBiosFilterMIBObjects 2 }
+
+dNbfIfDenyExtNetbiosConfigEntry OBJECT-TYPE
+    SYNTAX          DNbfIfDenyExtNetbiosConfigEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A row instance contains the configuration to enable
+        or disable NetBIOS Filter at each physical interface."
+    INDEX           { ifIndex } 
+    ::= { dNbfIfDenyExtNetbiosConfigTable 1 }
+
+DNbfIfDenyExtNetbiosConfigEntry ::= SEQUENCE {
+    dNbfIfDenyExtNetbios      TruthValue
+}
+
+dNbfIfDenyExtNetbios OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object indicates deny NetBIOS packet over 802.3 frame at this interface."
+    ::= { dNbfIfDenyExtNetbiosConfigEntry 1 }
+
+-- Notifications
+
+-- Conformance
+
+dnbfMIBCompliances  OBJECT IDENTIFIER
+    ::= { dlinkSwNetBiosFilterMIBConformance 1 }
+
+dnbfMIBGroups  OBJECT IDENTIFIER
+    ::= { dlinkSwNetBiosFilterMIBConformance 2 }
+
+
+dnbfMIBCompliance MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the DLINKSW-NBF-MIB"
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+        dnbfNetBiosFilterConfigGroup
+    }
+
+   ::= { dnbfMIBCompliances 1 }
+
+-- Units of Conformance
+
+dnbfNetBiosFilterConfigGroup OBJECT-GROUP
+    OBJECTS         {
+            dNbfIfDenyNetbios,
+            dNbfIfDenyExtNetbios
+    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects which are used to configure
+        as well as show information regarding the Filter NetBIOS."
+    ::= { dnbfMIBGroups 1 }
+
+END
+
+

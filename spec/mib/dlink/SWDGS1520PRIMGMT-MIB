@@ -1,0 +1,40 @@
+-- *****************************************************************************
+-- proprietary management MIB
+-- *****************************************************************************
+
+
+
+SWDGS1520PRIMGMT-MIB    DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY             FROM SNMPv2-SMI
+        dlink-mgmt,dlink-products   FROM DLINK-ID-REC-MIB;
+
+    
+    
+-- 
+--   DGS1520 series Product 
+-- 
+
+    dlink-DGS-1520Series			OBJECT IDENTIFIER ::= { dlink-products 171 }
+    dlink-DGS-1520-28				OBJECT IDENTIFIER ::= { dlink-DGS-1520Series 1 }
+    dlink-DGS-1520-28ax				OBJECT IDENTIFIER ::= { dlink-DGS-1520-28 1 }
+    dlink-DGS-1520-28MP				OBJECT IDENTIFIER ::= { dlink-DGS-1520Series 2 }
+    dlink-DGS-1520-28MPax			OBJECT IDENTIFIER ::= { dlink-DGS-1520-28MP 1 }
+    dlink-DGS-1520-52				OBJECT IDENTIFIER ::= { dlink-DGS-1520Series 3 }
+    dlink-DGS-1520-52ax				OBJECT IDENTIFIER ::= { dlink-DGS-1520-52 1 }
+    dlink-DGS-1520-52MP				OBJECT IDENTIFIER ::= { dlink-DGS-1520Series 4 }
+    dlink-DGS-1520-52MPax			OBJECT IDENTIFIER ::= { dlink-DGS-1520-52MP 1 }
+
+    dlink-proj-DGS-1520Series		OBJECT IDENTIFIER ::= { dlink-mgmt 171 }
+    dlink-proj-DGS-1520-28			OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520Series 1 }
+    dlink-proj-DGS-1520-28ax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520-28 1 }
+    dlink-proj-DGS-1520-28MP		OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520Series 2 }
+    dlink-proj-DGS-1520-28MPax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520-28MP 1 }
+    dlink-proj-DGS-1520-52			OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520Series 3 }
+    dlink-proj-DGS-1520-52ax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520-52 1 }
+    dlink-proj-DGS-1520-52MP		OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520Series 4 }
+    dlink-proj-DGS-1520-52MPax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-1520-52MP 1 }
+
+
+END

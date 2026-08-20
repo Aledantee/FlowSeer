@@ -1,0 +1,873 @@
+-- *****************************************************************
+-- DLINKSW-PIM-EXT-MIB: D-Link PIM Extension MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+
+	DLINKSW-PIM-EXT-MIB DEFINITIONS ::= BEGIN
+ 
+		IMPORTS
+			dlinkIndustrialCommon			
+				FROM DLINK-ID-REC-MIB			
+			InterfaceIndex			
+				FROM IF-MIB			
+			InetVersion, InetAddressType, InetAddress			
+				FROM INET-ADDRESS-MIB			
+			OBJECT-GROUP, MODULE-COMPLIANCE			
+				FROM SNMPv2-CONF			
+			Unsigned32, OBJECT-TYPE, MODULE-IDENTITY			
+				FROM SNMPv2-SMI			
+			TruthValue, DisplayString, RowStatus			
+				FROM SNMPv2-TC;
+	
+	
+		dlinkSwPimExtMIB MODULE-IDENTITY 
+			LAST-UPDATED "201503200000Z"
+			ORGANIZATION 
+				"D-Link Corp."
+			CONTACT-INFO 
+				"   D-Link Corporation
+				
+				Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+				        Taipei City 114, Taiwan, R.O.C
+				Tel:     +886-2-66000123
+				E-mail: tsd@dlink.com.tw
+				"
+			DESCRIPTION 
+				"This MIB module defines objects for PIM extensions.
+				"
+			REVISION "201306040000Z"
+			DESCRIPTION 
+				"This is the first version of the MIB file."
+
+			REVISION "201406050000Z"
+			DESCRIPTION 
+				"Add new object dPimExtIfCfgBsrBorderState to dPimExtInterfaceTable and 
+                        modify the name of object dPimCandidateRPPriority to dPimExtCandidateRPPriority."
+
+			REVISION "201407180000Z"
+			DESCRIPTION 
+				"Modify the OID of all rowstatus objects to 99."
+				
+			REVISION "201503200000Z"
+			DESCRIPTION 
+				"Correct the spelling error, modify the name of object 'dPimExtV4RPRigisterKAT' 
+			to 'dPimExtV4RPRegisterKAT', modify the name of object 'dPimExtV6RPRigisterKAT' to
+			'dPimExtV6RPRegisterKAT'."	
+			::= { dlinkIndustrialCommon 57 }
+
+		
+	
+	
+--
+-- Node definitions
+--
+	
+		dPimExtNotifications OBJECT IDENTIFIER ::= { dlinkSwPimExtMIB 0 }
+
+		
+		dPimExtObjects OBJECT IDENTIFIER ::= { dlinkSwPimExtMIB 1 }
+
+		
+		dPimExtGeneral OBJECT IDENTIFIER ::= { dPimExtObjects 1 }
+
+		
+		dPimExtGeneralV4Objects OBJECT IDENTIFIER ::= { dPimExtGeneral 2 }
+
+		
+		dPimExtV4RegisterProbe OBJECT-TYPE
+			SYNTAX Unsigned32 (1..127)
+			UNITS "seconds"
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates the register-probe time for PIM (IPv4)."
+			::= { dPimExtGeneralV4Objects 1 }
+
+		
+		dPimExtV4RegisterRateLimit OBJECT-TYPE
+			SYNTAX Unsigned32
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"Used to specify the rate in packets per second for
+				the PIM-SM register messages to be sent by the DR.
+				The special value of 0 means the limitation is disabled."
+			::= { dPimExtGeneralV4Objects 2 }
+
+		
+		dPimExtV4RegisterSuppressionTime OBJECT-TYPE
+			SYNTAX Unsigned32 (3..65535)
+			UNITS "seconds"
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"The duration of the Register Suppression Timer used in PIM IPv4."
+			::= { dPimExtGeneralV4Objects 3 }
+
+		
+		dPimExtV4RPRegisterKAT OBJECT-TYPE
+			SYNTAX Unsigned32 (120..65535)
+			UNITS "seconds"
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"Used to configure the keepalive time of (S, G) on RP when receiving 
+				a register message."
+			::= { dPimExtGeneralV4Objects 4 }
+
+		
+		dPimExtv4LogNeighborChange OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether to enable generating syslog messages that
+				list the neighbor state changes. 
+				"
+			::= { dPimExtGeneralV4Objects 5 }
+
+		
+		dPimExtv4StateRefreshDisable OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether to disable processing and
+				forwarding of PIM-DM State-Refresh control message.
+				"
+			::= { dPimExtGeneralV4Objects 6 }
+
+		
+		dPimExtv4RegisterChecksumWholePkt OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether to calculate the Register checksum
+				over the whole packet. 
+				"
+			::= { dPimExtGeneralV4Objects 7 }
+
+		
+		dPimExtGeneralV6Objects OBJECT IDENTIFIER ::= { dPimExtGeneral 4 }
+
+		
+		dPimExtV6RegisterProbe OBJECT-TYPE
+			SYNTAX Unsigned32 (1..127)
+			UNITS "seconds"
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates the register-probe time for PIM (IPv6)."
+			::= { dPimExtGeneralV6Objects 1 }
+
+		
+		dPimExtV6RegisterRateLimit OBJECT-TYPE
+			SYNTAX Unsigned32
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"Used to specify the rate in packets per second for
+				the PIM-SM register messages to be sent by the DR.
+				The special value of 0 means the limitation is disabled."
+			::= { dPimExtGeneralV6Objects 2 }
+
+		
+		dPimExtV6RegisterSuppressionTime OBJECT-TYPE
+			SYNTAX Unsigned32 (3..65535)
+			UNITS "seconds"
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"The duration of the Register Suppression Timer used in PIM IPv6."
+			::= { dPimExtGeneralV6Objects 3 }
+
+		
+		dPimExtV6RPRegisterKAT OBJECT-TYPE
+			SYNTAX Unsigned32 (120..65535)
+			UNITS "seconds"
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"Used to configure the keepalive time of (S, G) on RP when receiving 
+				a register message."
+			::= { dPimExtGeneralV6Objects 4 }
+
+		
+		dPimExtV6EmbeddedRp OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether embedded RP is enabled.
+				Embedded RP defines an address allocation policy in which the address
+				of the RP is encoded in an IPv6 multicast group address. This allows
+				an easy deployment of scalable inter-domain multicast and simplifies
+				the intra-domain multicast configuration as well. 
+				IPv6 Multicast group addresses embedded with RP information start
+				with ff70::/12 where the flag value of 7 means embedded RP.             
+				"
+			::= { dPimExtGeneralV6Objects 5 }
+
+		
+		dPimExtv6RegisterChecksumWholePkt OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether to calculate the Register checksum
+				over the whole packet. 
+				"
+			::= { dPimExtGeneralV6Objects 6 }
+
+		
+		dPimExtGlobalAclCfgTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DPimExtGlobalAclCfgEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table consists of a list of ACL configuration for filtering
+				or checking PIM messages."
+			::= { dPimExtObjects 2 }
+
+		
+		dPimExtGlobalAclCfgEntry OBJECT-TYPE
+			SYNTAX DPimExtGlobalAclCfgEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"An entry contains the associated ACL information."
+			INDEX { dPimExtAclCfgInetVersion, dPimExtAclCfgType }
+			::= { dPimExtGlobalAclCfgTable 1 }
+
+		
+		DPimExtGlobalAclCfgEntry ::=
+			SEQUENCE { 
+				dPimExtAclCfgInetVersion
+					InetVersion,
+				dPimExtAclCfgType
+					INTEGER,
+				dPimExtAclCfgAclName
+					DisplayString,
+				dPimExtAclRowStatus
+					RowStatus
+			 }
+
+		dPimExtAclCfgInetVersion OBJECT-TYPE
+			SYNTAX InetVersion
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the IP protocol version for which the ACL is used."
+			::= { dPimExtGlobalAclCfgEntry 1 }
+
+		
+		dPimExtAclCfgType OBJECT-TYPE
+			SYNTAX INTEGER
+				{
+				acceptRegister(1),
+				registerChkSum(2)
+				}
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the condition the ACL is used.
+				'acceptRegister' - The ACL is used to filter PIM register messages.
+				'registerChkSum' - The ACL is used to check whether calculating the Register
+				    checksum over the whole packet.            
+				"
+			::= { dPimExtGlobalAclCfgEntry 2 }
+
+		
+		dPimExtAclCfgAclName OBJECT-TYPE
+			SYNTAX DisplayString
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the ACL name of the entry."
+			::= { dPimExtGlobalAclCfgEntry 3 }
+
+		
+		dPimExtAclRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The row status variable, used according to row installation
+				and removal conventions."
+			::= { dPimExtGlobalAclCfgEntry 99 }
+
+		
+		dPimExtSptThresholdTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DPimExtSptThresholdEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table consists of a list of condition configurations to 
+				switchover to the source tree."
+			::= { dPimExtObjects 3 }
+
+		
+		dPimExtSptThresholdEntry OBJECT-TYPE
+			SYNTAX DPimExtSptThresholdEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"An entry specifies the condition to 
+				switchover to the source tree."
+			INDEX { dPimExtSptThresholdInetVersion }
+			::= { dPimExtSptThresholdTable 1 }
+
+		
+		DPimExtSptThresholdEntry ::=
+			SEQUENCE { 
+				dPimExtSptThresholdInetVersion
+					InetVersion,
+				dPimExtSptThresholdValue
+					INTEGER,
+				dPimExtSptThresholdImmediateAcl
+					DisplayString,
+				dPimExtSptThresholdInfinityAcl
+					DisplayString
+			 }
+
+		dPimExtSptThresholdInetVersion OBJECT-TYPE
+			SYNTAX InetVersion
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the IP protocol version for which the entry
+				is used."
+			::= { dPimExtSptThresholdEntry 1 }
+
+		
+		dPimExtSptThresholdValue OBJECT-TYPE
+			SYNTAX INTEGER
+				{
+				immediate(1),
+				infinity(2)
+				}
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"Used to configure the default condition to switchover to the source
+				tree of the entry.
+				immediate - establish the source tree right at the arrival of the 
+				    first packet. 
+				infinity - always rely on the shared tree.   
+				This value is applied to the groups which have no explict threashold
+				setting.                        
+				"
+			DEFVAL { infinity }
+			::= { dPimExtSptThresholdEntry 2 }
+
+		
+		dPimExtSptThresholdImmediateAcl OBJECT-TYPE
+			SYNTAX DisplayString (SIZE (0..32))
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates the ACL name, which is used to specify the
+				groups to be applied to the immediate SPT threshold.
+				A zero length string indicates the group list for immediate SPT
+				threshold is not configured.
+				"
+			::= { dPimExtSptThresholdEntry 3 }
+
+		
+		dPimExtSptThresholdInfinityAcl OBJECT-TYPE
+			SYNTAX DisplayString (SIZE (0..32))
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates the ACL name, which is used to specify the
+				groups to be applied to the infinity SPT threshold.
+				 A zero length string indicates the group list for infinity SPT
+				threshold is not configured.
+				"
+			::= { dPimExtSptThresholdEntry 4 }
+
+		
+		dPimExtInterfaceObjects OBJECT IDENTIFIER ::= { dPimExtObjects 4 }
+
+		
+		dPimExtInterfaceTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DPimExtInterfaceEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table consists of a list of interface specific configuration
+				for PIM.             
+				"
+			::= { dPimExtInterfaceObjects 1 }
+
+		
+		dPimExtInterfaceEntry OBJECT-TYPE
+			SYNTAX DPimExtInterfaceEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"An entry contains PIM parameters on an interface."
+			INDEX { dPimExtIfCfgIfIndex, dPimExtIfCfgInetVersion }
+			::= { dPimExtInterfaceTable 1 }
+
+		
+		DPimExtInterfaceEntry ::=
+			SEQUENCE { 
+				dPimExtIfCfgIfIndex
+					InterfaceIndex,
+				dPimExtIfCfgInetVersion
+					InetVersion,
+				dPimExtIfCfgPimMode
+					INTEGER,
+				dPimExtIfCfgPassiveMode
+					TruthValue,
+				dPimExtStateRefOrigInterval
+					Unsigned32,
+				dPimExtIfCfgRowStatus
+					RowStatus,
+				dPimExtIfCfgBsrBorderState 
+					TruthValue
+			 }
+
+		dPimExtIfCfgIfIndex OBJECT-TYPE
+			SYNTAX InterfaceIndex
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"The ifIndex value of the PIM interface."
+			::= { dPimExtInterfaceEntry 1 }
+
+		
+		dPimExtIfCfgInetVersion OBJECT-TYPE
+			SYNTAX InetVersion
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the IP protocol version for which the entry
+				is used."
+			::= { dPimExtInterfaceEntry 2 }
+
+		
+		dPimExtIfCfgPimMode OBJECT-TYPE
+			SYNTAX INTEGER
+				{
+				none(1),
+				other(2),
+				sparse(3),
+				dense(4),
+				sparseDense(5)
+				}
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the PIM mode of the entry.     
+				'none'   -   PIM is disabled on the interface.
+				'sparse' -   PIM Sparse Mode.             
+				'dense'  -   PIM Dense Mode.
+				'sparseDense' - PIM Sparse-Dense mode
+				'other'   -  Any other PIM mode.            
+				"
+			DEFVAL { none }
+			::= { dPimExtInterfaceEntry 3 }
+
+		
+		dPimExtIfCfgPassiveMode OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether the interface operates in PIM 
+				passive mode or not. When the passive mode is enabled ('true'), the
+				interface will neither send PIM messages nor accept PIM messages
+				from other routers across this interface.                
+				"
+			DEFVAL { false }
+			::= { dPimExtInterfaceEntry 4 }
+
+		
+		dPimExtStateRefOrigInterval OBJECT-TYPE
+			SYNTAX Unsigned32 (0 | 4..100)
+			UNITS "seconds"
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the state refresh origination interval.   
+				The special value of 0 means the origination of the control
+				message is disabled.        
+				"
+			DEFVAL { 0 }
+			::= { dPimExtInterfaceEntry 5 }
+
+		dPimExtIfCfgBsrBorderState OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the BSR border state of the interface. This function
+				is used to avoid the exchange of BSR messages across two domains.
+				"
+			DEFVAL { false }
+			::= { dPimExtInterfaceEntry 7 }
+		
+		dPimExtIfCfgRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The row status variable, used according to row installation
+				and removal conventions."
+			::= { dPimExtInterfaceEntry 99 }
+
+		dPimExtRP OBJECT IDENTIFIER ::= { dPimExtObjects 5 }
+
+		
+		dPimExtStaticRPTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DPimExtStaticRPEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table is used to manage static configuration of RPs."
+			::= { dPimExtRP 1 }
+
+		
+		dPimExtStaticRPEntry OBJECT-TYPE
+			SYNTAX DPimExtStaticRPEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"An entry configures the RP address for multicast groups."
+			INDEX { dPimExtStaticRPAddressType, dPimExtStaticRPGrpAddress }
+			::= { dPimExtStaticRPTable 1 }
+
+		
+		DPimExtStaticRPEntry ::=
+			SEQUENCE { 
+				dPimExtStaticRPAddressType
+					InetAddressType,
+				dPimExtStaticRPGrpAddress
+					InetAddress,
+				dPimExtStaticRPAcl
+					DisplayString,
+				dPimExtStaticRPOverride
+					TruthValue,
+				dPimExtStaticRPRowStatus
+					RowStatus
+			 }
+
+		dPimExtStaticRPAddressType OBJECT-TYPE
+			SYNTAX InetAddressType
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"The address type of this entry."
+			::= { dPimExtStaticRPEntry 1 }
+
+		
+		dPimExtStaticRPGrpAddress OBJECT-TYPE
+			SYNTAX InetAddress
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the IP address of the RP to be used for
+				groups within this group list."
+			::= { dPimExtStaticRPEntry 2 }
+
+		
+		dPimExtStaticRPAcl OBJECT-TYPE
+			SYNTAX DisplayString (SIZE (0..32))
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the name of the access list that contains
+				the multiple groups. 
+				A zero length string indicates the corresponding RP will be mapped
+				to all multicast groups.
+				"
+			::= { dPimExtStaticRPEntry 3 }
+
+		
+		dPimExtStaticRPOverride OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether the static RP mapping has higher 
+				precedence than the dynamic mapping if there is a conflict."
+			DEFVAL { false }
+			::= { dPimExtStaticRPEntry 4 }
+
+		
+		dPimExtStaticRPRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The status of this row, by which rows in this table can
+				be created and destroyed.
+				"
+			::= { dPimExtStaticRPEntry 99 }
+
+		
+		dPimExtCandidateRPTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DPimExtCandidateRPEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table is used to configure the routers as RP candidates."
+			::= { dPimExtRP 2 }
+
+		
+		dPimExtCandidateRPEntry OBJECT-TYPE
+			SYNTAX DPimExtCandidateRPEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"An entry contains the information of an RP candidate."
+			INDEX { dPimExtCandidateRPIfIndex, dPimExtCandidateInetVersion, dPimExtCandidateRPAcl }
+			::= { dPimExtCandidateRPTable 1 }
+
+		
+		DPimExtCandidateRPEntry ::=
+			SEQUENCE { 
+				dPimExtCandidateRPIfIndex
+					InterfaceIndex,
+				dPimExtCandidateInetVersion
+					InetVersion,
+				dPimExtCandidateRPAcl
+					DisplayString,
+				dPimExtCandidateRPInterval
+					Unsigned32,
+				dPimExtCandidateRPPriority
+					Unsigned32,
+				dPimExtCandRPWildcardPrefixCnt
+					Unsigned32,
+				dPimExtCandidateRPRowStatus
+					RowStatus
+			 }
+
+		dPimExtCandidateRPIfIndex OBJECT-TYPE
+			SYNTAX InterfaceIndex
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the ifIndex of the interface.
+				The IP address associated with this interface is advertised as a
+				candidate RP address."
+			::= { dPimExtCandidateRPEntry 1 }
+
+		
+		dPimExtCandidateInetVersion OBJECT-TYPE
+			SYNTAX InetVersion
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the IP protocol version for which the 
+				candidate RP (C-RP) is used."
+			::= { dPimExtCandidateRPEntry 2 }
+
+		
+		dPimExtCandidateRPAcl OBJECT-TYPE
+			SYNTAX DisplayString
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the name of the access list that defines
+				the group prefixes that are advertised in association with the 
+				RP address. 
+				A zero length string indicates the access list is not specified, 
+				then all groups will be advertised in association with the RP
+				address."
+			::= { dPimExtCandidateRPEntry 3 }
+
+		
+		dPimExtCandidateRPInterval OBJECT-TYPE
+			SYNTAX Unsigned32 (1..16383)
+			UNITS "seconds"
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Indicates the RP candidate advertisement interval."
+			DEFVAL { 60 }
+			::= { dPimExtCandidateRPEntry 4 }
+
+		
+		dPimExtCandidateRPPriority OBJECT-TYPE
+			SYNTAX Unsigned32 (0..255)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Indicates the RP priority value."
+			DEFVAL { 192 }
+			::= { dPimExtCandidateRPEntry 5 }
+
+		
+		dPimExtCandRPWildcardPrefixCnt OBJECT-TYPE
+			SYNTAX Unsigned32 (0..1)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the wildcard (224.0.0.0/4) prefix count 1 or 0 in
+				C-RP message.
+				This object is meaningless if dPimExtCandidateInetVersion is not 'ipv4'.
+				"
+			DEFVAL { 0 }
+			::= { dPimExtCandidateRPEntry 6 }
+
+		
+		dPimExtCandidateRPRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The status of this row, by which rows in this table can
+				be created and destroyed.
+				"
+			::= { dPimExtCandidateRPEntry 99 }
+
+		
+		dPimExtSSM OBJECT IDENTIFIER ::= { dPimExtObjects 6 }
+
+		
+		dPimExtSSMEnabled OBJECT-TYPE
+			SYNTAX BITS
+				{
+				ipv4(0),
+				ipv6(1)
+				}
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates whether to enable SSM.
+				If ipv4(0) bit is set to 1, the PIM SSM for IPv4 is enabled.
+				If ipv6(1) bit is set to 1, the PIM SSM for IPv6 is enabled.
+				"
+			::= { dPimExtSSM 1 }
+
+		
+		dPimExtV4SSMGrpList OBJECT-TYPE
+			SYNTAX DisplayString
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates the name of access list to define the 
+				user-specified SSM group addresses. 
+				A zero length string indicates the default SSM group addresses are
+				used. The default SSM group address range is 232/8.
+				This object is meaningless when IPv4 SSM is disabled.
+				"
+			::= { dPimExtSSM 2 }
+
+		
+		dPimExtV6SSMGrpList OBJECT-TYPE
+			SYNTAX DisplayString
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object indicates the name of access list to define the 
+				user-specified SSM group addresses. 
+				A zero length string indicates the default SSM group addresses are
+				used. The default SSM group address range is ff3x::/32.
+				This object is meaningless when IPv6 SSM is disabled.
+				"
+			::= { dPimExtSSM 3 }
+
+		
+		dPimExtConformance OBJECT IDENTIFIER ::= { dlinkSwPimExtMIB 2 }
+
+		
+		dPimExtCompliances OBJECT IDENTIFIER ::= { dPimExtConformance 1 }
+
+		
+		dPimExtCompliance MODULE-COMPLIANCE
+			STATUS current
+			DESCRIPTION 
+				"The compliance statement for entities which implement the 
+				DLINKSW-PIM-EXT-MIB."
+			MODULE -- this module
+				MANDATORY-GROUPS { dPimExtBasicGroup }
+				GROUP dPimExtV4Group
+					DESCRIPTION 
+						"This group is optional."
+				GROUP dPimExtV6Group
+					DESCRIPTION 
+						"This group is optional."
+				GROUP dPimExtAclCfgGroup
+					DESCRIPTION 
+						"This group is optional."
+				GROUP dPimExtRPConfigGroup
+					DESCRIPTION 
+						"This group is optional."
+				GROUP dPimExtSsmGroup
+					DESCRIPTION 
+						"This group is optional."
+			::= { dPimExtCompliances 1 }
+
+		
+		dPimExtGroups OBJECT IDENTIFIER ::= { dPimExtConformance 2 }
+
+		
+		dPimExtBasicGroup OBJECT-GROUP
+			OBJECTS { dPimExtSptThresholdValue, dPimExtIfCfgPimMode, dPimExtIfCfgPassiveMode, dPimExtIfCfgRowStatus }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects provides fundamental management for PIM."
+			::= { dPimExtGroups 1 }
+
+		
+		dPimExtV4Group OBJECT-GROUP
+			OBJECTS { dPimExtV4RegisterProbe, dPimExtV4RegisterRateLimit, dPimExtV4RegisterSuppressionTime, dPimExtV4RPRegisterKAT, dPimExtv4LogNeighborChange, 
+				dPimExtv4StateRefreshDisable, dPimExtv4RegisterChecksumWholePkt, dPimExtStateRefOrigInterval, dPimExtSptThresholdImmediateAcl, dPimExtSptThresholdInfinityAcl
+				 }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects provides fundamental management for PIM IPv4."
+			::= { dPimExtGroups 2 }
+
+		
+		dPimExtV6Group OBJECT-GROUP
+			OBJECTS { dPimExtV6RegisterProbe, dPimExtV6RegisterRateLimit, dPimExtV6RegisterSuppressionTime, dPimExtV6RPRegisterKAT, dPimExtV6EmbeddedRp, 
+				dPimExtv6RegisterChecksumWholePkt, dPimExtStateRefOrigInterval, dPimExtSptThresholdImmediateAcl, dPimExtSptThresholdInfinityAcl }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects provides fundamental management for PIM IPv6."
+			::= { dPimExtGroups 3 }
+
+		
+		dPimExtAclCfgGroup OBJECT-GROUP
+			OBJECTS { dPimExtAclCfgAclName, dPimExtAclRowStatus }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects to support ACL configuration for filtering
+				or checking PIM messages."
+			::= { dPimExtGroups 4 }
+
+		
+		dPimExtRPConfigGroup OBJECT-GROUP
+			OBJECTS { dPimExtStaticRPAcl, dPimExtStaticRPOverride, dPimExtStaticRPRowStatus, dPimExtCandidateRPInterval, dPimExtCandidateRPPriority, 
+				dPimExtCandRPWildcardPrefixCnt, dPimExtCandidateRPRowStatus }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects to support configuration of RPs
+				(Rendezvous Points)."
+			::= { dPimExtGroups 5 }
+
+		
+		dPimExtSsmGroup OBJECT-GROUP
+			OBJECTS { dPimExtSSMEnabled, dPimExtV4SSMGrpList, dPimExtV6SSMGrpList }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects to support management of PIM
+				routers running the PIM SSM (Source Specific Multicast)
+				protocol, in PIM mode SM (Sparse Mode)."
+			::= { dPimExtGroups 6 }
+
+		
+	
+	END
+
+--
+-- DLINKSW-PIM-EXT-MIB 20130604.mib
+--

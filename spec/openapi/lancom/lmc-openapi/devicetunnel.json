@@ -1,0 +1,597 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "Service-Devicetunnel API Documentation",
+    "version" : "17.4.68"
+  },
+  "security" : [ {
+    "bearer" : [ ]
+  }, {
+    "apiKey" : [ ]
+  }, {
+    "basic" : [ ]
+  } ],
+  "paths" : {
+    "/accounts/{accountId}/authorities/{authorityId}/rights" : {
+      "get" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsPost",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Updates rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        },
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LibSecurityRightList"
+              }
+            }
+          },
+          "required" : true
+        }
+      },
+      "delete" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsDelete",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Deletes rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Rights have been removed"
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/terminal" : {
+      "post" : {
+        "tags" : [ "Terminal" ],
+        "description" : "<p>Create terminal session</p><h4>Required rights</h4><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SESSION_TERMINAL_CREATE</td><td>Right to create Terminal-Session</td></tr><tbody></table>",
+        "summary" : "Create terminal session",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "description" : "The account id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TunnelCreateData"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Tunnel terminal session was created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/TunnelGetData"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to create a termial session."
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Terminal" ],
+        "description" : "<p>Delete terminal session</p><h4>Required rights</h4><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SESSION_TERMINAL_DELETE</td><td>Right to delete Terminal-Session</td></tr><tbody></table>",
+        "summary" : "Delete terminal sessions",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "description" : "The account id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "To be deleted tunnel ids",
+          "in" : "query",
+          "name" : "ids",
+          "required" : true,
+          "schema" : {
+            "maxItems" : 50,
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Terminal sessions have been deleted"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to delete terminal sessions"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/webconfig" : {
+      "post" : {
+        "tags" : [ "Webconfig" ],
+        "description" : "<p>Create webconfig session</p><h4>Required rights</h4><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SESSION_WEBCONFIG_CREATE</td><td>Right to create Webconfig-Session</td></tr><tbody></table>",
+        "summary" : "Create webconfig session",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "description" : "The account id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TunnelCreateData"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Tunnel webconfig session was created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/TunnelGetData"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to create a webconfig session."
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Webconfig" ],
+        "description" : "<p>Delete webconfig sessions</p><h4>Required rights</h4><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SESSION_WEBCONFIG_DELETE</td><td>Right to delete Webconfig-Session</td></tr><tbody></table>",
+        "summary" : "Delete webconfig sessions",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "description" : "The account id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "To be deleted tunnel ids",
+          "in" : "query",
+          "name" : "ids",
+          "required" : true,
+          "schema" : {
+            "maxItems" : 50,
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Webconfig sessions have been deleted"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to delete webconfig sessions"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/webconfig/{entryToken}" : {
+      "get" : {
+        "tags" : [ "Webconfig" ],
+        "description" : "<p>Get status of WEBconfig session.<br>This endpoint will return session not found after the entry token is used in the first request to the device.</p><h4>Required rights</h4><table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>SESSION_WEBCONFIG_CREATE</td><td>Right to create Webconfig-Session</td></tr><tbody></table>",
+        "summary" : "Device connection status of WEBconfig tunnel",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "description" : "The account id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "entryToken",
+          "in" : "path",
+          "description" : "Entry token of the tunnel session",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Session found and returned",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WebConfigTunnelStatusData"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "description" : "Caller is not allowed to get a webconfig session status."
+          }
+        }
+      }
+    },
+    "/rights/accounts" : {
+      "get" : {
+        "operationId" : "rightsAccountsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the token accounts",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Account right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityAccountList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/accounts/{accountId}" : {
+      "get" : {
+        "operationId" : "rightsAccountsAccountIdGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the given account",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/public" : {
+      "get" : {
+        "operationId" : "rightsPublicGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists all available rights",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "All available rights",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ErrorResponseBody" : {
+        "type" : "object",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "service" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LibSecurityAccount" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "rights" : {
+            "$ref" : "#/components/schemas/LibSecurityRightList"
+          }
+        }
+      },
+      "LibSecurityAccountList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/LibSecurityAccount"
+        }
+      },
+      "LibSecurityRightList" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string"
+        }
+      },
+      "TunnelCreateData" : {
+        "type" : "object",
+        "required" : [ "type", "deviceIds" ],
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "WEBCONFIG", "TERMINAL", "UNDEFINED" ]
+          },
+          "deviceIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          }
+        }
+      },
+      "TunnelGetData" : {
+        "type" : "object",
+        "required" : [ "deviceId", "type", "entryToken" ],
+        "properties" : {
+          "deviceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "TERMINAL", "WEBCONFIG", "UNDEFINED" ]
+          },
+          "entryToken" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "WebConfigTunnelStatusData" : {
+        "type" : "object",
+        "required" : [ "deviceStatus", "userStatus" ],
+        "properties" : {
+          "deviceStatus" : {
+            "type" : "string",
+            "enum" : [ "DISCONNECTED", "CONNECTED" ]
+          }
+        }
+      }
+    },
+    "responses" : {
+      "HTTP_400" : {
+        "description" : "Wrong data",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_401" : {
+        "description" : "Not authenticated"
+      }
+    },
+    "parameters" : {
+      "TOKEN" : {
+        "name" : "Authorization",
+        "in" : "header",
+        "description" : "JWT based Session token",
+        "required" : false,
+        "schema" : {
+          "type" : "string"
+        }
+      }
+    },
+    "securitySchemes" : {
+      "apiKey" : {
+        "type" : "apiKey",
+        "in" : "header",
+        "name" : "Authorization",
+        "description" : "Provide an API key for 'Authorization: LMC-API-KEY {value}' header format."
+      },
+      "basic" : {
+        "type" : "http",
+        "scheme" : "basic",
+        "description" : "Provide a username and password. Account IDs may be set optionally."
+      },
+      "bearer" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "description" : "Provide a bearer token for 'Authorization: Bearer {value}' header format."
+      }
+    }
+  }
+}

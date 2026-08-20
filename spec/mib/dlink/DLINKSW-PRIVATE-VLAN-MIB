@@ -1,0 +1,293 @@
+--  *****************************************************************
+--  DLINKSW-PRIVATE-VLAN-MIB.mib : Private VLAN MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+DLINKSW-PRIVATE-VLAN-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE
+             FROM SNMPv2-SMI
+        TEXTUAL-CONVENTION, RowStatus               
+             FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP          
+             FROM SNMPv2-CONF
+        InterfaceIndex
+            FROM IF-MIB
+        VlanId, VlanIdOrNone        
+            FROM Q-BRIDGE-MIB               
+        dlinkIndustrialCommon           
+             FROM DLINK-ID-REC-MIB;
+        
+    dlinkSwPrivateVlanMIB MODULE-IDENTITY     
+
+        LAST-UPDATED "201304120000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module provides configuration of Private VLAN feature. 
+            "            
+            
+        REVISION "201304120000Z"
+        DESCRIPTION 
+            "This is the first version of this MIB."    
+        ::= { dlinkIndustrialCommon 69 }
+
+    DPrivateVlanType ::= TEXTUAL-CONVENTION
+        STATUS          current
+        DESCRIPTION
+            "Prepresents Private VLAN type:
+            
+            'primary' - this VLAN is the primary VLAN in a private VLAN domain.
+
+            'isolated' - this VLAN is an isolated VLAN in a private VLAN domain. 
+                        Member ports of an isolate VLAN cannot communicate with
+                        each other and with member ports of the community VLAN
+                        at Layer 2.
+            
+            'community' - this VLAN is a community VLAN in a private VLAN domain.
+                        Member ports within a community VLAN can communicate
+                        with each other but cannot communicate with member 
+                        ports of other communities at Layer 2.     
+                           
+            When the A VLAN of isolated(2) or community(3) type is also called
+            a secondary VLAN.
+            "
+        SYNTAX     INTEGER {
+            primary(1),
+            isolated(2),
+            community(3)
+        }
+-- -----------------------------------------------------------------------------
+    dPrivateVlanMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwPrivateVlanMIB 0 }
+    dPrivateVlanMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwPrivateVlanMIB 1 }
+    dPrivateVlanMIBConformance      OBJECT IDENTIFIER ::= { dlinkSwPrivateVlanMIB 2 }
+    
+    dPrivateVlanGenericConfig         OBJECT IDENTIFIER   ::= { dPrivateVlanMIBObjects 1 }
+    
+    dPrivateVlanSyncSecVlans OBJECT-TYPE
+        SYNTAX          INTEGER {
+            sync(1),
+            noOp(2)  
+        } 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object synchronizes secondary VLANs to have the same mapping
+            MST ID as the primary VLAN when set to 'sync'.             
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned.
+            "
+        ::= { dPrivateVlanGenericConfig 1 }
+-- -----------------------------------------------------------------------------
+    dPrivateVlanVlanTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DPrivateVlanVlanEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION 
+            "A table contains a list of Private VLAN information. 
+            An entry is created and removed when the Private VLAN feature is
+            configured and removed on a specific VLAN respectively.
+            "
+       ::= { dPrivateVlanMIBObjects 2 }
+ 
+    dPrivateVlanVlanEntry OBJECT-TYPE
+        SYNTAX          DPrivateVlanVlanEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry defines VLAN specific information for Private VLAN feature.
+            "   
+        INDEX   { dPrivateVlanVlanId }
+        ::= { dPrivateVlanVlanTable 1 }
+
+    DPrivateVlanVlanEntry ::= SEQUENCE {        
+        dPrivateVlanVlanId                  VlanId,
+        dPrivateVlanVlanType                DPrivateVlanType,
+        dPrivateVlanVlanAssocPriVlan        VlanIdOrNone,
+        dPrivateVlanVlanRowStatus           RowStatus
+    }     
+    
+    dPrivateVlanVlanId OBJECT-TYPE
+        SYNTAX          VlanId 
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION 
+            "The VLAN ID of the entry. 
+            "
+        ::= { dPrivateVlanVlanEntry 1 }
+
+    dPrivateVlanVlanType OBJECT-TYPE
+        SYNTAX          DPrivateVlanType 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the private VLAN type of the entry."
+        ::= { dPrivateVlanVlanEntry 2 }
+
+    dPrivateVlanVlanAssocPriVlan OBJECT-TYPE
+        SYNTAX          VlanIdOrNone 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the VLAN ID of the associated primary VLAN,
+            if dPrivateVlanVlanType on the same row has the value of 
+            isolated(2) or community(3). 
+            If dPrivateVlanVlanType has the value of primary(1), then this
+            object has the value of 0.
+            
+            Note that one isolated VLAN can only be associated 
+            with one unique primary VLAN. One primary VLAN can only 
+            be associated with one isolated VLAN.                        
+            Multiple community VLANs can be associated with a primary VLAN.                                 
+            "
+     ::= { dPrivateVlanVlanEntry 3 }
+
+    dPrivateVlanVlanRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object is used to create a new row or modify or
+            delete an existing row in this table." 
+    ::= { dPrivateVlanVlanEntry 4 }
+
+-- -----------------------------------------------------------------------------
+   dPrivateVlanIfVlanMapTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DPrivateVlanIfVlanMapEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table consists of a list of secondary VLAN mappings on host or 
+            promiscuous port/port-channel.
+            When the port mode is not private VLAN host or promiscuous port, the
+            corresponding entries will be removed. 
+            "
+        ::= { dPrivateVlanMIBObjects 3 }
+
+    dPrivateVlanIfVlanMapEntry OBJECT-TYPE
+        SYNTAX          DPrivateVlanIfVlanMapEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry configures an association between a secondary VLAN and a 
+            primary VLAN on a port/port-channel whose port mode is host or promiscuous. 
+            If the port is private vlan host port, at most one dPrivateVlanIfVlanMapEntry
+            with a unique secondary VLAN ID can be created for a port/port-channel. 
+            In other words, a host port only can belong to at most one
+            secondary VLAN. 
+            
+            If the port is private vlan promiscuous port, 
+            multiple dPrivateVlanIfVlanMapEntry with different secondary
+            VLAN IDs (dPrivateVlanIfVlanMapSecVlanId) can be created for a port/port-channel. 
+            In other words, a promiscuous port can belong to multiple secondary VLANs.                       
+            "
+        INDEX {  
+            dPrivateVlanMappingPortIndex,
+            dPrivateVlanIfVlanMapSecVlanId
+        }
+        ::= { dPrivateVlanIfVlanMapTable 1}
+
+    DPrivateVlanIfVlanMapEntry ::=    SEQUENCE {
+        dPrivateVlanMappingPortIndex        InterfaceIndex,
+        dPrivateVlanIfVlanMapSecVlanId      VlanId,
+        dPrivateVlanIfVlanMapPriVlan        VlanId,
+        dPrivateVlanIfVlanMapRowStatus      RowStatus
+    }
+    
+    dPrivateVlanMappingPortIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the ifIndex of the interface."
+        ::= { dPrivateVlanIfVlanMapEntry 1 }
+        
+    dPrivateVlanIfVlanMapSecVlanId OBJECT-TYPE
+        SYNTAX          VlanId 
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the VLAN ID of the secondary VLAN to which
+            the port/port channel belongs.
+            " 
+        ::= { dPrivateVlanIfVlanMapEntry 2 }
+        
+    dPrivateVlanIfVlanMapPriVlan OBJECT-TYPE
+        SYNTAX          VlanId
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the VLAN ID of the associated primary VLAN.           
+            "
+       ::= { dPrivateVlanIfVlanMapEntry 3 }   
+    
+    dPrivateVlanIfVlanMapRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object is used to create a new row or modify or
+            delete an existing row in this table.
+            The writable columns in a row can not be changed if the row
+            is active. 
+            " 
+       ::= { dPrivateVlanIfVlanMapEntry 4 } 
+      
+                   
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+    dPrivateVlanMIBCompliances  OBJECT IDENTIFIER    ::= { dPrivateVlanMIBConformance 1 }
+       
+    dPrivateVlanCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+            DLINKSW-PRIVATE-VLAN-MIB."
+            
+        MODULE          -- this module
+        MANDATORY-GROUPS    { 
+            dPrivateVlanVlanCfgGroup,
+            dPrivateVlanPortIfCfgGroup                   
+        }                                             
+        ::= { dPrivateVlanMIBCompliances 1 }
+-- -----------------------------------------------------------------------------  
+     dPrivateVlanMIBGroups  OBJECT IDENTIFIER         ::= { dPrivateVlanMIBConformance 2 } 
+          
+     dPrivateVlanVlanCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            dPrivateVlanSyncSecVlans,
+            dPrivateVlanVlanType,
+            dPrivateVlanVlanAssocPriVlan,
+            dPrivateVlanVlanRowStatus
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides Private VLAN configurations which
+            are VLAN oriented."
+        ::= { dPrivateVlanMIBGroups 1 }
+        
+    dPrivateVlanPortIfCfgGroup OBJECT-GROUP
+        OBJECTS {           
+            dPrivateVlanIfVlanMapPriVlan,
+            dPrivateVlanIfVlanMapRowStatus  
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides Private VLAN configurations which
+            are port/port-channel oriented."
+        ::= { dPrivateVlanMIBGroups 2 }
+        
+    
+        
+END

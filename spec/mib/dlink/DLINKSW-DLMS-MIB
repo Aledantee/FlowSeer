@@ -1,0 +1,291 @@
+--  *****************************************************************
+--  DLINKSW-DLMS-MIB.mib : D-Link License Management System MIB
+-- 
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-DLMS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        NOTIFICATION-TYPE,
+        Unsigned32
+            FROM SNMPv2-SMI
+        DisplayString   
+            FROM SNMPv2-TC
+        dlinkIndustrialCommon                     
+            FROM DLINK-ID-REC-MIB;              
+
+                                       
+    dlinkSwDlmsMIB MODULE-IDENTITY
+        LAST-UPDATED "201308080000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for 
+            the D-Link License Management System module."
+            
+        REVISION "201308080000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."
+
+        ::= { dlinkIndustrialCommon 164 } 
+            
+-- -----------------------------------------------------------------------------
+    dDlmsMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwDlmsMIB 0 }
+    dDlmsMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwDlmsMIB 1 }
+    dDlmsMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwDlmsMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    dDlmsGeneralGroup		OBJECT IDENTIFIER ::= { dDlmsMIBObjects 1 }
+    
+    dDlmsInstallAc      OBJECT-TYPE
+        SYNTAX          OCTET STRING (SIZE (0..25))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object is used to install an activation code.
+            The dDlmsInstallStackUnitId, to be used to specify the unit ID
+            when performing an AC installation."
+        ::= { dDlmsGeneralGroup 1 }
+
+    dDlmsInstallStackUnitId OBJECT-TYPE
+        SYNTAX              Unsigned32 (0..65535)
+        MAX-ACCESS          read-write
+        STATUS              current
+        DESCRIPTION
+            "Specifies which unit of the switch stack the activation code will
+            be installed. If the ID equals zero, it meams the current device."
+        DEFVAL              { 0 }
+        ::= { dDlmsGeneralGroup 2 }
+ 
+-- -----------------------------------------------------------------------------
+    dDlmsLicense		    OBJECT IDENTIFIER ::= { dDlmsMIBObjects 2 }
+    
+    dDlmsLicenseModelTable OBJECT-TYPE
+        SYNTAX             SEQUENCE OF DDlmsLicenseModelEntry
+        MAX-ACCESS         not-accessible
+        STATUS             current
+        DESCRIPTION
+            "This table indicates license model."
+        ::= { dDlmsLicense 1 }
+
+    dDlmsLicenseModelEntry OBJECT-TYPE
+        SYNTAX             DDlmsLicenseModelEntry
+        MAX-ACCESS         not-accessible
+        STATUS             current
+        DESCRIPTION
+            "Information about license model for switch."
+        INDEX    { 
+            dDlmsLicenseModelUnitId
+        }
+        ::= { dDlmsLicenseModelTable 1 }
+
+    DDlmsLicenseModelEntry ::= SEQUENCE {
+        dDlmsLicenseModelUnitId        Unsigned32,    
+        dDlmsLicenseModelDefault       DisplayString,
+        dDlmsLicenseModelCurrent       DisplayString
+    }
+                 
+    dDlmsLicenseModelUnitId OBJECT-TYPE
+        SYNTAX              Unsigned32 (0..65535)
+        MAX-ACCESS          not-accessible
+        STATUS              current
+        DESCRIPTION
+            "Specifies which unit of the switch stack. 
+            If the ID equals zero, it meams the current device."
+        ::= { dDlmsLicenseModelEntry 1 }
+ 
+    dDlmsLicenseModelDefault OBJECT-TYPE
+        SYNTAX               DisplayString
+        MAX-ACCESS           read-only
+        STATUS               current
+        DESCRIPTION
+            "This object indicates the default license model."
+        ::= { dDlmsLicenseModelEntry 2 }
+        
+    dDlmsLicenseModelCurrent OBJECT-TYPE
+        SYNTAX               DisplayString
+        MAX-ACCESS           read-only
+        STATUS               current
+        DESCRIPTION
+            "This object indicates the current active license model."
+        ::= { dDlmsLicenseModelEntry 3 }
+
+-- ----------------------------------------------------------------------------- 
+    dDlmsLicenseAcTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DDlmsLicenseAcEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table lists activation codes' information."
+        ::= { dDlmsLicense 2 }
+
+    dDlmsLicenseAcEntry OBJECT-TYPE
+        SYNTAX             DDlmsLicenseAcEntry
+        MAX-ACCESS         not-accessible
+        STATUS             current
+        DESCRIPTION
+            "A list of information indicates activation codes on switch."
+        INDEX    { 
+            dDlmsLicenseAcUnitId,
+            dDlmsLicenseAcIndex
+        }
+        ::= { dDlmsLicenseAcTable 1 }
+
+    DDlmsLicenseAcEntry ::= SEQUENCE {
+        dDlmsLicenseAcUnitId         Unsigned32,
+        dDlmsLicenseAcIndex          Unsigned32,    
+        dDlmsLicenseAcModel          DisplayString,
+        dDlmsLicenseAc               OCTET STRING,
+        dDlmsLicenseAcRemaining      DisplayString
+    }
+    
+    dDlmsLicenseAcUnitId OBJECT-TYPE
+        SYNTAX           Unsigned32 (0..65535)
+        MAX-ACCESS       not-accessible
+        STATUS           current
+        DESCRIPTION
+            "Specifies which unit of the switch stack. 
+            If the ID equals zero, it meams the current device."
+        ::= { dDlmsLicenseAcEntry 1 }
+                 
+    dDlmsLicenseAcIndex OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the index of the entry."
+        ::= { dDlmsLicenseAcEntry 2 }
+ 
+    dDlmsLicenseAcModel OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the license model of the activation code."
+        ::= { dDlmsLicenseAcEntry 3 }
+
+    dDlmsLicenseAc    OBJECT-TYPE
+        SYNTAX        OCTET STRING (SIZE (0..25))
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "This object indicates the activation code."
+        ::= { dDlmsLicenseAcEntry 4 }
+        
+    dDlmsLicenseAcRemaining OBJECT-TYPE
+        SYNTAX              DisplayString
+        MAX-ACCESS          read-only
+        STATUS              current
+        DESCRIPTION
+            "This object indicates the activation code remaining time."
+        ::= { dDlmsLicenseAcEntry 5 }
+
+-- -----------------------------------------------------------------------------
+-- MIB Notifications statements
+-- -----------------------------------------------------------------------------
+    dDlmsIllegalAc    NOTIFICATION-TYPE
+        OBJECTS   {
+            dDlmsInstallStackUnitId,
+            dDlmsInstallAc
+        }
+        STATUS    current
+        DESCRIPTION
+            "Generated when the user inputs an illegal activation code 
+            for the specified switch."
+        ::= { dDlmsMIBNotifications 1 }
+
+    dDlmsLicenseAcInstallSuccess    NOTIFICATION-TYPE
+        OBJECTS   {
+            dDlmsLicenseAcUnitId,
+            dDlmsLicenseAcModel,
+            dDlmsLicenseAc
+        }
+        STATUS    current
+        DESCRIPTION
+            "The notification is sent when an activation code
+            of the switch is installed successfully."
+        ::= { dDlmsMIBNotifications 2 }
+
+    dDlmsLicenseAcExpiresIn30Days    NOTIFICATION-TYPE
+        OBJECTS   {
+            dDlmsLicenseAcUnitId,
+            dDlmsLicenseAcModel,
+            dDlmsLicenseAc
+        }
+        STATUS    current
+        DESCRIPTION
+            "When an activation code of the switch is going to expire,
+            the notification is sent before 30 days."
+        ::= { dDlmsMIBNotifications 3 }
+
+    dDlmsLicenseAcExpired    NOTIFICATION-TYPE
+        OBJECTS   {
+            dDlmsLicenseAcUnitId,
+            dDlmsLicenseAcModel,
+            dDlmsLicenseAc
+        }
+        STATUS    current
+        DESCRIPTION
+            "The notification is sent when an activation code 
+            of the switch is expired."
+        ::= { dDlmsMIBNotifications 4 }
+                
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+    dDlmsCompliances OBJECT IDENTIFIER ::= { dDlmsMIBConformance 1 }
+        
+    dDlmsCompliance MODULE-COMPLIANCE
+        STATUS current
+        DESCRIPTION 
+            "The compliance statement for entities which implement the 
+            DLINKSW-DLMS-MIB."
+        MODULE -- this module
+        MANDATORY-GROUPS {
+            dDlmsInstallCfgGroup,
+            dDlmsLicenseInfoGroup
+        }
+         
+        ::= { dDlmsCompliances 1 }
+
+-- -----------------------------------------------------------------------------        
+    dDlmsGroups OBJECT IDENTIFIER ::= { dDlmsMIBConformance 2 }
+        
+    dDlmsInstallCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            dDlmsInstallAc,
+            dDlmsInstallStackUnitId
+        }           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the license configuration
+            for the switch."
+        ::= { dDlmsGroups 1 }
+        
+    dDlmsLicenseInfoGroup OBJECT-GROUP
+        OBJECTS {
+            dDlmsLicenseModelDefault,
+            dDlmsLicenseModelCurrent,
+            dDlmsLicenseAcModel,
+            dDlmsLicenseAc,
+            dDlmsLicenseAcRemaining            
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the license information
+            for the switch."
+        ::= { dDlmsGroups 2 }
+
+
+END
+

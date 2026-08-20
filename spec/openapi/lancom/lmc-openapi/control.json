@@ -1,0 +1,451 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "Service-Control API2 Documentation",
+    "version" : "3.30.2000"
+  },
+  "servers" : [ {
+    "url" : "/"
+  } ],
+  "security" : [ {
+    "bearer" : [ ]
+  }, {
+    "apiKey" : [ ]
+  }, {
+    "basic" : [ ]
+  } ],
+  "paths" : {
+    "/accounts/{accountId}/authorities/{authorityId}/rights" : {
+      "get" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsPost",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Updates rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        },
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LibSecurityRightList"
+              }
+            }
+          },
+          "required" : true
+        }
+      },
+      "delete" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsDelete",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Deletes rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Rights have been removed"
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/certificate" : {
+      "post" : {
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/REQ_ACCOUNT_ID"
+        } ],
+        "description" : "<p>Create a new Certificate entity.</p>",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CertificateData"
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "Certificate successfully created."
+          }
+        },
+        "summary" : "Create a new Certificate entity.",
+        "tags" : [ "Certificate" ],
+        "x-codegen-request-body-name" : "Certificate data"
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}" : {
+      "delete" : {
+        "description" : "<p>Delete a device instance including all pending actions.</p> <p> <h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>DEVICE_DELETE</td><td>Right to register an action for a device</td></tr><tbody></table></p>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/REQ_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/REQ_DEVICE_ID"
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "Device has been deleted"
+          },
+          "404" : {
+            "content" : { },
+            "description" : "Not found, e.g. unknown device ID"
+          }
+        },
+        "summary" : "Delete a device",
+        "tags" : [ "Device" ]
+      }
+    },
+    "/accounts/{accountId}/devices/{deviceId}/actions" : {
+      "post" : {
+        "description" : "<p>Create an Action for a device.</p> <p> <h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>ACTION_CREATE</td><td>Right to register an action for a device</td></tr><tbody></table></p>",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/REQ_ACCOUNT_ID"
+        }, {
+          "$ref" : "#/components/parameters/REQ_DEVICE_ID"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterActionData"
+              }
+            }
+          },
+          "description" : "The action payload",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisterActionResponseData"
+                }
+              }
+            },
+            "description" : "Action has been created // TODO manually added response ! move to control service or keep h"
+          },
+          "400" : {
+            "content" : { },
+            "description" : "Wrong action data"
+          }
+        },
+        "summary" : "Create an action for a device",
+        "tags" : [ "ControlAction" ],
+        "x-codegen-request-body-name" : "actionData"
+      }
+    },
+    "/rights/accounts" : {
+      "get" : {
+        "operationId" : "rightsAccountsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the token accounts",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Account right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityAccountList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/accounts/{accountId}" : {
+      "get" : {
+        "operationId" : "rightsAccountsAccountIdGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the given account",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/public" : {
+      "get" : {
+        "operationId" : "rightsPublicGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists all available rights",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "All available rights",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "CertificateData" : {
+        "properties" : {
+          "certificateSerialNumber" : {
+            "type" : "string"
+          },
+          "notAfter" : {
+            "description" : "Validity of the certificate",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "notAfter", "certificateSerialNumber" ],
+        "type" : "object"
+      },
+      "LibSecurityAccount" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "rights" : {
+            "$ref" : "#/components/schemas/LibSecurityRightList"
+          }
+        }
+      },
+      "LibSecurityAccountList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/LibSecurityAccount"
+        }
+      },
+      "LibSecurityRightList" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string"
+        }
+      },
+      "RegisterActionData" : {
+        "properties" : {
+          "controlActionSegments" : {
+            "description" : "String with JSON serialized device API control action segments",
+            "type" : "string"
+          },
+          "callbackPath" : {
+            "description" : "<p>Micro service callback path for result or type ResultActionData.</p><p>If device or account will be deleted, all actions with callback path will be deleted, too, refardless of execution state.</p><p>Actions without callback path will be delivered to the device even after device or account deletion.</p>",
+            "type" : "string"
+          },
+          "callbackProcessing" : {
+            "description" : "If set to TRUE, messages from device with non final state - i.e. processingState IN_PROGRESS - will be send to caller, too. It thereby is sensible only if callbackPath is specified, too.",
+            "type" : "boolean"
+          },
+          "appendInfoResult" : {
+            "type" : "boolean"
+          },
+          "queue" : {
+            "description" : "Optional queue configuration. Provide name and size. If omitted, the action is not part of a named queue. size=0 means unlimited queue; size>0 limits how many of the most recent actions in the queue remain (older ones are subject to abortion).",
+            "type" : "object",
+            "properties" : {
+              "name" : {
+                "type" : "string",
+                "description" : "Queue name. Actions with the same name for a device belong to the same queue.",
+                "minLength" : 1,
+                "maxLength" : 255,
+                "pattern" : "^(?!\\s*$).+"
+              },
+              "size" : {
+                "type" : "integer",
+                "format" : "int32",
+                "minimum" : 0,
+                "description" : "Maximum number of most recent actions retained in the queue (0 = unlimited)."
+              }
+            },
+            "required" : [ "name", "size" ]
+          }
+        },
+        "required" : [ "controlActionSegments" ],
+        "type" : "object"
+      },
+      "RegisterActionResponseData" : {
+        "properties" : {
+          "id" : {
+            "format" : "UUID",
+            "type" : "string"
+          }
+        },
+        "required" : [ "id" ],
+        "type" : "object"
+      }
+    },
+    "parameters" : {
+      "REQ_ACCOUNT_ID" : {
+        "description" : "Unique ID of an existing account",
+        "in" : "path",
+        "name" : "accountId",
+        "required" : true,
+        "schema" : {
+          "format" : "uuid",
+          "type" : "string"
+        }
+      },
+      "REQ_DEVICE_ID" : {
+        "description" : "Unique ID of an existing device (cloud ID)",
+        "in" : "path",
+        "name" : "deviceId",
+        "required" : true,
+        "schema" : {
+          "format" : "uuid",
+          "type" : "string"
+        }
+      },
+      "TOKEN" : {
+        "name" : "Authorization",
+        "in" : "header",
+        "description" : "JWT based Session token",
+        "required" : false,
+        "schema" : {
+          "type" : "string"
+        }
+      }
+    },
+    "securitySchemes" : {
+      "apiKey" : {
+        "type" : "apiKey",
+        "in" : "header",
+        "name" : "Authorization",
+        "description" : "Provide an API key for 'Authorization: LMC-API-KEY {value}' header format."
+      },
+      "basic" : {
+        "type" : "http",
+        "scheme" : "basic",
+        "description" : "Provide a username and password. Account IDs may be set optionally."
+      },
+      "bearer" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "description" : "Provide a bearer token for 'Authorization: Bearer {value}' header format."
+      }
+    }
+  },
+  "x-original-swagger-version" : "2.0"
+}

@@ -1,0 +1,44 @@
+-- *****************************************************************************
+-- proprietary management MIB
+-- *****************************************************************************
+
+
+
+SWDGS3630PRIMGMT-MIB    DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY             FROM SNMPv2-SMI
+        dlink-mgmt,dlink-products   FROM DLINK-ID-REC-MIB;
+
+    
+    
+-- 
+--   DGS3630 series Product 
+-- 
+
+    dlink-DGS-3630Series			OBJECT IDENTIFIER ::= { dlink-products 147 }
+    dlink-DGS-3630-28TC				OBJECT IDENTIFIER ::= { dlink-DGS-3630Series 1 }
+    dlink-DGS-3630-28TCax			OBJECT IDENTIFIER ::= { dlink-DGS-3630-28TC 1 }
+    dlink-DGS-3630-28SC				OBJECT IDENTIFIER ::= { dlink-DGS-3630Series 2 }
+    dlink-DGS-3630-28SCax			OBJECT IDENTIFIER ::= { dlink-DGS-3630-28SC 1 }
+    dlink-DGS-3630-52TC				OBJECT IDENTIFIER ::= { dlink-DGS-3630Series 3 }
+    dlink-DGS-3630-52TCax			OBJECT IDENTIFIER ::= { dlink-DGS-3630-52TC 1 }
+    dlink-DGS-3630-28PC				OBJECT IDENTIFIER ::= { dlink-DGS-3630Series 4 }
+    dlink-DGS-3630-28PCax			OBJECT IDENTIFIER ::= { dlink-DGS-3630-28PC 1 }
+    dlink-DGS-3630-52PC				OBJECT IDENTIFIER ::= { dlink-DGS-3630Series 5 }
+    dlink-DGS-3630-52PCax			OBJECT IDENTIFIER ::= { dlink-DGS-3630-52PC 1 }
+
+
+    dlink-proj-DGS-3630Series		OBJECT IDENTIFIER ::= { dlink-mgmt 147 }
+    dlink-proj-DGS-3630-28TC		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630Series 1 }
+    dlink-proj-DGS-3630-28TCax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630-28TC 1 }
+    dlink-proj-DGS-3630-28SC		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630Series 2 }
+    dlink-proj-DGS-3630-28SCax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630-28SC 1 }
+    dlink-proj-DGS-3630-52TC		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630Series 3 }
+    dlink-proj-DGS-3630-52TCax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630-52TC 1 }
+    dlink-proj-DGS-3630-28PC		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630Series 4 }
+    dlink-proj-DGS-3630-28PCax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630-28PC 1 }
+    dlink-proj-DGS-3630-52PC		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630Series 5 }
+    dlink-proj-DGS-3630-52PCax		OBJECT IDENTIFIER ::= { dlink-proj-DGS-3630-52PC 1 }
+
+END

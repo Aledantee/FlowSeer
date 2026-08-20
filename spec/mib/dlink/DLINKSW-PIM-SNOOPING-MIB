@@ -1,0 +1,794 @@
+--  *****************************************************************
+--  DLINKSW-PIM-SNOOPING-MIB.mib : PIM SNOOPING MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-PIM-SNOOPING-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+	    MODULE-IDENTITY, OBJECT-TYPE, Counter32, Unsigned32, TimeTicks
+                                             FROM SNMPv2-SMI        -- [RFC2578]	
+	    TruthValue,RowStatus             FROM SNMPv2-TC         -- [RFC2579]
+	    MODULE-COMPLIANCE, OBJECT-GROUP  FROM SNMPv2-CONF       -- [RFC2580]
+	    InterfaceIndex                   FROM IF-MIB            -- [RFC2863]
+	    InetAddressType, InetAddress     FROM INET-ADDRESS-MIB  -- [RFC4001]
+            VlanId, VlanIdOrNone             FROM Q-BRIDGE-MIB
+            dlinkIndustrialCommon            FROM DLINK-ID-REC-MIB;        		
+
+
+    dlinkSwPimSnoopingMIB MODULE-IDENTITY
+        LAST-UPDATED "201405050000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for PIM snooping."
+            
+        REVISION "201405050000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'PIM Snooping'
+            functionality."
+    ::= { dlinkIndustrialCommon 179 }
+
+-- -----------------------------------------------------------------------------
+    dPimSnoopingMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwPimSnoopingMIB 0 }
+    dPimSnoopingMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwPimSnoopingMIB 1 }
+    dPimSnoopingMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwPimSnoopingMIB 2 }
+-- -----------------------------------------------------------------------------
+    dPimSnoopingGblCtrl         OBJECT IDENTIFIER ::= { dPimSnoopingMIBObjects 1 }
+
+	dPimSnoopingGblStateV4Enabled OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether the PIM snooping for IPv4 is globally 
+	        enabled."
+	    DEFVAL { false }
+	    ::= { dPimSnoopingGblCtrl 1 }
+	    
+	 dPimSnoopingGblStateV6Enabled OBJECT-TYPE
+	    SYNTAX          TruthValue
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates whether the PIM snooping for IPv6 is globally 
+	        enabled."
+	    DEFVAL { false }
+	    ::= { dPimSnoopingGblCtrl 2 }
+        
+	dPIMSnoopingClearAllStatistics  OBJECT-TYPE
+    	    SYNTAX      INTEGER {
+    	        noOp(1),
+    	        ipv4(2),
+    	        ipv6(3)
+    	    }
+    	    MAX-ACCESS      read-write
+    	    STATUS      current
+    	    DESCRIPTION
+            "This object is used to clear all PIM snooping counters.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+	    ::= { dPimSnoopingGblCtrl 3 }
+	 	 
+	dPIMSnoopingClearV4StatisticsByVLANId OBJECT-TYPE
+            SYNTAX          VlanIdOrNone
+    	    MAX-ACCESS      read-write
+    	    STATUS          current
+    	    DESCRIPTION
+     	      "This object indicates the VLAN ID on which the PIM snooping 
+     	      for IPv4 counters will be cleared.
+     	      When read, the special value 0 is returned."
+     	   ::= { dPimSnoopingGblCtrl 4 }
+	 
+     	dPIMSnoopingClearV6StatisticsByVLANId OBJECT-TYPE
+            SYNTAX          VlanIdOrNone
+    	    MAX-ACCESS      read-write
+    	    STATUS          current
+    	    DESCRIPTION
+     	      "This object indicates the VLAN ID on which the PIM snooping 
+     	      for IPv6 counters will be cleared.
+     	      When read, the special value 0 is returned."
+     	   ::= { dPimSnoopingGblCtrl 5 }
+     	   
+	 dPimSnoopingV4StateEnabledVlanCnt OBJECT-TYPE
+	    SYNTAX          Counter32
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the count of PIM snooping for IPv4 enabled 
+	        VLAN interfaces."
+	    ::= { dPimSnoopingGblCtrl 6 }
+	    
+	 dPimSnoopingV6StateEnabledVlanCnt OBJECT-TYPE
+	    SYNTAX          Counter32
+	    MAX-ACCESS      read-only
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the count of PIM snooping for IPv6 enabled 
+	        VLAN interfaces."
+	    ::= { dPimSnoopingGblCtrl 7 }
+-- -----------------------------------------------------------------------------
+    dPimSnoopingVlanIfCtrl         OBJECT IDENTIFIER ::= { dPimSnoopingMIBObjects 2 }
+    
+    	dPimSnoopingVlanIfTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DPimSnoopingVlanIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the PIM snooping enabled VLAN interfaces.
+	        When an entry is created, the PIM snooping will be enabled on the VLAN
+	        interface.
+	        When an entry is deleted, the PIM snooping will be disabled on the VLAN
+	        interface."	
+	    ::= { dPimSnoopingVlanIfCtrl 1 }
+	    
+	dPimSnoopingVlanIfEntry OBJECT-TYPE
+	    SYNTAX          DPimSnoopingVlanIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) representing a PIM snooping enabled VLAN 
+	        interface."
+	    INDEX      { 
+            	dPimSnoopingVlanIfIndex,
+	        dPimSnoopingVlanIfType 
+        	}	
+	    ::= { dPimSnoopingVlanIfTable 1 }   
+	    
+	DPimSnoopingVlanIfEntry ::= SEQUENCE {
+	    dPimSnoopingVlanIfIndex             VlanId,
+	    dPimSnoopingVlanIfType            	InetAddressType, 	    
+	    dPimSnoopingVlanIfNbrCnt   		Counter32,
+	    dPimSnoopingVlanIfMrouteCnt   	Counter32,
+	    dPimSnoopingVlanIfDrAddress		InetAddress,
+	    dPimSnoopingVlanIfRowStatus		RowStatus
+	}    
+	
+        dPimSnoopingVlanIfIndex OBJECT-TYPE
+            SYNTAX          VlanId
+            MAX-ACCESS      not-accessible
+            STATUS          current
+            DESCRIPTION
+             "This object indicates the specific VLAN interface."
+            ::= { dPimSnoopingVlanIfEntry 1 }	
+	
+        dPimSnoopingVlanIfType OBJECT-TYPE
+    	    SYNTAX     InetAddressType
+            MAX-ACCESS not-accessible
+    	    STATUS     current
+    	    DESCRIPTION
+            	"The PIM snooping type of this entry.
+            	This object is also the address type which applies to obeject
+            	dPimSnoopingVlanIfDrAddress."
+    	    ::= { dPimSnoopingVlanIfEntry 2 }    
+    	    
+        dPimSnoopingVlanIfNbrCnt OBJECT-TYPE
+    	    SYNTAX	Counter32
+    	    MAX-ACCESS	read-only
+    	    STATUS	current
+    	    DESCRIPTION
+    		"This object indicates the number of neighbors on the VLAN interface."
+    	    ::= {  dPimSnoopingVlanIfEntry 3 }  
+    	
+    	dPimSnoopingVlanIfMrouteCnt OBJECT-TYPE
+    	    SYNTAX	Counter32
+    	    MAX-ACCESS	read-only
+    	    STATUS	current
+    	    DESCRIPTION
+    		"This object indicates the number of multicast route entries on 
+    		the VLAN interface."
+    	    ::= {  dPimSnoopingVlanIfEntry 4 }  
+    	
+    	dPimSnoopingVlanIfDrAddress OBJECT-TYPE
+    	    SYNTAX	InetAddress (SIZE(4|16))
+    	    MAX-ACCESS	read-only
+    	    STATUS	current
+    	    DESCRIPTION
+    		"This object indicates the designated router address on the VLAN 
+    		interface.  The InetAddressType, e.g., IPv4 or IPv6, is identified 
+    		by the dPimSnoopingVlanIfType variable"
+    	    ::= {  dPimSnoopingVlanIfEntry 5 } 
+    	    
+    	dPimSnoopingVlanIfRowStatus OBJECT-TYPE
+    	    SYNTAX     RowStatus
+    	    MAX-ACCESS read-create
+    	    STATUS     current
+    	    DESCRIPTION
+               "This entry's status, by which new entries may be added
+               to the table and old entries deleted."
+            ::= { dPimSnoopingVlanIfEntry 99 }	
+-- -----------------------------------------------------------------------------
+    dPimSnoopingMrouteInfo         OBJECT IDENTIFIER ::= { dPimSnoopingMIBObjects 3 }
+
+    	dPimSnoopingMrouteTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DPimSnoopingMrouteEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the PIM snooping multicast route entries.
+	        "	
+	    ::= { dPimSnoopingMrouteInfo 1 }
+	    
+	dPimSnoopingMrouteEntry OBJECT-TYPE
+	    SYNTAX          DPimSnoopingMrouteEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) representing a PIM snooping mroute entry."
+	    INDEX      { 
+            	dPimSnoopingMrouteVLANIfIndex,
+	        dPimSnoopingMrouteAddrType,
+	        dPimSnoopingMrouteGrpAddr,
+	        dPimSnoopingMrouteSrcAddr,
+	        dPimSnoopingMrouteSGRptState
+        	}	
+	    ::= { dPimSnoopingMrouteTable 1 }
+	    
+	DPimSnoopingMrouteEntry ::= SEQUENCE {
+	    dPimSnoopingMrouteVLANIfIndex        VlanId,
+	    dPimSnoopingMrouteAddrType           InetAddressType, 
+	    dPimSnoopingMrouteGrpAddr            InetAddress,
+	    dPimSnoopingMrouteSrcAddr            InetAddress,
+	    dPimSnoopingMrouteSGRptState         TruthValue,
+	    dPimSnoopingMrouteUpTime             TimeTicks,
+	    dPimSnoopingMrouteExpiryTime         TimeTicks
+	}
+	
+	dPimSnoopingMrouteVLANIfIndex OBJECT-TYPE
+            SYNTAX          VlanId
+            MAX-ACCESS      not-accessible
+            STATUS          current
+            DESCRIPTION
+             "This object indicates the VLAN interface of the multicast mroute entry."
+            ::= { dPimSnoopingMrouteEntry 1 }
+          
+        dPimSnoopingMrouteAddrType OBJECT-TYPE
+   	    SYNTAX     InetAddressType
+	    MAX-ACCESS not-accessible
+	    STATUS     current
+	    DESCRIPTION
+            "The address type of the dPimSnoopingMrouteTable entry.  This
+            value applies to both the dPimSnoopingMrouteGrpAddr and the
+            dPimSnoopingMrouteSrcAddr entries."
+    	::= { dPimSnoopingMrouteEntry 2 } 
+    	
+    	dPimSnoopingMrouteGrpAddr OBJECT-TYPE
+	    SYNTAX      InetAddress (SIZE(4|16))
+	    MAX-ACCESS not-accessible
+	    STATUS     current
+	    DESCRIPTION
+            "The group address for which this entry contains information.  
+            The InetAddressType, e.g., IPv4 or IPv6, is identified by the 
+            dPimSnoopingMrouteAddrType variable in the dPimSnoopingMrouteTable 
+            table."
+    	::= { dPimSnoopingMrouteEntry 3 }
+    	
+    	dPimSnoopingMrouteSrcAddr OBJECT-TYPE
+	    SYNTAX      InetAddress (SIZE(4|16))
+	    MAX-ACCESS not-accessible
+	    STATUS     current
+	    DESCRIPTION
+            "The source address for which this entry contains information.  
+            The InetAddressType, e.g., IPv4 or IPv6, is identified by the 
+            dPimSnoopingMrouteAddrType variable in the dPimSnoopingMrouteTable 
+            table."
+    	::= { dPimSnoopingMrouteEntry 4 }
+    	
+    	dPimSnoopingMrouteSGRptState OBJECT-TYPE
+	    SYNTAX     TruthValue
+    	    MAX-ACCESS not-accessible
+    	    STATUS     current
+    	    DESCRIPTION
+           "This object indicates whether the entry maintains the (S,G,rpt) 
+           state of the multicast routing entry.
+           If the value of dPimSnoopingMrouteSrcAddr is zero, this object is
+           always false."
+    	::= { dPimSnoopingMrouteEntry 5 }
+    	
+    	dPimSnoopingMrouteUpTime OBJECT-TYPE
+	    SYNTAX     TimeTicks
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "The time elapsed since this entry was created."
+	::= { dPimSnoopingMrouteEntry 6 }
+	
+	dPimSnoopingMrouteExpiryTime OBJECT-TYPE
+	    SYNTAX     TimeTicks
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "This value represents the time remaining before the multicast route
+            entry expires.  The value must always be greater than or equal to 1."
+        ::= { dPimSnoopingMrouteEntry 7 }
+        
+        dPimSnoopingMrouteDownPortIfTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DPimSnoopingMrouteDownPortIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the PIM snooping multicast route downstream
+	        port interface entries.
+	        "	
+	    ::= { dPimSnoopingMrouteInfo 2 }
+	    
+	dPimSnoopingMrouteDownPortIfEntry OBJECT-TYPE
+	    SYNTAX          DPimSnoopingMrouteDownPortIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) representing a PIM snooping multicast route downstream
+	        port interface entry."
+	    INDEX      { 
+            	dPimSnoopingMrouteVLANIfIndex,
+	        dPimSnoopingMrouteAddrType,
+	        dPimSnoopingMrouteGrpAddr,
+	        dPimSnoopingMrouteSrcAddr,
+	        dPimSnoopingMrouteSGRptState,
+	        dPimSnoopingMrouteDownPortIfIndex
+        	}	
+	    ::= { dPimSnoopingMrouteDownPortIfTable 1 }   
+	    
+	DPimSnoopingMrouteDownPortIfEntry ::= SEQUENCE {
+	    dPimSnoopingMrouteDownPortIfIndex    InterfaceIndex,
+	    dPimSnoopingMrouteDownPortIfJpstate  INTEGER, 
+	    dPimSnoopingMrouteDownPortIfExpiryTime         TimeTicks
+	}
+	
+	dPimSnoopingMrouteDownPortIfIndex OBJECT-TYPE
+            SYNTAX          InterfaceIndex 
+            MAX-ACCESS      not-accessible
+            STATUS          current
+            DESCRIPTION
+             "This object indicates the downstream port interface of multicast
+             mroute entry."
+            ::= { dPimSnoopingMrouteDownPortIfEntry 1 }
+            
+        dPimSnoopingMrouteDownPortIfJpstate OBJECT-TYPE
+    	    SYNTAX     INTEGER {
+                         onInfo(1),
+                         join(2),
+                         prunePending(3),
+                         pruned(4)
+                       }
+    	    MAX-ACCESS read-only
+    	    STATUS     current
+            DESCRIPTION
+            "This object indicates the join/prune state whether the local router 
+            should join the RP tree for the group or join the shortest-path tree 
+            for the source and group represented by this entry."
+	    ::= { dPimSnoopingMrouteDownPortIfEntry 2 }    
+        
+	dPimSnoopingMrouteDownPortIfExpiryTime OBJECT-TYPE
+	    SYNTAX     TimeTicks
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "This value represents the time remaining before the multicast route
+            downstrem port interface entry expires.  
+            The value must always be greater than or equal to 1."
+        ::= { dPimSnoopingMrouteDownPortIfEntry 3 }
+        
+        dPimSnoopingMrouteUpNbrTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DPimSnoopingMrouteUpNbrEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the PIM snooping multicast route upstrem 
+	        neighbor entries.
+	        "	
+	    ::= { dPimSnoopingMrouteInfo 3 }
+	    
+	dPimSnoopingMrouteUpNbrEntry OBJECT-TYPE
+	    SYNTAX          DPimSnoopingMrouteUpNbrEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) representing a PIM snooping multicast route upstrem
+	        neighbor entry."
+	    INDEX      { 
+            	dPimSnoopingMrouteVLANIfIndex,
+	        dPimSnoopingMrouteAddrType,
+	        dPimSnoopingMrouteGrpAddr,
+	        dPimSnoopingMrouteSrcAddr,
+	        dPimSnoopingMrouteSGRptState,
+	        dPimSnoopingMrouteDownPortIfIndex,
+	        dPimSnoopingMrouteUpNbrAddress
+        	}	
+	    ::= { dPimSnoopingMrouteUpNbrTable 1 }   
+	    
+	DPimSnoopingMrouteUpNbrEntry ::= SEQUENCE {
+	    dPimSnoopingMrouteUpNbrAddress    InetAddress,
+	    dPimSnoopingMrouteUpNbrPortIfIndex    InterfaceIndex,
+	    dPimSnoopingMrouteUpNbrPPTime  	TimeTicks,
+	    dPimSnoopingMrouteUpNbrExpiryTime   TimeTicks
+	}
+	
+	dPimSnoopingMrouteUpNbrAddress OBJECT-TYPE
+	    SYNTAX      InetAddress (SIZE(4|16))
+	    MAX-ACCESS not-accessible
+	    STATUS     current
+	    DESCRIPTION
+            "This object indicates the upstream neighbor address for which 
+            this entry contains information.  "
+    	::= { dPimSnoopingMrouteUpNbrEntry 1 }
+    	
+ 	dPimSnoopingMrouteUpNbrPortIfIndex OBJECT-TYPE
+            SYNTAX          InterfaceIndex 
+            MAX-ACCESS      read-only
+            STATUS          current
+            DESCRIPTION
+             "This object indicates the port/port-channel interface used to reach 
+             this upstream neighbor."
+            ::= { dPimSnoopingMrouteUpNbrEntry 2 }
+            
+    	dPimSnoopingMrouteUpNbrPPTime OBJECT-TYPE
+	    SYNTAX     TimeTicks
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "This object indicates prune-pending time concerned with the upstream 
+            neighbor.  
+            "
+        ::= { dPimSnoopingMrouteUpNbrEntry 3 }
+        
+	dPimSnoopingMrouteUpNbrExpiryTime OBJECT-TYPE
+	    SYNTAX     TimeTicks
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "This object indicates expiry timer concerned with the upstream neighbor.  
+           "
+        ::= { dPimSnoopingMrouteUpNbrEntry 4 }
+
+-- -----------------------------------------------------------------------------
+    dPimSnoopingStatisticsInfo         OBJECT IDENTIFIER ::= { dPimSnoopingMIBObjects 4 }
+
+    	dPimSnoopingStatisticsTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DPimSnoopingStatisticsEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the PIM snooping statistics entries.
+	        "	
+	    ::= { dPimSnoopingStatisticsInfo 1 }
+	    
+	dPimSnoopingStatisticsEntry OBJECT-TYPE
+	    SYNTAX          DPimSnoopingStatisticsEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) representing a PIM snooping mroute entry."
+	    INDEX      { 
+            	dPimSnoopingStatisticsVLANIfIndex,
+	        dPimSnoopingStatisticsType
+        	}	
+	    ::= { dPimSnoopingStatisticsTable 1 }   
+	    
+	DPimSnoopingStatisticsEntry ::= SEQUENCE {
+	    dPimSnoopingStatisticsVLANIfIndex    VlanId,
+	    dPimSnoopingStatisticsType           InetAddressType, 
+	    dPimSnoopingStatisticsRxPimV2Hello   Counter32,
+	    dPimSnoopingStatisticsRxPimV2JP      Counter32,
+	    dPimSnoopingStatisticsRxPimV1        Counter32,
+	    dPimSnoopingStatisticsRxPimV2        Counter32,
+	    dPimSnoopingStatisticsRxPimErr       Counter32
+	}
+	
+	dPimSnoopingStatisticsVLANIfIndex OBJECT-TYPE
+            SYNTAX          VlanId
+            MAX-ACCESS      not-accessible
+            STATUS          current
+            DESCRIPTION
+             "This object indicates the specific VLAN interface."
+            ::= { dPimSnoopingStatisticsEntry 1 }	
+	
+        dPimSnoopingStatisticsType OBJECT-TYPE
+    	    SYNTAX     InetAddressType
+            MAX-ACCESS not-accessible
+    	    STATUS     current
+    	    DESCRIPTION
+            	"This object indicates the PIM snooping type."
+    	    ::= { dPimSnoopingStatisticsEntry 2 }  
+    	    
+    	dPimSnoopingStatisticsRxPimV2Hello OBJECT-TYPE
+    	    SYNTAX          Counter32
+    	    MAX-ACCESS      read-only
+    	    STATUS          current
+    	    DESCRIPTION
+            "This indicates the number of received PIMv2 hello packets in 
+            this VLAN interface."
+        ::= { dPimSnoopingStatisticsEntry 3 }
+        
+        dPimSnoopingStatisticsRxPimV2JP OBJECT-TYPE
+    	    SYNTAX          Counter32
+    	    MAX-ACCESS      read-only
+    	    STATUS          current
+    	    DESCRIPTION
+            "This indicates the number of received PIMv2 join/prune packets in 
+            this VLAN interface."
+            ::= { dPimSnoopingStatisticsEntry 4 }
+            
+        dPimSnoopingStatisticsRxPimV1 OBJECT-TYPE
+    	    SYNTAX          Counter32
+    	    MAX-ACCESS      read-only
+    	    STATUS          current
+    	    DESCRIPTION
+            "This indicates the total number of received PIMv1 packets in 
+            this VLAN interface."
+            ::= { dPimSnoopingStatisticsEntry 5 }
+            
+        dPimSnoopingStatisticsRxPimV2 OBJECT-TYPE
+    	    SYNTAX          Counter32
+    	    MAX-ACCESS      read-only
+    	    STATUS          current
+    	    DESCRIPTION
+            "This indicates the total number of received PIMv2 packets in 
+            this VLAN interface."
+            ::= { dPimSnoopingStatisticsEntry 6 }
+            
+        dPimSnoopingStatisticsRxPimErr OBJECT-TYPE
+    	    SYNTAX          Counter32
+    	    MAX-ACCESS      read-only
+    	    STATUS          current
+    	    DESCRIPTION
+            "This indicates the number of received error PIM packets in 
+            this VLAN interface."
+            ::= { dPimSnoopingStatisticsEntry 7 }
+-- -----------------------------------------------------------------------------
+        dPimSnoopingNbrTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DPimSnoopingNbrEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The (conceptual) table listing the PIM snooping neighbor entries.
+	        "	
+	    ::= { dPimSnoopingMIBObjects 5 }
+	    
+	dPimSnoopingNbrEntry OBJECT-TYPE
+	    SYNTAX          DPimSnoopingNbrEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "An entry (conceptual row) representing a PIM snooping neighbor entry."
+	    INDEX      { 
+            	dPimSnoopingNbrVLANIfIndex,
+	        dPimSnoopingNbrAddrType,
+	        dPimSnoopingNbrAddr
+        	}	
+	    ::= { dPimSnoopingNbrTable 1 }
+	    
+	DPimSnoopingNbrEntry ::= SEQUENCE {
+	    dPimSnoopingNbrVLANIfIndex        VlanId,
+	    dPimSnoopingNbrAddrType           InetAddressType,
+	    dPimSnoopingNbrAddr    	      InetAddress,
+	    dPimSnoopingNbrPortIfIndex        InterfaceIndex,
+	    dPimSnoopingNbrDrPresent          TruthValue,
+	    dPimSnoopingNbrLanPruneDelayPresent TruthValue,
+	    dPimSnoopingNbrTbit               TruthValue,  
+	    dPimSnoopingNbrUpTime  	      TimeTicks,
+	    dPimSnoopingNbrExpiryTime         TimeTicks
+	}
+	
+ 	dPimSnoopingNbrVLANIfIndex OBJECT-TYPE
+            SYNTAX          VlanId
+            MAX-ACCESS      not-accessible
+            STATUS          current
+            DESCRIPTION
+             "This object indicates the VLAN interface of the neighbor entry."
+            ::= { dPimSnoopingNbrEntry 1 }
+          
+        dPimSnoopingNbrAddrType OBJECT-TYPE
+   	    SYNTAX     InetAddressType
+	    MAX-ACCESS not-accessible
+	    STATUS     current
+	    DESCRIPTION
+            "The address type of the dPimSnoopingNbrTable entry.  
+            This value applies to dPimSnoopingNbrAddr entry."
+    	::= { dPimSnoopingNbrEntry 2 } 
+    	
+    	dPimSnoopingNbrAddr OBJECT-TYPE
+	    SYNTAX      InetAddress (SIZE(4|16))
+	    MAX-ACCESS not-accessible
+	    STATUS     current
+	    DESCRIPTION
+            "The neighbor address for which this entry contains information.  
+            The InetAddressType, e.g., IPv4 or IPv6, is identified by the 
+            dPimSnoopingNbrAddrType variable in the dPimSnoopingNbrTable table."
+    	::= { dPimSnoopingNbrEntry 3 }
+    	
+	dPimSnoopingNbrPortIfIndex OBJECT-TYPE
+            SYNTAX          InterfaceIndex 
+            MAX-ACCESS      read-only
+            STATUS          current
+            DESCRIPTION
+             "This object indicates the port/port-channel interface used to reach 
+             this neighbor."
+            ::= { dPimSnoopingNbrEntry 4 }
+            
+        dPimSnoopingNbrDrPresent OBJECT-TYPE
+	    SYNTAX     TruthValue
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "Evaluates to TRUE if this neighbor is DR."
+	    ::= { dPimSnoopingNbrEntry 5 }
+	    
+	dPimSnoopingNbrLanPruneDelayPresent OBJECT-TYPE
+	    SYNTAX     TruthValue
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "Evaluates to TRUE if this neighbor is using the LAN Prune
+            Delay option."	
+	    ::= { dPimSnoopingNbrEntry 6 }
+
+	dPimSnoopingNbrTbit OBJECT-TYPE
+	    SYNTAX     TruthValue
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "Whether the T bit was set in the LAN Prune Delay option
+            received from this neighbor. "
+ 	   ::= { dPimSnoopingNbrEntry 7 }
+ 	   
+	dPimSnoopingNbrUpTime OBJECT-TYPE
+	    SYNTAX     TimeTicks
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "The time since this PIM snooping neighbor (last) became a neighbor
+            of the local router."
+	    ::= { dPimSnoopingNbrEntry 8 }
+
+	dPimSnoopingNbrExpiryTime OBJECT-TYPE
+	    SYNTAX     TimeTicks
+	    MAX-ACCESS read-only
+	    STATUS     current
+	    DESCRIPTION
+            "The minimum time remaining before this PIM snooping neighbor will
+            time out.  The value zero indicates that this PIM snooping neighbor
+            will never time out."
+	    ::= { dPimSnoopingNbrEntry 9 }
+-- -----------------------------------------------------------------------------		
+--
+-- Conformance information
+--
+
+	dPimSnoopingMIBCompliances OBJECT IDENTIFIER ::= { dPimSnoopingMIBConformance 1 }
+	dPimSnoopingMIBGroups  OBJECT IDENTIFIER ::= { dPimSnoopingMIBConformance 2 }
+
+--
+-- Compliance statements
+--
+		
+	dPIMSnoopingMIBCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKSW-PIM-SNOOPING-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    dPIMSnoopingGblCfgGroup,
+		    dPIMSnoopingVlanIfCfgGroup,  
+		    dPIMSnoopingMrouteGroup,
+		    dPIMSnoopingMrouteDownPortIfGroup,
+		    dPIMSnoopingMrouteUpNbrGroup,
+		    dPIMSnoopingStatisticsGroup,
+		    dPIMSnoopingNbrGroup
+		}
+
+        OBJECT   dPimSnoopingGblStateV6Enabled
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is required when PIM snooping for IPv6 is supported."
+  
+        OBJECT   dPIMSnoopingClearV6StatisticsByVLANId
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is required when PIM snooping for IPv6 is supported."
+          
+    ::= { dPimSnoopingMIBCompliances 1 }            
+
+--
+-- Units of conformance
+--		
+	dPIMSnoopingGblCfgGroup OBJECT-GROUP
+		OBJECTS { 
+		    dPimSnoopingGblStateV4Enabled,
+            dPimSnoopingGblStateV6Enabled,
+            dPIMSnoopingClearAllStatistics,            
+            dPIMSnoopingClearV4StatisticsByVLANId,
+            dPIMSnoopingClearV6StatisticsByVLANId,
+            dPimSnoopingV4StateEnabledVlanCnt,
+            dPimSnoopingV6StateEnabledVlanCnt
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing global configuration about 
+			PIM snooping."
+		::= { dPimSnoopingMIBGroups 1 }
+	
+    dPIMSnoopingVlanIfCfgGroup OBJECT-GROUP
+		OBJECTS { 		     
+		    dPimSnoopingVlanIfNbrCnt,
+            dPimSnoopingVlanIfMrouteCnt,
+            dPimSnoopingVlanIfDrAddress,
+            dPimSnoopingVlanIfRowStatus
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing PIM Snooping per VLAN interface 
+			configuration."
+		::= { dPimSnoopingMIBGroups 2 }       
+			     
+	dPIMSnoopingMrouteGroup OBJECT-GROUP
+		OBJECTS { 
+		    dPimSnoopingMrouteUpTime,
+            dPimSnoopingMrouteExpiryTime
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing multicast route information about
+            PIM snooping."
+		::= { dPimSnoopingMIBGroups 3 }
+   
+	dPIMSnoopingMrouteDownPortIfGroup OBJECT-GROUP
+		OBJECTS { 
+		    dPimSnoopingMrouteDownPortIfJpstate,
+            dPimSnoopingMrouteDownPortIfExpiryTime
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing multicast route downstream 
+			port/port-channel interface information about PIM snooping."
+		::= { dPimSnoopingMIBGroups 4 }
+
+	dPIMSnoopingMrouteUpNbrGroup OBJECT-GROUP
+		OBJECTS { 
+		    dPimSnoopingMrouteUpNbrPortIfIndex,
+            dPimSnoopingMrouteUpNbrPPTime,
+            dPimSnoopingMrouteUpNbrExpiryTime
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing multicast route upstream 
+			neighbor information about PIM snooping."
+		::= { dPimSnoopingMIBGroups 5 }
+		
+	dPIMSnoopingStatisticsGroup OBJECT-GROUP
+		OBJECTS { 
+		   dPimSnoopingStatisticsRxPimV2Hello,
+            dPimSnoopingStatisticsRxPimV2JP,
+            dPimSnoopingStatisticsRxPimV1,
+            dPimSnoopingStatisticsRxPimV2,
+            dPimSnoopingStatisticsRxPimErr
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing statistics information about PIM snooping."
+		::= { dPimSnoopingMIBGroups 6 }
+		
+	dPIMSnoopingNbrGroup OBJECT-GROUP
+		OBJECTS { 
+		   dPimSnoopingNbrPortIfIndex,
+            dPimSnoopingNbrDrPresent,
+            dPimSnoopingNbrLanPruneDelayPresent,
+            dPimSnoopingNbrTbit,
+            dPimSnoopingNbrUpTime,
+            dPimSnoopingNbrExpiryTime
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing neighbor information about PIM snooping."
+		::= { dPimSnoopingMIBGroups 7 }
+END
+

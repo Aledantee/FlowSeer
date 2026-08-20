@@ -1,0 +1,874 @@
+-- *****************************************************************
+-- DLINKSW-ISIS-MIB.mib : D-Link Access Control List MIB
+--
+-- Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+
+
+DLINKSW-ISIS-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+		MODULE-IDENTITY,OBJECT-TYPE,Integer32	FROM SNMPv2-SMI
+		TruthValue, RowStatus,
+		DisplayString				FROM SNMPv2-TC
+		MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF
+		InetAddress, InetAddressType,
+		InetAddressPrefixLength			FROM INET-ADDRESS-MIB
+		dlinkIndustrialCommon			FROM DLINK-ID-REC-MIB;
+
+	dlinkSwIsisMIB MODULE-IDENTITY
+		LAST-UPDATED	"201601040000Z"
+		ORGANIZATION    "D-Link Corp."
+		CONTACT-INFO
+			"        D-Link Corporation
+
+			 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+					Taipei City 114, Taiwan, R.O.C
+			 Tel:     +886-2-66000123
+			 E-mail: tsd@dlink.com.tw
+			"
+		DESCRIPTION
+			"The Structure of ISIS Information for the
+				proprietary enterprise."
+		REVISION        "201512030000Z"
+		DESCRIPTION
+			"Initial revision of this MIB module."
+
+		REVISION        "201512310000Z"
+		DESCRIPTION
+			"Remove the hyphen."
+
+		REVISION        "201601040000Z"
+		DESCRIPTION
+			"Assign the OID to 190."
+
+		::= { dlinkIndustrialCommon 190 }
+
+-- --------------------------------------------------------------------------------
+	dIsisMIBNotifications		OBJECT IDENTIFIER ::= { dlinkSwIsisMIB 0 }
+	dIsisMIBObjects			OBJECT IDENTIFIER ::= { dlinkSwIsisMIB 1 }
+	dIsisMIBConformance		OBJECT IDENTIFIER ::= { dlinkSwIsisMIB 2 }
+-- --------------------------------------------------------------------------------
+
+	dIsisSysObject			OBJECT IDENTIFIER ::= { dIsisMIBObjects 1 }
+
+	dIsisSysHostnameDynamic		OBJECT-TYPE
+		SYNTAX			TruthValue
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify to enable or disable IS-IS 
+			dynamic hostname mapping function."
+		::= { dIsisSysObject 1 }
+
+	dIsisSysIgnoreLSPErr		OBJECT-TYPE
+		SYNTAX			TruthValue
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify to enable or disable to ignore 
+			link-state packets (LSPs) with bad checksums."
+		::= { dIsisSysObject 2 }
+
+	dIsisSysMaxAreaAddrs		OBJECT-TYPE
+		SYNTAX			Integer32 (3..254)
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify the maximum of additional manual addresses 
+			configured for this system."
+		::= { dIsisSysObject 3 }
+
+	dIsisSysSetOverload		OBJECT-TYPE
+		SYNTAX			TruthValue
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify that if this system should signal other router 
+			not to use it as an intermediate hop in their 
+			shortest path first (SPF) calculations."
+		::= { dIsisSysObject 4 }
+
+	dIsisSysSetOverloadUntil	OBJECT-TYPE
+		SYNTAX			Integer32 (5..86400)
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify to set overload-bit only temporarily after reboot.
+			The overload bit remains set for dIsisSysSetOverloadUntil seconds."
+		::= { dIsisSysObject 5 }
+
+	dIsisSysSetOverloadSuppress	OBJECT-TYPE
+		SYNTAX			INTEGER {
+					none(1),
+					interlevel(2),
+					external(3),
+					both(4)
+					}
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"If overload-bit set, suppress the specific types of prefixs."
+		::= { dIsisSysObject 6 }
+
+	dIsisSysVrfName			OBJECT-TYPE
+		SYNTAX			DisplayString (SIZE(0..12))
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify to associate this system with a VPN routing and forwarding instance (VRF)."
+		::= { dIsisSysObject 7 }
+
+
+	dIsisSysProtoTable 		OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisSysProtoEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Opertaions table of IS-IS supported protocol."
+		::= { dIsisMIBObjects 2 }
+
+	dIsisSysProtoEntry		OBJECT-TYPE
+		SYNTAX			DIsisSysProtoEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"An entry in the dIsisSysProtoTable containing the operational
+			characteristics of IS-IS supported protocol."
+		INDEX {
+			dIsisSysProtoType
+		}
+		::= { dIsisSysProtoTable 1 }
+
+	DIsisSysProtoEntry ::=		SEQUENCE {
+		dIsisSysProtoType		INTEGER,
+		dIsisSysProtoAdjCheck		TruthValue,
+		dIsisSysProtoDefInfoOrig	TruthValue,
+		dIsisSysProtoDistance		Integer32  
+		}
+
+	dIsisSysProtoType		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					ipv4(1),
+					ipv6(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"IS-IS supported protocol type."
+		::= { dIsisSysProtoEntry 1 }
+
+	dIsisSysProtoAdjCheck		OBJECT-TYPE
+		SYNTAX			TruthValue
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify to enable or disable the supported protocol 
+			consistency checks when forming adjacencies"
+		::= { dIsisSysProtoEntry 2 }
+
+	dIsisSysProtoDefInfoOrig	OBJECT-TYPE
+		SYNTAX			TruthValue
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify to generate or not generate a default route 
+			into IS-IS routing domain."
+		::= { dIsisSysProtoEntry 3 }
+
+	dIsisSysProtoDistance		OBJECT-TYPE
+		SYNTAX			Integer32 (1..255)
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify the administrative distance value of IS-IS routes."
+		::= { dIsisSysProtoEntry 4 }
+
+
+	dIsisSysLevelTable 		OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisSysLevelEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Opertaions table of IS-IS system level."
+		::= { dIsisMIBObjects 3 }
+
+	dIsisSysLevelEntry		OBJECT-TYPE
+		SYNTAX			DIsisSysLevelEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"An entry in the dIsisSysLevelTable containing the operational
+			characteristics of IS-IS system level."
+		INDEX {
+			dIsisSysLevelIndex
+		}
+		::= { dIsisSysLevelTable 1 }
+
+	DIsisSysLevelEntry ::=		SEQUENCE {
+		dIsisSysLevelIndex		INTEGER,
+		dIsisSysLevelAuth		DisplayString,
+		dIsisSysLevelAuthSNP		INTEGER,
+		dIsisSysLevelSPFInt		Integer32
+		}
+
+	dIsisSysLevelIndex		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					area(1),
+					domain(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The level that this entry describes."
+		::= { dIsisSysLevelEntry 1 }
+
+	dIsisSysLevelAuth		OBJECT-TYPE
+		SYNTAX			DisplayString (SIZE(0..16))
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify the plaint text password of this level authentication."
+		::= { dIsisSysLevelEntry 2 }
+
+	dIsisSysLevelAuthSNP		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					none(1),
+					validate(2),
+					sendOnly(3)
+					}
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify to authenticate the SNP packets of this level."
+		::= { dIsisSysLevelEntry 3 }
+
+	dIsisSysLevelSPFInt		OBJECT-TYPE
+		SYNTAX			Integer32 (1..120)
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify the throttling of SPF calculations of this level in seconds."
+		::= { dIsisSysLevelEntry 4 }
+
+
+	dIsisCircTable 			OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisCircEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Opertaions table of IS-IS circuits."
+		::= { dIsisMIBObjects 4 }
+
+	dIsisCircEntry			OBJECT-TYPE
+		SYNTAX			DIsisCircEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"An entry in the dIsisCircTable containing the operational
+			characteristics of IS-IS circuits."
+		INDEX {
+			dIsisCircIfIndex,
+			dIsisCircProtoType
+		}
+		::= { dIsisCircTable 1 }
+
+	DIsisCircEntry ::=		SEQUENCE {
+		dIsisCircIfIndex		Integer32,
+		dIsisCircProtoType		INTEGER,
+		dIsisCircExistState		RowStatus
+		}
+
+	dIsisCircIfIndex		OBJECT-TYPE
+		SYNTAX			Integer32
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The interface index of this IS-IS circuit.
+			It corresponds to the interface index of the
+			IP interface on which IS-IS is configured."
+		::= { dIsisCircEntry 1 }
+
+	dIsisCircProtoType		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					ipv4(1),
+					ipv6(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The protocol types of this circuit supported."
+		::= { dIsisCircEntry 2 }
+
+	dIsisCircExistState		OBJECT-TYPE
+		SYNTAX			RowStatus
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"The existence state of this circuit supported type."
+		::= { dIsisCircEntry 99 }
+
+
+	dIsisCircLevelTable 		OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisCircLevelEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Opertaions table of IS-IS circuits levels."
+		::= { dIsisMIBObjects 5 }
+
+	dIsisCircLevelEntry		OBJECT-TYPE
+		SYNTAX			DIsisCircLevelEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"An entry in the dIsisCircLevelTable containing the operational
+			characteristics of IS-IS circuits levels."
+		INDEX {
+			dIsisCircIfIndex,
+			dIsisCircLevelIndex
+		}
+		::= { dIsisCircLevelTable 1 }
+
+	DIsisCircLevelEntry ::=		SEQUENCE {
+		dIsisCircLevelIndex		INTEGER,
+		dIsisCircLevelAuth		DisplayString,
+		dIsisCircLevelWideMetric	Integer32
+		}
+
+	dIsisCircLevelIndex		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					area(1),
+					domain(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The level that this entry describes."
+		::= { dIsisCircLevelEntry 1 }
+
+	dIsisCircLevelAuth		OBJECT-TYPE
+		SYNTAX			DisplayString (SIZE(0..16))
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify the plaint text password of this level authentication."
+		::= { dIsisCircLevelEntry 2 }
+
+	dIsisCircLevelWideMetric	OBJECT-TYPE
+		SYNTAX			Integer32 (1..16777214)
+		MAX-ACCESS		read-write
+		STATUS			current
+		DESCRIPTION
+			"Specify the new style metric value of this level."
+		::= { dIsisCircLevelEntry 3 }
+
+
+	dIsisRedistributeTable 		OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisRedistributeEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Opertaions table of IS-IS redistribution."
+		::= { dIsisMIBObjects 6 }
+
+	dIsisRedistributeEntry		OBJECT-TYPE
+		SYNTAX			DIsisRedistributeEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"An entry in the dIsisRedistributeTable containing the operational
+			characteristics of IS-IS redistribution."
+		INDEX {
+			dIsisRedistProtoType,
+			dIsisRedistSource
+		}
+		::= { dIsisRedistributeTable 1 }
+
+	DIsisRedistributeEntry ::=	SEQUENCE {
+		dIsisRedistProtoType		INTEGER,
+		dIsisRedistSource		INTEGER,
+		dIsisRedistMetric		Integer32,
+		dIsisRedistMetricType		INTEGER,
+		dIsisRedistRouteMap		DisplayString,
+		dIsisRedistLevelType		INTEGER,
+		dIsisRedistRowStatus		RowStatus
+		}
+
+	dIsisRedistProtoType		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					ipv4(1),
+					ipv6(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the routing domain of IS-IS supported."
+		::= { dIsisRedistributeEntry 1 }
+
+	dIsisRedistSource		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					connected(1),
+					static(2),
+					rip(3),
+					ospf(4),
+					bgp(5)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the source routing protocol 
+			to be imported into IS-IS."
+		::= { dIsisRedistributeEntry 2 }
+
+	dIsisRedistMetric		OBJECT-TYPE
+		SYNTAX			Integer32 (1..63)
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"Specifies the value to be used as metric 
+			for the redistributed route."
+		::= { dIsisRedistributeEntry 3 }
+
+	dIsisRedistMetricType		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					internal(1),
+					external(2)
+					}
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"Specifies the external type of the route 
+			being redistributed into the IS-IS routing domain."
+		::= { dIsisRedistributeEntry 4 }
+
+	dIsisRedistRouteMap		OBJECT-TYPE
+		SYNTAX			DisplayString (SIZE(0..16))
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the name of the route map that is used 
+			to filter the routes to be redistributed to the IS-IS. 
+			A zero length string indiates that the route map is not specified and 
+			all routes are redistributed."
+		::= { dIsisRedistributeEntry 5 }
+
+	dIsisRedistLevelType		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					level1(1),
+					level2(2),
+					level1and2(3)
+					}
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"This object indicate the destination routing domain of IS-IS."
+		::= { dIsisRedistributeEntry 6 }
+
+	dIsisRedistRowStatus		OBJECT-TYPE
+		SYNTAX			RowStatus
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the status of this entry. 
+			Only createAndGo(4) and destroy(6) can be set."
+		::= { dIsisRedistributeEntry 99 }
+
+
+	dIsisRedistIsisTable 		OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisRedistIsisEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Opertaions table of IS-IS inter area redistribution."
+		::= { dIsisMIBObjects 7 }
+
+	dIsisRedistIsisEntry		OBJECT-TYPE
+		SYNTAX			DIsisRedistIsisEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"An entry in the dIsisRedistIsisTable containing the operational
+			characteristics of IS-IS inter area redistribution."
+		INDEX {
+			dIsisRedistIsisProtoType,
+			dIsisRedistIsisLevel
+		}
+		::= { dIsisRedistIsisTable 1 }
+
+	DIsisRedistIsisEntry ::=	SEQUENCE {
+		dIsisRedistIsisProtoType	INTEGER,
+		dIsisRedistIsisLevel		INTEGER,
+		dIsisRedistIsisDistribute	DisplayString,
+		dIsisRedistIsisRowStatus	RowStatus
+		}
+
+	dIsisRedistIsisProtoType	OBJECT-TYPE
+		SYNTAX			INTEGER {
+					ipv4(1),
+					ipv6(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the routing domain of IS-IS supported."
+		::= { dIsisRedistIsisEntry 1 }
+
+	dIsisRedistIsisLevel		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					level1intolevel2(1),
+					level2intolevel1(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the source level 
+			to be imported into IS-IS destination level."
+		::= { dIsisRedistIsisEntry 2 }
+
+	dIsisRedistIsisDistribute	OBJECT-TYPE
+		SYNTAX			DisplayString (SIZE(0..32))
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the name of the distribute list that is used 
+			to filter the inter area routes to be redistributed. 
+			A zero length string indiates that the distribute list is not specified and 
+			all inter area routes are redistributed."
+		::= { dIsisRedistIsisEntry 3 }
+
+	dIsisRedistIsisRowStatus	OBJECT-TYPE
+		SYNTAX			RowStatus
+		MAX-ACCESS		read-create
+		STATUS			current
+		DESCRIPTION
+			"This object indicates the status of this entry. 
+			Only createAndGo(4) and destroy(6) can be set."
+		::= { dIsisRedistIsisEntry 99 }
+
+
+	dIsisRouteTable OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisRouteEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"IS-IS route table."
+		::= { dIsisMIBObjects 8 }
+
+	dIsisRouteEntry OBJECT-TYPE
+		SYNTAX			DIsisRouteEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Each IS-IS route information."
+		INDEX {
+			dIsisRoutePrefixType,
+			dIsisRoutePrefix,
+			dIsisRoutePrefixLen,
+			dIsisRouteNextHopType,
+			dIsisRouteNextHop
+		}
+		::= { dIsisRouteTable 1 }
+
+	DIsisRouteEntry ::=		SEQUENCE {
+		dIsisRoutePrefixType		InetAddressType,
+		dIsisRoutePrefix		InetAddress,
+		dIsisRoutePrefixLen		InetAddressPrefixLength,
+		dIsisRouteNextHopType		InetAddressType,
+		dIsisRouteNextHop		InetAddress,
+		dIsisRouteType			INTEGER,
+		dIsisRouteMetricType		INTEGER,
+		dIsisRouteMetric		Integer32,
+		dIsisRouteIfname		DisplayString
+	}
+
+	dIsisRoutePrefixType OBJECT-TYPE
+		SYNTAX			InetAddressType
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Type of the route. Learnt from IPv4 or IPv6 routing domain."
+		::= { dIsisRouteEntry 1 }
+
+	dIsisRoutePrefix OBJECT-TYPE
+		SYNTAX			InetAddress
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Prefix of the route."
+		::= { dIsisRouteEntry 2 }
+
+	dIsisRoutePrefixLen		OBJECT-TYPE
+		SYNTAX			InetAddressPrefixLength
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Prefix length of the route."
+		::= { dIsisRouteEntry 3 }
+
+	dIsisRouteNextHopType		OBJECT-TYPE
+		SYNTAX			InetAddressType
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The type of the dIsisRouteNextHop address."
+		::= { dIsisRouteEntry 4 }
+
+	dIsisRouteNextHop		OBJECT-TYPE
+		SYNTAX			InetAddress
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"Address of the next hop of this route."
+		::= { dIsisRouteEntry 5 }
+
+	dIsisRouteType			OBJECT-TYPE
+		SYNTAX			INTEGER {
+					connected(1),
+					external(2),
+					level1(3),
+					level2(4),
+					interArea(5),
+					discard(6)
+					}
+		MAX-ACCESS		read-only
+		STATUS			current
+		DESCRIPTION
+			"Route status code. Indicate the IS-IS 
+			routing domain of this route learned."
+		::= { dIsisRouteEntry 6 }
+
+	dIsisRouteMetricType		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					internal(1),
+					external(2)
+					}
+		MAX-ACCESS		read-only
+		STATUS			current
+		DESCRIPTION
+			"The external type of this external route."
+		::= { dIsisRouteEntry 7 }
+
+	dIsisRouteMetric		OBJECT-TYPE
+		SYNTAX			Integer32
+		MAX-ACCESS		read-only
+		STATUS			current
+		DESCRIPTION
+			"The meric for this route."
+		::= { dIsisRouteEntry 8 }
+
+	dIsisRouteIfname		OBJECT-TYPE
+		SYNTAX			DisplayString
+		MAX-ACCESS		read-only
+		STATUS			current
+		DESCRIPTION
+			"The out interface name of this route."
+		::= { dIsisRouteEntry 9 }
+
+
+	dIsisTopologyTable		OBJECT-TYPE
+		SYNTAX			SEQUENCE OF DIsisTopologyEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"IS-IS router topology table."
+		::= { dIsisMIBObjects 9 }
+
+	dIsisTopologyEntry		OBJECT-TYPE
+		SYNTAX			DIsisTopologyEntry
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"IS-IS router topology information."
+		INDEX {
+			dIsisTopologyProtoType,
+			dIsisTopologyLevel,
+			dIsisTopologySysID,
+			dIsisTopologyNextSysID
+		}
+		::= { dIsisTopologyTable 1 }
+
+	DIsisTopologyEntry ::= SEQUENCE {
+		dIsisTopologyProtoType		INTEGER,
+		dIsisTopologyLevel		INTEGER,
+		dIsisTopologySysID		OCTET STRING,
+		dIsisTopologyNextSysID		OCTET STRING,
+		dIsisTopologyMetric		Integer32,
+		dIsisTopologyIfname		DisplayString,
+		dIsisTopologySNPAAddr		OCTET STRING
+	}
+
+	dIsisTopologyProtoType		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					ipv4(1),
+					ipv6(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The routing domain of this reachable router learned from."
+		::= { dIsisTopologyEntry 1 }
+
+	dIsisTopologyLevel		OBJECT-TYPE
+		SYNTAX			INTEGER {
+					level1(1),
+					level2(2)
+					}
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The routing level of this reachable router learned from."
+		::= { dIsisTopologyEntry 2 }
+
+	dIsisTopologySysID		OBJECT-TYPE
+		SYNTAX			OCTET STRING
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The system ID of this reachable router."
+		::= { dIsisTopologyEntry 3 }
+
+	dIsisTopologyNextSysID		OBJECT-TYPE
+		SYNTAX			OCTET STRING
+		MAX-ACCESS		not-accessible
+		STATUS			current
+		DESCRIPTION
+			"The next router system ID of this reachable router."
+		::= { dIsisTopologyEntry 4 }
+
+	dIsisTopologyMetric		OBJECT-TYPE
+		SYNTAX			Integer32
+		MAX-ACCESS		read-only
+		STATUS			current
+		DESCRIPTION
+			"The metric of this reachable router."
+		::= { dIsisTopologyEntry 5 }
+
+	dIsisTopologyIfname		OBJECT-TYPE
+		SYNTAX			DisplayString
+		MAX-ACCESS		read-only
+		STATUS			current
+		DESCRIPTION
+			"The out interface name of this reachable router."
+		::= { dIsisTopologyEntry 6 }
+
+	dIsisTopologySNPAAddr		OBJECT-TYPE
+		SYNTAX			OCTET STRING
+		MAX-ACCESS		read-only
+		STATUS			current
+		DESCRIPTION
+			"The SNPA address of this reachable router."
+		::= { dIsisTopologyEntry 7 }
+
+-- Conformance Information        
+
+	dIsisMIBGroups      		OBJECT IDENTIFIER ::= { dIsisMIBConformance 1 }
+	dIsisMIBCompliances 		OBJECT IDENTIFIER ::= { dIsisMIBConformance 2 }
+
+-- Compliance Statements
+
+	dIsisMIBFullCompliance		MODULE-COMPLIANCE
+		STATUS			current
+		DESCRIPTION		"The compliance statement"
+		MODULE			-- this module
+		MANDATORY-GROUPS {
+			dIsisSysGroup,
+			dIsisCircGroup,
+			dIsisRedistributeGroup,
+			dIsisRedistIsisGroup,
+			dIsisRouteGroup,
+			dIsisTopologyGroup
+		}
+		GROUP dIsisDefInfoOriginGroup
+		DESCRIPTION
+			"This group is required for default information originate."
+		::= { dIsisMIBCompliances 1 }
+
+-- units of conformance
+
+	dIsisSysGroup			OBJECT-GROUP
+		OBJECTS {
+			dIsisSysHostnameDynamic,
+			dIsisSysIgnoreLSPErr,
+			dIsisSysMaxAreaAddrs,
+			dIsisSysSetOverload,
+			dIsisSysSetOverloadUntil,
+			dIsisSysSetOverloadSuppress,
+			dIsisSysVrfName,
+			dIsisSysProtoAdjCheck,
+			dIsisSysProtoDefInfoOrig,
+			dIsisSysProtoDistance,
+			dIsisSysLevelAuth,
+			dIsisSysLevelAuthSNP,
+			dIsisSysLevelSPFInt
+		}
+		STATUS		current
+		DESCRIPTION
+			"The collections of objects used to manage an 
+			IS-IS router."
+		::= { dIsisMIBGroups 1 }
+
+	dIsisCircGroup			OBJECT-GROUP
+		OBJECTS {
+			dIsisCircExistState,
+			dIsisCircLevelAuth,
+			dIsisCircLevelWideMetric
+		}
+		STATUS		current
+		DESCRIPTION
+			"The collections of objects used to describe 
+			and manage an IS-IS Circuit."
+		::= { dIsisMIBGroups 2 }
+
+	dIsisRedistributeGroup		OBJECT-GROUP
+		OBJECTS {
+			dIsisRedistMetric,
+			dIsisRedistMetricType,
+			dIsisRedistRouteMap,
+			dIsisRedistLevelType,
+			dIsisRedistRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"The collections of objects used to manage 
+			IS-IS redistribution."
+		::= { dIsisMIBGroups 3 }
+
+	dIsisRedistIsisGroup		OBJECT-GROUP
+		OBJECTS {
+			dIsisRedistIsisDistribute,
+			dIsisRedistIsisRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"The collections of objects used to manage an 
+			IS-IS inter area redistribution."
+		::= { dIsisMIBGroups 4 }
+
+	dIsisRouteGroup			OBJECT-GROUP
+		OBJECTS {
+			dIsisRouteType,
+			dIsisRouteMetricType,
+			dIsisRouteMetric,
+			dIsisRouteIfname
+		}
+		STATUS		current
+		DESCRIPTION
+			"The collections of objects used to describe 
+			IS-IS routes."
+		::= { dIsisMIBGroups 5 }
+
+	dIsisTopologyGroup		OBJECT-GROUP
+		OBJECTS {
+			dIsisTopologyMetric,
+			dIsisTopologyIfname,
+			dIsisTopologySNPAAddr
+		}
+		STATUS		current
+		DESCRIPTION
+			"The collections of objects used to describe 
+			IS-IS router topology."
+		::= { dIsisMIBGroups 6 }
+
+END

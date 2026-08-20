@@ -1,0 +1,452 @@
+-- *****************************************************************
+-- DLINK-MLAG-MIB.mib : D-Link Multi-Chassis Link Aggregation Group MIB
+--
+-- Copyright (c) 2012 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************    
+
+DLINKSW-MLAG-MIB DEFINITIONS ::= BEGIN    
+
+	IMPORTS
+        MODULE-IDENTITY , OBJECT-TYPE, Integer32	
+        	FROM SNMPv2-SMI    	
+       	RowStatus,DisplayString,TruthValue,MacAddress           
+       		FROM SNMPv2-TC
+       	InterfaceIndex
+            FROM IF-MIB  
+       	PortList
+            FROM Q-BRIDGE-MIB	
+	    dlinkIndustrialCommon
+        	FROM DLINK-ID-REC-MIB;    
+        	
+	dlinkMlagMIB MODULE-IDENTITY
+        LAST-UPDATED "201706150000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+             Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "The MIB module for managing D-Link Mlag which are
+            not covered by standard MIBs."
+        REVISION	"201706150000Z"
+        DESCRIPTION
+        	"Initial revision of this MIB module."
+    ::= { dlinkIndustrialCommon 192 }
+ 
+-- 
+--	MIB OBJECTS     
+--      
+    dMlagMIBNotifications 		OBJECT IDENTIFIER ::= { dlinkMlagMIB 0 }	
+    dMlagMIBObjects			OBJECT IDENTIFIER ::= { dlinkMlagMIB 1 }	 
+    dMlagMIBConformance		OBJECT IDENTIFIER ::= { dlinkMlagMIB 2 }
+       
+
+-----------------------------------------------
+--	Lacp Objects
+-----------------------------------------------
+    dMlagMgmt			OBJECT IDENTIFIER ::= { dMlagMIBObjects 1 }
+    
+    dMlagAdminEnabled		OBJECT-TYPE
+	    SYNTAX			TruthValue
+        MAX-ACCESS		read-write
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates whether the administrative mlag mode has
+            been enabled or not.
+            The new setting will not take effect until the next reboot. 
+            Note: Mlag and stacking functions are mutually exclusive; the MLAG 
+            logical switch can be formed by the standalone switch only.
+            "
+    	::= {  dMlagMgmt 1 }
+
+    dMlagVersion		OBJECT-TYPE
+	    SYNTAX			DisplayString (SIZE (0..255))
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates the Mlag Version."
+    	::= {  dMlagMgmt 2 }
+
+    dMlagDomainID		OBJECT-TYPE
+	    SYNTAX			Integer32 (1 .. 255)
+        MAX-ACCESS		read-write
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates the Mlag Domain ID.
+            The new setting will not take effect until the next reboot. 
+            "
+    	::= {  dMlagMgmt 3 }
+
+    dMlagHelloInterval	OBJECT-TYPE
+	    SYNTAX			Integer32 (1 .. 10)
+        MAX-ACCESS		read-write
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates the Mlag hello interval."
+    	::= {  dMlagMgmt 4 }
+
+     dMlagOperatState		OBJECT-TYPE
+	    SYNTAX			INTEGER {
+			initial(1),
+			individual(2),
+			active(3),
+			conflict(4)
+		}
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates the state of the mlag topology."
+    	::= {  dMlagMgmt 5 }
+
+    dMlagMacAddr		OBJECT-TYPE
+	    SYNTAX			MacAddress
+	    MAX-ACCESS		read-only
+	    STATUS			current
+	    DESCRIPTION
+		    "The MAC address of the device."
+        ::= { dMlagMgmt 6 }
+
+    dMlagDeviceID		OBJECT-TYPE
+	    SYNTAX			Integer32 (1 .. 2)
+        MAX-ACCESS		read-write
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates the Mlag device ID.
+            The new setting will not take effect until the next reboot. 
+            "
+    	::= {  dMlagMgmt 7 }
+
+    dMlagPeerLinkLists		OBJECT-TYPE
+        SYNTAX				PortList
+        MAX-ACCESS		read-create
+        STATUS			current
+        DESCRIPTION
+            "This object indicates the Mlag peer link list.
+            The new setting will not take effect until the next reboot. 
+            "
+        ::= { dMlagMgmt 8 }
+
+     dMlagNeighborOperatState	OBJECT-TYPE
+	    SYNTAX			INTEGER {
+			initial(1),
+			individual(2),
+			active(3),
+			conflict(4)
+		}
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates the state of the mlag topology."
+    	::= {  dMlagMgmt 9 }
+
+    dMlagNeighborMacAddr	OBJECT-TYPE
+        SYNTAX			MacAddress
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION
+		    "The MAC address of the device."
+        ::= { dMlagMgmt 10 }
+
+    dMlagNeighborDeviceID	OBJECT-TYPE
+	    SYNTAX			Integer32 (1 .. 2)
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION            
+            "This object indicates the Mlag device ID.
+            The new setting will not take effect until the next reboot. 
+            "
+    	::= {  dMlagMgmt 11 }
+
+    dMlagNeighborPeerLinkLists	OBJECT-TYPE
+        SYNTAX				PortList
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION
+            "This object indicates the Mlag peer link list.
+            The new setting will not take effect until the next reboot. 
+            "
+        ::= { dMlagMgmt 12 }
+
+-- -------------------------------------------------------------
+-- mlag group information
+-- -------------------------------------------------------------
+    dMlagGroupTable            OBJECT-TYPE
+        SYNTAX         SEQUENCE OF DMlagGroupEntry
+        MAX-ACCESS     not-accessible
+        STATUS         current
+        DESCRIPTION
+           "This table displays the information of the mlag group."
+        ::= { dMlagMIBObjects 2 }
+   
+    dMlagGroupEntry OBJECT-TYPE
+        SYNTAX          DMlagGroupEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry presents a mlag group information, which is not 
+            covered by standard MIB(s)."
+        INDEX  { dMlagGroupNo }
+        ::= { dMlagGroupTable 1 }
+
+    DMlagGroupEntry ::=
+        SEQUENCE {
+            dMlagGroupNo                 Integer32,
+            dMlagGroupAlgorithm          INTEGER,
+            dMlagGroupStatus             INTEGER,
+            dMlagGroupActorSystemID      MacAddress,
+            dMlagGroupPartnerSystemID    MacAddress,
+            dMlagGroupMemberPorts        PortList,
+            dMlagGroupActiveMemberPorts  PortList
+        }
+
+    dMlagGroupNo   OBJECT-TYPE
+        SYNTAX          Integer32 (1 .. 255)  
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the mlag group ID. "
+        ::= { dMlagGroupEntry 1 }
+        
+    dMlagGroupAlgorithm OBJECT-TYPE
+        SYNTAX  INTEGER {              
+            dstIp(1),
+            dstMac(2),
+            srcDstIp(3),
+            srcDstMac(4),
+            srcIp(5),
+            srcMac(6),
+            srcL4Port(7),
+            dstL4Port(8),
+            srcDstL4Port(9)
+        }
+       	MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object configures load balance algorithm that the switch uses
+	to distribute packets across ports in the mlag group.
+        "
+        ::= { dMlagGroupEntry 2 }
+
+    dMlagGroupStatus OBJECT-TYPE
+        SYNTAX  INTEGER {              
+            up(1),
+            down(2)
+        }
+       	MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the link status of mlag group.
+        "
+        ::= { dMlagGroupEntry 3 }
+
+    dMlagGroupActorSystemID	OBJECT-TYPE
+	SYNTAX			MacAddress
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+             "A 6-octet read-write MAC address value used as a unique
+	identifier for the System that contains this Aggregator.
+        "
+        ::= { dMlagGroupEntry 4 }
+
+    dMlagGroupPartnerSystemID	OBJECT-TYPE
+	SYNTAX			MacAddress
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+            "A 6-octet read-only MAC address value consisting of the
+	unique identifier for the current protocol Partner of
+	this Aggregator.
+	"
+        ::= { dMlagGroupEntry 5 }
+
+    dMlagGroupMemberPorts OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the ports which are grouped into this
+            mlag group.
+	        "
+        ::= { dMlagGroupEntry 6 }
+     
+    dMlagGroupActiveMemberPorts OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the operational bundled ports in this
+            mlag group.
+            "	
+        ::= { dMlagGroupEntry 7 }
+
+
+-- -------------------------------------------------------------
+-- The Aggregation Port List Table
+-- -------------------------------------------------------------
+    dMlagAggPortTable            OBJECT-TYPE
+        SYNTAX         SEQUENCE OF DMlagAggPortEntry
+        MAX-ACCESS     not-accessible
+        STATUS         current
+        DESCRIPTION
+           "This table displays the port information of the mlag group."
+        ::= { dMlagMIBObjects 3 }
+
+    dMlagAggPortEntry OBJECT-TYPE
+        SYNTAX          DMlagAggPortEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry each aggregation port on mlag group information."
+        INDEX  {  dMlagAggGroupNo,
+                  dMlagAggDeviceID,
+                  dMlagAggPortIndex }
+        ::= { dMlagAggPortTable 1 }
+
+    DMlagAggPortEntry ::=
+        SEQUENCE {
+            dMlagAggGroupNo              Integer32,
+            dMlagAggDeviceID             Integer32,
+            dMlagAggPortIndex            Integer32,
+            dMlagAggLacpTimeOut          INTEGER,
+            dMlagAggPortOperateMode      INTEGER,
+            dMlagAggPortLacpState        INTEGER
+        }
+
+    dMlagAggGroupNo   OBJECT-TYPE
+        SYNTAX          Integer32 (1 .. 255)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the mlag group ID. "
+        ::= { dMlagAggPortEntry 1 }
+
+    dMlagAggDeviceID   OBJECT-TYPE
+        SYNTAX          Integer32 (1 .. 2)  
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the mlag device ID. "
+        ::= { dMlagAggPortEntry 2 }
+
+    dMlagAggPortIndex   OBJECT-TYPE
+        SYNTAX          Integer32 (1 .. 64)  
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the mlag Group . "
+        ::= { dMlagAggPortEntry 3 }
+
+    dMlagAggLacpTimeOut OBJECT-TYPE
+        SYNTAX  INTEGER {              
+            slow(1),
+            long(2)
+        }
+       	MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the type of port LACP timeout mode.
+            "
+        ::= { dMlagAggPortEntry 4 }
+
+    dMlagAggPortOperateMode OBJECT-TYPE
+        SYNTAX  INTEGER {              
+            on(1),
+            active(2),
+            passive(3)
+        }
+       	MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the type of port operate mode.
+            "
+        ::= { dMlagAggPortEntry 5 }
+
+    dMlagAggPortLacpState OBJECT-TYPE
+        SYNTAX  INTEGER {              
+            bndl(1),
+            hot-sby(2),
+            down(3)
+        }
+       	MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the type of port state.
+           bndl:     Port is attached to an aggregator and bundled with other ports.
+           hot-sby:  Port is in a hot-standby state.
+           down:     Port is down.
+          "
+        ::= { dMlagAggPortEntry 6 }
+
+-----------------------------------------------
+--	Mlag Conformance
+-----------------------------------------------
+    dMlagCompliances   	OBJECT IDENTIFIER ::= { dMlagMIBConformance 1 }
+	 
+	
+    dMlagCompliance MODULE-COMPLIANCE
+    	STATUS current
+    	DESCRIPTION
+        	"The compliance statement for entities which implement the 
+			DLINK-MLAG-MIB."      		 
+        MODULE
+	    MANDATORY-GROUPS {
+		    dMlagMgmtGroup,
+		    dMlagGroupInfo,
+		    dMlagAggPortInfo
+		}
+	    ::= { dMlagCompliances 1 }
+	
+	dMlagGroups   		OBJECT IDENTIFIER ::= { dMlagMIBConformance 2 }      
+	       
+    dMlagMgmtGroup OBJECT-GROUP
+  		OBJECTS {
+                      dMlagAdminEnabled,
+                      dMlagVersion,
+                      dMlagDomainID,
+                      dMlagHelloInterval,
+                      dMlagOperatState,
+                      dMlagMacAddr,
+                      dMlagDeviceID,
+                      dMlagPeerLinkLists,
+                      dMlagNeighborOperatState,
+                      dMlagNeighborMacAddr,
+                      dMlagNeighborDeviceID,
+                      dMlagNeighborPeerLinkLists
+                    }
+	    STATUS          current
+	    DESCRIPTION
+			"A collection of objects provides basic management and information
+            for mlag feature."
+	    ::= { dMlagGroups 1 }
+
+    dMlagGroupInfo OBJECT-GROUP
+  		OBJECTS {	   
+            dMlagGroupAlgorithm,
+            dMlagGroupStatus,
+            dMlagGroupActorSystemID,
+            dMlagGroupPartnerSystemID,
+            dMlagGroupMemberPorts,
+            dMlagGroupActiveMemberPorts
+        }
+	    STATUS current
+	    DESCRIPTION
+	        "A collection of objects providing information of mlag groups."
+	    ::= { dMlagGroups 2 }
+
+    dMlagAggPortInfo OBJECT-GROUP
+  		OBJECTS {	   
+            dMlagAggLacpTimeOut,
+            dMlagAggPortOperateMode,
+            dMlagAggPortLacpState
+        }
+	    STATUS current
+	    DESCRIPTION
+	        "A collection of objects providing information of aggregation port on the mlag groups."
+	    ::= { dMlagGroups 3 }
+            
+END

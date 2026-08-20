@@ -1,0 +1,785 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "Service-Notification API Documentation",
+    "version" : "9.7.92"
+  },
+  "security" : [ {
+    "bearer" : [ ]
+  }, {
+    "apiKey" : [ ]
+  }, {
+    "basic" : [ ]
+  } ],
+  "paths" : {
+    "/accounts/{accountId}/alert/{alertId}" : {
+      "get" : {
+        "tags" : [ "Alerts" ],
+        "summary" : "Gets an Alert by ID",
+        "description" : "Gets an Alert by ID.<br/><h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>NOTIFICATION_LIST_READ</td><td>Right to read all notifications</td></tr><tbody></table>",
+        "operationId" : "getAlertById",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        }, {
+          "$ref" : "#/components/parameters/AlertId"
+        }, {
+          "$ref" : "#/components/parameters/NotificationLanguage"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TranslatedNotification"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/alerts" : {
+      "get" : {
+        "tags" : [ "Alerts" ],
+        "summary" : "List alerts for an account",
+        "description" : "List alerts for an account.<br/>The response contains additional data used for pagination.<br/>The 'mark' value in the response is sent in the subsequent request to determine the start of the next chunk of data.<br/><h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>NOTIFICATION_LIST_READ</td><td>Right to read all notifications</td></tr><tbody></table>",
+        "operationId" : "getAlerts",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        }, {
+          "$ref" : "#/components/parameters/NotificationLanguage"
+        }, {
+          "$ref" : "#/components/parameters/NotificationStates"
+        }, {
+          "$ref" : "#/components/parameters/PaginationNextChunkMark"
+        }, {
+          "$ref" : "#/components/parameters/PaginationNextChunkSize"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AlertListResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/alerts/count" : {
+      "get" : {
+        "tags" : [ "Alerts" ],
+        "summary" : "Get count alerts for an account, based on filter",
+        "description" : "Get the count of alerts based on the filter.<br/><h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>NOTIFICATION_LIST_READ</td><td>Right to read all notifications</td></tr><tbody></table>",
+        "operationId" : "getAlertsCount",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        }, {
+          "$ref" : "#/components/parameters/NotificationStates"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AlertsCount"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/alerts/ids" : {
+      "get" : {
+        "tags" : [ "Alerts" ],
+        "summary" : "List alert ids for an account",
+        "description" : "List alert ids for an account.<br/>The response contains additional data used for pagination.<br/>The 'mark' value in the response is sent in the subsequent request to determine the start of the next chunk of data.<br/><h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>NOTIFICATION_LIST_READ</td><td>Right to read all notifications</td></tr><tbody></table>",
+        "operationId" : "getAlertIds",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        }, {
+          "$ref" : "#/components/parameters/NotificationStates"
+        }, {
+          "$ref" : "#/components/parameters/PaginationNextChunkMark"
+        }, {
+          "$ref" : "#/components/parameters/PaginationNextChunkSize"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AlertIdsListResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/alerts/{type}/count" : {
+      "get" : {
+        "tags" : [ "Alerts" ],
+        "summary" : "Get count alerts for an account and alert type, based on filter",
+        "description" : "Get the count of alerts based on the filter.<br/><h4>Required rights:</h4> <table><thead><tr><th>Right</th><th>Description</th></tr></thead><tbody><tr><td>NOTIFICATION_LIST_READ</td><td>Right to read all alerts</td></tr><tbody></table>",
+        "operationId" : "getAlertCountByType",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/AccountId"
+        }, {
+          "$ref" : "#/components/parameters/AlertType"
+        }, {
+          "$ref" : "#/components/parameters/NotificationStates"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AlertsCount"
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/HTTP_400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/HTTP_401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/HTTP_403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/HTTP_404"
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/authorities/{authorityId}/rights" : {
+      "get" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsPost",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Updates rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        },
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LibSecurityRightList"
+              }
+            }
+          },
+          "required" : true
+        }
+      },
+      "delete" : {
+        "operationId" : "accountsAccountIdAuthoritiesAuthorityIdRightsDelete",
+        "x-lmc-disable-api-key" : true,
+        "tags" : [ "Authorization" ],
+        "summary" : "Deletes rights of the given authority",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "authorityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Rights have been removed"
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/accounts" : {
+      "get" : {
+        "operationId" : "rightsAccountsGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the token accounts",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Account right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityAccountList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/accounts/{accountId}" : {
+      "get" : {
+        "operationId" : "rightsAccountsAccountIdGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists current user's rights for the given account",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Right list",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rights/public" : {
+      "get" : {
+        "operationId" : "rightsPublicGet",
+        "tags" : [ "Authorization" ],
+        "summary" : "Lists all available rights",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/TOKEN"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "All available rights",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LibSecurityRightList"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "AlertIdsListResponse" : {
+        "required" : [ "alerts" ],
+        "type" : "object",
+        "properties" : {
+          "alerts" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "next" : {
+            "$ref" : "#/components/schemas/PaginationNextChunk"
+          }
+        }
+      },
+      "AlertListResponse" : {
+        "required" : [ "alerts" ],
+        "type" : "object",
+        "properties" : {
+          "alerts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TranslatedAlert"
+            }
+          },
+          "next" : {
+            "$ref" : "#/components/schemas/PaginationNextChunk"
+          }
+        }
+      },
+      "AlertState" : {
+        "type" : "string",
+        "description" : "The state of the alert.",
+        "enum" : [ "open", "closed" ]
+      },
+      "AlertsCount" : {
+        "required" : [ "count" ],
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "$ref" : "#/components/schemas/StateCounts"
+          }
+        }
+      },
+      "ErrorResponseBody" : {
+        "type" : "object",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "service" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LibSecurityAccount" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "rights" : {
+            "$ref" : "#/components/schemas/LibSecurityRightList"
+          }
+        }
+      },
+      "LibSecurityAccountList" : {
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/components/schemas/LibSecurityAccount"
+        }
+      },
+      "LibSecurityRightList" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string"
+        }
+      },
+      "NotificationState" : {
+        "type" : "string",
+        "description" : "The state of the notification.",
+        "enum" : [ "open", "closed" ]
+      },
+      "NotificationTemplate" : {
+        "required" : [ "description", "references", "timeStamps", "title" ],
+        "type" : "object",
+        "properties" : {
+          "references" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/ReferenceFrontend"
+            }
+          },
+          "timeStamps" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string",
+              "format" : "date-time"
+            }
+          },
+          "title" : {
+            "type" : "string",
+            "description" : "Short description (title) of the notification. This could be used for instance as an email header."
+          },
+          "description" : {
+            "type" : "string",
+            "description" : "Long description of the notification. Supports templates."
+          }
+        }
+      },
+      "PaginationNextChunk" : {
+        "required" : [ "mark" ],
+        "type" : "object",
+        "properties" : {
+          "mark" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReferenceFrontend" : {
+        "required" : [ "id", "name", "type" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "resolved" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "StateCounts" : {
+        "type" : "object",
+        "properties" : {
+          "open" : {
+            "type" : "integer"
+          },
+          "closed" : {
+            "type" : "integer"
+          }
+        },
+        "description" : "key / value pairs of { state : count } based on the request param."
+      },
+      "TranslatedAlert" : {
+        "required" : [ "createdAt", "id", "logIds", "state", "stateUpdatedAt", "template", "type" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/AlertState"
+          },
+          "logIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "stateUpdatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "template" : {
+            "$ref" : "#/components/schemas/NotificationTemplate"
+          }
+        }
+      },
+      "TranslatedNotification" : {
+        "required" : [ "createdAt", "id", "logIds", "state", "stateUpdatedAt", "template", "type" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/NotificationState"
+          },
+          "logIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "stateUpdatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "template" : {
+            "$ref" : "#/components/schemas/NotificationTemplate"
+          }
+        }
+      }
+    },
+    "responses" : {
+      "HTTP_400" : {
+        "description" : "Wrong data",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_401" : {
+        "description" : "Not authenticated"
+      },
+      "HTTP_403" : {
+        "description" : "Forbidden",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      },
+      "HTTP_404" : {
+        "description" : "Not found",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/ErrorResponseBody"
+            }
+          }
+        }
+      }
+    },
+    "parameters" : {
+      "AccountId" : {
+        "name" : "accountId",
+        "in" : "path",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "AlertId" : {
+        "name" : "alertId",
+        "in" : "path",
+        "required" : true,
+        "schema" : {
+          "type" : "string",
+          "format" : "uuid"
+        }
+      },
+      "AlertType" : {
+        "name" : "type",
+        "in" : "path",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "NotificationLanguage" : {
+        "name" : "lang",
+        "in" : "query",
+        "description" : "Language used for notification translation",
+        "schema" : {
+          "type" : "string",
+          "enum" : [ "DE", "EN", "de", "en" ],
+          "default" : "EN"
+        }
+      },
+      "NotificationStates" : {
+        "name" : "states",
+        "in" : "query",
+        "description" : "Filters the notification by their state.",
+        "style" : "form",
+        "explode" : true,
+        "schema" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "enum" : [ "open", "closed" ]
+          }
+        }
+      },
+      "PaginationNextChunkMark" : {
+        "name" : "mark",
+        "in" : "query",
+        "description" : "Generic key to pass the value to the backend for pagination.",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "PaginationNextChunkSize" : {
+        "name" : "limit",
+        "in" : "query",
+        "description" : "Limit of the result size. Default value is defined in the backend. This is used to override the default value.",
+        "schema" : {
+          "maximum" : 200,
+          "type" : "integer"
+        }
+      },
+      "TOKEN" : {
+        "name" : "Authorization",
+        "in" : "header",
+        "description" : "JWT based Session token",
+        "required" : false,
+        "schema" : {
+          "type" : "string"
+        }
+      }
+    },
+    "securitySchemes" : {
+      "apiKey" : {
+        "type" : "apiKey",
+        "in" : "header",
+        "name" : "Authorization",
+        "description" : "Provide an API key for 'Authorization: LMC-API-KEY {value}' header format."
+      },
+      "basic" : {
+        "type" : "http",
+        "scheme" : "basic",
+        "description" : "Provide a username and password. Account IDs may be set optionally."
+      },
+      "bearer" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "description" : "Provide a bearer token for 'Authorization: Bearer {value}' header format."
+      }
+    }
+  }
+}

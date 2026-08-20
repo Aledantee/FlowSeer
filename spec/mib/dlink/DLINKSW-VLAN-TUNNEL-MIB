@@ -1,0 +1,974 @@
+--  *****************************************************************
+--  DLINKSW-VLAN-TUNNEL-MIB.mib : VLAN Tunnel MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+
+	DLINKSW-VLAN-TUNNEL-MIB DEFINITIONS ::= BEGIN
+ 
+		IMPORTS
+			dlinkIndustrialCommon			
+				FROM DLINK-ID-REC-MIB			
+			InterfaceIndex			
+				FROM IF-MIB			
+			InetAddressIPv4, InetAddressIPv6, InetAddressPrefixLength			
+				FROM INET-ADDRESS-MIB			
+			VlanIdOrNone, VlanId			
+				FROM Q-BRIDGE-MIB			
+			OBJECT-GROUP, MODULE-COMPLIANCE			
+				FROM SNMPv2-CONF			
+			OBJECT-TYPE, MODULE-IDENTITY			
+				FROM SNMPv2-SMI			
+			TruthValue, RowStatus, MacAddress			
+				FROM SNMPv2-TC;
+	
+	
+		dlinkSwVlanTunnelMIB MODULE-IDENTITY 
+			LAST-UPDATED "201305150000Z"
+			ORGANIZATION 
+				"D-Link Corp."
+			CONTACT-INFO 
+				"   D-Link Corporation
+				
+				Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+				        Taipei City 114, Taiwan, R.O.C
+				Tel:     +886-2-66000123
+				E-mail: tsd@dlink.com.tw
+				"
+			DESCRIPTION 
+				"MIB module for displaying and configuring VLAN Tunnel related  
+				features in a device."
+			REVISION "201305150000Z"
+			DESCRIPTION 
+				"This is the first version of the MIB file for VLAN Tunnel functionality."
+			::= { dlinkIndustrialCommon 37 }
+
+		
+	
+	
+--
+-- Node definitions
+--
+	
+		dVlanTunnelMIBNotifications OBJECT IDENTIFIER ::= { dlinkSwVlanTunnelMIB 0 }
+
+		
+		dVlanTunnelMIBObjects OBJECT IDENTIFIER ::= { dlinkSwVlanTunnelMIB 1 }
+
+		
+		dVlanTunnelInnerEtherType OBJECT-TYPE
+			SYNTAX OCTET STRING (SIZE (2))
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object is used to set the system's inner TPID."
+			::= { dVlanTunnelMIBObjects 1 }
+
+		
+		dVlanTunnelEtherTypeTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DVlanTunnelEtherTypeEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list of Dot1q tunnelling ethertype information about VLAN trunk
+				mode interfaces."
+			::= { dVlanTunnelMIBObjects 2 }
+
+		
+		dVlanTunnelEtherTypeEntry OBJECT-TYPE
+			SYNTAX DVlanTunnelEtherTypeEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list of Dot1q tunnelling ethertype information about each VLAN
+				trunk mode interface."
+			INDEX { dVlanTunnelEtherTypeIfIndex }
+			::= { dVlanTunnelEtherTypeTable 1 }
+
+		
+		DVlanTunnelEtherTypeEntry ::=
+			SEQUENCE { 
+				dVlanTunnelEtherTypeIfIndex
+					InterfaceIndex,
+				dVlanTunnelEtherType
+					OCTET STRING
+			 }
+
+		dVlanTunnelEtherTypeIfIndex OBJECT-TYPE
+			SYNTAX InterfaceIndex
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the module's VLAN trunk mode port interface."
+			::= { dVlanTunnelEtherTypeEntry 1 }
+
+		
+		dVlanTunnelEtherType OBJECT-TYPE
+			SYNTAX OCTET STRING (SIZE (2))
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"Specifies the outer TPID for each VLAN trunk mode interface."
+			::= { dVlanTunnelEtherTypeEntry 2 }
+
+		
+		dVlanTunnelInterfaceTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DVlanTunnelInterfaceEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A table that contains dot1q VLAN tunneling configuration on VLAN 
+				dot1q-tunnel mode interfaces."
+			::= { dVlanTunnelMIBObjects 3 }
+
+		
+		dVlanTunnelInterfaceEntry OBJECT-TYPE
+			SYNTAX DVlanTunnelInterfaceEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list of dot1q VLAN tunneling configuration on each VLAN dot1q-tunnel
+				mode interface."
+			INDEX { dVlanTunnelIfIndex }
+			::= { dVlanTunnelInterfaceTable 1 }
+
+		
+		DVlanTunnelInterfaceEntry ::=
+			SEQUENCE { 
+				dVlanTunnelIfIndex
+					InterfaceIndex,
+				dVlanMappingMissDropEnabled
+					TruthValue,
+				dVlanTunnelTrustInnerPriEnabled
+					TruthValue,
+				dVlanTunnelInsertDot1qTag
+					VlanIdOrNone
+			 }
+
+		dVlanTunnelIfIndex OBJECT-TYPE
+			SYNTAX InterfaceIndex
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the module's VLAN dot1q-tunnel mode interfac number."
+			::= { dVlanTunnelInterfaceEntry 1 }
+
+		
+		dVlanMappingMissDropEnabled OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"If missdrop is enabled, when the original VLAN of the received packets
+				cannot match the VLAN mapping entries or rules on this port, the received
+				packets will be dropped."
+			DEFVAL { false }
+			::= { dVlanTunnelInterfaceEntry 2 }
+
+		
+		dVlanTunnelTrustInnerPriEnabled OBJECT-TYPE
+			SYNTAX TruthValue
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"When enable the trusting inner priority, the priority of the do1q VLAN
+				tag in the received packets will be copied to service VLAN tag."
+			DEFVAL { false }
+			::= { dVlanTunnelInterfaceEntry 3 }
+
+		
+		dVlanTunnelInsertDot1qTag OBJECT-TYPE
+			SYNTAX VlanIdOrNone
+			MAX-ACCESS read-write
+			STATUS current
+			DESCRIPTION
+				"This object specifies the dot1q VLAN tag to be inserted into the untagged
+				packets received on this 802.1q tunnel port as inner tag.
+				The None means no dot1q VLAN tag to be inserted."
+			DEFVAL { 0 }
+			::= { dVlanTunnelInterfaceEntry 4 }
+
+		
+		dVlanMappingTranslateTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DVlanMappingTranslateEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A table that contains VLAN translation entries for VLAN trunk port or
+				service VLAN mapping translate entries for VLAN dot1q-tunnel port."
+			::= { dVlanTunnelMIBObjects 4 }
+
+		
+		dVlanMappingTranslateEntry OBJECT-TYPE
+			SYNTAX DVlanMappingTranslateEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list of VLAN translation entries for a VLAN trunk port or service 
+				VLAN mapping translate entries for a VLAN dot1q-tunnel port."
+			INDEX { dVlanMappingTranslateIfIndex, dVlanMappingTranslateOriginalVlan, dVlanMappingTranslateOriginalInnerVlan }
+			::= { dVlanMappingTranslateTable 1 }
+
+		
+		DVlanMappingTranslateEntry ::=
+			SEQUENCE { 
+				dVlanMappingTranslateIfIndex
+					InterfaceIndex,
+				dVlanMappingTranslateOriginalVlan
+					VlanId,
+				dVlanMappingTranslateOriginalInnerVlan
+					VlanIdOrNone,
+				dVlanMappingTranslateNewVlan
+					VlanId,
+				dVlanMappingTranslateNewInnerVlan
+					VlanIdOrNone,
+				dVlanMappingTranslatePriority
+					INTEGER,
+				dVlanMappingTranslateRuleStatus
+					INTEGER,
+				dVlanMappingTranslateRowStatus
+					RowStatus,
+				dVlanMappingTranslateEgressPriority
+					INTEGER
+			 }
+
+		dVlanMappingTranslateIfIndex OBJECT-TYPE
+			SYNTAX InterfaceIndex
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the module's interface number."
+			::= { dVlanMappingTranslateEntry 1 }
+
+		
+		dVlanMappingTranslateOriginalVlan OBJECT-TYPE
+			SYNTAX VlanId
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object specifies the original VLAN ID that will be matched for
+				incoming packets."
+			::= { dVlanMappingTranslateEntry 2 }
+
+		
+		dVlanMappingTranslateOriginalInnerVlan OBJECT-TYPE
+			SYNTAX VlanIdOrNone
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object specifies original inner VID which is used to
+				match the inner VID for incoming packets.
+				None means the original inner VID is not specified."
+			::= { dVlanMappingTranslateEntry 3 }
+
+		
+		dVlanMappingTranslateNewVlan OBJECT-TYPE
+			SYNTAX VlanId
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object specifies the translated service VLAN ID."
+			::= { dVlanMappingTranslateEntry 4 }
+
+		
+		dVlanMappingTranslateNewInnerVlan OBJECT-TYPE
+			SYNTAX VlanIdOrNone
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object specifies the new inner VLAN ID that will 
+				replace original inner VLAN on VLAN trunk mode port.
+				None means the new inner VID is not specified."
+			DEFVAL { 0 }
+			::= { dVlanMappingTranslateEntry 5 }
+
+		
+		dVlanMappingTranslatePriority OBJECT-TYPE
+			SYNTAX INTEGER (0..7)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object specifies the priority for the entry. If no 
+				specified, the priority of the service VLAN tag will be set to 0."
+			DEFVAL { 0 }
+			::= { dVlanMappingTranslateEntry 6 }
+
+		
+		dVlanMappingTranslateRuleStatus OBJECT-TYPE
+			SYNTAX INTEGER
+				{
+				active(1),
+				inactive(2)
+				}
+			MAX-ACCESS read-only
+			STATUS current
+			DESCRIPTION
+				"The 'active' status indicates this vlan mapping entry is effective 
+				on current port mode."
+			::= { dVlanMappingTranslateEntry 7 }
+
+		
+		dVlanMappingTranslateRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the status of this entry."
+			::= { dVlanMappingTranslateEntry 8 }
+
+		dVlanMappingTranslateEgressPriority OBJECT-TYPE
+			SYNTAX INTEGER (-1..7)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object specifies the priority for the entry. If no 
+				specified, the egress priority of the CVLAN tag will be set to 0.
+				If specified value -1, the egress priority of the CVLAN tag will keep the service service VLAN
+				priority."
+			DEFVAL { 0 }
+			::= { dVlanMappingTranslateEntry 9 }
+
+
+		
+		dVlanMappingDot1qTunnelTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DVlanMappingDot1qTunnelEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table contains service mapping tunnel entries for VLAN dot1q-tunnel 
+				port. Original VLANs can be a single VLAN or a VLAN range."
+			::= { dVlanTunnelMIBObjects 5 }
+
+		
+		dVlanMappingDot1qTunnelEntry OBJECT-TYPE
+			SYNTAX DVlanMappingDot1qTunnelEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list of the VLAN mapping tunnel entries for a VLAN 
+				dot1q-tunnel port."
+			INDEX { dVlanMappingDot1qTunnelIfIndex, dVlanMappingDot1qTunnelMinVID, dVlanMappingDot1qTunnelMaxVID }
+			::= { dVlanMappingDot1qTunnelTable 1 }
+
+		
+		DVlanMappingDot1qTunnelEntry ::=
+			SEQUENCE { 
+				dVlanMappingDot1qTunnelIfIndex
+					InterfaceIndex,
+				dVlanMappingDot1qTunnelMinVID
+					VlanId,
+				dVlanMappingDot1qTunnelMaxVID
+					VlanId,
+				dVlanMappingDot1qTunnelNewVID
+					VlanId,
+				dVlanMappingDot1qTunnelPriority
+					INTEGER,
+				dVlanMappingDot1qTunnelRuleStatus
+					INTEGER,
+				dVlanMappingDot1qTunnelRowStatus
+					RowStatus,
+				dVlanMappingTranslateEgressPriority
+					INTEGER
+			 }
+
+		dVlanMappingDot1qTunnelIfIndex OBJECT-TYPE
+			SYNTAX InterfaceIndex
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the module's interface number."
+			::= { dVlanMappingDot1qTunnelEntry 1 }
+
+		
+		dVlanMappingDot1qTunnelMinVID OBJECT-TYPE
+			SYNTAX VlanId
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the start VID of the original VLAN range."
+			::= { dVlanMappingDot1qTunnelEntry 2 }
+
+		
+		dVlanMappingDot1qTunnelMaxVID OBJECT-TYPE
+			SYNTAX VlanId
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the end VID of the original VLAN range.
+				If the MinVID is equal to the MaxVID, it means the specified 
+				orignal VLAN is a single VLAN."
+			::= { dVlanMappingDot1qTunnelEntry 3 }
+
+		
+		dVlanMappingDot1qTunnelNewVID OBJECT-TYPE
+			SYNTAX VlanId
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the service VLAN ID that will be added
+				for matched packets on VLAN dot1q-tunnel port."
+			::= { dVlanMappingDot1qTunnelEntry 4 }
+
+		
+		dVlanMappingDot1qTunnelPriority OBJECT-TYPE
+			SYNTAX INTEGER (0..7)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object specifies the priority for the entry. If not 
+				specified, the priority of the service VLAN tag will be set to 0."
+			DEFVAL { 0 }
+			::= { dVlanMappingDot1qTunnelEntry 5 }
+
+		
+		dVlanMappingDot1qTunnelRuleStatus OBJECT-TYPE
+			SYNTAX INTEGER
+				{
+				active(1),
+				inactive(2)
+				}
+			MAX-ACCESS read-only
+			STATUS current
+			DESCRIPTION
+				"The 'active' status indicates this vlan mapping add entry is effective 
+				on current port mode."
+			::= { dVlanMappingDot1qTunnelEntry 6 }
+
+		
+		dVlanMappingDot1qTunnelRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the status of this entry."
+			::= { dVlanMappingDot1qTunnelEntry 7 }
+
+		
+		dVlanMappingProfileTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DVlanMappingProfileEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table is used to create a VLAN mapping profile to assign service VLAN ID.
+				Multiple rules can be specified for a VLAN mapping profile."
+			::= { dVlanTunnelMIBObjects 6 }
+
+		
+		dVlanMappingProfileEntry OBJECT-TYPE
+			SYNTAX DVlanMappingProfileEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list containing VLAN mapping profile information."
+			INDEX { dVlanMappingProfileID }
+			::= { dVlanMappingProfileTable 1 }
+
+		
+		DVlanMappingProfileEntry ::=
+			SEQUENCE { 
+				dVlanMappingProfileID
+					INTEGER,
+				dVlanMappingProfileType
+					INTEGER,
+				dVlanMappingProfileRowStatus
+					RowStatus
+			 }
+
+		dVlanMappingProfileID OBJECT-TYPE
+			SYNTAX INTEGER (1..1000)
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"Specifies the VLAN mapping profile ID."
+			::= { dVlanMappingProfileEntry 1 }
+
+		
+		dVlanMappingProfileType OBJECT-TYPE
+			SYNTAX INTEGER
+				{
+				ethernet(1),
+				ip(2),
+				ipv6(3),
+				ethernetIp(4)
+				}
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the VLAN mapping profile type.
+				ethernet(1)- The profile can match L2 fields.
+				ip(2)      - The profile can match L3 IP fields.
+				ipv6(3)    - The profile can match IPv6 destination or source address.
+				ethernetIp(4) - The profile can match L2 and L3 IP fields."
+			::= { dVlanMappingProfileEntry 2 }
+
+		
+		dVlanMappingProfileRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the status of this entry."
+			::= { dVlanMappingProfileEntry 3 }
+
+		
+		dVlanMappingProfileRuleTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DVlanMappingProfileRuleEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table contains VLAN mapping profile rule information.
+				These rules will indicate whether to add a tag or to replace
+				the original C-VLAN in the tag for the matched packets.
+				
+				For VLAN mapping profile rules in the same profile, the rule's
+				priority is decided by the rule's ID; a smaller ID has a higher priority."
+			::= { dVlanTunnelMIBObjects 7 }
+
+		
+		dVlanMappingProfileRuleEntry OBJECT-TYPE
+			SYNTAX DVlanMappingProfileRuleEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list of information about VLAN Mapping profile rules."
+			INDEX { dVlanMappingProfileRuleProfileID, dVlanMappingProfileRuleSn }
+			::= { dVlanMappingProfileRuleTable 1 }
+
+		
+		DVlanMappingProfileRuleEntry ::=
+			SEQUENCE { 
+				dVlanMappingProfileRuleProfileID
+					INTEGER,
+				dVlanMappingProfileRuleSn
+					INTEGER,
+				dVlanMappingProfileRuleSrcMacAddr
+					MacAddress,
+				dVlanMappingProfileRuleDstMacAddr
+					MacAddress,
+				dVlanMappingProfileRulePriority
+					INTEGER,
+				dVlanMappingProfileRuleInnerVid
+					VlanIdOrNone,
+				dVlanMappingProfileRuleEtherType
+					OCTET STRING,
+				dVlanMappingProfileRuleSrcIP
+					InetAddressIPv4,
+				dVlanMappingProfileRuleSrcIPMask
+					InetAddressIPv4,
+				dVlanMappingProfileRuleDstIP
+					InetAddressIPv4,
+				dVlanMappingProfileRuleDstIPMask
+					InetAddressIPv4,
+				dVlanMappingProfileRuleSrcIPV6
+					InetAddressIPv6,
+				dVlanMappingProfileRuleSrcV6PreLen
+					InetAddressPrefixLength,
+				dVlanMappingProfileRuleDstIPV6
+					InetAddressIPv6,
+				dVlanMappingProfileRuleDstV6PreLen
+					InetAddressPrefixLength,
+				dVlanMappingProfileRuleDscp
+					INTEGER,
+				dVlanMappingProfileRuleSrcPort
+					INTEGER,
+				dVlanMappingProfileRuleDstPort
+					INTEGER,
+				dVlanMappingProfileRuleIpProtocol
+					INTEGER,
+				dVlanMappingProfileRuleOperation
+					INTEGER,
+				dVlanMappingProfileRuleNewSVID
+					VlanId,
+				dVlanMappingProfileRuleNewPriority
+					INTEGER,
+				dVlanMappingProfileRuleNewInnerVID
+					VlanIdOrNone,
+				dVlanMappingProfileRuleRowStatus
+					RowStatus
+			 }
+
+		dVlanMappingProfileRuleProfileID OBJECT-TYPE
+			SYNTAX INTEGER (1..1000)
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"Specifies the profile ID."
+			::= { dVlanMappingProfileRuleEntry 1 }
+
+		
+		dVlanMappingProfileRuleSn OBJECT-TYPE
+			SYNTAX INTEGER (0..10000)
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"Specifies the sequence number of this VLAN mapping profile rule. 
+				The special value of 0 means the sequence number will be automatically 
+				determined by the agent, and the SN begins from 10 and the increment is 10."
+			::= { dVlanMappingProfileRuleEntry 2 }
+
+		
+		dVlanMappingProfileRuleSrcMacAddr OBJECT-TYPE
+			SYNTAX MacAddress
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the source MAC address as a matching field. 
+				The special value of zero MAC means no MAC to be specified."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 3 }
+
+		
+		dVlanMappingProfileRuleDstMacAddr OBJECT-TYPE
+			SYNTAX MacAddress
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the destination MAC address as a matching field.
+				The special value of zero MAC means no MAC to be specified."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 4 }
+
+		
+		dVlanMappingProfileRulePriority OBJECT-TYPE
+			SYNTAX INTEGER (-1 | 0..7)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the packet's 802.1p priority as a matching field.
+				-1 means no priority to be specified."
+			DEFVAL { -1 }
+			::= { dVlanMappingProfileRuleEntry 5 }
+
+		
+		dVlanMappingProfileRuleInnerVid OBJECT-TYPE
+			SYNTAX VlanIdOrNone
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the packet's inner VID as a matching field.
+				None means no inner VID is specified."
+			DEFVAL { 0 }
+			::= { dVlanMappingProfileRuleEntry 6 }
+
+		
+		dVlanMappingProfileRuleEtherType OBJECT-TYPE
+			SYNTAX OCTET STRING (SIZE (2))
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the EtherType of the packet as a matching field.
+				The zero vlaue indicates that no EtherType is specified."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 7 }
+
+		
+		dVlanMappingProfileRuleSrcIP OBJECT-TYPE
+			SYNTAX InetAddressIPv4
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies an IPv4 source address as a matching field.
+				The zero IP indicates that no IP address is specified."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 8 }
+
+		
+		dVlanMappingProfileRuleSrcIPMask OBJECT-TYPE
+			SYNTAX InetAddressIPv4
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the IPv4 source address mask."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 9 }
+
+		
+		dVlanMappingProfileRuleDstIP OBJECT-TYPE
+			SYNTAX InetAddressIPv4
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies an IPv4 destination address as a matching field.
+				The zero IP indicates that no IP address is specified."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 10 }
+
+		
+		dVlanMappingProfileRuleDstIPMask OBJECT-TYPE
+			SYNTAX InetAddressIPv4
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the IPv4 destination address mask."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 11 }
+
+		
+		dVlanMappingProfileRuleSrcIPV6 OBJECT-TYPE
+			SYNTAX InetAddressIPv6
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies an IPv6 source address as a matching field.
+				The zero IP indicates that no IP address is specified."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 12 }
+
+		
+		dVlanMappingProfileRuleSrcV6PreLen OBJECT-TYPE
+			SYNTAX InetAddressPrefixLength
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the length in bits of destination IPv6 address will be
+				matched. In other words, the value of 0 indicates any source
+				IPv6 address is specified. When the value of 128 indicates
+				host IPv6 source address is specified."
+			DEFVAL { 0 }
+			::= { dVlanMappingProfileRuleEntry 13 }
+
+		
+		dVlanMappingProfileRuleDstIPV6 OBJECT-TYPE
+			SYNTAX InetAddressIPv6
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies an IPv6 destination address as a matching field.
+				The zero IP indicates that no IP address is specified."
+			DEFVAL { '00'h }
+			::= { dVlanMappingProfileRuleEntry 14 }
+
+		
+		dVlanMappingProfileRuleDstV6PreLen OBJECT-TYPE
+			SYNTAX InetAddressPrefixLength
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the length in bits of destination IPv6 address will be
+				matched. In other words, the value of 0 indicates any source
+				IPv6 address is specified. When the value of 128 indicates
+				host IPv6 source address is specified."
+			DEFVAL { 0 }
+			::= { dVlanMappingProfileRuleEntry 15 }
+
+		
+		dVlanMappingProfileRuleDscp OBJECT-TYPE
+			SYNTAX INTEGER
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the DSCP parameter as a matching field.
+				-1 means no DSCP to be specified."
+			DEFVAL { -1 }
+			::= { dVlanMappingProfileRuleEntry 16 }
+
+		
+		dVlanMappingProfileRuleSrcPort OBJECT-TYPE
+			SYNTAX INTEGER
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the source port number as a matching field.
+				-1 means no source port to be specified."
+			DEFVAL { -1 }
+			::= { dVlanMappingProfileRuleEntry 17 }
+
+		
+		dVlanMappingProfileRuleDstPort OBJECT-TYPE
+			SYNTAX INTEGER
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the destination port number as a matching field.
+				-1 means no destination port to be specified."
+			DEFVAL { -1 }
+			::= { dVlanMappingProfileRuleEntry 18 }
+
+		
+		dVlanMappingProfileRuleIpProtocol OBJECT-TYPE
+			SYNTAX INTEGER
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the IP protocol as a matching field.
+				-1 means no protocol to be specified."
+			DEFVAL { -1 }
+			::= { dVlanMappingProfileRuleEntry 19 }
+
+		
+		dVlanMappingProfileRuleOperation OBJECT-TYPE
+			SYNTAX INTEGER
+				{
+				dot1qTunnel(1),
+				translate(2)
+				}
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"dot1qTunnel(1) - indicates the Specified outer-VID will be added
+				for matched packets.  
+				translate(2)   - indicates the Specified outer-VID will replace
+				the outer-VID of the matched packets."
+			::= { dVlanMappingProfileRuleEntry 20 }
+
+		
+		dVlanMappingProfileRuleNewSVID OBJECT-TYPE
+			SYNTAX VlanId
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the New outer-VID."
+			::= { dVlanMappingProfileRuleEntry 21 }
+
+		
+		dVlanMappingProfileRuleNewPriority OBJECT-TYPE
+			SYNTAX INTEGER (0..7)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the 802.1p priority in the new outer TAG.
+				0 means no priority to be specified.           
+				If no specified, the priority in the new outer VLAN tag will be set to 0."
+			DEFVAL { 0 }
+			::= { dVlanMappingProfileRuleEntry 22 }
+
+		
+		dVlanMappingProfileRuleNewInnerVID OBJECT-TYPE
+			SYNTAX VlanIdOrNone
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Specifies the new inner VID to be added to the matched packet.
+				None means no new inner VID to be specified."
+			DEFVAL { 0 }
+			::= { dVlanMappingProfileRuleEntry 23 }
+
+		
+		dVlanMappingProfileRuleRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the status of this entry."
+			::= { dVlanMappingProfileRuleEntry 24 }
+
+		
+		dVlanMappingPortProfileTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF DVlanMappingPortProfileEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A table that is used to configure interfaces' VLAN mapping 
+				rules of profile."
+			::= { dVlanTunnelMIBObjects 8 }
+
+		
+		dVlanMappingPortProfileEntry OBJECT-TYPE
+			SYNTAX DVlanMappingPortProfileEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"A list of VLAN mapping rules of profiles for each interface."
+			INDEX { dVlanMappingPortProfileIfIndex, dVlanMappingPortProfileId }
+			::= { dVlanMappingPortProfileTable 1 }
+
+		
+		DVlanMappingPortProfileEntry ::=
+			SEQUENCE { 
+				dVlanMappingPortProfileIfIndex
+					InterfaceIndex,
+				dVlanMappingPortProfileId
+					INTEGER,
+				dVlanMappingPortProfileRowStatus
+					RowStatus
+			 }
+
+		dVlanMappingPortProfileIfIndex OBJECT-TYPE
+			SYNTAX InterfaceIndex
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the module's interface number."
+			::= { dVlanMappingPortProfileEntry 1 }
+
+		
+		dVlanMappingPortProfileId OBJECT-TYPE
+			SYNTAX INTEGER (1..1000)
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This object indicates the VLAN mapping profile ID."
+			::= { dVlanMappingPortProfileEntry 2 }
+
+		
+		dVlanMappingPortProfileRowStatus OBJECT-TYPE
+			SYNTAX RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"This object indicates the status of this entry."
+			::= { dVlanMappingPortProfileEntry 3 }
+
+		
+		dVlanTunnelMIBConformance OBJECT IDENTIFIER ::= { dlinkSwVlanTunnelMIB 2 }
+
+		
+		dVlanTunnelCompliances OBJECT IDENTIFIER ::= { dVlanTunnelMIBConformance 1 }
+
+		
+		dVlanTunnelCompliance MODULE-COMPLIANCE
+			STATUS current
+			DESCRIPTION 
+				"The compliance statement for entities which implement the 
+				DLINKSW-VLAN-TUNNEL-MIB."
+			MODULE -- this module
+				MANDATORY-GROUPS { dVlanTunnelBasicGroup, dVlanMappingGroup }
+				GROUP dVlanMappingProfileGroup
+					DESCRIPTION 
+						"This group is required only if the VLAN mapping profile feature
+						is implemented by the agent."
+			::= { dVlanTunnelCompliances 1 }
+
+		
+		dVlanTunnelGroups OBJECT IDENTIFIER ::= { dVlanTunnelMIBConformance 2 }
+
+		
+		dVlanTunnelBasicGroup OBJECT-GROUP
+			OBJECTS { dVlanTunnelInnerEtherType, dVlanTunnelEtherType, dVlanMappingMissDropEnabled, dVlanTunnelTrustInnerPriEnabled, dVlanTunnelInsertDot1qTag
+				 }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects providing Basic VLAN Tunnel configuration."
+			::= { dVlanTunnelGroups 1 }
+
+		
+		dVlanMappingGroup OBJECT-GROUP
+			OBJECTS { dVlanMappingTranslateNewVlan, dVlanMappingTranslateNewInnerVlan, dVlanMappingTranslatePriority, dVlanMappingTranslateRuleStatus, dVlanMappingTranslateRowStatus, 
+				dVlanMappingDot1qTunnelNewVID, dVlanMappingDot1qTunnelPriority, dVlanMappingDot1qTunnelRuleStatus, dVlanMappingDot1qTunnelRowStatus,dVlanMappingTranslateEgressPriority }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects providing VLAN Mapping and VLAN
+				Translation configuration."
+			::= { dVlanTunnelGroups 2 }
+
+		
+		dVlanMappingProfileGroup OBJECT-GROUP
+			OBJECTS { dVlanMappingPortProfileRowStatus, dVlanMappingProfileType, dVlanMappingProfileRowStatus, dVlanMappingProfileRuleSrcMacAddr,
+				dVlanMappingProfileRuleDstMacAddr, dVlanMappingProfileRulePriority, dVlanMappingProfileRuleInnerVid, dVlanMappingProfileRuleEtherType, dVlanMappingProfileRuleSrcIP, 
+				dVlanMappingProfileRuleSrcIPMask, dVlanMappingProfileRuleDstIP, dVlanMappingProfileRuleDstIPMask, dVlanMappingProfileRuleSrcIPV6, dVlanMappingProfileRuleSrcV6PreLen, 
+				dVlanMappingProfileRuleDstIPV6, dVlanMappingProfileRuleDstV6PreLen, dVlanMappingProfileRuleDscp, dVlanMappingProfileRuleSrcPort, dVlanMappingProfileRuleDstPort, 
+				dVlanMappingProfileRuleIpProtocol, dVlanMappingProfileRuleOperation, dVlanMappingProfileRuleNewSVID, dVlanMappingProfileRuleNewPriority, dVlanMappingProfileRuleNewInnerVID, 
+				dVlanMappingProfileRuleRowStatus }
+			STATUS current
+			DESCRIPTION 
+				"A collection of objects providing VLAN Mapping Profile configuration."
+			::= { dVlanTunnelGroups 3 }
+
+		
+	
+	END
+
+--
+-- DLINKSW-VLAN-TUNNEL-MIB 20130506.mib
+--

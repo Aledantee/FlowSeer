@@ -1,0 +1,177 @@
+-- ***************************************************************** 
+--  DLINKSW-FLEXLINKS-MIB.mib : FLEXLINKS MIB
+-- 
+--  Copyright (c) 2015 D-Link Corporation, all rights reserved.
+--   
+-- ***************************************************************** 
+DLINKSW-FLEXLINKS-MIB DEFINITIONS ::= BEGIN
+
+
+	IMPORTS
+            MODULE-IDENTITY,
+            OBJECT-TYPE,
+            NOTIFICATION-TYPE,
+            Unsigned32
+                FROM SNMPv2-SMI
+ 	    RowStatus,TruthValue,MacAddress   
+                FROM SNMPv2-TC
+            MODULE-COMPLIANCE, OBJECT-GROUP
+                FROM SNMPv2-CONF
+	    ifIndex, InterfaceIndex, InterfaceIndexOrZero
+            	FROM IF-MIB
+            dlinkIndustrialCommon                     
+                FROM DLINK-ID-REC-MIB;  
+
+
+
+	dlinkSwFlexlinksMIB MODULE-IDENTITY
+            LAST-UPDATED "201509020000Z"
+            ORGANIZATION "D-Link Corp."
+            CONTACT-INFO
+                "        D-Link Corporation
+
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:     +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+                "
+            DESCRIPTION
+                "This MIB module defines objects for extending the configuration of 
+                FLEXLINKS. "
+            
+            REVISION "201509020000Z"
+            DESCRIPTION
+                "This is the first version of the MIB file."
+
+            ::= { dlinkIndustrialCommon 187 }
+
+
+-- ----------------------------------------------------------------------------- 
+	dFlexlinksMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwFlexlinksMIB 0 }
+   	dFlexlinksMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwFlexlinksMIB 1 }
+    	dFlexlinksMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwFlexlinksMIB 2 }
+
+-- -----------------------------------------------------------------------------
+	dFlexlinksGrpTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF DFlexlinksGrpEntry
+	  	MAX-ACCESS  not-accessible
+	  	STATUS      current
+	  	DESCRIPTION
+	    	"A table that contains FLEXLINKS group information."
+		::= { dFlexlinksMIBObjects 1 }
+
+	dFlexlinksGrpEntry OBJECT-TYPE
+		SYNTAX      DFlexlinksGrpEntry
+	  	MAX-ACCESS  not-accessible
+	  	STATUS      current
+		DESCRIPTION
+			"A list of FLEXLINKS group information."
+		INDEX    {dFlexlinksGrpId}
+		::= { dFlexlinksGrpTable 1 }
+
+	DFlexlinksGrpEntry ::= SEQUENCE {
+		dFlexlinksGrpId    		Unsigned32,
+	  	dFlexlinksGrpPrimaryPort	InterfaceIndex,
+	    	dFlexlinksGrpBackupPort		InterfaceIndex,
+		dFlexlinksGrpPrimaryStatus	INTEGER,
+	    	dFlexlinksGrpBackupStatus	INTEGER,
+		dFlexlinksGrpRowStatus    	RowStatus
+		}
+	dFlexlinksGrpId OBJECT-TYPE
+        SYNTAX  Unsigned32(1..4)
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the flexlinks group."
+        ::= { dFlexlinksGrpEntry 1 }
+
+	dFlexlinksGrpPrimaryPort OBJECT-TYPE
+	    SYNTAX      InterfaceIndex
+	    MAX-ACCESS  read-create
+	    STATUS      current
+	    DESCRIPTION
+	        "This object indicates the flexlinks pair primary port."
+	    ::= { dFlexlinksGrpEntry 2 }
+
+	dFlexlinksGrpBackupPort OBJECT-TYPE
+	    SYNTAX      InterfaceIndex
+	    MAX-ACCESS  read-create
+	    STATUS      current
+	    DESCRIPTION
+    		"This object indicates the flexlinks pair backup port."
+	    ::= { dFlexlinksGrpEntry 3 }
+	
+	dFlexlinksGrpPrimaryStatus OBJECT-TYPE
+	    SYNTAX      INTEGER{
+			inActive(0),
+			standBy(1),
+			active(2)
+			}
+	    MAX-ACCESS  read-only
+	    STATUS      current
+	    DESCRIPTION
+	        "This object indicates the flexlinks pair primary port status."
+	    ::= { dFlexlinksGrpEntry 4 }
+
+	dFlexlinksGrpBackupStatus OBJECT-TYPE
+	    SYNTAX      INTEGER{
+			inActive(0),
+			standBy(1),
+			active(2)
+			}
+	    MAX-ACCESS  read-only
+	    STATUS      current
+	    DESCRIPTION
+	        "This object indicates the flexlinks pair backup port status."
+	    ::= { dFlexlinksGrpEntry 5 }
+
+	dFlexlinksGrpRowStatus OBJECT-TYPE
+	    SYNTAX      RowStatus
+	    MAX-ACCESS  read-create
+	    STATUS      current
+	    DESCRIPTION
+	        "This object indicates the RowStatus of this entry."
+	    ::= { dFlexlinksGrpEntry 99 }
+-- *****************************************************************  
+--  Conformance
+-- *****************************************************************                  
+    	dFlexlinksCompliances OBJECT IDENTIFIER ::= { dFlexlinksMIBConformance 1 }
+	dFlexlinksGroups      OBJECT IDENTIFIER ::= { dFlexlinksMIBConformance 2 }
+
+	dFlexlinksCompliance MODULE-COMPLIANCE
+        STATUS current
+        DESCRIPTION 
+            "The compliance statement for entities which implement the 
+            DLINKSW-FLEXLINKS-MIB."
+        MODULE -- this module
+        MANDATORY-GROUPS { 
+            dFlexlinksCfgGroup,
+	    dFlexlinksInfoGroup
+        }
+        ::= { dFlexlinksCompliances 1 }
+
+	
+	dFlexlinksCfgGroup OBJECT-GROUP
+        OBJECTS {
+	    dFlexlinksGrpPrimaryPort,
+	    dFlexlinksGrpBackupPort           
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the configuration
+            of Flexlinks Group."
+            ::= { dFlexlinksGroups 1 }
+	 
+	dFlexlinksInfoGroup OBJECT-GROUP
+        OBJECTS {
+	    dFlexlinksGrpPrimaryPort,
+	    dFlexlinksGrpBackupPort,
+	    dFlexlinksGrpPrimaryStatus,
+	    dFlexlinksGrpBackupStatus           
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the Information
+            of Flexlinks port Group."
+            ::= { dFlexlinksGroups 2 }
+END

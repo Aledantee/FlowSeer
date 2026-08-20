@@ -1,0 +1,343 @@
+-- *****************************************************************
+-- DLINKSW-OSPFV3-MIB.mib : D-Link OSPF for IPv6 MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+
+DLINKSW-OSPFV3-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,
+        Integer32,Unsigned32,IpAddress            	FROM SNMPv2-SMI
+        TruthValue,DisplayString, 
+        RowStatus   								FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP				FROM SNMPv2-CONF
+        InterfaceIndex                      		FROM IF-MIB
+		InetAddressType, InetAddress,
+		InetAddressPrefixLength						FROM INET-ADDRESS-MIB
+        dlinkIndustrialCommon               		FROM DLINK-ID-REC-MIB;
+
+	dlinkSwOspfv3MIB MODULE-IDENTITY
+        LAST-UPDATED "201503160000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of OSPFv3 Information for the
+                 proprietary enterprise."         
+
+        REVISION        "201311040000Z"
+        DESCRIPTION
+            "Initial revision of this MIB module."              
+
+        REVISION        "201406170000Z"
+        DESCRIPTION
+            "Modify the RowStatus objects."        
+
+	REVISION        "201407310000Z"
+        DESCRIPTION
+            "Fix some typo error."      
+
+	REVISION        "201503160000Z"
+        DESCRIPTION
+            "Add a new 'isis' value for object dOspfv3RedistProtocol."      
+
+		::= { dlinkIndustrialCommon 174 }
+
+-- -----------------------------------------------------------------------------    
+    dOspfv3MIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwOspfv3MIB 0 }
+	dOspfv3MIBObjects          OBJECT IDENTIFIER ::= { dlinkSwOspfv3MIB 1 }
+    dOspfv3MIBConformance	 	OBJECT IDENTIFIER ::= { dlinkSwOspfv3MIB 2 }
+
+-- ----------------------------------------------------------------------------- 
+	dOspfv3GlobalCtrl          OBJECT IDENTIFIER ::= { dOspfv3MIBObjects 1 }
+
+	dOspfv3DefMetric OBJECT-TYPE
+        SYNTAX Integer32 (0..16777214)
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "Specify the default metric value for the redistributed routes."
+		::= { dOspfv3GlobalCtrl 1 }
+
+	dOspfv3PassiveIfDefault OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+           "This object indicates the default passive state for the interfaces 
+           on which the passive state is not explicitly configured.
+           When this object is true(1), the default passive state is enabled.  
+           When false(2), the default passive state is disabled."
+		::= { dOspfv3GlobalCtrl 2 }
+
+	dOspfv3ClearProcess OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+           "This object is used to restart an OSPFv3 process."
+		::= { dOspfv3GlobalCtrl 3 }
+
+	dOspfv3AreaRangeTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DOspfv3AreaRangeEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "Opertaions table of Ospfv3 area ranges."
+	    ::= { dOspfv3MIBObjects 2 }
+
+	dOspfv3AreaRangeEntry OBJECT-TYPE
+	    SYNTAX       DOspfv3AreaRangeEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv3AreaRangeTable containing the operational
+	         characteristics of OSPFv3 area ranges."
+	    INDEX    { dOspfv3AreaRangeAreaId,dOspfv3AreaRangePrefixType,
+					dOspfv3AreaRangePrefix,
+					dOspfv3AreaRangePreifxLength}
+	    ::= { dOspfv3AreaRangeTable 1 }
+
+	DOspfv3AreaRangeEntry ::=	    SEQUENCE {
+	    	dOspfv3AreaRangeAreaId			IpAddress,	
+			dOspfv3AreaRangePrefixType		InetAddressType,
+	    	dOspfv3AreaRangePrefix			InetAddress,
+	    	dOspfv3AreaRangePreifxLength	InetAddressPrefixLength,
+	    	dOspfv3AreaRangeRowStatus		RowStatus
+	}
+
+	dOspfv3AreaRangeAreaId OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the area from which the routes will be summarized."
+		::= { dOspfv3AreaRangeEntry 1 }
+
+	dOspfv3AreaRangePrefixType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the prefix type of dOspfv3AreaRangePrefix. Only
+			IPv6 addresses are expected."
+		::= { dOspfv3AreaRangeEntry 2 }
+
+	dOspfv3AreaRangePrefix OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the IPv6 prefix of the summary route."
+		::= { dOspfv3AreaRangeEntry 3 }
+
+	dOspfv3AreaRangePreifxLength OBJECT-TYPE
+        SYNTAX InetAddressPrefixLength
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+           "Specify the length of IPv6 prefix of the summary route."
+		::= { dOspfv3AreaRangeEntry 4 }
+
+	dOspfv3AreaRangeRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+            "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dOspfv3AreaRangeEntry 99 }
+
+	dOspfv3IfTable OBJECT-TYPE
+	    SYNTAX       SEQUENCE OF DOspfv3IfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "Opertaions table of Ospfv3 interface."
+	    ::= { dOspfv3MIBObjects 3 }
+
+	dOspfv3IfEntry OBJECT-TYPE
+	    SYNTAX       DOspfv3IfEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv3IfTable containing the operational
+	         characteristics of OSPFv3 interface."
+	    INDEX    { dOspfv3IfIndex }
+	    ::= { dOspfv3IfTable 1 }
+
+	DOspfv3IfEntry ::=	    SEQUENCE {
+	    	dOspfv3IfIndex	    	        InterfaceIndex,
+            dOspfv3IfPassiveMode            INTEGER
+	}
+
+	dOspfv3IfIndex OBJECT-TYPE
+	    SYNTAX          InterfaceIndex
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "The ifIndex value of the OSPFv3 interface."
+	    ::= { dOspfv3IfEntry 1 }
+
+	dOspfv3IfPassiveMode OBJECT-TYPE   	    
+	    SYNTAX          INTEGER  {
+            followGlobal(0),
+            disabled(1),
+            enabled(2)
+        }        
+	    MAX-ACCESS      read-write
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the OSPF passive state on the interface.
+            The value of 'followGlobal' indicates the passive state is not explicitly 
+            specified on the interface, and global default passive state is followed.
+            "
+	    ::= { dOspfv3IfEntry 2 }
+
+
+	dOspfv3RedistributeTable OBJECT-TYPE
+	    SYNTAX          SEQUENCE OF DOspfv3RedistributeEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This table provides mechanism to configure redistribute routes from
+            other routing domain into OSPFv3."
+	    ::= { dOspfv3MIBObjects 4 }
+	
+	dOspfv3RedistributeEntry OBJECT-TYPE
+	    SYNTAX       DOspfv3RedistributeEntry
+	    MAX-ACCESS   not-accessible
+	    STATUS       current
+	    DESCRIPTION
+	        "An entry in the dOspfv3RedistributeTable containing the operational
+	         characteristics of OSPFv3 redistribution."
+	    INDEX    { dOspfv3RedistProtocol }
+	    ::= { dOspfv3RedistributeTable 1 }
+
+	DOspfv3RedistributeEntry ::=	    SEQUENCE {
+	    dOspfv3RedistProtocol	    	    INTEGER,
+	    dOspfv3RedistMetric	    	    	Unsigned32,	
+	    dOspfv3RedistMetricType 	    	INTEGER,	
+	    dOspfv3RedistRouteMap	    	    DisplayString,
+		dOspfv3RedistRowStatus	            RowStatus
+	}
+
+	dOspfv3RedistProtocol OBJECT-TYPE
+	    SYNTAX          INTEGER {
+            connected(1),
+            static(2),
+            rip(3),
+            bgp(4),
+            isis(5)
+        }
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the source routing protocol to be imported
+            into OSPFv3."
+	    ::= { dOspfv3RedistributeEntry 1 }
+
+	dOspfv3RedistMetric OBJECT-TYPE
+	    SYNTAX          Unsigned32 (0..16777214)
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "Specifies the value to be used as metric for the redistributed routes."
+	    ::= { dOspfv3RedistributeEntry 2 }
+
+	dOspfv3RedistMetricType OBJECT-TYPE
+	    SYNTAX       INTEGER {
+               external1(1),
+               external2(2)
+        }
+	    MAX-ACCESS   read-create
+	    STATUS       current
+	    DESCRIPTION
+	        "Specifies the external link type of the route being 
+             redistributed into the OSPF routing domain."
+	    ::= { dOspfv3RedistributeEntry 3 }
+
+	dOspfv3RedistRouteMap OBJECT-TYPE
+	    SYNTAX          DisplayString 
+	    MAX-ACCESS      read-create
+	    STATUS          current
+	    DESCRIPTION
+	        "This object indicates the name of the route map that is used
+            to filter the routes to be redistributed to the OSPFv3. 
+            A zero length string indiates that the route map is not specified and 
+            all routes are redistributed."
+	    ::= { dOspfv3RedistributeEntry 4 }
+
+	dOspfv3RedistRowStatus OBJECT-TYPE
+     	SYNTAX       RowStatus
+     	MAX-ACCESS   read-create
+     	STATUS       current
+     	DESCRIPTION
+         "This object indicates the status of this entry.
+            Only createAndGo(4) and destroy(6) can be set."
+     	::= { dOspfv3RedistributeEntry 99 }
+
+-- Conformance Information        
+
+    dOspfv3MIBGroups      OBJECT IDENTIFIER ::= { dOspfv3MIBConformance 1 }
+    dOspfv3MIBCompliances OBJECT IDENTIFIER ::= { dOspfv3MIBConformance 2 }
+
+-- Compliance Statements
+
+    dOspfv3FullCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION     "The compliance statement"
+        MODULE          -- this module
+        MANDATORY-GROUPS {
+            dOspfv3GlobalCtrlGroup,
+			dOspfv3IfGroup,
+			dOspfv3RedistributeGroup
+        }
+			              
+        ::= { dOspfv3MIBCompliances 1 }
+
+    -- units of conformance
+
+    dOspfv3GlobalCtrlGroup OBJECT-GROUP
+        	OBJECTS         {
+				dOspfv3DefMetric,
+				dOspfv3PassiveIfDefault,
+				dOspfv3ClearProcess
+        					}
+        STATUS          current
+        DESCRIPTION
+            "The object is used to control global state of OSPFv3 checking."
+        ::= { dOspfv3MIBGroups 1 }
+
+    dOspfv3IfGroup OBJECT-GROUP
+            OBJECTS         {
+				dOspfv3IfPassiveMode
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring OSPFv3 interfaces."
+            ::= { dOspfv3MIBGroups 2 }
+
+    dOspfv3RedistributeGroup OBJECT-GROUP
+            OBJECTS         {
+				dOspfv3RedistRowStatus,
+				dOspfv3RedistMetric,
+				dOspfv3RedistMetricType,
+				dOspfv3RedistRouteMap
+                            }
+            STATUS          current
+            DESCRIPTION
+                "These objects are used for managing/monitoring
+                 the redistribution of OSPFv3."
+            ::= { dOspfv3MIBGroups 3 }
+
+END

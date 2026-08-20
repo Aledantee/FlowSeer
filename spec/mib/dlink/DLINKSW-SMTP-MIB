@@ -1,0 +1,313 @@
+--  *****************************************************************
+--  DLINKSW-SMTP-MIB.mib : D-Link SMTP MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-SMTP-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        IpAddress,
+        Integer32
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF 
+        TEXTUAL-CONVENTION,
+        RowStatus
+            FROM SNMPv2-TC
+        Ipv6Address
+            FROM IPV6-TC
+        DisplayString
+            FROM RFC1213-MIB
+        dlinkIndustrialCommon
+            FROM DLINK-ID-REC-MIB;
+
+            
+    dlinkSwSmtpMIB MODULE-IDENTITY
+        LAST-UPDATED "201406160000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "The Structure of SMTP for the proprietary enterprise."
+        REVISION "201406160000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file. 
+            "
+    ::= { dlinkIndustrialCommon 177 }
+
+
+-- -----------------------------------------------------------------------------
+    dSmtpMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwSmtpMIB 0 }
+    dSmtpMIBObjects          OBJECT IDENTIFIER ::= { dlinkSwSmtpMIB 1 }
+    dSmtpMIBConformance      OBJECT IDENTIFIER ::= { dlinkSwSmtpMIB 2 }
+
+    dSmtpCtrl			OBJECT IDENTIFIER ::= { dSmtpMIBObjects 1 }   
+    dSmtpTest			OBJECT IDENTIFIER ::= { dSmtpMIBObjects 2 }  
+    
+-- -----------------------------------------------------------------------------
+
+-- ********************************************************************
+--      dSmtpCtrl	OBJECT IDENTIFIER ::= { dSmtpMIBObjects  1 }
+-- ********************************************************************
+
+		
+    dSmtpSendInterval OBJECT-TYPE
+        SYNTAX  INTEGER (0..65535)
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object describes the interval in minutes at which the switch 
+              sends the email message. If set to 0, switch will send a email 
+              for each event immediately."
+--	    DEFVAL  { 30 }
+        ::= { dSmtpCtrl 1 }
+
+	dSmtpSrvVrfName	OBJECT-TYPE
+	    SYNTAX	        DisplayString
+	    MAX-ACCESS      read-write
+	    STATUS	        current
+	    DESCRIPTION
+		    "This object indicates the name of the routing forwarding instance.
+		    A zero length string indicates the VRF name is not specified."
+	    ::= { dSmtpCtrl 2 }
+
+	dSmtpIpv4SrvAddr OBJECT-TYPE
+		SYNTAX  IpAddress
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+					"This object is the SMTP IPv4 server's IP address."
+		::= { dSmtpCtrl 3 }
+
+	dSmtpIpv4SrvPort OBJECT-TYPE
+		SYNTAX  INTEGER (1..65535)
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+					"This object is the SMTP IPv4 server's TCP port number.
+					The default value is 25.
+					You can configure it from 1 to 65535."
+		::= { dSmtpCtrl 4 }
+
+	dSmtpIpv6SrvAddr OBJECT-TYPE
+		SYNTAX  Ipv6Address
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+					"This object is the SMTP IPv6 server's IP address."
+		::= { dSmtpCtrl 5 }
+
+	dSmtpIpv6SrvIfName	OBJECT-TYPE
+	    SYNTAX	        DisplayString (SIZE (0..12))
+	    MAX-ACCESS      read-write
+	    STATUS	        current
+	    DESCRIPTION
+		    "This node is used to specify the interface name 
+             when dSmtpIpv6SrvAddr is the link local address."
+	    ::= { dSmtpCtrl 6 }
+		
+	dSmtpIpv6SrvPort OBJECT-TYPE
+		SYNTAX  INTEGER (1..65535)
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+					"This object is the SMTP IPv6 server's TCP port number.
+					The default value is 25.
+					You can configure it from 1 to 65535."
+		::= { dSmtpCtrl 7 }
+
+	dSmtpMailSelfAddr OBJECT-TYPE 
+		SYNTAX  DisplayString (SIZE (0..254))
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+					"This object describes the mail address of the sender."
+		::= { dSmtpCtrl 8 }
+
+	dSmtpMailReceiverTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF DSmtpReceiverAddrEntry
+		MAX-ACCESS  not-accessible
+		STATUS  current
+		DESCRIPTION
+		      "This object describes the address list of the mail receivers."
+		::= { dSmtpCtrl 9 }
+	
+	dSmtpReceiverAddrEntry OBJECT-TYPE
+		SYNTAX DSmtpReceiverAddrEntry
+		MAX-ACCESS  not-accessible
+		STATUS  current
+		DESCRIPTION
+			"This is a list of information contained in the dSmtpMailReceiverTable."
+		INDEX   { dSmtpMailReceiverAddrIndex }
+		::= { dSmtpMailReceiverTable 1 }
+		
+	DSmtpReceiverAddrEntry ::=
+		SEQUENCE {
+		  dSmtpMailReceiverAddrIndex
+		      INTEGER,
+		  dSmtpMailReceiverAddrName
+		      DisplayString,
+		  dSmtpMailReceiverAddrRowStatus
+		      RowStatus
+		}
+	
+	dSmtpMailReceiverAddrIndex OBJECT-TYPE
+		SYNTAX  INTEGER (1..8)
+		MAX-ACCESS  not-accessible
+		STATUS  current
+		DESCRIPTION
+		      "This is the index of the mail receiver information."
+		::= { dSmtpReceiverAddrEntry 1 }
+
+	dSmtpMailReceiverAddrName OBJECT-TYPE
+		SYNTAX  DisplayString (SIZE (1..254)) 
+		MAX-ACCESS  read-create
+		STATUS  current
+		DESCRIPTION
+		      "This object describes the address of the mail receiver."
+		::= { dSmtpReceiverAddrEntry 2 }
+
+		
+		dSmtpMailReceiverAddrRowStatus OBJECT-TYPE
+		SYNTAX  RowStatus
+		MAX-ACCESS  read-create
+		STATUS  current
+		DESCRIPTION
+		      "This object describes the state of the mail receiver."
+		::= { dSmtpReceiverAddrEntry 99 }	
+		
+		
+-- ********************************************************************
+--    dSmtpTest			OBJECT IDENTIFIER ::= { dSmtpMIBObjects 2 } 
+-- ********************************************************************
+	dSmtpTestMsgSubject OBJECT-TYPE
+		SYNTAX  DisplayString  (SIZE (0..128))
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+					"This is the subject of test mail."
+		::= { dSmtpTest 1 }
+	
+	dSmtpTestMsgContent OBJECT-TYPE
+		SYNTAX  DisplayString  (SIZE (0..512))
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+					"This is the content of test mail."
+		::= { dSmtpTest 2 }
+
+	dSmtpSendTestMsg	OBJECT-TYPE
+		SYNTAX  INTEGER{
+			send(1),
+			noAction(2)
+			} 
+		MAX-ACCESS  read-write
+		STATUS  current
+		DESCRIPTION
+		      "When check Send(1), it will send mail. 
+		       smtpSendTestStatus will indicate the test status.
+		       "
+		::= { dSmtpTest 3 }	
+		
+	dSmtpSendTestStatus OBJECT-TYPE
+		SYNTAX  INTEGER{
+			success(1),
+			failed(2),
+			in-processing(3)   
+			} 
+		MAX-ACCESS  read-only
+		STATUS  current
+		DESCRIPTION
+		      "This object describes the latest test result."
+		::= { dSmtpTest 4 }	
+		
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	dSmtpCompliances OBJECT IDENTIFIER ::= { dSmtpMIBConformance 1 }
+		
+	dSmtpCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINK-SMTP-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    dSmtpSysInfoGroup	   		   
+		}
+				
+		GROUP    dSmtpCtrlGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		    the agent only if SMTP feature is supported."
+		        
+		OBJECT      dSmtpSrvVrfName
+		MIN-ACCESS  read-only
+		DESCRIPTION
+		    "This object is conditionally mandatory and must be implemented by
+		    the agent only if the implementation supports VRF."
+        
+        GROUP    dSmtpIpv6SrvGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		   the agent only if IPv6 feature is supported."
+        
+		GROUP    dSmtpTestGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		    the agent only if SMTP feature is supported."
+		   
+		::= { dSmtpCompliances 1 }
+
+-- units of conformance		
+	dSmtpGroups OBJECT IDENTIFIER ::= { dSmtpMIBConformance 2 }
+		
+	dSmtpCtrlGroup OBJECT-GROUP
+		OBJECTS { 		    
+		    dSmtpSendInterval,
+		    dSmtpSrvVrfName,
+		    dSmtpIpv4SrvAddr,
+		    dSmtpIpv4SrvPort,
+		    dSmtpMailSelfAddr,
+		    dSmtpMailReceiverAddrRowStatus,
+		    dSmtpMailReceiverAddrName
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects provides configuration for SMTP."
+		::= { dSmtpGroups 1 }
+	
+	dSmtpIpv6SrvGroup OBJECT-GROUP
+		OBJECTS { 		    
+		    dSmtpIpv6SrvAddr,
+		    dSmtpIpv6SrvIfName,
+		    dSmtpIpv6SrvPort
+     	}
+		STATUS          current
+		DESCRIPTION 
+			"A collection of objects provides configuration for SMTP IPv6 server."
+		::= { dSmtpGroups 2 }
+			
+	dSmtpTestGroup OBJECT-GROUP
+		OBJECTS { 
+		   	dSmtpTestMsgSubject,
+		    dSmtpTestMsgContent,
+		    dSmtpSendTestMsg,
+		    dSmtpSendTestStatus
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects provides test for SMTP."
+			::= { dSmtpGroups 3 }
+	
+	
+END

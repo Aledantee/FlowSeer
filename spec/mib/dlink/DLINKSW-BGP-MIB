@@ -1,0 +1,3640 @@
+-- *****************************************************************
+-- DLINKSW-BGP-MIB.mib : D-Link BGP MIB
+--
+-- Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+
+
+DLINKSW-BGP-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+		MODULE-IDENTITY,OBJECT-TYPE,
+		Integer32,Unsigned32,IpAddress,
+		TimeTicks							FROM SNMPv2-SMI
+		TruthValue, RowStatus,
+		DisplayString						FROM SNMPv2-TC
+		MODULE-COMPLIANCE, OBJECT-GROUP		FROM SNMPv2-CONF
+		InetAddress, InetAddressType,
+		InetAddressPrefixLength				FROM INET-ADDRESS-MIB
+		InterfaceIndex						FROM IF-MIB
+		dlinkIndustrialCommon				FROM DLINK-ID-REC-MIB;
+
+	dlinkSwBgpMIB MODULE-IDENTITY
+		LAST-UPDATED "202003310000Z"
+		ORGANIZATION    "D-Link Corp."
+		CONTACT-INFO
+			"        D-Link Corporation
+
+			 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+					Taipei City 114, Taiwan, R.O.C
+			 Tel:     +886-2-66000123
+			 E-mail: tsd@dlink.com.tw
+            "
+		DESCRIPTION
+			"The Structure of BGP Information for the
+				proprietary enterprise."
+		REVISION        "201404090000Z"
+		DESCRIPTION
+			"Initial revision of this MIB module."
+
+        REVISION        "201406300000Z"
+        DESCRIPTION
+            "Modify RowStatus objects. Update the SYNTAX of dBgpAggregateAfi.
+			Remove un-supported objects."   
+
+        REVISION        "201407030000Z"
+        DESCRIPTION
+            "Update the SYNTAX of dBgpNetworkAfi, dBgpRouteAfi, 
+			dBgpRedistAfi, dBgpDistanceAfi ."  
+
+        REVISION        "201408050000Z"
+        DESCRIPTION
+            "Update some objects." 
+
+        REVISION        "201503100000Z"
+        DESCRIPTION
+            "Add isis for the node dBgpRedistProtocol.
+            		Modify As to AS for some nodes."   
+
+        REVISION        "201503250000Z"
+        DESCRIPTION
+            "Remove the value range of BGP distance." 
+
+        REVISION        "201511200000Z"
+        DESCRIPTION
+            "Modify error-spelling words of dBgpRouteOrigin, dBgpVPNv4RouteOrigin,
+            		dBgpL2VPNRouteOrigin" 
+
+        REVISION        "201512020000Z"
+        DESCRIPTION
+            "Remove the node dIpExtCommunityListRule2, and modify the node dIpExtCommunityListRule1 to dIpExtCommunityListRule" 
+
+        REVISION        "201512100000Z"
+        DESCRIPTION
+            "Modify the maximum rule length of dIpCommunityListRule and dIpExtCommunityListRule from 200 to 100" 
+
+        REVISION        "201601210000Z"
+        DESCRIPTION
+            "Restore the objects dIpExtCommunityListRule1 and dIpExtCommunityListRule2. Set theire status to obsolete" 
+
+        REVISION        "201805220000Z"
+        DESCRIPTION
+            "Add a object dBgpDefaultInfoOrigin and a table dBgpDefaultInfoTable" 
+
+        REVISION        "201810070000Z"
+        DESCRIPTION
+            "Change the object dBgpDefaultInfoState from read-create to read-wirte "
+
+        REVISION        "202003310000Z"
+        DESCRIPTION
+            "Add the objects dBgpPeerBfdState and dBgpPeerGroupBfdState."
+		::= { dlinkIndustrialCommon 173 }
+
+    dBgpMIBNotifications    OBJECT IDENTIFIER ::= { dlinkSwBgpMIB 0 }
+	dBgpMIBObjects			OBJECT IDENTIFIER ::= { dlinkSwBgpMIB 1 }
+	dBgpMIBConformance		OBJECT IDENTIFIER ::= { dlinkSwBgpMIB 2 }
+
+	dIpASPathAccessListTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DIpASPathAccessListEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"AS path access list table."
+		::= { dBgpMIBObjects 1}
+
+	dIpASPathAccessListEntry OBJECT-TYPE
+		SYNTAX		DIpASPathAccessListEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"An entry in the dIpASPathAccessListTable containing the
+			detail information of the AS-path access list rule."
+		INDEX {
+			dIpASPathAccessListName,
+			dIpASPathAccessListMatchAction,
+			dIpASPathAccessListRule
+		}
+		::= {dIpASPathAccessListTable 1}
+
+	DIpASPathAccessListEntry ::= SEQUENCE {
+		dIpASPathAccessListName				DisplayString,
+		dIpASPathAccessListMatchAction		INTEGER,
+		dIpASPathAccessListRule				DisplayString,
+		dIpASPathAccessListRowStatus		RowStatus
+	}
+
+	dIpASPathAccessListName OBJECT-TYPE
+		SYNTAX DisplayString (SIZE(1..16))
+		MAX-ACCESS not-accessible
+		STATUS  current
+		DESCRIPTION
+			"Specify the name of the AS-path access list."
+		::= { dIpASPathAccessListEntry 1}
+
+	dIpASPathAccessListMatchAction OBJECT-TYPE
+		SYNTAX INTEGER {
+			permit(1),
+			deny(2),
+			none(3)
+		}
+		MAX-ACCESS not-accessible
+		STATUS  current
+		DESCRIPTION
+			"Specify the action performed by this AS-path access list."
+		::= { dIpASPathAccessListEntry 2}
+
+	dIpASPathAccessListRule OBJECT-TYPE
+		SYNTAX DisplayString (SIZE(0..80))
+		MAX-ACCESS not-accessible
+		STATUS  current
+		DESCRIPTION
+			"Specify the rule of the AS-path access list wiht a regular expression."
+		::= { dIpASPathAccessListEntry 3}
+
+	dIpASPathAccessListRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the status of this entry.
+			Only createAndGo(4) and destroy(6) can be set."
+		::= { dIpASPathAccessListEntry 99}
+
+	dIpCommunityListTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DIpCommunityListEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Community list table."
+		::= {dBgpMIBObjects 2}
+
+	dIpCommunityListEntry OBJECT-TYPE
+		SYNTAX		DIpCommunityListEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"An entry in the DIpCommunityListTable containing the
+			detail information of the communtiy list rule."
+		INDEX {
+			dIpCommunityListName,
+			dIpCommunityListType,
+			dIpCommunityListMatchAction,
+			dIpCommunityListRule
+		}
+		::= { dIpCommunityListTable 1}
+
+	DIpCommunityListEntry ::= SEQUENCE {
+		dIpCommunityListName			DisplayString,
+		dIpCommunityListType			INTEGER,
+		dIpCommunityListMatchAction		INTEGER,
+		dIpCommunityListRule			DisplayString,
+		dIpCommunityListRowStatus		RowStatus
+	}
+
+	dIpCommunityListName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(1..16))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specifies the name of the community list."
+		::= { dIpCommunityListEntry 1}
+
+	dIpCommunityListType OBJECT-TYPE
+		SYNTAX		INTEGER {
+			standard(1),
+			expanded(2)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specifies the type of the community list."
+		::= { dIpCommunityListEntry 2}
+
+	dIpCommunityListMatchAction OBJECT-TYPE
+		SYNTAX		INTEGER {
+			permit(1),
+			deny(2),
+			none(3)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specifies the action performed by this community list."
+		::= { dIpCommunityListEntry 3}
+
+	dIpCommunityListRule OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..100))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specifies the rule of the community list. It supports three types:
+			1. Community number: AA:NN
+			2. Well-known communtiy, including four community: internet, local-as,
+				no-advertise and no-export
+			3. Regular expression.
+			Type 1 and 2 are supported by standard community list.
+			Type 3 is supported by expanded community list."
+		::= { dIpCommunityListEntry 4}
+
+	dIpCommunityListRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the status of this entry.
+			Only createAndGo(4) and destroy(6) can be set."
+		::= { dIpCommunityListEntry 99}
+
+	dIpExtCommunityListTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DIpExtCommunityListEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Extended communtiy list table."
+		::= {dBgpMIBObjects 3}
+
+	dIpExtCommunityListEntry OBJECT-TYPE
+		SYNTAX		DIpExtCommunityListEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Entry containing information about the extended community list."
+		INDEX {
+			dIpExtCommunityListName,
+			dIpExtCommunityListType,
+			dIpExtCommunityListMatchAction,
+			dIpExtCommunityListRule
+		}
+		::= { dIpExtCommunityListTable 1}
+
+	DIpExtCommunityListEntry ::= SEQUENCE {
+		dIpExtCommunityListName			DisplayString,
+		dIpExtCommunityListType			INTEGER,
+		dIpExtCommunityListMatchAction		INTEGER,
+		dIpExtCommunityListRule1		DisplayString,
+		dIpExtCommunityListRule2		DisplayString,
+		dIpExtCommunityListRule			DisplayString,
+		dIpExtCommunityListRowStatus		RowStatus
+	}
+
+	dIpExtCommunityListName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(1..16))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Speicifies the name of the extended community list."
+		::= { dIpExtCommunityListEntry 1}
+
+	dIpExtCommunityListType OBJECT-TYPE
+		SYNTAX		INTEGER {
+			standard(1),
+			expanded(2)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specifies the type of the extended community list."
+		::= { dIpExtCommunityListEntry 2}
+
+	dIpExtCommunityListMatchAction OBJECT-TYPE
+		SYNTAX		INTEGER {
+			permit(1),
+			deny(2),
+			none(3)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specifies the action performed by this extended community list rule."
+		::= { dIpExtCommunityListEntry 3}
+
+	dIpExtCommunityListRule1 OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..250))
+		MAX-ACCESS	not-accessible
+		STATUS		obsolete
+		DESCRIPTION
+			"Specifies the rule of extended community list entry. It supports two types:
+			1. A set of RT value or SoO value: the formate could be IP address: number and AS Number: number.
+				Max 12 values are supported. The values are seperated by space.
+			2. Regular expression.
+			Type 1 is supported by standard extended community list.
+			Type 2 is supported by expanded extended community list.
+			This is the first 255 characters."
+		::= { dIpExtCommunityListEntry 4}
+
+	dIpExtCommunityListRule2 OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..100))
+		MAX-ACCESS	not-accessible
+		STATUS		obsolete
+		DESCRIPTION
+			"Specifies the rule of extended community list entry. It supports two types:
+			1. A set of RT value or SoO value: the formate could be IP address: number and AS Number: number.
+				Max 12 values are supported. The values are seperated by space.
+			2. Regular expression.
+			Type 1 is supported by standard extended community list.
+			Type 2 is supported by expanded extended community list.
+			This is the last 100 charaters."
+		::= { dIpExtCommunityListEntry 5}
+
+	dIpExtCommunityListRule OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..100))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specifies the rule of extended community list entry. It supports two types:
+			1. A set of RT value or SoO value: the formate could be IP address: number and AS Number: number.
+				Max 12 values are supported. The values are seperated by space.
+			2. Regular expression.
+			Type 1 is supported by standard extended community list.
+			Type 2 is supported by expanded extended community list.
+
+			Due to the SNMP limitation, the rule can only support 100
+			characters. Rules exceeded 100 characters are ignored when
+			display."
+		::= { dIpExtCommunityListEntry 6}
+
+	dIpExtCommunityListRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the status of this entry.
+			Only createAndGo(4) and destroy(6) can be set."
+		::= { dIpExtCommunityListEntry 99}
+
+	dBgpGlobalTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpGlobalEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Table of BGP global parameters. Used to create and delete BGP
+			instance, and configure BGP global parameters."
+		::= { dBgpMIBObjects 4}
+
+	dBgpGlobalEntry OBJECT-TYPE
+		SYNTAX		DBgpGlobalEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Detail information of BGP global parameters."
+		INDEX {
+			dBgpLocalAS
+		}
+		::= { dBgpGlobalTable 1}
+
+	DBgpGlobalEntry ::= SEQUENCE {
+		dBgpLocalAS					Unsigned32,
+		dBgpAggrNhopChk				TruthValue,
+		dBgpAlwaysCmpMed			TruthValue,
+		dBgpASPathIgnore			TruthValue,
+		dBgpCmpConfedASPath			TruthValue,
+		dBgpCmpRouterid				TruthValue,
+		dBgpMedConfed				TruthValue,
+		dBgpMedMissWorst			TruthValue,
+		dBgpDefLocalPref			Unsigned32,
+		dBgpDeterministicMed		TruthValue,
+		dBgpEnforceFirstAS			TruthValue,
+		dBgpFastExternalFailover	TruthValue,
+--		dBgpLogNeighborChange		TruthValue,
+		dBgpRouterId				IpAddress,
+		dBgpScanTime				Integer32,
+--		dBgpUpdateDelay				Integer32,	
+		dBgpDefIpv4Unicast			TruthValue,
+		dBgpSync					TruthValue,
+		dBgpKeepalive				Integer32,
+		dBgpHoldtime				Integer32,
+--		dBgpMinHoldtime				Integer32,
+		dBgpCtocReflection			TruthValue,
+		dBgpClusterId				IpAddress,
+		dBgpConfedId				Unsigned32,
+		dBgpConfedPeers				DisplayString,
+		dBgpGRRestartState			TruthValue,
+		dBgpGRRestartTime			Integer32,
+		dBgpGRStalepathTime			Integer32,
+		dBgpDefaultInfoOrigin			TruthValue,
+		dBgpGlobalRowStatus			RowStatus
+	}
+
+	dBgpLocalAS OBJECT-TYPE
+		SYNTAX		Unsigned32 (1..4294967295)
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"The AS number of local BGP instance. The AS number can not be
+			AS-TRANS(23456)."
+		::= { dBgpGlobalEntry 1}
+
+	dBgpAggrNhopChk OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable the checking of next hop of the BGP
+			aggregated routes."
+		::= { dBgpGlobalEntry 2}
+		
+	dBgpAlwaysCmpMed OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to always compare MED attribute if the
+			routes are learned from different neighbors."
+		::= { dBgpGlobalEntry 3}
+
+	dBgpASPathIgnore OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to ignore the AS-path attribute when select the
+			best routes."
+		::= { dBgpGlobalEntry 4}
+
+	dBgpCmpConfedASPath OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to compare the confederation AS-path attribute when
+			select the best routes."
+		::= { dBgpGlobalEntry 5}
+
+	dBgpCmpRouterid OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to compare the router-id when select the best routes."
+		::= { dBgpGlobalEntry 6}
+
+	dBgpMedConfed OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to compare MED among confederation peers when select the best routes."
+		::= { dBgpGlobalEntry 7}
+
+	dBgpMedMissWorst OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to treat the routes without MED attribute as the worst
+			routes when select the best routes."
+		::= { dBgpGlobalEntry 8}
+
+	dBgpDefLocalPref OBJECT-TYPE
+		SYNTAX		Unsigned32 (0..4294967295)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"The defalut local preference value."
+		::= { dBgpGlobalEntry 9}
+
+	dBgpDeterministicMed OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to compare the MED attributes for paths from neighboring AS."
+		::= { dBgpGlobalEntry 10}
+
+	dBgpEnforceFirstAS OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Indicates whether the first AS of routes leanred from eBGP neighbor
+			must be the AS of the neighbor."
+		::= { dBgpGlobalEntry 11}
+
+	dBgpFastExternalFailover OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to reset the eBGP session immediately if interface goes down."
+		::= { dBgpGlobalEntry 12}
+
+--	dBgpLogNeighborChange OBJECT-TYPE
+--		SYNTAX		TruthValue
+--		MAX-ACCESS	read-create
+--		STATUS		current
+--		DESCRIPTION
+--			"Whether to log BGP neighbor status changes or not."
+--		::= { dBgpGlobalEntry 13}
+
+	dBgpRouterId OBJECT-TYPE
+		SYNTAX		IpAddress
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Router identifier of BGP instance."
+		::= { dBgpGlobalEntry 14}
+
+	dBgpScanTime OBJECT-TYPE
+		SYNTAX		Integer32(5..60)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Time interval (in seconds) for checking whether the next hop of BGP
+			routes is reachable or not."
+		::= { dBgpGlobalEntry 15}
+
+--	dBgpUpdateDelay OBJECT-TYPE
+--		SYNTAX		Integer32(0..3600)
+--		MAX-ACCESS	read-create
+--		STATUS		current
+--		DESCRIPTION
+--			"Time before sending the first updates to the neighbor after the session
+--			to the neighbor establish."
+--		::= { dBgpGlobalEntry 16}
+
+	dBgpDefIpv4Unicast OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"When the object is true(1), exchanging of IPv4 unicast routing information
+			is automatically enabled after creating new neighbors sessions."
+		::= { dBgpGlobalEntry 17}
+
+	dBgpSync OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"BGP synchronization."
+		::= { dBgpGlobalEntry 18}
+
+	dBgpKeepalive OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Time interval (in seconds) for sending KEEPALIVE messages."
+		::= { dBgpGlobalEntry 19}
+
+	dBgpHoldtime OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Maximum time (in seconds) for waiting KEEPALIVE messages
+			from BGP neighbors."
+		::= { dBgpGlobalEntry 20}
+
+--	dBgpMinHoldtime OBJECT-TYPE
+--		SYNTAX		Integer32(0..65535)
+--		MAX-ACCESS	read-create
+--		STATUS		current
+--		DESCRIPTION
+--			"Minimum acceptable hold time from the BGP neighbors. It should
+--			be less than or equal to the configured hold time."
+--		::= { dBgpGlobalEntry 21}
+
+	dBgpCtocReflection OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Whether to reflect routes from route reflector clients to other
+			route reflector clients."
+		::= { dBgpGlobalEntry 22}
+
+	dBgpClusterId OBJECT-TYPE
+		SYNTAX		IpAddress
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Route reflector cluster identifier."
+		::= { dBgpGlobalEntry 23}
+
+	dBgpConfedId OBJECT-TYPE
+		SYNTAX		Unsigned32 (0..4294967295)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"BGP confederation identifier. The range of the AS number is 1
+			to 4294967295, except AS-TRANS (23456). Use 0 to remove the
+			confederation identifier."
+		::= { dBgpGlobalEntry 24}
+
+	dBgpConfedPeers OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"BGP confederation peers."
+		::= { dBgpGlobalEntry 25}
+
+	dBgpGRRestartState OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to advertise the graceful restart capability."
+		::= { dBgpGlobalEntry 26}
+
+	dBgpGRRestartTime OBJECT-TYPE
+		SYNTAX		Integer32(1..3600)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Maximum time needed for neighbors to restart, in seconds."
+		::= { dBgpGlobalEntry 27}
+
+	dBgpGRStalepathTime OBJECT-TYPE
+		SYNTAX		Integer32(1..3600)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Maximum time to retain stale paths from restarting neighbors,
+			in seconds."
+		::= { dBgpGlobalEntry 28}
+
+	dBgpDefaultInfoOrigin OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Control the redistribution of static default route."
+		::= { dBgpGlobalEntry 29}
+
+	dBgpGlobalRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the status of this entry. Use createAndGo(4)
+			to create BGP instance, use destroy(6) to delete BGP instance, and
+			use active(1) to configure other parameters."
+		::= { dBgpGlobalEntry 99}
+
+--	dBgpIfFastExtFailoverTable OBJECT-TYPE
+--		SYNTAX		SEQUENCE OF DBgpIfFastExtFailoverEntry
+--		MAX-ACCESS	not-accessible
+--		STATUS		current
+--		DESCRIPTION
+--			"BGP fast external failover configuration for interfaces."
+--		::= { dBgpMIBObjects 5 }
+--
+--	dBgpIfFastExtFailoverEntry OBJECT-TYPE
+--		SYNTAX		DBgpIfFastExtFailoverEntry
+--		MAX-ACCESS	not-accessible
+--		STATUS		current
+--		DESCRIPTION
+--			"BGP fast external failover configuration for each interface."
+--		INDEX {
+--			dBgpIfIndex
+--		}
+--		::= { dBgpIfFastExtFailoverTable 1 }
+--
+--	DBgpIfFastExtFailoverEntry ::= SEQUENCE {
+--		dBgpIfIndex					InterfaceIndex,
+--		dBgpIfFastExtFailoverAccess	INTEGER
+--	}
+--
+--	dBgpIfIndex OBJECT-TYPE
+--		SYNTAX		InterfaceIndex
+--		MAX-ACCESS	not-accessible
+--		STATUS		current
+--		DESCRIPTION
+--			"The ifIndex for BGP fast external failover configuration."
+--		::= { dBgpIfFastExtFailoverEntry 1 }
+--
+--	dBgpIfFastExtFailoverAccess OBJECT-TYPE
+--		SYNTAX		INTEGER {
+--			none(1),
+--			permit(2),
+--			deny(3)
+--		}
+--		MAX-ACCESS	read-write
+--		STATUS		current
+--		DESCRIPTION
+--			"BGP fast external failover status for the interface."
+--		::= { dBgpIfFastExtFailoverEntry 2 }
+
+	dBgpAggregateTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpAggregateEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP aggregate address table."
+		::= { dBgpMIBObjects 6}
+
+	dBgpAggregateEntry OBJECT-TYPE
+		SYNTAX		DBgpAggregateEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Detail information about BGP aggregate address."
+		INDEX {
+			dBgpAggregateAfi,
+			dBgpAggregateSafi,
+			dBgpAggregateType,
+			dBgpAggregatePrefix,
+			dBgpAggregatePrefixLen,
+			dBgpAggregateVrfName
+		}
+		::= {dBgpAggregateTable 1}
+
+	DBgpAggregateEntry ::= SEQUENCE {
+		dBgpAggregateAfi			INTEGER,
+		dBgpAggregateSafi			INTEGER,
+		dBgpAggregateType			InetAddressType,
+		dBgpAggregatePrefix			InetAddress,
+		dBgpAggregatePrefixLen		InetAddressPrefixLength,
+		dBgpAggregateVrfName		DisplayString,
+		dBgpAggregateSummaryOnly	TruthValue,
+		dBgpAggregateASSet			TruthValue,
+		dBgpAggregateRowStatus		RowStatus
+	}
+
+	dBgpAggregateAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+				ipv4(1),
+				ipv6(2)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the aggregation entry."
+		::= { dBgpAggregateEntry 1 }
+
+	dBgpAggregateSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+				unicast(1),
+				multicast(2),
+				vpnv4(128)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the aggregation entry"
+		::= { dBgpAggregateEntry 2 }
+
+	dBgpAggregateType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Type of the aggregate address prefix."
+		::= { dBgpAggregateEntry 3 }
+
+	dBgpAggregatePrefix OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Aggregate address prefix."
+		::= {dBgpAggregateEntry 4}
+
+	dBgpAggregatePrefixLen OBJECT-TYPE
+		SYNTAX		InetAddressPrefixLength
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Aggregate address prefix length."
+		::= {dBgpAggregateEntry 5}
+
+	dBgpAggregateVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"VRF name which the aggregate address belongs to.
+			This can be NULL."
+		::= {dBgpAggregateEntry 6}
+
+	dBgpAggregateSummaryOnly OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"If the object is true(1), only aggregated route will be
+			advertised, and if it is false(2), both aggregated route
+			and more specific routes will be advertised."
+		::= {dBgpAggregateEntry 7}
+
+	dBgpAggregateASSet OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"If the object is true(1), the aggregated route will generate
+			the AS number of the more specific routes as its own AS-path
+			attribute, and if it is false(2), the AS-path attribute of the
+			aggregated route will be NULL."
+		::= {dBgpAggregateEntry 8}
+
+	dBgpAggregateRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Indicates the status of this entry. Only createAndGo(4)
+			and destroy(6) can be set."
+		::= {dBgpAggregateEntry 99}
+
+	dBgpNetworkTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpNetworkEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP network address table."
+		::= {dBgpMIBObjects 7}
+
+	dBgpNetworkEntry OBJECT-TYPE
+		SYNTAX		DBgpNetworkEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Detail information of BGP network address."
+		INDEX {
+			dBgpNetworkAfi,
+			dBgpNetworkSafi,
+			dBgpNetworkType,
+			dBgpNetworkPrefix,
+			dBgpNetworkPrefixLen,
+			dBgpNetworkVrfName
+		}
+		::= {dBgpNetworkTable 1}
+
+	DBgpNetworkEntry ::= SEQUENCE {
+		dBgpNetworkAfi			INTEGER,
+		dBgpNetworkSafi			INTEGER,
+		dBgpNetworkType			InetAddressType,
+		dBgpNetworkPrefix		InetAddress,
+		dBgpNetworkPrefixLen	InetAddressPrefixLength,
+		dBgpNetworkVrfName		DisplayString,
+		dBgpNetworkRmap			DisplayString,
+--		dBgpNetworkBackdoor		TruthValue,
+		dBgpNetworkRowStatus	RowStatus
+	}
+
+	dBgpNetworkAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+				ipv4(1),
+				ipv6(2)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the network."
+		::= { dBgpNetworkEntry 1 }
+
+	dBgpNetworkSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+				unicast(1),
+				multicast(2),
+				vpnv4(128)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the network"
+		::= { dBgpNetworkEntry 2 }
+
+	dBgpNetworkType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Type of the network prefix."
+		::= { dBgpNetworkEntry 3 }
+
+	dBgpNetworkPrefix OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP network address prefix."
+		::= { dBgpNetworkEntry 4}
+
+	dBgpNetworkPrefixLen OBJECT-TYPE
+		SYNTAX		InetAddressPrefixLength
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP network address prefix length."
+		::= { dBgpNetworkEntry 5}
+
+	dBgpNetworkVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"VRF name which the network address belongs to."
+		::= { dBgpNetworkEntry 6}
+
+	dBgpNetworkRmap OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Route-map that the network will be applied."
+		::= { dBgpNetworkEntry 7}
+
+--	dBgpNetworkBackdoor OBJECT-TYPE
+--		SYNTAX		TruthValue
+--		MAX-ACCESS	read-create
+--		STATUS		current
+--		DESCRIPTION
+--			"Whether the network is a backdoor network or not."
+--		::= { dBgpNetworkEntry 8}
+
+	dBgpNetworkRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Indicates the status of this entry. Only createAndGo(4)
+			and destroy(6) can be set."
+		::= { dBgpNetworkEntry 99}
+
+	dBgpDampTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpDampEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP dampening configuration table."
+		::= { dBgpMIBObjects 8}
+
+	dBgpDampEntry OBJECT-TYPE
+		SYNTAX		DBgpDampEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Contains the dampening parameters for an address family."
+		INDEX {
+			dBgpDampAfi,
+			dBgpDampSafi,
+			dBgpDampVrfName
+		}
+		::= {dBgpDampTable 1}
+
+	DBgpDampEntry ::= SEQUENCE {
+		dBgpDampAfi			INTEGER,
+		dBgpDampSafi		INTEGER,
+		dBgpDampVrfName		DisplayString,
+		dBgpDampHalfLife	Integer32,
+		dBgpDampReuse		Integer32,
+		dBgpDampSuppress	Integer32,
+		dBgpDampMaxSuppress	Integer32,
+		dBgpDampUnHalfLife	Integer32,
+		dBgpDampRmap		DisplayString,
+		dBgpDampRowStatus	RowStatus
+	}
+
+	dBgpDampAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			ipv4(1),
+			ipv6(2)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the dampening configuration."
+		::= {dBgpDampEntry 1}
+
+	dBgpDampSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			unicast(1),
+			multicast(2)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the dampening confederation."
+		::= {dBgpDampEntry 2}
+
+	dBgpDampVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Dampening parameter for VRF instance."
+		::= {dBgpDampEntry 3}
+
+	dBgpDampHalfLife OBJECT-TYPE
+		SYNTAX		Integer32 (1..45)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Time (in minutes) after which the accumulated penalty of the route
+			is decreased by half."
+		::= {dBgpDampEntry 4}
+
+	dBgpDampReuse OBJECT-TYPE
+		SYNTAX		Integer32 (1..20000)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"As the penalty is decreased and falls below the reuse value, the
+			route will be re-entered the routing table as a normal route."
+		::= {dBgpDampEntry 5}
+
+	dBgpDampSuppress OBJECT-TYPE
+		SYNTAX		Integer32 (1..20000)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"As the penalty is increased and cross the suppress value, the route
+			will become a dampening route and will not be advertised."
+		::= {dBgpDampEntry 6}
+
+	dBgpDampMaxSuppress OBJECT-TYPE
+		SYNTAX		Integer32 (1..255)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Maximum time (in minutes) that a route can be in dampened state."
+		::= {dBgpDampEntry 7}
+
+	dBgpDampUnHalfLife OBJECT-TYPE
+		SYNTAX		Integer32 (1..45)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Time (in minutes) after which the accumulated penalty of the unreachable
+			route is decreased by half."
+		::= {dBgpDampEntry 8}
+
+	dBgpDampRmap OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Use the route-map to set the dampening parameters."
+		::= {dBgpDampEntry 9}
+
+	dBgpDampRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Indicates the status of this entry. Only createAndGo(4)
+			and destroy(6) can be set."
+		::= { dBgpDampEntry 99}
+
+	dBgpPeerTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpPeerEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP peer table. This table contains parameters which are independent of
+			address family of the peer."
+		::= { dBgpMIBObjects 9 }
+
+	dBgpPeerEntry OBJECT-TYPE
+		SYNTAX		DBgpPeerEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Detail address-family-independent information for the peer."
+		INDEX {
+			dBgpPeerType,
+			dBgpPeerAddr,
+			dBgpPeerVrfName
+		}
+		::= { dBgpPeerTable 1 }
+
+	DBgpPeerEntry ::= SEQUENCE {
+		dBgpPeerType					InetAddressType,
+		dBgpPeerAddr					InetAddress,
+		dBgpPeerVrfName					DisplayString,
+		dBgpPeerRemoteAS				Unsigned32,
+		dBgpPeerNameOfGroup				DisplayString,
+		dBgpPeerAdvertisementInterval	Integer32,
+		dBgpPeerASOriginationInterval	Integer32,
+		dBgpPeerDescription				DisplayString,
+		dBgpPeerEbgpMultihop			Integer32,
+		dBgpPeerPassword				DisplayString,
+		dBgpPeerShutdown				TruthValue,
+		dBgpPeerTcpReconnect			Integer32,
+		dBgpPeerKeepalive				Integer32,
+		dBgpPeerHoldTime				Integer32,
+--		dBgpPeerMinHoldTime				Integer32,
+		dBgpPeerUpdateSource			DisplayString,
+		dBgpPeerWeight					Integer32,
+		dBgpPeerBfdState				INTEGER,
+		dBgpPeerRowStatus				RowStatus
+	}
+
+	dBgpPeerType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"The type of BGP peer address."
+		::= { dBgpPeerEntry 1}
+
+	dBgpPeerAddr OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Peer address."
+		::= { dBgpPeerEntry 2}
+
+	dBgpPeerVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"VRF instance to which the BGP peer belongs. This can be
+			NULL if the peer doesn't belong to any VRF."
+		::= { dBgpPeerEntry 3}
+
+	dBgpPeerRemoteAS OBJECT-TYPE
+		SYNTAX		Unsigned32 (1..4294967295)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Remote AS number of the peer. The AS number can't be AS-TRANS (23456)."
+		::= { dBgpPeerEntry 4}
+
+	dBgpPeerNameOfGroup OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Peer group name if the peer belongs to any."
+		::= { dBgpPeerEntry 5}
+
+	dBgpPeerAdvertisementInterval OBJECT-TYPE
+		SYNTAX		Integer32(0..600)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Minimum interval between two BGP UPDATE messages."
+		::= { dBgpPeerEntry 6}
+
+	dBgpPeerASOriginationInterval OBJECT-TYPE
+		SYNTAX		Integer32(1..600)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Minimum interval between sending AS origination routing updates."
+		::= { dBgpPeerEntry 7}
+
+	dBgpPeerDescription OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..80))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Description for the peer."
+		::= { dBgpPeerEntry 8}
+
+	dBgpPeerEbgpMultihop OBJECT-TYPE
+		SYNTAX		Integer32(1..255)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Allow the router to establish a BGP session with an eBGP peer that
+			is not directly connected."
+		::= { dBgpPeerEntry 9 }
+
+	dBgpPeerPassword OBJECT-TYPE
+		SYNTAX		DisplayString(SIZE(0..25))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"MD5 authentication for the TCP connection of the peer. Only peer
+			with IPv4 address support this parameter."
+		::= { dBgpPeerEntry 10 }
+
+	dBgpPeerShutdown OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Administratively enable or disable the TCP session of the peer."
+		::= { dBgpPeerEntry 11 }
+
+	dBgpPeerTcpReconnect OBJECT-TYPE
+		SYNTAX		Integer32(1..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Minimum interval BGP sends TCP connect requests to the peer after
+			a TCP connections fail happens."
+		::= { dBgpPeerEntry 12 }
+
+	dBgpPeerKeepalive OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Time interval (in seconds) for sending KEEPALIVE messages to the
+			peer."
+		::= { dBgpPeerEntry 13 }
+
+	dBgpPeerHoldTime OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Maximum time (in seconds) for waiting KEEPALIVE messages
+			from the BGP neighbor."
+		::= { dBgpPeerEntry 14 }
+
+--	dBgpPeerMinHoldTime OBJECT-TYPE
+--		SYNTAX		Integer32(0..65535)
+--		MAX-ACCESS	read-create
+--		STATUS		current
+--		DESCRIPTION
+--			"Minimum acceptable hold time from the BGP neighbors. It should
+--			be less than or equal to the configured hold time."
+--		::= { dBgpPeerEntry 15 }
+
+	dBgpPeerUpdateSource OBJECT-TYPE
+		SYNTAX		DisplayString(SIZE(0..12))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Use any operational interface's IP address as the source address
+			to establish TCP session with the peer."
+		::= { dBgpPeerEntry 16 }
+
+	dBgpPeerWeight OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Specify the weight assigned to the routes received from the peer."
+		::= { dBgpPeerEntry 17 }
+
+	dBgpPeerBfdState OBJECT-TYPE
+		SYNTAX		INTEGER
+		{
+			disabled(1),
+			enabled(2)
+		}
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Indicate the opertional state of BFD on this peer session."
+		::= { dBgpPeerEntry 18 }
+
+	dBgpPeerRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the status of this entry. Use createAndGo(4)
+			and destroy(6) to create or delete a BGP peer, and use active(1) to
+			configure other parameters."
+		::= { dBgpPeerEntry 99}
+
+	dBgpPeerAFTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpPeerAFEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP peer table. This table contains parameters of address family about
+			the peer."
+		::= { dBgpMIBObjects 10 }
+
+	dBgpPeerAFEntry OBJECT-TYPE
+		SYNTAX		DBgpPeerAFEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Detail information of an address family of the peer."
+		INDEX {
+			dBgpPeerAFType,
+			dBgpPeerAFAddr,
+			dBgpPeerAFVrfName,
+			dBgpPeerAFAfi,
+			dBgpPeerAFSafi
+		}
+		::= { dBgpPeerAFTable 1 }
+
+	DBgpPeerAFEntry ::= SEQUENCE {
+		dBgpPeerAFType					InetAddressType,
+		dBgpPeerAFAddr					InetAddress,
+		dBgpPeerAFVrfName				DisplayString,
+		dBgpPeerAFAfi					INTEGER,
+		dBgpPeerAFSafi					INTEGER,
+		dBgpPeerAFActive				TruthValue,
+		dBgpPeerAFAllowASIn				Integer32,
+		dBgpPeerAFASOverride			TruthValue,
+		dBgpPeerAFCapGR					TruthValue,
+		dBgpPeerAFCapORF				INTEGER,
+		dBgpPeerAFDefOriginate			TruthValue,
+		dBgpPeerAFDefOriginateRmap		DisplayString,
+--		dBgpPeerAFDistributeIn			DisplayString,
+--		dBgpPeerAFDistributeOut			DisplayString,
+		dBgpPeerAFFilterIn				DisplayString,
+		dBgpPeerAFFilterOut				DisplayString,
+		dBgpPeerAFPrefixIn				DisplayString,
+		dBgpPeerAFPrefixOut				DisplayString,
+		dBgpPeerAFRmapIn				DisplayString,
+		dBgpPeerAFRmapOut				DisplayString,
+		dBgpPeerAFMaxPrefix				Integer32,
+		dBgpPeerAFMaxPrefixThreshold	Integer32,
+		dBgpPeerAFMaxPrefixWarningOnly	TruthValue,
+		dBgpPeerAFNextHopSelf			TruthValue,
+		dBgpPeerAFRemovePrivateAS		TruthValue,
+		dBgpPeerAFRouteReflectorClient	TruthValue,
+		dBgpPeerAFSendCommunity			INTEGER,
+		dBgpPeerAFSoftRecfgInbound		TruthValue,
+		dBgpPeerAFSOO					DisplayString,
+		dBgpPeerAFUnsuppressMap			DisplayString
+	}
+
+	dBgpPeerAFType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"The type of BGP peer address."
+		::= { dBgpPeerAFEntry 1}
+
+	dBgpPeerAFAddr OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Peer address."
+		::= { dBgpPeerAFEntry 2}
+
+	dBgpPeerAFVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"VRF instance to which the BGP peer belongs. This can be
+			NULL if the peer doesn't belong to any VRF."
+		::= { dBgpPeerAFEntry 3}
+
+	dBgpPeerAFAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			ipv4(1),
+			ipv6(2),
+			l2vpn(25)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the peer configuration."
+		::= { dBgpPeerAFEntry 4}
+
+	dBgpPeerAFSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			unicast(1),
+			multicast(2),
+			vpls(65),
+			vpnv4(128)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the peer confederation."
+		::= { dBgpPeerAFEntry 5}
+
+	dBgpPeerAFActive OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Indicates whether the address family is active or not."
+		::= { dBgpPeerAFEntry 6}
+
+	dBgpPeerAFAllowASIn OBJECT-TYPE
+		SYNTAX		Integer32(0..10)
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Allow its own AS appearing in the received routes."
+		::= { dBgpPeerAFEntry 7}
+
+	dBgpPeerAFASOverride OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to override the AS number of a site with the
+			provider's AS number on a PE router."
+		::= { dBgpPeerAFEntry 8}
+
+	dBgpPeerAFCapGR OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to advertise the graceful restart capability to
+			the peer for the specified address family."
+		::= { dBgpPeerAFEntry 9}
+
+	dBgpPeerAFCapORF OBJECT-TYPE
+		SYNTAX		INTEGER {
+			receive(1),
+			send(2),
+			both(3),
+			none(4)
+		}
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to advertise the ORF capability to the peer for
+			the specified address family."
+		::= { dBgpPeerAFEntry 10 }
+
+	dBgpPeerAFDefOriginate OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Whether generate the default route to the peer."
+		::= { dBgpPeerAFEntry 11 }
+
+	dBgpPeerAFDefOriginateRmap OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Route-map to achieve conditional injection of default route."
+		::= { dBgpPeerAFEntry 12 }
+
+--	dBgpPeerAFDistributeIn OBJECT-TYPE
+--		SYNTAX		DisplayString (SIZE(0..16))
+--		MAX-ACCESS	read-write
+--		STATUS		current
+--		DESCRIPTION
+--			"Distribute list to filter BGP routes on in direction of the peer."
+--		::= { dBgpPeerAFEntry 13 }
+
+--	dBgpPeerAFDistributeOut OBJECT-TYPE
+--		SYNTAX		DisplayString (SIZE(0..16))
+--		MAX-ACCESS	read-write
+--		STATUS		current
+--		DESCRIPTION
+--			"Distribute list to filter BGP routes on out direction of the peer."
+--		::= { dBgpPeerAFEntry 14 }
+
+	dBgpPeerAFFilterIn OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"AS path access list to filter BGP routes on in direction of the peer."
+		::= { dBgpPeerAFEntry 15 }
+
+	dBgpPeerAFFilterOut OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"AS path access list to filter BGP routes on out direction of the peer."
+		::= { dBgpPeerAFEntry 16 }
+
+	dBgpPeerAFPrefixIn OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Prefix list to filter BGP routes on in direction of the peer."
+		::= { dBgpPeerAFEntry 17 }
+
+	dBgpPeerAFPrefixOut OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Prefix list to filter BGP routes on out direction of the peer."
+		::= { dBgpPeerAFEntry 18 }
+
+	dBgpPeerAFRmapIn OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Route-map to filter BGP routes on in direction of the peer."
+		::= { dBgpPeerAFEntry 19 }
+
+	dBgpPeerAFRmapOut OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Route-map to filter BGP routes on out direction of the peer."
+		::= { dBgpPeerAFEntry 20 }
+
+	dBgpPeerAFMaxPrefix OBJECT-TYPE
+		SYNTAX		Integer32
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Maximum number of prefixes acceptable from the specified peer."
+		::= { dBgpPeerAFEntry 21 }
+
+	dBgpPeerAFMaxPrefixThreshold OBJECT-TYPE
+		SYNTAX		Integer32(1..100)
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Percentage of the maximum prefix limit to generate a warning
+			message."
+		::= { dBgpPeerAFEntry 22 }
+
+	dBgpPeerAFMaxPrefixWarningOnly OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"If the object is true(1), only generate a system log when the
+			threshold is exceeded. If the object is false(2), the TCP connection
+			will be terminated when the threshold is exceeded."
+		::= { dBgpPeerAFEntry 23 }
+
+	dBgpPeerAFNextHopSelf OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable the local router as the next hop for the peer."
+		::= { dBgpPeerAFEntry 24 }
+
+	dBgpPeerAFRemovePrivateAS OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to remove private AS number from outbound updates."
+		::= { dBgpPeerAFEntry 25 }
+
+	dBgpPeerAFRouteReflectorClient OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable the peer as a Route reflector client."
+		::= { dBgpPeerAFEntry 26 }
+
+	dBgpPeerAFSendCommunity OBJECT-TYPE
+		SYNTAX		INTEGER {
+			standard(1),
+			extended(2),
+			both(3),
+			none(4)
+		}
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Specify to send the specified type of community attributes to the peer."
+		::= { dBgpPeerAFEntry 27 }
+
+	dBgpPeerAFSoftRecfgInbound OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable storing the route information from the peer."
+		::= { dBgpPeerAFEntry 28 }
+
+	dBgpPeerAFSOO OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Site of Origin (SoO) value of the peer."
+		::= { dBgpPeerAFEntry 29 }
+
+	dBgpPeerAFUnsuppressMap OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Unsuppress map is used to selectively advertise routes that are previously
+			suppressed by the aggregated routes."
+		::= { dBgpPeerAFEntry 30 }
+
+	dBgpPeerGroupTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpPeerGroupEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP peer group table. This table contains parameters which are independent of
+			address family of the peer group."
+		::= { dBgpMIBObjects 11 }
+
+	dBgpPeerGroupEntry OBJECT-TYPE
+		SYNTAX		DBgpPeerGroupEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Detail address-family-independent information for the peer group."
+		INDEX {
+			dBgpPeerGroupName,
+			dBgpPeerGroupVrfName
+		}
+		::= { dBgpPeerGroupTable 1 }
+
+	DBgpPeerGroupEntry ::= SEQUENCE {
+		dBgpPeerGroupName					DisplayString,
+		dBgpPeerGroupVrfName				DisplayString,
+		dBgpPeerGroupRemoteAS				Unsigned32,
+		dBgpPeerGroupAdvertisementInterval	Integer32,
+		dBgpPeerGroupASOriginationInterval	Integer32,
+		dBgpPeerGroupDescription			DisplayString,
+		dBgpPeerGroupEbgpMultihop			Integer32,
+		dBgpPeerGroupPassword				DisplayString,
+		dBgpPeerGroupShutdown				TruthValue,
+		dBgpPeerGroupTcpReconnect			Integer32,
+		dBgpPeerGroupKeepalive				Integer32,
+		dBgpPeerGroupHoldTime				Integer32,
+--		dBgpPeerGroupMinHoldTime			Integer32,
+		dBgpPeerGroupUpdateSource			DisplayString,
+		dBgpPeerGroupWeight					Integer32,
+		dBgpPeerGroupBfdState				INTEGER,
+		dBgpPeerGroupRowStatus				RowStatus
+	}
+
+	dBgpPeerGroupName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(1..16))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"The name of BGP peer group."
+		::= { dBgpPeerGroupEntry 1}
+
+	dBgpPeerGroupVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"VRF instance to which the BGP peer group belongs. This can be
+			NULL if the peer group doesn't belong to any VRF."
+		::= { dBgpPeerGroupEntry 2}
+
+	dBgpPeerGroupRemoteAS OBJECT-TYPE
+		SYNTAX		Unsigned32 (0..4294967295)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Remote AS number of the peer group. The AS number can't be AS-TRANS (23456)."
+		::= { dBgpPeerGroupEntry 3}
+
+	dBgpPeerGroupAdvertisementInterval OBJECT-TYPE
+		SYNTAX		Integer32(0..600)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Minimum interval between two BGP UPDATE messages."
+		::= { dBgpPeerGroupEntry 4}
+
+	dBgpPeerGroupASOriginationInterval OBJECT-TYPE
+		SYNTAX		Integer32(1..600)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Minimum interval between sending AS origination routing updates."
+		::= { dBgpPeerGroupEntry 5}
+
+	dBgpPeerGroupDescription OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..80))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Description for the peer group."
+		::= { dBgpPeerGroupEntry 6}
+
+	dBgpPeerGroupEbgpMultihop OBJECT-TYPE
+		SYNTAX		Integer32(1..255)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Allow the router to establish BGP sessions with eBGP peer group members
+			that is not directly connected."
+		::= { dBgpPeerGroupEntry 7 }
+
+	dBgpPeerGroupPassword OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..25))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"MD5 authentication for the TCP connection of the peer group members. Only
+			peer with IPv4 address support this parameter."
+		::= { dBgpPeerGroupEntry 8 }
+
+	dBgpPeerGroupShutdown OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Administratively enable or disable the TCP session of the peer group members."
+		::= { dBgpPeerGroupEntry 9 }
+
+	dBgpPeerGroupTcpReconnect OBJECT-TYPE
+		SYNTAX		Integer32(1..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Minimum interval BGP sends TCP connect requests to the peer after
+			a TCP connections fail happens."
+		::= { dBgpPeerGroupEntry 10 }
+
+	dBgpPeerGroupKeepalive OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Time interval (in seconds) for sending KEEPALIVE messages to the
+			peer."
+		::= { dBgpPeerGroupEntry 11 }
+
+	dBgpPeerGroupHoldTime OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Maximum time (in seconds) for waiting KEEPALIVE messages
+			from the BGP neighbor."
+		::= { dBgpPeerGroupEntry 12 }
+
+--	dBgpPeerGroupMinHoldTime OBJECT-TYPE
+--		SYNTAX		Integer32(0..65535)
+--		MAX-ACCESS	read-create
+--		STATUS		current
+--		DESCRIPTION
+--			"Minimum acceptable hold time from the BGP neighbors. It should
+--			be less than or equal to the configured hold time."
+--		::= { dBgpPeerGroupEntry 13 }
+
+	dBgpPeerGroupUpdateSource OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Use any operational interface's IP address as the source address
+			to establish TCP session with the members of the peer group."
+		::= { dBgpPeerGroupEntry 14 }
+
+	dBgpPeerGroupWeight OBJECT-TYPE
+		SYNTAX		Integer32(0..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Specify the weight assigned to the routes received from the members
+			of the peer group."
+		::= { dBgpPeerGroupEntry 15 }
+
+	dBgpPeerGroupBfdState OBJECT-TYPE
+		SYNTAX		INTEGER
+		{
+			disabled(1),
+			enabled(2)
+		}
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Indicate the opertional state of BFD on this peer group sessions."
+		::= { dBgpPeerGroupEntry 16 }
+
+	dBgpPeerGroupRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the status of this entry. Use createAndGo(4)
+			and destroy(6) to create or delete a BGP peer group, and use active(1) to
+			configure other parameters."
+		::= { dBgpPeerGroupEntry 99}
+
+	dBgpPeerGroupAFTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpPeerGroupAFEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP peer group table. This table contains parameters of address family about
+			the peer group."
+		::= { dBgpMIBObjects 12 }
+
+	dBgpPeerGroupAFEntry OBJECT-TYPE
+		SYNTAX		DBgpPeerGroupAFEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Detail information of an address family of the peer group."
+		INDEX {
+			dBgpPeerGroupAFName,
+			dBgpPeerGroupAFVrfName,
+			dBgpPeerGroupAFAfi,
+			dBgpPeerGroupAFSafi
+		}
+		::= { dBgpPeerGroupAFTable 1 }
+
+	DBgpPeerGroupAFEntry ::= SEQUENCE {
+		dBgpPeerGroupAFName					DisplayString,
+		dBgpPeerGroupAFVrfName				DisplayString,
+		dBgpPeerGroupAFAfi					INTEGER,
+		dBgpPeerGroupAFSafi					INTEGER,
+		dBgpPeerGroupAFActive				TruthValue,
+		dBgpPeerGroupAFMembers				DisplayString,
+		dBgpPeerGroupAFAllowASIn			Integer32,
+		dBgpPeerGroupAFASOverride			TruthValue,
+		dBgpPeerGroupAFCapGR				TruthValue,
+		dBgpPeerGroupAFCapORF				INTEGER,
+		dBgpPeerGroupAFDefOriginate			TruthValue,
+		dBgpPeerGroupAFDefOriginateRmap		DisplayString,
+--		dBgpPeerGroupAFDistributeIn			DisplayString,
+--		dBgpPeerGroupAFDistributeOut		DisplayString,
+		dBgpPeerGroupAFFilterIn				DisplayString,
+		dBgpPeerGroupAFFilterOut			DisplayString,
+		dBgpPeerGroupAFPrefixIn				DisplayString,
+		dBgpPeerGroupAFPrefixOut			DisplayString,
+		dBgpPeerGroupAFRmapIn				DisplayString,
+		dBgpPeerGroupAFRmapOut				DisplayString,
+		dBgpPeerGroupAFMaxPrefix			Integer32,
+		dBgpPeerGroupAFMaxPrefixThreshold	Integer32,
+		dBgpPeerGroupAFMaxPrefixWarningOnly	TruthValue,
+		dBgpPeerGroupAFNextHopSelf			TruthValue,
+		dBgpPeerGroupAFRemovePrivateAS		TruthValue,
+		dBgpPeerGroupAFRouteReflectorClient	TruthValue,
+		dBgpPeerGroupAFSendCommunity		INTEGER,
+		dBgpPeerGroupAFSoftRecfgInbound		TruthValue,
+		dBgpPeerGroupAFSOO					DisplayString,
+		dBgpPeerGroupAFUnsuppressMap		DisplayString
+	}
+
+	dBgpPeerGroupAFName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(1..16))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"The name of BGP peer group."
+		::= { dBgpPeerGroupAFEntry 1}
+
+	dBgpPeerGroupAFVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"VRF instance to which the BGP peer group belongs. This can be
+			NULL if the peer group doesn't belong to any VRF."
+		::= { dBgpPeerGroupAFEntry 2}
+
+	dBgpPeerGroupAFAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			ipv4(1),
+			ipv6(2),
+			l2vpn(25)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the peer group configuration."
+		::= { dBgpPeerGroupAFEntry 3}
+
+	dBgpPeerGroupAFSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			unicast(1),
+			multicast(2),
+			vpls(65),
+			vpnv4(128)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the peer group confederation."
+		::= { dBgpPeerGroupAFEntry 4}
+
+	dBgpPeerGroupAFActive OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Indicates whether the address family is active or not."
+		::= { dBgpPeerGroupAFEntry 5}
+
+	dBgpPeerGroupAFMembers OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"members of the peer group."
+		::= { dBgpPeerGroupAFEntry 6}
+
+	dBgpPeerGroupAFAllowASIn OBJECT-TYPE
+		SYNTAX		Integer32(0..10)
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Allow its own AS appearing in the received routes."
+		::= { dBgpPeerGroupAFEntry 7}
+
+	dBgpPeerGroupAFASOverride OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to override the AS number of a site with the
+			provider's AS number on a PE router."
+		::= { dBgpPeerGroupAFEntry 8}
+
+	dBgpPeerGroupAFCapGR OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to advertise the graceful restart capability to
+			the peer group for the specified address family."
+		::= { dBgpPeerGroupAFEntry 9}
+
+	dBgpPeerGroupAFCapORF OBJECT-TYPE
+		SYNTAX		INTEGER {
+			receive(1),
+			send(2),
+			both(3),
+			none(4)
+		}
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to advertise the ORF capability to the peer group for
+			the specified address family."
+		::= { dBgpPeerGroupAFEntry 10 }
+
+	dBgpPeerGroupAFDefOriginate OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Whether generate the default route to the members of the peer group."
+		::= { dBgpPeerGroupAFEntry 11 }
+
+	dBgpPeerGroupAFDefOriginateRmap OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Route-map to achieve conditional injection of default route."
+		::= { dBgpPeerGroupAFEntry 12 }
+
+--	dBgpPeerGroupAFDistributeIn OBJECT-TYPE
+--		SYNTAX		DisplayString (SIZE(0..16))
+--		MAX-ACCESS	read-write
+--		STATUS		current
+--		DESCRIPTION
+--			"Distribute list to filter BGP routes on in direction of the peer group."
+--		::= { dBgpPeerGroupAFEntry 13 }
+
+--	dBgpPeerGroupAFDistributeOut OBJECT-TYPE
+--		SYNTAX		DisplayString (SIZE(0..16))
+--		MAX-ACCESS	read-write
+--		STATUS		current
+--		DESCRIPTION
+--			"Distribute list to filter BGP routes on out direction of the peer group."
+--		::= { dBgpPeerGroupAFEntry 14 }
+
+	dBgpPeerGroupAFFilterIn OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"AS path access list to filter BGP routes on in direction of the peer group."
+		::= { dBgpPeerGroupAFEntry 15 }
+
+	dBgpPeerGroupAFFilterOut OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"AS path access list to filter BGP routes on out direction of the peer group."
+		::= { dBgpPeerGroupAFEntry 16 }
+
+	dBgpPeerGroupAFPrefixIn OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Prefix list to filter BGP routes on in direction of the peer group."
+		::= { dBgpPeerGroupAFEntry 17 }
+
+	dBgpPeerGroupAFPrefixOut OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Prefix list to filter BGP routes on out direction of the peer group."
+		::= { dBgpPeerGroupAFEntry 18 }
+
+	dBgpPeerGroupAFRmapIn OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Route-map to filter BGP routes on in direction of the peer group."
+		::= { dBgpPeerGroupAFEntry 19 }
+
+	dBgpPeerGroupAFRmapOut OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Route-map to filter BGP routes on out direction of the peer group."
+		::= { dBgpPeerGroupAFEntry 20 }
+
+	dBgpPeerGroupAFMaxPrefix OBJECT-TYPE
+		SYNTAX		Integer32
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Maximum number of prefixes acceptable from the specified peer group."
+		::= { dBgpPeerGroupAFEntry 21 }
+
+	dBgpPeerGroupAFMaxPrefixThreshold OBJECT-TYPE
+		SYNTAX		Integer32(1..100)
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Percentage of the maximum prefix limit to generate a warning
+			message."
+		::= { dBgpPeerGroupAFEntry 22 }
+
+	dBgpPeerGroupAFMaxPrefixWarningOnly OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"If the object is true(1), only generate a system log when the
+			threshold is exceeded. If the object is false(2), the TCP connection
+			will be terminated when the threshold is exceeded."
+		::= { dBgpPeerGroupAFEntry 23 }
+
+	dBgpPeerGroupAFNextHopSelf OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable the local router as the next hop for the peer group."
+		::= { dBgpPeerGroupAFEntry 24 }
+
+	dBgpPeerGroupAFRemovePrivateAS OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable to remove private AS number from outbound updates."
+		::= { dBgpPeerGroupAFEntry 25 }
+
+	dBgpPeerGroupAFRouteReflectorClient OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable the peer group as a Route reflector client."
+		::= { dBgpPeerGroupAFEntry 26 }
+
+	dBgpPeerGroupAFSendCommunity OBJECT-TYPE
+		SYNTAX		INTEGER {
+			standard(1),
+			extended(2),
+			both(3),
+			none(4)
+		}
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Specify to send the specified type of community attributes to the peer group."
+		::= { dBgpPeerGroupAFEntry 27 }
+
+	dBgpPeerGroupAFSoftRecfgInbound OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Enable or disable storing the route information from the peer group."
+		::= { dBgpPeerGroupAFEntry 28 }
+
+	dBgpPeerGroupAFSOO OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Site of Origin (SoO) value of the peer group."
+		::= { dBgpPeerGroupAFEntry 29 }
+
+	dBgpPeerGroupAFUnsuppressMap OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Unsuppress map is used to selectively advertise routes that are previously
+			suppressed by the aggregated routes."
+		::= { dBgpPeerGroupAFEntry 30 }
+
+	dBgpRouteTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpRouteEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP route table. This table contains routing information for a specified
+			address family."
+		::= { dBgpMIBObjects 13 }
+
+	dBgpRouteEntry OBJECT-TYPE
+		SYNTAX		DBgpRouteEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP route information with path attributes."
+		INDEX {
+			dBgpRouteAfi,
+			dBgpRouteSafi,
+			dBgpRouteType,
+			dBgpRoutePrefix,
+			dBgpRoutePrefixLen,
+			dBgpRoutePeerType,
+			dBgpRoutePeerAddr,
+			dBgpRouteSubType
+		}
+		::= { dBgpRouteTable 1 }
+
+	DBgpRouteEntry ::= SEQUENCE {
+		dBgpRouteAfi			INTEGER,
+		dBgpRouteSafi			INTEGER,
+		dBgpRouteType			InetAddressType,
+		dBgpRoutePrefix			InetAddress,
+		dBgpRoutePrefixLen		InetAddressPrefixLength,
+		dBgpRoutePeerType		InetAddressType,
+		dBgpRoutePeerAddr		InetAddress,
+		dBgpRouteSubType		INTEGER,
+		dBgpRouteStatus1		INTEGER,
+		dBgpRouteStatus2		INTEGER,
+		dBgpRouteInternal		TruthValue,
+		dBgpRouteNhopType		InetAddressType,
+		dBgpRouteNhop			InetAddress,
+		dBgpRouteLocalPref		Unsigned32,
+		dBgpRouteWeight			Unsigned32,
+		dBgpRouteASPath			DisplayString,
+		dBgpRouteOrigin			INTEGER,
+		dBgpRouteAtomicAggregate	INTEGER,
+		dBgpRouteAggregatorAS		Unsigned32,
+		dBgpRouteAggregatorType		InetAddressType,
+		dBgpRouteAggregatorAddr		InetAddress,
+		dBgpRouteFlapCounter		Unsigned32,
+		dBgpRouteDurationTime		TimeTicks,
+		dBgpRouteReuseTime		TimeTicks,
+		dBgpRouteMetric			Unsigned32,
+		dBgpRouteCommunity		DisplayString
+	}
+
+	dBgpRouteAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+				ipv4(1),
+				ipv6(2)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the routes."
+		::= { dBgpRouteEntry 1 }
+
+	dBgpRouteSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+				unicast(1),
+				multicast(2)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the route."
+		::= { dBgpRouteEntry 2 }
+
+	dBgpRouteType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Type of the route."
+		::= { dBgpRouteEntry 3 }
+
+	dBgpRoutePrefix OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Prefix of the route."
+		::= { dBgpRouteEntry 4 }
+
+	dBgpRoutePrefixLen OBJECT-TYPE
+		SYNTAX		InetAddressPrefixLength
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Prefix length of the route."
+		::= { dBgpRouteEntry 5 }
+
+	dBgpRoutePeerType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Tye of the peer from which the route learned."
+		::= { dBgpRouteEntry 6 }
+
+	dBgpRoutePeerAddr OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address of the peer from which the route learned."
+		::= { dBgpRouteEntry 7 }
+
+	dBgpRouteSubType OBJECT-TYPE
+		SYNTAX		INTEGER {
+				normal(1),
+				networked(2),
+				aggregated(3),
+				redistributed(4)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Sub type of the route.
+			
+			normal(1) indicated the route is learned from other peer;
+			networked(2) indicated the route is local and imported by network;
+			aggregated(3) indicated the route is local and imported by aggregation;
+			redistributed(4) indicated the route is local and imported by redistribution"
+		::= { dBgpRouteEntry 8 }
+
+	dBgpRouteStatus1 OBJECT-TYPE
+		SYNTAX		INTEGER {
+				stale(1),
+				suppressed(2),
+				valid(3),
+				none(4)
+			}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Route status code, containing graceful restart status,
+			suppressed status or valid status."
+		::= { dBgpRouteEntry 9 }
+
+	dBgpRouteStatus2 OBJECT-TYPE
+		SYNTAX		INTEGER {
+				history(1),
+				damped(2),
+				best(3),
+				none(4)
+			}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Route status code, containing selected status or dampening
+			status."
+			::= { dBgpRouteEntry 10 }
+
+	dBgpRouteInternal OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Whether the route is internal or not."
+		::= { dBgpRouteEntry 11 }
+
+	dBgpRouteNhopType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The type of the next hop of the route."
+		::= { dBgpRouteEntry 12 }
+
+	dBgpRouteNhop OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Next hop address of the route."
+		::= { dBgpRouteEntry 13 }
+
+	dBgpRouteLocalPref OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The local preference of the route."
+		::= { dBgpRouteEntry 14 }
+
+	dBgpRouteWeight OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The weight value of the route."
+		::= { dBgpRouteEntry 15 }
+
+	dBgpRouteASPath OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The AS path attribute of the route."
+		::= { dBgpRouteEntry 16 }
+
+	dBgpRouteOrigin OBJECT-TYPE
+		SYNTAX		INTEGER {
+			igp(1),
+			egp(2),
+			incomplete(3)
+		}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Origin attribute of the routes."
+		::= { dBgpRouteEntry 17 }
+
+	dBgpRouteAtomicAggregate OBJECT-TYPE
+		SYNTAX		INTEGER {
+			lessSpecificRouteNotSelected(1),
+			lessSpecificRouteSelected(2)
+		}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"If the ATOMIC_AGGREGATE attribute is present
+			in the Path Attributes then this object MUST
+			have a value of 'lessSpecificRouteNotSelected'.
+
+			If the ATOMIC_AGGREGATE attribute is missing
+			in the Path Attributes then this object MUST
+			have a value of 'lessSpecificRouteSelected'.
+
+			Note that ATOMIC_AGGREGATE is now a primarily
+			informational attribute."
+		::= { dBgpRouteEntry 18 }
+
+	dBgpRouteAggregatorAS OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The AS number of the last BGP4 speaker that
+			performed route aggregation.  A value of
+			zero (0) indicates the absence of this
+			attribute."
+		::= { dBgpRouteEntry 19 }
+
+	dBgpRouteAggregatorType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The Type of the last BGP4 speaker that performed
+			route aggregation."
+		::= { dBgpRouteEntry 20 }
+
+	dBgpRouteAggregatorAddr OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The address of the last BGP4 speaker that performed
+			route aggregation. A value of 0.0.0.0 indicates the
+			absence of this attribute."
+		::= { dBgpRouteEntry 21 }
+
+	dBgpRouteFlapCounter OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Number of times the route has flapped."
+		::= { dBgpRouteEntry 22 }
+
+	dBgpRouteDurationTime OBJECT-TYPE
+		SYNTAX		TimeTicks
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Time since the router noticed the first flap."
+		::= { dBgpRouteEntry 23 }
+
+	dBgpRouteReuseTime OBJECT-TYPE
+		SYNTAX		TimeTicks
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Time after which the path will be made available."
+		::= { dBgpRouteEntry 24 }
+
+	dBgpRouteMetric OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Metric of this route."
+		::= { dBgpRouteEntry 25 }
+
+	dBgpRouteCommunity OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The community attribute of the route."
+		::= { dBgpRouteEntry 26 }
+
+	dBgpVPNv4RouteTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpVPNv4RouteEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP route table for VPNv4 routes."
+		::= { dBgpMIBObjects 14 }
+
+	dBgpVPNv4RouteEntry OBJECT-TYPE
+		SYNTAX		DBgpVPNv4RouteEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP route information with path attributes for VPNv4 routes."
+		INDEX {
+			dBgpVPNv4RouteRD,
+			dBgpVPNv4RouteType,
+			dBgpVPNv4RoutePrefix,
+			dBgpVPNv4RoutePrefixLen,
+			dBgpVPNv4RoutePeerType,
+			dBgpVPNv4RoutePeerAddr,
+			dBgpVPNv4RouteSubType
+		}
+		::= { dBgpVPNv4RouteTable 1 }
+
+	DBgpVPNv4RouteEntry ::= SEQUENCE {
+		dBgpVPNv4RouteRD 		DisplayString,
+		dBgpVPNv4RouteType		InetAddressType,
+		dBgpVPNv4RoutePrefix		InetAddress,
+		dBgpVPNv4RoutePrefixLen		InetAddressPrefixLength,
+		dBgpVPNv4RoutePeerType		InetAddressType,
+		dBgpVPNv4RoutePeerAddr		InetAddress,
+		dBgpVPNv4RouteSubType		INTEGER,
+		dBgpVPNv4RouteVrfName		DisplayString,
+		dBgpVPNv4RouteStatus1		INTEGER,
+		dBgpVPNv4RouteStatus2		INTEGER,
+		dBgpVPNv4RouteInternal		TruthValue,
+		dBgpVPNv4RouteNhopType		InetAddressType,
+		dBgpVPNv4RouteNhop		InetAddress,
+		dBgpVPNv4RouteLocalPref		Unsigned32,
+		dBgpVPNv4RouteWeight		Unsigned32,
+		dBgpVPNv4RouteASPath		DisplayString,
+		dBgpVPNv4RouteOrigin		INTEGER,
+		dBgpVPNv4RouteAtomicAggregate	INTEGER,
+		dBgpVPNv4RouteAggregatorAS	Unsigned32,
+		dBgpVPNv4RouteAggregatorType	InetAddressType,
+		dBgpVPNv4RouteAggregatorAddr	InetAddress,
+		dBgpVPNv4RouteInLabel		Integer32,
+		dBgpVPNv4RouteOutLabel		Integer32,
+		dBgpVPNv4RouteFlapCounter	Unsigned32,
+		dBgpVPNv4RouteDurationTime	TimeTicks,
+		dBgpVPNv4RouteReuseTime		TimeTicks,
+		dBgpVPNv4RouteMetric		Unsigned32,
+		dBgpVPNv4RouteCommunity		DisplayString,
+		dBgpVPNv4RouteExtCommunity	DisplayString
+	}
+
+	dBgpVPNv4RouteRD OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Route Distinguisher of the route."
+		::= { dBgpVPNv4RouteEntry 1 }
+
+	dBgpVPNv4RouteType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Type of the route."
+		::= { dBgpVPNv4RouteEntry 2 }
+
+	dBgpVPNv4RoutePrefix OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Prefix of the route."
+		::= { dBgpVPNv4RouteEntry 3 }
+
+	dBgpVPNv4RoutePrefixLen OBJECT-TYPE
+		SYNTAX		InetAddressPrefixLength
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Prefix length of the route."
+		::= { dBgpVPNv4RouteEntry 4 }
+
+	dBgpVPNv4RoutePeerType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Tye of the peer from which the route learned."
+		::= { dBgpVPNv4RouteEntry 5 }
+
+	dBgpVPNv4RoutePeerAddr OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address of the peer from which the route learned."
+		::= { dBgpVPNv4RouteEntry 6 }
+
+	dBgpVPNv4RouteSubType OBJECT-TYPE
+		SYNTAX		INTEGER {
+				normal(1),
+				networked(2),
+				aggregated(3),
+				redistributed(4),
+				imported(5)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Sub type of the route.
+			
+			normal(1) indicated the route is learned from peer in the same instance;
+			networked(2) indicated the route is local and imported by network;
+			aggregated(3) indicated the route is local and imported by aggregation;
+			redistributed(4) indicated the route is local and imported by redistribution;
+			imported(5) indicated the route is learned from vpn peer."
+		::= { dBgpVPNv4RouteEntry 7 }
+
+	dBgpVPNv4RouteVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"VRF name to which the Route distinguisher bind."
+		::= { dBgpVPNv4RouteEntry 8 }
+
+	dBgpVPNv4RouteStatus1 OBJECT-TYPE
+		SYNTAX		INTEGER {
+				stale(1),
+				suppressed(2),
+				valid(3),
+				none(4)
+			}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Route status code, containing graceful restart status,
+			suppressed status or valid status."
+		::= { dBgpVPNv4RouteEntry 9 }
+
+	dBgpVPNv4RouteStatus2 OBJECT-TYPE
+		SYNTAX		INTEGER {
+				history(1),
+				damped(2),
+				best(3),
+				none(4)
+			}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Route status code, containing selected status or dampening
+			status."
+			::= { dBgpVPNv4RouteEntry 10 }
+
+	dBgpVPNv4RouteInternal OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Whether the route is internal or not."
+		::= { dBgpVPNv4RouteEntry 11 }
+
+	dBgpVPNv4RouteNhopType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The type of the next hop of the route."
+		::= { dBgpVPNv4RouteEntry 12 }
+
+	dBgpVPNv4RouteNhop OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Next hop address of the route."
+		::= { dBgpVPNv4RouteEntry 13 }
+
+	dBgpVPNv4RouteLocalPref OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The local preference of the route."
+		::= { dBgpVPNv4RouteEntry 14 }
+
+	dBgpVPNv4RouteWeight OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The weight value of the route."
+		::= { dBgpVPNv4RouteEntry 15 }
+
+	dBgpVPNv4RouteASPath OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The AS path attribute of the route."
+		::= { dBgpVPNv4RouteEntry 16 }
+
+	dBgpVPNv4RouteOrigin OBJECT-TYPE
+		SYNTAX		INTEGER {
+			igp(1),
+			egp(2),
+			incomplete(3)
+		}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Origin attribute of the routes."
+		::= { dBgpVPNv4RouteEntry 17 }
+
+	dBgpVPNv4RouteAtomicAggregate OBJECT-TYPE
+		SYNTAX		INTEGER {
+			lessSpecificRouteNotSelected(1),
+			lessSpecificRouteSelected(2)
+		}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"If the ATOMIC_AGGREGATE attribute is present
+			in the Path Attributes then this object MUST
+			have a value of 'lessSpecificRouteNotSelected'.
+
+			If the ATOMIC_AGGREGATE attribute is missing
+			in the Path Attributes then this object MUST
+			have a value of 'lessSpecificRouteSelected'.
+
+			Note that ATOMIC_AGGREGATE is now a primarily
+			informational attribute."
+		::= { dBgpVPNv4RouteEntry 18 }
+
+	dBgpVPNv4RouteAggregatorAS OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The AS number of the last BGP4 speaker that
+			performed route aggregation.  A value of
+			zero (0) indicates the absence of this
+			attribute."
+		::= { dBgpVPNv4RouteEntry 19 }
+
+	dBgpVPNv4RouteAggregatorType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The Type of the last BGP4 speaker that performed
+			route aggregation."
+		::= { dBgpVPNv4RouteEntry 20 }
+
+	dBgpVPNv4RouteAggregatorAddr OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The address of the last BGP4 speaker that performed
+			route aggregation. A value of 0.0.0.0 indicates the
+			absence of this attribute."
+		::= { dBgpVPNv4RouteEntry 21 }
+
+	dBgpVPNv4RouteInLabel OBJECT-TYPE
+		SYNTAX		Integer32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Label for in direction of the routes. The value -1
+			indicates there is no label for this direction."
+		::= { dBgpVPNv4RouteEntry 22 }
+
+	dBgpVPNv4RouteOutLabel OBJECT-TYPE
+		SYNTAX		Integer32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Label for out direction of the routes. The value -1
+			indicates there is no label for this direction."
+		::= { dBgpVPNv4RouteEntry 23 }
+
+	dBgpVPNv4RouteFlapCounter OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Number of times the route has flapped."
+		::= { dBgpVPNv4RouteEntry 24 }
+
+	dBgpVPNv4RouteDurationTime OBJECT-TYPE
+		SYNTAX		TimeTicks
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Time since the router noticed the first flap."
+		::= { dBgpVPNv4RouteEntry 25 }
+
+	dBgpVPNv4RouteReuseTime OBJECT-TYPE
+		SYNTAX		TimeTicks
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Time after which the path will be made available."
+		::= { dBgpVPNv4RouteEntry 26 }
+
+	dBgpVPNv4RouteMetric OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Metric of this route."
+		::= { dBgpVPNv4RouteEntry 27 }
+
+	dBgpVPNv4RouteCommunity OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The community attribute of the route."
+		::= { dBgpVPNv4RouteEntry 28 }
+
+	dBgpVPNv4RouteExtCommunity OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The extended community attribute of the route."
+		::= { dBgpVPNv4RouteEntry 29 }
+
+	dBgpRedistributeTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpRedistributeEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"To configure route redistribute from other routing
+			domain into BGP."
+		::= {dBgpMIBObjects 15}
+
+	dBgpRedistributeEntry OBJECT-TYPE
+		SYNTAX		DBgpRedistributeEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"An entry in the dBgpRedistributeTable containing the
+			operational characteristics of BGP redistribution."
+		INDEX {
+			dBgpRedistAfi,
+			dBgpRedistSafi,
+			dBgpRedistVrfName,
+			dBgpRedistProtocol
+		}
+		::= {dBgpRedistributeTable 1 }
+
+	DBgpRedistributeEntry ::= SEQUENCE {
+		dBgpRedistAfi			INTEGER,
+		dBgpRedistSafi			INTEGER,
+		dBgpRedistVrfName		DisplayString,
+		dBgpRedistProtocol		INTEGER,
+		dBgpRedistMetric		Unsigned32,
+		dBgpRedistRmap			DisplayString,
+		dBgpRedistRowStatus		RowStatus
+	}
+
+	dBgpRedistAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			ipv4(1),
+			ipv6(2)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the redistribution."
+		::= { dBgpRedistributeEntry 1 }
+
+	dBgpRedistSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			unicast(1),
+			multicast(2)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the redistribution."
+		::= { dBgpRedistributeEntry 2 }
+
+	dBgpRedistVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specify the name of VRF to configure the redistribute."
+		::= { dBgpRedistributeEntry 3 }
+
+	dBgpRedistProtocol OBJECT-TYPE
+		SYNTAX		INTEGER {
+			connected(1),
+			static(2),
+			rip(3),
+			ospfAll(4),
+			ospfInternal(5),
+			ospfExternal(6),
+			ospfType1(7),
+			ospfType2(8),
+			ospfInterE1(9),
+			ospfInterE2(10),
+			isis(11)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"The source routing protocol to be imported into BGP."
+		::= { dBgpRedistributeEntry 4 }
+
+	dBgpRedistMetric OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Specify the metric for the redistributed routes."
+		::= { dBgpRedistributeEntry 5 }
+
+	dBgpRedistRmap OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..16))
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"Specify the name of a route map to filter the
+			network to be redistributed."
+		::= { dBgpRedistributeEntry 6 }
+
+	dBgpRedistRowStatus OBJECT-TYPE
+		SYNTAX		RowStatus
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the status of this entry.
+			Only createAndGo(4) and destroy(6) can be set."
+		::= { dBgpRedistributeEntry 99 }
+
+	dBgpDistanceTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpDistanceEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"To configure the administrative distance for BGP routes."
+		::= {dBgpMIBObjects 16}
+
+	dBgpDistanceEntry OBJECT-TYPE
+		SYNTAX		DBgpDistanceEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"An entry in the dBgpDistanceTable containing the
+			operational characteristics of BGP route administrative distance."
+		INDEX {
+			dBgpDistanceAfi,
+			dBgpDistanceSafi,
+			dBgpDistanceVrfName
+		}
+		::= {dBgpDistanceTable 1 }
+
+	DBgpDistanceEntry ::= SEQUENCE {
+		dBgpDistanceAfi			INTEGER,
+		dBgpDistanceSafi		INTEGER,
+		dBgpDistanceVrfName		DisplayString,
+		dBgpDistanceEBGP		Integer32,
+		dBgpDistanceIBGP		Integer32
+--		dBgpDistanceLocal		Integer32
+	}
+
+	dBgpDistanceAfi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			ipv4(1),
+			ipv6(2)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address family identifier for the administrative distance."
+		::= { dBgpDistanceEntry 1 }
+
+	dBgpDistanceSafi OBJECT-TYPE
+		SYNTAX		INTEGER {
+			unicast(1)
+		}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Subsequent address family identifier for the administrative distance."
+		::= { dBgpDistanceEntry 2 }
+
+	dBgpDistanceVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specify the name of VRF to configure the administrative distance."
+		::= { dBgpDistanceEntry 3 }
+
+	dBgpDistanceEBGP OBJECT-TYPE
+		SYNTAX		Integer32
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Distance for routes learned from external peers."
+		::= { dBgpDistanceEntry 4}
+
+	dBgpDistanceIBGP OBJECT-TYPE
+		SYNTAX		Integer32
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Distance for routes learned from internal peers."
+		::= { dBgpDistanceEntry 5}
+
+--	dBgpDistanceLocal OBJECT-TYPE
+--		SYNTAX		Integer32
+--		MAX-ACCESS	read-write
+--		STATUS		current
+--		DESCRIPTION
+--			"Distance for local routes."
+--		::= { dBgpDistanceEntry 6}
+
+	dBgpL2VPNRouteTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpL2VPNRouteEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP route table for L2VPN routes."
+		::= { dBgpMIBObjects 17 }
+
+	dBgpL2VPNRouteEntry OBJECT-TYPE
+		SYNTAX		DBgpL2VPNRouteEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"BGP route information with path attributes for L2VPN routes."
+		INDEX {
+			dBgpL2VPNRouteRD,
+			dBgpL2VPNRoutePrefix,
+			dBgpL2VPNRoutePrefixLen,
+			dBgpL2VPNRoutePeerType,
+			dBgpL2VPNRoutePeerAddr,
+			dBgpL2VPNRouteSubType
+		}
+		::= { dBgpL2VPNRouteTable 1 }
+
+	DBgpL2VPNRouteEntry ::= SEQUENCE {
+		dBgpL2VPNRouteRD 			DisplayString,
+		dBgpL2VPNRoutePrefix		DisplayString,
+		dBgpL2VPNRoutePrefixLen		InetAddressPrefixLength,
+		dBgpL2VPNRoutePeerType		InetAddressType,
+		dBgpL2VPNRoutePeerAddr		InetAddress,
+		dBgpL2VPNRouteSubType		INTEGER,
+		dBgpL2VPNRouteVfiName		DisplayString,
+		dBgpL2VPNRouteStatus1		INTEGER,
+		dBgpL2VPNRouteStatus2		INTEGER,
+		dBgpL2VPNRouteInternal		TruthValue,
+		dBgpL2VPNRouteNhopType		InetAddressType,
+		dBgpL2VPNRouteNhop			InetAddress,
+		dBgpL2VPNRouteLocalPref		Unsigned32,
+		dBgpL2VPNRouteWeight		Unsigned32,
+		dBgpL2VPNRouteASPath		DisplayString,
+		dBgpL2VPNRouteOrigin		INTEGER,
+		dBgpL2VPNRouteMetric		Unsigned32,
+		dBgpL2VPNRouteCommunity		DisplayString,
+		dBgpL2VPNRouteExtCommunity	DisplayString,
+		dBgpL2VPNRouteVbs			Unsigned32,
+		dBgpL2VPNRouteLb			Unsigned32
+	}
+
+	dBgpL2VPNRouteRD OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Route Distinguisher of the route."
+		::= { dBgpL2VPNRouteEntry 1 }
+
+	dBgpL2VPNRoutePrefix OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Prefix of the route."
+		::= { dBgpL2VPNRouteEntry 2 }
+
+	dBgpL2VPNRoutePrefixLen OBJECT-TYPE
+		SYNTAX		InetAddressPrefixLength
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Prefix length of the route."
+		::= { dBgpL2VPNRouteEntry 3 }
+
+	dBgpL2VPNRoutePeerType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Tye of the peer from which the route learned."
+		::= { dBgpL2VPNRouteEntry 4 }
+
+	dBgpL2VPNRoutePeerAddr OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Address of the peer from which the route learned."
+		::= { dBgpL2VPNRouteEntry 5 }
+
+	dBgpL2VPNRouteSubType OBJECT-TYPE
+		SYNTAX		INTEGER {
+				normal(1),
+				local(2),
+				imported(3)
+			}
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Sub type of the route.
+			
+			normal(1) indicated the route is learned from peer;
+			local(2) indicated the route is local;
+			imported(3) indicated the route is imported from vpn peer."
+		::= { dBgpL2VPNRouteEntry 6 }
+
+	dBgpL2VPNRouteVfiName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..32))
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"VFI name to which the Route distinguisher bind."
+		::= { dBgpL2VPNRouteEntry 7 }
+
+	dBgpL2VPNRouteStatus1 OBJECT-TYPE
+		SYNTAX		INTEGER {
+				stale(1),
+				suppressed(2),
+				valid(3),
+				none(4)
+			}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Route status code, containing graceful restart status,
+			suppressed status or valid status."
+		::= { dBgpL2VPNRouteEntry 8 }
+
+	dBgpL2VPNRouteStatus2 OBJECT-TYPE
+		SYNTAX		INTEGER {
+				history(1),
+				damped(2),
+				best(3),
+				none(4)
+			}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Route status code, containing selected status or dampening
+			status."
+			::= { dBgpL2VPNRouteEntry 9 }
+
+	dBgpL2VPNRouteInternal OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Whether the route is internal or not."
+		::= { dBgpL2VPNRouteEntry 10 }
+
+	dBgpL2VPNRouteNhopType OBJECT-TYPE
+		SYNTAX		InetAddressType
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The type of the next hop of the route."
+		::= { dBgpL2VPNRouteEntry 11 }
+
+	dBgpL2VPNRouteNhop OBJECT-TYPE
+		SYNTAX		InetAddress
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Next hop address of the route."
+		::= { dBgpL2VPNRouteEntry 12 }
+
+	dBgpL2VPNRouteLocalPref OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The local preference of the route."
+		::= { dBgpL2VPNRouteEntry 13 }
+
+	dBgpL2VPNRouteWeight OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The weight value of the route."
+		::= { dBgpL2VPNRouteEntry 14 }
+
+	dBgpL2VPNRouteASPath OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The AS path attribute of the route."
+		::= { dBgpL2VPNRouteEntry 15 }
+
+	dBgpL2VPNRouteOrigin OBJECT-TYPE
+		SYNTAX		INTEGER {
+			igp(1),
+			egp(2),
+			incomplete(3)
+		}
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Origin attribute of the routes."
+		::= { dBgpL2VPNRouteEntry 16 }
+
+	dBgpL2VPNRouteMetric OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Metric of this route."
+		::= { dBgpL2VPNRouteEntry 17 }
+
+	dBgpL2VPNRouteCommunity OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The community attribute of the route."
+		::= { dBgpL2VPNRouteEntry 18 }
+
+	dBgpL2VPNRouteExtCommunity OBJECT-TYPE
+		SYNTAX		DisplayString
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"The extended community attribute of the route."
+		::= { dBgpL2VPNRouteEntry 19 }
+
+	dBgpL2VPNRouteVbs OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"VE block size of this route."
+		::= { dBgpL2VPNRouteEntry 20 }
+
+	dBgpL2VPNRouteLb OBJECT-TYPE
+		SYNTAX		Unsigned32
+		MAX-ACCESS	read-only
+		STATUS		current
+		DESCRIPTION
+			"Label Base of this route."
+		::= { dBgpL2VPNRouteEntry 21 }
+
+
+	dBgpDefaultInfoTable OBJECT-TYPE
+		SYNTAX		SEQUENCE OF DBgpDefaultInfoEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"To control the default route redistribution in VRF address family."
+		::= {dBgpMIBObjects 18}
+
+	dBgpDefaultInfoEntry OBJECT-TYPE
+		SYNTAX		DBgpDefaultInfoEntry
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"An entry in the dBgpDefaultInfoTable containing the
+			operational characteristics of BGP default route redistribution."
+		INDEX {
+			dBgpDefaultInfoVrfName
+		}
+		::= {dBgpDefaultInfoTable 1 }
+
+	DBgpDefaultInfoEntry ::= SEQUENCE {
+		dBgpDefaultInfoVrfName		DisplayString,
+		dBgpDefaultInfoState		TruthValue
+	}
+
+	dBgpDefaultInfoVrfName OBJECT-TYPE
+		SYNTAX		DisplayString (SIZE(0..12))
+		MAX-ACCESS	not-accessible
+		STATUS		current
+		DESCRIPTION
+			"Specify the name of VRF to configure the redistribute."
+		::= { dBgpDefaultInfoEntry 3 }
+
+	dBgpDefaultInfoState OBJECT-TYPE
+		SYNTAX		TruthValue
+		MAX-ACCESS	read-write
+		STATUS		current
+		DESCRIPTION
+			"Specify the state of the default route redistributed."
+		::= { dBgpDefaultInfoEntry 4 }
+
+    -- Conformance Information        
+
+    dBgpMIBGroups      OBJECT IDENTIFIER ::= { dBgpMIBConformance 1 }
+    dBgpMIBCompliances OBJECT IDENTIFIER ::= { dBgpMIBConformance 2 }
+
+    -- Compliance Statements
+
+    dBgpMIBFullCompliance MODULE-COMPLIANCE
+		STATUS          current
+		DESCRIPTION     "The compliance statement"
+		MODULE          -- this module
+		MANDATORY-GROUPS {
+			dIpASPathAccessListGroup,
+			dIpCommunityListGroup,
+			dIpExtCommunityListGroup,
+			dBgpGlobalGroup,
+--			dBgpIfFastExtFailoverGroup,
+			dBgpAggregateGroup,
+			dBgpNetworkGroup,
+			dBgpDampGroup,
+			dBgpPeerGroup,
+			dBgpPeerAFGroup,
+			dBgpPeerGroupGroup,
+			dBgpPeerGroupAFGroup,
+			dBgpRouteGroup,
+			dBgpVPNv4RouteGroup,
+			dBgpRedistributeGroup,
+			dBgpDistanceGroup,
+			dBgpL2VPNRouteGroup
+		}
+		GROUP dBgpDefInfoOriginGroup
+		DESCRIPTION
+			"This group is required for default information originate."
+		::= { dBgpMIBCompliances 1 }
+
+    -- units of conformance
+
+	dIpASPathAccessListGroup OBJECT-GROUP
+		OBJECTS {
+			dIpASPathAccessListRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"To create, delete or configure AS path access list."
+		::= { dBgpMIBGroups 1 }
+
+	dIpCommunityListGroup OBJECT-GROUP
+		OBJECTS {
+			dIpCommunityListRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"To create, delete or configure the community list."
+		::= {dBgpMIBGroups 2 }
+
+	dIpExtCommunityListGroup OBJECT-GROUP
+		OBJECTS {
+			dIpExtCommunityListRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"To create, delete or configure the extended community list."
+		::= {dBgpMIBGroups 3}
+
+	dBgpGlobalGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpAggrNhopChk,
+			dBgpAlwaysCmpMed,
+			dBgpASPathIgnore,
+			dBgpCmpConfedASPath,
+			dBgpCmpRouterid,
+			dBgpMedConfed,
+			dBgpMedMissWorst,
+			dBgpDefLocalPref,
+			dBgpDeterministicMed,
+			dBgpEnforceFirstAS,
+			dBgpFastExternalFailover,
+--			dBgpLogNeighborChange,
+			dBgpRouterId,
+			dBgpScanTime,
+--			dBgpUpdateDelay,
+			dBgpDefIpv4Unicast,
+			dBgpSync,
+			dBgpKeepalive,
+			dBgpHoldtime,
+--			dBgpMinHoldtime,
+			dBgpCtocReflection,
+			dBgpClusterId,
+			dBgpConfedId,
+			dBgpConfedPeers,
+			dBgpGRRestartState,
+			dBgpGRRestartTime,
+			dBgpGRStalepathTime,
+			dBgpGlobalRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"To configure the global parameters of BGP instance."
+		::= { dBgpMIBGroups 4}
+
+--	dBgpIfFastExtFailoverGroup OBJECT-GROUP
+--		OBJECTS {
+--			dBgpIfFastExtFailoverAccess
+--		}
+--		STATUS		current
+--		DESCRIPTION
+--			"BGP fast external failover configuration for each interface."
+--		::= { dBgpMIBGroups 5}
+
+	dBgpAggregateGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpAggregateSummaryOnly,
+			dBgpAggregateASSet,
+			dBgpAggregateRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"To create, delete or configure BGP aggregated routes."
+		::= { dBgpMIBGroups 6}
+
+	dBgpNetworkGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpNetworkRmap,
+		--	dBgpNetworkBackdoor,
+			dBgpNetworkRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"To create, delete or configure BGP network address."
+		::= {dBgpMIBGroups 7}
+
+	dBgpDampGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpDampHalfLife,
+			dBgpDampReuse,
+			dBgpDampSuppress,
+			dBgpDampMaxSuppress,
+			dBgpDampUnHalfLife,
+			dBgpDampRmap,
+			dBgpDampRowStatus
+		}
+		STATUS		current
+		DESCRIPTION
+			"To configure BGP dampening parameters."
+		::= { dBgpMIBGroups 8}
+
+	dBgpPeerGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpPeerRowStatus,
+			dBgpPeerRemoteAS,
+			dBgpPeerAdvertisementInterval,
+			dBgpPeerASOriginationInterval,
+			dBgpPeerDescription,
+			dBgpPeerEbgpMultihop,
+			dBgpPeerPassword,
+			dBgpPeerShutdown,
+			dBgpPeerTcpReconnect,
+			dBgpPeerKeepalive,
+			dBgpPeerHoldTime,
+--			dBgpPeerMinHoldTime,
+			dBgpPeerUpdateSource,
+			dBgpPeerWeight
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing address-family-independent
+			information of BGP peers."
+		::= { dBgpMIBGroups 9 }
+
+	dBgpPeerAFGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpPeerAFActive,
+			dBgpPeerAFAllowASIn,
+			dBgpPeerAFASOverride,
+			dBgpPeerAFCapGR,
+			dBgpPeerAFCapORF,
+			dBgpPeerAFDefOriginate,
+			dBgpPeerAFDefOriginateRmap,
+--			dBgpPeerAFDistributeIn,
+--			dBgpPeerAFDistributeOut,
+			dBgpPeerAFFilterIn,
+			dBgpPeerAFFilterOut,
+			dBgpPeerAFPrefixIn,
+			dBgpPeerAFPrefixOut,
+			dBgpPeerAFRmapIn,
+			dBgpPeerAFRmapOut,
+			dBgpPeerAFMaxPrefix,
+			dBgpPeerAFMaxPrefixThreshold,
+			dBgpPeerAFMaxPrefixWarningOnly,
+			dBgpPeerAFNextHopSelf,
+			dBgpPeerAFRemovePrivateAS,
+			dBgpPeerAFRouteReflectorClient,
+			dBgpPeerAFSendCommunity,
+			dBgpPeerAFSoftRecfgInbound,
+			dBgpPeerAFSOO,
+			dBgpPeerAFUnsuppressMap
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing address-family-dependent
+			information of BGP peers."
+		::= { dBgpMIBGroups 10 }
+
+	dBgpPeerGroupGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpPeerGroupRowStatus,
+			dBgpPeerGroupRemoteAS,
+			dBgpPeerGroupAdvertisementInterval,
+			dBgpPeerGroupASOriginationInterval,
+			dBgpPeerGroupDescription,
+			dBgpPeerGroupEbgpMultihop,
+			dBgpPeerGroupPassword,
+			dBgpPeerGroupShutdown,
+			dBgpPeerGroupTcpReconnect,
+			dBgpPeerGroupKeepalive,
+			dBgpPeerGroupHoldTime,
+--			dBgpPeerGroupMinHoldTime,
+			dBgpPeerGroupUpdateSource,
+			dBgpPeerGroupWeight
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing address-family-independent
+			information of BGP peer group."
+		::= { dBgpMIBGroups 11 }
+
+	dBgpPeerGroupAFGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpPeerGroupAFActive,
+			dBgpPeerGroupAFMembers,
+			dBgpPeerGroupAFAllowASIn,
+			dBgpPeerGroupAFASOverride,
+			dBgpPeerGroupAFCapGR,
+			dBgpPeerGroupAFCapORF,
+			dBgpPeerGroupAFDefOriginate,
+			dBgpPeerGroupAFDefOriginateRmap,
+--			dBgpPeerGroupAFDistributeIn,
+--			dBgpPeerGroupAFDistributeOut,
+			dBgpPeerGroupAFFilterIn,
+			dBgpPeerGroupAFFilterOut,
+			dBgpPeerGroupAFPrefixIn,
+			dBgpPeerGroupAFPrefixOut,
+			dBgpPeerGroupAFRmapIn,
+			dBgpPeerGroupAFRmapOut,
+			dBgpPeerGroupAFMaxPrefix,
+			dBgpPeerGroupAFMaxPrefixThreshold,
+			dBgpPeerGroupAFMaxPrefixWarningOnly,
+			dBgpPeerGroupAFNextHopSelf,
+			dBgpPeerGroupAFRemovePrivateAS,
+			dBgpPeerGroupAFRouteReflectorClient,
+			dBgpPeerGroupAFSendCommunity,
+			dBgpPeerGroupAFSoftRecfgInbound,
+			dBgpPeerGroupAFSOO,
+			dBgpPeerGroupAFUnsuppressMap
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing address-family-dependent
+			information of BGP peer group."
+		::= { dBgpMIBGroups 12 }
+
+	dBgpRouteGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpRouteStatus1,
+			dBgpRouteStatus2,
+			dBgpRouteInternal,
+			dBgpRouteNhopType,
+			dBgpRouteNhop,
+			dBgpRouteLocalPref,
+			dBgpRouteWeight,
+			dBgpRouteASPath,
+			dBgpRouteOrigin,
+			dBgpRouteAtomicAggregate,
+			dBgpRouteAggregatorAS,
+			dBgpRouteAggregatorType,
+			dBgpRouteAggregatorAddr,
+			dBgpRouteFlapCounter,
+			dBgpRouteDurationTime,
+			dBgpRouteReuseTime,
+			dBgpRouteMetric,
+			dBgpRouteCommunity
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing BGP normal routes."
+		::= { dBgpMIBGroups 13 }
+
+	dBgpVPNv4RouteGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpVPNv4RouteVrfName,
+			dBgpVPNv4RouteStatus1,
+			dBgpVPNv4RouteStatus2,
+			dBgpVPNv4RouteInternal,
+			dBgpVPNv4RouteNhopType,
+			dBgpVPNv4RouteNhop,
+			dBgpVPNv4RouteLocalPref,
+			dBgpVPNv4RouteWeight,
+			dBgpVPNv4RouteASPath,
+			dBgpVPNv4RouteOrigin,
+			dBgpVPNv4RouteAtomicAggregate,
+			dBgpVPNv4RouteAggregatorAS,
+			dBgpVPNv4RouteAggregatorType,
+			dBgpVPNv4RouteAggregatorAddr,
+			dBgpVPNv4RouteInLabel,
+			dBgpVPNv4RouteOutLabel,
+			dBgpVPNv4RouteFlapCounter,
+			dBgpVPNv4RouteDurationTime,
+			dBgpVPNv4RouteReuseTime,
+			dBgpVPNv4RouteMetric,
+			dBgpVPNv4RouteCommunity,
+			dBgpVPNv4RouteExtCommunity
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing BGP VPNv4 routes."
+		::= { dBgpMIBGroups 14 }
+
+	dBgpRedistributeGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpRedistMetric,
+			dBgpRedistRmap
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing BGP redistribute."
+		::= {dBgpMIBGroups 15}
+
+	dBgpDistanceGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpDistanceEBGP,
+			dBgpDistanceIBGP
+--			dBgpDistanceLocal
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing BGP routes administrative distance."
+		::= {dBgpMIBGroups 16}
+
+	dBgpL2VPNRouteGroup OBJECT-GROUP
+		OBJECTS {
+		dBgpL2VPNRouteVfiName,
+		dBgpL2VPNRouteStatus1,
+		dBgpL2VPNRouteStatus2,
+		dBgpL2VPNRouteInternal,
+		dBgpL2VPNRouteNhopType,
+		dBgpL2VPNRouteNhop,
+		dBgpL2VPNRouteLocalPref,
+		dBgpL2VPNRouteWeight,
+		dBgpL2VPNRouteASPath,
+		dBgpL2VPNRouteOrigin,
+		dBgpL2VPNRouteMetric,
+		dBgpL2VPNRouteCommunity,
+		dBgpL2VPNRouteExtCommunity,
+		dBgpL2VPNRouteVbs,
+		dBgpL2VPNRouteLb
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing BGP L2VPN routes."
+		::= { dBgpMIBGroups 17 }
+
+
+	dBgpDefaultInfoGroup OBJECT-GROUP
+		OBJECTS {
+			dBgpDefaultInfoState
+		}
+		STATUS		current
+		DESCRIPTION
+			"A collection of objects for managing BGP default information origination."
+		::= {dBgpMIBGroups 18}
+
+	dBgpBfdGroup OBJECT-GROUP
+		OBJECTS { 
+		dBgpPeerBfdState,
+		dBgpPeerGroupBfdState
+		}
+		STATUS current
+		DESCRIPTION
+			"A collection of objects support of BFD."
+		::= { dBgpMIBGroups 19 }
+END

@@ -1,0 +1,702 @@
+-- *****************************************************************
+-- DLINKSW-OPENFLOW-MIB:  D-Link OpenFlow MIB
+--
+--  Copyright (c) 2018 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+
+DLINKSW-OPENFLOW-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Unsigned32
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF
+        TruthValue, RowStatus
+            FROM SNMPv2-TC
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB
+        ifIndex, InterfaceIndex
+            FROM IF-MIB
+        dlinkIndustrialCommon
+            FROM DLINK-ID-REC-MIB;
+
+
+    dlinkSwOpenFlowMIB MODULE-IDENTITY
+        LAST-UPDATED    "201812050000Z"
+        ORGANIZATION    "D-Link Corp."
+        CONTACT-INFO
+            "D-Link Corporation
+
+            Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                    Taipei City 114, Taiwan, R.O.C
+            Tel:     +886-2-66000123
+            E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB provides configuration reflecting the state of OpenFlow
+            operation within the device and communications with external
+            servers.
+
+            The OpenFlow Switch consists of flow tables, group table and meter
+            table, which perform packet lookups and forwarding.
+
+            The switch communicates with the controller and the controller
+            manages the switch via the OpenFlow switch protocol.
+            "
+
+        REVISION     "201812050000Z"
+        DESCRIPTION
+            "Rename dOfGlobalEnabled to dOfAdminGlobalEnabled.
+            Rename dOfMode to dOfAdminMode.
+            Rename dOfControllerConnectPort to dOfAdminControllerConnectPort.
+            Rename dOfIfEnabled to dOfIfAdminEnabled.
+            Add dOfOperaGlobalEnabled, dOfOperaMode, dOfOperaControllerConnectPort, dOfIfOperaEnabled.
+            Deprecated dOfGlobalEnableGroup, dOfIfEnableGroup, dOfModeGroup, dOfControllerConnectPortGroup.
+            Add dOfGlobalEnableGroup1, dOfIfEnableGroup1, dOfModeGroup1, dOfControllerConnectPortGroup1.
+            Deprecated dOfMIBCompliance.
+            Add dOfMIBCompliance1.
+            "
+
+        REVISION     "201801230000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file.
+            "
+        ::= { dlinkIndustrialCommon 195 }
+
+
+-- -----------------------------------------------------------------------------
+    dOfMIBNotifications   OBJECT IDENTIFIER ::= { dlinkSwOpenFlowMIB 0 }
+    dOfMIBObjects         OBJECT IDENTIFIER ::= { dlinkSwOpenFlowMIB 1 }
+    dOfMIBConformance     OBJECT IDENTIFIER ::= { dlinkSwOpenFlowMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    dOfGlobalObjects      OBJECT IDENTIFIER ::= { dOfMIBObjects 1 }
+
+-- -----------------------------------------------------------------------------
+    dOfAdminGlobalEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the global management state of OpenFlow function.
+
+            NOTE - Most legacy functions will be deactivated when OpenFlow
+            enabled. Recommended backup configuration in advance.
+            "
+        DEFVAL          { false }
+        ::= { dOfGlobalObjects 1 }
+
+    dOfAdminMode OBJECT-TYPE
+        SYNTAX          INTEGER {
+            pure(1),
+            hybrid(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the OpenFlow switch management mode.
+             pure(1) - OpenFlow Pure mode.
+             hybrid(2) - OpenFlow Hybrid mode.
+
+            NOTE - Please ensure OpenFlow ports are specified in OpenFlow
+            hybrid mode.
+            "
+        ::= { dOfGlobalObjects 2 }
+
+    dOfFailMode OBJECT-TYPE
+        SYNTAX          INTEGER {
+            secure(1),
+            standalone(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates connection fail-mode.
+             secure(1) - Fail secure mode. Switch will stop send packets
+             and messages to the controllers. Flow entries should continue
+             to expire according to their timeouts.
+             standalone(2) - Fail standalone mode. Switch acts as a legacy
+             Ethernet switch or router. Flow entries will be removed. This
+             mode is only available on Hybrid switches.
+            "
+        ::= { dOfGlobalObjects 3 }
+
+    dOfAdminControllerConnectPort OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object is used to specify a front port to connect OpenFlow controller.
+            OpenFlow controller should be connected on this port in pure mode.
+            "
+        ::= { dOfGlobalObjects 4 }
+
+    dOfOperaGlobalEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the global operation state of OpenFlow function."
+        DEFVAL          { false }
+        ::= { dOfGlobalObjects 5 }
+
+    dOfOperaMode OBJECT-TYPE
+        SYNTAX          INTEGER {
+            pure(1),
+            hybrid(2)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the OpenFlow switch operation mode.
+             pure(1) - OpenFlow Pure mode.
+             hybrid(2) - OpenFlow Hybrid mode.
+            "
+        ::= { dOfGlobalObjects 6 }
+
+    dOfOperaControllerConnectPort OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the port used to connect controller in pure mode.
+            "
+        ::= { dOfGlobalObjects 7 }
+
+-- -----------------------------------------------------------------------------
+    dOfIfObjects          OBJECT IDENTIFIER ::= { dOfMIBObjects 2 }
+
+-- -----------------------------------------------------------------------------
+    dOfIfTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DOfIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table provides the mechanism to control the OpenFlow function
+             state for per interface."
+        ::= { dOfIfObjects 1 }
+
+    dOfIfEntry OBJECT-TYPE
+        SYNTAX          DOfIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A row instance contains the configuration to enable
+             or disable OpenFlow state for per interface."
+        INDEX           { ifIndex }
+        ::= { dOfIfTable 1 }
+
+    DOfIfEntry ::= SEQUENCE {
+        dOfIfAdminEnabled            TruthValue,
+        dOfIfOperaEnabled            TruthValue
+    }
+
+    dOfIfAdminEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the management state of OpenFlow function
+             in this interface."
+        DEFVAL          { false }
+        ::= { dOfIfEntry 1 }
+
+    dOfIfOperaEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the operation state of OpenFlow function
+             in this interface."
+        DEFVAL          { false }
+        ::= { dOfIfEntry 2 }
+
+-- -----------------------------------------------------------------------------
+    dOfControllerObjects          OBJECT IDENTIFIER ::= { dOfMIBObjects 3 }
+
+-- -----------------------------------------------------------------------------
+    dOfControllerConfigTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF DOfControllerConfigEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table consists of a list of configurations for each
+            controller. An entry is created/removed when a new controller
+            is created/removed.
+
+            The following table describes examples of OpenFlow controllers.
+
+            Index IPAddress      Port Connection Role   Status
+            ----- -------------- ---- ---------- ------ ------
+            1     192.168.55.101 6653 tcp        equal  up
+            2     192.168.55.102 6633 tls        master down
+            3     192.168.55.103 6653 tls        slave  down
+            "
+        ::= { dOfControllerObjects 1 }
+
+    dOfControllerConfigEntry OBJECT-TYPE
+        SYNTAX      DOfControllerConfigEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "An entry consists of an OpenFlow controller configuration.
+
+            An entry is created/removed when a controller is defined
+            or undefined with configuration commands via CLI
+            or by issuing appropriate SNMP sets.
+
+            A management station wishing to create an entry should
+            first generate a random number to be used as the index
+            to this sparse table. The station should then create the
+            associated instance of the row status and row index objects.
+
+            Upon reload, dOfControllerIndex values may be changed.
+            "
+        INDEX {
+            dOfControllerIndex
+         }
+        ::= { dOfControllerConfigTable 1}
+
+    DOfControllerConfigEntry ::=    SEQUENCE {
+        dOfControllerIndex              Unsigned32,
+        dOfControllerAddrType           InetAddressType,
+        dOfControllerAddress            InetAddress,
+        dOfControllerPort               Unsigned32,
+        dOfControllerConnection         INTEGER,
+        dOfControllerRole               INTEGER,
+        dOfControllerStatus             INTEGER,
+        dOfControllerRowStatus          RowStatus
+    }
+
+    dOfControllerIndex OBJECT-TYPE
+        SYNTAX      Unsigned32 (1..32)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "A management station wishing to initiate a new OpenFlow
+            controller configuration should use a random value for
+            this object when creating an instance of dOfControllerConfigEntry.
+            "
+        ::= { dOfControllerConfigEntry 1 }
+
+    dOfControllerAddrType OBJECT-TYPE
+        SYNTAX      InetAddressType
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "This object indicates the address type of the OpenFlow
+            controller.
+            "
+        ::= { dOfControllerConfigEntry 2 }
+
+    dOfControllerAddress OBJECT-TYPE
+        SYNTAX      InetAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The address of the controller.
+            "
+        ::= { dOfControllerConfigEntry 3 }
+
+    dOfControllerPort OBJECT-TYPE
+        SYNTAX      Unsigned32 (0..65535)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Specify the TCP port number to connect with the controller.
+            Default value is 6653.
+            "
+        DEFVAL  { 6653 }
+        ::= { dOfControllerConfigEntry 4 }
+
+    dOfControllerConnection OBJECT-TYPE
+        SYNTAX      INTEGER {
+            tcp(1),
+            tls(2)
+        }
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Connection type between switch and OpenFlow controller.
+             tcp(1) - Normal TCP connection.
+             tls(2) - TLS connectio
+            "
+        DEFVAL { tcp }
+        ::= { dOfControllerConfigEntry 5}
+
+    dOfControllerRole OBJECT-TYPE
+        SYNTAX      INTEGER {
+            equal(1),
+            master(2),
+            slave(3)
+        }
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Connection type between switch and OpenFlow controller.
+             equal(1) - Default role, full access.
+             master(2) - Full access, at most one master.
+             slave(3) - Read-only access.
+            "
+        ::= { dOfControllerConfigEntry 6}
+
+    dOfControllerStatus OBJECT-TYPE
+        SYNTAX      INTEGER {
+            up(1),
+            down(2)
+        }
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Indicates status of OpenFlow controller.
+             up(1) - Connected.
+             down(2) - Disconnected.
+            "
+        ::= { dOfControllerConfigEntry 7}
+
+
+    dOfControllerRowStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The status of this entry.
+            "
+        ::= { dOfControllerConfigEntry 99 }
+
+-- -----------------------------------------------------------------------------
+    dOfFlowObjects          OBJECT IDENTIFIER ::= { dOfMIBObjects 4 }
+
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
+    dOfFlowConfigTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DOfFlowConfigEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table consists of a list of setting for each flow table.
+
+            The following table describes examples of flow table settings.
+
+            TableId TableMiss ClearStats
+            ------- --------- ----------
+            0       drop      noOp
+            "
+        ::= { dOfFlowObjects 1 }
+
+    dOfFlowConfigEntry OBJECT-TYPE
+        SYNTAX          DOfFlowConfigEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry consists of setting about a flow table.
+            "
+        INDEX {
+            dOfFlowConfigTableId
+         }
+        ::= { dOfFlowConfigTable 1 }
+
+    DOfFlowConfigEntry::=      SEQUENCE {
+        dOfFlowConfigTableId            Unsigned32,
+        dOfFlowConfigTableMiss          INTEGER,
+        dOfFlowConfigStatAction         INTEGER
+    }
+
+    dOfFlowConfigTableId OBJECT-TYPE
+        SYNTAX      Unsigned32 (0..255)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Indicates the flow table Id.
+            "
+        ::= { dOfFlowConfigEntry 1 }
+
+    dOfFlowConfigTableMiss OBJECT-TYPE
+        SYNTAX      INTEGER {
+            default(1),
+            drop(2),
+            controller(3)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "Indicates to set table-miss entry.
+             The table-miss flow entry specifies how to process packets unmatched
+             by other flow entries in the flow table.
+
+             default(1) - Remove table-miss entry, uses flow table default action,
+             drop(1) - Added a table miss-entry which instruction is Clear-Actions.
+             controller(2) - Added a table-miss entry which applied
+             `output=CONTROLLER` action.
+            "
+        ::= { dOfFlowConfigEntry 2}
+
+    dOfFlowConfigStatAction OBJECT-TYPE
+        SYNTAX      INTEGER {
+                clear(1),
+                noOp(2)
+            }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "This object is used to clear statistics of an flow table when set
+            to 'clear'.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+        ::= { dOfFlowConfigEntry 3 }
+
+
+-- ******************************************************************
+-- Conformance and Compliance
+-- ******************************************************************
+
+    dOfMIBCompliances  OBJECT IDENTIFIER ::= { dOfMIBConformance 1 }
+
+-- compliance statements
+
+    dOfMIBCompliance MODULE-COMPLIANCE
+        STATUS          deprecated
+        DESCRIPTION
+            "The compliance statement for entities which implement the
+            DLINKSW-OPENFLOW-MIB."
+        MODULE      -- this module
+        MANDATORY-GROUPS    {
+            dOfGlobalEnableGroup,
+            dOfIfEnableGroup,
+            dOfModeGroup,
+            dOfFailModeGroup,
+            dOfControllerConfigGroup,
+            dOfControllerStatusGroup,
+            dOfFlowTableConfigGroup,
+            dOfClearFlowTableStatGroup,
+            dOfControllerConnectPortGroup
+        }
+
+        GROUP dOfModeGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            OpenFlow pure mode and hybrid configuration.
+            "
+
+        GROUP dOfIfEnableGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            OpenFlow hybrid mode.
+            "
+
+        GROUP dOfFailModeGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            OpenFlow hybrid mode.
+            "
+
+        GROUP dOfControllerConnectPortGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which not support
+            management port.
+            "
+
+       ::= { dOfMIBCompliances  1 }
+
+    dOfMIBCompliance1 MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the
+            DLINKSW-OPENFLOW-MIB."
+        MODULE      -- this module
+        MANDATORY-GROUPS    {
+            dOfGlobalEnableGroup1,
+            dOfIfEnableGroup1,
+            dOfModeGroup1,
+            dOfFailModeGroup,
+            dOfControllerConfigGroup,
+            dOfControllerStatusGroup,
+            dOfFlowTableConfigGroup,
+            dOfClearFlowTableStatGroup,
+            dOfControllerConnectPortGroup1
+        }
+
+        GROUP dOfModeGroup1
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            OpenFlow pure mode and hybrid configuration.
+            "
+
+        GROUP dOfIfEnableGroup1
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            OpenFlow hybrid mode.
+            "
+
+        GROUP dOfFailModeGroup
+        DESCRIPTION
+            "This group is mandatory only for the platform which supports
+            OpenFlow hybrid mode.
+            "
+
+        GROUP dOfControllerConnectPortGroup1
+        DESCRIPTION
+            "This group is mandatory only for the platform which not support
+            management port.
+            "
+
+       ::= { dOfMIBCompliances  2 }
+
+
+-- units of conformance
+
+    dOfMIBGroups       OBJECT IDENTIFIER ::= { dOfMIBConformance 2 }
+
+    dOfGlobalEnableGroup OBJECT-GROUP
+        OBJECTS {
+            dOfGlobalEnabled
+        }
+        STATUS          deprecated
+        DESCRIPTION
+            "A collection of objects which are used to configure as
+            well as show information regarding the feature enabling.
+            "
+        ::= { dOfMIBGroups 1 }
+
+    dOfIfEnableGroup OBJECT-GROUP
+        OBJECTS {
+            dOfIfEnabled
+        }
+        STATUS          deprecated
+        DESCRIPTION
+            "A collection of objects which are used to configure as
+            well as show information regarding the feature enabling
+            on each interface.
+            "
+        ::= { dOfMIBGroups 2 }
+
+    dOfModeGroup OBJECT-GROUP
+        OBJECTS {
+            dOfMode
+        }
+        STATUS          deprecated
+        DESCRIPTION
+            "A collection of objects which are used to configure
+            OpenFlow working mode.
+            "
+        ::= { dOfMIBGroups 3 }
+
+    dOfFailModeGroup OBJECT-GROUP
+        OBJECTS {
+            dOfFailMode
+        }
+        STATUS          current
+        DESCRIPTION
+            "A collection of objects which are used to configure
+            OpenFlow controller connection fail-mode.
+            "
+        ::= { dOfMIBGroups 4 }
+
+    dOfControllerConfigGroup OBJECT-GROUP
+        OBJECTS {
+            dOfControllerAddrType,
+            dOfControllerAddress,
+            dOfControllerPort,
+            dOfControllerConnection,
+            dOfControllerRowStatus
+        }
+        STATUS      current
+        DESCRIPTION
+            "Objects for configuring the OpenFlow controller.
+            "
+        ::= { dOfMIBGroups 5 }
+
+    dOfControllerStatusGroup OBJECT-GROUP
+        OBJECTS {
+            dOfControllerRole,
+            dOfControllerStatus
+        }
+        STATUS      current
+        DESCRIPTION
+            "Objects for providing OpenFlow controller status.
+            "
+        ::= { dOfMIBGroups 6 }
+
+    dOfFlowTableConfigGroup OBJECT-GROUP
+        OBJECTS {
+            dOfFlowConfigTableMiss
+        }
+        STATUS      current
+        DESCRIPTION
+            "A collection of objects which are used to configure
+            Flow Table.
+            "
+        ::= { dOfMIBGroups 7 }
+
+    dOfClearFlowTableStatGroup OBJECT-GROUP
+        OBJECTS {
+            dOfFlowConfigStatAction
+        }
+        STATUS      current
+        DESCRIPTION
+            "Objects for clear the flow table statistics.
+            "
+        ::= { dOfMIBGroups 8 }
+
+    dOfControllerConnectPortGroup OBJECT-GROUP
+        OBJECTS {
+            dOfControllerConnectPort
+        }
+        STATUS          deprecated
+        DESCRIPTION
+            "A collection of objects which are used to configure
+            a front port to connect OpenFlow controller.
+            "
+        ::= { dOfMIBGroups 9 }
+
+    dOfGlobalEnableGroup1 OBJECT-GROUP
+        OBJECTS {
+            dOfAdminGlobalEnabled,
+            dOfOperaGlobalEnabled
+        }
+        STATUS          current
+        DESCRIPTION
+            "A collection of objects which indicates management and operation
+            information regarding the feature enabling.
+            "
+        ::= { dOfMIBGroups 10 }
+
+    dOfIfEnableGroup1 OBJECT-GROUP
+        OBJECTS {
+            dOfIfAdminEnabled,
+            dOfIfOperaEnabled
+        }
+        STATUS          current
+        DESCRIPTION
+            "A collection of objects which indicates management and operation
+            information regarding the feature enabling on each interface.
+            "
+        ::= { dOfMIBGroups 11 }
+
+    dOfModeGroup1 OBJECT-GROUP
+        OBJECTS {
+            dOfAdminMode,
+            dOfOperaMode
+        }
+        STATUS          current
+        DESCRIPTION
+            "A collection of objects which indicates management and operation
+            the OpenFlow mode.
+            "
+        ::= { dOfMIBGroups 12 }
+
+    dOfControllerConnectPortGroup1 OBJECT-GROUP
+        OBJECTS {
+            dOfAdminControllerConnectPort,
+            dOfOperaControllerConnectPort
+        }
+        STATUS          current
+        DESCRIPTION
+            "A collection of objects which indicates management and operation
+            the port used to connect controller in pure mode.
+            "
+        ::= { dOfMIBGroups 13 }
+
+END

@@ -1,0 +1,228 @@
+--  *****************************************************************
+--  DLINKSW-CPU-ACL-MIB.mib : CPU ACL MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-CPU-ACL-MIB DEFINITIONS ::= BEGIN
+
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE
+            FROM SNMPv2-SMI
+        DisplayString,
+        RowStatus
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE,
+	OBJECT-GROUP
+	    FROM SNMPv2-CONF
+        PortList
+            FROM Q-BRIDGE-MIB                                                
+        dlinkIndustrialCommon
+            FROM DLINK-ID-REC-MIB;
+
+
+    dlinkSwCPUAclMIB MODULE-IDENTITY
+        LAST-UPDATED "201407230000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+             Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of software Access Control List Information for the
+                 proprietary enterprise."
+	
+	    REVISION "201407230000Z"
+        DESCRIPTION
+            "Move the compiler warning for node dCPUAclMIBCompliances."         
+
+        REVISION "201405120000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'CPU ACL' functionality."         
+        ::= { dlinkIndustrialCommon 178 }
+
+-- -----------------------------------------------------------------------------
+--	MIB OBJECTS     
+-- -----------------------------------------------------------------------------
+
+	dCPUAclMIBNotifications	OBJECT IDENTIFIER ::= { dlinkSwCPUAclMIB 0 }
+	dCPUAclMIBObjects 		OBJECT IDENTIFIER ::= { dlinkSwCPUAclMIB 1 }
+	dCPUAclMIBConformance	OBJECT IDENTIFIER ::= { dlinkSwCPUAclMIB 2 } 
+
+-- -----------------------------------------------------------------------------     
+    dCPUAclFilter              OBJECT IDENTIFIER ::= { dCPUAclMIBObjects 1 }
+
+    dCPUAclFilterMapTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCPUAclFilterMapEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The table contains information about CPU ACL filter map."
+        ::= { dCPUAclFilter 1 }
+
+    dCPUAclFilterMapEntry OBJECT-TYPE
+        SYNTAX          DCPUAclFilterMapEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry defined in dCPUAclFilterMapTable. An entry is 
+            created/removed when an CPU ACL filter map is created/deleted."
+        INDEX { dCPUAclFilterMapName }
+        ::= { dCPUAclFilterMapTable 1 }
+
+    DCPUAclFilterMapEntry ::= SEQUENCE {
+        dCPUAclFilterMapName		DisplayString,
+        dCPUAclFilterMapRowStatus	RowStatus,
+        dCPUAclFilterMapApplyInterfaces	PortList    
+    }
+
+    dCPUAclFilterMapName OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (1..32))
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The name of the CPU ACL filter map."
+        ::= { dCPUAclFilterMapEntry 1 }
+
+    dCPUAclFilterMapRowStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "This object allows the dynamic creation and deletion of a CPU ACL filter map."
+        ::= { dCPUAclFilterMapEntry 2 }                     
+        
+    dCPUAclFilterMapApplyInterfaces OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Indicates the physical interface(s)for specify CPU ACL filter map.
+            An interface can be configured to at most one filter map. 
+            When you configure an interface to a new filter map, the interface 
+            will be removed from the previous filter map."
+        ::= { dCPUAclFilterMapEntry 3 }
+-- -----------------------------------------------------------------------------
+    dCPUAclFilterMapMatchTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF DCPUAclFilterMapMatchEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The table represents a list of CUP ACL filter group configuration."
+        ::= { dCPUAclFilter 2 }
+
+    dCPUAclFilterMapMatchEntry OBJECT-TYPE
+        SYNTAX          DCPUAclFilterMapMatchEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "The table represents a CPU ACL filter group configuration."
+        INDEX { dCPUAclFilterMapName, dCPUAclFilterMapMatchName }
+        ::= { dCPUAclFilterMapMatchTable 1 }
+
+    DCPUAclFilterMapMatchEntry ::= SEQUENCE {
+        dCPUAclFilterMapMatchName		DisplayString,   
+        dCPUAclFilterMapMatchRowStatus		RowStatus,
+        dCPUAclFilterMapMatchSN			INTEGER,
+        dCPUAclFilterMapMatchType		INTEGER
+    }
+
+    dCPUAclFilterMapMatchName OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (1..32))
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the name of access-list will be associated."
+        ::= { dCPUAclFilterMapMatchEntry 1 }
+    
+    dCPUAclFilterMapMatchRowStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The row status variable, used according to installation
+            and removal conventions for conceptual rows."
+        ::= { dCPUAclFilterMapMatchEntry 2 }
+
+     dCPUAclFilterMapMatchSN OBJECT-TYPE
+        SYNTAX          INTEGER ( 1..65535 )
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Indicates the sequence number of a ACL filter rule. 
+             The value range is 1 to 65535.             
+             The lower the number is, the higher the priority of the access-list.
+             "
+        ::= { dCPUAclFilterMapMatchEntry 3 }
+    
+    dCPUAclFilterMapMatchType OBJECT-TYPE
+        SYNTAX		INTEGER {
+			expert(1), 
+			mac(2),
+			ip(3),
+			ipv6(4)
+			}
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the type of MAC/IP/IPv6/expert access-list 
+            which will be associated.
+            If the match entrys with same sequence number defined by dCPUAclFilterMapMatchSN,
+            they are processed in the order: expert access-list, mac access-list, ip access-list, ipv6 access-list."
+        ::= { dCPUAclFilterMapMatchEntry 4 }
+
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+    dCPUAclMIBCompliances  OBJECT IDENTIFIER ::= { dCPUAclMIBConformance 1 }
+    dCPUAclMIBGroups  OBJECT IDENTIFIER         ::= { dCPUAclMIBConformance 2 }
+
+    dCPUAclCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the
+			DLINKSW-CPU-ACL-MIB."		
+			
+        MODULE          -- this module
+        MANDATORY-GROUPS    {
+            dCPUAclFilterGroup
+        }  
+
+        GROUP dCPUAclFilterInterfaceGroup
+        DESCRIPTION
+            "This group is required only if the CPU acl interface
+              is implemented by the agent."
+
+        ::= { dCPUAclMIBCompliances 1 }
+
+
+-- Units of Conformance
+
+    dCPUAclFilterGroup OBJECT-GROUP
+		OBJECTS {
+        dCPUAclFilterMapRowStatus,dCPUAclFilterMapMatchType,
+        dCPUAclFilterMapMatchSN,dCPUAclFilterMapMatchRowStatus
+		}
+		STATUS current
+		DESCRIPTION
+			"A collection of objects provides basic management and information
+            for CPU acl feature."
+		::= { dCPUAclMIBGroups 1 }
+		
+
+     dCPUAclFilterInterfaceGroup OBJECT-GROUP
+		OBJECTS {
+        dCPUAclFilterMapApplyInterfaces
+        }
+		STATUS current
+		DESCRIPTION
+			"A collection of objects providing general CPU acl interface configuration."
+		::= { dCPUAclMIBGroups 2 }
+
+
+END

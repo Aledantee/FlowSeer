@@ -1,0 +1,183 @@
+--  *****************************************************************
+--  DLINKSW-SRM-MIB.mib : Switch Resource Management MIB
+--
+--  Copyright (c) 2013 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKSW-SRM-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        Integer32               
+                FROM SNMPv2-SMI 
+        TEXTUAL-CONVENTION   
+                FROM SNMPv2-TC 
+        MODULE-COMPLIANCE, OBJECT-GROUP 
+                FROM SNMPv2-CONF               
+        dlinkIndustrialCommon
+                FROM DLINK-ID-REC-MIB;
+
+    dlinkSwSrmMIB MODULE-IDENTITY
+        LAST-UPDATED "201506190000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for configuring Switch Resource Management(SRM)."
+            
+        REVISION "201506190000Z"
+        DESCRIPTION
+            " Add the dSrmCurrentInfoTable. 
+            "
+
+        REVISION "201505210000Z"
+        DESCRIPTION
+            " This is the first version of the MIB file. 
+            "
+        ::= { dlinkIndustrialCommon 185 }
+
+-- -----------------------------------------------------------------------------
+    dSrmNotifications    OBJECT IDENTIFIER ::= { dlinkSwSrmMIB 0 }
+    dSrmObjects          OBJECT IDENTIFIER ::= { dlinkSwSrmMIB 1 }
+    dSrmConformance      OBJECT IDENTIFIER ::= { dlinkSwSrmMIB 2 }
+
+-- ******************************************************************
+-- Textual conventions
+-- ******************************************************************
+    DSrmMode ::= TEXTUAL-CONVENTION
+        STATUS      current
+        DESCRIPTION
+           "A value that represents the switch resource management mode.
+                lan(1) - The LAN SRM mode.
+                ip(2) - The IP SRM mode.
+                l2-vpn(3) - The L2-VPN SRM mode.
+           " 
+        SYNTAX  INTEGER {
+            lan     (1),
+            ip      (2),
+            l2-vpn  (3)
+        }
+
+-- -----------------------------------------------------------------------------
+
+    dSrmCtrl  OBJECT IDENTIFIER ::= {dSrmObjects 1}
+      
+    dSrmPrefer  OBJECT-TYPE
+        SYNTAX         DSrmMode
+        MAX-ACCESS     read-write
+        STATUS         current
+        DESCRIPTION   
+            "This object indicates the prefer switch resource management mode.
+            lan(1)-The device prefer LAN switch.
+            ip(2)-The device prefer IP route mode.
+            l2-vpn(3)-The device prefer L2 VPN"
+        DEFVAL      { ip }              
+        ::= { dSrmCtrl 1}  
+ 
+ -- -----------------------------------------------------------------------------  	    
+    dSrmCurrentInfoTable  OBJECT-TYPE
+        SYNTAX         SEQUENCE OF DSrmCurrentInfoEntry
+        MAX-ACCESS     not-accessible
+        STATUS         current
+        DESCRIPTION
+            "This table displays the current SRM mode of the device. If in the 
+            stacking system, the SRM mode of all devices will be displayed.           
+            "
+        ::= {dSrmObjects 2}
+   
+    dSrmCurrentInfoEntry  OBJECT-TYPE
+        SYNTAX         DSrmCurrentInfoEntry
+        MAX-ACCESS     not-accessible
+        STATUS         current
+        DESCRIPTION
+            "An entry (conceptual row) in dSrmCurrentInfoTable." 
+        INDEX       { dSrmCurrentInfoUnitId }
+        ::= { dSrmCurrentInfoTable 1}
+
+    DSrmCurrentInfoEntry ::=  SEQUENCE {
+        dSrmCurrentInfoUnitId       Integer32,
+        dSrmCurrentInfoCrtMode      DSrmMode,
+        dSrmCurrentInfoCfgMode      DSrmMode
+    }
+
+    dSrmCurrentInfoUnitId  OBJECT-TYPE
+	      SYNTAX          Integer32
+	      MAX-ACCESS      not-accessible
+	      STATUS          current
+	      DESCRIPTION
+		        "This object indicates the box ID of the device. If stacking is 
+		        disabled, it is always 1."
+        ::= { dSrmCurrentInfoEntry 1 } 
+        
+    dSrmCurrentInfoCrtMode  OBJECT-TYPE
+	      SYNTAX          DSrmMode
+	      MAX-ACCESS      read-only
+	      STATUS          current
+	      DESCRIPTION
+		        "This object indicates the current SRM mode start from boot up."
+        ::= { dSrmCurrentInfoEntry 2 } 
+        
+    dSrmCurrentInfoCfgMode  OBJECT-TYPE
+	      SYNTAX          DSrmMode
+	      MAX-ACCESS      read-only
+	      STATUS          current
+	      DESCRIPTION
+		        "This object indicates the new configured SRM mode and it will take
+		        effect after reboot."
+        ::= { dSrmCurrentInfoEntry 3 } 
+                                           
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- -----------------------------------------------------------------------------       
+    dSrmConformances OBJECT IDENTIFIER ::= { dSrmConformance 1 }
+		
+    dSrmCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION 
+            "The compliance statement for entities which implement the 
+             DLINKSW-SRM-MIB."
+        MODULE  -- this module
+		
+        GROUP dSrmGroup
+        DESCRIPTION
+            "This group is mandatory if SRM(Switch Resource Management) is
+            supported."
+            
+        GROUP dSrmInfoGroup
+        DESCRIPTION
+            "This group is mandatory if SRM(Switch Resource Management) is
+            supported." 
+         
+        ::= { dSrmConformance 1 }
+		
+    dSrmGroups OBJECT IDENTIFIER ::= { dSrmConformance 2 }
+		
+    dSrmGroup OBJECT-GROUP
+        OBJECTS { 
+            dSrmPrefer
+        }
+        STATUS current
+        DESCRIPTION 
+            "This group contains the collection of objects which are used to 
+            configure the SRM feature."						
+        ::= { dSrmGroups 1 }
+        
+    dSrmInfoGroup OBJECT-GROUP
+        OBJECTS { 
+            dSrmCurrentInfoCrtMode,
+            dSrmCurrentInfoCfgMode            
+        }
+        STATUS current
+        DESCRIPTION 
+            "This group contains the collection of objects which are used to 
+            display the SRM feature information."						
+        ::= { dSrmGroups 2 }        
+      
+END

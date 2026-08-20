@@ -1,0 +1,110 @@
+--  *****************************************************************
+--  DLINKSW-SSH-CLIENT-MIB.mib : Secure FTP Client MIB
+-- 
+--  Copyright (c) 2017 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKSW-SSH-CLIENT-MIB DEFINITIONS ::= BEGIN
+
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        Integer32        
+                FROM SNMPv2-SMI
+        SnmpAdminString          
+		    FROM SNMP-FRAMEWORK-MIB			
+        dlinkIndustrialCommon
+                FROM DLINK-ID-REC-MIB;
+
+
+    dlinkSwSshClientMIB MODULE-IDENTITY
+        LAST-UPDATED "201707210000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for Secure Shell Client."
+        REVISION "201707210000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file.
+            "
+    ::= { dlinkIndustrialCommon 193 }
+
+-- -----------------------------------------------------------------------------
+    dSshClientNotifications    OBJECT IDENTIFIER ::= { dlinkSwSshClientMIB 0 }
+    dSshClientObjects          OBJECT IDENTIFIER ::= { dlinkSwSshClientMIB 1 }
+    dSshClientConformance      OBJECT IDENTIFIER ::= { dlinkSwSshClientMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    dSshClientGeneral          OBJECT IDENTIFIER ::= { dSshClientObjects 1 }
+
+    dSshClientAuthMethod OBJECT-TYPE
+        SYNTAX   INTEGER {
+                    password(0),
+                    publickey(1)                   
+                }    
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "This object indicates the authentication method for Ssh client.
+            'password' - Ssh client use password authentication method.
+            'publickey' - Ssh client use public key authentication method.            
+
+            "
+        DEFVAL { password }
+        ::= { dSshClientGeneral 1 }
+
+    dSshClientPublickeyPath    OBJECT-TYPE
+        SYNTAX          SnmpAdminString
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the Ssh client public key file path."
+        ::= { dSshClientGeneral 2 }
+
+    dSshClientPrivatekeyPath    OBJECT-TYPE
+        SYNTAX          SnmpAdminString
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the Ssh client private key file path."
+        ::= { dSshClientGeneral 3 }
+        
+-- Conformance
+  
+
+    dSshClientCompliances  OBJECT IDENTIFIER ::= { dSshClientConformance 1 }
+    dSshClientGroups       OBJECT IDENTIFIER ::= { dSshClientConformance 2 }        
+       
+       
+    dSshClientMIBCompliance MODULE-COMPLIANCE
+        STATUS   current
+        DESCRIPTION
+            "The compliance statement for entities which
+            implement the DLINKSW-SSH-CLIENT-MIB."
+        MODULE MANDATORY-GROUPS { 
+            dSshClientConfigGroup
+        }
+        
+        ::= { dSshClientCompliances 1 }
+
+    dSshClientConfigGroup OBJECT-GROUP
+        OBJECTS             {   
+            dSshClientAuthMethod,             
+            dSshClientPublickeyPath,
+			dSshClientPrivatekeyPath
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides configuration for SSH Client."
+        ::= { dSshClientGroups 1 }
+
+END
+
