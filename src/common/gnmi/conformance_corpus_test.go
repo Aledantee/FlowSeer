@@ -64,6 +64,30 @@ var gnmiCorpus = []conformance.Row{
 		Behavior:   "whether Aruba CX accepts config writes via Set is verified early on lab hardware; if not, the write criterion converts per R14 with the fallback recorded",
 		Unit:       "U10", Status: conformance.Pending,
 	},
+	{
+		ID: "gn-t4-identity", Clause: "AE1",
+		Provenance: "Aruba CX lab device (pending)",
+		Behavior:   "hostname, software version, serial, and part number return via Get over the advertised OpenConfig models",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "gn-t4-set-verdict", Clause: "AE3/R14",
+		Provenance: "Aruba CX lab device (pending)",
+		Behavior:   "a reversible login-banner Set either round-trips (verified by Get) or the incapacity is recorded and the write criterion converts per R14",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "gn-t4-stream", Clause: "R10",
+		Provenance: "Aruba CX lab device (pending)",
+		Behavior:   "a STREAM subscription over interface state delivers sync and keeps flowing on hardware",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "gn-t4-revision-drift", Clause: "R8",
+		Provenance: "Aruba CX lab device (pending)",
+		Behavior:   "advertised model versions diff against the committed lockfile; drift surfaces as warnings",
+		Unit:       "U10", Status: conformance.Pending,
+	},
 }
 
 // gnmiFamilies groups the corpus for CONFORMANCE.md.

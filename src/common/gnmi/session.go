@@ -57,6 +57,17 @@ type Model struct {
 	Version      string
 }
 
+// ModelRevisions maps model names to advertised versions — the
+// advertised side of R8's revision-drift check; compare against
+// yang.ParseLockfileRevisions with yang.DiffRevisions.
+func (c Capabilities) ModelRevisions() map[string]string {
+	out := make(map[string]string, len(c.Models))
+	for _, m := range c.Models {
+		out[m.Name] = m.Version
+	}
+	return out
+}
+
 // Dial establishes the channel, records Capabilities, and negotiates
 // the encoding (KTD5: JSON_IETF preferred, PROTO fallback).
 func Dial(ctx context.Context, target string, opts Options) (*Session, error) {

@@ -2,7 +2,7 @@
 
 <!-- Generated from conformance_corpus_test.go; run the corpus golden test with -update-conformance to refresh. Do not edit by hand. -->
 
-Rows: 6 covered, 0 accepted-risk, 1 pending.
+Rows: 6 covered, 0 accepted-risk, 5 pending.
 
 ## gNMI encoding, Set, and Subscribe behavior
 
@@ -15,4 +15,8 @@ Rows: 6 covered, 0 accepted-risk, 1 pending.
 | `gn-subscribe-once-snapshot` | gNMI spec §3.5.1.5.1 | FlowSeer reference target (t1) | Subscribe ONCE assembles the snapshot's leaf updates into typed rows through the generated descriptor and ends cleanly at sync | covered |
 | `gn-stream-sync-cold-start` | gNMI spec §3.5.1.5.2 | FlowSeer reference target (t1) | STREAM cold start emits Added per row at sync, then the target's periodic leaf change arrives as one Modified per batch | covered |
 | `gn-aruba-set-capability` | gNMI spec §3.4 | R14: external research suggests AOS-CX gNMI is telemetry-oriented | whether Aruba CX accepts config writes via Set is verified early on lab hardware; if not, the write criterion converts per R14 with the fallback recorded | pending |
+| `gn-t4-identity` | AE1 | Aruba CX lab device (pending) | hostname, software version, serial, and part number return via Get over the advertised OpenConfig models | pending |
+| `gn-t4-set-verdict` | AE3/R14 | Aruba CX lab device (pending) | a reversible login-banner Set either round-trips (verified by Get) or the incapacity is recorded and the write criterion converts per R14 | pending |
+| `gn-t4-stream` | R10 | Aruba CX lab device (pending) | a STREAM subscription over interface state delivers sync and keeps flowing on hardware | pending |
+| `gn-t4-revision-drift` | R8 | Aruba CX lab device (pending) | advertised model versions diff against the committed lockfile; drift surfaces as warnings | pending |
 

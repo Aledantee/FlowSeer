@@ -317,3 +317,19 @@ func TestContextCancellationStaysUnwrapped(t *testing.T) {
 		t.Errorf("caller cancellation latched: %v", s.Err())
 	}
 }
+
+func TestModuleRevisionsFromHello(t *testing.T) {
+	f := newFake(
+		capCandidate,
+		"urn:ietf:params:xml:ns:yang:ietf-interfaces?module=ietf-interfaces&revision=2014-05-08",
+		"http://cisco.com/ns/yang/Cisco-IOS-XE-native?module=Cisco-IOS-XE-native&revision=2023-11-01&features=x",
+		"urn:no-query-here",
+	)
+	s := netconf.NewSession(f, netconf.Options{})
+	defer func() { _ = s.Close(context.Background()) }()
+
+	revs := s.ModuleRevisions()
+	if len(revs) != 2 || revs["ietf-interfaces"] != "2014-05-08" || revs["Cisco-IOS-XE-native"] != "2023-11-01" {
+		t.Errorf("ModuleRevisions() = %v", revs)
+	}
+}

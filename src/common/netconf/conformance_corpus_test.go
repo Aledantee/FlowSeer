@@ -62,6 +62,42 @@ var netconfCorpus = []conformance.Row{
 		Adversarial: "port 0 against fixture-types port-number range 1..65535",
 		Unit:        "U9", Status: conformance.Covered,
 	},
+	{
+		ID: "nc-t4-identity", Clause: "AE1",
+		Provenance: "IOS-XE lab device (pending)",
+		Behavior:   "hostname, serial, model, and OS version return as typed values via the generated native and device-hardware bindings",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "nc-t4-invalid-rollback", Clause: "AE2",
+		Provenance: "IOS-XE lab device (pending)",
+		Behavior:   "a staged invalid candidate change is rejected, discarded, and unlocked; read-back diff proves running unchanged",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "nc-t4-reversible-edit", Clause: "R12",
+		Provenance: "IOS-XE lab device (pending)",
+		Behavior:   "a reversible edit round-trips through candidate/commit and its revert, both proven by read-back",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "nc-t4-interface-walk", Clause: "R11",
+		Provenance: "IOS-XE lab device (pending)",
+		Behavior:   "the interface-state Walker completes with typed rows on hardware",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "nc-t4-watch-induced", Clause: "AE4",
+		Provenance: "IOS-XE lab device (pending; operator-induced toggle)",
+		Behavior:   "an interface state change between ticks emits exactly one Modified for that row on hardware",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "nc-t4-revision-drift", Clause: "R8",
+		Provenance: "IOS-XE lab device (pending)",
+		Behavior:   "device-advertised module revisions diff against the committed lockfile; drift surfaces as warnings",
+		Unit:       "U10", Status: conformance.Pending,
+	},
 }
 
 // netconfFamilies groups the corpus for CONFORMANCE.md.

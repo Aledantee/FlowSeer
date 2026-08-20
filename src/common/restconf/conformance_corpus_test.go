@@ -64,6 +64,24 @@ var restconfCorpus = []conformance.Row{
 		Behavior:   "depth and fields are sent only on request; peers ignoring them still get correct results via client-side pruning — to be verified on ICX lab hardware",
 		Unit:       "U10", Status: conformance.Pending,
 	},
+	{
+		ID: "rc-t4-identity", Clause: "AE1",
+		Provenance: "Ruckus ICX lab device (pending)",
+		Behavior:   "hostname, serial, model, and OS version return as typed values via the generated openconfig-system and openconfig-platform bindings",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "rc-t4-reversible-edit", Clause: "R12",
+		Provenance: "Ruckus ICX lab device (pending)",
+		Behavior:   "a reversible login-banner edit and its revert are proven by read-back",
+		Unit:       "U10", Status: conformance.Pending,
+	},
+	{
+		ID: "rc-t4-depth-fields", Clause: "RFC 8040 §4.8.2/§4.8.3",
+		Provenance: "Ruckus ICX lab device (pending; resolves rc-depth-fields-unverified)",
+		Behavior:   "whether ICX honors depth/fields is measured and recorded; either way the client behaves correctly",
+		Unit:       "U10", Status: conformance.Pending,
+	},
 }
 
 // restconfFamilies groups the corpus for CONFORMANCE.md.

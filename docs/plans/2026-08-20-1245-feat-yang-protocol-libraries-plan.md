@@ -527,3 +527,34 @@ runtime) at ~1/5 the emitted volume of full per-field codecs.
 Synthetic-row descriptors are emitted for top-level containers;
 deeper subtrees compose `yang.SubtreeDescriptor` from the exported
 schema and path.
+
+### U10 status (2026-08-20): t4 harness complete, lab runs blocked on hardware access
+
+The full t4 tier is implemented and compile-verified for all three
+libraries behind `yang_integration_t4`, mirroring the SNMP env
+contract (`YANG_NETCONF_T4_TARGETS` / `YANG_RESTCONF_T4_TARGETS` /
+`YANG_GNMI_T4_TARGETS`; unset = skip 0, malformed = fail 1; lab
+TLS/host-key opt-ins documented). Suites cover AE1 identity reads via
+the generated bindings (IOS-XE native + device-hardware oper; ICX
+openconfig-system + platform components; Aruba OpenConfig paths), the
+AE2 invalid-candidate rollback with read-back diff, reversible edits
+per family (R12), the R14 Aruba Set verdict test with capture/restore
+and explicit conversion logging, interface Walkers, the
+operator-induced AE4 Watcher check (`YANG_T4_INDUCE=1`), and R8
+revision-drift comparisons against the committed lockfile (runtime
+surfaces: `netconf.Session.ModuleRevisions`,
+`gnmi.Capabilities.ModelRevisions`, `yang.ParseLockfileRevisions` /
+`yang.DiffRevisions`).
+
+**Blocked:** executing these suites needs reachable lab devices for
+the three families (KD9). The corpus rows for the lab outcomes
+(`nc-t4-*`, `rc-t4-*`, `gn-t4-*`, `rc-depth-fields-unverified`,
+`gn-aruba-set-capability`) are deliberately `pending`, so the
+build-tagged completeness gates fail until the lab pass flips them —
+by design, that is the remaining Definition-of-Done gap. Once
+credentials/addresses are provided via the env contract, run:
+
+	go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/integration/
+
+then flip the rows (Covered, with the observed adversarial detail) or
+record the R14 conversion here.

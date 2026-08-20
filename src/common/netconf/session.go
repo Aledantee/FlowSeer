@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -194,6 +196,29 @@ func (s *Session) Capabilities() []string { return s.caps.all }
 // EditTarget returns the datastore this peer's edits address
 // (capability-driven per R1) and whether the peer is editable at all.
 func (s *Session) EditTarget() (Datastore, bool) { return s.caps.editTarget() }
+
+// ModuleRevisions extracts the module→revision map from the hello's
+// capability URIs (the module=X&revision=Y query parameters of RFC
+// 6020 §5.6.4) — the advertised side of R8's revision-drift check;
+// compare against yang.ParseLockfileRevisions with
+// yang.DiffRevisions.
+func (s *Session) ModuleRevisions() map[string]string {
+	out := make(map[string]string)
+	for _, cap := range s.caps.all {
+		_, query, ok := strings.Cut(cap, "?")
+		if !ok {
+			continue
+		}
+		values, err := url.ParseQuery(query)
+		if err != nil {
+			continue
+		}
+		if module := values.Get("module"); module != "" {
+			out[module] = values.Get("revision")
+		}
+	}
+	return out
+}
 
 // Err returns the session's first latched terminal error (dead
 // transport, keepalive trip), or nil.
