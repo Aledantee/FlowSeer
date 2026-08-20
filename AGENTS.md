@@ -47,6 +47,9 @@ Three conventions below are enforced by hooks in `.claude/hooks/`, wired in
 - `src/backend/`, `src/common/`, `src/edge/` — Go (`go.aledante.io/FlowSeer`).
 - `spec/proto/` + `spec/mib/` — schema sources of truth; `generated/` is
   `buf generate` output and is never edited by hand.
+- `docs/architecture/` — accepted direction records (architecture-level decisions
+  that later brainstorms and plans build toward); read first when a task touches
+  the device service, inventory, discovery, or ingestion planes.
 - `docs/solutions/` — captured learnings from past work (bugs, conventions,
   architecture patterns), by category, with YAML frontmatter (`module`, `tags`,
   `problem_type`); relevant when implementing or debugging in a documented area.
