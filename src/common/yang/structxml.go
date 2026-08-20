@@ -133,7 +133,7 @@ func UnmarshalXMLStruct(s *Schema, data []byte, v any) error {
 		return errs.New().Code(ErrCodeValueParse).Msgf("decode target for %s must be a non-nil struct pointer", s.Name)
 	}
 	dec := xml.NewDecoder(bytes.NewReader(data))
-	if _, err := findXMLElement(dec, s); err != nil {
+	if err := findXMLElement(dec, s); err != nil {
 		return err
 	}
 	return decodeXMLInto(dec, s, rv.Elem())
@@ -145,7 +145,7 @@ func DecodeXMLList[Row any](s *Schema, data []byte) ([]Row, error) {
 	var rows []Row
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	for {
-		if _, err := findXMLElement(dec, s); err != nil {
+		if err := findXMLElement(dec, s); err != nil {
 			if errors.Is(err, io.EOF) {
 				return rows, nil
 			}
@@ -163,16 +163,16 @@ func DecodeXMLList[Row any](s *Schema, data []byte) ([]Row, error) {
 	}
 }
 
-// findXMLElement advances dec to the next start element matching s
+// findXMLElement advances dec past the next start element matching s
 // at any depth. io.EOF signals no further match.
-func findXMLElement(dec *xml.Decoder, s *Schema) (xml.StartElement, error) {
+func findXMLElement(dec *xml.Decoder, s *Schema) error {
 	for {
 		tok, err := dec.Token()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return xml.StartElement{}, io.EOF
+				return io.EOF
 			}
-			return xml.StartElement{}, errs.From(err).Code(ErrCodeValueParse).Msgf("scan XML for %s", s.Name)
+			return errs.From(err).Code(ErrCodeValueParse).Msgf("scan XML for %s", s.Name)
 		}
 		start, ok := tok.(xml.StartElement)
 		if !ok {
@@ -184,7 +184,7 @@ func findXMLElement(dec *xml.Decoder, s *Schema) (xml.StartElement, error) {
 		if s.Namespace != "" && start.Name.Space != "" && start.Name.Space != s.Namespace {
 			continue
 		}
-		return start, nil
+		return nil
 	}
 }
 
@@ -207,7 +207,7 @@ func decodeXMLInto(dec *xml.Decoder, s *Schema, rv reflect.Value) error {
 				}
 				continue
 			}
-			if err := decodeXMLField(dec, s, f, rv); err != nil {
+			if err := decodeXMLField(dec, f, rv); err != nil {
 				return err
 			}
 		default:
@@ -239,7 +239,7 @@ func matchField(s *Schema, local, space string) *Field {
 }
 
 // decodeXMLField decodes one child element into its struct field.
-func decodeXMLField(dec *xml.Decoder, s *Schema, f *Field, rv reflect.Value) error {
+func decodeXMLField(dec *xml.Decoder, f *Field, rv reflect.Value) error {
 	fv, err := fieldValue(rv, f)
 	if err != nil {
 		return err

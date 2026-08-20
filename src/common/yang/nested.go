@@ -371,7 +371,7 @@ func ContainerRowCodec[Row any](s *Schema) RowCodec[Row, struct{}] {
 			}
 			return []Row{row}, nil
 		},
-		Equal: func(a, b Row) bool { return EqualStructs(a, b) },
+		Equal: EqualStructs[Row],
 		Merge: func(base, update Row) Row { return MergeStructs(s, base, update) },
 		Key:   func(Row) struct{} { return struct{}{} },
 	}

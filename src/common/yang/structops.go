@@ -215,7 +215,7 @@ func StructRowCodec[Row any, Key comparable](s *Schema, key func(*Row) Key) RowC
 	return RowCodec[Row, Key]{
 		DecodeXML:  func(data []byte) ([]Row, error) { return DecodeXMLList[Row](s, data) },
 		DecodeJSON: func(data []byte) ([]Row, error) { return DecodeJSONList[Row](s, data) },
-		Equal:      func(a, b Row) bool { return EqualStructs(a, b) },
+		Equal:      EqualStructs[Row],
 		Merge:      func(base, update Row) Row { return MergeStructs(s, base, update) },
 		Key:        func(row Row) Key { return key(&row) },
 	}
