@@ -3,3 +3,7 @@
 
 # JetBrains IDEs
 .idea/
+
+# Claude Code per-session worktrees and the worktree-guard opt-out marker
+.claude/worktrees/
+.claude/no-worktree-guard
