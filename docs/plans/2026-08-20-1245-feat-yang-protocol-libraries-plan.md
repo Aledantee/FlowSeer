@@ -484,6 +484,38 @@ Merge gate remains the repo standard: build + vet + lint + `go test -race ./...`
 - New library `doc.go` files state the public contract (lifecycle, concurrency safety, error codes); no README drift introduced.
 - Dead-end and experimental code from abandoned approaches removed from the diff; `generated/` contains only generator output.
 
+### DoD status (2026-08-20)
+
+Every clause above is **met except the lab-hardware leg of AE1–AE4
+and the R14 verdict**, which are hardware-gated and cannot run in the
+implementation environment (no IOS-XE / ICX / Aruba CX device is
+reachable or recorded in the repo; only the SNMP tier's MikroTik
+targets exist, and their community string cannot authenticate
+NETCONF/RESTCONF/gNMI). Confirmed met without hardware:
+
+- All ten units' code complete and committed in dependency order;
+  U10's t4 suites and the R8 revision-drift runtime are implemented
+  and compile-verified.
+- R9 measured; commit-generated-output policy decided and applied
+  (see Follow-Up Notes).
+- Corpus integrity gates green for all three libraries; `go.mod` gained
+  only goyang, nemith/netconf, openconfig/gnmi (+grpc, named alongside
+  gnmi in Dependencies); no ygot/gnmic; new `doc.go` contracts in
+  place; `generated/` is pure generator output; no dead-end code.
+- t1 container tier green against real netopeer2, clixon, and the
+  FlowSeer gNMI reference target.
+
+**Remaining, blocked on lab access (KD9):** the lab-outcome corpus
+rows are deliberately `pending` (`nc-t4-*`, `rc-t4-*`, `gn-t4-*`,
+`rc-depth-fields-unverified`, `gn-aruba-set-capability`), so the
+build-tagged completeness gates stay red by design until a lab pass
+runs. To close: supply targets via `YANG_NETCONF_T4_TARGETS` /
+`YANG_RESTCONF_T4_TARGETS` / `YANG_GNMI_T4_TARGETS`, run
+`go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/integration/`,
+then flip those rows to `covered` with the observed detail (or record
+the R14 Aruba conversion here) and regenerate the CONFORMANCE.md
+goldens.
+
 ---
 
 ## Follow-Up Notes
