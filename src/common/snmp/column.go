@@ -108,7 +108,7 @@ func BindRow[R any](w *Walker, bind func(idx OID, vb VarBind, row *R) error) ite
 				// signals stop and drains. Calling signalStop here
 				// makes the intent explicit and shortens the wakeup
 				// path by one channel send.
-				w.signalStop()
+				w.pump.SignalStop()
 				return
 			}
 			var zero R

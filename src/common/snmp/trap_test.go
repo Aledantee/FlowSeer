@@ -38,7 +38,7 @@ func TestTrapStream_PushHappyPath(t *testing.T) {
 		want[i] = makeTrap(t, i)
 		ts.Push(want[i])
 	}
-	ts.done()
+	ts.pump.Done()
 
 	got := make([]Trap, 0, n)
 	for tr := range ts.Iter() {
@@ -74,7 +74,7 @@ func TestTrapStream_NextHappyPath(t *testing.T) {
 	for i := 0; i < n; i++ {
 		ts.Push(makeTrap(t, i))
 	}
-	ts.done()
+	ts.pump.Done()
 
 	count := 0
 	for ts.Next() {
@@ -101,7 +101,7 @@ func TestTrapStream_DropOldest(t *testing.T) {
 	for i := 0; i < n; i++ {
 		ts.Push(makeTrap(t, i))
 	}
-	ts.done()
+	ts.pump.Done()
 
 	got := make([]Trap, 0, n)
 	for tr := range ts.Iter() {
@@ -179,7 +179,7 @@ func TestTrapStream_DropCounterAtomic(t *testing.T) {
 		}(p * per)
 	}
 	pushWG.Wait()
-	ts.done()
+	ts.pump.Done()
 	close(stop)
 	pollWG.Wait()
 	<-done
@@ -209,7 +209,7 @@ func TestTrapStream_Close_Idempotent(t *testing.T) {
 		t.Errorf("second Close = %v, want nil", err)
 	}
 	// Done after Close also must not panic.
-	ts.done()
+	ts.pump.Done()
 }
 
 // TestTrapStream_Close_TerminatesPump exercises Close while a pump
@@ -226,7 +226,7 @@ func TestTrapStream_Close_TerminatesPump(t *testing.T) {
 		// Close raced ahead of the next Push. Push silently returns
 		// once the stream is closing, so an in-flight Push doesn't
 		// race the close.
-		defer ts.done()
+		defer ts.pump.Done()
 		i := 0
 		for {
 			select {
@@ -320,7 +320,7 @@ func TestTrapStream_Traps_RangeBreakSignalsPump(t *testing.T) {
 		defer close(pumpDone)
 		// Done closes the data channel exactly once, signaling the
 		// consumer's range loop to exit after draining the buffer.
-		defer ts.done()
+		defer ts.pump.Done()
 		i := 0
 		for {
 			select {
@@ -359,7 +359,7 @@ func TestTrapStream_Traps_RangeBreakSignalsPump(t *testing.T) {
 func TestTrapStream_Fail(t *testing.T) {
 	sentinel := errors.New("trap-pump-go-boom")
 	ts := NewTrapStream(context.Background(), 0)
-	ts.fail(sentinel)
+	ts.pump.Fail(sentinel)
 
 	count := 0
 	for range ts.Iter() {
@@ -418,7 +418,7 @@ func TestTrapOptions_Apply(t *testing.T) {
 func TestTrapStream_DefaultBuffer(t *testing.T) {
 	ts := NewTrapStream(context.Background(), -1)
 	defer func() { _ = ts.Close() }()
-	if cap(ts.ch) != defaultTrapBuffer {
-		t.Errorf("buffer cap = %d, want %d", cap(ts.ch), defaultTrapBuffer)
+	if cap(ts.pump.Data()) != defaultTrapBuffer {
+		t.Errorf("buffer cap = %d, want %d", cap(ts.pump.Data()), defaultTrapBuffer)
 	}
 }

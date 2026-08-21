@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/pump"
 )
 
 // defaultWatchEventBuffer is the buffer size [NewWatcher] uses for its
@@ -61,14 +62,14 @@ const watcherDefaultMaxOIDs = 60
 //
 // # Synchronization model
 //
-// Watcher embeds a generic [*pump] of [WatchEvent[Row]] which owns
+// Watcher wraps the shared [pump.Pump] of [WatchEvent[Row]], which owns
 // the cross-cutting channel pump (data channel, stop signal,
 // send/close RWMutex, derived context, terminal-error latch).
 // Watcher-specific state — the row snapshot, the cached effective
 // tier map, the fallback flag, the last-tick error — lives on
 // Watcher itself.
 type Watcher[Row any] struct {
-	*pump[WatchEvent[Row]]
+	pump *pump.Pump[WatchEvent[Row]]
 
 	// cfg captures the caller-supplied options after validation. The
 	// scheduler reads cadence bounds and tier overrides from this;
@@ -266,9 +267,9 @@ func NewWatcher[Row any](
 	// non-nil value with the error latched on the pump.
 	failedWatcher := func(err error) (*Watcher[Row], error) {
 		w := &Watcher[Row]{
-			pump: newPump[WatchEvent[Row]](ctx, defaultWatchEventBuffer),
+			pump: pump.New[WatchEvent[Row]](ctx, defaultWatchEventBuffer),
 		}
-		w.fail(err)
+		w.pump.Fail(err)
 		return w, err
 	}
 
@@ -337,7 +338,7 @@ func NewWatcher[Row any](
 	}
 
 	w := &Watcher[Row]{
-		pump:      newPump[WatchEvent[Row]](ctx, defaultWatchEventBuffer),
+		pump:      pump.New[WatchEvent[Row]](ctx, defaultWatchEventBuffer),
 		cfg:       cfg,
 		sess:      sess,
 		indicator: indicator,
@@ -543,10 +544,10 @@ func deriveTableRoot(indicator ChangeIndicator, cols []AnyColumn) (OID, error) {
 // common "skip the OID, use the event" call site short.
 func (w *Watcher[Row]) Iter() iter.Seq2[OID, WatchEvent[Row]] {
 	return func(yield func(OID, WatchEvent[Row]) bool) {
-		for ev := range w.ch {
+		for ev := range w.pump.Data() {
 			if !yield(ev.Index, ev) {
-				w.signalStop()
-				for range w.ch {
+				w.pump.SignalStop()
+				for range w.pump.Data() {
 				}
 				return
 			}
@@ -567,10 +568,16 @@ func (w *Watcher[Row]) Iter() iter.Seq2[OID, WatchEvent[Row]] {
 // fallback state are released when the Watcher value is
 // garbage-collected; in-process restart requires a new Watcher.
 func (w *Watcher[Row]) Close() error {
-	w.signalStop()
-	w.cancel()
+	w.pump.SignalStop()
+	w.pump.Cancel()
 	return nil
 }
+
+// Err returns the Watcher's first terminal error, or nil if it
+// completed cleanly or is still running. Same contract as
+// [Walker.Err]; transient tick errors surface via
+// [Watcher.LastTickErr] instead.
+func (w *Watcher[Row]) Err() error { return w.pump.Err() }
 
 // Fallback reports whether the Watcher has transitioned to fallback
 // mode — either because the indicator returned an exception variant
@@ -615,10 +622,10 @@ func (w *Watcher[Row]) TableRoot() OID {
 func (w *Watcher[Row]) run() {
 	// closeData on goroutine exit guarantees the event channel is
 	// closed exactly once, even if the cold-start path bails early
-	// or the steady-state loop panics. The fail path in pump.fail
+	// or the steady-state loop panics. The fail path in [pump.Pump.Fail]
 	// also closes the channel under the same chOnce guard, so this
 	// is safe-by-construction.
-	defer w.closeData()
+	defer w.pump.CloseData()
 	// Latch any panic as a terminal error so a misbehaving
 	// session/decode path cannot tear down the host process (#5).
 	defer func() {
@@ -629,13 +636,13 @@ func (w *Watcher[Row]) run() {
 			} else {
 				err = errs.New().Attr("panic", r).Msg("Watcher.run panicked")
 			}
-			w.fail(err)
+			w.pump.Fail(err)
 		}
 	}()
 
 	if !w.coldStart() {
 		// coldStart returned false → terminal error already latched
-		// via pump.fail, or context was canceled. Either way, exit.
+		// via [pump.Pump.Fail], or context was canceled. Either way, exit.
 		return
 	}
 
@@ -647,10 +654,10 @@ func (w *Watcher[Row]) run() {
 // the scalar's value (scalar case), emits a ChangeKindAdded event per
 // row, and builds the initial snapshot. Returns true on success,
 // false on terminal error or cancellation (in which case the failure
-// has already been latched via pump.fail and the caller should
+// has already been latched via [pump.Pump.Fail] and the caller should
 // return).
 func (w *Watcher[Row]) coldStart() bool {
-	walker := w.sess.BulkWalk(w.ctx, w.tableRoot)
+	walker := w.sess.BulkWalk(w.pump.Context(), w.tableRoot)
 	// Always close the inner walker before returning so its pump
 	// goroutine exits within one PDU round-trip — no goroutine
 	// accumulation across long-running Watchers (the load-bearing
@@ -662,7 +669,7 @@ func (w *Watcher[Row]) coldStart() bool {
 		return false
 	}
 	if err := walker.Err(); err != nil {
-		w.fail(err)
+		w.pump.Fail(err)
 		return false
 	}
 
@@ -697,13 +704,13 @@ func (w *Watcher[Row]) coldStart() bool {
 	// table-walk content (no row carried an indicator VB despite
 	// rows being present).
 	if !w.indicator.isPerRow() {
-		vbs, err := w.sess.Get(w.ctx, []OID{w.indicator.scalarOID})
+		vbs, err := w.sess.Get(w.pump.Context(), []OID{w.indicator.scalarOID})
 		if err != nil {
 			// Get failure on the initial scalar probe is terminal
 			// during cold-start (network down, session closed —
 			// neither is the "indicator is broken on the agent"
 			// case fallback is designed for).
-			w.fail(err)
+			w.pump.Fail(err)
 			return false
 		}
 		if len(vbs) > 0 {
@@ -732,7 +739,7 @@ func (w *Watcher[Row]) coldStart() bool {
 	}
 
 	for _, ev := range pending {
-		if !w.send(ev) {
+		if !w.pump.Send(ev) {
 			return false
 		}
 	}
@@ -763,9 +770,9 @@ func (w *Watcher[Row]) collectTableWalk(walker *Walker) (
 
 	for idx, vb := range walker.Iter() {
 		select {
-		case <-w.stop:
+		case <-w.pump.Stopped():
 			return nil, nil, false
-		case <-w.ctx.Done():
+		case <-w.pump.Context().Done():
 			return nil, nil, false
 		default:
 		}
@@ -865,10 +872,10 @@ func (w *Watcher[Row]) steadyState() {
 
 		t := time.NewTimer(sleepFor)
 		select {
-		case <-w.stop:
+		case <-w.pump.Stopped():
 			t.Stop()
 			return
-		case <-w.ctx.Done():
+		case <-w.pump.Context().Done():
 			t.Stop()
 			return
 		case <-t.C:
@@ -1140,7 +1147,7 @@ func (w *Watcher[Row]) runCounterTicksDue(now time.Time) bool {
 		w.counterEventsSinceLastState.Add(int64(len(events)))
 	}
 	for _, ev := range events {
-		if !w.send(ev) {
+		if !w.pump.Send(ev) {
 			return false
 		}
 	}
@@ -1238,7 +1245,7 @@ func (w *Watcher[Row]) runStaticTick() bool {
 	events := w.diffRowsByIdx(rowsByIdx)
 
 	for _, ev := range events {
-		if !w.send(ev) {
+		if !w.pump.Send(ev) {
 			return false
 		}
 	}
@@ -1291,7 +1298,7 @@ func (w *Watcher[Row]) targetedRowFetchFor(cols []AnyColumn, indices []OID) (map
 			end = len(fullOIDs)
 		}
 		chunk := fullOIDs[off:end]
-		vbs, err := w.sess.Get(w.ctx, chunk)
+		vbs, err := w.sess.Get(w.pump.Context(), chunk)
 		if err != nil {
 			return nil, err
 		}
@@ -1311,7 +1318,7 @@ func (w *Watcher[Row]) targetedRowFetchFor(cols []AnyColumn, indices []OID) (map
 // and Static-tier paths. Walks the table, filters the response to
 // (cols × indices).
 func (w *Watcher[Row]) bulkWalkFilteredFor(cols []AnyColumn, indices []OID) (map[string][]VarBind, error) {
-	walker := w.sess.BulkWalk(w.ctx, w.tableRoot)
+	walker := w.sess.BulkWalk(w.pump.Context(), w.tableRoot)
 	defer func() { _ = walker.Close() }()
 
 	wantIdx := make(map[string]struct{}, len(indices))
@@ -1326,10 +1333,10 @@ func (w *Watcher[Row]) bulkWalkFilteredFor(cols []AnyColumn, indices []OID) (map
 	result := make(map[string][]VarBind)
 	for full, vb := range walker.Iter() {
 		select {
-		case <-w.stop:
-			return nil, w.ctx.Err()
-		case <-w.ctx.Done():
-			return nil, w.ctx.Err()
+		case <-w.pump.Stopped():
+			return nil, w.pump.Context().Err()
+		case <-w.pump.Context().Done():
+			return nil, w.pump.Context().Err()
 		default:
 		}
 		colOID := columnOIDFrom(full, w.tableRoot)
@@ -1375,7 +1382,7 @@ func (w *Watcher[Row]) rowIndexForVBIn(vb VarBind, cols []AnyColumn) OID {
 // walk detected any new row or any row's indicator value change;
 // ok is false on terminal error.
 func (w *Watcher[Row]) perRowTick() (bool, bool) {
-	walker := w.sess.BulkWalk(w.ctx, w.indicator.columnOID)
+	walker := w.sess.BulkWalk(w.pump.Context(), w.indicator.columnOID)
 	defer func() { _ = walker.Close() }()
 
 	type seen struct {
@@ -1388,9 +1395,9 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 
 	for full, vb := range walker.Iter() {
 		select {
-		case <-w.stop:
+		case <-w.pump.Stopped():
 			return false, false
-		case <-w.ctx.Done():
+		case <-w.pump.Context().Done():
 			return false, false
 		default:
 		}
@@ -1423,7 +1430,7 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 		}
 	}
 	if err := walker.Err(); err != nil {
-		w.fail(err)
+		w.pump.Fail(err)
 		return false, false
 	}
 	if sawException && !w.fallback.Load() {
@@ -1537,7 +1544,7 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 	// and (best-effort) fetched. Report advanced=true to the caller
 	// so the State-tier cadence resets to CadenceMin.
 	for _, ev := range events {
-		if !w.send(ev) {
+		if !w.pump.Send(ev) {
 			return true, false
 		}
 	}
@@ -1552,12 +1559,12 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 // Returns (advanced, ok): advanced is true when the scalar's value
 // changed since the last observation; ok is false on terminal error.
 func (w *Watcher[Row]) scalarTick() (bool, bool) {
-	vbs, err := w.sess.Get(w.ctx, []OID{w.indicator.scalarOID})
+	vbs, err := w.sess.Get(w.pump.Context(), []OID{w.indicator.scalarOID})
 	if err != nil {
 		if errors.Is(err, ErrSessionClosed) ||
 			errors.Is(err, context.Canceled) ||
 			errors.Is(err, context.DeadlineExceeded) {
-			w.fail(err)
+			w.pump.Fail(err)
 			return false, false
 		}
 		w.recordTickErr(err)
@@ -1604,7 +1611,7 @@ func (w *Watcher[Row]) forcedFullWalk() bool {
 // and the caller cannot misclassify an emitting walk as quiet (#1).
 // ok is false on terminal error (already latched via w.fail).
 func (w *Watcher[Row]) fullWalkAndDiff(emitRemoved bool) (bool, bool) {
-	walker := w.sess.BulkWalk(w.ctx, w.tableRoot)
+	walker := w.sess.BulkWalk(w.pump.Context(), w.tableRoot)
 	defer func() { _ = walker.Close() }()
 
 	groups, order, walkOK := w.collectTableWalk(walker)
@@ -1612,7 +1619,7 @@ func (w *Watcher[Row]) fullWalkAndDiff(emitRemoved bool) (bool, bool) {
 		return false, false
 	}
 	if err := walker.Err(); err != nil {
-		w.fail(err)
+		w.pump.Fail(err)
 		return false, false
 	}
 
@@ -1690,12 +1697,12 @@ func (w *Watcher[Row]) fullWalkAndDiff(emitRemoved bool) (bool, bool) {
 	advanced := len(events) > 0 || len(removals) > 0
 
 	for _, ev := range events {
-		if !w.send(ev) {
+		if !w.pump.Send(ev) {
 			return advanced, false
 		}
 	}
 	for _, r := range removals {
-		if !w.send(WatchEvent[Row]{
+		if !w.pump.Send(WatchEvent[Row]{
 			Index: r.idx,
 			Kind:  ChangeKindRemoved,
 			Row:   r.prevRow,

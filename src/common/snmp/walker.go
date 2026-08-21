@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/pump"
 )
 
 // ErrSessionClosed is the canonical "session is closed" sentinel,
@@ -77,16 +78,16 @@ const defaultRowBuffer = 64
 //
 // # Synchronization model
 //
-// Walker embeds a generic [*pump] of [walkerItem] which owns the
+// Walker wraps the shared [pump.Pump] of [walkerItem], which owns the
 // shared channel-pump state machine (data channel, stop signal,
 // idempotent close guards, send/close RWMutex, derived context, and
 // first-terminal-error latch). Walker-specific state — the "current"
 // latch for the Scanner shape — lives on Walker itself under its own
 // mutex.
 type Walker struct {
-	*pump[walkerItem]
+	pump *pump.Pump[walkerItem]
 
-	// currentMu guards current. Distinct from the embedded pump's
+	// currentMu guards current. Distinct from the wrapped pump's
 	// terminal-error mutex so a Current/Next call cannot block on a
 	// concurrent Fail/Err read.
 	currentMu sync.Mutex
@@ -112,7 +113,7 @@ func NewWalker(ctx context.Context, bufferSize int) *Walker {
 		bufferSize = defaultRowBuffer
 	}
 	return &Walker{
-		pump: newPump[walkerItem](ctx, bufferSize),
+		pump: pump.New[walkerItem](ctx, bufferSize),
 	}
 }
 
@@ -141,7 +142,7 @@ func (w *Walker) Pump(fn func(ctx context.Context)) {
 		// regardless of whether it returned normally, was canceled,
 		// or panicked. Done is idempotent with Fail.
 		defer w.Done()
-		fn(w.ctx)
+		fn(w.pump.Context())
 	}()
 }
 
@@ -157,7 +158,7 @@ func (w *Walker) Pump(fn func(ctx context.Context)) {
 // the read lock on sendMu serializes against the channel close so a
 // closing call cannot race an in-flight send.
 func (w *Walker) Send(idx OID, vb VarBind) bool {
-	return w.send(walkerItem{Index: idx, Value: vb})
+	return w.pump.Send(walkerItem{Index: idx, Value: vb})
 }
 
 // Fail records err as the terminal error, signals the pump to stop,
@@ -171,7 +172,7 @@ func (w *Walker) Send(idx OID, vb VarBind) bool {
 // concurrent [Walker.Send] from the pump cannot panic on a closed
 // channel. Send observes the closed stop on its next invocation and
 // returns false.
-func (w *Walker) Fail(err error) { w.fail(err) }
+func (w *Walker) Fail(err error) { w.pump.Fail(err) }
 
 // Done signals normal completion of the walk: closes the data channel
 // so consumers exit cleanly, and closes the stop signal so the pump
@@ -181,7 +182,11 @@ func (w *Walker) Fail(err error) { w.fail(err) }
 // [Walker.Pump] installs Done as a deferred call so it runs even when
 // the pump function panics. Backends that drive the Walker without
 // Pump must call Done themselves on natural completion.
-func (w *Walker) Done() { w.done() }
+func (w *Walker) Done() { w.pump.Done() }
+
+// Err returns the first terminal error recorded via [Walker.Fail], or
+// nil if the walk completed naturally or is still running.
+func (w *Walker) Err() error { return w.pump.Err() }
 
 // Iter returns the range-over-function form of the walk. The returned
 // [iter.Seq2] yields (OID, VarBind) pairs until the walk ends; the
@@ -194,12 +199,12 @@ func (w *Walker) Done() { w.done() }
 // round-trip).
 func (w *Walker) Iter() iter.Seq2[OID, VarBind] {
 	return func(yield func(OID, VarBind) bool) {
-		for item := range w.ch {
+		for item := range w.pump.Data() {
 			if !yield(item.Index, item.Value) {
 				// Consumer broke out. Signal the pump and drain so the
 				// pump can exit even if it was blocked on send.
-				w.signalStop()
-				for range w.ch {
+				w.pump.SignalStop()
+				for range w.pump.Data() {
 				}
 				return
 			}
@@ -211,7 +216,7 @@ func (w *Walker) Iter() iter.Seq2[OID, VarBind] {
 // Returns false when the walk is done (consumer should check
 // [Walker.Err] for the terminal cause). Companion to [Walker.Current].
 func (w *Walker) Next() bool {
-	item, ok := w.recv()
+	item, ok := w.pump.Recv()
 	if ok {
 		w.currentMu.Lock()
 		w.current = item
@@ -246,7 +251,7 @@ func (w *Walker) Current() (OID, VarBind) {
 // producer goroutine returns. This is the deliberate asymmetry with
 // [TrapStream.Close]; see that method's godoc.
 func (w *Walker) Close() error {
-	w.signalStop()
-	w.cancel()
+	w.pump.SignalStop()
+	w.pump.Cancel()
 	return nil
 }

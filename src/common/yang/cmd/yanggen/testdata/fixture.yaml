@@ -1,0 +1,4 @@
+vendors:
+  - name: fixture
+    paths:
+      - modules

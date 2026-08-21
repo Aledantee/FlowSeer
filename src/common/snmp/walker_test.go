@@ -615,8 +615,8 @@ func TestWalker_InterleavedGetDoesNotDeadlock(t *testing.T) {
 // uses the default buffer and works normally.
 func TestWalker_DefaultBufferSize(t *testing.T) {
 	w := NewWalker(context.Background(), -1)
-	if cap(w.ch) != defaultRowBuffer {
-		t.Errorf("buffer cap = %d, want %d", cap(w.ch), defaultRowBuffer)
+	if cap(w.pump.Data()) != defaultRowBuffer {
+		t.Errorf("buffer cap = %d, want %d", cap(w.pump.Data()), defaultRowBuffer)
 	}
 	w.Done()
 }

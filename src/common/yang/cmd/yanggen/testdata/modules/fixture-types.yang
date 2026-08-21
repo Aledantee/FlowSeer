@@ -1,0 +1,36 @@
+module fixture-types {
+  yang-version 1.1;
+  namespace "urn:flowseer:fixture-types";
+  prefix ft;
+
+  revision 2026-01-01 {
+    description "Fixture baseline.";
+  }
+
+  identity protocol {
+    description "Base identity for protocols.";
+  }
+
+  identity tcp {
+    base protocol;
+  }
+
+  identity udp {
+    base protocol;
+  }
+
+  typedef port-number {
+    type uint16 {
+      range "1..65535";
+    }
+    description "A transport port.";
+  }
+
+  typedef port-or-name {
+    type union {
+      type port-number;
+      type string;
+    }
+    description "A union exercised by the emitter fixtures.";
+  }
+}

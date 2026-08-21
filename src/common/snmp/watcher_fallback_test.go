@@ -121,7 +121,7 @@ func TestWatcher_Scalar_NoSuchObjectFallback(t *testing.T) {
 
 	// Drain cold-start (1 Added).
 	select {
-	case <-w.ch:
+	case <-w.pump.Data():
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("timed out waiting for cold-start event")
 	}
@@ -255,7 +255,7 @@ func TestWatcher_PerRow_NoIndicatorObserved(t *testing.T) {
 	}
 	defer func() { _ = w.Close() }()
 
-	<-w.ch // cold-start Added
+	<-w.pump.Data() // cold-start Added
 
 	if !w.Fallback() {
 		t.Error("per-row indicator missing from cold-start did not trigger fallback")
@@ -403,7 +403,7 @@ func TestWatcher_TransientGetErrorSurfaceLastTickErrNotEvents(t *testing.T) {
 
 	// Drain cold-start Added.
 	select {
-	case <-w.ch:
+	case <-w.pump.Data():
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("timed out on cold-start")
 	}
@@ -729,7 +729,7 @@ func TestWatcher_FallbackTick_UnconditionalFullWalk(t *testing.T) {
 	}
 	defer func() { _ = w.Close() }()
 
-	<-w.ch // cold-start Added
+	<-w.pump.Data() // cold-start Added
 
 	// Force into fallback.
 	w.enterFallback("forced by test")
@@ -737,7 +737,7 @@ func TestWatcher_FallbackTick_UnconditionalFullWalk(t *testing.T) {
 	// The next tick fires a full walk → should emit Modified for
 	// the changed row.
 	select {
-	case ev := <-w.ch:
+	case ev := <-w.pump.Data():
 		if ev.Kind != ChangeKindModified {
 			t.Errorf("fallback tick event kind = %v, want Modified", ev.Kind)
 		}

@@ -1,7 +1,7 @@
 # Aruba AOS-CX YANG Models — Sources
 
 - Upstream: https://github.com/aruba/aoscx-yang (official HPE Aruba, Apache-2.0)
-- Vendored: 2026-08-20, complete `10.17/openconfig/v5_0_0/` set (21 files:
+- Vendored: 2026-08-20, complete `10.17/openconfig/v5_0_0/` set (19 files:
   interfaces, platform, system, PoE, types, IETF third-party imports, plus
   `hpe-anw-cx-openconfig-deviations.yang`).
 

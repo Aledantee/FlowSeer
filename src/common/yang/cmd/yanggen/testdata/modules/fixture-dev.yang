@@ -1,0 +1,17 @@
+module fixture-dev {
+  yang-version 1.1;
+  namespace "urn:flowseer:fixture-dev";
+  prefix fd;
+
+  import fixture-main {
+    prefix fm;
+  }
+
+  revision 2026-01-04 {
+    description "Fixture baseline.";
+  }
+
+  deviation "/fm:servers/fm:server/fm:legacy-flag" {
+    deviate not-supported;
+  }
+}
