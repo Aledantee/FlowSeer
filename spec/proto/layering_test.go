@@ -2,6 +2,7 @@ package proto_test
 
 import (
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,28 +12,32 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
-// layers is the single declaration of FlowSeer's proto import layering. An
-// import may point at an equal or lower index, never a higher one; the
-// architecture record cites this table rather than restating it.
+// layers is the single declaration of FlowSeer's proto import layering, in
+// ascending order. An import may point at an equal or lower layer, never a
+// higher one; the architecture record cites this table rather than restating
+// it.
+//
+// A layer's index is its position here, never written down beside it: a
+// hand-typed number would let an insertion leave a stale or duplicated index
+// behind, enforcing a boundary nobody intended.
 //
 // Prefixes are package paths relative to flowseer/, matched longest-first, so
 // net/protocol covers every protocol package under it.
-var layers = []struct {
-	index    int
-	prefixes []string
-}{
-	{0, []string{"net/addr"}},
-	{1, []string{"net/phy", "net/l2", "net/l3"}},
-	{2, []string{"net/interface"}},
-	{3, []string{"net/protocol"}},
-	{4, []string{"net/wlan"}},
-	{5, []string{"device"}},
-	{6, []string{"inventory"}},
-	{7, []string{"integration"}},
-	{8, []string{"service"}},
-	{9, []string{"event"}},
+var layers = [][]string{
+	{"net/addr"},
+	{"net/phy", "net/l2", "net/l3"},
+	{"net/interface"},
+	{"net/protocol"},
+	{"net/wlan"},
+	{"device"},
+	{"inventory"},
+	{"integration"},
+	{"service"},
+	{"event"},
 }
 
 // The two boundaries below are read out of the table rather than written a
@@ -58,13 +63,20 @@ const (
 	reasonUnplaced = "package is not in the layering table; place it there first"
 )
 
+// everyReason is every rule violations can emit. A rule missing from the
+// fixture set below could be deleted with the suite green, so this list is
+// what the "every rule has a fixture" subtest checks against.
+var everyReason = []string{reasonEntity, reasonProtocol, reasonUpward, reasonUnplaced}
+
 // wantFixtureReason maps each negative fixture to the rule it exists to prove.
-// Every rule in violations below needs an entry here, or that rule ships
-// unexercised and could be inverted without failing anything.
+// Two fixtures prove reasonUnplaced because it has two paths in: the file's
+// own package missing from the table, and an imported package missing from it.
 var wantFixtureReason = map[string]string{
 	"imports_device.proto":   reasonEntity,
 	"imports_protocol.proto": reasonProtocol,
 	"imports_upward.proto":   reasonUpward,
+	"imports_unplaced.proto": reasonUnplaced,
+	"unplaced_package.proto": reasonUnplaced,
 }
 
 // violation is one import that breaks the layering, named by the rule it
@@ -111,9 +123,12 @@ func TestProtoImportLayering(t *testing.T) {
 				continue
 			}
 			seen[base] = true
+			// Exactly one, not at least one: a fixture declares a single
+			// offending import, so a second violation means it is proving
+			// something other than what its name claims.
 			got := f.violations()
-			if len(got) == 0 {
-				t.Errorf("got no violation for fixture %s, want %q", f.rel, want)
+			if len(got) != 1 {
+				t.Errorf("got %d violations for fixture %s, want exactly 1 (%q)", len(got), f.rel, want)
 				continue
 			}
 			if got[0].reason != want {
@@ -127,16 +142,27 @@ func TestProtoImportLayering(t *testing.T) {
 		}
 	})
 
+	// The recurring failure on this guard is a rule that exists but is never
+	// exercised, so it can be inverted or deleted with everything green. This
+	// makes adding a rule without a fixture fail rather than pass quietly.
+	t.Run("every rule has a fixture", func(t *testing.T) {
+		for _, reason := range everyReason {
+			if !slices.Contains(slices.Collect(maps.Values(wantFixtureReason)), reason) {
+				t.Errorf("got no fixture proving %q, want one; the rule ships unexercised without it", reason)
+			}
+		}
+	})
+
 	// The hook skips buf lint under _test_fixtures, so an unexcluded fixture
 	// directory no longer announces itself on save. It has to fail here
 	// instead, before it breaks the whole module at generate time.
 	t.Run("every fixture directory is excluded in buf.yaml", func(t *testing.T) {
-		cfg, err := os.ReadFile(filepath.Join(repoRoot(t), "buf.yaml"))
-		if err != nil {
-			t.Fatalf("reading buf.yaml: %v", err)
+		if len(fixtureDirs) == 0 {
+			t.Fatal("got no fixture directories, want at least one; the scan that feeds this check found nothing to check")
 		}
+		excludes := ownedModuleExcludes(t)
 		for _, dir := range fixtureDirs {
-			if !strings.Contains(string(cfg), dir) {
+			if !slices.Contains(excludes, dir) {
 				t.Errorf("got no buf.yaml exclude for %s, want one; buf lint and buf generate would otherwise pick the fixtures up", dir)
 			}
 		}
@@ -185,11 +211,13 @@ func (f protoFile) violations() []violation {
 // to be positioned in the table before anything can import it — and reporting
 // it as a violation rather than aborting keeps the remaining files checked.
 func layerOf(pkgPath string) (int, bool) {
-	best, bestLen := 0, -1
-	for _, l := range layers {
-		for _, p := range l.prefixes {
+	// -1, not 0: a caller that forgot to check ok then reads an impossible
+	// layer rather than the most permissive real one.
+	best, bestLen := -1, -1
+	for i, prefixes := range layers {
+		for _, p := range prefixes {
 			if (pkgPath == p || strings.HasPrefix(pkgPath, p+"/")) && len(p) > bestLen {
-				best, bestLen = l.index, len(p)
+				best, bestLen = i, len(p)
 			}
 		}
 	}
@@ -198,9 +226,9 @@ func layerOf(pkgPath string) (int, bool) {
 
 // layerIndexOf returns the index of the layer that declares prefix, or -1.
 func layerIndexOf(prefix string) int {
-	for _, l := range layers {
-		if slices.Contains(l.prefixes, prefix) {
-			return l.index
+	for i, prefixes := range layers {
+		if slices.Contains(prefixes, prefix) {
+			return i
 		}
 	}
 	return -1
@@ -245,11 +273,16 @@ func scanOwnedProtos(t *testing.T) (production, fixtures []protoFile, fixtureDir
 				f.imports = append(f.imports, m[1])
 			}
 		}
-		if i := strings.Index(f.pkgPath, "_test_fixtures"); i >= 0 {
-			dirs[path.Join("spec/proto/flowseer", f.pkgPath[:i]+"_test_fixtures")] = true
+		// Match a whole path segment, never a substring: a package directory
+		// named `_test_fixtures_v2` or `my_test_fixtures_old` is production
+		// code, and treating it as a fixture would quietly exempt it from the
+		// pass that checks production files.
+		segs := strings.Split(f.pkgPath, "/")
+		if i := slices.Index(segs, "_test_fixtures"); i >= 0 {
+			dirs[path.Join("spec/proto/flowseer", path.Join(segs[:i+1]...))] = true
 			// A fixture's own directory is not a package; judge it by the
 			// layer its parent package sits in.
-			f.pkgPath = strings.TrimSuffix(f.pkgPath[:i], "/")
+			f.pkgPath = path.Join(segs[:i]...)
 			fixtures = append(fixtures, f)
 			return nil
 		}
@@ -264,6 +297,36 @@ func scanOwnedProtos(t *testing.T) (production, fixtures []protoFile, fixtureDir
 	}
 	sort.Strings(fixtureDirs)
 	return production, fixtures, fixtureDirs
+}
+
+// ownedModuleExcludes returns the excludes of the FlowSeer-owned buf module,
+// decoded rather than grepped: a commented-out entry, or one belonging to the
+// vendored Ruckus module, still appears in the file's text and would answer
+// "yes, excluded" to a substring search while buf ignored it entirely.
+func ownedModuleExcludes(t *testing.T) []string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "buf.yaml"))
+	if err != nil {
+		t.Fatalf("reading buf.yaml: %v", err)
+	}
+	var cfg struct {
+		Modules []struct {
+			Path     string   `yaml:"path"`
+			Excludes []string `yaml:"excludes"`
+		} `yaml:"modules"`
+	}
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("decoding buf.yaml: %v", err)
+	}
+	// The two modules share a path and partition the tree by excludes; the
+	// owned one is the module that excludes the vendored tree.
+	for _, m := range cfg.Modules {
+		if slices.Contains(m.Excludes, "spec/proto/ruckus") {
+			return m.Excludes
+		}
+	}
+	t.Fatal("got no buf.yaml module excluding spec/proto/ruckus, want the FlowSeer-owned module")
+	return nil
 }
 
 // repoRoot locates the checkout from this file's own path, so the test does

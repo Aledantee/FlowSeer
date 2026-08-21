@@ -1,0 +1,11 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+// Negative fixture for spec/proto/layering_test.go: an import naming a
+// package the layering table does not place. A new package has to be
+// positioned in the table before anything may import it, otherwise the guard
+// would silently treat an unknown layer as acceptable.
+import "flowseer/nosuchpackage/v1/thing.proto";
+
+message ImportsUnplaced {}

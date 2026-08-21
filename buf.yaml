@@ -39,6 +39,7 @@ modules:
       # to signal "tooling fixture, not production code".
       - spec/proto/flowseer/api/_test_fixtures
       - spec/proto/flowseer/net/addr/_test_fixtures
+      - spec/proto/flowseer/nosuchpackage/_test_fixtures
       - spec/proto/flowseer/service/_test_fixtures
     lint:
       use:

@@ -1,0 +1,11 @@
+edition = "2024";
+
+package flowseer.nosuchpackage.v1;
+
+// Negative fixture for spec/proto/layering_test.go: the file's OWN package is
+// absent from the layering table. This is the other way into the unplaced
+// rule, and the one that matters most — it is what catches a new package
+// added to the tree without being positioned in the import order.
+import "buf/validate/validate.proto";
+
+message UnplacedPackage {}
