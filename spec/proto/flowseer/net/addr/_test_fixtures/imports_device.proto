@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+// Negative fixture for spec/proto/layering_test.go: net/addr is the bottom
+// layer, so importing an entity package is a violation. The import path alone
+// is the offence — nothing here uses the imported file, and the file it names
+// need not exist. That is why this directory is excluded from its buf module
+// and why layering_test.go judges imports as source text rather than
+// compiling descriptors.
+import "flowseer/device/v1/device.proto";
+
+message ImportsDevice {}
