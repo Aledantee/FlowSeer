@@ -54,8 +54,17 @@ if command -v buf >/dev/null 2>&1; then
   buf format -w "$abs" >/dev/null 2>&1
 
   # --- 2. lint -----------------------------------------------------------
-  lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
-  lint_rc=$?
+  # Layering-test fixtures are excluded from their buf module and deliberately
+  # import packages that may not exist, so `buf lint --path` on one exits
+  # non-zero ("no .proto files were targeted", or an unresolvable import) and
+  # would block every save of a fixture. Format and sync still run.
+  case "$rel" in
+    */_test_fixtures/*) ;;
+    *)
+      lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
+      lint_rc=$?
+      ;;
+  esac
 fi
 
 # --- 3. message sync -----------------------------------------------------
@@ -93,7 +102,7 @@ for n in $names; do
 done
 
 if [ -n "$notes" ]; then
-  sync_msg=$(printf 'Message sync (rule 1) — %s defines messages whose mirrored counterparts are missing from spec/proto:%b\nEither add them or confirm the family is deliberately partial. Also verify the conventions doc and the origin brainstorm still match this change.' "$rel" "$notes")
+  sync_msg=$(printf 'Message sync (rule 1) — %s defines messages whose mirrored counterparts are missing from spec/proto:%b\nEither add them or confirm the family is deliberately partial (docs/conventions/protobuf.md — the conventions doc — says how to record that). Also verify the conventions doc and the origin brainstorm still match this change.' "$rel" "$notes")
 else
   sync_msg=""
 fi

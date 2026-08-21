@@ -243,6 +243,47 @@ carries the remedy under the same client-safe rule.
 Both resolve to the outermost value in the chain, because the level closest to
 the caller knows what that caller was trying to do.
 
+## Schema model
+
+Vocabulary only. What each term obliges a schema author to write is in
+[`docs/conventions/protobuf.md`](docs/conventions/protobuf.md).
+
+### Primitive
+A networking *value* under `flowseer.net.*` — an address, a VLAN, a neighbor
+row, an interface — with no identity, tenant, lifecycle, or provenance. Reusable
+precisely because it does not know which device it came from. The moment one
+grows a ref it has become an Entity and moves up the tree.
+
+### Entity
+A thing with identity and lifecycle under `flowseer.device.*`,
+`flowseer.inventory.*`, and above. Embeds Primitives by value and owns its Triad
+and its Ref Pair in its own package.
+
+### Triad
+An Entity's `<Entity>Config` / `<Entity>State` / `<Entity>Event` family:
+intended, observed, and change. Defined together in the Entity's package; a
+family that is deliberately partial says so.
+
+### Ref Pair
+An Entity's `<Entity>LocalRef` (its key within its parent) and
+`<Entity>GlobalRef` (the parent's GlobalRef plus the LocalRef; for a top-level
+Entity, the LocalRef alone). An Entity has at most one owning parent; Entities that
+relate several others are top-level and carry the related GlobalRefs as fields.
+Lives beside the Triad, never in a shared package.
+Refs carry no tenant: tenancy is ambient, resolved from the request context.
+
+### Typed Variant
+How a Primitive with a closed set of variants that validate differently is
+modelled: one message per variant carrying its own rules (`Ipv4Address`,
+`Ipv6Address`; `Eui48Address`, `Eui64Address`), and the common type
+(`IpAddress`, `MacAddress`, `IpPrefix`) as a required `oneof` of them. A
+consumer switches on the arm, never on a payload size; adding a variant is
+adding an arm.
+
+### Provenance Envelope
+Where "observed at" and "which binding answered" ride: on the service response
+and the event envelope, never stored on an Entity's State or on a Primitive.
+
 ## Flagged ambiguities
 
 - "Backend" and "driver" had been used for the SNMP wire implementation — there
