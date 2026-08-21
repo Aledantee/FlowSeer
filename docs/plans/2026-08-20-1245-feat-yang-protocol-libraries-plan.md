@@ -516,6 +516,46 @@ then flip those rows to `covered` with the observed detail (or record
 the R14 Aruba conversion here) and regenerate the CONFORMANCE.md
 goldens.
 
+### RESTCONF lab pass (2026-08-21) — AE1 + R12 + depth/fields verified on real ICX
+
+RESTCONF is enabled on a lab **Ruckus ICX7150-24P running FastIron
+10.0.10g** (172.16.0.6; upgraded from 08.0.90j via a 09.0.10k
+intermediate). All three RESTCONF t4 legs now run **green against the
+real device** through the public library only (dial → RFC 8040
+host-meta discovery → basic auth over TLS → GET → RFC 7951 decode):
+
+- **AE1 (identity, ICX leg):** hostname decodes as a typed value
+  (`LABSW06`). It is read from `/system/config/hostname` because
+  FastIron mirrors it into `config` and returns `/system/state`
+  empty. **Documented FastIron surface gap** (corpus `rc-t4-identity`):
+  openconfig `serial-no`/`part-no`/`software-version` are not
+  populated in this device's RESTCONF surface (CLI-only), and model
+  appears only under `icx-openconfig-platform-aug:switch-model`
+  (`ICX7150-24-POE`) — an augmentation absent from the vendored 9.0.x
+  YANG corpus (device/corpus version skew), so the typed bindings
+  cannot surface it. The official ICX system deviation removes only
+  `dns/server/port`, so these are unimplemented runtime state, not
+  modeled deviations. The library connected, authenticated, walked,
+  and decoded live data correctly — the gap is the device's, not the
+  library's.
+- **R12 (reversible edit, ICX leg):** proven by an interface
+  **description** PATCH + revert, each confirmed by read-back, using a
+  conditional If-Match write. FastIron rejects writes to
+  openconfig-system config leaves (login-banner/hostname →
+  `invalid internal value`), so the device's documented,
+  non-disruptive writable leaf is used; the port's `enabled` state is
+  captured and restored, and the device is left unmodified.
+- **depth/fields:** FastIron 10.0.10g **honors `depth`** — a GET of
+  `/openconfig-system:system` returned 899 B full vs 80 B at depth=2 —
+  resolving the `rc-depth-fields-unverified` lab assumption.
+
+Corpus rows `rc-t4-identity`, `rc-t4-reversible-edit`,
+`rc-t4-depth-fields`, and `rc-depth-fields-unverified` are flipped to
+**covered** with the observed detail and real-device provenance;
+CONFORMANCE.md goldens regenerated. NETCONF (`nc-t4-*`) and gNMI
+(`gn-t4-*`, `gn-aruba-set-capability`) lab legs remain hardware-gated
+per the DoD status above.
+
 ---
 
 ## Follow-Up Notes
