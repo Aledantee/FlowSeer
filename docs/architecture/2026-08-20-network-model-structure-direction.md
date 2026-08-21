@@ -67,7 +67,8 @@ net/addr ← net/{phy, l2, l3} ← net/interface ← net/protocol/* ← net/wlan
 ```
 
 `net/*` never imports `device/` or above. Layers never import a protocol.
-`net/addr` is the bottom and imports nothing but protovalidate. The test uses
+`net/addr` is the bottom: outside its own package it imports nothing but
+protovalidate (its common types do import their sibling variant files). The test uses
 negative fixtures under `_test_fixtures/` directories (excluded in
 `buf.yaml`), judged by the import paths in their source, so a fixture may name
 a package the tree does not contain yet.
@@ -401,8 +402,11 @@ API_OPAQUE`.
    Observed-state systems that stamp each row (Netdisco `time_first/last`) do
    so because rows are their unit of storage; FlowSeer's is the response.
 10. **Field numbers and symbol visibility.** Numbers 1–15 (single-byte tags)
-    go to the fields every consumer reads; arms and facets from 10 and 20
-    upward in blocks; deleted numbers are `reserved`, never reused. Under
+    go to the fields every consumer reads; in a message where a `oneof` sits
+    alongside other fields, arms and facets start at 10 and 20 upward in
+    blocks so 1–9 stay free for those fields. A message that is *nothing but*
+    a variant `oneof` — the `net/addr` common types — has no such fields and
+    numbers its arms from 1. Deleted numbers are `reserved`, never reused. Under
     edition 2024's `EXPORT_TOP_LEVEL` default, *nested* messages are local
     and cannot be used as field types from another file (verified: `found
     unexported message type`), so every `oneof` arm message and every facet

@@ -128,7 +128,7 @@ story of how it was fetched.
 
 ## Enums
 
-Lifecycle and status enums live beside the Entity or facet that owns them,
+Lifecycle and status enums live beside the Entity or [facet][facet] that owns them,
 never in a shared package — a shared enum package acquires the same
 knows-everything-above-it problem a shared refs package does.
 
@@ -165,7 +165,14 @@ a byte count, and adding a variant is adding an arm.
 
 The variant's payload field is `required`. The *containing* message's presence
 is what expresses optionality — an address message that is set but empty is not
-an absent address, it is a malformed one.
+an absent address, it is a malformed one. Both rules earn their place: an empty
+`bytes` is *present*, so `required` passes and the length rule is what rejects
+it, while an unset one is caught by `required` alone.
+
+Name the `oneof` for what actually distinguishes the arms. `IpAddress` and
+`IpPrefix` use `family` because address family is the term of art for v4/v6;
+`MacAddress` uses `kind`, because EUI-48 and EUI-64 are widths, not families.
+Reach for the domain's own word before reaching for consistency with a sibling.
 
 This is not the pattern for a scalar with a range. A VLAN id is one type with
 one rule; it gets a protovalidate predefined rule, not a wrapper message
@@ -174,9 +181,21 @@ one rule; it gets a protovalidate predefined rule, not a wrapper message
 ## Field numbering
 
 Numbers 1–15 encode as a single-byte tag; they go to the fields every consumer
-reads. `oneof` arms and facets start at 10 and 20 in blocks, so a family can
-grow without interleaving. A removed number is `reserved` — with its name, in
-the same change — and never reused.
+reads. A removed number is `reserved` — with its name, in the same change —
+and never reused.
+
+Where a `oneof` sits **alongside other fields** — an interface whose kind
+selector shares the message with its identity and facets — its arms start at
+10 and facets at 20, in blocks, so 1–9 stay free for those other fields and a
+family can grow without interleaving (the direction record's convention 10).
+
+Where the `oneof` **is** the message, as in every typed variant above, there
+are no other fields to leave room for: number the arms from 1 and let them
+have the single-byte tags. `MacAddress`, `IpAddress`, and `IpPrefix` are the
+worked instance.
+
+The distinction is what the 10/20 blocks are reserving space *for*. Read it
+that way when a new message does not obviously match either shape.
 
 ## A worked example
 
@@ -238,3 +257,5 @@ Read it for four things: the ref pair composes (`InterfaceGlobalRef` = parent's
 `GlobalRef` + own `LocalRef`), no message carries a tenant, no message carries
 an `observed_at` or a binding, and the Primitive (`MacAddress`) is embedded by
 value from `net/addr` with nothing flowing back the other way.
+
+[facet]: ../architecture/2026-08-20-network-model-structure-direction.md#facets-versus-tables

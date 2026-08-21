@@ -341,6 +341,16 @@ generated TS surface is unchanged by the migration. Web-side rules live in
 `buf lint` and `buf generate` run in CI; a schema change and its regenerated code
 land in the same commit so `generated/` never drifts from `spec/proto/`.
 
+Bare `buf generate` uses `buf.gen.yaml`, which includes the TypeScript leg and
+writes it under `frontend/web/generated/proto/`. `--path` narrows the *inputs*,
+not the plugins, and buf creates a missing output directory — so a scoped run
+with the default template still emits TS into a web tree that may not exist in
+your checkout. To regenerate only the owned Go output:
+
+```
+buf generate --template buf.gen.go.yaml --path spec/proto/flowseer
+```
+
 Toolchain floor for edition 2024 — below any of these, the schemas do not build:
 
 | Tool | Minimum | Note |
