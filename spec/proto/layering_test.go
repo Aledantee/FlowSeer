@@ -90,6 +90,11 @@ func (f protoFile) violations(t *testing.T) []violation {
 	var out []violation
 	for _, imp := range f.imports {
 		to := layerOf(t, f.rel, strings.TrimPrefix(path.Dir(imp), "flowseer/"))
+		// The ascending rule at the bottom already catches both cases above
+		// it; they run first so the message names the specific boundary that
+		// was crossed rather than the general one. Reordering the table would
+		// change which message an author sees, never whether the import is
+		// caught.
 		switch {
 		case strings.HasPrefix(f.pkgPath, "net/") && to >= deviceLayer:
 			out = append(out, violation{f.rel, imp, "a net/ package may not import an entity package"})
