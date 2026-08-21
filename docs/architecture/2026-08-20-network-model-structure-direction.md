@@ -2,7 +2,7 @@
 title: Network Model Structure - Direction
 type: direction
 date: 2026-08-20
-updated: 2026-08-20
+updated: 2026-08-21
 topic: network-model-structure
 status: accepted-direction
 ---
@@ -38,10 +38,8 @@ test enforces it.
 
 ```
 spec/proto/flowseer/
-  core/v1/              refs (DeviceRef, TenantRef, ScopeRef, IntegrationRef, InterfaceRef),
-                        Observation (observed_at + answering binding), lifecycle enums
   net/
-    addr/v1/            MacAddress, Oui, IpAddress, IpPrefix
+    addr/v1/            MacAddress, IpAddress, IpPrefix and their variants; Oui
     phy/v1/             EthernetFacet: medium, speed, duplex, auto-negotiation, PoE, transceiver
     l2/v1/              the vlan_id rule, Vlan, SwitchportFacet, AggregationFacet, FdbEntry
     l3/v1/              IpFacet, NeighborEntry, Route, Vrf
@@ -55,16 +53,24 @@ spec/proto/flowseer/
   event/v1/             the event envelope
 ```
 
-Import layering, acyclic, enforced by `spec/proto/layering_test.go`:
+There is no base package. Every entity's ref pair and lifecycle enums live in
+the package that owns the entity; the rules that shape a package's messages
+live in [the protobuf model conventions](../conventions/protobuf.md), which
+this tree assumes throughout.
+
+Import layering, acyclic, enforced by `spec/proto/layering_test.go`, whose
+order table is the single declaration of it:
 
 ```
-core ← net/addr ← net/{phy, l2, l3} ← net/interface ← net/protocol/* ← net/wlan
-     ← device ← inventory ← integration ← service ← event
+net/addr ← net/{phy, l2, l3} ← net/interface ← net/protocol/* ← net/wlan
+         ← device ← inventory ← integration ← service ← event
 ```
 
-`net/*` never imports `device/`. Layers never import a protocol. `addr`
-imports nothing but `core`. The test uses negative fixtures under
-`_test_fixtures/` directories (already excluded in `buf.yaml`).
+`net/*` never imports `device/` or above. Layers never import a protocol.
+`net/addr` is the bottom and imports nothing but protovalidate. The test uses
+negative fixtures under `_test_fixtures/` directories (excluded in
+`buf.yaml`), judged by the import paths in their source, so a fixture may name
+a package the tree does not contain yet.
 
 ## Why this shape
 
@@ -298,19 +304,37 @@ API_OPAQUE`.
    arm; both may be set. No `is_routed` booleans that can disagree with the
    facet — protobuf's own guidance is not to use a boolean for something that
    may grow more states.
-3. **Addresses are canonical bytes in structured messages.**
-   `MacAddress{bytes octets}` with a CEL rule `size() == 6 || size() == 8`
-   (EUI-48 / EUI-64; note `bytes {min_len: 6, max_len: 8}` would wrongly
-   accept 7 — verified); `IpAddress{bytes octets, string zone}` with
-   `bytes.ip` (which in protovalidate is exactly "size is 4 or 16");
-   `IpPrefix{IpAddress address, uint32 length}` with a message-level CEL rule
-   bounding `length` by the family. These are not the obsolete
-   `google.protobuf` presence wrappers — protobuf.dev says those are
-   unnecessary under explicit presence — they are structured values whose
-   shape (family + zone, address + length) needs a message anyway, and the
-   message gives Go and TS a named type with one home for the rule. Bytes are
-   canonical: no `fe80::1` versus `FE80:0:0::1`, no `aa:bb` versus `AA-BB`
-   normalization before correlation by serial + base MAC, and a direct
+3. **Addresses are canonical bytes in typed variant messages.** A primitive
+   with a closed set of variants that validate *differently* gets one message
+   per variant, each carrying its own rule, and the common type is a required
+   `oneof` of them: `Eui48Address{bytes octets}` (`bytes.len = 6`) and
+   `Eui64Address{bytes octets}` (`len = 8`) behind
+   `MacAddress{oneof kind}`; `Ipv4Address` (`len = 4`) and `Ipv6Address`
+   (`len = 16`) behind `IpAddress{oneof family}`;
+   `Ipv4Prefix{Ipv4Address address, uint32 length}` (`lte = 32`) and
+   `Ipv6Prefix` (`lte = 128`) behind `IpPrefix{oneof family}`. `Oui{bytes
+   octets}` (`len = 3`) stands alone, because a vendor prefilter holds an OUI
+   with no address behind it. Every payload field is `required`: the
+   *containing* field's presence is what expresses optionality, so an address
+   message that is set but empty is malformed, not absent.
+
+   The variants replace the single-payload sketch this record originally
+   carried (`MacAddress{bytes octets}` with `size() == 6 || size() == 8`, and
+   an `IpPrefix` whose length was bounded by a message-level CEL rule keyed on
+   the family). Every rule is now a plain field rule instead of an expression
+   reconstructing a family from a byte count, a consumer switches on the arm
+   instead of on a length, and adding a family is adding an arm.
+
+   There is no `zone` on `IpAddress`. A link-local address is scoped by the
+   interface column of whichever table carries it, and adding a field later is
+   cheap where removing one is a permanent `reserved`.
+
+   These are not the obsolete `google.protobuf` presence wrappers —
+   protobuf.dev says those are unnecessary under explicit presence — they are
+   structured values whose shape needs a message anyway, and the message gives
+   Go and TS a named type with one home for the rule. Bytes are canonical: no
+   `fe80::1` versus `FE80:0:0::1`, no `aa:bb` versus `AA-BB` normalization
+   before correlation by serial + base MAC, and a direct
    `netip.AddrFromSlice` / `net.HardwareAddr` conversion. The costs are real
    and accepted: ProtoJSON renders bytes as base64, so raw JSON is not
    human-readable (display formatting is a library concern); Google's own
@@ -356,14 +380,26 @@ API_OPAQUE`.
    as "unknown kind", not "no kind"; and moving a field into or out of a
    `oneof` loses data across versions, so `ip` staying outside the `oneof` is
    permanent.
-8. **References inside a primitive are by local name; refs are entity
-   concerns.** `net/` messages name other interfaces by `name`; only
-   `core/v1` refs (`DeviceRef`, `InterfaceRef`) appear in `device/` and above.
-9. **Provenance sits on State, not on primitives.** `observed_at` and the
-   answering binding are fields of the entity's State (`core.Observation`);
-   a `Vlan` or `Route` carries no timestamp of its own. Observed-state
-   systems that stamp each row (Netdisco `time_first/last`) do so because
-   rows are their unit of storage; FlowSeer's unit is the entity State.
+8. **References inside a primitive are by local name; a ref lives in the
+   package that owns its entity.** `net/` messages name other interfaces by
+   `name` and carry no ref at all. Every entity has a
+   `<Entity>LocalRef`/`<Entity>GlobalRef` pair beside its triad in its own
+   package — `InterfaceRef` is a `device/v1` concern, not a
+   `net/interface/v1` one — because a package holding every ref would have to
+   know every entity above it, which is the upward import this layering
+   forbids. Refs carry no tenant: tenancy is ambient, resolved from the
+   request context for RPC and from the producing integration for events.
+   [The model conventions](../conventions/protobuf.md) hold the detail.
+9. **Provenance rides the envelope, not State.** `observed_at` and the
+   answering binding describe a live response or an event, so they are one
+   message defined beside `Binding` in `inventory/v1` and embedded by the
+   integration, service-response, and event envelopes — never a field of an
+   `<Entity>State`, and never on a primitive. Rule 3 of
+   [the device service direction](2026-08-20-device-service-and-inventory-direction.md)
+   is about responses, and putting the binding on stored State would make
+   `device/` import `inventory/` while `inventory/` already refers to devices.
+   Observed-state systems that stamp each row (Netdisco `time_first/last`) do
+   so because rows are their unit of storage; FlowSeer's is the response.
 10. **Field numbers and symbol visibility.** Numbers 1–15 (single-byte tags)
     go to the fields every consumer reads; arms and facets from 10 and 20
     upward in blocks; deleted numbers are `reserved`, never reused. Under
@@ -374,7 +410,7 @@ API_OPAQUE`.
     one-entity-per-file rule and buf's "avoid nested messages" already want.
     Nothing in `net/` is `local`; everything is imported upward.
 11. **Validation at the boundary, from the schema.** protovalidate rules on
-    the primitives (`vlan_id`, address sizes, `IpPrefix` family consistency)
+    the primitives (`vlan_id`, per-variant address sizes and prefix lengths)
     run through the Connect interceptor and the web client; no hand-written
     checks that duplicate them. Two semantics to write rules against: a rule
     on an explicit-presence field is *skipped when the field is unset* unless
@@ -402,8 +438,9 @@ library (whose generated `ifmib`, `lldpmib`, `qbridgemib`, `bridgemib`,
 `ipmib`, `entitymib` bindings already exist) + a wire-contract test, in one
 commit with regenerated `generated/`:
 
-1. `core/v1` and the entity conventions document it assumes.
-2. `net/addr`, `net/phy`, `net/interface` with the `physical`, `lag`, `vlan`,
+1. [The entity conventions document](../conventions/protobuf.md), with
+   `net/addr` and the layering test landing beside it.
+2. `net/phy` and `net/interface` with the `physical`, `lag`, `vlan`,
    `loopback`, `other` arms; `device/v1` Device identity and the Interface
    entity — proven by the hand-done R11 identity read via SNMP.
 3. `net/l2` (the `vlan_id` rule, `Vlan`, `SwitchportFacet`, `AggregationFacet`,
@@ -428,8 +465,6 @@ commit with regenerated `generated/`:
 - **Subinterface encapsulation** detail (single vs double tag, TPID) and
   whether `VlanInterface` and `Subinterface` converge on one tag-match
   message as in OpenConfig `subinterface/vlan/match`.
-- **IPv6 zones** on `IpAddress` — keep the `zone` field or drop it until a
-  link-local consumer exists.
 - **Cross-device VLAN entity** (NetBox makes VLAN a site-scoped object; here it
   is per-device State). Likely an inventory-level projection later, not a
   stored entity.
@@ -527,3 +562,31 @@ documentation, API references).
   (rule 5 presence semantics, sequencing item 1, capability list);
   `generated/go/mib/` (existing `ifmib`, `lldpmib`, `qbridgemib`, `bridgemib`,
   `ipmib`, `entitymib` bindings).
+
+## Amendments
+
+### 2026-08-21 — no `core/v1`; typed address variants; provenance on the envelope
+
+Landed with `docs/plans/2026-08-21-1257-feat-proto-base-types-plan.md`, which
+wrote the first owned package and found that `core/v1`, as this record
+originally specified it, contradicted the record's own primitive/entity line.
+
+- **`core/v1` is gone** from the tree, the import order, and the sequencing.
+  It held refs, provenance, and lifecycle enums — all entity concerns — yet
+  sat *below* `net/addr`, under a name that said nothing about its contents.
+  Every ref now lives in the package that owns its entity (convention 8), and
+  the entity rules moved to `docs/conventions/protobuf.md`, which sequencing
+  item 1 previously described as "the document `core/v1` assumes".
+- **Provenance rides the response and event envelopes** (convention 9,
+  reversed) rather than sitting on `<Entity>State`. The one job `core/v1` was
+  doing was breaking a `device ↔ inventory` cycle, and that cycle only existed
+  because the answering binding was stored on device State. Off State, no
+  cycle; no cycle, no need for a base package.
+- **Tenancy is ambient** — no `TenantRef` on the wire, and no tenant inside a
+  ref (convention 8). It cannot then drift between what auth decided and what
+  a payload claims.
+- **Address primitives are typed variants** (convention 3) instead of one
+  `bytes` payload validated by size, and `IpAddress` lost its `zone` field —
+  which also settles the IPv6-zone open question, removed above.
+- **The layering test exists** at `spec/proto/layering_test.go`; this record
+  cites its order table rather than being the second copy of it.
