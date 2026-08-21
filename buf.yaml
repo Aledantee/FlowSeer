@@ -38,9 +38,15 @@ modules:
       # `buf gen`. The directories follow Go's `_`-prefix convention
       # to signal "tooling fixture, not production code".
       - spec/proto/flowseer/api/_test_fixtures
+      - spec/proto/flowseer/net/addr/_test_fixtures
+      - spec/proto/flowseer/nosuchpackage/_test_fixtures
       - spec/proto/flowseer/service/_test_fixtures
     lint:
       use:
         - MINIMAL
+        # Compiles every protovalidate CEL expression and checks rules for
+        # well-formedness, so an unenforceable rule fails at lint time
+        # rather than silently passing everything at runtime.
+        - PROTOVALIDATE
     breaking:
       use: []

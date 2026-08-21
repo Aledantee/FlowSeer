@@ -14,6 +14,10 @@ Binding on humans and agents equally; each doc states its own scope.
 - [`docs/code-style-proto.md`](docs/code-style-proto.md) — protobuf schemas under
   `spec/proto/` (buf modules, edition 2024, presence, symbol visibility, naming,
   evolution, protovalidate, and what editions change in generated Go).
+- [`docs/conventions/protobuf.md`](docs/conventions/protobuf.md) — how FlowSeer-owned
+  messages are *shaped*: the Config/State/Event triad, the LocalRef/GlobalRef pair,
+  ambient tenancy, provenance on the envelope, enum placement, typed variants. The
+  model layer above the proto style guide.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — the TypeScript web frontend
   (`frontend/web/`; own toolchain, the Go rules do not govern it).
 

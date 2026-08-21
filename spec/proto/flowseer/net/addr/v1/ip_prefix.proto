@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ipv4_prefix.proto";
+import "flowseer/net/addr/v1/ipv6_prefix.proto";
+
+// An IP network prefix of either family. Each arm bounds its own length, so
+// the family/length agreement needs no cross-field rule.
+message IpPrefix {
+  oneof family {
+    option (buf.validate.oneof).required = true;
+
+    Ipv4Prefix v4 = 1;
+    Ipv6Prefix v6 = 2;
+  }
+}

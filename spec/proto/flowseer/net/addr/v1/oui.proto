@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+import "buf/validate/validate.proto";
+
+// An IEEE Organizationally Unique Identifier: the vendor-assigned prefix
+// shared by an EUI-48 and an EUI-64. Its own message rather than a view of
+// MacAddress because discovery's vendor prefilter and vendor lookups hold an
+// OUI with no address behind it.
+message Oui {
+  // The 3 prefix octets in canonical wire order, most significant first.
+  // Absent is invalid; omit the containing field instead.
+  bytes octets = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 3
+  ];
+}

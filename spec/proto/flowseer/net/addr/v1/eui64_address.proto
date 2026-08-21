@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+import "buf/validate/validate.proto";
+
+// A 64-bit IEEE MAC address (EUI-64).
+message Eui64Address {
+  // The 8 address octets in canonical wire order, most significant first.
+  // Absent is invalid; omit the containing field instead.
+  bytes octets = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 8
+  ];
+}

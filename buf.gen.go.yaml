@@ -1,0 +1,32 @@
+version: v2
+
+# Go-only generation template, for scoped runs over one module.
+#
+# `buf generate --path spec/proto/flowseer` narrows which *inputs* are
+# compiled, not which plugins run: with the full buf.gen.yaml the TS leg would
+# still fire and buf would create the missing `frontend/web/generated/proto/`
+# out directory, writing TS bindings (plus protovalidate's transitive
+# `buf/validate/validate_pb.ts`) into a web tree that does not exist in this
+# checkout. Dropping the es plugin here is what keeps a scoped run scoped.
+#
+# The managed block is a copy of buf.gen.yaml's on purpose: managed mode
+# rewrites file options at generation time, so a template that omitted it
+# would emit different go_package values than an unscoped run.
+managed:
+  enabled: true
+  disable:
+    - file_option: go_package_prefix
+      module: buf.build/bufbuild/protovalidate
+    - file_option: go_package_prefix
+      module: buf.build/googleapis/googleapis
+  override:
+    - file_option: go_package_prefix
+      value: go.aledante.io/FlowSeer/generated/go/proto
+
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: generated/go/proto
+    opt: paths=source_relative
+  - remote: buf.build/connectrpc/go
+    out: generated/go/proto
+    opt: paths=source_relative

@@ -11,7 +11,8 @@
 #      triad members and GlobalRef/LocalRef counterparts that the edit did
 #      not bring along.
 #
-# Dormant until spec/proto exists.
+# The lint leg is skipped for layering-test fixtures, which are excluded from
+# their buf module; the skip is always reported, never silent.
 
 set -uo pipefail
 
@@ -49,13 +50,46 @@ esac
 # missing buf must not skip step 3.
 lint_rc=0
 lint_out=""
+skip_msg=""
 if command -v buf >/dev/null 2>&1; then
   # --- 1. format ---------------------------------------------------------
   buf format -w "$abs" >/dev/null 2>&1
 
   # --- 2. lint -----------------------------------------------------------
-  lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
-  lint_rc=$?
+  # Layering-test fixtures are excluded from their buf module and deliberately
+  # import packages that may not exist, so `buf lint --path` on one exits
+  # non-zero ("no .proto files were targeted", or an unresolvable import) and
+  # would block every save of a fixture. Format and sync still run.
+  #
+  # Ask buf what it targets rather than reading buf.yaml ourselves: a
+  # commented-out exclude, or one belonging to the vendored module, still
+  # appears in the file's text, and believing it would skip lint on a file buf
+  # was perfectly willing to check. If buf still lists the file, it is not
+  # excluded and gets linted.
+  #
+  # A skip is always announced. Silence here would read exactly like a clean
+  # lint, which is the failure this whole branch exists to avoid.
+  # Captured, then matched with a here-string rather than piped into `grep
+  # -q`: under `pipefail` the early exit of `grep -q` SIGPIPEs buf, and the
+  # pipeline reports 141 for a *successful* match — which would send every
+  # production file down the "excluded" path and silently stop linting.
+  targeted=$(cd "$root" && buf ls-files 2>/dev/null)
+  ls_rc=$?
+  if [ "$ls_rc" -ne 0 ]; then
+    # buf could not enumerate the module. Lint anyway and let it report why,
+    # rather than guessing the file is excluded.
+    lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
+    lint_rc=$?
+  elif grep -qxF -- "$rel" <<<"$targeted"; then
+    lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
+    lint_rc=$?
+  else
+    skip_msg="buf lint skipped for $rel — buf does not target this path (it is excluded from its module), so lint cannot resolve it. This file was NOT checked; spec/proto/layering_test.go is what judges it."
+  fi
+else
+  # Same reasoning as the skip above: reporting nothing would be
+  # indistinguishable from a clean lint.
+  skip_msg="buf is not on PATH — $rel was NOT formatted or linted. Only the message-sync check below ran."
 fi
 
 # --- 3. message sync -----------------------------------------------------
@@ -93,7 +127,7 @@ for n in $names; do
 done
 
 if [ -n "$notes" ]; then
-  sync_msg=$(printf 'Message sync (rule 1) — %s defines messages whose mirrored counterparts are missing from spec/proto:%b\nEither add them or confirm the family is deliberately partial. Also verify the conventions doc and the origin brainstorm still match this change.' "$rel" "$notes")
+  sync_msg=$(printf 'Message sync (rule 1) — %s defines messages whose mirrored counterparts are missing from spec/proto:%b\nEither add them or confirm the family is deliberately partial (docs/conventions/protobuf.md — the conventions doc — says how to record that). Also verify the conventions doc and the origin brainstorm still match this change.' "$rel" "$notes")
 else
   sync_msg=""
 fi
@@ -107,8 +141,14 @@ if [ "$lint_rc" -ne 0 ]; then
   exit 2
 fi
 
+context=$skip_msg
 if [ -n "$sync_msg" ]; then
-  jq -n --arg m "$sync_msg" \
+  [ -n "$context" ] && context="$context"$'\n\n'
+  context="$context$sync_msg"
+fi
+
+if [ -n "$context" ]; then
+  jq -n --arg m "$context" \
     '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$m}}'
 fi
 exit 0

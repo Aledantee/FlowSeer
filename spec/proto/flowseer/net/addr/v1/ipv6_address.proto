@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+import "buf/validate/validate.proto";
+
+// An IPv6 address. There is no zone field: a link-local address is scoped by
+// the interface column of whichever table carries it.
+message Ipv6Address {
+  // The 16 address octets in network byte order. Absent is invalid; omit the
+  // containing field instead.
+  bytes octets = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 16
+  ];
+}

@@ -1,0 +1,11 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+// Negative fixture for spec/proto/layering_test.go: a layer package may not
+// import a protocol package, even one at a higher layer index. Proves the
+// protocol rule fires with its own message rather than the generic
+// ascending-order one.
+import "flowseer/net/protocol/lldp/v1/lldp_neighbor.proto";
+
+message ImportsProtocol {}
