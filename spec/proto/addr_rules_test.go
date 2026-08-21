@@ -28,45 +28,86 @@ import (
 
 func TestAddressRulesReject(t *testing.T) {
 	cases := []struct {
-		name string
-		msg  proto.Message
-		want string // the rule id the violation must carry
+		name  string
+		msg   proto.Message
+		want  string // the rule id the violation must carry
+		field string // the field path it must carry it on
 	}{
-		{"eui48 with seven octets", addrv1.Eui48Address_builder{Octets: make([]byte, 7)}.Build(), "bytes.len"},
-		{"eui48 with five octets", addrv1.Eui48Address_builder{Octets: make([]byte, 5)}.Build(), "bytes.len"},
-		{"eui48 with no octets", addrv1.Eui48Address_builder{}.Build(), "required"},
-		{"eui64 with six octets", addrv1.Eui64Address_builder{Octets: make([]byte, 6)}.Build(), "bytes.len"},
-		{"eui64 with no octets", addrv1.Eui64Address_builder{}.Build(), "required"},
-		{"mac with no arm", addrv1.MacAddress_builder{}.Build(), "required"},
+		{"eui48 with seven octets", addrv1.Eui48Address_builder{Octets: make([]byte, 7)}.Build(), "bytes.len", "octets"},
+		{"eui48 with five octets", addrv1.Eui48Address_builder{Octets: make([]byte, 5)}.Build(), "bytes.len", "octets"},
+		{"eui48 with no octets", addrv1.Eui48Address_builder{}.Build(), "required", "octets"},
+		// The conventions doc's "set but empty is malformed, not absent" case.
+		// Empty bytes are *present*, so `required` is satisfied and the length
+		// rule is what rejects it — which is why both rules have to be on the
+		// field: neither alone covers this.
+		{"eui48 with empty octets", addrv1.Eui48Address_builder{Octets: []byte{}}.Build(), "bytes.len", "octets"},
+		{"eui64 with six octets", addrv1.Eui64Address_builder{Octets: make([]byte, 6)}.Build(), "bytes.len", "octets"},
+		{"eui64 with no octets", addrv1.Eui64Address_builder{}.Build(), "required", "octets"},
+		{"mac with no arm", addrv1.MacAddress_builder{}.Build(), "required", "kind"},
 
-		{"oui with two octets", addrv1.Oui_builder{Octets: make([]byte, 2)}.Build(), "bytes.len"},
-		{"oui with four octets", addrv1.Oui_builder{Octets: make([]byte, 4)}.Build(), "bytes.len"},
+		{"oui with two octets", addrv1.Oui_builder{Octets: make([]byte, 2)}.Build(), "bytes.len", "octets"},
+		{"oui with four octets", addrv1.Oui_builder{Octets: make([]byte, 4)}.Build(), "bytes.len", "octets"},
+		{"oui with no octets", addrv1.Oui_builder{}.Build(), "required", "octets"},
 
-		{"ipv4 with five octets", addrv1.Ipv4Address_builder{Octets: make([]byte, 5)}.Build(), "bytes.len"},
-		{"ipv4 with sixteen octets", addrv1.Ipv4Address_builder{Octets: make([]byte, 16)}.Build(), "bytes.len"},
-		{"ipv6 with four octets", addrv1.Ipv6Address_builder{Octets: make([]byte, 4)}.Build(), "bytes.len"},
-		{"ip address with no arm", addrv1.IpAddress_builder{}.Build(), "required"},
+		{"ipv4 with five octets", addrv1.Ipv4Address_builder{Octets: make([]byte, 5)}.Build(), "bytes.len", "octets"},
+		{"ipv4 with sixteen octets", addrv1.Ipv4Address_builder{Octets: make([]byte, 16)}.Build(), "bytes.len", "octets"},
+		{"ipv4 with no octets", addrv1.Ipv4Address_builder{}.Build(), "required", "octets"},
+		{"ipv6 with four octets", addrv1.Ipv6Address_builder{Octets: make([]byte, 4)}.Build(), "bytes.len", "octets"},
+		{"ipv6 with no octets", addrv1.Ipv6Address_builder{}.Build(), "required", "octets"},
+		{"ip address with no arm", addrv1.IpAddress_builder{}.Build(), "required", "family"},
 
-		{"ipv4 prefix longer than 32", ipv4Prefix(33), "uint32.lte"},
-		{"ipv6 prefix longer than 128", ipv6Prefix(129), "uint32.lte"},
+		{"ipv4 prefix longer than 32", ipv4Prefix(33), "uint32.lte", "length"},
+		{"ipv6 prefix longer than 128", ipv6Prefix(129), "uint32.lte", "length"},
 		{
 			"ipv4 prefix with no length",
 			addrv1.Ipv4Prefix_builder{Address: ipv4(make([]byte, 4))}.Build(),
-			"required",
+			"required", "length",
 		},
 		{
 			"ipv4 prefix with no address",
 			addrv1.Ipv4Prefix_builder{Length: proto.Uint32(24)}.Build(),
-			"required",
+			"required", "address",
 		},
-		{"ip prefix with no arm", addrv1.IpPrefix_builder{}.Build(), "required"},
+		{
+			"ipv6 prefix with no length",
+			addrv1.Ipv6Prefix_builder{Address: ipv6(make([]byte, 16))}.Build(),
+			"required", "length",
+		},
+		{
+			"ipv6 prefix with no address",
+			addrv1.Ipv6Prefix_builder{Length: proto.Uint32(64)}.Build(),
+			"required", "address",
+		},
+		{"ip prefix with no arm", addrv1.IpPrefix_builder{}.Build(), "required", "family"},
+
+		// A common type is only as good as the arm it holds: these prove
+		// protovalidate recurses into a set arm rather than stopping at the
+		// wrapper, which is what makes the typed-variant split enforceable.
+		{
+			"mac carrying an oversized eui48",
+			addrv1.MacAddress_builder{
+				Eui48: addrv1.Eui48Address_builder{Octets: make([]byte, 7)}.Build(),
+			}.Build(),
+			"bytes.len", "eui48.octets",
+		},
+		{
+			"ip address carrying a v6-sized v4",
+			addrv1.IpAddress_builder{V4: ipv4(make([]byte, 16))}.Build(),
+			"bytes.len", "v4.octets",
+		},
+		{
+			"ip prefix carrying an over-long v4 prefix",
+			addrv1.IpPrefix_builder{V4: ipv4Prefix(33)}.Build(),
+			"uint32.lte", "v4.length",
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ruleIDs(t, protovalidate.Validate(tc.msg))
-			if !slices.Contains(got, tc.want) {
-				t.Errorf("got rule ids %v, want one of them to be %q", got, tc.want)
+			got := violationsOf(t, protovalidate.Validate(tc.msg))
+			want := tc.field + ": " + tc.want
+			if !slices.Contains(got, want) {
+				t.Errorf("got violations %v, want one of them to be %q", got, want)
 			}
 		})
 	}
@@ -115,16 +156,41 @@ func TestAddressRulesAccept(t *testing.T) {
 	}
 }
 
+// TestOneofArmIsReported covers the reason the common types are a oneof at
+// all: a consumer switches on the arm instead of measuring a payload.
 func TestOneofArmIsReported(t *testing.T) {
-	m := mac48(make([]byte, 6))
-	if got, want := m.WhichKind(), addrv1.MacAddress_Eui48_case; got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
+	t.Run("mac", func(t *testing.T) {
+		if got, want := mac48(make([]byte, 6)).WhichKind(), addrv1.MacAddress_Eui48_case; got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+		m := addrv1.MacAddress_builder{
+			Eui64: addrv1.Eui64Address_builder{Octets: make([]byte, 8)}.Build(),
+		}.Build()
+		if got, want := m.WhichKind(), addrv1.MacAddress_Eui64_case; got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
 
-	a := ipAddr4(make([]byte, 4))
-	if got, want := a.WhichFamily(), addrv1.IpAddress_V4_case; got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
+	t.Run("ip address", func(t *testing.T) {
+		if got, want := ipAddr4(make([]byte, 4)).WhichFamily(), addrv1.IpAddress_V4_case; got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+		a := addrv1.IpAddress_builder{V6: ipv6(make([]byte, 16))}.Build()
+		if got, want := a.WhichFamily(), addrv1.IpAddress_V6_case; got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("ip prefix", func(t *testing.T) {
+		p := addrv1.IpPrefix_builder{V4: ipv4Prefix(24)}.Build()
+		if got, want := p.WhichFamily(), addrv1.IpPrefix_V4_case; got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+		p6 := addrv1.IpPrefix_builder{V6: ipv6Prefix(64)}.Build()
+		if got, want := p6.WhichFamily(), addrv1.IpPrefix_V6_case; got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
 }
 
 // TestUnsetAddressFieldFiresNoRule is the other half of the required-vs-rule
@@ -262,7 +328,11 @@ func wrapperDescriptor(t *testing.T) protoreflect.MessageDescriptor {
 	return fd.Messages().Get(0)
 }
 
-func ruleIDs(t *testing.T, err error) []string {
+// violationsOf renders each violation as "<field path>: <rule id>". Pairing
+// the two matters: `required` is the id for both a missing field and an empty
+// oneof, so a case asserting on the id alone would still pass if the rule it
+// meant to exercise were removed and a different one fired.
+func violationsOf(t *testing.T, err error) []string {
 	t.Helper()
 	if err == nil {
 		t.Fatal("got valid, want a violation")
@@ -271,9 +341,9 @@ func ruleIDs(t *testing.T, err error) []string {
 	if !errors.As(err, &verr) {
 		t.Fatalf("got %T (%v), want *protovalidate.ValidationError", err, err)
 	}
-	ids := make([]string, 0, len(verr.Violations))
+	out := make([]string, 0, len(verr.Violations))
 	for _, v := range verr.Violations {
-		ids = append(ids, v.Proto.GetRuleId())
+		out = append(out, protovalidate.FieldPathString(v.Proto.GetField())+": "+v.Proto.GetRuleId())
 	}
-	return ids
+	return out
 }

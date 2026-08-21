@@ -11,7 +11,8 @@
 #      triad members and GlobalRef/LocalRef counterparts that the edit did
 #      not bring along.
 #
-# Dormant until spec/proto exists.
+# The lint leg is skipped for layering-test fixtures, which are excluded from
+# their buf module; the skip is always reported, never silent.
 
 set -uo pipefail
 
@@ -49,6 +50,7 @@ esac
 # missing buf must not skip step 3.
 lint_rc=0
 lint_out=""
+skip_msg=""
 if command -v buf >/dev/null 2>&1; then
   # --- 1. format ---------------------------------------------------------
   buf format -w "$abs" >/dev/null 2>&1
@@ -58,8 +60,21 @@ if command -v buf >/dev/null 2>&1; then
   # import packages that may not exist, so `buf lint --path` on one exits
   # non-zero ("no .proto files were targeted", or an unresolvable import) and
   # would block every save of a fixture. Format and sync still run.
+  #
+  # Only a directory buf.yaml actually excludes gets the skip: an unexcluded
+  # one still lints, and its failure is the signal that the exclude is
+  # missing. And the skip is always announced — a fixture edit that returned
+  # silence would read exactly like a clean lint.
   case "$rel" in
-    */_test_fixtures/*) ;;
+    */_test_fixtures/*)
+      fixture_dir="${rel%%/_test_fixtures/*}/_test_fixtures"
+      if grep -qF -- "$fixture_dir" "$root/buf.yaml" 2>/dev/null; then
+        skip_msg="buf lint skipped for $rel — $fixture_dir is excluded from its buf module, so lint cannot resolve it. This file was NOT checked; spec/proto/layering_test.go is what judges it."
+      else
+        lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
+        lint_rc=$?
+      fi
+      ;;
     *)
       lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
       lint_rc=$?
@@ -116,8 +131,14 @@ if [ "$lint_rc" -ne 0 ]; then
   exit 2
 fi
 
+context=$skip_msg
 if [ -n "$sync_msg" ]; then
-  jq -n --arg m "$sync_msg" \
+  [ -n "$context" ] && context="$context"$'\n\n'
+  context="$context$sync_msg"
+fi
+
+if [ -n "$context" ]; then
+  jq -n --arg m "$context" \
     '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$m}}'
 fi
 exit 0
