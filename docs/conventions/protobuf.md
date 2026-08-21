@@ -14,8 +14,8 @@ This is the model layer, not the style layer.
 written — edition 2024 presence, symbol visibility, naming, evolution,
 protovalidate — and governs everything here. The vocabulary is
 [`CONCEPTS.md`](../../CONCEPTS.md) §Schema model: Primitive, Entity, Triad, Ref
-Pair, Typed Variant, Provenance Envelope. This document says what those words
-oblige a schema author to write, and is the "conventions doc" that
+Pair, Typed Variant, Provenance Envelope, Facet. This document says what those
+words oblige a schema author to write, and is the "conventions doc" that
 `.claude/hooks/proto-check.sh` names when it reports a missing family member.
 
 The package tree, the import layering, and the primitive/entity split are fixed
@@ -45,10 +45,11 @@ never reports back.
 
 A family may be **deliberately partial**. A machine-observed entity nobody
 configures has no `Config`; a projection nobody stores has no `Event`. When a
-member is deliberately absent, say so in the package's file-level doc comment
-on the message that does exist, naming what is missing and why. The hook reports
-every missing member and cannot tell deliberate from forgotten — the comment is
-what makes the next reader able to tell.
+member is deliberately absent, say so in the file-level doc comment of the
+family's `State` — the one member every family has — naming what is missing and
+why. The hook reports every missing member and cannot tell deliberate from
+forgotten, so the comment is what lets the next reader tell, and putting it in
+a predictable place is what lets them find it.
 
 ## The ref pair
 
@@ -258,4 +259,4 @@ Read it for four things: the ref pair composes (`InterfaceGlobalRef` = parent's
 an `observed_at` or a binding, and the Primitive (`MacAddress`) is embedded by
 value from `net/addr` with nothing flowing back the other way.
 
-[facet]: ../architecture/2026-08-20-network-model-structure-direction.md#facets-versus-tables
+[facet]: ../../CONCEPTS.md#facet

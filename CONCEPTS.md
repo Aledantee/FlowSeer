@@ -284,6 +284,15 @@ adding an arm.
 Where "observed at" and "which binding answered" ride: on the service response
 and the event envelope, never stored on an Entity's State or on a Primitive.
 
+### Facet
+A bundle of per-layer attributes for one interface — a SwitchportFacet's mode
+and VLANs, an IpFacet's addresses and VRF — embedded by value in the interface
+rather than kept in a table beside it. Optionality is the field's presence: an
+interface is routed because its `ip` facet is set. Contrast a *table*, which is
+device-scoped state whose rows name an interface. The
+[network model direction](docs/architecture/2026-08-20-network-model-structure-direction.md)
+draws the line.
+
 ## Flagged ambiguities
 
 - "Backend" and "driver" had been used for the SNMP wire implementation — there
@@ -293,3 +302,6 @@ and the event envelope, never stored on an Entity's State or on a Primitive.
 - "Tier" refers only to a Column's Adaptive Watch classification. The numbered
   levels of the integration suite are Integration Tiers, and the two are
   unrelated.
+- "Primitive" in the Schema model sense is a `flowseer.net.*` value type. A
+  Collection primitive is a Walker, Watcher, or Trap Stream — an SNMP
+  streaming shape. The two are unrelated.
