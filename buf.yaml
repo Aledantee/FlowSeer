@@ -42,5 +42,9 @@ modules:
     lint:
       use:
         - MINIMAL
+        # Compiles every protovalidate CEL expression and checks rules for
+        # well-formedness, so an unenforceable rule fails at lint time
+        # rather than silently passing everything at runtime.
+        - PROTOVALIDATE
     breaking:
       use: []

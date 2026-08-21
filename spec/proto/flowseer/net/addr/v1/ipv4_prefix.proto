@@ -1,0 +1,22 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ipv4_address.proto";
+
+// An IPv4 network prefix. Host bits beyond the prefix length are not masked
+// off by this type; a producer that carries an interface address sends the
+// address it observed.
+message Ipv4Prefix {
+  // The prefix base address. Absent is invalid; omit the containing field
+  // instead.
+  Ipv4Address address = 1 [(buf.validate.field).required = true];
+
+  // Prefix length in bits. 0 is a real value — the default route. Absent is
+  // invalid; omit the containing field instead.
+  uint32 length = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 32
+  ];
+}

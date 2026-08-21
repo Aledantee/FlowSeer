@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/eui48_address.proto";
+import "flowseer/net/addr/v1/eui64_address.proto";
+
+// An IEEE MAC address of either width. Consumers switch on the arm rather
+// than on a payload length, and each arm carries its own size rule.
+message MacAddress {
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    Eui48Address eui48 = 1;
+    Eui64Address eui64 = 2;
+  }
+}
