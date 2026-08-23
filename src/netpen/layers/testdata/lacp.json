@@ -1,0 +1,32 @@
+{
+  "protocol": "LACP",
+  "dst": "01:80:c2:00:00:02",
+  "src": "00:11:22:33:44:55",
+  "ethertype": "0x8809",
+  "subtype": 1,
+  "version": 1,
+  "frames": [
+    {
+      "name": "lacpdu",
+      "subtype": 1,
+      "version": 1,
+      "actor": {
+        "system_priority": 32768,
+        "system": "00:11:22:33:44:55",
+        "key": 1,
+        "port_priority": 32768,
+        "port": 1,
+        "state": 60
+      },
+      "partner": {
+        "system_priority": 32768,
+        "system": "00:aa:bb:cc:dd:ee",
+        "key": 2,
+        "port_priority": 32768,
+        "port": 2,
+        "state": 0
+      },
+      "collector_max_delay": 32768
+    }
+  ]
+}

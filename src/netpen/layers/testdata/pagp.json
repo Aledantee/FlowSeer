@@ -1,0 +1,19 @@
+{
+  "protocol": "PAgP",
+  "dst": "01:00:0c:cc:cc:cc",
+  "src": "00:11:22:33:44:55",
+  "snap_pid": "0x0104",
+  "frames": [
+    {
+      "name": "hello",
+      "version": 1,
+      "command": 1,
+      "group_capability": 1,
+      "group_number": 1,
+      "local_device_id": "00:11:22:33:44:55",
+      "local_port_id": 1,
+      "partner_device_id": "00:aa:bb:cc:dd:ee",
+      "partner_port_id": 2
+    }
+  ]
+}

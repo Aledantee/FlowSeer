@@ -1,0 +1,43 @@
+{
+  "protocol": "VTP",
+  "dst": "01:00:0c:cc:cc:cc",
+  "src": "00:11:22:33:44:55",
+  "snap_pid": "0x2003",
+  "domain": "LABDOMAIN",
+  "revision": 42,
+  "frames": [
+    {
+      "name": "summary",
+      "version": 1,
+      "code": 1,
+      "domain": "LABDOMAIN",
+      "revision": 42,
+      "updater": "0.0.0.0"
+    },
+    {
+      "name": "subset",
+      "version": 1,
+      "code": 2,
+      "seq": 1,
+      "domain": "LABDOMAIN",
+      "revision": 42,
+      "vlans": [
+        {
+          "id": 10,
+          "name": "data"
+        },
+        {
+          "id": 20,
+          "name": "voice"
+        }
+      ]
+    },
+    {
+      "name": "request",
+      "version": 1,
+      "code": 3,
+      "domain": "LABDOMAIN",
+      "start_val": 0
+    }
+  ]
+}

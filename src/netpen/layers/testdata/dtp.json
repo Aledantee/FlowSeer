@@ -1,0 +1,58 @@
+{
+  "protocol": "DTP",
+  "dst": "01:00:0c:cc:cc:cc",
+  "src": "00:11:22:33:44:55",
+  "snap_pid": "0x2004",
+  "frames": [
+    {
+      "name": "desirable",
+      "version": 1,
+      "tlvs": [
+        {
+          "type": 1,
+          "value_hex": "00"
+        },
+        {
+          "type": 2,
+          "value_hex": "03"
+        },
+        {
+          "type": 3,
+          "value_hex": "a5"
+        },
+        {
+          "type": 4,
+          "value_hex": "001122334455"
+        }
+      ],
+      "trunk_status": 3,
+      "trunk_type": 165,
+      "neighbor": "00:11:22:33:44:55"
+    },
+    {
+      "name": "trunk",
+      "version": 1,
+      "tlvs": [
+        {
+          "type": 1,
+          "value_hex": "00"
+        },
+        {
+          "type": 2,
+          "value_hex": "81"
+        },
+        {
+          "type": 3,
+          "value_hex": "a5"
+        },
+        {
+          "type": 4,
+          "value_hex": "001122334455"
+        }
+      ],
+      "trunk_status": 129,
+      "trunk_type": 165,
+      "neighbor": "00:11:22:33:44:55"
+    }
+  ]
+}

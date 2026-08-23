@@ -1,0 +1,34 @@
+{
+  "protocol": "MVRP",
+  "dst": "01:80:c2:00:00:21",
+  "src": "00:11:22:33:44:55",
+  "ethertype": "0x88F5",
+  "frames": [
+    {
+      "name": "join_vid10",
+      "version": 0,
+      "messages": [
+        {
+          "attr_type": 1,
+          "attr_len": 4,
+          "leave_all": false,
+          "first_value": 10,
+          "event": "JoinIn"
+        }
+      ]
+    },
+    {
+      "name": "leave_vid20",
+      "version": 0,
+      "messages": [
+        {
+          "attr_type": 1,
+          "attr_len": 4,
+          "leave_all": false,
+          "first_value": 20,
+          "event": "LeaveEmpty"
+        }
+      ]
+    }
+  ]
+}
