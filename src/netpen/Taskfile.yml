@@ -1,0 +1,45 @@
+# netpen:* — netpen L2/L3 security audit binary (src/netpen/).
+#
+# Included by the root Taskfile with `dir: ./netpen`, so every `go` invocation
+# runs inside the standalone netpen module (its own go.mod, the one place
+# gopacket is a dependency). The main module never sees these targets.
+#
+# U1 ships basic lint/test shortcuts only; the release task is U13's.
+
+version: '3'
+
+vars:
+  GOFLAGS: -count=1
+
+tasks:
+  lint:
+    desc: 'Run golangci-lint (repo-root .golangci.yml applies by ancestry); GOOS=linux pass covers linux-only files the darwin pass skips'
+    cmds:
+      - golangci-lint run
+      - GOOS=linux golangci-lint run
+
+  build:
+    desc: 'Build the netpen binary (darwin dev host, CGO_ENABLED=0)'
+    cmds:
+      - CGO_ENABLED=0 go build ./...
+
+  build-linux:
+    desc: 'Cross-compile for the release matrix (linux/amd64 + linux/arm64)'
+    cmds:
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ./...
+      - GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build ./...
+
+  vet:
+    desc: 'Run go vet'
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: 'Run tests with -race (mock leg only; real-link test is tagged out)'
+    cmds:
+      - CGO_ENABLED=0 go test -race {{.GOFLAGS}} ./...
+
+  test-linktest:
+    desc: 'Run the opt-in real-link round-trip test (linux + linktest tag + NETPEN_LINK_IFACE)'
+    cmds:
+      - go test -tags=linktest -run TestRealLinkRoundTrip {{.GOFLAGS}} ./...

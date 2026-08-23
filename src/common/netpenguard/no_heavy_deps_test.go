@@ -1,0 +1,136 @@
+// Package netpenguard pins the quarantine boundary: the netpen module's
+// heavy dependency family (gopacket, bubbletea) never enters the main
+// module's dependency graph. The test walks from the repo root (the repoRoot
+// pattern from src/common/errs/code_test.go) and asserts zero charm.land/ or
+// github.com/gopacket/ imports outside src/netpen, the sole exempt directory
+// (KTD1).
+package netpenguard
+
+import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// forbiddenImports are the heavy dependency path prefixes that must not appear
+// in the main module. They may appear inside src/netpen (the quarantined
+// nested module) and nowhere else.
+var forbiddenImports = []string{
+	"charm.land/",
+	"github.com/gopacket/",
+}
+
+// exemptDirs are directory paths (relative to the repo root) where forbidden
+// imports are allowed. src/netpen is the quarantined nested module.
+var exemptDirs = []string{
+	filepath.Join("src", "netpen"),
+}
+
+// TestNoHeavyDepsOutsideNetpen walks the repo from its root and asserts that
+// no .go file outside src/netpen imports a forbidden heavy dependency. The
+// walk skips dot-directories and testdata; this test file itself is exempted
+// because it names the forbidden prefixes by necessity.
+func TestNoHeavyDepsOutsideNetpen(t *testing.T) {
+	root := repoRoot(t)
+
+	const selfFile = "no_heavy_deps_test.go"
+
+	type leak struct {
+		path   string
+		reason string
+	}
+	var leaks []leak
+
+	fset := token.NewFileSet()
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			name := d.Name()
+			if name != "." && (strings.HasPrefix(name, ".") || name == "testdata") {
+				return filepath.SkipDir
+			}
+
+			rel, _ := filepath.Rel(root, path)
+			for _, exempt := range exemptDirs {
+				if rel == exempt || strings.HasPrefix(rel, exempt+string(filepath.Separator)) {
+					return filepath.SkipDir
+				}
+			}
+
+			return nil
+		}
+
+		if filepath.Base(path) == selfFile {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+
+		// Parse without comments so doc-comment mentions of the
+		// forbidden packages do not register as code leaks.
+		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			return err
+		}
+
+		rel, _ := filepath.Rel(root, path)
+
+		for _, imp := range f.Imports {
+			lit := imp.Path.Value
+			for _, forbidden := range forbiddenImports {
+				if strings.Contains(lit, forbidden) {
+					leaks = append(leaks, leak{rel, "import " + lit})
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walking %s: %v", root, err)
+	}
+
+	if len(leaks) > 0 {
+		for _, l := range leaks {
+			t.Errorf("heavy dependency leak in %s: %s", l.path, l.reason)
+		}
+	}
+}
+
+// repoRoot finds the repository root by walking up from the working directory
+// until it finds a go.mod declaring the main module path. It mirrors the
+// repoRoot pattern from src/common/errs/code_test.go.
+func repoRoot(t *testing.T) string {
+	t.Helper()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getting working directory: %v", err)
+	}
+
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil && strings.Contains(string(data), "module go.aledante.io/FlowSeer\n") {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("repo root not found above the netpenguard package")
+		}
+
+		dir = parent
+	}
+}
+
+// silence unused import in case the AST path changes.
+var _ = ast.IsExported
