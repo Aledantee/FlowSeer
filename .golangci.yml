@@ -61,6 +61,12 @@ linters:
         - name: unused-parameter
         - name: var-declaration
         - name: var-naming
+  exclusions:
+    # Generated code is excluded from lint findings; correctness there
+    # belongs to the generator and its drift gate, not style linters.
+    generated: strict
+    paths:
+      - zz_generated_.*\.go$
 
 formatters:
   enable:
@@ -70,3 +76,7 @@ formatters:
     goimports:
       local-prefixes:
         - go.aledante.io/FlowSeer
+  exclusions:
+    generated: strict
+    paths:
+      - zz_generated_.*\.go$
