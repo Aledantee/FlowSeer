@@ -293,6 +293,43 @@ device-scoped state whose rows name an interface. The
 [network model direction](docs/architecture/2026-08-20-network-model-structure-direction.md)
 draws the line.
 
+## netpen
+
+netpen is the self-contained native Go L2/L3 security audit and attack
+binary that replaces the Python `l2l3-audit` tool. It is a standalone
+operator-run tool in this repo (not part of FlowSeer's runtime), built
+library-first: a protocol toolkit core with all attacks as behaviors over
+it. Full requirements in
+[`docs/plans/2026-08-23-1042-feat-netpen-port-plan.md`](docs/plans/2026-08-23-1042-feat-netpen-port-plan.md).
+
+### Attack leg / Watch leg
+netpen's two-interface evidence model, inherited verbatim from
+l2l3-audit: the attack leg (`-i`, default eth0) emits and answers attack
+traffic; the watch leg (`-w`, optional) passively observes whether that
+traffic traverses the fabric. Commands that need traversal evidence use it
+when present; `ghost` requires it and fails fast without it.
+
+### Durability class
+The safety classification every netpen (attack, mode) pair carries, in
+four classes: non-destructive (changes no device or neighbor state);
+transient-decay (disruptive with no possible restore; the catalog
+records the decay bound and the run announces it); temporary-restored
+(disruptive but reversible; the teardown/restore path is armed before
+the first frame and runs on completion and on interrupt); and
+permanent-destructive (state outlives the run; requires an explicit
+per-run opt-in before a single frame is emitted). The class lives in
+the Attack catalog and gates dispatch. Restored restores are
+step-isolated: one failing step cannot abandon later ones, host-local
+state is restored first, and partial failure is reported by name with
+a non-zero exit.
+
+### Attack catalog
+netpen's embedded, data-shaped registry of every attack, extracted from
+behavior registrations rather than maintained beside them. Each entry
+carries protocols, preconditions, legs required, and durability class,
+and is the single source for dispatch, help text, and safety gating — it
+cannot drift from the code it describes.
+
 ## Flagged ambiguities
 
 - "Backend" and "driver" had been used for the SNMP wire implementation — there
