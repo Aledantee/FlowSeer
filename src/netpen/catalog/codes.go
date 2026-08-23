@@ -27,4 +27,10 @@ var (
 	// could not complete every step — reported by name with a non-zero
 	// exit (R14, AE2, KTD13).
 	ErrCodeTeardownPartial = errs.NewCode("netpen/teardown-partial")
+
+	// ErrCodeWPADPortCollision marks a rogue WPAD proxy that could not
+	// bind its embedded PAC listener because the chosen port is already
+	// in use. The behavior reports a named error rather than crashing
+	// (U11 edge scenario).
+	ErrCodeWPADPortCollision = errs.NewCode("netpen/wpad-port-collision")
 )
