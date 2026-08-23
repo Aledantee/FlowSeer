@@ -72,6 +72,29 @@ type Options struct {
 	// wire its output mode. The U7 output modes consult the flag; the
 	// runner merely carries it.
 	SuppressOutput bool
+
+	// Acknowledged is the per-run opt-in set naming each permanent-
+	// destructive (attack, mode) pair the operator explicitly accepted
+	// (R15). A pair in [Options.Attacks] whose catalog class is
+	// [catalog.PermanentDestructive] dispatches only when the same
+	// (name, mode) appears here; without it the gate refuses before any
+	// frame is emitted (AE1). The acknowledgment is per pair, not global:
+	// accepting "vtp wipe" does not accept "vtp set".
+	Acknowledged []AttackRef
+
+	// Orchestrated is the `full`-command safety seam (R15): when true,
+	// the runner is running under orchestration and no permanent-
+	// destructive entry may dispatch, even when its pair appears in
+	// [Options.Acknowledged]. The gate has no path to a permanent entry
+	// under orchestration. The `full` command sets this; a direct
+	// single-attack invocation does not.
+	Orchestrated bool
+
+	// TeardownBudget bounds the total time the teardown executor may
+	// spend running armed steps before forcing completion. Zero means
+	// [DefaultTeardownBudget]. Tests scale this const down via this field
+	// so the bounded-budget assertion runs in milliseconds, not seconds.
+	TeardownBudget time.Duration
 }
 
 // AttackRef is one entry in [Options.Attacks]: a (behavior, mode) pair. Mode
@@ -105,7 +128,12 @@ type Behavior func(ctx context.Context, deps Deps) error
 // reworking signatures. Keep it minimal — add nothing speculative.
 type Deps struct {
 	// AttackLeg is the leg the behavior sends and receives on. Always
-	// non-nil (Run rejects a nil AttackLeg before dispatch).
+	// non-nil (Run rejects a nil AttackLeg before dispatch). A
+	// permanent-destructive entry that the gate refuses receives a nil
+	// AttackLeg: the gate evaluates before the leg's TX is ever handed to
+	// the behavior, so a refused behavior literally never holds a
+	// send-capable leg. A behavior that observes a nil AttackLeg must
+	// return immediately without touching the wire.
 	AttackLeg link.Leg
 
 	// WatchLeg is the passive observation leg, or nil when the run has no
@@ -128,6 +156,21 @@ type Deps struct {
 	// is safe for concurrent use from one goroutine (the behavior's own);
 	// a behavior that spawns goroutines must coordinate access itself.
 	Emitter *Emitter
+
+	// Teardown is the arming handle a temporary-restored behavior
+	// registers its restore steps against (R14, KTD11). It is non-nil
+	// for entries whose catalog class is [catalog.TemporaryRestored]
+	// (and for an acknowledged permanent-destructive entry, which is
+	// treated like temporary-restored for teardown arming); nil
+	// otherwise. The behavior arms each named restore step via
+	// [Teardown.Arm] before emitting its first frame; the runner
+	// executes the armed steps on completion or interrupt in
+	// reverse-dependency order (least-dependent — host-local state —
+	// first), each in its own error scope, so one failing step does
+	// not abandon later ones. A temporary-restored behavior that arms
+	// zero steps is a coded runtime failure at arm time: a required
+	// restore path that restores nothing is a bug, not a silent skip.
+	Teardown *Teardown
 }
 
 // Emitter is the typed sink a [Behavior] writes findings through. It wraps

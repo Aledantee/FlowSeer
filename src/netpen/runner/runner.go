@@ -2,8 +2,11 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/netpen/catalog"
@@ -58,6 +61,27 @@ type Runner struct {
 	// closedByConsumer is set when [Stream.Close] cancels the run,
 	// so Run returns nil rather than context.Canceled.
 	closedByConsumer atomic.Bool
+
+	// teardownMu guards activeTeardown and activeCancel, the
+	// currently-armed teardown and its per-attack cancel, so the
+	// signal [Runner.Interrupt] path can run the same teardown the
+	// completion path runs (completion and interrupt share one entry
+	// point — KTD11).
+	teardownMu     sync.Mutex
+	activeTeardown *Teardown
+	activeCancel   context.CancelFunc
+
+	// interruptErr holds the teardown error from the signal
+	// [Runner.Interrupt] path, so the dispatch loop can surface it as
+	// Run's return value. The dispatch loop's own runTeardown call is a
+	// no-op when Interrupt ran first (runOnce), so without this the
+	// teardown-partial error would be lost.
+	interruptErrMu sync.Mutex
+	interruptErr   error
+
+	// interruptOnce guards the interrupt entry point so a second
+	// signal during teardown does not re-enter [Runner.Interrupt].
+	interruptOnce sync.Once
 
 	// runDone closes when the dispatch loop (Run) returns, so a host
 	// that starts Run in a goroutine can synchronize on completion via
@@ -155,6 +179,19 @@ func (r *Runner) Run(ctx context.Context) error {
 		lookup[entryKey(e.Name, e.Mode)] = e
 	}
 
+	// Build the opt-in acknowledgment set (R15): per (name, mode), so
+	// accepting "vtp wipe" does not accept "vtp set".
+	ack := make(map[string]bool, len(r.opts.Acknowledged))
+	for _, a := range r.opts.Acknowledged {
+		ack[entryKey(a.Name, a.Mode)] = true
+	}
+
+	// teardownBudget is the total time the executor may spend; tests
+	// scale it down via [Options.TeardownBudget].
+	teardownBudget := r.opts.TeardownBudget
+
+	var runErr error // first dispatch-level or teardown-partial failure
+
 	for _, ref := range r.opts.Attacks {
 		// A consumer-initiated [Stream.Close] cancels runCtx (via
 		// closeHook) and sets closedByConsumer. The dispatch loop
@@ -163,8 +200,23 @@ func (r *Runner) Run(ctx context.Context) error {
 		// false) returns ctx.Err() unwrapped.
 		select {
 		case <-r.stream.pump.Stopped():
+			// The stream was stopped. If the interrupt path set an
+			// error (teardown partial failure), surface it; otherwise
+			// a consumer close returns nil.
+			if err := r.interruptError(); err != nil {
+				r.stream.fail(err)
+				return err
+			}
 			return nil
 		default:
+		}
+		// If the interrupt path set a teardown-partial error, surface
+		// it before the context-cancellation check: the interrupt
+		// cancels the run context, so runCtx.Err() is also set, but
+		// the teardown-partial error is the actionable failure.
+		if err := r.interruptError(); err != nil {
+			r.stream.fail(err)
+			return err
 		}
 		if err := runCtx.Err(); err != nil {
 			if r.closedByConsumer.Load() {
@@ -201,6 +253,27 @@ func (r *Runner) Run(ctx context.Context) error {
 			return err
 		}
 
+		// Durability gate (R13, R14, R15; KTD11). The gate consults
+		// the catalog entry BEFORE the leg's TX is ever handed to the
+		// behavior: a refused behavior literally never receives a
+		// send-capable leg, so zero frames are possible (AE1).
+		dec := gate(r.stream, entry, ack, r.opts.Orchestrated)
+		if !dec.proceed {
+			// Refusal: the gate already emitted the typed refusal
+			// record. Return the coded non-zero exit (KTD13:
+			// runtime failure = 1).
+			err := errs.New().
+				Code(catalog.ErrCodePermanentRefused).
+				Attr("name", ref.Name).
+				Attr("mode", ref.Mode).
+				ExitCode(1).
+				UserMsg(fmt.Sprintf("%q mode %q refused", ref.Name, ref.Mode)).
+				Hint("supply the per-run opt-in acknowledgment for this permanent mode").
+				Msgf("permanent-destructive %q (mode %q) refused by durability gate", ref.Name, ref.Mode)
+			r.stream.fail(err)
+			return err
+		}
+
 		fn, ok := r.opts.Behaviors[ref.Name]
 		if !ok {
 			err := errs.New().
@@ -217,12 +290,38 @@ func (r *Runner) Run(ctx context.Context) error {
 		// record emission.
 		r.stream.setAttack(ref.Name, entry.Mode)
 
+		// Emit the run-start announcement (if any) before the first
+		// frame: transient-decay's decay bound, or the acknowledged-
+		// permanent accepted-mode + consequence (KTD11).
+		if dec.announce != nil {
+			if !r.stream.send(*dec.announce) {
+				// Stream terminating; stop dispatching.
+				if r.closedByConsumer.Load() {
+					return nil
+				}
+				if runCtxErr := runCtx.Err(); runCtxErr != nil {
+					r.stream.fail(runCtxErr)
+					return runCtxErr
+				}
+				return nil
+			}
+		}
+
 		// Derive a per-attack context (zgrab2's cancellation pattern):
-		// a behavior runs under a child of runCtx so canceling one
-		// attack does not abort siblings. In this unit all behaviors
-		// share runCtx's cancellation; U6 may layer per-attack cancel
-		// for the teardown/signal lifecycle.
+		// a behavior runs under a child of runCtx so canceling the
+		// attack (interrupt) does not abort siblings' contexts
+		// directly. The teardown path cancels this to unblock the
+		// behavior.
 		attackCtx, cancel := context.WithCancel(runCtx)
+
+		// Register the active teardown + cancel so [Runner.Interrupt]
+		// (the signal path) can engage the same teardown the
+		// completion path runs (completion and interrupt share one
+		// entry point — KTD11).
+		r.teardownMu.Lock()
+		r.activeTeardown = dec.teardown
+		r.activeCancel = cancel
+		r.teardownMu.Unlock()
 
 		deps := Deps{
 			AttackLeg: r.opts.AttackLeg,
@@ -230,14 +329,52 @@ func (r *Runner) Run(ctx context.Context) error {
 			Rate:      r.opts.Rate,
 			Entry:     entry,
 			Emitter:   &Emitter{stream: r.stream},
+			Teardown:  dec.teardown,
 		}
 
-		if err := fn(attackCtx, deps); err != nil {
-			cancel()
+		behErr := fn(attackCtx, deps)
+		cancel()
+
+		// Run the armed teardown (if any) on completion or interrupt.
+		// The teardown executes the armed steps in reverse-dependency
+		// order, each in its own error scope, bounded by the budget.
+		// A temporary-restored behavior that armed zero steps is a
+		// coded runtime failure (a required restore that restores
+		// nothing is a bug, not a silent skip — KTD11).
+		if dec.teardown != nil {
+			tdErr := r.runTeardown(runCtx, dec.teardown, teardownBudget)
+			if tdErr != nil {
+				// Surface the named partial-failure record through
+				// the stream BEFORE flushing (teardown completes
+				// before sink flush — asserted in tests).
+				rec := dec.teardown.partialRecord()
+				_ = r.stream.send(rec)
+				if runErr == nil {
+					runErr = tdErr
+				}
+			}
+		}
+
+		// Clear the active teardown now that completion has run it.
+		r.teardownMu.Lock()
+		r.activeTeardown = nil
+		r.activeCancel = nil
+		r.teardownMu.Unlock()
+
+		if behErr != nil {
+			// When the interrupt path engaged teardown, it canceled
+			// the behavior's context; the resulting context.Canceled
+			// is an expected consequence, not an independent behavior
+			// error. Skip the behavior error record and let the
+			// teardown-partial error (if any) surface from the
+			// interrupt path.
+			if r.interruptError() != nil && errors.Is(behErr, context.Canceled) {
+				continue
+			}
 			// A behavior error is a finding, not a run failure:
 			// surface it as a typed error record and continue
 			// with remaining behaviors.
-			if !emitErrorRecord(r.stream, ref.Name, entry.Mode, err) {
+			if !emitErrorRecord(r.stream, ref.Name, entry.Mode, behErr) {
 				// The stream is terminating (ctx canceled or
 				// Close called). Stop dispatching.
 				if r.closedByConsumer.Load() {
@@ -251,10 +388,150 @@ func (r *Runner) Run(ctx context.Context) error {
 			}
 			continue
 		}
-		cancel()
+	}
+
+	// The interrupt path may have set a teardown-partial error that
+	// the completion path's runTeardown no-op did not capture.
+	if err := r.interruptError(); err != nil {
+		r.stream.fail(err)
+		return err
+	}
+
+	if runErr != nil {
+		r.stream.fail(runErr)
+		return runErr
 	}
 
 	return nil
+}
+
+// runTeardown executes the armed teardown steps and returns the partial-
+// failure error when one or more steps failed (KTD11, KTD13). It is the
+// single entry point shared by completion and interrupt: the dispatch
+// loop calls it after the behavior returns, and [Runner.Interrupt]
+// (the signal path) calls it when a signal arrives mid-behavior. The
+// [Teardown.Run] guard makes a second call a no-op, so completion-after-
+// interrupt does not double-execute.
+func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Duration) error {
+	// A temporary-restored behavior that armed zero steps is a coded
+	// runtime failure: a required restore that restores nothing is a
+	// bug, not a silent skip (KTD11).
+	if !t.armed() {
+		err := errs.New().
+			Code(catalog.ErrCodeTeardownPartial).
+			Attr("name", t.entry.Name).
+			Attr("mode", t.entry.Mode).
+			ExitCode(1).
+			UserMsg(fmt.Sprintf("%q armed no teardown steps", t.entry.Name)).
+			Hint("this is a netpen internal error; report it").
+			Msgf("temporary-restored %q armed zero teardown steps", t.entry.Name)
+		t.failed = []string{"<no-steps-armed>"}
+		return err
+	}
+	return t.Run(ctx, budget)
+}
+
+// Interrupt engages the teardown path from a signal (SIGINT, SIGTERM, or
+// SIGHUP — KTD11). It cancels the in-flight behavior's per-attack context
+// (so the behavior returns promptly) and then runs the currently-armed
+// teardown through the same entry point completion uses. If no teardown
+// is armed (the run is between behaviors, or the current behavior is not
+// temporary-restored), it cancels the run context so the dispatch loop
+// exits.
+//
+// forceExit is a channel closed by the signal handler when a second
+// signal arrives during teardown; the teardown loop observes it and
+// reports the abandoned steps by name before the process force-exits.
+// It may be nil when the caller does not need second-signal handling.
+//
+// Interrupt is idempotent: a second call (e.g. completion after the
+// signal already engaged teardown) is a no-op. It is safe to call from
+// any goroutine.
+func (r *Runner) Interrupt(forceExit <-chan struct{}) {
+	r.interruptOnce.Do(func() {
+		r.teardownMu.Lock()
+		td := r.activeTeardown
+		ac := r.activeCancel
+		r.teardownMu.Unlock()
+
+		// Cancel the in-flight behavior so it returns promptly.
+		if ac != nil {
+			ac()
+		}
+
+		if td != nil {
+			// Run the teardown. The budget comes from Options; the
+			// signal path uses the same budget as completion. The
+			// Teardown.Run guard makes the completion-path call a
+			// no-op, so completion and interrupt share one entry
+			// point without double-execution.
+			budget := r.opts.TeardownBudget
+			tdErr := r.runTeardown(r.stopCtx, td, budget)
+
+			// If teardown failed, emit the named partial-failure
+			// record through the stream so the consumer sees it
+			// before the stream closes (teardown completes before
+			// sink flush — KTD11). The completion path's Run call is
+			// a no-op (runOnce), so only this path emits the record.
+			if tdErr != nil {
+				// Emit the named partial-failure record through the
+				// stream so the consumer sees it before the stream
+				// closes (teardown completes before sink flush —
+				// KTD11). Store the error for the dispatch loop to
+				// surface as Run's return value; do NOT call
+				// stream.fail here, because that would stop the
+				// stream and make the dispatch loop treat the
+				// shutdown as a consumer close (returning nil).
+				rec := td.partialRecord()
+				_ = r.stream.send(rec)
+				r.interruptErrMu.Lock()
+				r.interruptErr = tdErr
+				r.interruptErrMu.Unlock()
+			}
+
+			// After teardown, cancel the run context so the
+			// dispatch loop exits and does not start the next
+			// behavior.
+			r.stopCancel()
+		} else {
+			// No teardown armed: cancel the run context so the
+			// dispatch loop exits promptly.
+			r.stopCancel()
+		}
+
+		// forceExit is closed by the signal handler when a second
+		// signal arrives during teardown; the handler's watcher reads
+		// the abandoned steps by name. The teardown here runs to
+		// completion (Run is bounded), so abandoned steps surface
+		// through the partial record; the force-exit itself is driven
+		// by the handler.
+		_ = forceExit
+	})
+}
+
+// abandonedSteps returns the names of the teardown steps that were
+// abandoned (did not complete) when a second signal force-exits during
+// teardown. The abandoned set is the armed steps minus the ones that
+// already finished (success or failure): a step still running or never
+// reached is abandoned.
+func (r *Runner) abandonedSteps() []string {
+	r.teardownMu.Lock()
+	td := r.activeTeardown
+	r.teardownMu.Unlock()
+	if td == nil {
+		return nil
+	}
+	return td.abandonedSnapshot()
+}
+
+// interruptError returns the teardown-partial error the interrupt path
+// stored, if any, so the dispatch loop can surface it as Run's return
+// value. nil when the interrupt path ran no teardown or the teardown
+// succeeded.
+func (r *Runner) interruptError() error {
+	r.interruptErrMu.Lock()
+	defer r.interruptErrMu.Unlock()
+	return r.interruptErr
 }
 
 // Wait blocks until the dispatch loop has finished. It is a convenience for

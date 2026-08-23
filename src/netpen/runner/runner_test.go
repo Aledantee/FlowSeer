@@ -314,8 +314,13 @@ func TestBehaviorErrorTypedRecordAndContinues(t *testing.T) {
 		deps.Emitter.Finding("arp", []byte(`{"step":1}`))
 		return nil
 	}
-	stub2 := func(_ context.Context, _ runner.Deps) error {
+	stub2 := func(_ context.Context, deps runner.Deps) error {
 		callOrder.Add(1)
+		// arpspoof is temporary-restored: arm a restore step so the
+		// U6 teardown gate does not fail it for arming zero steps.
+		if deps.Teardown != nil {
+			deps.Teardown.Arm("restore", func(_ context.Context) error { return nil })
+		}
 		return behErr // errors mid-run
 	}
 	stub3 := func(_ context.Context, deps runner.Deps) error {
@@ -613,6 +618,10 @@ func TestModeBearingBehaviorResolvesEntry(t *testing.T) {
 	var gotEntry catalog.Entry
 	stub := func(_ context.Context, deps runner.Deps) error {
 		gotEntry = deps.Entry
+		// portsteal --relay is temporary-restored: arm a restore step.
+		if deps.Teardown != nil {
+			deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error { return nil })
+		}
 		deps.Emitter.Finding("arp", []byte(`{}`))
 		return nil
 	}
