@@ -1,0 +1,46 @@
+{
+  "protocol": "HSRP",
+  "dst": "224.0.0.2",
+  "src": "00:11:22:33:44:55",
+  "udp_port": 1985,
+  "group": 1,
+  "vip": "10.0.0.1",
+  "frames": [
+    {
+      "name": "hello",
+      "version": 0,
+      "opcode": 0,
+      "state": 16,
+      "hellotime": 3,
+      "holdtime": 10,
+      "priority": 255,
+      "group": 1,
+      "auth": "cisco",
+      "vip": "10.0.0.1"
+    },
+    {
+      "name": "coup",
+      "version": 0,
+      "opcode": 1,
+      "state": 16,
+      "hellotime": 3,
+      "holdtime": 10,
+      "priority": 255,
+      "group": 1,
+      "auth": "cisco",
+      "vip": "10.0.0.1"
+    },
+    {
+      "name": "resign",
+      "version": 0,
+      "opcode": 2,
+      "state": 8,
+      "hellotime": 3,
+      "holdtime": 10,
+      "priority": 255,
+      "group": 1,
+      "auth": "cisco",
+      "vip": "10.0.0.1"
+    }
+  ]
+}

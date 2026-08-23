@@ -2,16 +2,18 @@
 # requires-python = ">=3.11"
 # dependencies = ["scapy>=2.5"]
 # ///
-"""Harvest reference L2 fixtures for netpen's owned decoders.
+"""Harvest reference L2/L3 fixtures for netpen's owned decoders.
 
-Reproduces the exact frame bytes l2l3-audit crafts for DTP, VTP, and MVRP
-(its byte construction is the source of truth per KTD14), and authors LACP
-and PAgP from the published wire spec (IEEE 802.1AX / Cisco) since the
-baseline has no EtherChannel attack — they are new per R4.
+Reproduces the exact frame bytes l2l3-audit crafts for DTP, VTP, MVRP, HSRP,
+ LLMNR, and NBT-NS (its byte construction is the source of truth per KTD14),
+and authors LACP, PAgP, GLBP, and EIGRP from the published wire spec
+(IEEE 802.1AX / Cisco / RFC 7868 / RFC 7868) since the baseline has no
+EtherChannel or GLBP/EIGRP attack — they are new per R4.
 
 LLC-encapsulated protocols use Dot3 so the 802.3 length field is correct and
 gopacket dispatches Ethernet → LLC → SNAP → protocol; the LLC+SNAP+body
-bytes are identical to l2l3-audit's construction.
+bytes are identical to l2l3-audit's construction.  L3 protocols (HSRP, GLBP,
+EIGRP, LLMNR, NBT-NS) ride Ethernet → IPv4 → (UDP) → protocol.
 
 Each protocol writes one pcap into testdata/ and a JSON golden of the typed
 values a decoder must surface.  Runs fully offline (scapy craft + wrpcap,
@@ -26,7 +28,7 @@ import json
 import struct
 from pathlib import Path
 
-from scapy.all import Dot3, Ether, LLC, SNAP, Raw, wrpcap
+from scapy.all import Dot3, Ether, IP, LLC, SNAP, Raw, UDP, wrpcap
 
 TESTDATA = Path(__file__).resolve().parent / "testdata"
 SRC_MAC = "00:11:22:33:44:55"
@@ -441,6 +443,482 @@ def harvest_pagp() -> None:
     (TESTDATA / "pagp.json").write_text(json.dumps(golden, indent=2))
 
 
+# --------------------------------------------------------------------------- hsrp
+
+HSRP_DST = "224.0.0.2"  # HSRP multicast
+HSRP_GROUP = 1
+HSRP_VIP = "10.0.0.1"
+HSRP_PRIORITY = 255
+HSRP_HELLOTIME = 3
+HSRP_HOLDTIME = 10
+HSRP_AUTH = b"cisco\x00\x00\x00"
+
+
+def hsrp_frame(
+    src: str,
+    opcode: int = 0,
+    state: int = 16,
+    group: int = HSRP_GROUP,
+    priority: int = HSRP_PRIORITY,
+    vip: str = HSRP_VIP,
+    hellotime: int = HSRP_HELLOTIME,
+    holdtime: int = HSRP_HOLDTIME,
+    auth: bytes = HSRP_AUTH,
+) -> bytes:
+    # HSRPv1 per RFC 2281: UDP 1985, multicast 224.0.0.2.
+    # Version(1) Op(1) State(1) Hellotime(1) Holdtime(1)
+    # Priority(1) Group(1) Reserved(1) Auth(8) VirtualIP(4)
+    vip_bytes = bytes(int(x) for x in vip.split("."))
+    body = struct.pack(
+        "!BBBBBBBB",
+        0,  # version
+        opcode,
+        state,
+        hellotime,
+        holdtime,
+        priority,
+        group,
+        0,  # reserved
+    )
+    body += auth.ljust(8, b"\x00")
+    body += vip_bytes
+    return (
+        Ether(dst="01:00:5e:00:00:02", src=src)
+        / IP(src="10.0.0.2", dst=HSRP_DST)
+        / UDP(sport=1985, dport=1985)
+        / Raw(body)
+    )
+
+
+def harvest_hsrp() -> None:
+    hello = hsrp_frame(SRC_MAC, opcode=0, state=16)
+    coup = hsrp_frame(SRC_MAC, opcode=1, state=16)
+    resign = hsrp_frame(SRC_MAC, opcode=2, state=8)
+    wrpcap(str(TESTDATA / "hsrp.pcap"), [hello, coup, resign])
+    golden = {
+        "protocol": "HSRP",
+        "dst": HSRP_DST,
+        "src": SRC_MAC,
+        "udp_port": 1985,
+        "group": HSRP_GROUP,
+        "vip": HSRP_VIP,
+        "frames": [
+            {
+                "name": "hello",
+                "version": 0,
+                "opcode": 0,
+                "state": 16,
+                "hellotime": HSRP_HELLOTIME,
+                "holdtime": HSRP_HOLDTIME,
+                "priority": HSRP_PRIORITY,
+                "group": HSRP_GROUP,
+                "auth": "cisco",
+                "vip": HSRP_VIP,
+            },
+            {
+                "name": "coup",
+                "version": 0,
+                "opcode": 1,
+                "state": 16,
+                "hellotime": HSRP_HELLOTIME,
+                "holdtime": HSRP_HOLDTIME,
+                "priority": HSRP_PRIORITY,
+                "group": HSRP_GROUP,
+                "auth": "cisco",
+                "vip": HSRP_VIP,
+            },
+            {
+                "name": "resign",
+                "version": 0,
+                "opcode": 2,
+                "state": 8,
+                "hellotime": HSRP_HELLOTIME,
+                "holdtime": HSRP_HOLDTIME,
+                "priority": HSRP_PRIORITY,
+                "group": HSRP_GROUP,
+                "auth": "cisco",
+                "vip": HSRP_VIP,
+            },
+        ],
+    }
+    (TESTDATA / "hsrp.json").write_text(json.dumps(golden, indent=2))
+
+
+# --------------------------------------------------------------------------- glbp
+
+GLBP_DST = "224.0.0.102"  # GLBP multicast
+GLBP_GROUP = 1
+GLBP_PRIORITY = 100
+
+
+def glbp_hello_frame(src: str, group: int = GLBP_GROUP) -> bytes:
+    # GLBP per RFC 7868. Hello packet (opcode 1).
+    # Fixed header (23 bytes):
+    #   Version(1) Reserved(1) Opcode(1) Group(2)
+    #   HelloTime(2) HoldTime(2) VirtualMAC(6)
+    #   Priority(1) State(1) AddressFamily(1) Unknown(1)
+    #   AuthData(2) Reserved(2)
+    # Then variable-length TLVs (type 2 bytes, length 2 bytes, value).
+    vmac = b"\x00\x07\xb4\x00\x01\x01"  # GLBP virtual MAC OUI 00-07-b4
+    header = struct.pack(
+        "!BBBHHH",
+        1,  # version
+        0,  # reserved
+        1,  # opcode = hello
+        group,
+        3000,  # hello time (ms)
+        10000,  # hold time (ms)
+    )
+    header += vmac
+    header += struct.pack(
+        "!BBBBHH",
+        GLBP_PRIORITY,  # priority
+        1,  # state = active
+        1,  # address family = IPv4
+        0,  # unknown
+        0,  # auth data (2 bytes)
+        0,  # reserved
+    )
+    # Timer TLV (type 1): helloTime(2) holdTime(2)
+    timer_tlv = struct.pack("!HH", 1, 8) + struct.pack("!HH", 3000, 10000)
+    return (
+        Ether(dst="01:00:5e:00:00:66", src=src)
+        / IP(src="10.0.0.2", dst=GLBP_DST)
+        / UDP(sport=3222, dport=3222)
+        / Raw(header + timer_tlv)
+    )
+
+
+def harvest_glbp() -> None:
+    hello = glbp_hello_frame(SRC_MAC)
+    wrpcap(str(TESTDATA / "glbp.pcap"), [hello])
+    golden = {
+        "protocol": "GLBP",
+        "dst": GLBP_DST,
+        "src": SRC_MAC,
+        "udp_port": 3222,
+        "group": GLBP_GROUP,
+        "frames": [
+            {
+                "name": "hello",
+                "version": 1,
+                "opcode": 1,
+                "group": GLBP_GROUP,
+                "hello_time": 3000,
+                "hold_time": 10000,
+                "priority": GLBP_PRIORITY,
+                "state": 1,
+                "virtual_mac": "00:07:b4:00:01:01",
+            },
+        ],
+    }
+    (TESTDATA / "glbp.json").write_text(json.dumps(golden, indent=2))
+
+
+# --------------------------------------------------------------------------- eigrp
+
+EIGRP_DST = "224.0.0.10"  # EIGRP multicast (RTP)
+EIGRP_AS = 1
+
+
+def eigrp_frame(
+    src: str,
+    opcode: int = 5,
+    as_num: int = EIGRP_AS,
+    seq: int = 0,
+    ack: int = 0,
+    with_tlv: bool = True,
+) -> bytes:
+    # EIGRP header per RFC 7868 section 4.2:
+    # Version(1)=2 Opcode(1) Checksum(2) Flags(4)
+    # Seq(4) Ack(4) VRID(2) AutonomousSystem(2)
+    # Then variable-length TLVs (type 2 bytes, length 2 bytes, value).
+    # For the fixture we craft an IP-internal-route TLV.
+    header = struct.pack(
+        "!BBHI",
+        2,  # version
+        opcode,
+        0,  # checksum (placeholder; not validated by the decoder)
+        0,  # flags
+    )
+    header += struct.pack("!II", seq, ack)
+    header += struct.pack("!HH", 0, as_num)  # VRID=0, AS
+
+    if with_tlv:
+        # TLV: Type(2) Length(2) Value
+        # Type 0x0102 = IP internal routes (RFC 7868 §4.3)
+        # Value: a minimal IP-internal-route entry.
+        tlv_type = 0x0102
+        # IP internal route: nexthop(4) delay(4) bandwidth(4) mtu(4) hopcount(1)
+        #   reliability(1) load(1) reserved(1) prefix_len(1) destination(4)
+        route = (
+            bytes(int(x) for x in "10.0.0.1".split("."))  # nexthop
+            + struct.pack("!I", 1000)  # delay
+            + struct.pack("!I", 100000)  # bandwidth
+            + struct.pack("!I", 1500)  # mtu
+            + bytes([1, 255, 1, 0])  # hopcount, reliability, load, reserved
+            + bytes([24])  # prefix length
+            + bytes(int(x) for x in "10.0.0.0".split("."))  # destination
+        )
+        tlv = struct.pack("!HH", tlv_type, 4 + len(route)) + route
+        body = header + tlv
+    else:
+        # Header only, no TLV tail — for the missing-TLV-tail decline test.
+        body = header
+
+    return (
+        Ether(dst="01:00:5e:00:00:0a", src=src)
+        / IP(src="10.0.0.2", dst=EIGRP_DST, proto=88)
+        / Raw(body)
+    )
+
+
+def harvest_eigrp() -> None:
+    hello = eigrp_frame(SRC_MAC, opcode=5, with_tlv=True)
+    # Header-only frame: no TLV tail — tests the decline-without-error path.
+    header_only = eigrp_frame(SRC_MAC, opcode=5, with_tlv=False)
+    wrpcap(str(TESTDATA / "eigrp.pcap"), [hello])
+    wrpcap(str(TESTDATA / "eigrp_no_tlv.pcap"), [header_only])
+    golden = {
+        "protocol": "EIGRP",
+        "dst": EIGRP_DST,
+        "src": SRC_MAC,
+        "ip_protocol": 88,
+        "as": EIGRP_AS,
+        "frames": [
+            {
+                "name": "hello",
+                "version": 2,
+                "opcode": 5,
+                "flags": 0,
+                "seq": 0,
+                "ack": 0,
+                "vrid": 0,
+                "as": EIGRP_AS,
+                "tlvs": [
+                    {"type": 258, "length": 29},
+                ],
+            },
+        ],
+    }
+    (TESTDATA / "eigrp.json").write_text(json.dumps(golden, indent=2))
+
+
+# --------------------------------------------------------------------------- llmnr
+
+LLMNR_DST = "224.0.0.252"  # LLMNR multicast IPv4
+
+
+def llmnr_query_frame(src: str, qname: str = "host.lab") -> bytes:
+    # LLMNR per RFC 4795: UDP 5355, multicast 224.0.0.252 (IPv4).
+    # Uses standard DNS wire format (RFC 1035).
+    # DNS header: ID(2) Flags(2) QDCOUNT(2) ANCOUNT(2) NSCOUNT(2) ARCOUNT(2)
+    dns_id = 0x1234
+    flags = 0x0000  # standard query
+    header = struct.pack("!HHHHHH", dns_id, flags, 1, 0, 0, 0)
+    # Question: encoded name + type(2) + class(2)
+    qname_bytes = b""
+    for label in qname.split("."):
+        qname_bytes += bytes([len(label)]) + label.encode()
+    qname_bytes += b"\x00"  # root label
+    question = qname_bytes + struct.pack("!HH", 1, 1)  # type A, class IN
+    body = header + question
+    return (
+        Ether(dst="01:00:5e:00:00:fc", src=src)
+        / IP(src="10.0.0.2", dst=LLMNR_DST)
+        / UDP(sport=5355, dport=5355)
+        / Raw(body)
+    )
+
+
+def llmnr_response_frame(src: str, qname: str = "host.lab") -> bytes:
+    # LLMNR response with name compression pointer.
+    dns_id = 0x1234
+    flags = 0x8000  # response
+    header = struct.pack("!HHHHHH", dns_id, flags, 1, 1, 0, 0)
+    # Question with encoded name
+    qname_bytes = b""
+    for label in qname.split("."):
+        qname_bytes += bytes([len(label)]) + label.encode()
+    qname_bytes += b"\x00"
+    question = qname_bytes + struct.pack("!HH", 1, 1)
+    # Answer: compression pointer to offset 12 (the question name) + type A + class IN + TTL + rdlength + rdata
+    answer = struct.pack("!H", 0xC00C)  # compression pointer to offset 12
+    answer += struct.pack("!HHIH", 1, 1, 30, 4)  # type A, class IN, TTL 30, rdlen 4
+    answer += bytes(int(x) for x in "10.0.0.1".split("."))  # rdata
+    body = header + question + answer
+    return (
+        Ether(dst="01:00:5e:00:00:fc", src=src)
+        / IP(src="10.0.0.1", dst="10.0.0.2")
+        / UDP(sport=5355, dport=5355)
+        / Raw(body)
+    )
+
+
+def llmnr_compression_loop_frame(src: str) -> bytes:
+    # Adversarial fixture: compression pointer that points to itself
+    # (offset of the pointer byte). This is the hard adversarial case for
+    # name decompression — a naive decoder loops forever.
+    # DNS header (12 bytes), then a name at offset 12 that is a compression
+    # pointer pointing back to offset 12 (itself).
+    dns_id = 0xDEAD
+    flags = 0x0000
+    header = struct.pack("!HHHHHH", dns_id, flags, 1, 0, 0, 0)
+    # Name: compression pointer 0xC00C pointing to offset 12 (itself)
+    question = struct.pack("!H", 0xC00C) + struct.pack("!HH", 1, 1)
+    body = header + question
+    return (
+        Ether(dst="01:00:5e:00:00:fc", src=src)
+        / IP(src="10.0.0.2", dst=LLMNR_DST)
+        / UDP(sport=5355, dport=5355)
+        / Raw(body)
+    )
+
+
+def harvest_llmnr() -> None:
+    query = llmnr_query_frame(SRC_MAC, "host.lab")
+    response = llmnr_response_frame(SRC_MAC, "host.lab")
+    loop = llmnr_compression_loop_frame(SRC_MAC)
+    wrpcap(str(TESTDATA / "llmnr.pcap"), [query, response])
+    wrpcap(str(TESTDATA / "llmnr_loop.pcap"), [loop])
+    golden = {
+        "protocol": "LLMNR",
+        "dst": LLMNR_DST,
+        "src": SRC_MAC,
+        "udp_port": 5355,
+        "frames": [
+            {
+                "name": "query",
+                "id": 4660,
+                "qr": 0,
+                "qdcount": 1,
+                "questions": [{"name": "host.lab", "qtype": 1, "qclass": 1}],
+            },
+            {
+                "name": "response",
+                "id": 4660,
+                "qr": 1,
+                "qdcount": 1,
+                "ancount": 1,
+                "questions": [{"name": "host.lab", "qtype": 1, "qclass": 1}],
+                "answers": [
+                    {"name": "host.lab", "type": 1, "class": 1, "ttl": 30, "rdata": "10.0.0.1"},
+                ],
+            },
+        ],
+    }
+    (TESTDATA / "llmnr.json").write_text(json.dumps(golden, indent=2))
+
+
+# --------------------------------------------------------------------------- nbns
+
+NBNS_DST = "224.0.0.2"  # NBNS broadcast (actually uses directed broadcast/subnet broadcast in practice)
+
+
+def nbns_query_frame(src: str, qname: str = "WORKSTATION") -> bytes:
+    # NBT-NS per RFC 1002: UDP 137.
+    # NetBIOS name service uses DNS-like wire format but names are
+    # encoded as NetBIOS scope IDs (half-ASCII, padded to 16 bytes).
+    # Header: NAME_TRN_ID(2) Flags(2) QDCOUNT(2) ANCOUNT(2) NSCOUNT(2) ARCOUNT(2)
+    # Question: encoded name + type(2) + class(2)
+    trn_id = 0x5678
+    flags = 0x0010  # broadcast, recursion desired
+    header = struct.pack("!HHHHHH", trn_id, flags, 1, 0, 0, 0)
+
+    # NetBIOS name encoding: each byte of the 16-char padded name is split
+    # into two half-bytes: 'A' + high nibble, 'A' + low nibble.
+    name_padded = qname.encode().ljust(15, b"\x20") + b"\x00"  # 16 bytes
+    encoded = b""
+    for b in name_padded:
+        encoded += bytes([0x41 + (b >> 4), 0x41 + (b & 0x0F)])
+    # Scope: root label only
+    qname_bytes = bytes([len(encoded)]) + encoded + b"\x00"
+    question = qname_bytes + struct.pack("!HH", 0x0020, 0x0001)  # type NB, class IN
+
+    body = header + question
+    return (
+        Ether(dst="ff:ff:ff:ff:ff:ff", src=src)
+        / IP(src="10.0.0.2", dst="10.0.0.255")
+        / UDP(sport=137, dport=137)
+        / Raw(body)
+    )
+
+
+def nbns_response_frame(src: str, qname: str = "WORKSTATION") -> bytes:
+    trn_id = 0x5678
+    flags = 0x8500  # response, authoritative, broadcast
+    header = struct.pack("!HHHHHH", trn_id, flags, 0, 1, 0, 0)
+
+    name_padded = qname.encode().ljust(15, b"\x20") + b"\x00"
+    encoded = b""
+    for b in name_padded:
+        encoded += bytes([0x41 + (b >> 4), 0x41 + (b & 0x0F)])
+    qname_bytes = bytes([len(encoded)]) + encoded + b"\x00"
+
+    # Answer: name + type NB + class IN + TTL + rdlength + address entry
+    answer = qname_bytes + struct.pack("!HHIH", 0x0020, 0x0001, 300, 6)
+    answer += struct.pack("!HI", 0x0000, int(ipaddress.IPv4Address("10.0.0.1")))
+
+    body = header + answer
+    return (
+        Ether(dst="ff:ff:ff:ff:ff:ff", src=src)
+        / IP(src="10.0.0.1", dst="10.0.0.2")
+        / UDP(sport=137, dport=137)
+        / Raw(body)
+    )
+
+
+def nbns_compression_loop_frame(src: str) -> bytes:
+    # Adversarial: compression pointer loop in the question name.
+    trn_id = 0xBEEF
+    flags = 0x0010
+    header = struct.pack("!HHHHHH", trn_id, flags, 1, 0, 0, 0)
+    # Name: compression pointer 0xC00C pointing to offset 12 (itself)
+    question = struct.pack("!H", 0xC00C) + struct.pack("!HH", 0x0020, 0x0001)
+    body = header + question
+    return (
+        Ether(dst="ff:ff:ff:ff:ff:ff", src=src)
+        / IP(src="10.0.0.2", dst="10.0.0.255")
+        / UDP(sport=137, dport=137)
+        / Raw(body)
+    )
+
+
+def harvest_nbns() -> None:
+    query = nbns_query_frame(SRC_MAC, "WORKSTATION")
+    response = nbns_response_frame(SRC_MAC, "WORKSTATION")
+    loop = nbns_compression_loop_frame(SRC_MAC)
+    wrpcap(str(TESTDATA / "nbns.pcap"), [query, response])
+    wrpcap(str(TESTDATA / "nbns_loop.pcap"), [loop])
+    golden = {
+        "protocol": "NBT-NS",
+        "dst": NBNS_DST,
+        "src": SRC_MAC,
+        "udp_port": 137,
+        "frames": [
+            {
+                "name": "query",
+                "id": 22136,
+                "flags": 16,
+                "qdcount": 1,
+                "questions": [
+                    {"name": "WORKSTATION", "qtype": 32, "qclass": 1},
+                ],
+            },
+            {
+                "name": "response",
+                "id": 22136,
+                "flags": 34048,
+                "ancount": 1,
+                "answers": [
+                    {"name": "WORKSTATION", "type": 32, "class": 1, "ttl": 300, "rdata": "10.0.0.1"},
+                ],
+            },
+        ],
+    }
+    (TESTDATA / "nbns.json").write_text(json.dumps(golden, indent=2))
+
+
 # --------------------------------------------------------------------------- main
 
 
@@ -451,6 +929,11 @@ def main() -> None:
     harvest_mvrp()
     harvest_lacp()
     harvest_pagp()
+    harvest_hsrp()
+    harvest_glbp()
+    harvest_eigrp()
+    harvest_llmnr()
+    harvest_nbns()
     print(f"fixtures written to {TESTDATA}")
 
 

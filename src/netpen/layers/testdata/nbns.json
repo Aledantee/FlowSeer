@@ -1,0 +1,36 @@
+{
+  "protocol": "NBT-NS",
+  "dst": "224.0.0.2",
+  "src": "00:11:22:33:44:55",
+  "udp_port": 137,
+  "frames": [
+    {
+      "name": "query",
+      "id": 22136,
+      "flags": 16,
+      "qdcount": 1,
+      "questions": [
+        {
+          "name": "WORKSTATION",
+          "qtype": 32,
+          "qclass": 1
+        }
+      ]
+    },
+    {
+      "name": "response",
+      "id": 22136,
+      "flags": 34048,
+      "ancount": 1,
+      "answers": [
+        {
+          "name": "WORKSTATION",
+          "type": 32,
+          "class": 1,
+          "ttl": 300,
+          "rdata": "10.0.0.1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "protocol": "EIGRP",
+  "dst": "224.0.0.10",
+  "src": "00:11:22:33:44:55",
+  "ip_protocol": 88,
+  "as": 1,
+  "frames": [
+    {
+      "name": "hello",
+      "version": 2,
+      "opcode": 5,
+      "flags": 0,
+      "seq": 0,
+      "ack": 0,
+      "vrid": 0,
+      "as": 1,
+      "tlvs": [
+        {
+          "type": 258,
+          "length": 29
+        }
+      ]
+    }
+  ]
+}

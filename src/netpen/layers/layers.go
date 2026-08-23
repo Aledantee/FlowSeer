@@ -22,14 +22,19 @@ import (
 type BaseLayer = layers.BaseLayer
 
 // LayerType numbers for owned protocols. The gopacket fork reserves 0-999;
-// 1000-1999 are for application-specific types. We use 200-204 to avoid the
+// 1000-1999 are for application-specific types. We use 200-209 to avoid the
 // fork's 1000-1534 range.
 var (
-	LayerTypeDTP  = gopacket.RegisterLayerType(200, gopacket.LayerTypeMetadata{Name: "DTP", Decoder: gopacket.DecodeFunc(decodeDTP)})
-	LayerTypeVTP  = gopacket.RegisterLayerType(201, gopacket.LayerTypeMetadata{Name: "VTP", Decoder: gopacket.DecodeFunc(decodeVTP)})
-	LayerTypeMVRP = gopacket.RegisterLayerType(202, gopacket.LayerTypeMetadata{Name: "MVRP", Decoder: gopacket.DecodeFunc(decodeMVRP)})
-	LayerTypePAgP = gopacket.RegisterLayerType(203, gopacket.LayerTypeMetadata{Name: "PAgP", Decoder: gopacket.DecodeFunc(decodePAgP)})
-	LayerTypeLACP = gopacket.RegisterLayerType(204, gopacket.LayerTypeMetadata{Name: "LACP", Decoder: gopacket.DecodeFunc(decodeLACP)})
+	LayerTypeDTP   = gopacket.RegisterLayerType(200, gopacket.LayerTypeMetadata{Name: "DTP", Decoder: gopacket.DecodeFunc(decodeDTP)})
+	LayerTypeVTP   = gopacket.RegisterLayerType(201, gopacket.LayerTypeMetadata{Name: "VTP", Decoder: gopacket.DecodeFunc(decodeVTP)})
+	LayerTypeMVRP  = gopacket.RegisterLayerType(202, gopacket.LayerTypeMetadata{Name: "MVRP", Decoder: gopacket.DecodeFunc(decodeMVRP)})
+	LayerTypePAgP  = gopacket.RegisterLayerType(203, gopacket.LayerTypeMetadata{Name: "PAgP", Decoder: gopacket.DecodeFunc(decodePAgP)})
+	LayerTypeLACP  = gopacket.RegisterLayerType(204, gopacket.LayerTypeMetadata{Name: "LACP", Decoder: gopacket.DecodeFunc(decodeLACP)})
+	LayerTypeHSRP  = gopacket.RegisterLayerType(205, gopacket.LayerTypeMetadata{Name: "HSRP", Decoder: gopacket.DecodeFunc(decodeHSRP)})
+	LayerTypeGLBP  = gopacket.RegisterLayerType(206, gopacket.LayerTypeMetadata{Name: "GLBP", Decoder: gopacket.DecodeFunc(decodeGLBP)})
+	LayerTypeEIGRP = gopacket.RegisterLayerType(207, gopacket.LayerTypeMetadata{Name: "EIGRP", Decoder: gopacket.DecodeFunc(decodeEIGRP)})
+	LayerTypeLLMNR = gopacket.RegisterLayerType(208, gopacket.LayerTypeMetadata{Name: "LLMNR", Decoder: gopacket.DecodeFunc(decodeLLMNR)})
+	LayerTypeNBTNS = gopacket.RegisterLayerType(209, gopacket.LayerTypeMetadata{Name: "NBT-NS", Decoder: gopacket.DecodeFunc(decodeNBTNS)})
 )
 
 // Cisco SNAP protocol IDs carried in the SNAP type field under OUI 0x00000C.
@@ -50,6 +55,17 @@ const (
 
 // LACP slow-protocol subtype.
 const lacpSubtype uint8 = 0x01
+
+// UDP ports for L3-owned protocols.
+const (
+	udpPortHSRP  uint16 = 1985
+	udpPortGLBP  uint16 = 3222
+	udpPortLLMNR uint16 = 5355
+	udpPortNBTNS uint16 = 137
+)
+
+// IP protocol number for EIGRP.
+const ipProtoEIGRP uint8 = 88
 
 func init() {
 	// Register SNAP PIDs as EthernetType entries so the fork's SNAP decoder
@@ -82,5 +98,19 @@ func init() {
 		DecodeWith: gopacket.DecodeFunc(decodeMVRP),
 		Name:       "MVRP",
 		LayerType:  LayerTypeMVRP,
+	}
+
+	// Register UDP port dispatch for L3-owned protocols.
+	layers.RegisterUDPPortLayerType(layers.UDPPort(udpPortHSRP), LayerTypeHSRP)
+	layers.RegisterUDPPortLayerType(layers.UDPPort(udpPortGLBP), LayerTypeGLBP)
+	layers.RegisterUDPPortLayerType(layers.UDPPort(udpPortLLMNR), LayerTypeLLMNR)
+	layers.RegisterUDPPortLayerType(layers.UDPPort(udpPortNBTNS), LayerTypeNBTNS)
+
+	// Register IP protocol dispatch for EIGRP (protocol 88, not in the
+	// fork's IPProtocol enum).
+	layers.IPProtocolMetadata[layers.IPProtocol(ipProtoEIGRP)] = layers.EnumMetadata{
+		DecodeWith: gopacket.DecodeFunc(decodeEIGRP),
+		Name:       "EIGRP",
+		LayerType:  LayerTypeEIGRP,
 	}
 }

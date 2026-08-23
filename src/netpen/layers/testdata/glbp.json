@@ -1,0 +1,20 @@
+{
+  "protocol": "GLBP",
+  "dst": "224.0.0.102",
+  "src": "00:11:22:33:44:55",
+  "udp_port": 3222,
+  "group": 1,
+  "frames": [
+    {
+      "name": "hello",
+      "version": 1,
+      "opcode": 1,
+      "group": 1,
+      "hello_time": 3000,
+      "hold_time": 10000,
+      "priority": 100,
+      "state": 1,
+      "virtual_mac": "00:07:b4:00:01:01"
+    }
+  ]
+}
