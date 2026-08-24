@@ -108,11 +108,13 @@ func (e *EIGRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 			break
 		}
 
+		// Aliased to the packet buffer; lifetime is the same as
+		// BaseLayer.Contents which also references data.
 		value := data[offset+4 : offset+tlvLen]
 		e.TLVs = append(e.TLVs, EIGRPTLV{
 			Type:   tlvType,
 			Length: uint16(tlvLen),
-			Value:  append([]byte(nil), value...),
+			Value:  value,
 		})
 
 		offset += tlvLen

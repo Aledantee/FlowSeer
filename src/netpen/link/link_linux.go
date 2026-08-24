@@ -113,7 +113,10 @@ func (l *linuxLeg) SetFilter(raw []RawInstruction) error {
 // ctx.Done() after each poll returns. Close unblocks the poll by closing the
 // fd under mu; the poll sees EBADF and the loop exits.
 func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
-	frames := make(chan Frame)
+	// Buffered by 1 so terminal sends below never block: a consumer that
+	// abandons iteration (bounded-read behaviors cancel mid-stream) must
+	// not strand the polling goroutine on the final error frame.
+	frames := make(chan Frame, 1)
 
 	go func() {
 		defer close(frames)
@@ -121,7 +124,7 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 		for {
 			select {
 			case <-ctx.Done():
-				frames <- Frame{Err: ctx.Err()}
+				sendTerminal(frames, Frame{Err: ctx.Err()})
 				return
 			default:
 			}
@@ -132,9 +135,9 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 			l.mu.Lock()
 			if l.closed {
 				l.mu.Unlock()
-				frames <- Frame{Err: errs.New().
+				sendTerminal(frames, Frame{Err: errs.New().
 					Code(ErrCodeLegOpen).
-					Msg("receive on closed leg")}
+					Msg("receive on closed leg")})
 				return
 			}
 			data, _, err := l.tp.ReadPacketData()
@@ -147,21 +150,21 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 				if isTimeout(err) {
 					select {
 					case <-ctx.Done():
-						frames <- Frame{Err: ctx.Err()}
+						sendTerminal(frames, Frame{Err: ctx.Err()})
 						return
 					default:
 						continue
 					}
 				}
 
-				frames <- Frame{Err: err}
+				sendTerminal(frames, Frame{Err: err})
 				return
 			}
 
 			select {
 			case frames <- Frame{Data: data}:
 			case <-ctx.Done():
-				frames <- Frame{Err: ctx.Err()}
+				sendTerminal(frames, Frame{Err: ctx.Err()})
 				return
 			}
 		}
@@ -185,6 +188,17 @@ func (l *linuxLeg) Close() error {
 	l.closed = true
 
 	return nil
+}
+
+// sendTerminal delivers a terminal frame without blocking: an active
+// consumer still receives it (the buffer is empty on its path), while
+// an abandoned consumer lets the polling goroutine exit instead of
+// stranding it on the final send.
+func sendTerminal(frames chan<- Frame, f Frame) {
+	select {
+	case frames <- f:
+	default:
+	}
 }
 
 // isTimeout reports whether err is a poll timeout. afpacket returns

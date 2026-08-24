@@ -116,7 +116,9 @@ func (n *NBNS) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 			return fmt.Errorf("NBT-NS: truncated answer rdata at offset %d, need %d bytes, got %d",
 				next+10, rdlen, len(data)-next-10)
 		}
-		rdata := append([]byte(nil), data[next+10:next+10+rdlen]...)
+		// Aliased to the packet buffer; lifetime is the same as
+		// BaseLayer.Contents which also references data.
+		rdata := data[next+10 : next+10+rdlen]
 		n.Answers = append(n.Answers, NBNSResourceRecord{
 			Name:  name,
 			Type:  rrType,
@@ -188,11 +190,10 @@ func decodeNBTNS(data []byte, p gopacket.PacketBuilder) error {
 // to 'A'+nibble), followed by an optional scope and a root label.
 // Compression pointers are handled with cycle detection.
 func decodeNetBIOSName(data []byte, offset int) (string, int, error) {
-	visited := make(map[int]struct{})
+	var visited map[int]struct{} // allocated on first pointer follow
 	index := offset
 	hops := 0
 	nextOffset := -1
-
 	var result []byte
 	firstLabel := true
 
@@ -220,6 +221,9 @@ func decodeNetBIOSName(data []byte, offset int) (string, int, error) {
 				nextOffset = index + 2
 			}
 
+			if visited == nil {
+				visited = make(map[int]struct{})
+			}
 			if _, seen := visited[index]; seen {
 				return "", 0, fmt.Errorf("name decompression: compression pointer loop detected at offset %d (pointer to %d)", index, ptr)
 			}

@@ -11,7 +11,6 @@ package main
 // is closed when the run completes, so the consumer's range loop exits.
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -26,12 +25,12 @@ import (
 // written first, then each record immediately, then a closing summary.
 // It blocks until the channel closes (run completes or context cancel).
 func streamJSON(stdout, stderr io.Writer, ch <-chan findings.Record, meta findings.Meta) {
+	w := output.NewJSONWriter(stdout, stderr, meta)
+
 	// Write the meta header line first.
-	metaRec := findings.NewRecord(findings.KindMeta)
-	metaRec.Time = meta.Started
-	metaRec.Meta = &meta
-	if err := writeJSONL(stdout, metaRec); err != nil {
+	if err := w.WriteMeta(); err != nil {
 		fmt.Fprintf(stderr, "output error: %v\n", err)
+		drainRecords(ch)
 		return
 	}
 
@@ -51,34 +50,27 @@ func streamJSON(stdout, stderr io.Writer, ch <-chan findings.Record, meta findin
 		case findings.KindError:
 			summary.Errors++
 		}
-		if err := writeJSONL(stdout, rec); err != nil {
+		if err := w.Write(rec); err != nil {
 			fmt.Fprintf(stderr, "output error: %v\n", err)
+			drainRecords(ch)
 			return
 		}
 	}
 
 	// Write the closing summary.
 	summary.Attacks = count
-	sumRec := findings.NewRecord(findings.KindSummary)
-	sumRec.Summary = &summary
-	if err := writeJSONL(stdout, sumRec); err != nil {
+	if err := w.WriteSummary(summary); err != nil {
 		fmt.Fprintf(stderr, "output error: %v\n", err)
 	}
 }
 
-// writeJSONL marshals one record and writes it as a single JSONL line.
-func writeJSONL(stdout io.Writer, rec findings.Record) error {
-	data, err := json.Marshal(rec)
-	if err != nil {
-		return fmt.Errorf("json marshal: %v", err)
-	}
-	if _, err := stdout.Write(data); err != nil {
-		return fmt.Errorf("stdout write failed")
-	}
-	if _, err := stdout.Write([]byte("\n")); err != nil {
-		return fmt.Errorf("stdout write failed")
-	}
-	return nil
+// drainRecords consumes the remaining channel in the background so an
+// early output failure cannot block the runner's producer to a hang.
+func drainRecords(ch <-chan findings.Record) {
+	go func() {
+		for range ch {
+		}
+	}()
 }
 
 // streamTUI runs the bubbletea v2 TUI program, feeding findings records

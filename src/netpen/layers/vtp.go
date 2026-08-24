@@ -259,11 +259,11 @@ func (v *VTP) serializeSummary(domainField []byte, domainLen uint8) []byte {
 	body = append(body, tsPadded...)
 	body = append(body, make([]byte, 16)...) // digest placeholder
 
-	digest := md5sum(append(append(make([]byte, 16), body...), make([]byte, 16)...))
-	copy(body[56:72], digest)
-
 	if len(v.MD5Digest) == 16 {
 		copy(body[56:72], v.MD5Digest)
+	} else {
+		digest := md5sum(append(append(make([]byte, 16), body...), make([]byte, 16)...))
+		copy(body[56:72], digest)
 	}
 
 	return body

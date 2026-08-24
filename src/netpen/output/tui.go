@@ -31,13 +31,15 @@ type progressEntry struct {
 // transitions the model to a finished state that main reads to drive its own
 // teardown — the TUI's responsibility ends at signaling intent to quit.
 type Model struct {
-	feed     []string
-	viewport viewport.Model
-	progress map[string]*progressEntry
-	width    int
-	height   int
-	finished bool
-	isDark   bool
+	feed        []string
+	feedContent string // cached strings.Join(feed, "\n"); rebuilt when feedDirty
+	feedDirty   bool
+	viewport    viewport.Model
+	progress    map[string]*progressEntry
+	width       int
+	height      int
+	finished    bool
+	isDark      bool
 }
 
 // NewModel constructs a TUI model with the given dark-background flag
@@ -45,11 +47,12 @@ type Model struct {
 // ready for tea.NewProgram.
 func NewModel(isDark bool, width, height int) Model {
 	m := Model{
-		feed:     make([]string, 0, feedLineLimit),
-		progress: make(map[string]*progressEntry),
-		isDark:   isDark,
-		width:    width,
-		height:   height,
+		feed:      make([]string, 0, feedLineLimit),
+		feedDirty: true,
+		progress:  make(map[string]*progressEntry),
+		isDark:    isDark,
+		width:     width,
+		height:    height,
 	}
 	m.viewport = viewport.New(viewport.WithWidth(m.contentWidth()), viewport.WithHeight(m.contentHeight()))
 	return m
@@ -155,6 +158,7 @@ func (m *Model) appendFeed(line string) {
 		m.feed = m.feed[1:]
 	}
 	m.feed = append(m.feed, line)
+	m.feedDirty = true
 }
 
 // getOrCreate fetches or creates a progress entry for an attack.
@@ -167,9 +171,14 @@ func (m *Model) getOrCreate(key, attack, mode string) *progressEntry {
 	return entry
 }
 
-// refreshViewport syncs the viewport's content from the feed.
+// refreshViewport syncs the viewport's content from the feed. The join
+// is cached and only rebuilt when the feed changed since the last sync.
 func (m *Model) refreshViewport() {
-	m.viewport.SetContent(strings.Join(m.feed, "\n"))
+	if m.feedDirty {
+		m.feedContent = strings.Join(m.feed, "\n")
+		m.feedDirty = false
+	}
+	m.viewport.SetContent(m.feedContent)
 }
 
 // View renders the TUI: a findings feed viewport and a per-attack progress

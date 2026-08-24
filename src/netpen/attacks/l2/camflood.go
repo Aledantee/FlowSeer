@@ -28,6 +28,15 @@ type camFloodFinding struct {
 	Method     string `json:"method"`
 }
 
+// camFloodSrcIP is the constant source IP for CAM-flood frames.
+var camFloodSrcIP = net.IPv4(10, 0, 0, 1)
+
+// camFloodDstIP is the broadcast destination IP for CAM-flood frames.
+var camFloodDstIP = net.IPv4(255, 255, 255, 255)
+
+// camFloodPayload is the constant UDP payload for CAM-flood frames.
+var camFloodPayload = []byte("flood")
+
 // RunCAMFlood sends frames with unique source MACs to overflow the CAM
 // table. The burst count is bounded for the in-memory test shape.
 func RunCAMFlood(ctx context.Context, deps runner.Deps) error {
@@ -71,8 +80,8 @@ func craftCAMFloodFrame(_ net.HardwareAddr, seq int) ([]byte, error) {
 		Version:  4,
 		IHL:      5,
 		TTL:      64,
-		SrcIP:    net.IPv4(10, 0, 0, 1),
-		DstIP:    net.IPv4(255, 255, 255, 255),
+		SrcIP:    camFloodSrcIP,
+		DstIP:    camFloodDstIP,
 		Protocol: layers.IPProtocolUDP,
 	}
 	udp := &layers.UDP{
@@ -80,6 +89,6 @@ func craftCAMFloodFrame(_ net.HardwareAddr, seq int) ([]byte, error) {
 		DstPort: 5678,
 	}
 	_ = udp.SetNetworkLayerForChecksum(ip)
-	payload := gopacket.Payload([]byte("flood"))
+	payload := gopacket.Payload(camFloodPayload)
 	return craftPool(eth, ip, udp, payload)
 }

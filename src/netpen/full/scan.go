@@ -15,14 +15,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/netpen/findings"
 	ownlayers "go.aledante.io/FlowSeer/src/netpen/layers"
 	"go.aledante.io/FlowSeer/src/netpen/link"
@@ -56,48 +54,17 @@ type ScanConfig struct {
 	ScanFn func(ctx context.Context, cfg ScanConfig, emit func(findings.Record)) error
 }
 
-// Scan is the scan orchestrator.
+// Scan is the scan orchestrator. It embeds [recorder] for the shared
+// record-collection surface (Records, RecordChan, appendRecord,
+// closeRecords).
 type Scan struct {
-	cfg    ScanConfig
-	mu     sync.Mutex
-	recs   []findings.Record
-	recsCh chan findings.Record // live stream: emits records as appended (closed on Run completion)
+	cfg ScanConfig
+	recorder
 }
 
 // NewScan constructs the scan orchestrator with a live record channel.
 func NewScan(cfg ScanConfig) *Scan {
-	return &Scan{cfg: cfg, recsCh: make(chan findings.Record, 64)}
-}
-
-// Records returns the findings collected so far (thread-safe).
-func (s *Scan) Records() []findings.Record {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]findings.Record, len(s.recs))
-	copy(out, s.recs)
-	return out
-}
-
-// RecordChan returns the live record channel (closed when Run completes).
-func (s *Scan) RecordChan() <-chan findings.Record {
-	return s.recsCh
-}
-
-// closeRecords closes the live record channel.
-func (s *Scan) closeRecords() {
-	if s.recsCh != nil {
-		close(s.recsCh)
-	}
-}
-
-// appendRecord adds a record to the collection and emits it on the
-func (s *Scan) appendRecord(r findings.Record) {
-	s.mu.Lock()
-	s.recs = append(s.recs, r)
-	s.mu.Unlock()
-	if s.recsCh != nil {
-		s.recsCh <- r
-	}
+	return &Scan{cfg: cfg, recorder: newRecorder()}
 }
 
 // Run executes the scan. It passively listens on the attack leg (and the
@@ -110,13 +77,7 @@ func (s *Scan) appendRecord(r findings.Record) {
 func (s *Scan) Run(ctx context.Context) error {
 	defer s.closeRecords()
 	if s.cfg.WatchLegNamed != "" && s.cfg.WatchLeg == nil {
-		err := errs.New().
-			Code(catalog.ErrCodeWatchLegMissing).
-			Attr("watch", s.cfg.WatchLegNamed).
-			ExitCode(1).
-			UserMsg(fmt.Sprintf("watch interface %q does not exist", s.cfg.WatchLegNamed)).
-			Hint("pass an existing -w <iface>, or omit -w for single-leg operation").
-			Msgf("named watch leg %q is absent", s.cfg.WatchLegNamed)
+		err := missingWatchLegErr(s.cfg.WatchLegNamed)
 		s.appendRecord(errRecord(err, "scan", ""))
 		return err
 	}

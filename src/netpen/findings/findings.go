@@ -14,6 +14,8 @@ package findings
 import (
 	"encoding/json"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // SchemaVersion is the machine contract's major version (KTD10). Within a
@@ -135,6 +137,26 @@ type Rollup struct {
 // version cannot be forgotten.
 func NewRecord(kind Kind) Record {
 	return Record{SchemaVersion: SchemaVersion, Kind: kind}
+}
+
+// NewErrorRecord builds a [KindError] record from an error, capturing the
+// stable code (via [errs.CodeOf]), the internal message, and the attack
+// and mode it originated from. The code is empty when the error carries
+// no code.
+func NewErrorRecord(err error, attack, mode string) Record {
+	r := NewRecord(KindError)
+	r.Attack = attack
+	r.Mode = mode
+	code := ""
+	if c, ok := errs.CodeOf(err); ok {
+		code = c.String()
+	}
+	r.Error = &ErrorRecord{
+		Code:    code,
+		Message: err.Error(),
+		Attack:  attack,
+	}
+	return r
 }
 
 // MarshalJSON emits the record as a single JSONL line. It is the standard

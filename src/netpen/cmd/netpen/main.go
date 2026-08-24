@@ -22,10 +22,6 @@ import (
 	"golang.org/x/term"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/netpen/attacks/fh"
-	"go.aledante.io/FlowSeer/src/netpen/attacks/ip6"
-	"go.aledante.io/FlowSeer/src/netpen/attacks/l2"
-	"go.aledante.io/FlowSeer/src/netpen/attacks/routing"
 	"go.aledante.io/FlowSeer/src/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/netpen/findings"
 	"go.aledante.io/FlowSeer/src/netpen/full"
@@ -103,6 +99,19 @@ func (a *ackList) Set(s string) error {
 	return nil
 }
 
+// catalogHelp is the name→help map built once at init time from the
+// catalog's mode-less entries, so per-command help does not re-expand
+// and re-scan [catalog.Entries].
+var catalogHelp = func() map[string]string {
+	m := make(map[string]string, len(catalog.Entries()))
+	for _, e := range catalog.Entries() {
+		if e.Mode == "" {
+			m[e.Name] = e.Help
+		}
+	}
+	return m
+}()
+
 // commands is the dispatch table.
 var commands []subcommand
 
@@ -142,21 +151,11 @@ func init() {
 		name := entry.Name
 		commands = append(commands, subcommand{
 			name:  name,
-			short: catalogShort(name),
+			short: catalogHelp[name],
 			setup: func(fs *flag.FlagSet, cf *cmdFlags) { setupAttack(fs, cf, name) },
 			run:   runAttack,
 		})
 	}
-}
-
-// catalogShort returns the help text for a catalog command name.
-func catalogShort(name string) string {
-	for _, e := range catalog.Entries() {
-		if e.Name == name && e.Mode == "" {
-			return e.Help
-		}
-	}
-	return name
 }
 
 // run is the unit-testable netpen entrypoint.
@@ -373,7 +372,7 @@ func runAttack(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) erro
 		AttackLeg:      attackLeg,
 		WatchLeg:       watchLeg,
 		Attacks:        []runner.AttackRef{ref},
-		Behaviors:      mergedCmdBehaviors(),
+		Behaviors:      full.MergedBehaviors(),
 		Rate:           cf.rate,
 		Timeout:        cf.timeout,
 		Acknowledged:   cf.ack,
@@ -382,20 +381,6 @@ func runAttack(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) erro
 	}
 
 	return runAndOutput(ctx, opts, cf, stdout, stderr)
-}
-
-// mergedCmdBehaviors builds the merged behavior map from the four
-// behavior packages.
-func mergedCmdBehaviors() map[string]runner.Behavior {
-	out := make(map[string]runner.Behavior)
-	for _, m := range []map[string]runner.Behavior{
-		l2.Behaviors(), fh.Behaviors(), ip6.Behaviors(), routing.Behaviors(),
-	} {
-		for k, v := range m {
-			out[k] = v
-		}
-	}
-	return out
 }
 
 // --- full handler ---
@@ -427,7 +412,7 @@ func runFull(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 		ScanTime:       cf.scanTime,
 		NoSpoof:        cf.noSpoof,
 		Rate:           cf.rate,
-		Behaviors:      mergedCmdBehaviors(),
+		Behaviors:      full.MergedBehaviors(),
 		TeardownBudget: cf.tdBudget,
 		SweepNet:       "172.16.0.0/24",
 	}
@@ -448,22 +433,21 @@ func runOrchestrator(ctx context.Context, ch <-chan findings.Record, runFn func(
 		Started:   time.Now(),
 	}
 	mode := resolveOutputMode(cf.jsonMode, isStdoutTTY(stdout))
+	return streamAndRun(ctx, ch, meta, mode, stdout, stderr, runFn)
+}
 
-	if mode == output.ModeJSON {
-		done := make(chan struct{})
-		go func() {
-			streamJSON(stdout, stderr, ch, meta)
-			close(done)
-		}()
-		runErr := runFn(ctx)
-		<-done
-		return runErr
-	}
-
-	// TUI mode: feed records live via bubbletea program.
+// streamAndRun starts the output streamer (JSONL or TUI) in a goroutine,
+// runs the run function concurrently, and waits for the streamer to
+// finish before returning. It is the shared done-channel pattern for
+// both the orchestrator (full/scan) and the single-attack driver.
+func streamAndRun(ctx context.Context, ch <-chan findings.Record, meta findings.Meta, mode output.Mode, stdout, stderr io.Writer, runFn func(context.Context) error) error {
 	done := make(chan struct{})
 	go func() {
-		_ = streamTUI(ch, meta)
+		if mode == output.ModeJSON {
+			streamJSON(stdout, stderr, ch, meta)
+		} else {
+			_ = streamTUI(ch, meta)
+		}
 		close(done)
 	}()
 	runErr := runFn(ctx)
@@ -533,29 +517,11 @@ func runAndOutput(ctx context.Context, opts runner.Options, cf *cmdFlags, stdout
 		Started:   time.Now(),
 	}
 	mode := resolveOutputMode(cf.jsonMode, isStdoutTTY(stdout))
-
-	if mode == output.ModeJSON {
-		done := make(chan struct{})
-		go func() {
-			streamJSON(stdout, stderr, ch, meta)
-			close(done)
-		}()
+	return streamAndRun(ctx, ch, meta, mode, stdout, stderr, func(ctx context.Context) error {
 		runErr := r.Run(ctx)
 		r.Wait()
-		<-done
 		return runErr
-	}
-
-	// TUI mode.
-	done := make(chan struct{})
-	go func() {
-		_ = streamTUI(ch, meta)
-		close(done)
-	}()
-	runErr := r.Run(ctx)
-	r.Wait()
-	<-done
-	return runErr
+	})
 }
 
 // isStdoutTTY reports whether stdout is a terminal.

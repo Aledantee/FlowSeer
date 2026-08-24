@@ -39,7 +39,6 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/netpen/findings"
 	"go.aledante.io/FlowSeer/src/netpen/link"
 	"go.aledante.io/FlowSeer/src/netpen/runner"
@@ -94,12 +93,14 @@ type Config struct {
 // Full is the orchestrator. It holds the merged findings and the
 // traversal verdicts. The CLI (cmd/netpen) constructs one, calls Run,
 // and streams the findings into the selected output mode.
+//
+// It embeds [recorder] for the shared record-collection surface
+// (Records, RecordChan, appendRecord, closeRecords).
 type Full struct {
-	cfg    Config
-	mu     sync.Mutex
-	recs   []findings.Record
-	recsCh chan findings.Record // live stream: emits records as appended (closed on Run completion)
-	verds  []verdict
+	cfg Config
+	recorder
+	verdsMu sync.Mutex
+	verds   []verdict
 }
 
 type verdict struct {
@@ -113,51 +114,14 @@ type verdict struct {
 // channel is created here so the CLI can consume records as they arrive
 // while Run executes.
 func NewFull(cfg Config) *Full {
-	return &Full{cfg: cfg, recsCh: make(chan findings.Record, 64)}
-}
-
-// Records returns the findings collected so far (thread-safe). The CLI
-// streams these into the output layer.
-func (f *Full) Records() []findings.Record {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	out := make([]findings.Record, len(f.recs))
-	copy(out, f.recs)
-	return out
-}
-
-// RecordChan returns the live record channel. Records are emitted as
-// they are appended during Run; the channel is closed when Run
-// completes. The CLI consumes this concurrently with Run for live
-// output (R11).
-func (f *Full) RecordChan() <-chan findings.Record {
-	return f.recsCh
-}
-
-// closeRecords closes the live record channel, signaling the consumer
-// that the run is complete.
-func (f *Full) closeRecords() {
-	if f.recsCh != nil {
-		close(f.recsCh)
-	}
-}
-
-// appendRecord adds a findings record to the orchestrator's collection
-// and emits it on the live record channel.
-func (f *Full) appendRecord(r findings.Record) {
-	f.mu.Lock()
-	f.recs = append(f.recs, r)
-	f.mu.Unlock()
-	if f.recsCh != nil {
-		f.recsCh <- r
-	}
+	return &Full{cfg: cfg, recorder: newRecorder()}
 }
 
 // appendVerdict adds a traversal verdict.
 func (f *Full) appendVerdict(v verdict) {
-	f.mu.Lock()
+	f.verdsMu.Lock()
 	f.verds = append(f.verds, v)
-	f.mu.Unlock()
+	f.verdsMu.Unlock()
 }
 
 // Run executes the four-phase orchestration. It blocks until all phases
@@ -174,13 +138,7 @@ func (f *Full) Run(ctx context.Context) error {
 	defer f.closeRecords()
 	// R2 deviation: a named-but-absent watch leg fails fast before recon.
 	if f.cfg.WatchLegNamed != "" && f.cfg.WatchLeg == nil {
-		err := errs.New().
-			Code(catalog.ErrCodeWatchLegMissing).
-			Attr("watch", f.cfg.WatchLegNamed).
-			ExitCode(1).
-			UserMsg(fmt.Sprintf("watch interface %q does not exist", f.cfg.WatchLegNamed)).
-			Hint("pass an existing -w <iface>, or omit -w for single-leg operation").
-			Msgf("named watch leg %q is absent", f.cfg.WatchLegNamed)
+		err := missingWatchLegErr(f.cfg.WatchLegNamed)
 		f.appendRecord(errRecord(err, "full", ""))
 		return err
 	}
@@ -267,7 +225,7 @@ func (f *Full) runPhase(ctx context.Context, refs []runner.AttackRef, timeout ti
 
 	behaviors := f.cfg.Behaviors
 	if behaviors == nil {
-		behaviors = mergedBehaviors()
+		behaviors = MergedBehaviors()
 	}
 
 	opts := runner.Options{
@@ -352,10 +310,10 @@ func (f *Full) computeVerdicts(ev Evidence) {
 // summaryRecord builds the closing summary record, including the
 // sweep-net fallback chain recorded by recon and the traversal verdicts.
 func (f *Full) summaryRecord(ev Evidence, burstRecs []findings.Record) findings.Record {
-	f.mu.Lock()
+	f.verdsMu.Lock()
 	verds := make([]verdict, len(f.verds))
 	copy(verds, f.verds)
-	f.mu.Unlock()
+	f.verdsMu.Unlock()
 
 	counts := countByKind(burstRecs)
 	for _, v := range verds {
@@ -425,19 +383,7 @@ func progress(attack, mode, phase, detail string) findings.Record {
 }
 
 func errRecord(err error, attack, mode string) findings.Record {
-	r := findings.NewRecord(findings.KindError)
-	r.Attack = attack
-	r.Mode = mode
-	code := ""
-	if c, ok := errs.CodeOf(err); ok {
-		code = c.String()
-	}
-	r.Error = &findings.ErrorRecord{
-		Code:    code,
-		Message: err.Error(),
-		Attack:  attack,
-	}
-	return r
+	return findings.NewErrorRecord(err, attack, mode)
 }
 
 // countEvidence returns the number of non-empty evidence keys.
@@ -451,10 +397,11 @@ func countEvidence(ev Evidence) int {
 	return n
 }
 
-// mergedBehaviors builds the merged behavior map from the four behavior
+// MergedBehaviors builds the merged behavior map from the four behavior
 // packages. This is the production path; tests substitute a stub map via
-// Config.Behaviors.
-func mergedBehaviors() map[string]runner.Behavior {
+// Config.Behaviors. cmd/netpen calls this to avoid duplicating the
+// four-package merge.
+func MergedBehaviors() map[string]runner.Behavior {
 	out := make(map[string]runner.Behavior)
 	for _, m := range []map[string]runner.Behavior{
 		l2Behaviors(), fhBehaviors(), ip6Behaviors(), routingBehaviors(),

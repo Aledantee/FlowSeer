@@ -564,23 +564,5 @@ func entryKey(name, mode string) string {
 // [findings.KindError] record through the stream. Returns false when the
 // stream is terminating (the send did not deliver).
 func emitErrorRecord(s *Stream, name, mode string, err error) bool {
-	rec := findings.NewRecord(findings.KindError)
-	rec.Attack = name
-	rec.Mode = mode
-	rec.Error = &findings.ErrorRecord{
-		Code:    errorCodeString(err),
-		Message: err.Error(),
-		Attack:  name,
-	}
-	return s.send(rec)
-}
-
-// errorCodeString extracts the errs.Code from err's chain if present,
-// returning its wire form. The code is the stable identity a consumer
-// matches on; empty when the error carries no code.
-func errorCodeString(err error) string {
-	if c, ok := errs.CodeOf(err); ok {
-		return c.String()
-	}
-	return ""
+	return s.send(findings.NewErrorRecord(err, name, mode))
 }

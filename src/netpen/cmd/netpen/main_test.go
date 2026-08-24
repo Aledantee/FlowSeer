@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/netpen/findings"
+	"go.aledante.io/FlowSeer/src/netpen/full"
 	"go.aledante.io/FlowSeer/src/netpen/link"
 )
 
@@ -153,7 +154,7 @@ func TestCatalogAndBehaviorReconciliation(t *testing.T) {
 
 	// 2. Every catalog behavior name has a behavior function in one of
 	// the four behavior packages.
-	behaviors := mergedCmdBehaviors()
+	behaviors := full.MergedBehaviors()
 	for _, e := range catalog.Entries() {
 		if e.Name == "scan" {
 			continue // scan is orchestration, no behavior fn.

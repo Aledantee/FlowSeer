@@ -131,7 +131,9 @@ func (l *LLMNR) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 			return fmt.Errorf("LLMNR: truncated answer rdata at offset %d, need %d bytes, got %d",
 				next+10, rdlen, len(data)-next-10)
 		}
-		rdata := append([]byte(nil), data[next+10:next+10+rdlen]...)
+		// Aliased to the packet buffer; lifetime is the same as
+		// BaseLayer.Contents which also references data.
+		rdata := data[next+10 : next+10+rdlen]
 		l.Answers = append(l.Answers, LLMNRResourceRecord{
 			Name:  name,
 			Type:  rrType,
@@ -203,7 +205,7 @@ func decodeLLMNR(data []byte, p gopacket.PacketBuilder) error {
 // excessive pointer depth is found, preventing infinite loops.
 func decodeDNSName(data []byte, offset int) (string, int, error) {
 	var labels []byte
-	visited := make(map[int]struct{})
+	var visited map[int]struct{} // allocated on first pointer follow
 	index := offset
 	hops := 0
 	nextOffset := -1 // set when we hit a compression pointer
@@ -236,7 +238,11 @@ func decodeDNSName(data []byte, offset int) (string, int, error) {
 				nextOffset = index + 2
 			}
 
-			// Cycle detection: if we've visited this offset before, it's a loop.
+			// Cycle detection: allocate lazily on first pointer follow;
+			// names without compression pointers are the common case.
+			if visited == nil {
+				visited = make(map[int]struct{})
+			}
 			if _, seen := visited[index]; seen {
 				return "", 0, fmt.Errorf("name decompression: compression pointer loop detected at offset %d (pointer to %d)", index, ptr)
 			}

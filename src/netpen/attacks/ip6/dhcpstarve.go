@@ -18,7 +18,6 @@ package ip6
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -33,6 +32,22 @@ type dhcpStarveFinding struct {
 	Action     string `json:"action"`
 	FrameCount int    `json:"frame_count"`
 	Method     string `json:"method"`
+}
+
+// dhcpZeroIP is the constant 0.0.0.0 IP for DHCP DISCOVER frames.
+var dhcpZeroIP = net.IPv4(0, 0, 0, 0)
+
+// dhcpBroadcastIP is the constant broadcast IP for DHCP DISCOVER frames.
+var dhcpBroadcastIP = net.IPv4(255, 255, 255, 255)
+
+// dhcpDiscoverType is the constant message-type option value.
+var dhcpDiscoverType = []byte{byte(layers.DHCPMsgTypeDiscover)}
+
+// dhcpParamRequest is the constant parameter-request option value.
+var dhcpParamRequest = []byte{
+	byte(layers.DHCPOptSubnetMask),
+	byte(layers.DHCPOptRouter),
+	byte(layers.DHCPOptDNS),
 }
 
 // RunDHCPStarve sends DHCP DISCOVER frames with incrementing chaddr
@@ -81,8 +96,8 @@ func craftDHCPDiscover(src net.HardwareAddr, seq int) ([]byte, error) {
 		Version:  4,
 		IHL:      5,
 		TTL:      128,
-		SrcIP:    net.IPv4(0, 0, 0, 0),
-		DstIP:    net.IPv4(255, 255, 255, 255),
+		SrcIP:    dhcpZeroIP,
+		DstIP:    dhcpBroadcastIP,
 		Protocol: layers.IPProtocolUDP,
 	}
 	udp := &layers.UDP{
@@ -91,9 +106,6 @@ func craftDHCPDiscover(src net.HardwareAddr, seq int) ([]byte, error) {
 	}
 	_ = udp.SetNetworkLayerForChecksum(ip)
 
-	leaseTime := make([]byte, 4)
-	binary.BigEndian.PutUint32(leaseTime, 1800)
-
 	dhcp := &layers.DHCPv4{
 		Operation:    layers.DHCPOpRequest,
 		HardwareType: layers.LinkTypeEthernet,
@@ -101,18 +113,14 @@ func craftDHCPDiscover(src net.HardwareAddr, seq int) ([]byte, error) {
 		Xid:          xid,
 		Secs:         0,
 		Flags:        0x8000, // broadcast
-		ClientIP:     net.IPv4(0, 0, 0, 0),
-		YourClientIP: net.IPv4(0, 0, 0, 0),
-		NextServerIP: net.IPv4(0, 0, 0, 0),
-		RelayAgentIP: net.IPv4(0, 0, 0, 0),
+		ClientIP:     dhcpZeroIP,
+		YourClientIP: dhcpZeroIP,
+		NextServerIP: dhcpZeroIP,
+		RelayAgentIP: dhcpZeroIP,
 		ClientHWAddr: chaddr,
 		Options: layers.DHCPOptions{
-			layers.NewDHCPOption(layers.DHCPOptMessageType, []byte{byte(layers.DHCPMsgTypeDiscover)}),
-			layers.NewDHCPOption(layers.DHCPOptParamsRequest, []byte{
-				byte(layers.DHCPOptSubnetMask),
-				byte(layers.DHCPOptRouter),
-				byte(layers.DHCPOptDNS),
-			}),
+			layers.NewDHCPOption(layers.DHCPOptMessageType, dhcpDiscoverType),
+			layers.NewDHCPOption(layers.DHCPOptParamsRequest, dhcpParamRequest),
 		},
 	}
 	return craftPool(eth, ip, udp, dhcp)

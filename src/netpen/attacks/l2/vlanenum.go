@@ -55,7 +55,7 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 			if frame.Err != nil {
 				continue
 			}
-			pkt := gopacket.NewPacket(frame.Data, layers.LayerTypeEthernet, gopacket.Default)
+			pkt := gopacket.NewPacket(frame.Data, layers.LayerTypeEthernet, gopacket.Lazy)
 			dot1q := pkt.Layer(layers.LayerTypeDot1Q)
 			if dot1q == nil {
 				continue

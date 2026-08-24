@@ -87,6 +87,17 @@ func (w *JSONWriter) writeRecord(r findings.Record) error {
 	return nil
 }
 
+// Write marshals and writes one record as a JSONL line and flushes the
+// buffer, so a streaming consumer sees each record as it arrives (live
+// arrival). A write failure returns the named coded error so the caller
+// can degrade rather than panic. Use [Run] for the buffered batch path.
+func (w *JSONWriter) Write(r findings.Record) error {
+	if err := w.writeRecord(r); err != nil {
+		return err
+	}
+	return w.Flush()
+}
+
 // WriteMeta writes only the run-header meta record and flushes. It is the
 // empty-run path: a run with no findings still emits the meta record followed
 // by a summary.

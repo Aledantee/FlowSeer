@@ -28,7 +28,12 @@ package full
 // fallback chain: attack leg's configured net, then 172.16.0.0/24,
 // recorded in the summary.
 
-import "go.aledante.io/FlowSeer/src/netpen/runner"
+import (
+	"fmt"
+	"slices"
+
+	"go.aledante.io/FlowSeer/src/netpen/runner"
+)
 
 // burstCore is the seven workers that ALWAYS fire in the burst, in the
 // baseline's worker-list order. These are unconditional (R3).
@@ -101,11 +106,15 @@ func selectFollowUps(ev Evidence, hasWatchLeg bool, noSpoof bool) []followUpEntr
 	// vlans arms vlanhop (first three observed VLAN ids).
 	if vlans := ev.VLANs(); len(vlans) > 0 {
 		// First three, sorted ascending (baseline: sorted(recon["vlans"])[:3]).
-		first := firstThreeSorted(vlans)
+		first := slices.Clone(vlans)
+		slices.Sort(first)
+		if len(first) > 3 {
+			first = first[:3]
+		}
 		for _, v := range first {
 			out = append(out, followUpEntry{
 				ref:    runner.AttackRef{Name: "vlanhop"},
-				reason: reasonf("VLAN %d tagged frames in recon", v),
+				reason: fmt.Sprintf("VLAN %d tagged frames in recon", v),
 			})
 		}
 	}
@@ -114,7 +123,7 @@ func selectFollowUps(ev Evidence, hasWatchLeg bool, noSpoof bool) []followUpEntr
 	if vv := ev.VoiceVLAN(); vv != 0 {
 		out = append(out, followUpEntry{
 			ref:    runner.AttackRef{Name: "voicevlan"},
-			reason: reasonf("CDP voice VLAN %d leaked", vv),
+			reason: fmt.Sprintf("CDP voice VLAN %d leaked", vv),
 		})
 	}
 
@@ -122,7 +131,7 @@ func selectFollowUps(ev Evidence, hasWatchLeg bool, noSpoof bool) []followUpEntr
 	if dom := ev.VTPDomain(); dom != "" && ev.VTPRev() >= 0 {
 		out = append(out, followUpEntry{
 			ref:    runner.AttackRef{Name: "vtp"},
-			reason: reasonf("VTP domain %q rev %d in recon", dom, ev.VTPRev()),
+			reason: fmt.Sprintf("VTP domain %q rev %d in recon", dom, ev.VTPRev()),
 		})
 	}
 
@@ -158,96 +167,4 @@ func selectFollowUps(ev Evidence, hasWatchLeg bool, noSpoof bool) []followUpEntr
 	}
 
 	return out
-}
-
-// firstThreeSorted returns the first three values of a sorted-ascending
-// copy of s. It never returns more than three entries (baseline parity:
-// sorted(recon["vlans"])[:3]).
-func firstThreeSorted(s []int) []int {
-	sorted := make([]int, len(s))
-	copy(sorted, s)
-	// Insertion sort for deterministic order without importing sort.
-	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && sorted[j] < sorted[j-1]; j-- {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-		}
-	}
-	if len(sorted) > 3 {
-		sorted = sorted[:3]
-	}
-	return sorted
-}
-
-// reasonf builds a reason string without importing fmt (keeps the gate
-// surfaces allocation-light). It handles the small set of formats the
-// reasons use.
-func reasonf(format string, args ...any) string {
-	// Inline the two formats we use; fall back to a generic path.
-	switch format {
-	case "VLAN %d tagged frames in recon":
-		return sprintf("VLAN %v tagged frames in recon", args[0])
-	case "CDP voice VLAN %d leaked":
-		return sprintf("CDP voice VLAN %v leaked", args[0])
-	case "VTP domain %q rev %d in recon":
-		return sprintf("VTP domain %q rev %v in recon", args[0], args[1])
-	}
-	return format
-}
-
-// sprintf is a tiny formatter for the gate reasons. It handles %d, %q,
-// and %v for the few types the reasons carry (int, string).
-func sprintf(format string, args ...any) string {
-	out := make([]byte, 0, len(format)+16)
-	ai := 0
-	for i := 0; i < len(format); i++ {
-		if format[i] == '%' && i+1 < len(format) {
-			switch format[i+1] {
-			case 'd', 'v':
-				if ai < len(args) {
-					out = append(out, itoa(args[ai])...)
-					ai++
-				}
-				i++
-				continue
-			case 'q':
-				if ai < len(args) {
-					out = append(out, '"')
-					out = append(out, args[ai].(string)...)
-					out = append(out, '"')
-					ai++
-				}
-				i++
-				continue
-			}
-		}
-		out = append(out, format[i])
-	}
-	return string(out)
-}
-
-// itoa formats an int (or int-like) value as a decimal string.
-func itoa(v any) []byte {
-	n, ok := v.(int)
-	if !ok {
-		return []byte{}
-	}
-	if n == 0 {
-		return []byte("0")
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return buf[i:]
 }
