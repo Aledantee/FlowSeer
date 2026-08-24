@@ -162,12 +162,12 @@ func TestOrchestrationSequencing(t *testing.T) {
 		EvVRIDs:     []int{1},
 	}
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  100 * time.Millisecond,
 		ScanTime:  50 * time.Millisecond,
 		Behaviors: behaviors,
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return ev, nil
 		},
 	})
@@ -238,11 +238,11 @@ func TestBurstComposition_CoreAlways(t *testing.T) {
 	defer func() { _ = leg.Close() }()
 
 	// Empty evidence: only the core fires.
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{}, nil
 		},
 	})
@@ -269,11 +269,11 @@ func TestBurstComposition_RA6ArmsDaddos(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvRA6: true}, nil
 		},
 	})
@@ -297,12 +297,12 @@ func TestBurstComposition_NoSpoofDisarmsArpspoof(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		NoSpoof:   true,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvMACs: []string{"aa:bb:cc:dd:ee:ff"}}, nil
 		},
 	})
@@ -325,11 +325,11 @@ func TestBurstComposition_VRRIDsArmVrrp(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvVRIDs: []int{10}}, nil
 		},
 	})
@@ -354,11 +354,11 @@ func TestDaddosIsBurstWorkerNotFollowUp(t *testing.T) {
 	var mu sync.Mutex
 	behaviors := recordingBehaviors(&fired, &mu)
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: behaviors,
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvRA6: true}, nil
 		},
 	})
@@ -389,11 +389,11 @@ func TestEmptyReconFiresCoreAndFallback(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{}, nil
 		},
 	})
@@ -433,11 +433,11 @@ func TestTraversalPendingWithoutWatchLeg(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvRA6: true}, nil
 		},
 	})
@@ -467,12 +467,12 @@ func TestTraversalConfirmedWithWatchLegRecording(t *testing.T) {
 	wleg := newMockLeg()
 	defer func() { _ = wleg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		WatchLeg:  wleg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			// Simulate watch-leg recording (frames crossed the fabric).
 			return Evidence{EvRA6: true, "watch-recording": true}, nil
 		},
@@ -502,12 +502,12 @@ func TestTraversalResistedWithWatchLegNoRecording(t *testing.T) {
 	wleg := newMockLeg()
 	defer func() { _ = wleg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		WatchLeg:  wleg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			// Watch leg present but no recording (no frames crossed).
 			return Evidence{EvRA6: true}, nil
 		},
@@ -535,13 +535,13 @@ func TestNamedAbsentWatchLegFailsFast(t *testing.T) {
 	defer func() { _ = leg.Close() }()
 
 	reconCalled := false
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg:     leg,
 		WatchLegNamed: "eth9",
 		WatchLeg:      nil,
 		Duration:      50 * time.Millisecond,
 		Behaviors:     allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			reconCalled = true
 			return Evidence{}, nil
 		},
@@ -581,11 +581,11 @@ func TestSIGINTInPhase1EmitsPartialFindings(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			// Simulate SIGINT arriving during recon: cancel the context.
 			cancel()
 			<-ctx.Done()
@@ -757,11 +757,11 @@ func TestVTPIsSafeModeOnly(t *testing.T) {
 	leg := newMockLeg()
 	defer func() { _ = leg.Close() }()
 
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Duration:  50 * time.Millisecond,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return Evidence{EvVTPDomain: "test", EvVTPRev: 3}, nil
 		},
 	})
@@ -789,7 +789,7 @@ func TestScanNamedAbsentWatchLegFailsFast(t *testing.T) {
 	s := NewScan(ScanConfig{
 		AttackLeg:     leg,
 		WatchLegNamed: "eth9",
-		ScanFn: func(_ context.Context, _ ScanConfig, emit func(findings.Record)) error {
+		ScanFn: func(_ context.Context, _ ScanConfig, _ func(findings.Record)) error {
 			scanCalled = true
 			return nil
 		},
@@ -836,10 +836,10 @@ func TestReconErrorSurfaces(t *testing.T) {
 	defer func() { _ = leg.Close() }()
 
 	reconErr := errors.New("recon boom")
-	f := NewFull(FullConfig{
+	f := NewFull(Config{
 		AttackLeg: leg,
 		Behaviors: allBehaviors(),
-		ReconFn: func(_ context.Context, _ FullConfig) (Evidence, error) {
+		ReconFn: func(_ context.Context, _ Config) (Evidence, error) {
 			return nil, reconErr
 		},
 	})

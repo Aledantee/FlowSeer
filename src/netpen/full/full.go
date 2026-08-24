@@ -49,8 +49,8 @@ import (
 // (e.g. a named-but-absent watch leg).
 var ErrCodeFull = errs.NewCode("netpen/full")
 
-// FullConfig configures the `full` orchestrator.
-type FullConfig struct {
+// Config configures the `full` orchestrator.
+type Config struct {
 	// AttackLeg is the attack interface. Required.
 	AttackLeg link.Leg
 	// WatchLeg is the optional watch leg. nil = single-leg run (pending
@@ -84,7 +84,7 @@ type FullConfig struct {
 	// ReconFn is the recon function. Tests substitute a stub that
 	// returns canned Evidence. When nil, the orchestrator uses the
 	// default recon (passive listen + ARP sweep).
-	ReconFn func(ctx context.Context, cfg FullConfig) (Evidence, error)
+	ReconFn func(ctx context.Context, cfg Config) (Evidence, error)
 	// SweepNet is the configured sweep network for the ARP sweep
 	// fallback. Empty means derive from the attack leg, then fall back
 	// to 172.16.0.0/24.
@@ -95,7 +95,7 @@ type FullConfig struct {
 // traversal verdicts. The CLI (cmd/netpen) constructs one, calls Run,
 // and streams the findings into the selected output mode.
 type Full struct {
-	cfg    FullConfig
+	cfg    Config
 	mu     sync.Mutex
 	recs   []findings.Record
 	recsCh chan findings.Record // live stream: emits records as appended (closed on Run completion)
@@ -108,10 +108,11 @@ type verdict struct {
 	kind   findings.Kind // resisted, skipped, pending, or empty (confirmed via finding)
 	detail string
 }
+
 // NewFull constructs the orchestrator from the config. A live record
 // channel is created here so the CLI can consume records as they arrive
 // while Run executes.
-func NewFull(cfg FullConfig) *Full {
+func NewFull(cfg Config) *Full {
 	return &Full{cfg: cfg, recsCh: make(chan findings.Record, 64)}
 }
 
@@ -140,6 +141,7 @@ func (f *Full) closeRecords() {
 		close(f.recsCh)
 	}
 }
+
 // appendRecord adds a findings record to the orchestrator's collection
 // and emits it on the live record channel.
 func (f *Full) appendRecord(r findings.Record) {
@@ -215,8 +217,17 @@ func (f *Full) Run(ctx context.Context) error {
 	for _, r := range burstRecs {
 		f.appendRecord(r)
 	}
-	burstEnd := time.Now()
+	if burstErr != nil {
+		f.appendRecord(errRecord(burstErr, "full", ""))
+	}
 	f.appendRecord(progress("full", "", "burst", "done"))
+
+	// Watch-leg traversal evidence: capture on the watch leg for a
+	// bounded window from the ACTUAL burst end (F4, R2). Any frame seen
+	// in the window marks traversal; verdicts key off this evidence.
+	if f.cfg.WatchLeg != nil && observeTraversal(ctx, f.cfg.WatchLeg, traversalWindow) {
+		ev["watch-recording"] = true
+	}
 
 	// ---- phase 3: follow-ups (sequential) ----
 	followUps := selectFollowUps(ev, f.cfg.WatchLeg != nil, f.cfg.NoSpoof)
@@ -239,8 +250,8 @@ func (f *Full) Run(ctx context.Context) error {
 
 	// ---- phase 4: report ----
 	// Compute traversal verdicts from the burst evidence window.
-	f.computeVerdicts(ev, burstEnd)
-	f.appendRecord(f.summaryRecord(ev, burstRecs, burstErr))
+	f.computeVerdicts(ev)
+	f.appendRecord(f.summaryRecord(ev, burstRecs))
 	return nil
 }
 
@@ -299,7 +310,25 @@ func (f *Full) runPhase(ctx context.Context, refs []runner.AttackRef, timeout ti
 // The upgrade is R2's two-leg semantics: the watch-leg evidence window
 // derives from the ACTUAL burst end (recorded by Run), not flag
 // arithmetic.
-func (f *Full) computeVerdicts(ev Evidence, _ time.Time) {
+// traversalWindow is how long the watch leg is observed after the burst
+// ends. It derives the evidence window from the actual burst end, never
+// from flag arithmetic (R2, F4).
+const traversalWindow = 2 * time.Second
+
+// observeTraversal reports whether any frame appears on the watch leg
+// within the window. It returns true on the first observed frame; an
+// empty window or leg error is not traversal evidence.
+func observeTraversal(ctx context.Context, watch link.Leg, window time.Duration) bool {
+	wctx, cancel := context.WithTimeout(ctx, window)
+	defer cancel()
+
+	// First frame or the window's end: a clean first frame is traversal
+	// evidence; a drained channel or an error frame is not.
+	frame, ok := <-watch.Receive(wctx)
+	return ok && frame.Err == nil
+}
+
+func (f *Full) computeVerdicts(ev Evidence) {
 	// In the test/hooked path, the watch-leg recording is simulated via
 	// the evidence map's "watch-recording" key (set by the recon stub or
 	// the test harness). Absent that, a single-leg run = pending.
@@ -321,13 +350,8 @@ func (f *Full) computeVerdicts(ev Evidence, _ time.Time) {
 }
 
 // summaryRecord builds the closing summary record, including the
-// sweep-net fallback chain and the traversal verdicts.
-func (f *Full) summaryRecord(_ Evidence, burstRecs []findings.Record, burstErr error) findings.Record {
-	sweep := f.cfg.SweepNet
-	if sweep == "" {
-		sweep = "172.16.0.0/24"
-	}
-
+// sweep-net fallback chain recorded by recon and the traversal verdicts.
+func (f *Full) summaryRecord(ev Evidence, burstRecs []findings.Record) findings.Record {
 	f.mu.Lock()
 	verds := make([]verdict, len(f.verds))
 	copy(verds, f.verds)
@@ -347,6 +371,8 @@ func (f *Full) summaryRecord(_ Evidence, burstRecs []findings.Record, burstErr e
 		}
 	}
 
+	sweep, _ := ev["sweep-net"].(string)
+
 	r := findings.NewRecord(findings.KindSummary)
 	r.Summary = &findings.Summary{
 		Attacks:  len(burstRecs),
@@ -355,6 +381,7 @@ func (f *Full) summaryRecord(_ Evidence, burstRecs []findings.Record, burstErr e
 		Skipped:  counts.skipped,
 		Pending:  counts.pending,
 		Errors:   counts.errors,
+		SweepNet: sweep,
 	}
 	return r
 }
@@ -426,7 +453,7 @@ func countEvidence(ev Evidence) int {
 
 // mergedBehaviors builds the merged behavior map from the four behavior
 // packages. This is the production path; tests substitute a stub map via
-// FullConfig.Behaviors.
+// Config.Behaviors.
 func mergedBehaviors() map[string]runner.Behavior {
 	out := make(map[string]runner.Behavior)
 	for _, m := range []map[string]runner.Behavior{

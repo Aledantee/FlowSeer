@@ -97,14 +97,17 @@ type Progress struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-// Summary closes a run with aggregate counts.
+// Summary closes a run with aggregate counts. Additive-only within
+// schema major version 1 (KTD10): optional fields may appear over time
+// but no field is renamed, removed, or retyped.
 type Summary struct {
-	Attacks  int `json:"attacks"`
-	Findings int `json:"findings"`
-	Resisted int `json:"resisted"`
-	Skipped  int `json:"skipped"`
-	Pending  int `json:"pending"`
-	Errors   int `json:"errors"`
+	Attacks  int    `json:"attacks"`
+	Findings int    `json:"findings"`
+	Resisted int    `json:"resisted"`
+	Skipped  int    `json:"skipped"`
+	Pending  int    `json:"pending"`
+	Errors   int    `json:"errors"`
+	SweepNet string `json:"sweep_net,omitempty"`
 }
 
 // ErrorRecord is a runtime failure record: the code (stable identity), the
