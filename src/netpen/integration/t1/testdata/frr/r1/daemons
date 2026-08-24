@@ -1,0 +1,6 @@
+# FRR daemons file — enable ospfd for OSPF adjacency formation.
+# EIGRP is Cisco-proprietary; FRR does not speak it, so eigrpd stays off.
+# The OSPF adjacency between r1 and r2 is the t1 open-source target.
+# No ospfd_instances (default instance 0 matches `router ospf` in frr.conf).
+
+ospfd=yes

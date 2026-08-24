@@ -1,0 +1,5 @@
+# Release artifacts (built by `task release`)
+dist/
+
+# Benchmark profiles (built by `task bench`)
+profiles/

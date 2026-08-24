@@ -32,13 +32,16 @@ import (
 	"go.aledante.io/FlowSeer/src/netpen/link"
 	"go.aledante.io/FlowSeer/src/netpen/output"
 	"go.aledante.io/FlowSeer/src/netpen/runner"
+	"go.aledante.io/FlowSeer/src/netpen/version"
 )
 
 // Default attack-leg interface, matching the baseline l2l3-audit.
 const defaultIface = "eth0"
 
-// version is the netpen binary version.
-const version = "v0.1.0-dev"
+// versionCmd is the version string printed by `netpen version`. It is
+// sourced from the version package so the release Taskfile can inject
+// the git commit, build date, and semantic tag via -ldflags '-X' (KTD16).
+var versionCmd = version.String
 
 // subcommand is one entry in the dispatch table. Each command gets its own
 // flag.FlagSet (KTD2). setup registers the command-specific flags into the
@@ -261,7 +264,7 @@ func printUsage(stderr io.Writer, unknown string) {
 
 // runVersion prints the netpen version.
 func runVersion(_ context.Context, _ *cmdFlags, stdout, _ io.Writer) error {
-	fmt.Fprintln(stdout, "netpen "+version)
+	fmt.Fprintln(stdout, versionCmd())
 	return nil
 }
 
@@ -439,7 +442,7 @@ func runFull(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 func runOrchestrator(ctx context.Context, ch <-chan findings.Record, runFn func(context.Context) error, cf *cmdFlags, stdout, stderr io.Writer) error {
 	meta := findings.Meta{
 		Tool:      "netpen",
-		Version:   version,
+		Version:   version.Version,
 		AttackLeg: cf.iface,
 		WatchLeg:  cf.watch,
 		Started:   time.Now(),
@@ -524,7 +527,7 @@ func runAndOutput(ctx context.Context, opts runner.Options, cf *cmdFlags, stdout
 
 	meta := findings.Meta{
 		Tool:      "netpen",
-		Version:   version,
+		Version:   version.Version,
 		AttackLeg: cf.iface,
 		WatchLeg:  cf.watch,
 		Started:   time.Now(),

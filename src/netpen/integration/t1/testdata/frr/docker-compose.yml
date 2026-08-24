@@ -1,0 +1,61 @@
+# t1 lab topology: two FRR (FRRouting) nodes on a custom bridge for OSPF
+# adjacency formation + route learnability, the open-source-impersonatable
+# subset of the t1 targets. Cisco-proprietary protocols (DTP, VTP, MVRP,
+# etc.) cannot be impersonated by FRR; those run in the netpen-vs-netpen
+# ring (separate compose / test), which validates wire shape, not vendor
+# behavior.
+#
+# Bring up:   docker compose -f testdata/frr/docker-compose.yml up -d
+# Tear down:  docker compose -f testdata/frr/docker-compose.yml down -v
+
+services:
+  frr-r1:
+    image: quay.io/frrouting/frr:10.1.0
+    container_name: netpen-t1-frr-r1
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+    networks:
+      netpen-t1-lab:
+        ipv4_address: 10.99.0.11
+    volumes:
+      - ./r1/daemons:/etc/frr/daemons:ro
+      - ./r1/frr.conf:/etc/frr/frr.conf:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        /usr/lib/frr/frrinit.sh start
+        sleep infinity
+    sysctls:
+      - net.ipv4.ip_forward=1
+    privileged: true
+
+  frr-r2:
+    image: quay.io/frrouting/frr:10.1.0
+    container_name: netpen-t1-frr-r2
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+    networks:
+      netpen-t1-lab:
+        ipv4_address: 10.99.0.12
+    volumes:
+      - ./r2/daemons:/etc/frr/daemons:ro
+      - ./r2/frr.conf:/etc/frr/frr.conf:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        /usr/lib/frr/frrinit.sh start
+        sleep infinity
+    sysctls:
+      - net.ipv4.ip_forward=1
+    privileged: true
+
+networks:
+  netpen-t1-lab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.0.0/24

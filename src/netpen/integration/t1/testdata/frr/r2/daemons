@@ -1,0 +1,2 @@
+# FRR daemons file — enable ospfd for r2.
+ospfd=yes
