@@ -418,7 +418,7 @@ func runFull(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 		defer func() { _ = watchLeg.Close() }()
 	}
 
-	cfg := full.FullConfig{
+	cfg := full.Config{
 		AttackLeg:      attackLeg,
 		WatchLeg:       watchLeg,
 		WatchLegNamed:  cf.watch,
