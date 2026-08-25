@@ -2,8 +2,8 @@
 // heavy dependency family (gopacket, bubbletea) never enters the main
 // module's dependency graph. The test walks from the repo root (the repoRoot
 // pattern from src/common/errs/code_test.go) and asserts zero charm.land/ or
-// github.com/gopacket/ imports outside src/netpen, the sole exempt directory
-// (KTD1).
+// github.com/gopacket/ imports outside src/edge/netpen, the sole exempt
+// directory (KTD1).
 package netpenguard
 
 import (
@@ -18,7 +18,7 @@ import (
 )
 
 // forbiddenImports are the heavy dependency path prefixes that must not appear
-// in the main module. They may appear inside src/netpen (the quarantined
+// in the main module. They may appear inside src/edge/netpen (the quarantined
 // nested module) and nowhere else.
 var forbiddenImports = []string{
 	"charm.land/",
@@ -26,13 +26,13 @@ var forbiddenImports = []string{
 }
 
 // exemptDirs are directory paths (relative to the repo root) where forbidden
-// imports are allowed. src/netpen is the quarantined nested module.
+// imports are allowed. src/edge/netpen is the quarantined nested module.
 var exemptDirs = []string{
-	filepath.Join("src", "netpen"),
+	filepath.Join("src", "edge", "netpen"),
 }
 
 // TestNoHeavyDepsOutsideNetpen walks the repo from its root and asserts that
-// no .go file outside src/netpen imports a forbidden heavy dependency. The
+// no .go file outside src/edge/netpen imports a forbidden heavy dependency. The
 // walk skips dot-directories and testdata; this test file itself is exempted
 // because it names the forbidden prefixes by necessity.
 func TestNoHeavyDepsOutsideNetpen(t *testing.T) {

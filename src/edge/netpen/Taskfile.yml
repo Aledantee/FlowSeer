@@ -1,0 +1,134 @@
+# netpen:* — netpen L2/L3 security audit binary (src/edge/netpen/).
+#
+# Run these tasks from this directory so every `go` invocation uses the
+# standalone netpen module (its own go.mod, the one place gopacket is a
+# dependency). The main module never sees these targets.
+#
+# U1 ships basic lint/test shortcuts only; the release task is U13's.
+
+version: '3'
+
+vars:
+  GOFLAGS: -count=1
+
+tasks:
+  lint:
+    desc: 'Run golangci-lint (repo-root .golangci.yml applies by ancestry); GOOS=linux pass covers linux-only files the darwin pass skips'
+    cmds:
+      - golangci-lint run
+      - GOOS=linux golangci-lint run
+
+  build:
+    desc: 'Build the netpen binary (darwin dev host, CGO_ENABLED=0)'
+    cmds:
+      - CGO_ENABLED=0 go build ./...
+
+  build-linux:
+    desc: 'Cross-compile for the release matrix (linux/amd64 + linux/arm64)'
+    cmds:
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ./...
+      - GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build ./...
+
+  vet:
+    desc: 'Run go vet'
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: 'Run tests with -race (mock leg only; real-link test is tagged out)'
+    cmds:
+      - CGO_ENABLED=0 go test -race {{.GOFLAGS}} ./...
+
+  test-linktest:
+    desc: 'Run the opt-in real-link round-trip test (linux + linktest tag + NETPEN_LINK_IFACE)'
+    cmds:
+      - go test -tags=linktest -run TestRealLinkRoundTrip {{.GOFLAGS}} ./...
+
+  # --- U13: lab validation tiers (KTD15) ---
+
+  tier-t1:
+    desc: 'Tier 1 — FRR targets + netpen-vs-netpen ring in Docker (superset validation)'
+    cmds:
+      - go test -tags=netpen_t1 -v -count=1 ./integration/...
+
+  tier-t2:
+    desc: 'Tier 2 — operator-supplied vIOS-class Cisco image (opt-in, never automated)'
+    cmds:
+      - go test -tags=netpen_t2 -v -count=1 ./integration/...
+
+  # --- U13: advisory benchmark suite (KTD14 perf gate shape) ---
+
+  bench:
+    desc: 'Advisory decode + flood-craft benchmarks against committed baseline (report-only, never fails)'
+    summary: |
+      Runs the decode hot-path and flood-craft pool-loop benchmarks and
+      benchstat-compares against the committed baseline in bench/testdata/.
+      Advisory only — Success Criteria disclaims a performance budget; this
+      task never exits non-zero on a delta (use the snmp bench:gate for a
+      hard allocs/op + B/op gate).
+    vars:
+      COUNT: '{{.COUNT | default "6"}}'
+    cmds:
+      - go test -tags=netpen_bench -bench . -benchmem -run '^$' -count={{.COUNT}} ./bench/...
+      - |
+        if command -v benchstat >/dev/null 2>&1; then
+          go test -tags=netpen_bench -bench . -benchmem -run '^$' -count={{.COUNT}} ./bench/... 2>/dev/null | tee /tmp/netpen-bench.txt
+          benchstat bench/testdata/baseline.txt /tmp/netpen-bench.txt || true
+        else
+          echo "[netpen-bench] benchstat not on PATH; raw output above (advisory)"
+        fi
+
+  bench-baseline:
+    desc: 'Re-capture the committed bench baseline (deliberate, reviewed action)'
+    summary: |
+      Re-runs the benchmarks and writes the raw output to
+      bench/testdata/baseline.txt. This is a deliberate action: commit the
+      result after review so the advisory comparison has a reference point.
+    vars:
+      COUNT: '{{.COUNT | default "10"}}'
+    cmds:
+      - go test -tags=netpen_bench -bench . -benchmem -run '^$' -count={{.COUNT}} ./bench/... > bench/testdata/baseline.txt
+      - 'echo "Baseline written to bench/testdata/baseline.txt — review and commit"'
+
+  # --- U13: static release (KTD16) ---
+
+  release:
+    desc: 'Build the static release matrix: linux/amd64 + linux/arm64 with injected version'
+    summary: |
+      CGO_ENABLED=0 cross-compile for both release arches with -s -w and
+      -X ldflags injecting the version package fields (KTD16). Output:
+      dist/netpen-linux-amd64 and dist/netpen-linux-arm64.
+
+      Verify with `task release-smoke` (file shows static, --version shows
+      the injected values).
+    vars:
+      VERSION: '{{.VERSION | default "dev"}}'
+      COMMIT: '{{.COMMIT | default "none"}}'
+      BUILDDATE: '{{.BUILDDATE | default "unknown"}}'
+      LDFLAGS: '-s -w -X go.aledante.io/FlowSeer/src/edge/netpen/version.Version={{.VERSION}} -X go.aledante.io/FlowSeer/src/edge/netpen/version.Commit={{.COMMIT}} -X go.aledante.io/FlowSeer/src/edge/netpen/version.BuildDate={{.BUILDDATE}}'
+    cmds:
+      - mkdir -p dist
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags '{{.LDFLAGS}}' -o dist/netpen-linux-amd64 ./cmd/netpen
+      - CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags '{{.LDFLAGS}}' -o dist/netpen-linux-arm64 ./cmd/netpen
+      - 'echo "Built dist/netpen-linux-amd64 and dist/netpen-linux-arm64"'
+      - 'echo "--- amd64 ---"'
+      - file dist/netpen-linux-amd64
+      - 'echo "--- arm64 ---"'
+      - file dist/netpen-linux-arm64
+
+  release-smoke:
+    desc: 'AE5 smoke: verify the release binary is static and --version prints injected values'
+    summary: |
+      Runs `file` on both release binaries to confirm they are statically
+      linked (no dynamic deps), then runs --version on the amd64 binary
+      to confirm the ldflags-injected version/commit/date are present.
+
+      The arm64 binary cannot run on the darwin dev host; only `file`
+      confirms its static shape. On a linux host, run both.
+    cmds:
+      - 'echo "--- file: amd64 ---"'
+      - file dist/netpen-linux-amd64
+      - 'echo "--- file: arm64 ---"'
+      - file dist/netpen-linux-arm64
+      - 'echo "--- --version (amd64) ---"'
+      - ./dist/netpen-linux-amd64 version || echo "(amd64 binary not runnable on this host; file check above is the gate)"

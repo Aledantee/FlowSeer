@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: go.aledante.io/FlowSeer/src/edge/netpen/bench
+cpu: Apple M4 Pro
+BenchmarkDecodeHotPath-12            	 5671057	       195.4 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPath-12            	 6100546	       194.7 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPath-12            	 5991378	       194.9 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPath-12            	 6144093	       194.8 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPath-12            	 6169164	       193.7 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPath-12            	 6063787	       195.6 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPathParallel-12    	 8735012	       137.6 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPathParallel-12    	 8859006	       135.1 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPathParallel-12    	 8822377	       136.0 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPathParallel-12    	 8560819	       135.2 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPathParallel-12    	 8881971	       138.2 ns/op	     797 B/op	       8 allocs/op
+BenchmarkDecodeHotPathParallel-12    	 8771988	       135.3 ns/op	     797 B/op	       8 allocs/op
+BenchmarkFloodCraftPoolLoop-12       	12004060	        96.59 ns/op	     280 B/op	       6 allocs/op
+BenchmarkFloodCraftPoolLoop-12       	12334110	        96.10 ns/op	     280 B/op	       6 allocs/op
+BenchmarkFloodCraftPoolLoop-12       	11994247	        97.71 ns/op	     280 B/op	       6 allocs/op
+BenchmarkFloodCraftPoolLoop-12       	12175092	        97.47 ns/op	     280 B/op	       6 allocs/op
+BenchmarkFloodCraftPoolLoop-12       	12015745	        96.86 ns/op	     280 B/op	       6 allocs/op
+BenchmarkFloodCraftPoolLoop-12       	12290286	        97.13 ns/op	     280 B/op	       6 allocs/op
+BenchmarkFloodCraftReuseBuffer-12    	49396182	        23.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFloodCraftReuseBuffer-12    	49793391	        23.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFloodCraftReuseBuffer-12    	49328498	        23.97 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFloodCraftReuseBuffer-12    	51114399	        23.99 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFloodCraftReuseBuffer-12    	48495789	        24.07 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFloodCraftReuseBuffer-12    	50886090	        24.07 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	go.aledante.io/FlowSeer/src/edge/netpen/bench	31.715s
