@@ -20,6 +20,9 @@ Binding on humans and agents equally; each doc states its own scope.
   model layer above the proto style guide.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — the TypeScript web frontend
   (`frontend/web/`; own toolchain, the Go rules do not govern it).
+- [`docs/agent-knowledge.md`](docs/agent-knowledge.md) — where shared rules,
+  architecture decisions, reusable learnings, skills, and private auto-memory
+  belong; repository guidance wins when memory drifts.
 
 ## Isolation
 
@@ -37,7 +40,8 @@ no remote.
 Three conventions below are enforced by hooks in `.claude/hooks/`, wired in
 `.claude/settings.json`, rather than left to vigilance:
 
-- `protect-generated.sh` (`PreToolUse`) — denies hand-edits to `generated/`,
+- `protect-generated.sh` and `protect-generated-bash.sh` (`PreToolUse`) — deny
+  direct tool and common shell mutations to `generated/`,
   `frontend/web/generated/`, and `buf.lock`. Change the source of truth instead.
 - `go-format.sh` (`PostToolUse`) — runs gofumpt + goimports on every edited `.go`
   file so nothing lands lint-dirty; reports back when it rewrote the file.
@@ -45,6 +49,12 @@ Three conventions below are enforced by hooks in `.claude/hooks/`, wired in
   path (failures block and come back as feedback), then the message-sync check:
   reports Config/State/Event triad members and GlobalRef/LocalRef counterparts the
   edit did not bring along.
+- `.claude/hooks/tests/run.sh` — exercises the hook allow/deny contract and the
+  settings matchers; the `verify-change` skill runs it for Claude configuration
+  changes.
+- `mark-verification-dirty.sh` plus `require-verification-receipt.sh` — track
+  source/config edits and block one completion attempt until the affected scope
+  passes the `verify-change` skill. Receipts live in the worktree's git metadata.
 
 ## Layout
 

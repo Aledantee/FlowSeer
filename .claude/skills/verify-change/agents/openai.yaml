@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify FlowSeer Change"
+  short_description: "Run diff-aware FlowSeer quality gates"
+  default_prompt: "Use $verify-change to verify the current FlowSeer change before completion."

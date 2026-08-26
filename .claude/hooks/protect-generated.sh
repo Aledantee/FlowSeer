@@ -9,6 +9,10 @@
 set -uo pipefail
 
 input=$(cat)
+jq -e . >/dev/null 2>&1 <<<"$input" || {
+  jq -n '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:"Generated-file guard received malformed hook input and failed closed."}}'
+  exit 0
+}
 file=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")
 cwd=$(jq -r '.cwd // ""' <<<"$input")
 [ -n "$file" ] || exit 0
