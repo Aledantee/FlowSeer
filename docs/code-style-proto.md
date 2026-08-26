@@ -61,9 +61,10 @@ package flowseer.device.v1;
 ```
 
 - Apart from `README.md` files at package boundaries, `spec/proto/` contains
-  protobuf definitions only. Keep Go tests, fixtures, source inventories under
-  other names, and tooling outside the schema tree so every schema file is
-  eligible for normal Buf tooling.
+  protobuf definitions only. Put executable schema tests in
+  `src/common/protoconformance/` and fixtures in that package's `testdata/` so every
+  schema file remains normal Buf input. Never add a `buf.yaml` exclude or lint ignore
+  to shelter test artifacts inside the schema tree.
 - One top-level declaration per file by default; file names `lower_snake_case.proto`.
   A tightly coupled Primitive family may share one file when its variants and
   value types are designed, imported, and evolved as one contract. The

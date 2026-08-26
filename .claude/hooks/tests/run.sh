@@ -52,26 +52,26 @@ decision() {
 
 edit_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/generated/device.pb.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
-assert_deny "$repo_root/.claude/hooks/protect-generated.sh" "$edit_input"
+assert_deny "$repo_root/.agent/hooks/pre-tool-policy.sh" "$edit_input"
 ok "Edit denies generated output"
 
 missing_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/generated/missing.pb.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
-assert_deny "$repo_root/.claude/hooks/protect-generated.sh" "$missing_input"
+assert_deny "$repo_root/.agent/hooks/pre-tool-policy.sh" "$missing_input"
 ok "Edit denies a missing generated output path"
 
 worktree_input=$(jq -n --arg cwd "$linked_worktree" --arg path "$linked_worktree/generated/device.pb.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
-assert_deny "$repo_root/.claude/hooks/protect-generated.sh" "$worktree_input"
+assert_deny "$repo_root/.agent/hooks/pre-tool-policy.sh" "$worktree_input"
 ok "Edit denies generated output in a linked worktree"
 
-assert_deny "$repo_root/.claude/hooks/protect-generated.sh" '{malformed'
+assert_deny "$repo_root/.agent/hooks/pre-tool-policy.sh" '{malformed'
 assert_deny "$repo_root/.claude/hooks/protect-generated-bash.sh" '{malformed'
 ok "generated guards fail closed on malformed JSON"
 
 source_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/device.proto" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
-assert_allow "$repo_root/.claude/hooks/protect-generated.sh" "$source_input"
+assert_allow "$repo_root/.agent/hooks/pre-tool-policy.sh" "$source_input"
 ok "Edit allows protobuf source"
 
 bash_edit=$(jq -n --arg cwd "$fixture" \
@@ -119,24 +119,24 @@ printf '%s\n' '#!/usr/bin/env bash' \
 chmod +x "$stub_bin/buf"
 proto_input=$(jq -n --arg cwd "$fixture" --arg path "$proto" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
-proto_output=$(PATH="$stub_bin:$PATH" "$repo_root/.claude/hooks/proto-check.sh" <<<"$proto_input")
+proto_output=$(PATH="$stub_bin:$PATH" "$repo_root/.agent/hooks/proto-check.sh" <<<"$proto_input")
 jq -e '.hookSpecificOutput.additionalContext | contains("WidgetState") and contains("WidgetEvent")' \
   <<<"$proto_output" >/dev/null
 ok "proto hook reports deliberate partial families"
 
 no_buf=$fixture/no-buf
 mkdir -p "$no_buf"
-for command_name in bash cat jq git dirname basename grep awk sort; do
+for command_name in bash cat jq git dirname basename grep awk sort sed rg; do
   ln -s "$(command -v "$command_name")" "$no_buf/$command_name"
 done
-proto_output=$(PATH="$no_buf" "$repo_root/.claude/hooks/proto-check.sh" <<<"$proto_input")
+proto_output=$(PATH="$no_buf" "$repo_root/.agent/hooks/proto-check.sh" <<<"$proto_input")
 jq -e '.hookSpecificOutput.additionalContext | contains("buf is not on PATH")' \
   <<<"$proto_output" >/dev/null
 ok "proto hook reports missing buf"
 
 set +e
 lint_output=$(PATH="$stub_bin:$PATH" BUF_LINT_RC=9 \
-  "$repo_root/.claude/hooks/proto-check.sh" <<<"$proto_input" 2>&1)
+  "$repo_root/.agent/hooks/proto-check.sh" <<<"$proto_input" 2>&1)
 lint_rc=$?
 set -e
 [[ $lint_rc -eq 2 && $lint_output == *"fixture lint failure"* ]]

@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-generated.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR/.agent/hooks/pre-tool-policy.sh\""
           }
         ]
       },
@@ -40,11 +40,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/go-format.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR/.agent/hooks/go-format.sh\""
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/proto-check.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR/.agent/hooks/proto-check.sh\""
           },
           {
             "type": "command",
@@ -65,6 +65,11 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.agent/hooks/stop-check.sh\"",
+            "timeout": 30
+          },
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/require-verification-receipt.sh"
