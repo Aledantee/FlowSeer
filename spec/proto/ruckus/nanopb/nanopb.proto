@@ -58,100 +58,73 @@ message NanoPBOptions {
   // Allocated size for 'bytes' and 'string' fields.
   // For string fields, this should include the space for null terminator.
   int32 max_size = 1;
-  
   // Maximum length for 'string' fields. Setting this is equivalent
   // to setting max_size to a value of length+1.
   int32 max_length = 14;
-  
   // Allocated number of entries in arrays ('repeated' fields)
   int32 max_count = 2;
-  
   // Size of integer fields. Can save some memory if you don't need
   // full 32 bits for the value.
   IntSize int_size = 7 [default = IS_DEFAULT];
-
   // Force type of field (callback or static allocation)
   FieldType type = 3 [default = FT_DEFAULT];
-  
   // Use long names for enums, i.e. EnumName_EnumValue.
   bool long_names = 4 [default = true];
-  
   // Add 'packed' attribute to generated structs.
   // Note: this cannot be used on CPUs that break on unaligned
   // accesses to variables.
   bool packed_struct = 5 [default = false];
-  
   // Add 'packed' attribute to generated enums.
   bool packed_enum = 10 [default = false];
-  
   // Skip this message
   bool skip_message = 6 [default = false];
-
   // Generate oneof fields as normal optional fields instead of union.
   bool no_unions = 8 [default = false];
-
   // integer type tag for a message
   uint32 msgid = 9;
-
   // decode oneof as anonymous union
   bool anonymous_oneof = 11 [default = false];
-
   // Proto3 singular field does not generate a "has_" flag
   bool proto3 = 12 [default = false];
-  
   // Force proto3 messages to have no "has_" flag.
   // This was default behavior until nanopb-0.4.0.
   bool proto3_singular_msgs = 21 [default = false];
-
   // Generate an enum->string mapping function (can take up lots of space).
   bool enum_to_string = 13 [default = false];
-
   // Generate bytes arrays with fixed length
   bool fixed_length = 15 [default = false];
-
   // Generate repeated field with fixed count
   bool fixed_count = 16 [default = false];
-
   // Generate message-level callback that is called before decoding submessages.
   // This can be used to set callback fields for submsgs inside oneofs.
   bool submsg_callback = 22 [default = false];
-
   // Shorten or remove package names from type names.
   // This option applies only on the file level.
   TypenameMangling mangle_names = 17 [default = M_NONE];
-
   // Data type for storage associated with callback fields.
   string callback_datatype = 18 [default = "pb_callback_t"];
-
   // Callback function used for encoding and decoding.
   // Prior to nanopb-0.4.0, the callback was specified in per-field pb_callback_t
   // structure. This is still supported, but does not work inside e.g. oneof or pointer
   // fields. Instead, a new method allows specifying a per-message callback that
   // will be called for all callback fields in a message type.
   string callback_function = 19 [default = "pb_default_field_callback"];
-
   // Select the size of field descriptors. This option has to be defined
   // for the whole message, not per-field. Usually automatic selection is
   // ok, but if it results in compilation errors you can increase the field
   // size here.
   DescriptorSize descriptorsize = 20 [default = DS_AUTO];
-
   // Set default value for has_ fields.
   bool default_has = 23 [default = false];
-
   // Extra files to include in generated `.pb.h`
   repeated string include = 24;
-
   // Automatic includes to exlude from generated `.pb.h`
   // Same as nanopb_generator.py command line flag -x.
   repeated string exclude = 26;
-
   // Package name that applies only for nanopb.
   string package = 25;
-  
   // Override type of the field in generated C code. Only to be used with related field types
   google.protobuf.FieldDescriptorProto.Type type_override = 27;
-
   // Due to historical reasons, nanopb orders fields in structs by their tag number
   // instead of the order in .proto. Set this to false to keep the .proto order.
   // The default value will probably change to false in nanopb-0.5.0.

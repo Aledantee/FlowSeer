@@ -18,23 +18,18 @@ message NeighborEntry {
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1
   ];
-
   // The neighbor's network-layer address. Absent is invalid; omit the
   // containing entry when no neighbor address was observed.
   flowseer.net.addr.v1.IpAddress ip = 2 [(buf.validate.field).required = true];
-
   // The resolved link-layer address. Absent means it is not known, as is
   // expected for incomplete or failed resolution.
   flowseer.net.addr.v1.MacAddress mac = 3;
-
   // How the mapping was created. Absent means the source did not report an
   // origin.
   NeighborOrigin origin = 4;
-
   // Current reachability state. Absent means the source did not report a
   // state.
   NeighborState state = 5;
-
   // Whether the neighbor advertises itself as an IPv6 router. Absent means
   // the source did not expose the router flag; false means it explicitly did
   // not identify the neighbor as a router.

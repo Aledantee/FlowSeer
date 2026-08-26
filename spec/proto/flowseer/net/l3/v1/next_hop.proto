@@ -19,15 +19,12 @@ message NextHop {
   // The gateway address. Absent means forwarding is interface-only or the
   // route source did not expose a gateway.
   flowseer.net.addr.v1.IpAddress address = 1;
-
   // The device-reported egress interface name. Absent means recursive
   // resolution determines the interface or the source did not report it.
   string interface_name = 2 [(buf.validate.field).string.min_len = 1];
-
   // Relative load-sharing weight. Absent means equal cost or a device default;
   // when present it must be at least one.
   uint32 weight = 3 [(buf.validate.field).uint32.gte = 1];
-
   // Routing table used to resolve this next hop. Absent means resolution uses
   // the route's own table.
   string routing_table_name = 4 [(buf.validate.field).string.min_len = 1];

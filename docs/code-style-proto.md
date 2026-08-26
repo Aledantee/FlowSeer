@@ -197,6 +197,25 @@ makes *every* singular field absent-able, the last of those is no longer optiona
 prose — it is the field's most easily-missed state. Generated docs are read by
 consumers who never open this repo — write for them.
 
+**Message field spacing**
+
+Inside any message under `spec/proto/`, place adjacent fields directly next to
+each other. Do not insert a blank line between one field declaration and the
+doc comment for the next field; the comments already provide the visual
+separation. Keep blank lines around structurally distinct blocks such as
+message-level options, `reserved` declarations, nested declarations, and
+`oneof` blocks. For vendor mirrors, this whitespace-only normalization is the
+sole exception to preserving the upstream layout.
+
+```protobuf
+message DeviceSummary {
+  // The device identifier. Unset is invalid.
+  string id = 1 [(buf.validate.field).required = true];
+  // The display name. Unset means no name was reported.
+  string name = 2;
+}
+```
+
 ## Validation: protovalidate, always
 
 **Every rule a field has, the schema carries.** If a constraint can be expressed in

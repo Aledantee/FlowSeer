@@ -2553,21 +2553,17 @@ message AaaServer {
     int64 createdTime = 3;
     int64 updatedTime = 4;
     ServerType serverType = 5;
-
     // radius and tacacs
     string ip = 6;
     int32 authPort = 7;
     int32 acctPort = 8;
     string secret = 9;
-
     // tacacs
     Purpose purpose = 10;
-
     // local user
     string username = 11;
     string password = 12;
     Level level = 13;
-
     // creator & updater
     string creatorUsername = 14;
     string creatorId = 15;
@@ -4219,7 +4215,6 @@ message SyslogServer {
     int64 updatedTime = 3;
     string ip = 4;
     string udpPort = 5;
-
     // creator & updater
     string creatorUsername = 6;
     string creatorId = 7;
@@ -4295,7 +4290,6 @@ message CliTemplateConfig {
     string switches = 8;
     bool overwrite = 9;
     bool reload = 10;
-
     // creator
     string creatorUsername = 11;
     string creatorId = 12;

@@ -199,7 +199,6 @@ message Ipv4Prefix {
 
   // The masked network address. It must be present.
   Ipv4Address address = 1 [(buf.validate.field).required = true];
-
   // The prefix length in bits. It must be present; zero denotes the default
   // route.
   uint32 length = 2 [
@@ -234,7 +233,6 @@ message Ipv6Prefix {
 
   // The masked network address. It must be present.
   Ipv6Address address = 1 [(buf.validate.field).required = true];
-
   // The prefix length in bits. It must be present; zero denotes the default
   // route.
   uint32 length = 2 [
@@ -265,7 +263,6 @@ message Ipv4Range {
   // The inclusive lower bound. Absent is invalid; omit the containing field
   // instead.
   Ipv4Address start = 1 [(buf.validate.field).required = true];
-
   // The inclusive upper bound. Absent is invalid; omit the containing field
   // instead.
   Ipv4Address end = 2 [(buf.validate.field).required = true];
@@ -282,7 +279,6 @@ message Ipv6Range {
   // The inclusive lower bound. Absent is invalid; omit the containing field
   // instead.
   Ipv6Address start = 1 [(buf.validate.field).required = true];
-
   // The inclusive upper bound. Absent is invalid; omit the containing field
   // instead.
   Ipv6Address end = 2 [(buf.validate.field).required = true];
@@ -323,7 +319,6 @@ message IpLifetime {
       expression: "this == duration(string(this.getSeconds()) + 's')"
     }
   ];
-
   // The duration until the address becomes invalid and is removed. Absent
   // means infinite.
   google.protobuf.Duration valid = 2 [

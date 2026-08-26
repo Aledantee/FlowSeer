@@ -23,28 +23,22 @@ message InterfaceAddress {
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1
   ];
-
   // The assigned host address. Absent is invalid; omit the containing
   // InterfaceAddress when no assignment was observed.
   flowseer.net.addr.v1.IpAddress address = 2 [(buf.validate.field).required = true];
-
   // The canonical network prefix containing the assigned address. Absent is
   // invalid. Membership is checked by consumers because validation has no
   // reusable bit-prefix comparison for the two byte-address values.
   flowseer.net.addr.v1.IpPrefix prefix = 3 [(buf.validate.field).required = true];
-
   // How the address was assigned. Absent means the source did not report an
   // origin.
   AddressOrigin origin = 4;
-
   // Current usability of the address. Absent means the source did not report
   // a status.
   AddressStatus status = 5;
-
   // Coarse routing or topology scope. Absent means the source did not report
   // a scope and FlowSeer has not classified one.
   flowseer.net.addr.v1.IpScope scope = 6;
-
   // Preferred and valid lease lifetimes. Absent means no lifetime information
   // was observed; a present empty value means both lifetimes are infinite.
   flowseer.net.addr.v1.IpLifetime lifetime = 7;
