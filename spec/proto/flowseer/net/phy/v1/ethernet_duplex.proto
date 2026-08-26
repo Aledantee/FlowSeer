@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// The operational or requested duplex mode of an Ethernet link.
+enum EthernetDuplex {
+  // The source did not report a duplex mode.
+  ETHERNET_DUPLEX_UNSPECIFIED = 0;
+  // The link transmits in only one direction at a time.
+  ETHERNET_DUPLEX_HALF = 1;
+  // The link transmits in both directions simultaneously.
+  ETHERNET_DUPLEX_FULL = 2;
+}

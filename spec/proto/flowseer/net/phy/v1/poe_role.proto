@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// The role an Ethernet port has in Power over Ethernet delivery.
+enum PoeRole {
+  // The source did not report a PoE role.
+  POE_ROLE_UNSPECIFIED = 0;
+  // The port supplies power as Power Sourcing Equipment.
+  POE_ROLE_PSE = 1;
+  // The port consumes power as a Powered Device.
+  POE_ROLE_PD = 2;
+}
