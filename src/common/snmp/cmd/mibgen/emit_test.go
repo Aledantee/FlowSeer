@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"go/parser"
 	"go/token"
@@ -10,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/sleepinggenius2/gosmi"
+	"golang.org/x/tools/imports"
+	"mvdan.cc/gofumpt/format"
 )
 
 // updateGolden refreshes the committed golden file under
@@ -115,6 +118,39 @@ func TestEmit_GeneratedParses(t *testing.T) {
 	fset := token.NewFileSet()
 	if _, err := parser.ParseFile(fset, "fakemib_mib.go", out, parser.AllErrors|parser.ParseComments); err != nil {
 		t.Fatalf("parse: %v\n--- emitted ---\n%s", err, string(out))
+	}
+}
+
+// TestEmit_GeneratedFormatting ensures the emitter returns source that already
+// satisfies the repository's gofumpt and goimports gates. Generated files must
+// not require a caller-side formatting pass after renderModule returns.
+func TestEmit_GeneratedFormatting(t *testing.T) {
+	mod, cleanup := loadFakeMIB(t)
+	defer cleanup()
+
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, err := renderModule(mod, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+
+	fumpt, err := format.Source(out, format.Options{
+		LangVersion: "go1.26",
+		ModulePath:  "go.aledante.io/FlowSeer",
+	})
+	if err != nil {
+		t.Fatalf("gofumpt generated source: %v", err)
+	}
+	if !bytes.Equal(out, fumpt) {
+		t.Error("generated source is not gofumpt-clean")
+	}
+
+	withImports, err := imports.Process("fakemib_mib.go", out, nil)
+	if err != nil {
+		t.Fatalf("goimports generated source: %v", err)
+	}
+	if !bytes.Equal(out, withImports) {
+		t.Error("generated source is not goimports-clean")
 	}
 }
 
