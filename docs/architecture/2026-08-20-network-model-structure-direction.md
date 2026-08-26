@@ -21,6 +21,10 @@ products, observed-state platforms, automation layers, vendor cloud APIs, and
 the standard MIBs structure the same concepts (see Sources). Where this
 direction deviates from that prior art it says so and why.
 
+The focused protocol and Edition 2024 evidence behind the PHY, packet, L2, and
+L3 boundary is recorded in the
+[net core package research](2026-08-26-net-core-package-research.md).
+
 ## Decision in one paragraph
 
 Two kinds of message, two trees, one import rule. **Primitives** under

@@ -1,5 +1,5 @@
 ---
-title: FlowSeer net core package research
+title: FlowSeer Net Core Package Research
 date: 2026-08-26
 scope: flowseer.net.{phy,packet,l2,l3}.v1
 confidence: high
