@@ -1,0 +1,24 @@
+edition = "2024";
+
+package flowseer.ip.v1;
+
+// How an address was assigned to an interface. The taxonomy follows the
+// origin categories in RFC 8344 while retaining a distinct SLAAC value for
+// sources that report the assignment mechanism but not address generation.
+enum AddressOrigin {
+  // The origin was explicitly reported as unknown. An unreported origin is
+  // represented by an absent field instead.
+  ADDRESS_ORIGIN_UNSPECIFIED = 0;
+  // An origin outside the normalized categories.
+  ADDRESS_ORIGIN_OTHER = 1;
+  // Operator or controller configuration.
+  ADDRESS_ORIGIN_STATIC = 2;
+  // DHCPv4 or DHCPv6 assignment.
+  ADDRESS_ORIGIN_DHCP = 3;
+  // IPv6 Stateless Address Autoconfiguration.
+  ADDRESS_ORIGIN_SLAAC = 4;
+  // Generation from a link-layer address.
+  ADDRESS_ORIGIN_LINK_LAYER = 5;
+  // Random or semantically opaque generation, including privacy addresses.
+  ADDRESS_ORIGIN_RANDOM = 6;
+}

@@ -1,0 +1,19 @@
+edition = "2024";
+
+package flowseer.ip.v1;
+
+// How a neighbor-cache mapping was created. The categories normalize RFC 8344
+// and the IP-MIB mapping types from RFC 4293.
+enum NeighborOrigin {
+  // The origin was explicitly reported as unknown. An unreported origin is
+  // represented by an absent field instead.
+  NEIGHBOR_ORIGIN_UNSPECIFIED = 0;
+  // An origin outside the normalized categories.
+  NEIGHBOR_ORIGIN_OTHER = 1;
+  // ARP or IPv6 Neighbor Discovery learned the mapping.
+  NEIGHBOR_ORIGIN_DYNAMIC = 2;
+  // An operator or controller configured the mapping.
+  NEIGHBOR_ORIGIN_STATIC = 3;
+  // The mapping describes an address owned by the local device.
+  NEIGHBOR_ORIGIN_LOCAL = 4;
+}

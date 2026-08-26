@@ -1,0 +1,42 @@
+edition = "2024";
+
+package flowseer.ip.v1;
+
+import "flowseer/ip/v1/neighbor_origin.proto";
+import "flowseer/ip/v1/neighbor_state.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/addr/v1/mac_address.proto";
+import option "buf/validate/validate.proto";
+
+// A device neighbor-cache row keyed by interface name and IP address. It
+// represents both IPv4 ARP and IPv6 Neighbor Discovery without carrying a
+// device ref, tenant, or observation provenance.
+message NeighborEntry {
+  // The device-reported interface name that scopes the mapping. Absent or
+  // empty is invalid; omit the containing entry when it is unavailable.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+
+  // The neighbor's network-layer address. Absent is invalid; omit the
+  // containing entry when no neighbor address was observed.
+  flowseer.net.addr.v1.IpAddress ip = 2 [(buf.validate.field).required = true];
+
+  // The resolved link-layer address. Absent means it is not known, as is
+  // expected for incomplete or failed resolution.
+  flowseer.net.addr.v1.MacAddress mac = 3;
+
+  // How the mapping was created. Absent means the source did not report an
+  // origin.
+  NeighborOrigin origin = 4;
+
+  // Current reachability state. Absent means the source did not report a
+  // state.
+  NeighborState state = 5;
+
+  // Whether the neighbor advertises itself as an IPv6 router. Absent means
+  // the source did not expose the router flag; false means it explicitly did
+  // not identify the neighbor as a router.
+  bool is_router = 6;
+}

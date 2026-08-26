@@ -1,0 +1,56 @@
+edition = "2024";
+
+package flowseer.ip.v1;
+
+import "flowseer/ip/v1/next_hop.proto";
+import "flowseer/ip/v1/route_protocol.proto";
+import "flowseer/ip/v1/route_type.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import option "buf/validate/validate.proto";
+
+// A route row from a device RIB or forwarding table. Multiple next hops form
+// one ECMP choice set; routes with local or discard actions may have none.
+message Route {
+  // The device-local routing table name. Absent or empty is invalid; it must
+  // match a RoutingTable name from the same device observation.
+  string routing_table_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+
+  // The canonical destination network prefix. Producers must clear host bits
+  // as required by flowseer.net.addr.v1.IpPrefix.
+  flowseer.net.addr.v1.IpPrefix destination = 2 [(buf.validate.field).required = true];
+
+  // Forwarding choices for this route. Empty is valid for local, blackhole,
+  // unreachable, prohibit, and throw actions or when no choice was reported.
+  repeated NextHop next_hops = 3;
+
+  // The protocol or mechanism that supplied the route. Absent means the
+  // source did not report it.
+  RouteProtocol source_protocol = 4;
+
+  // The forwarding action or destination class. Absent means the source did
+  // not report it.
+  RouteType type = 5;
+
+  // Administrative preference used to choose among routes to the same
+  // destination; lower values are preferred. Absent means it was not reported.
+  uint32 preference = 6;
+
+  // Protocol-specific path metric. Its scale and comparison semantics are
+  // determined by source_protocol. Absent means it was not reported.
+  uint64 metric = 7;
+
+  // Administrative route tag. Absent means it was not reported; zero is a
+  // present tag value rather than an absence sentinel.
+  uint32 tag = 8;
+
+  // Whether this route won selection for its destination in the RIB. Absent
+  // means selection state was not reported; false means it explicitly lost.
+  bool active = 9;
+
+  // The table from which a leaked route originated. Absent means the route
+  // was not reported as imported from another table.
+  string origin_routing_table_name = 10 [(buf.validate.field).string.min_len = 1];
+}
