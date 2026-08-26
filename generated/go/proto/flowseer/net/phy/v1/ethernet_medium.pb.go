@@ -33,8 +33,6 @@ const (
 	EthernetMedium_ETHERNET_MEDIUM_FIBER EthernetMedium = 2
 	// A chassis or system backplane.
 	EthernetMedium_ETHERNET_MEDIUM_BACKPLANE EthernetMedium = 3
-	// A passive or active direct-attach cable.
-	EthernetMedium_ETHERNET_MEDIUM_DIRECT_ATTACH EthernetMedium = 4
 	// A reported medium outside the normalized cases.
 	EthernetMedium_ETHERNET_MEDIUM_OTHER EthernetMedium = 5
 )
@@ -46,16 +44,14 @@ var (
 		1: "ETHERNET_MEDIUM_COPPER",
 		2: "ETHERNET_MEDIUM_FIBER",
 		3: "ETHERNET_MEDIUM_BACKPLANE",
-		4: "ETHERNET_MEDIUM_DIRECT_ATTACH",
 		5: "ETHERNET_MEDIUM_OTHER",
 	}
 	EthernetMedium_value = map[string]int32{
-		"ETHERNET_MEDIUM_UNSPECIFIED":   0,
-		"ETHERNET_MEDIUM_COPPER":        1,
-		"ETHERNET_MEDIUM_FIBER":         2,
-		"ETHERNET_MEDIUM_BACKPLANE":     3,
-		"ETHERNET_MEDIUM_DIRECT_ATTACH": 4,
-		"ETHERNET_MEDIUM_OTHER":         5,
+		"ETHERNET_MEDIUM_UNSPECIFIED": 0,
+		"ETHERNET_MEDIUM_COPPER":      1,
+		"ETHERNET_MEDIUM_FIBER":       2,
+		"ETHERNET_MEDIUM_BACKPLANE":   3,
+		"ETHERNET_MEDIUM_OTHER":       5,
 	}
 )
 
@@ -85,14 +81,13 @@ var File_flowseer_net_phy_v1_ethernet_medium_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_ethernet_medium_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/net/phy/v1/ethernet_medium.proto\x12\x13flowseer.net.phy.v1*\xc5\x01\n" +
+	")flowseer/net/phy/v1/ethernet_medium.proto\x12\x13flowseer.net.phy.v1*\xc7\x01\n" +
 	"\x0eEthernetMedium\x12\x1f\n" +
 	"\x1bETHERNET_MEDIUM_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16ETHERNET_MEDIUM_COPPER\x10\x01\x12\x19\n" +
 	"\x15ETHERNET_MEDIUM_FIBER\x10\x02\x12\x1d\n" +
-	"\x19ETHERNET_MEDIUM_BACKPLANE\x10\x03\x12!\n" +
-	"\x1dETHERNET_MEDIUM_DIRECT_ATTACH\x10\x04\x12\x19\n" +
-	"\x15ETHERNET_MEDIUM_OTHER\x10\x05B\xe3\x01\n" +
+	"\x19ETHERNET_MEDIUM_BACKPLANE\x10\x03\x12\x19\n" +
+	"\x15ETHERNET_MEDIUM_OTHER\x10\x05\"\x04\b\x04\x10\x04*\x1dETHERNET_MEDIUM_DIRECT_ATTACHB\xe3\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x13EthernetMediumProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_medium_proto_enumTypes = make([]protoimpl.EnumInfo, 1)

@@ -13,7 +13,7 @@ message TransceiverFacet {
     expression:
       "!has(this.present) || this.present || "
       "(!has(this.form_factor) && !has(this.vendor_name) && !has(this.part_number) && "
-      "!has(this.serial_number) && !has(this.wavelength_nanometers))"
+      "!has(this.serial_number))"
   };
 
   // Whether a module is installed. Absent means presence was not reported;
@@ -31,7 +31,6 @@ message TransceiverFacet {
   // The vendor serial number. Absent means no serial number was reported; a
   // present value must not be empty.
   string serial_number = 5 [(buf.validate.field).string.min_len = 1];
-  // The nominal optical wavelength in nanometers. Absent means no wavelength
-  // was reported; zero is invalid when the field is present.
-  uint32 wavelength_nanometers = 6 [(buf.validate.field).uint32.gt = 0];
+  reserved 6;
+  reserved wavelength_nanometers;
 }

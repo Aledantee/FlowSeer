@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/poe_priority.proto";
+import option "buf/validate/validate.proto";
+
+// Requested Power over Ethernet settings. Capability and delivery facts are
+// represented separately by PoeFacet.
+message PoeSettings {
+  // Whether power delivery should be enabled. Absent leaves the existing or
+  // source-default setting unchanged.
+  bool enabled = 1;
+  // Requested power ceiling in milliwatts. Absent leaves it unspecified; zero
+  // is an explicit zero-power ceiling.
+  uint32 power_limit_milliwatts = 2;
+  // Requested oversubscription priority. Absent leaves it unspecified; an
+  // explicitly unspecified sentinel is invalid in intended settings.
+  PoePriority priority = 3 [(buf.validate.field).enum.not_in = 0];
+}

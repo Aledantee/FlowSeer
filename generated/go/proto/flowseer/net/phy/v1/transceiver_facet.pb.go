@@ -23,17 +23,16 @@ const (
 // Pluggable-transceiver presence and identity as observed at one physical
 // interface. Richer inventory attributes belong to a separate component entity.
 type TransceiverFacet struct {
-	state                           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Present              bool                   `protobuf:"varint,1,opt,name=present"`
-	xxx_hidden_FormFactor           *string                `protobuf:"bytes,2,opt,name=form_factor,json=formFactor"`
-	xxx_hidden_VendorName           *string                `protobuf:"bytes,3,opt,name=vendor_name,json=vendorName"`
-	xxx_hidden_PartNumber           *string                `protobuf:"bytes,4,opt,name=part_number,json=partNumber"`
-	xxx_hidden_SerialNumber         *string                `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber"`
-	xxx_hidden_WavelengthNanometers uint32                 `protobuf:"varint,6,opt,name=wavelength_nanometers,json=wavelengthNanometers"`
-	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
-	XXX_presence                    [1]uint32
-	unknownFields                   protoimpl.UnknownFields
-	sizeCache                       protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Present      bool                   `protobuf:"varint,1,opt,name=present"`
+	xxx_hidden_FormFactor   *string                `protobuf:"bytes,2,opt,name=form_factor,json=formFactor"`
+	xxx_hidden_VendorName   *string                `protobuf:"bytes,3,opt,name=vendor_name,json=vendorName"`
+	xxx_hidden_PartNumber   *string                `protobuf:"bytes,4,opt,name=part_number,json=partNumber"`
+	xxx_hidden_SerialNumber *string                `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber"`
+	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
+	XXX_presence            [1]uint32
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *TransceiverFacet) Reset() {
@@ -108,41 +107,29 @@ func (x *TransceiverFacet) GetSerialNumber() string {
 	return ""
 }
 
-func (x *TransceiverFacet) GetWavelengthNanometers() uint32 {
-	if x != nil {
-		return x.xxx_hidden_WavelengthNanometers
-	}
-	return 0
-}
-
 func (x *TransceiverFacet) SetPresent(v bool) {
 	x.xxx_hidden_Present = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *TransceiverFacet) SetFormFactor(v string) {
 	x.xxx_hidden_FormFactor = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *TransceiverFacet) SetVendorName(v string) {
 	x.xxx_hidden_VendorName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
 }
 
 func (x *TransceiverFacet) SetPartNumber(v string) {
 	x.xxx_hidden_PartNumber = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
 }
 
 func (x *TransceiverFacet) SetSerialNumber(v string) {
 	x.xxx_hidden_SerialNumber = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
-}
-
-func (x *TransceiverFacet) SetWavelengthNanometers(v uint32) {
-	x.xxx_hidden_WavelengthNanometers = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *TransceiverFacet) HasPresent() bool {
@@ -180,13 +167,6 @@ func (x *TransceiverFacet) HasSerialNumber() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
-func (x *TransceiverFacet) HasWavelengthNanometers() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
-}
-
 func (x *TransceiverFacet) ClearPresent() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Present = false
@@ -212,11 +192,6 @@ func (x *TransceiverFacet) ClearSerialNumber() {
 	x.xxx_hidden_SerialNumber = nil
 }
 
-func (x *TransceiverFacet) ClearWavelengthNanometers() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
-	x.xxx_hidden_WavelengthNanometers = 0
-}
-
 type TransceiverFacet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -235,9 +210,6 @@ type TransceiverFacet_builder struct {
 	// The vendor serial number. Absent means no serial number was reported; a
 	// present value must not be empty.
 	SerialNumber *string
-	// The nominal optical wavelength in nanometers. Absent means no wavelength
-	// was reported; zero is invalid when the field is present.
-	WavelengthNanometers *uint32
 }
 
 func (b0 TransceiverFacet_builder) Build() *TransceiverFacet {
@@ -245,28 +217,24 @@ func (b0 TransceiverFacet_builder) Build() *TransceiverFacet {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Present != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_Present = *b.Present
 	}
 	if b.FormFactor != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_FormFactor = b.FormFactor
 	}
 	if b.VendorName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
 		x.xxx_hidden_VendorName = b.VendorName
 	}
 	if b.PartNumber != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
 		x.xxx_hidden_PartNumber = b.PartNumber
 	}
 	if b.SerialNumber != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
 		x.xxx_hidden_SerialNumber = b.SerialNumber
-	}
-	if b.WavelengthNanometers != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
-		x.xxx_hidden_WavelengthNanometers = *b.WavelengthNanometers
 	}
 	return m0
 }
@@ -275,7 +243,7 @@ var File_flowseer_net_phy_v1_transceiver_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_transceiver_facet_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/net/phy/v1/transceiver_facet.proto\x12\x13flowseer.net.phy.v1\"\xca\x04\n" +
+	"+flowseer/net/phy/v1/transceiver_facet.proto\x12\x13flowseer.net.phy.v1\"\x85\x04\n" +
 	"\x10TransceiverFacet\x12\x18\n" +
 	"\apresent\x18\x01 \x01(\bR\apresent\x12(\n" +
 	"\vform_factor\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
@@ -284,9 +252,8 @@ const file_flowseer_net_phy_v1_transceiver_facet_proto_rawDesc = "" +
 	"vendorName\x12(\n" +
 	"\vpart_number\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"partNumber\x12,\n" +
-	"\rserial_number\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\fserialNumber\x12<\n" +
-	"\x15wavelength_nanometers\x18\x06 \x01(\rB\a\xbaH\x04*\x02 \x00R\x14wavelengthNanometers:\xb1\x02\xbaH\xad\x02\x1a\xaa\x02\n" +
-	"5transceiver_facet.empty_cage_has_no_module_attributes\x12<an explicitly empty cage cannot carry transceiver attributes\x1a\xb2\x01!has(this.present) || this.present || (!has(this.form_factor) && !has(this.vendor_name) && !has(this.part_number) && !has(this.serial_number) && !has(this.wavelength_nanometers))B\xe5\x01\n" +
+	"\rserial_number\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\fserialNumber:\x8d\x02\xbaH\x89\x02\x1a\x86\x02\n" +
+	"5transceiver_facet.empty_cage_has_no_module_attributes\x12<an explicitly empty cage cannot carry transceiver attributes\x1a\x8e\x01!has(this.present) || this.present || (!has(this.form_factor) && !has(this.vendor_name) && !has(this.part_number) && !has(this.serial_number))J\x04\b\x06\x10\aR\x15wavelength_nanometersB\xe5\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x15TransceiverFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_transceiver_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

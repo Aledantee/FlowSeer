@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// Administrative priority used when a power-sourcing device is oversubscribed.
+enum PoePriority {
+  // The source explicitly reported an unknown priority. Absence means unreported.
+  POE_PRIORITY_UNSPECIFIED = 0;
+  // Lowest power-delivery priority.
+  POE_PRIORITY_LOW = 1;
+  // Elevated power-delivery priority.
+  POE_PRIORITY_HIGH = 2;
+  // Critical power-delivery priority.
+  POE_PRIORITY_CRITICAL = 3;
+}

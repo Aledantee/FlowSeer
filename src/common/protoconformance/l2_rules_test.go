@@ -27,6 +27,31 @@ func TestLayer2PrimitiveRules(t *testing.T) {
 		wantValid bool
 	}{
 		{
+			name:      "VLAN identifier absent",
+			message:   l2v1.Vlan_builder{}.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "VLAN identifier zero",
+			message:   l2v1.Vlan_builder{Id: proto.Uint32(0)}.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "lowest usable VLAN identifier",
+			message:   l2v1.Vlan_builder{Id: proto.Uint32(1)}.Build(),
+			wantValid: true,
+		},
+		{
+			name:      "highest usable VLAN identifier",
+			message:   l2v1.Vlan_builder{Id: proto.Uint32(4094)}.Build(),
+			wantValid: true,
+		},
+		{
+			name:      "reserved VLAN identifier",
+			message:   l2v1.Vlan_builder{Id: proto.Uint32(4095)}.Build(),
+			wantValid: false,
+		},
+		{
 			name:      "priority tag VID zero",
 			message:   validTag(0),
 			wantValid: true,
