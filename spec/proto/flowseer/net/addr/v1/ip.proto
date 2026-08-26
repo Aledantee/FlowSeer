@@ -173,38 +173,32 @@ message IpAddress {
   }
 }
 
-// An IPv4 address with a prefix length. Host bits beyond the prefix length are
-// preserved, so this is not necessarily a canonical network prefix and may
-// carry an observed interface address.
+// A canonical IPv4 network prefix. Every host bit beyond the prefix length is
+// zero.
 message Ipv4Prefix {
-  // The address portion. Absent is invalid; omit the containing field instead.
-  Ipv4Address address = 1 [(buf.validate.field).required = true];
+  reserved 1, 2;
 
-  // The prefix length in bits. Zero is the default route. Absent is invalid;
-  // omit the containing field instead.
-  uint32 length = 2 [
+  // The masked prefix in IPv4 CIDR notation, for example 192.0.2.0/24.
+  string prefix = 3 [
     (buf.validate.field).required = true,
-    (buf.validate.field).uint32.lte = 32
+    (buf.validate.field).string.ipv4_prefix = true
   ];
 }
 
-// An IPv6 address with a prefix length. Host bits beyond the prefix length are
-// preserved, so this is not necessarily a canonical network prefix and may
-// carry an observed interface address.
+// A canonical IPv6 network prefix. Every host bit beyond the prefix length is
+// zero.
 message Ipv6Prefix {
-  // The address portion. Absent is invalid; omit the containing field instead.
-  Ipv6Address address = 1 [(buf.validate.field).required = true];
+  reserved 1, 2;
 
-  // The prefix length in bits. Zero is the default route. Absent is invalid;
-  // omit the containing field instead.
-  uint32 length = 2 [
+  // The masked prefix in IPv6 CIDR notation, for example 2001:db8::/32.
+  string prefix = 3 [
     (buf.validate.field).required = true,
-    (buf.validate.field).uint32.lte = 128
+    (buf.validate.field).string.ipv6_prefix = true
   ];
 }
 
-// An IP network prefix of either family. Each arm bounds its own length, so
-// the family and prefix length cannot disagree.
+// A canonical IP network prefix of either family. Each arm bounds its own
+// length and requires every host bit to be zero.
 message IpPrefix {
   oneof family {
     option (buf.validate.oneof).required = true;

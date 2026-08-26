@@ -754,13 +754,11 @@ func (*ipAddress_V4) isIpAddress_Family() {}
 
 func (*ipAddress_V6) isIpAddress_Family() {}
 
-// An IPv4 address with a prefix length. Host bits beyond the prefix length are
-// preserved, so this is not necessarily a canonical network prefix and may
-// carry an observed interface address.
+// A canonical IPv4 network prefix. Every host bit beyond the prefix length is
+// zero.
 type Ipv4Prefix struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Address     *Ipv4Address           `protobuf:"bytes,1,opt,name=address"`
-	xxx_hidden_Length      uint32                 `protobuf:"varint,2,opt,name=length"`
+	xxx_hidden_Prefix      *string                `protobuf:"bytes,3,opt,name=prefix"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -792,81 +790,56 @@ func (x *Ipv4Prefix) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Ipv4Prefix) GetAddress() *Ipv4Address {
+func (x *Ipv4Prefix) GetPrefix() string {
 	if x != nil {
-		return x.xxx_hidden_Address
+		if x.xxx_hidden_Prefix != nil {
+			return *x.xxx_hidden_Prefix
+		}
+		return ""
 	}
-	return nil
+	return ""
 }
 
-func (x *Ipv4Prefix) GetLength() uint32 {
-	if x != nil {
-		return x.xxx_hidden_Length
-	}
-	return 0
+func (x *Ipv4Prefix) SetPrefix(v string) {
+	x.xxx_hidden_Prefix = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
 }
 
-func (x *Ipv4Prefix) SetAddress(v *Ipv4Address) {
-	x.xxx_hidden_Address = v
-}
-
-func (x *Ipv4Prefix) SetLength(v uint32) {
-	x.xxx_hidden_Length = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
-}
-
-func (x *Ipv4Prefix) HasAddress() bool {
+func (x *Ipv4Prefix) HasPrefix() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Address != nil
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *Ipv4Prefix) HasLength() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *Ipv4Prefix) ClearAddress() {
-	x.xxx_hidden_Address = nil
-}
-
-func (x *Ipv4Prefix) ClearLength() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Length = 0
+func (x *Ipv4Prefix) ClearPrefix() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Prefix = nil
 }
 
 type Ipv4Prefix_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The address portion. Absent is invalid; omit the containing field instead.
-	Address *Ipv4Address
-	// The prefix length in bits. Zero is the default route. Absent is invalid;
-	// omit the containing field instead.
-	Length *uint32
+	// The masked prefix in IPv4 CIDR notation, for example 192.0.2.0/24.
+	Prefix *string
 }
 
 func (b0 Ipv4Prefix_builder) Build() *Ipv4Prefix {
 	m0 := &Ipv4Prefix{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Address = b.Address
-	if b.Length != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
-		x.xxx_hidden_Length = *b.Length
+	if b.Prefix != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Prefix = b.Prefix
 	}
 	return m0
 }
 
-// An IPv6 address with a prefix length. Host bits beyond the prefix length are
-// preserved, so this is not necessarily a canonical network prefix and may
-// carry an observed interface address.
+// A canonical IPv6 network prefix. Every host bit beyond the prefix length is
+// zero.
 type Ipv6Prefix struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Address     *Ipv6Address           `protobuf:"bytes,1,opt,name=address"`
-	xxx_hidden_Length      uint32                 `protobuf:"varint,2,opt,name=length"`
+	xxx_hidden_Prefix      *string                `protobuf:"bytes,3,opt,name=prefix"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -898,76 +871,53 @@ func (x *Ipv6Prefix) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Ipv6Prefix) GetAddress() *Ipv6Address {
+func (x *Ipv6Prefix) GetPrefix() string {
 	if x != nil {
-		return x.xxx_hidden_Address
+		if x.xxx_hidden_Prefix != nil {
+			return *x.xxx_hidden_Prefix
+		}
+		return ""
 	}
-	return nil
+	return ""
 }
 
-func (x *Ipv6Prefix) GetLength() uint32 {
-	if x != nil {
-		return x.xxx_hidden_Length
-	}
-	return 0
+func (x *Ipv6Prefix) SetPrefix(v string) {
+	x.xxx_hidden_Prefix = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
 }
 
-func (x *Ipv6Prefix) SetAddress(v *Ipv6Address) {
-	x.xxx_hidden_Address = v
-}
-
-func (x *Ipv6Prefix) SetLength(v uint32) {
-	x.xxx_hidden_Length = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
-}
-
-func (x *Ipv6Prefix) HasAddress() bool {
+func (x *Ipv6Prefix) HasPrefix() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Address != nil
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *Ipv6Prefix) HasLength() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *Ipv6Prefix) ClearAddress() {
-	x.xxx_hidden_Address = nil
-}
-
-func (x *Ipv6Prefix) ClearLength() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Length = 0
+func (x *Ipv6Prefix) ClearPrefix() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Prefix = nil
 }
 
 type Ipv6Prefix_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The address portion. Absent is invalid; omit the containing field instead.
-	Address *Ipv6Address
-	// The prefix length in bits. Zero is the default route. Absent is invalid;
-	// omit the containing field instead.
-	Length *uint32
+	// The masked prefix in IPv6 CIDR notation, for example 2001:db8::/32.
+	Prefix *string
 }
 
 func (b0 Ipv6Prefix_builder) Build() *Ipv6Prefix {
 	m0 := &Ipv6Prefix{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Address = b.Address
-	if b.Length != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
-		x.xxx_hidden_Length = *b.Length
+	if b.Prefix != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Prefix = b.Prefix
 	}
 	return m0
 }
 
-// An IP network prefix of either family. Each arm bounds its own length, so
-// the family and prefix length cannot disagree.
+// A canonical IP network prefix of either family. Each arm bounds its own
+// length and requires every host bit to be zero.
 type IpPrefix struct {
 	state             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Family isIpPrefix_Family      `protobuf_oneof:"family"`
@@ -1625,16 +1575,13 @@ const file_flowseer_net_addr_v1_ip_proto_rawDesc = "" +
 	"\tIpAddress\x123\n" +
 	"\x02v4\x18\x01 \x01(\v2!.flowseer.net.addr.v1.Ipv4AddressH\x00R\x02v4\x123\n" +
 	"\x02v6\x18\x02 \x01(\v2!.flowseer.net.addr.v1.Ipv6AddressH\x00R\x02v6B\x0f\n" +
-	"\x06family\x12\x05\xbaH\x02\b\x01\"u\n" +
+	"\x06family\x12\x05\xbaH\x02\b\x01\"=\n" +
 	"\n" +
-	"Ipv4Prefix\x12C\n" +
-	"\aaddress\x18\x01 \x01(\v2!.flowseer.net.addr.v1.Ipv4AddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12\"\n" +
-	"\x06length\x18\x02 \x01(\rB\n" +
-	"\xbaH\a\xc8\x01\x01*\x02\x18 R\x06length\"v\n" +
+	"Ipv4Prefix\x12#\n" +
+	"\x06prefix\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xf0\x01\x01R\x06prefixJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"=\n" +
 	"\n" +
-	"Ipv6Prefix\x12C\n" +
-	"\aaddress\x18\x01 \x01(\v2!.flowseer.net.addr.v1.Ipv6AddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12#\n" +
-	"\x06length\x18\x02 \x01(\rB\v\xbaH\b\xc8\x01\x01*\x03\x18\x80\x01R\x06length\"\x83\x01\n" +
+	"Ipv6Prefix\x12#\n" +
+	"\x06prefix\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xf8\x01\x01R\x06prefixJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\x83\x01\n" +
 	"\bIpPrefix\x122\n" +
 	"\x02v4\x18\x01 \x01(\v2 .flowseer.net.addr.v1.Ipv4PrefixH\x00R\x02v4\x122\n" +
 	"\x02v6\x18\x02 \x01(\v2 .flowseer.net.addr.v1.Ipv6PrefixH\x00R\x02v6B\x0f\n" +
@@ -1744,23 +1691,21 @@ var file_flowseer_net_addr_v1_ip_proto_goTypes = []any{
 var file_flowseer_net_addr_v1_ip_proto_depIdxs = []int32{
 	5,  // 0: flowseer.net.addr.v1.IpAddress.v4:type_name -> flowseer.net.addr.v1.Ipv4Address
 	6,  // 1: flowseer.net.addr.v1.IpAddress.v6:type_name -> flowseer.net.addr.v1.Ipv6Address
-	5,  // 2: flowseer.net.addr.v1.Ipv4Prefix.address:type_name -> flowseer.net.addr.v1.Ipv4Address
-	6,  // 3: flowseer.net.addr.v1.Ipv6Prefix.address:type_name -> flowseer.net.addr.v1.Ipv6Address
-	8,  // 4: flowseer.net.addr.v1.IpPrefix.v4:type_name -> flowseer.net.addr.v1.Ipv4Prefix
-	9,  // 5: flowseer.net.addr.v1.IpPrefix.v6:type_name -> flowseer.net.addr.v1.Ipv6Prefix
-	5,  // 6: flowseer.net.addr.v1.Ipv4Range.start:type_name -> flowseer.net.addr.v1.Ipv4Address
-	5,  // 7: flowseer.net.addr.v1.Ipv4Range.end:type_name -> flowseer.net.addr.v1.Ipv4Address
-	6,  // 8: flowseer.net.addr.v1.Ipv6Range.start:type_name -> flowseer.net.addr.v1.Ipv6Address
-	6,  // 9: flowseer.net.addr.v1.Ipv6Range.end:type_name -> flowseer.net.addr.v1.Ipv6Address
-	11, // 10: flowseer.net.addr.v1.IpRange.v4:type_name -> flowseer.net.addr.v1.Ipv4Range
-	12, // 11: flowseer.net.addr.v1.IpRange.v6:type_name -> flowseer.net.addr.v1.Ipv6Range
-	15, // 12: flowseer.net.addr.v1.IpLifetime.preferred:type_name -> google.protobuf.Duration
-	15, // 13: flowseer.net.addr.v1.IpLifetime.valid:type_name -> google.protobuf.Duration
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	8,  // 2: flowseer.net.addr.v1.IpPrefix.v4:type_name -> flowseer.net.addr.v1.Ipv4Prefix
+	9,  // 3: flowseer.net.addr.v1.IpPrefix.v6:type_name -> flowseer.net.addr.v1.Ipv6Prefix
+	5,  // 4: flowseer.net.addr.v1.Ipv4Range.start:type_name -> flowseer.net.addr.v1.Ipv4Address
+	5,  // 5: flowseer.net.addr.v1.Ipv4Range.end:type_name -> flowseer.net.addr.v1.Ipv4Address
+	6,  // 6: flowseer.net.addr.v1.Ipv6Range.start:type_name -> flowseer.net.addr.v1.Ipv6Address
+	6,  // 7: flowseer.net.addr.v1.Ipv6Range.end:type_name -> flowseer.net.addr.v1.Ipv6Address
+	11, // 8: flowseer.net.addr.v1.IpRange.v4:type_name -> flowseer.net.addr.v1.Ipv4Range
+	12, // 9: flowseer.net.addr.v1.IpRange.v6:type_name -> flowseer.net.addr.v1.Ipv6Range
+	15, // 10: flowseer.net.addr.v1.IpLifetime.preferred:type_name -> google.protobuf.Duration
+	15, // 11: flowseer.net.addr.v1.IpLifetime.valid:type_name -> google.protobuf.Duration
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_addr_v1_ip_proto_init() }

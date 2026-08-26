@@ -175,6 +175,11 @@ a byte count, and adding a variant is adding an arm.
 `IpPrefix`, and the related IP value types together; the MAC family uses
 `Eui48Address` / `Eui64Address` / `MacAddress`.
 
+An IP prefix is a canonical network prefix, not an interface address paired
+with a prefix length. Every host bit beyond the declared length is zero; model
+an observed interface address and its prefix as separate fields in the owning
+facet.
+
 The variant's payload field is `required`. The *containing* message's presence
 is what expresses optionality — an address message that is set but empty is not
 an absent address, it is a malformed one. Both rules earn their place: an empty

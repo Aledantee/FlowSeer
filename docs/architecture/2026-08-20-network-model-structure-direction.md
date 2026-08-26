@@ -309,8 +309,9 @@ API_OPAQUE`.
    `Eui64Address{bytes octets}` (`len = 8`) behind
    `MacAddress{oneof kind}`; `Ipv4Address` (`len = 4`) and `Ipv6Address`
    (`len = 16`) behind `IpAddress{oneof family}`;
-   `Ipv4Prefix{Ipv4Address address, uint32 length}` (`lte = 32`) and
-   `Ipv6Prefix` (`lte = 128`) behind `IpPrefix{oneof family}`. `Oui{bytes
+   `Ipv4Prefix` and `Ipv6Prefix` carry masked CIDR strings checked by
+   Protovalidate's native family-specific prefix rules behind
+   `IpPrefix{oneof family}`. `Oui{bytes
    octets}` (`len = 3`) stands alone, because a vendor prefilter holds an OUI
    with no address behind it. Every payload field is `required`: the
    *containing* field's presence is what expresses optionality, so an address
