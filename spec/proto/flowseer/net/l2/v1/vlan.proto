@@ -19,9 +19,7 @@ message Vlan {
   // The device-reported VLAN name. Absent means no name was reported; an empty
   // string means the source explicitly reported an empty name.
   string name = 2;
-  reserved 3;
-  reserved status;
   // How the VLAN was registered in the bridge. Absent means the source did
   // not report whether the entry is permanent or dynamic.
-  VlanRegistration registration = 4;
+  VlanRegistration registration = 3;
 }

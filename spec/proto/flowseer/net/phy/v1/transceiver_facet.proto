@@ -33,6 +33,4 @@ message TransceiverFacet {
   // The vendor serial number. Absent means no serial number was reported; a
   // present value must not be empty.
   string serial_number = 5 [(buf.validate.field).string.min_len = 1];
-  reserved 6;
-  reserved wavelength_nanometers;
 }

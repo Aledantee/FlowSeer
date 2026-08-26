@@ -1343,18 +1343,18 @@ const file_flowseer_net_addr_v1_ip_proto_rawDesc = "" +
 	"\tIpAddress\x123\n" +
 	"\x02v4\x18\x01 \x01(\v2!.flowseer.net.addr.v1.Ipv4AddressH\x00R\x02v4\x123\n" +
 	"\x02v6\x18\x02 \x01(\v2!.flowseer.net.addr.v1.Ipv6AddressH\x00R\x02v6B\x0f\n" +
-	"\x06family\x12\x05\xbaH\x02\b\x01\"\xf9\x06\n" +
+	"\x06family\x12\x05\xbaH\x02\b\x01\"\xf3\x06\n" +
 	"\n" +
 	"Ipv4Prefix\x12C\n" +
 	"\aaddress\x18\x01 \x01(\v2!.flowseer.net.addr.v1.Ipv4AddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12\"\n" +
 	"\x06length\x18\x02 \x01(\rB\n" +
 	"\xbaH\a\xc8\x01\x01*\x02\x18 R\x06length:\xfb\x05\xbaH\xf7\x05\x1a\xf4\x05\n" +
-	"\x12ipv4_prefix.masked\x12.address must have zero host bits beyond length\x1a\xad\x05!has(this.address) || !has(this.length) || !has(this.address.octets) || this.address.octets.size() != 4 || this.length > 32u || ('%x'.format([this.address.octets]).substring(int((this.length + 3u) / 4u)).matches('^0*$') && (this.length % 4u == 0u || this.length % 4u == 1u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[08]$') || this.length % 4u == 2u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[048c]$') || this.length % 4u == 3u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[02468ace]$')))J\x04\b\x03\x10\x04\"\xfc\x06\n" +
+	"\x12ipv4_prefix.masked\x12.address must have zero host bits beyond length\x1a\xad\x05!has(this.address) || !has(this.length) || !has(this.address.octets) || this.address.octets.size() != 4 || this.length > 32u || ('%x'.format([this.address.octets]).substring(int((this.length + 3u) / 4u)).matches('^0*$') && (this.length % 4u == 0u || this.length % 4u == 1u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[08]$') || this.length % 4u == 2u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[048c]$') || this.length % 4u == 3u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[02468ace]$')))\"\xf6\x06\n" +
 	"\n" +
 	"Ipv6Prefix\x12C\n" +
 	"\aaddress\x18\x01 \x01(\v2!.flowseer.net.addr.v1.Ipv6AddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12#\n" +
 	"\x06length\x18\x02 \x01(\rB\v\xbaH\b\xc8\x01\x01*\x03\x18\x80\x01R\x06length:\xfd\x05\xbaH\xf9\x05\x1a\xf6\x05\n" +
-	"\x12ipv6_prefix.masked\x12.address must have zero host bits beyond length\x1a\xaf\x05!has(this.address) || !has(this.length) || !has(this.address.octets) || this.address.octets.size() != 16 || this.length > 128u || ('%x'.format([this.address.octets]).substring(int((this.length + 3u) / 4u)).matches('^0*$') && (this.length % 4u == 0u || this.length % 4u == 1u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[08]$') || this.length % 4u == 2u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[048c]$') || this.length % 4u == 3u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[02468ace]$')))J\x04\b\x03\x10\x04\"\x83\x01\n" +
+	"\x12ipv6_prefix.masked\x12.address must have zero host bits beyond length\x1a\xaf\x05!has(this.address) || !has(this.length) || !has(this.address.octets) || this.address.octets.size() != 16 || this.length > 128u || ('%x'.format([this.address.octets]).substring(int((this.length + 3u) / 4u)).matches('^0*$') && (this.length % 4u == 0u || this.length % 4u == 1u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[08]$') || this.length % 4u == 2u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[048c]$') || this.length % 4u == 3u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[02468ace]$')))\"\x83\x01\n" +
 	"\bIpPrefix\x122\n" +
 	"\x02v4\x18\x01 \x01(\v2 .flowseer.net.addr.v1.Ipv4PrefixH\x00R\x02v4\x122\n" +
 	"\x02v6\x18\x02 \x01(\v2 .flowseer.net.addr.v1.Ipv6PrefixH\x00R\x02v6B\x0f\n" +

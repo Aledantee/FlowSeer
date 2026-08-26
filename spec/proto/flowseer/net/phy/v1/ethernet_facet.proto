@@ -25,30 +25,24 @@ message EthernetFacet {
 
   // The link medium. Absent means the source did not report a medium.
   EthernetMedium medium = 1;
-  reserved 2;
-  reserved speed_bps;
-  reserved 3;
-  reserved duplex;
-  reserved 4;
-  reserved auto_negotiation;
   // Power over Ethernet capability and state. Absent means the source supplied
   // no PoE information.
-  PoeFacet poe = 5;
+  PoeFacet poe = 2;
   // Pluggable-transceiver presence and identity. Absent means the source
   // supplied no transceiver information.
-  TransceiverFacet transceiver = 6;
+  TransceiverFacet transceiver = 3;
   // Active forward-error-correction mode. Absent means no mode was reported.
-  EthernetFecMode fec_mode = 7;
+  EthernetFecMode fec_mode = 4;
   // Physical-link capabilities. Absent means the source supplied no
   // capability information.
-  EthernetCapabilities capabilities = 8;
+  EthernetCapabilities capabilities = 5;
   // The active line rate in bits per second. Absent means no negotiated or
   // operational speed was reported; zero is invalid when present.
-  uint64 active_speed_bps = 9 [(buf.validate.field).uint64.gt = 0];
+  uint64 active_speed_bps = 6 [(buf.validate.field).uint64.gt = 0];
   // The active duplex mode. Absent means the source did not report an
   // operational duplex mode.
-  EthernetDuplex active_duplex = 10;
+  EthernetDuplex active_duplex = 7;
   // Applied auto-negotiation value and progress. Absent means the source
   // supplied no running auto-negotiation facts.
-  AutoNegotiationFacet applied_auto_negotiation = 11;
+  AutoNegotiationFacet applied_auto_negotiation = 8;
 }

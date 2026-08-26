@@ -227,14 +227,3 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 
 	runValidationCases(t, tests)
 }
-
-func TestNeighborEntryReservedStateTag(t *testing.T) {
-	var entry l3v1.NeighborEntry
-	if err := proto.Unmarshal([]byte{0x28, 0x05}, &entry); err != nil {
-		t.Fatalf("unmarshal retired state field: %v", err)
-	}
-
-	if entry.HasReachability() {
-		t.Fatalf("retired state field populated reachability: %v", entry.GetReachability())
-	}
-}

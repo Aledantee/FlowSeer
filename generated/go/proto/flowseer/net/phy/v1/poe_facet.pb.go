@@ -25,11 +25,11 @@ const (
 type PoeFacet struct {
 	state                               protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Supported                bool                   `protobuf:"varint,1,opt,name=supported"`
-	xxx_hidden_Role                     PoeRole                `protobuf:"varint,3,opt,name=role,enum=flowseer.net.phy.v1.PoeRole"`
-	xxx_hidden_PowerClass               uint32                 `protobuf:"varint,4,opt,name=power_class,json=powerClass"`
-	xxx_hidden_PowerDrawMilliwatts      uint32                 `protobuf:"varint,6,opt,name=power_draw_milliwatts,json=powerDrawMilliwatts"`
-	xxx_hidden_Status                   PoeStatus              `protobuf:"varint,7,opt,name=status,enum=flowseer.net.phy.v1.PoeStatus"`
-	xxx_hidden_AllocatedPowerMilliwatts uint32                 `protobuf:"varint,8,opt,name=allocated_power_milliwatts,json=allocatedPowerMilliwatts"`
+	xxx_hidden_Role                     PoeRole                `protobuf:"varint,2,opt,name=role,enum=flowseer.net.phy.v1.PoeRole"`
+	xxx_hidden_PowerClass               uint32                 `protobuf:"varint,3,opt,name=power_class,json=powerClass"`
+	xxx_hidden_PowerDrawMilliwatts      uint32                 `protobuf:"varint,4,opt,name=power_draw_milliwatts,json=powerDrawMilliwatts"`
+	xxx_hidden_Status                   PoeStatus              `protobuf:"varint,5,opt,name=status,enum=flowseer.net.phy.v1.PoeStatus"`
+	xxx_hidden_AllocatedPowerMilliwatts uint32                 `protobuf:"varint,6,opt,name=allocated_power_milliwatts,json=allocatedPowerMilliwatts"`
 	XXX_raceDetectHookData              protoimpl.RaceDetectHookData
 	XXX_presence                        [1]uint32
 	unknownFields                       protoimpl.UnknownFields
@@ -268,16 +268,16 @@ var File_flowseer_net_phy_v1_poe_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_poe_facet_proto_rawDesc = "" +
 	"\n" +
-	"#flowseer/net/phy/v1/poe_facet.proto\x12\x13flowseer.net.phy.v1\x1a\"flowseer/net/phy/v1/poe_role.proto\x1a$flowseer/net/phy/v1/poe_status.proto\"\xc6\x04\n" +
+	"#flowseer/net/phy/v1/poe_facet.proto\x12\x13flowseer.net.phy.v1\x1a\"flowseer/net/phy/v1/poe_role.proto\x1a$flowseer/net/phy/v1/poe_status.proto\"\x99\x04\n" +
 	"\bPoeFacet\x12\x1c\n" +
 	"\tsupported\x18\x01 \x01(\bR\tsupported\x120\n" +
-	"\x04role\x18\x03 \x01(\x0e2\x1c.flowseer.net.phy.v1.PoeRoleR\x04role\x12\x1f\n" +
-	"\vpower_class\x18\x04 \x01(\rR\n" +
+	"\x04role\x18\x02 \x01(\x0e2\x1c.flowseer.net.phy.v1.PoeRoleR\x04role\x12\x1f\n" +
+	"\vpower_class\x18\x03 \x01(\rR\n" +
 	"powerClass\x122\n" +
-	"\x15power_draw_milliwatts\x18\x06 \x01(\rR\x13powerDrawMilliwatts\x126\n" +
-	"\x06status\x18\a \x01(\x0e2\x1e.flowseer.net.phy.v1.PoeStatusR\x06status\x12<\n" +
-	"\x1aallocated_power_milliwatts\x18\b \x01(\rR\x18allocatedPowerMilliwatts:\xf1\x01\xbaH\xed\x01\x1a\xea\x01\n" +
-	"#poe_facet.delivery_requires_support\x129PoE cannot deliver power when support is explicitly false\x1a\x87\x01!has(this.supported) || this.supported || !has(this.status) || this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWERJ\x04\b\x02\x10\x03J\x04\b\x05\x10\x06R\aenabledR\x16power_limit_milliwattsB\xdd\x01\n" +
+	"\x15power_draw_milliwatts\x18\x04 \x01(\rR\x13powerDrawMilliwatts\x126\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x1e.flowseer.net.phy.v1.PoeStatusR\x06status\x12<\n" +
+	"\x1aallocated_power_milliwatts\x18\x06 \x01(\rR\x18allocatedPowerMilliwatts:\xf1\x01\xbaH\xed\x01\x1a\xea\x01\n" +
+	"#poe_facet.delivery_requires_support\x129PoE cannot deliver power when support is explicitly false\x1a\x87\x01!has(this.supported) || this.supported || !has(this.status) || this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWERB\xdd\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\rPoeFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

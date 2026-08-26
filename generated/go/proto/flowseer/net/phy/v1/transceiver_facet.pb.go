@@ -245,7 +245,7 @@ var File_flowseer_net_phy_v1_transceiver_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_transceiver_facet_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/net/phy/v1/transceiver_facet.proto\x12\x13flowseer.net.phy.v1\"\x85\x04\n" +
+	"+flowseer/net/phy/v1/transceiver_facet.proto\x12\x13flowseer.net.phy.v1\"\xe8\x03\n" +
 	"\x10TransceiverFacet\x12\x18\n" +
 	"\apresent\x18\x01 \x01(\bR\apresent\x12(\n" +
 	"\vform_factor\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
@@ -255,7 +255,7 @@ const file_flowseer_net_phy_v1_transceiver_facet_proto_rawDesc = "" +
 	"\vpart_number\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"partNumber\x12,\n" +
 	"\rserial_number\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\fserialNumber:\x8d\x02\xbaH\x89\x02\x1a\x86\x02\n" +
-	"5transceiver_facet.empty_cage_has_no_module_attributes\x12<an explicitly empty cage cannot carry transceiver attributes\x1a\x8e\x01!has(this.present) || this.present || (!has(this.form_factor) && !has(this.vendor_name) && !has(this.part_number) && !has(this.serial_number))J\x04\b\x06\x10\aR\x15wavelength_nanometersB\xe5\x01\n" +
+	"5transceiver_facet.empty_cage_has_no_module_attributes\x12<an explicitly empty cage cannot carry transceiver attributes\x1a\x8e\x01!has(this.present) || this.present || (!has(this.form_factor) && !has(this.vendor_name) && !has(this.part_number) && !has(this.serial_number))B\xe5\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x15TransceiverFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_transceiver_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

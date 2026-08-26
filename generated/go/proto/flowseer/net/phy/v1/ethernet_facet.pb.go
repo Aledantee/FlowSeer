@@ -25,13 +25,13 @@ const (
 type EthernetFacet struct {
 	state                             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Medium                 EthernetMedium         `protobuf:"varint,1,opt,name=medium,enum=flowseer.net.phy.v1.EthernetMedium"`
-	xxx_hidden_Poe                    *PoeFacet              `protobuf:"bytes,5,opt,name=poe"`
-	xxx_hidden_Transceiver            *TransceiverFacet      `protobuf:"bytes,6,opt,name=transceiver"`
-	xxx_hidden_FecMode                EthernetFecMode        `protobuf:"varint,7,opt,name=fec_mode,json=fecMode,enum=flowseer.net.phy.v1.EthernetFecMode"`
-	xxx_hidden_Capabilities           *EthernetCapabilities  `protobuf:"bytes,8,opt,name=capabilities"`
-	xxx_hidden_ActiveSpeedBps         uint64                 `protobuf:"varint,9,opt,name=active_speed_bps,json=activeSpeedBps"`
-	xxx_hidden_ActiveDuplex           EthernetDuplex         `protobuf:"varint,10,opt,name=active_duplex,json=activeDuplex,enum=flowseer.net.phy.v1.EthernetDuplex"`
-	xxx_hidden_AppliedAutoNegotiation *AutoNegotiationFacet  `protobuf:"bytes,11,opt,name=applied_auto_negotiation,json=appliedAutoNegotiation"`
+	xxx_hidden_Poe                    *PoeFacet              `protobuf:"bytes,2,opt,name=poe"`
+	xxx_hidden_Transceiver            *TransceiverFacet      `protobuf:"bytes,3,opt,name=transceiver"`
+	xxx_hidden_FecMode                EthernetFecMode        `protobuf:"varint,4,opt,name=fec_mode,json=fecMode,enum=flowseer.net.phy.v1.EthernetFecMode"`
+	xxx_hidden_Capabilities           *EthernetCapabilities  `protobuf:"bytes,5,opt,name=capabilities"`
+	xxx_hidden_ActiveSpeedBps         uint64                 `protobuf:"varint,6,opt,name=active_speed_bps,json=activeSpeedBps"`
+	xxx_hidden_ActiveDuplex           EthernetDuplex         `protobuf:"varint,7,opt,name=active_duplex,json=activeDuplex,enum=flowseer.net.phy.v1.EthernetDuplex"`
+	xxx_hidden_AppliedAutoNegotiation *AutoNegotiationFacet  `protobuf:"bytes,8,opt,name=applied_auto_negotiation,json=appliedAutoNegotiation"`
 	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
 	XXX_presence                      [1]uint32
 	unknownFields                     protoimpl.UnknownFields
@@ -311,18 +311,17 @@ var File_flowseer_net_phy_v1_ethernet_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_ethernet_facet_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a)flowseer/net/phy/v1/ethernet_medium.proto\x1a#flowseer/net/phy/v1/poe_facet.proto\x1a+flowseer/net/phy/v1/transceiver_facet.proto\"\xfb\a\n" +
+	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a)flowseer/net/phy/v1/ethernet_medium.proto\x1a#flowseer/net/phy/v1/poe_facet.proto\x1a+flowseer/net/phy/v1/transceiver_facet.proto\"\xc4\a\n" +
 	"\rEthernetFacet\x12;\n" +
 	"\x06medium\x18\x01 \x01(\x0e2#.flowseer.net.phy.v1.EthernetMediumR\x06medium\x12/\n" +
-	"\x03poe\x18\x05 \x01(\v2\x1d.flowseer.net.phy.v1.PoeFacetR\x03poe\x12G\n" +
-	"\vtransceiver\x18\x06 \x01(\v2%.flowseer.net.phy.v1.TransceiverFacetR\vtransceiver\x12?\n" +
-	"\bfec_mode\x18\a \x01(\x0e2$.flowseer.net.phy.v1.EthernetFecModeR\afecMode\x12M\n" +
-	"\fcapabilities\x18\b \x01(\v2).flowseer.net.phy.v1.EthernetCapabilitiesR\fcapabilities\x121\n" +
-	"\x10active_speed_bps\x18\t \x01(\x04B\a\xbaH\x042\x02 \x00R\x0eactiveSpeedBps\x12H\n" +
-	"\ractive_duplex\x18\n" +
-	" \x01(\x0e2#.flowseer.net.phy.v1.EthernetDuplexR\factiveDuplex\x12c\n" +
-	"\x18applied_auto_negotiation\x18\v \x01(\v2).flowseer.net.phy.v1.AutoNegotiationFacetR\x16appliedAutoNegotiation:\x89\x03\xbaH\x85\x03\x1a\x82\x03\n" +
-	"0ethernet_facet.auto_negotiation_requires_support\x12Nauto-negotiation cannot be enabled when capability support is explicitly false\x1a\xfd\x01!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || this.capabilities.auto_negotiation_supported || !has(this.applied_auto_negotiation) || !has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabledJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\tspeed_bpsR\x06duplexR\x10auto_negotiationB\xe2\x01\n" +
+	"\x03poe\x18\x02 \x01(\v2\x1d.flowseer.net.phy.v1.PoeFacetR\x03poe\x12G\n" +
+	"\vtransceiver\x18\x03 \x01(\v2%.flowseer.net.phy.v1.TransceiverFacetR\vtransceiver\x12?\n" +
+	"\bfec_mode\x18\x04 \x01(\x0e2$.flowseer.net.phy.v1.EthernetFecModeR\afecMode\x12M\n" +
+	"\fcapabilities\x18\x05 \x01(\v2).flowseer.net.phy.v1.EthernetCapabilitiesR\fcapabilities\x121\n" +
+	"\x10active_speed_bps\x18\x06 \x01(\x04B\a\xbaH\x042\x02 \x00R\x0eactiveSpeedBps\x12H\n" +
+	"\ractive_duplex\x18\a \x01(\x0e2#.flowseer.net.phy.v1.EthernetDuplexR\factiveDuplex\x12c\n" +
+	"\x18applied_auto_negotiation\x18\b \x01(\v2).flowseer.net.phy.v1.AutoNegotiationFacetR\x16appliedAutoNegotiation:\x89\x03\xbaH\x85\x03\x1a\x82\x03\n" +
+	"0ethernet_facet.auto_negotiation_requires_support\x12Nauto-negotiation cannot be enabled when capability support is explicitly false\x1a\xfd\x01!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || this.capabilities.auto_negotiation_supported || !has(this.applied_auto_negotiation) || !has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabledB\xe2\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x12EthernetFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

@@ -72,8 +72,6 @@ message IpAddress {
 // A canonical IPv4 network prefix. Every host bit beyond the prefix length is
 // zero.
 message Ipv4Prefix {
-  reserved 3;
-
   // Hex formatting preserves network bit order while exposing boundary
   // nibbles to CEL, which cannot index bytes directly.
   option (buf.validate.message).cel = {
@@ -106,8 +104,6 @@ message Ipv4Prefix {
 // A canonical IPv6 network prefix. Every host bit beyond the prefix length is
 // zero.
 message Ipv6Prefix {
-  reserved 3;
-
   // Hex formatting preserves network bit order while exposing boundary
   // nibbles to CEL, which cannot index bytes directly.
   option (buf.validate.message).cel = {

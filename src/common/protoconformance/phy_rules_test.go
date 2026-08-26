@@ -1,10 +1,8 @@
 package protoconformance
 
 import (
-	"bytes"
 	"testing"
 
-	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
@@ -129,51 +127,6 @@ func TestPhysicalPrimitiveRules(t *testing.T) {
 	}
 
 	runValidationCases(t, tests)
-}
-
-func TestEthernetFacetDoesNotReuseRetiredOperationalTags(t *testing.T) {
-	tests := []struct {
-		name string
-		wire []byte
-	}{
-		{
-			name: "retired speed tag",
-			wire: protowire.AppendVarint(
-				protowire.AppendTag(nil, 2, protowire.VarintType),
-				1_000_000_000,
-			),
-		},
-		{
-			name: "retired duplex tag",
-			wire: protowire.AppendVarint(
-				protowire.AppendTag(nil, 3, protowire.VarintType),
-				uint64(phyv1.EthernetDuplex_ETHERNET_DUPLEX_FULL),
-			),
-		},
-		{
-			name: "retired auto-negotiation tag",
-			wire: protowire.AppendBytes(
-				protowire.AppendTag(nil, 4, protowire.BytesType),
-				protowire.AppendVarint(protowire.AppendTag(nil, 1, protowire.VarintType), 1),
-			),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			facet := new(phyv1.EthernetFacet)
-			if err := proto.Unmarshal(tt.wire, facet); err != nil {
-				t.Fatalf("unmarshal retired field: %v", err)
-			}
-
-			if facet.HasActiveSpeedBps() || facet.HasActiveDuplex() || facet.HasAppliedAutoNegotiation() {
-				t.Fatal("retired field was reinterpreted as a current operational field")
-			}
-			if got := facet.ProtoReflect().GetUnknown(); !bytes.Equal(got, tt.wire) {
-				t.Fatalf("unknown field = %x, want %x", got, tt.wire)
-			}
-		})
-	}
 }
 
 func TestPoeSettingsPowerLimitPresence(t *testing.T) {

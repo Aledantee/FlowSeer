@@ -205,16 +205,3 @@ func TestLayer2PrimitiveRules(t *testing.T) {
 
 	runValidationCases(t, tests)
 }
-
-func TestVlanOldStatusWireTagDoesNotPopulateRegistration(t *testing.T) {
-	// Field 3 was the old Vlan.status enum. A permanent status value on that
-	// wire tag must remain unknown rather than becoming registration.
-	wire := []byte{0x08, 0x01, 0x18, 0x02}
-	vlan := &l2v1.Vlan{}
-	if err := proto.Unmarshal(wire, vlan); err != nil {
-		t.Fatalf("unmarshal old VLAN wire representation: %v", err)
-	}
-	if vlan.HasRegistration() {
-		t.Fatalf("old field 3 populated registration: %v", vlan.GetRegistration())
-	}
-}
