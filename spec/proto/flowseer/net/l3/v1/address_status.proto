@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
 // The operational usability of an interface address. Values follow the
 // address status taxonomy in RFC 8344.

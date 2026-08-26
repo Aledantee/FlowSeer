@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
 // Reachability state of a neighbor-cache entry. Values 1 through 6 match the
 // state codes standardized by RFC 8335 and the IPv6 NUD states in RFC 4861;

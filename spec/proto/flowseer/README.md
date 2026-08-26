@@ -7,7 +7,7 @@ their versioned protobuf package names.
 
 - `flowseer.net.addr.v1` owns canonical IP, prefix, range, lifetime, MAC, EUI,
   and OUI value types.
-- `flowseer.ip.v1` owns device-local layer-3 table primitives: interface address
+- `flowseer.net.l3.v1` owns device-local layer-3 primitives: interface address
   assignments, ARP and IPv6 neighbor-cache rows, RIB descriptors, routes, and
   weighted next hops. It imports address values from `flowseer.net.addr.v1` and
   does not redefine them.

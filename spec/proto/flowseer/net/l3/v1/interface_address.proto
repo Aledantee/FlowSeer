@@ -1,10 +1,10 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
-import "flowseer/ip/v1/address_origin.proto";
-import "flowseer/ip/v1/address_status.proto";
 import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/l3/v1/address_origin.proto";
+import "flowseer/net/l3/v1/address_status.proto";
 import option "buf/validate/validate.proto";
 
 // An IP address and network prefix assigned to one device-local interface.

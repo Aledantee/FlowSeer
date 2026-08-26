@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
 // How a neighbor-cache mapping was created. The categories normalize RFC 8344
 // and the IP-MIB mapping types from RFC 4293.

@@ -1,11 +1,11 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
-import "flowseer/ip/v1/next_hop.proto";
-import "flowseer/ip/v1/route_protocol.proto";
-import "flowseer/ip/v1/route_type.proto";
 import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/l3/v1/next_hop.proto";
+import "flowseer/net/l3/v1/route_protocol.proto";
+import "flowseer/net/l3/v1/route_type.proto";
 import option "buf/validate/validate.proto";
 
 // A route row from a device RIB or forwarding table. Multiple next hops form

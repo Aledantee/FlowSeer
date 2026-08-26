@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
 import "flowseer/net/addr/v1/ip.proto";
 import option "buf/validate/validate.proto";

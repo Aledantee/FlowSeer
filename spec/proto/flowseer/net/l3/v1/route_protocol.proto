@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
 // The protocol or mechanism that supplied a route. Direct and static are
 // pseudo-protocols in the sense used by RFC 8349; the remaining values cover

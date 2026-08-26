@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
 // How an address was assigned to an interface. The taxonomy follows the
 // origin categories in RFC 8344 while retaining a distinct SLAAC value for

@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.ip.v1;
+package flowseer.net.l3.v1;
 
 // The forwarding action or destination class of a route. The normalized
 // values cover RFC 4292 route types and widely implemented rtnetlink actions.
