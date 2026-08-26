@@ -8,7 +8,7 @@ version: v2
 # + paths=source_relative is module-rooted) requires the same root.
 # Ruckus carries its four historical lint excepts and `WIRE` breaking;
 # FlowSeer enforces MINIMAL with no excepts and suspends breaking
-# checks (`breaking.use: []`) until first stable release.
+# checks (module-wide `breaking.ignore`) until first stable release.
 deps:
   - buf.build/bufbuild/protovalidate
   - buf.build/googleapis/googleapis
@@ -39,4 +39,11 @@ modules:
         # rather than silently passing everything at runtime.
         - PROTOVALIDATE
     breaking:
+      # Suspended until first stable release. An empty `use: []` does NOT
+      # disable breaking checks — buf treats it as unset and applies its
+      # default FILE category — so the suspension is expressed as an ignore
+      # of the whole module. Remove this ignore (and pick the category) at
+      # the first stable release.
       use: []
+      ignore:
+        - spec/proto/flowseer
