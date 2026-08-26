@@ -1,345 +1,342 @@
 edition = "2024";
 
+import "ruckus/ap/ap_common.proto";
+
+option features.enforce_naming_style = STYLE_LEGACY;
 // Proto2-equivalent feature pins: these files were published by Ruckus as
 // proto2; the pins keep wire format and semantics identical under edition 2024.
 option features.enum_type = CLOSED;
+option features.json_format = LEGACY_BEST_EFFORT;
 option features.repeated_field_encoding = EXPANDED;
 option features.utf8_validation = NONE;
-option features.json_format = LEGACY_BEST_EFFORT;
-option features.enforce_naming_style = STYLE_LEGACY;
-
 /**
  * Copyright 2013 Ruckus Wireless, Inc. All rights reserved.
  *
- * RUCKUS WIRELESS, INC. CONFIDENTIAL - 
- * This is an unpublished, proprietary work of Ruckus Wireless, Inc., and is 
- * fully protected under copyright and trade secret laws. You may not view, 
- * use, disclose, copy, or distribute this file or any information contained 
- * herein except pursuant to a valid license from Ruckus. 
+ * RUCKUS WIRELESS, INC. CONFIDENTIAL -
+ * This is an unpublished, proprietary work of Ruckus Wireless, Inc., and is
+ * fully protected under copyright and trade secret laws. You may not view,
+ * use, disclose, copy, or distribute this file or any information contained
+ * herein except pursuant to a valid license from Ruckus.
  */
 option java_package = "com.ruckuswireless.scg.protobuf";
 
-import "ruckus/ap/ap_common.proto";
-
 message APWiredClientInfo {
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Wired Client MAC address
-     * @since 3.5.1
-     */
-	string clientMac = 1;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Wired Client IPv4 address
-     * @since 3.5.1
-     */
-	string ipAddress = 2;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Wired Client IPv6 address
-     * @since 3.5.1
-     */
-	string ipv6Address = 3;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Wired Client VLAN
-     * @since 3.5.1
-     */
-	int32 vlan = 4;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Receive packet frames
-     * @since 3.5.1
-     */
-	uint64 rxFrames = 5;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Receive packet bytes
-     * @since 3.5.1
-     */
-	uint64 rxBytes = 6;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Receive unicast packets
-     * @since 3.5.1
-     */
-	uint64 rxUcast = 7;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Receive multicast packets
-     * @since 3.5.1
-     */
-	uint64 rxMcast = 8;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Receive Broadcast packets
-     * @since 3.5.1
-     */
-	uint64 rxBcast = 9;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Drop packets on receive side
-     * @since 3.5.1
-     */
-	uint64 rxDrop = 10;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Receive EAPOL packets
-     * @since 3.5.1
-     */
-	uint64 rxEapol = 11;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Receive legacy multicast packets
-     * @since 3.5.1
-     */
-	uint64 rxMcastLegacy = 12;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Transmit packet frames
-     * @since 3.5.1
-     */
-	uint64 txFrames = 13;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Transmit packet bytes
-     * @since 3.5.1
-     */
-	uint64 txBytes	= 14;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Transmit unicast packets
-     * @since 3.5.1
-     */
-	uint64 txUcast = 15;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Transmit multicast packets
-     * @since 3.5.1
-     */
-	uint64 txMcast = 16;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Transmit Broadcast packets
-     * @since 3.5.1
-     */
-	uint64 txBcast = 17;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Transmit Drop packets
-     * @since 3.5.1
-     */
-	uint64 txDrop = 18;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Transmit EAPOL packets
-     * @since 3.5.1
-     */
-	uint64 txEapol = 19;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Wired Client MAC address
+   * @since 3.5.1
+   */
+  string clientMac = 1;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Wired Client IPv4 address
+   * @since 3.5.1
+   */
+  string ipAddress = 2;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Wired Client IPv6 address
+   * @since 3.5.1
+   */
+  string ipv6Address = 3;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Wired Client VLAN
+   * @since 3.5.1
+   */
+  int32 vlan = 4;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Receive packet frames
+   * @since 3.5.1
+   */
+  uint64 rxFrames = 5;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Receive packet bytes
+   * @since 3.5.1
+   */
+  uint64 rxBytes = 6;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Receive unicast packets
+   * @since 3.5.1
+   */
+  uint64 rxUcast = 7;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Receive multicast packets
+   * @since 3.5.1
+   */
+  uint64 rxMcast = 8;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Receive Broadcast packets
+   * @since 3.5.1
+   */
+  uint64 rxBcast = 9;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Drop packets on receive side
+   * @since 3.5.1
+   */
+  uint64 rxDrop = 10;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Receive EAPOL packets
+   * @since 3.5.1
+   */
+  uint64 rxEapol = 11;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Receive legacy multicast packets
+   * @since 3.5.1
+   */
+  uint64 rxMcastLegacy = 12;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Transmit packet frames
+   * @since 3.5.1
+   */
+  uint64 txFrames = 13;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Transmit packet bytes
+   * @since 3.5.1
+   */
+  uint64 txBytes = 14;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Transmit unicast packets
+   * @since 3.5.1
+   */
+  uint64 txUcast = 15;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Transmit multicast packets
+   * @since 3.5.1
+   */
+  uint64 txMcast = 16;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Transmit Broadcast packets
+   * @since 3.5.1
+   */
+  uint64 txBcast = 17;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Transmit Drop packets
+   * @since 3.5.1
+   */
+  uint64 txDrop = 18;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Transmit EAPOL packets
+   * @since 3.5.1
+   */
+  uint64 txEapol = 19;
 
-	enum AUTH_STATUS
-	{
-	  /**
-        * @description authStatus possible value 
-        * @since 3.5.1
-        */
-	   UNAUTH = 0;
-	  /**
-        * @description authStatus possible value
-        * @since 3.5.1
-        */
-	   AUTHENTICATED = 1;
-	}
-
+  enum AUTH_STATUS {
     /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Wired client authentication status(UNAUTH or AUTHENTICATED)
+     * @description authStatus possible value
      * @since 3.5.1
      */
-	AUTH_STATUS authStatus = 20;
+    UNAUTH = 0;
     /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description interface name which wired client associated
+     * @description authStatus possible value
      * @since 3.5.1
      */
-	string ethIF = 21;
+    AUTHENTICATED = 1;
+  }
 
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Client hostname.
-     * @since 5.2
-     */
-    string hostname = 22;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Wired client authentication status(UNAUTH or AUTHENTICATED)
+   * @since 3.5.1
+   */
+  AUTH_STATUS authStatus = 20;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description interface name which wired client associated
+   * @since 3.5.1
+   */
+  string ethIF = 21;
 
-     /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Client device type,  such as Laptop, Smartphones, Tablets etc.
-     * @since 5.2
-     */
-    int32 deviceType = 23;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Client hostname.
+   * @since 5.2
+   */
+  string hostname = 22;
 
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Client OSVendor type,  such as Windows, Android, Apple etc.
-     * @since 5.2
-     */
-    int32 osVendorType = 24;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Client device type,  such as Laptop, Smartphones, Tablets etc.
+   * @since 5.2
+   */
+  int32 deviceType = 23;
 
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Client's device model name,  such as Windows 7, Mac OS X etc.
-     * @since 5.2
-     */
-    string modelName = 25;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Client OSVendor type,  such as Windows, Android, Apple etc.
+   * @since 5.2
+   */
+  int32 osVendorType = 24;
 
-    /**
-     * @property delta
-     * @aggregation SUM
-     * @description Total bytes received
-     * @since 6.1
-     */
-    uint64 rxBytes_r = 26;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Client's device model name,  such as Windows 7, Mac OS X etc.
+   * @since 5.2
+   */
+  string modelName = 25;
 
-    /**
-     * @property delta
-     * @aggregation SUM
-     * @description Total bytes sent
-     * @since 6.1
-     */
-    uint64 txBytes_r = 27;
-    
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description Wired Client VNI
-     * @since 6.1.1
-     */
-    int32 vni = 28;
+  /**
+   * @property delta
+   * @aggregation SUM
+   * @description Total bytes received
+   * @since 6.1
+   */
+  uint64 rxBytes_r = 26;
+
+  /**
+   * @property delta
+   * @aggregation SUM
+   * @description Total bytes sent
+   * @since 6.1
+   */
+  uint64 txBytes_r = 27;
+
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description Wired Client VNI
+   * @since 6.1.1
+   */
+  int32 vni = 28;
 }
 
 message APWiredClientStats {
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description GPB version
-     * @since 3.5.1
-     */
-	uint32 version = 1;
-    /**
-     * @property Serialization
-     * @aggregation NULL
-     * @description Serialization data for all of wired client information
-     * @since 3.5.1
-     */
-	repeated APWiredClientInfo clients = 2;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description time for this report
-     * @since 3.5.1
-     */
-	uint64 timestamp = 3;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description sample time for these stats
-     * @since 3.5.1
-     */
-	uint64 sampleTime = 4;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description aggregation interval for report
-     * @since 3.5.1
-     */
-	uint32 aggregationInterval = 5;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description zone UUID
-     * @since 3.5.1
-     */
-	string zone_id = 6;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description doamin UUID
-     * @since 3.5.1
-     */
-	string domain_id = 7;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description AP device name
-     * @since 3.5.1
-     */
-	string deviceName = 8;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description ap group UUID
-     * @since 3.5.1
-     */
-	string apgroup_id = 9;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description ap tenant UUID
-     * @since 3.5.1
-     */
-	string aptenant_id = 10;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description map UUID
-     * @since 3.5.1
-     */
-	string map_id = 11;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description cluster UUID
-     * @since 3.5.1
-     */
-	string cluster_id = 12;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description MAC address of the AP
-     * @since 6.0
-     */
-	string apmac = 13;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description ideal stats required for ACX APs
-     * @since 6.1
-     */
-    	AttributeMap ideal_stats_required = 14;
-
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description GPB version
+   * @since 3.5.1
+   */
+  uint32 version = 1;
+  /**
+   * @property Serialization
+   * @aggregation NULL
+   * @description Serialization data for all of wired client information
+   * @since 3.5.1
+   */
+  repeated APWiredClientInfo clients = 2;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description time for this report
+   * @since 3.5.1
+   */
+  uint64 timestamp = 3;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description sample time for these stats
+   * @since 3.5.1
+   */
+  uint64 sampleTime = 4;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description aggregation interval for report
+   * @since 3.5.1
+   */
+  uint32 aggregationInterval = 5;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description zone UUID
+   * @since 3.5.1
+   */
+  string zone_id = 6;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description doamin UUID
+   * @since 3.5.1
+   */
+  string domain_id = 7;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description AP device name
+   * @since 3.5.1
+   */
+  string deviceName = 8;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description ap group UUID
+   * @since 3.5.1
+   */
+  string apgroup_id = 9;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description ap tenant UUID
+   * @since 3.5.1
+   */
+  string aptenant_id = 10;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description map UUID
+   * @since 3.5.1
+   */
+  string map_id = 11;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description cluster UUID
+   * @since 3.5.1
+   */
+  string cluster_id = 12;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description MAC address of the AP
+   * @since 6.0
+   */
+  string apmac = 13;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description ideal stats required for ACX APs
+   * @since 6.1
+   */
+  AttributeMap ideal_stats_required = 14;
 }

@@ -1,13 +1,5 @@
 edition = "2024";
 
-// Proto2-equivalent feature pins: these files were published by Ruckus as
-// proto2; the pins keep wire format and semantics identical under edition 2024.
-option features.enum_type = CLOSED;
-option features.repeated_field_encoding = EXPANDED;
-option features.utf8_validation = NONE;
-option features.json_format = LEGACY_BEST_EFFORT;
-option features.enforce_naming_style = STYLE_LEGACY;
-
 // Custom options for defining:
 // - Maximum size of string/bytes
 // - Maximum number of elements in array
@@ -17,38 +9,45 @@ option features.enforce_naming_style = STYLE_LEGACY;
 
 import "google/protobuf/descriptor.proto";
 
+option features.enforce_naming_style = STYLE_LEGACY;
+// Proto2-equivalent feature pins: these files were published by Ruckus as
+// proto2; the pins keep wire format and semantics identical under edition 2024.
+option features.enum_type = CLOSED;
+option features.json_format = LEGACY_BEST_EFFORT;
+option features.repeated_field_encoding = EXPANDED;
+option features.utf8_validation = NONE;
 option java_package = "fi.kapsi.koti.jpa.nanopb";
 
 enum FieldType {
-    FT_DEFAULT = 0; // Automatically decide field type, generate static field if possible.
-    FT_CALLBACK = 1; // Always generate a callback field.
-    FT_POINTER = 4; // Always generate a dynamically allocated field.
-    FT_STATIC = 2; // Generate a static field or raise an exception if not possible.
-    FT_IGNORE = 3; // Ignore the field completely.
-    FT_INLINE = 5; // Legacy option, use the separate 'fixed_length' option instead
+  FT_DEFAULT = 0; // Automatically decide field type, generate static field if possible.
+  FT_CALLBACK = 1; // Always generate a callback field.
+  FT_POINTER = 4; // Always generate a dynamically allocated field.
+  FT_STATIC = 2; // Generate a static field or raise an exception if not possible.
+  FT_IGNORE = 3; // Ignore the field completely.
+  FT_INLINE = 5; // Legacy option, use the separate 'fixed_length' option instead
 }
 
 enum IntSize {
-    IS_DEFAULT = 0; // Default, 32/64bit based on type in .proto
-    IS_8 = 8;
-    IS_16 = 16;
-    IS_32 = 32;
-    IS_64 = 64;
+  IS_DEFAULT = 0; // Default, 32/64bit based on type in .proto
+  IS_8 = 8;
+  IS_16 = 16;
+  IS_32 = 32;
+  IS_64 = 64;
 }
 
 enum TypenameMangling {
-    M_NONE = 0; // Default, no typename mangling
-    M_STRIP_PACKAGE = 1; // Strip current package name
-    M_FLATTEN = 2; // Only use last path component
-    M_PACKAGE_INITIALS = 3; // Replace the package name by the initials
+  M_NONE = 0; // Default, no typename mangling
+  M_STRIP_PACKAGE = 1; // Strip current package name
+  M_FLATTEN = 2; // Only use last path component
+  M_PACKAGE_INITIALS = 3; // Replace the package name by the initials
 }
 
 enum DescriptorSize {
-    DS_AUTO = 0; // Select minimal size based on field type
-    DS_1 = 1;    // 1 word; up to 15 byte fields, no arrays
-    DS_2 = 2;    // 2 words; up to 4095 byte fields, 4095 entry arrays
-    DS_4 = 4;    // 4 words; up to 2^32-1 byte fields, 2^16-1 entry arrays
-    DS_8 = 8;    // 8 words; up to 2^32-1 entry arrays
+  DS_AUTO = 0; // Select minimal size based on field type
+  DS_1 = 1; // 1 word; up to 15 byte fields, no arrays
+  DS_2 = 2; // 2 words; up to 4095 byte fields, 4095 entry arrays
+  DS_4 = 4; // 4 words; up to 2^32-1 byte fields, 2^16-1 entry arrays
+  DS_8 = 8; // 8 words; up to 2^32-1 entry arrays
 }
 
 // This is the inner options message, which basically defines options for
@@ -143,19 +142,17 @@ message NanoPBOptions {
 // --------------------------------
 
 extend google.protobuf.FileOptions {
-    NanoPBOptions nanopb_fileopt = 1010;
+  NanoPBOptions nanopb_fileopt = 1010;
 }
 
 extend google.protobuf.MessageOptions {
-    NanoPBOptions nanopb_msgopt = 1010;
+  NanoPBOptions nanopb_msgopt = 1010;
 }
 
 extend google.protobuf.EnumOptions {
-    NanoPBOptions nanopb_enumopt = 1010;
+  NanoPBOptions nanopb_enumopt = 1010;
 }
 
 extend google.protobuf.FieldOptions {
-    NanoPBOptions nanopb = 1010;
+  NanoPBOptions nanopb = 1010;
 }
-
-

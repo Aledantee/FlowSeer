@@ -1,46 +1,46 @@
 edition = "2024";
 
-// Proto2-equivalent feature pins: these files were published by Ruckus as
-// proto2; the pins keep wire format and semantics identical under edition 2024.
-option features.enum_type = CLOSED;
-option features.repeated_field_encoding = EXPANDED;
-option features.utf8_validation = NONE;
-option features.json_format = LEGACY_BEST_EFFORT;
-option features.enforce_naming_style = STYLE_LEGACY;
-
-/**
- * Copyright 2013 Ruckus Wireless, Inc. All rights reserved.
- *
- * RUCKUS WIRELESS, INC. CONFIDENTIAL - 
- * This is an unpublished, proprietary work of Ruckus Wireless, Inc., and is 
- * fully protected under copyright and trade secret laws. You may not view, 
- * use, disclose, copy, or distribute this file or any information contained 
- * herein except pursuant to a valid license from Ruckus. 
- */
-option java_package = "com.ruckuswireless.scg.protobuf";
 import "ruckus/ap/ap_avc.proto";
 import "ruckus/ap/ap_common.proto";
 
+option features.enforce_naming_style = STYLE_LEGACY;
+// Proto2-equivalent feature pins: these files were published by Ruckus as
+// proto2; the pins keep wire format and semantics identical under edition 2024.
+option features.enum_type = CLOSED;
+option features.json_format = LEGACY_BEST_EFFORT;
+option features.repeated_field_encoding = EXPANDED;
+option features.utf8_validation = NONE;
+/**
+ * Copyright 2013 Ruckus Wireless, Inc. All rights reserved.
+ *
+ * RUCKUS WIRELESS, INC. CONFIDENTIAL -
+ * This is an unpublished, proprietary work of Ruckus Wireless, Inc., and is
+ * fully protected under copyright and trade secret laws. You may not view,
+ * use, disclose, copy, or distribute this file or any information contained
+ * herein except pursuant to a valid license from Ruckus.
+ */
+option java_package = "com.ruckuswireless.scg.protobuf";
+
 message APAVCStats {
-    /**
-     * @property
-     * @aggregation
-     * @description
-     * @since 5.1.1
-     */
-    uint32 version = 1 [features.field_presence = LEGACY_REQUIRED];
-    /**
-     * @property
-     * @aggregation
-     * @description
-     * @since 5.1.1
-     */
-    repeated ArcMessage arc_message = 2;
-    /**
-     * @property snapshot
-     * @aggregation NULL
-     * @description ideal stats required for ACX APs
-     * @since 6.1
-     */
-    AttributeMap ideal_stats_required = 3;
+  /**
+   * @property
+   * @aggregation
+   * @description
+   * @since 5.1.1
+   */
+  uint32 version = 1 [features.field_presence = LEGACY_REQUIRED];
+  /**
+   * @property
+   * @aggregation
+   * @description
+   * @since 5.1.1
+   */
+  repeated ArcMessage arc_message = 2;
+  /**
+   * @property snapshot
+   * @aggregation NULL
+   * @description ideal stats required for ACX APs
+   * @since 6.1
+   */
+  AttributeMap ideal_stats_required = 3;
 }

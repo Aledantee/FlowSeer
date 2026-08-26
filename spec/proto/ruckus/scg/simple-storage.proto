@@ -1,62 +1,61 @@
 edition = "2024";
-
-import "google/protobuf/descriptor.proto";
 package com.ruckuswireless.scg.protobuf.storage;
 
+import "google/protobuf/descriptor.proto";
+
+option features.enforce_naming_style = STYLE_LEGACY;
 // Proto2-equivalent feature pins: these files were published by Ruckus as
 // proto2; the pins keep wire format and semantics identical under edition 2024.
 option features.enum_type = CLOSED;
+option features.json_format = LEGACY_BEST_EFFORT;
 option features.repeated_field_encoding = EXPANDED;
 option features.utf8_validation = NONE;
-option features.json_format = LEGACY_BEST_EFFORT;
-option features.enforce_naming_style = STYLE_LEGACY;
 
 /*
  * The messages defined in this file should keep unknown to outsider.
  */
 
 enum Category {
-    // Config category will be persisted and index-ed.
-    CONFIG = 1;
-    // Status category will be index-ed but not persisted.
-    STATUS = 2;
-    // Device were a read-only index reflects all contents of enclosed Status or Config.
-    DEVICE = 3;
-    // Statistic will be index-ed and rotated according to SZ profile.
-    STATISTIC = 4;
-    // File
-    FILE = 5;
-    // Data will be persisted and not index-ed.
-    DATA = 6;
-    // For tree structured data.
-    GROUP = 7;
-    // Information category only indexed.
-    INFORMATION = 8;
+  // Config category will be persisted and index-ed.
+  CONFIG = 1;
+  // Status category will be index-ed but not persisted.
+  STATUS = 2;
+  // Device were a read-only index reflects all contents of enclosed Status or Config.
+  DEVICE = 3;
+  // Statistic will be index-ed and rotated according to SZ profile.
+  STATISTIC = 4;
+  // File
+  FILE = 5;
+  // Data will be persisted and not index-ed.
+  DATA = 6;
+  // For tree structured data.
+  GROUP = 7;
+  // Information category only indexed.
+  INFORMATION = 8;
 }
 
 enum Partition {
-    // No partition, backward compatible.
-    NO_PARTITION = 1;
-    // Distribute the data by a digest comes from the ID field of each resource.
-    DIGEST = 2;
+  // No partition, backward compatible.
+  NO_PARTITION = 1;
+  // Distribute the data by a digest comes from the ID field of each resource.
+  DIGEST = 2;
 }
 
 extend google.protobuf.FileOptions {
-    int64 schemaVersion = 50000;
-    string defaultIndexName = 50001;
+  int64 schemaVersion = 50000;
+  string defaultIndexName = 50001;
 }
 
 extend google.protobuf.MessageOptions {
-    Category category = 50000;
-    bool entity = 50001;
-    Partition partition = 50002;
-    string indexName = 50003;
+  Category category = 50000;
+  bool entity = 50001;
+  Partition partition = 50002;
+  string indexName = 50003;
 }
 
 extend google.protobuf.FieldOptions {
-    bool id = 50000;
-    bool version = 50001;
-    string ingest = 50002;
-    bool fileContent = 50003;
+  bool id = 50000;
+  bool version = 50001;
+  string ingest = 50002;
+  bool fileContent = 50003;
 }
-
