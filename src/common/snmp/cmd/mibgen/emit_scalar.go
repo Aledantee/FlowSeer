@@ -51,7 +51,7 @@ func emitScalar(f *jen.File, ec *emitCtx, n gosmi.SmiNode) {
 		)
 		g.Line()
 
-		g.Return(jen.Parens(r.DecodeFunc()).Call(jen.Id("vbs").Index(jen.Lit(0))))
+		g.Return(r.DecodeFunc().Call(jen.Id("vbs").Index(jen.Lit(0))))
 	})
 }
 
