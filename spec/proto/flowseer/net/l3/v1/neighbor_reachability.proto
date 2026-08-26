@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.l3.v1;
+
+// Reachability of a neighbor-cache entry. Values 1 through 6 match RFC 8335
+// and IPv6 Neighbor Unreachability Detection; ARP sources may report the
+// nearest equivalent.
+enum NeighborReachability {
+  // The source explicitly reported an unknown value. Absence means unreported.
+  NEIGHBOR_REACHABILITY_UNSPECIFIED = 0;
+  // Address resolution is in progress and no link-layer address is known.
+  NEIGHBOR_REACHABILITY_INCOMPLETE = 1;
+  // Forward-path reachability was recently confirmed.
+  NEIGHBOR_REACHABILITY_REACHABLE = 2;
+  // Reachability is no longer confirmed, but the cached mapping remains usable.
+  NEIGHBOR_REACHABILITY_STALE = 3;
+  // Traffic used a stale entry and the device is waiting before probing.
+  NEIGHBOR_REACHABILITY_DELAY = 4;
+  // The device is actively sending unicast reachability probes.
+  NEIGHBOR_REACHABILITY_PROBE = 5;
+  // Resolution or reachability probes were exhausted.
+  NEIGHBOR_REACHABILITY_FAILED = 6;
+  // The mapping was invalidated but remains visible in the source table.
+  NEIGHBOR_REACHABILITY_INVALID = 7;
+}

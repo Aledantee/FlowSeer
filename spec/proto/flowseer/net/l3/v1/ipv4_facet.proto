@@ -1,0 +1,21 @@
+edition = "2024";
+
+package flowseer.net.l3.v1;
+
+import option "buf/validate/validate.proto";
+
+// Protocol-independent IPv4 attributes applied to or observed on an interface.
+message Ipv4Facet {
+  // Whether IPv4 is enabled. Absent means the source did not report it; false
+  // means explicitly disabled.
+  bool enabled = 1;
+  // Whether the interface forwards IPv4 packets. Absent means the source did
+  // not report it; false means explicitly host-only or non-forwarding.
+  bool forwarding = 2;
+  // IPv4 packet MTU in octets. Absent means no family-specific MTU was
+  // reported; a present value must satisfy RFC 8344's 68..65535 range.
+  uint32 mtu = 3 [(buf.validate.field).uint32 = {
+    gte: 68
+    lte: 65535
+  }];
+}

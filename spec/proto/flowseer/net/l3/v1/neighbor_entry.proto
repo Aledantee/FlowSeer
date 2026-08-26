@@ -5,13 +5,19 @@ package flowseer.net.l3.v1;
 import "flowseer/net/addr/v1/ip.proto";
 import "flowseer/net/addr/v1/mac_address.proto";
 import "flowseer/net/l3/v1/neighbor_origin.proto";
-import "flowseer/net/l3/v1/neighbor_state.proto";
+import "flowseer/net/l3/v1/neighbor_reachability.proto";
 import option "buf/validate/validate.proto";
 
 // A device neighbor-cache row keyed by interface name and IP address. It
 // represents both IPv4 ARP and IPv6 Neighbor Discovery without carrying a
 // device ref, tenant, or observation provenance.
 message NeighborEntry {
+  option (buf.validate.message).cel = {
+    id: "neighbor_entry.router_flag_is_ipv6_only"
+    message: "the neighbor router flag is valid only for an IPv6 neighbor"
+    expression: "!has(this.is_router) || (has(this.ip) && has(this.ip.v6))"
+  };
+
   // The device-reported interface name that scopes the mapping. Absent or
   // empty is invalid; omit the containing entry when it is unavailable.
   string interface_name = 1 [
@@ -27,9 +33,8 @@ message NeighborEntry {
   // How the mapping was created. Absent means the source did not report an
   // origin.
   NeighborOrigin origin = 4;
-  // Current reachability state. Absent means the source did not report a
-  // state.
-  NeighborState state = 5;
+  // Current reachability. Absent means the source did not report it.
+  NeighborReachability reachability = 5;
   // Whether the neighbor advertises itself as an IPv6 router. Absent means
   // the source did not expose the router flag; false means it explicitly did
   // not identify the neighbor as a router.
