@@ -31,15 +31,15 @@ carry refs, lifecycle, the Config/State/Event triad, and embed primitives by
 value. Address types live in a leaf package; layer packages hold interface
 *facets* and protocol-agnostic *tables*; each protocol owns its own package;
 the interface is one message whose kind is a `oneof` and whose routed persona
-is an optional cross-kind facet. Imports flow strictly upward and a layering
-test enforces it.
+is an optional cross-kind facet. Imports flow strictly upward according to the
+order recorded below.
 
 ## The package tree
 
 ```
 spec/proto/flowseer/
   net/
-    addr/v1/            MacAddress, IpAddress, IpPrefix and their variants; Oui
+    addr/v1/            MAC/OUI types; ip.proto holds IP addresses, prefixes, ranges, lifetimes, and registries
     phy/v1/             EthernetFacet: medium, speed, duplex, auto-negotiation, PoE, transceiver
     l2/v1/              the vlan_id rule, Vlan, SwitchportFacet, AggregationFacet, FdbEntry
     l3/v1/              IpFacet, NeighborEntry, Route, Vrf
@@ -58,8 +58,7 @@ the package that owns the entity; the rules that shape a package's messages
 live in [the protobuf model conventions](../conventions/protobuf.md), which
 this tree assumes throughout.
 
-Import layering, acyclic, enforced by `spec/proto/layering_test.go`, whose
-order table is the single declaration of it:
+Import layering is acyclic; this order is its single declaration:
 
 ```
 net/addr ← net/{phy, l2, l3} ← net/interface ← net/protocol/* ← net/wlan
@@ -68,10 +67,8 @@ net/addr ← net/{phy, l2, l3} ← net/interface ← net/protocol/* ← net/wlan
 
 `net/*` never imports `device/` or above. Layers never import a protocol.
 `net/addr` is the bottom: outside its own package it imports nothing but
-protovalidate (its common types do import their sibling variant files). The test uses
-negative fixtures under `_test_fixtures/` directories (excluded in
-`buf.yaml`), judged by the import paths in their source, so a fixture may name
-a package the tree does not contain yet.
+protovalidate and protobuf well-known types. The IP family shares `ip.proto`,
+so its common types and variants add no internal import edges.
 
 ## Why this shape
 
@@ -330,6 +327,17 @@ API_OPAQUE`.
    interface column of whichever table carries it, and adding a field later is
    cheap where removing one is a permanent `reserved`.
 
+   The rest of the IP value family follows the same structural rule.
+   `IpRange` selects an `Ipv4Range` or `Ipv6Range`, making mixed-family
+   endpoints unrepresentable; both endpoints are required, and message-level
+   CEL validates their big-endian byte ordering. `IpLifetime` maps absent
+   durations to the protocol-level infinite sentinel, distinguishes an omitted
+   containing field from an explicit all-infinite lifetime, and validates the
+   protocols' finite whole-second range plus preferred ≤ valid. `IpDscp`, `IpEcn`, and
+   `IpProtocol` are registry pass-through enums. `IpVersion` borrows the IANA
+   address-family values for IPv4 and IPv6 but uses the registry-reserved zero
+   as `IP_VERSION_UNSPECIFIED`; `IpScope` is a FlowSeer-normalized taxonomy.
+
    These are not the obsolete `google.protobuf` presence wrappers —
    protobuf.dev says those are unnecessary under explicit presence — they are
    structured values whose shape needs a message anyway, and the message gives
@@ -357,13 +365,14 @@ API_OPAQUE`.
    provides. Extension numbers come from the private range 50000–99999; the
    generated package carrying the extension must be linked into every
    validating binary (Go: a blank import) so the registry resolves it.
-5. **Enums: zero is `_UNSPECIFIED`, prefixed values, open by default.**
-   Edition 2024 enums are open: an unknown value from a newer producer is
-   stored in the field as its number rather than dropped into unknown fields
-   (language conformance varies; the generated Go here honours it). Zero is
-   `<ENUM>_UNSPECIFIED` per the style guide and buf's `ENUM_ZERO_VALUE_SUFFIX`,
-   and is never the documented default for a meaningful field — absence
-   already says "not set".
+5. **Enums are prefixed and open; zero follows the enum's class.** Edition 2024
+   enums are open: an unknown value from a newer producer is stored in the
+   field as its number rather than dropped into unknown fields (language
+   conformance varies; the generated Go here honours it). A normalized enum
+   uses `<ENUM>_UNSPECIFIED = 0`. A registry pass-through enum preserves the
+   registry's integer at zero, such as `IP_PROTOCOL_HOPOPT`; absence already
+   says "not set", and consumers check presence before interpreting a zero
+   getter value.
 6. **Tables are repeated rows, never maps.** Rows carry their key fields
    (`FdbEntry{vlan, mac, interface}`, `NeighborEntry{interface, ip, mac}`).
    Protobuf map keys may be only integral or string types — not `bytes`, not
@@ -410,8 +419,8 @@ API_OPAQUE`.
     edition 2024's `EXPORT_TOP_LEVEL` default, *nested* messages are local
     and cannot be used as field types from another file (verified: `found
     unexported message type`), so every `oneof` arm message and every facet
-    is a top-level message in its own file — which the style guide's
-    one-entity-per-file rule and buf's "avoid nested messages" already want.
+    is a top-level message. Most live in their own file; the tightly coupled IP
+    variants share `net/addr/v1/ip.proto` and remain top-level exported types.
     Nothing in `net/` is `local`; everything is imported upward.
 11. **Validation at the boundary, from the schema.** protovalidate rules on
     the primitives (`vlan_id`, per-variant address sizes and prefix lengths)
@@ -592,5 +601,6 @@ originally specified it, contradicted the record's own primitive/entity line.
 - **Address primitives are typed variants** (convention 3) instead of one
   `bytes` payload validated by size, and `IpAddress` lost its `zone` field —
   which also settles the IPv6-zone open question, removed above.
-- **The layering test exists** at `spec/proto/layering_test.go`; this record
-  cites its order table rather than being the second copy of it.
+- **The import order is declared here.** Schema reviews compare new imports
+  against this single order rather than maintaining a second copy in source
+  fixtures.

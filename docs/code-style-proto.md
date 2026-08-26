@@ -35,7 +35,7 @@ The comment discipline and the *Rules for coding agents* in
   `enforce_naming_style = STYLE_LEGACY`) plus per-field
   `features.field_presence = LEGACY_REQUIRED` where the vendor wrote `required`. The
   resulting descriptors are wire-identical to the vendor's proto2 originals
-  (see `spec/proto/ruckus/SOURCES.md`). They keep their historical lint excepts and
+  (see [`spec/proto/ruckus/README.md`](../spec/proto/ruckus/README.md)). They keep their historical lint excepts and
   `WIRE` breaking checks. Beyond that mechanical conversion, do not "clean up" vendor
   protos to match our conventions — no renames, no feature-pin changes, no
   restructuring; fidelity to the vendor wire format wins.
@@ -60,7 +60,15 @@ edition = "2024";
 package flowseer.device.v1;
 ```
 
-- One top-level entity per file; file names `lower_snake_case.proto`.
+- Apart from `README.md` files at package boundaries, `spec/proto/` contains
+  protobuf definitions only. Keep Go tests, fixtures, source inventories under
+  other names, and tooling outside the schema tree so every schema file is
+  eligible for normal Buf tooling.
+- One top-level declaration per file by default; file names `lower_snake_case.proto`.
+  A tightly coupled Primitive family may share one file when its variants and
+  value types are designed, imported, and evolved as one contract. The
+  `net/addr/v1/ip.proto` family is the worked exception; each Entity triad and
+  ref message remains in its own file.
 - Package names are versioned: `flowseer.<domain>.v1`. Directory structure matches
   the package (`spec/proto/flowseer/<domain>/v1/…`).
 - Never use `import public` — it is still legal grammar in edition 2024, and still
@@ -129,10 +137,10 @@ u.proto:4:16: found unexported message type `t.v1.Outer.Inner`
 ```
 
 - Keep the default. Do not set `EXPORT_ALL`; it exists for migrating legacy files.
-- This makes the "one top-level entity per file" rule load-bearing: the file's entry
-  point is its exported surface, and nested types are implementation detail by
-  construction. If a nested type needs to be shared, that is the signal it was never
-  nested — promote it to a top level of its own, don't widen visibility.
+- This makes top-level placement load-bearing: a file's top-level types are its
+  exported surface, and nested types are implementation detail by construction. If a
+  nested type needs to be shared, that is the signal it was never nested — promote it
+  to the top level of its file, don't widen visibility.
 - Mark a top-level type `local` when it exists only to structure the file it lives in.
   It costs one keyword and stops it from becoming someone else's dependency.
 
@@ -150,10 +158,12 @@ That covers casing. The rules the compiler does not check still stand:
 
 - Messages and enums `PascalCase`; fields `lower_snake_case`; enum values
   `UPPER_SNAKE_CASE`; services `PascalCase` with a `Service` suffix.
-- Enum values are prefixed with the enum name, and the zero value is
-  `<ENUM_NAME>_UNSPECIFIED = 0`. The prefix is not decoration: enum values share the
-  package scope, so unprefixed values from two enums collide. Enums are `OPEN` in
-  editions — a consumer will receive values it does not know, and must handle them.
+- Enum values are prefixed with the enum name. The prefix is not decoration: enum
+  values share the package scope, so unprefixed values from two enums collide. A
+  FlowSeer-normalized enum uses `<ENUM_NAME>_UNSPECIFIED = 0`. A registry pass-through
+  enum instead uses the registry's assigned value at zero; absence, not a fabricated
+  sentinel, means unobserved. Enums are `OPEN` in editions — a consumer will receive
+  values it does not know, and must handle them.
 - RPCs are named for the action (`GetFlow`, `ListDevices`); each takes a dedicated
   `<Rpc>Request` and returns `<Rpc>Response`, even when a message would seem
   shareable — shared request/response types weld unrelated RPCs together at the

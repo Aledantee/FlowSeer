@@ -5,14 +5,15 @@ split into two modules that share the `spec/proto/` root:
 
 ```
 spec/proto/
-├── ruckus/      Vendored Ruckus SmartZone GPB telemetry schemas (see ruckus/SOURCES.md)
+├── ruckus/      Vendored Ruckus SmartZone GPB telemetry schemas
 └── flowseer/    FlowSeer-owned schemas — edition 2024, conventions in docs/code-style-proto.md
 ```
 
 Both modules are edition 2024. The `ruckus/` module is a vendored mirror
 converted mechanically from the vendor's proto2 with feature pins that keep
-the wire format byte-identical; it carries relaxed lint rules and `WIRE`
-breaking checks. The `flowseer/` module is held to the full style guide in
+the wire format byte-identical; its source record lives in
+[`ruckus/README.md`](ruckus/README.md). It carries relaxed lint rules and
+`WIRE` breaking checks. The `flowseer/` module is held to the full style guide in
 [`docs/code-style-proto.md`](../../docs/code-style-proto.md).
 
 The SNMP MIBs for the same vendors live in [`../mib/README.md`](../mib/README.md),

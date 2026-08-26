@@ -11,9 +11,6 @@
 #      triad members and GlobalRef/LocalRef counterparts that the edit did
 #      not bring along.
 #
-# The lint leg is skipped for layering-test fixtures, which are excluded from
-# their buf module; the skip is always reported, never silent.
-
 set -uo pipefail
 
 input=$(cat)
@@ -56,39 +53,9 @@ if command -v buf >/dev/null 2>&1; then
   buf format -w "$abs" >/dev/null 2>&1
 
   # --- 2. lint -----------------------------------------------------------
-  # Layering-test fixtures are excluded from their buf module and deliberately
-  # import packages that may not exist, so `buf lint --path` on one exits
-  # non-zero ("no .proto files were targeted", or an unresolvable import) and
-  # would block every save of a fixture. Format and sync still run.
-  #
-  # Ask buf what it targets rather than reading buf.yaml ourselves: a
-  # commented-out exclude, or one belonging to the vendored module, still
-  # appears in the file's text, and believing it would skip lint on a file buf
-  # was perfectly willing to check. If buf still lists the file, it is not
-  # excluded and gets linted.
-  #
-  # A skip is always announced. Silence here would read exactly like a clean
-  # lint, which is the failure this whole branch exists to avoid.
-  # Captured, then matched with a here-string rather than piped into `grep
-  # -q`: under `pipefail` the early exit of `grep -q` SIGPIPEs buf, and the
-  # pipeline reports 141 for a *successful* match — which would send every
-  # production file down the "excluded" path and silently stop linting.
-  targeted=$(cd "$root" && buf ls-files 2>/dev/null)
-  ls_rc=$?
-  if [ "$ls_rc" -ne 0 ]; then
-    # buf could not enumerate the module. Lint anyway and let it report why,
-    # rather than guessing the file is excluded.
-    lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
-    lint_rc=$?
-  elif grep -qxF -- "$rel" <<<"$targeted"; then
-    lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
-    lint_rc=$?
-  else
-    skip_msg="buf lint skipped for $rel — buf does not target this path (it is excluded from its module), so lint cannot resolve it. This file was NOT checked; spec/proto/layering_test.go is what judges it."
-  fi
+  lint_out=$(cd "$root" && buf lint --path "$rel" 2>&1)
+  lint_rc=$?
 else
-  # Same reasoning as the skip above: reporting nothing would be
-  # indistinguishable from a clean lint.
   skip_msg="buf is not on PATH — $rel was NOT formatted or linted. Only the message-sync check below ran."
 fi
 

@@ -20,8 +20,7 @@ words oblige a schema author to write, and is the "conventions doc" that
 
 The package tree, the import layering, and the primitive/entity split are fixed
 by [the network model structure
-direction](../architecture/2026-08-20-network-model-structure-direction.md);
-`spec/proto/layering_test.go` enforces the layering.
+direction](../architecture/2026-08-20-network-model-structure-direction.md).
 
 ## The triad
 
@@ -133,10 +132,21 @@ Lifecycle and status enums live beside the Entity or [facet][facet] that owns th
 never in a shared package — a shared enum package acquires the same
 knows-everything-above-it problem a shared refs package does.
 
-Zero value is `<ENUM_NAME>_UNSPECIFIED`, every value carries the enum-name
-prefix (enum values share package scope, so unprefixed values from two enums
-collide), and enums are open: a consumer will receive values it does not know
-and must handle them.
+Every value carries the enum-name prefix (enum values share package scope, so
+unprefixed values from two enums collide), and enums are open: a consumer will
+receive values it does not know and must handle them.
+
+Enums fall into two classes. A FlowSeer-normalized taxonomy numbers its own
+values and uses `<ENUM_NAME>_UNSPECIFIED = 0`. A registry pass-through enum
+keeps the external registry's integers exactly, including a real assignment at
+zero such as `IP_PROTOCOL_HOPOPT`, `IP_DSCP_CS0`, or `IP_ECN_NON_ECT`.
+Presence carries "not observed" for both classes. Consumers of a pass-through
+enum whose registry owns zero must check presence before reading the generated
+getter, because the getter's absent default is also that registry's real zero
+value. Open pass-through enums preserve unknown registry values, but they do
+not enforce the registry's numeric width by themselves. Every field using
+`IpDscp`, `IpEcn`, or `IpProtocol` therefore validates the complete numeric
+domain at the use site: `0..63`, `0..3`, or `0..255`, respectively.
 
 ## Typed variants
 
@@ -160,9 +170,10 @@ A consumer switches on the arm instead of on a payload size, every rule is a
 plain field rule instead of a CEL expression that reconstructs the family from
 a byte count, and adding a variant is adding an arm.
 
-`spec/proto/flowseer/net/addr/v1/` is the worked instance: `Ipv4Address` /
-`Ipv6Address` / `IpAddress`, `Eui48Address` / `Eui64Address` / `MacAddress`,
-`Ipv4Prefix` / `Ipv6Prefix` / `IpPrefix`.
+`spec/proto/flowseer/net/addr/v1/` is the worked instance: `ip.proto` keeps
+`Ipv4Address` / `Ipv6Address` / `IpAddress`, `Ipv4Prefix` / `Ipv6Prefix` /
+`IpPrefix`, and the related IP value types together; the MAC family uses
+`Eui48Address` / `Eui64Address` / `MacAddress`.
 
 The variant's payload field is `required`. The *containing* message's presence
 is what expresses optionality — an address message that is set but empty is not
