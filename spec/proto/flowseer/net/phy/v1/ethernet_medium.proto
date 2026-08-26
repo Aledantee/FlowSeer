@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// The physical medium carrying an Ethernet link. The taxonomy is deliberately
+// coarse because detailed PHY and transceiver standards evolve independently.
+enum EthernetMedium {
+  // The source did not report a medium.
+  ETHERNET_MEDIUM_UNSPECIFIED = 0;
+  // Twisted-pair or another electrical copper medium.
+  ETHERNET_MEDIUM_COPPER = 1;
+  // An optical-fiber medium.
+  ETHERNET_MEDIUM_FIBER = 2;
+  // A chassis or system backplane.
+  ETHERNET_MEDIUM_BACKPLANE = 3;
+  // A passive or active direct-attach cable.
+  ETHERNET_MEDIUM_DIRECT_ATTACH = 4;
+  // A reported medium outside the normalized cases.
+  ETHERNET_MEDIUM_OTHER = 5;
+}

@@ -1,0 +1,37 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import option "buf/validate/validate.proto";
+
+// Pluggable-transceiver presence and identity as observed at one physical
+// interface. Richer inventory attributes belong to a separate component entity.
+message TransceiverFacet {
+  option (buf.validate.message).cel = {
+    id: "transceiver_facet.empty_cage_has_no_module_attributes"
+    message: "an explicitly empty cage cannot carry transceiver attributes"
+    expression:
+      "!has(this.present) || this.present || "
+      "(!has(this.form_factor) && !has(this.vendor_name) && !has(this.part_number) && "
+      "!has(this.serial_number) && !has(this.wavelength_nanometers))"
+  };
+
+  // Whether a module is installed. Absent means presence was not reported;
+  // false means the source explicitly reported an empty cage.
+  bool present = 1;
+  // The source-reported form factor, such as SFP28 or QSFP-DD. Absent means no
+  // form factor was reported; a present value must not be empty.
+  string form_factor = 2 [(buf.validate.field).string.min_len = 1];
+  // The module vendor. Absent means no vendor was reported; a present value
+  // must not be empty.
+  string vendor_name = 3 [(buf.validate.field).string.min_len = 1];
+  // The vendor part number. Absent means no part number was reported; a present
+  // value must not be empty.
+  string part_number = 4 [(buf.validate.field).string.min_len = 1];
+  // The vendor serial number. Absent means no serial number was reported; a
+  // present value must not be empty.
+  string serial_number = 5 [(buf.validate.field).string.min_len = 1];
+  // The nominal optical wavelength in nanometers. Absent means no wavelength
+  // was reported; zero is invalid when the field is present.
+  uint32 wavelength_nanometers = 6 [(buf.validate.field).uint32.gt = 0];
+}

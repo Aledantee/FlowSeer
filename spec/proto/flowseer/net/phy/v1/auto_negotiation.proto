@@ -1,0 +1,22 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import option "buf/validate/validate.proto";
+
+// Ethernet auto-negotiation capability and state. Presence of the containing
+// message means the source supplied auto-negotiation information.
+message AutoNegotiation {
+  option (buf.validate.message).cel = {
+    id: "auto_negotiation.enabled_requires_support"
+    message: "auto-negotiation cannot be enabled when support is explicitly false"
+    expression: "!has(this.supported) || this.supported || !has(this.enabled) || !this.enabled"
+  };
+
+  // Whether the PHY supports auto-negotiation. Absent means capability was not
+  // reported; false means the source explicitly reported no support.
+  bool supported = 1;
+  // Whether auto-negotiation is administratively enabled. Absent means the
+  // source did not report or express an enabled state.
+  bool enabled = 2;
+}

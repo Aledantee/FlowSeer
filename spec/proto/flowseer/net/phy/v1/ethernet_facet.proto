@@ -1,0 +1,32 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/auto_negotiation.proto";
+import "flowseer/net/phy/v1/ethernet_duplex.proto";
+import "flowseer/net/phy/v1/ethernet_medium.proto";
+import "flowseer/net/phy/v1/poe_facet.proto";
+import "flowseer/net/phy/v1/transceiver_facet.proto";
+import option "buf/validate/validate.proto";
+
+// Physical Ethernet attributes embedded by a physical interface kind. The
+// facet carries no interface or device identity.
+message EthernetFacet {
+  // The link medium. Absent means the source did not report a medium.
+  EthernetMedium medium = 1;
+  // The configured or negotiated line rate in bits per second. Absent means no
+  // speed was reported; zero is invalid when the field is present.
+  uint64 speed_bps = 2 [(buf.validate.field).uint64.gt = 0];
+  // The configured or negotiated duplex mode. Absent means the source did not
+  // report a duplex mode.
+  EthernetDuplex duplex = 3;
+  // Auto-negotiation capability and state. Absent means the source supplied no
+  // auto-negotiation information.
+  AutoNegotiation auto_negotiation = 4;
+  // Power over Ethernet capability and state. Absent means the source supplied
+  // no PoE information.
+  PoeFacet poe = 5;
+  // Pluggable-transceiver presence and identity. Absent means the source
+  // supplied no transceiver information.
+  TransceiverFacet transceiver = 6;
+}

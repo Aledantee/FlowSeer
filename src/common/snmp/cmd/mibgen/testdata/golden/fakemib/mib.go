@@ -12,10 +12,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 	"iter"
 	"net"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	ae "go.aledante.io/ae"
 )
 
 // FakeStatusValue is the SMI enum fakeStatus (inline).
@@ -53,9 +54,9 @@ func FakeScalarGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for fakeScalar")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // FakeStatusGet reads the SMIv2 scalar fakeStatus.
@@ -70,13 +71,13 @@ func FakeStatusGet(ctx context.Context, sess snmp.Session) (FakeStatusValue, err
 		return FakeStatusValue(0), ae.Msg("empty Get response for fakeStatus")
 	}
 
-	return (func(vb snmp.VarBind) (FakeStatusValue, error) {
+	return func(vb snmp.VarBind) (FakeStatusValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return FakeStatusValue(0), err
 		}
 		return FakeStatusValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // FakeName is the column fakeName of table fakeTable.

@@ -1,0 +1,17 @@
+edition = "2024";
+
+package flowseer.net.l2.v1;
+
+// The observed lifetime of a VLAN in a bridge's VLAN database. The values
+// normalize the distinctions reported by Q-BRIDGE-MIB rather than preserving
+// that MIB's integers.
+enum VlanStatus {
+  // The source did not report a status.
+  VLAN_STATUS_UNSPECIFIED = 0;
+  // The source reported a status outside the normalized cases.
+  VLAN_STATUS_OTHER = 1;
+  // The VLAN is statically configured and survives bridge restarts.
+  VLAN_STATUS_PERMANENT = 2;
+  // The VLAN was learned through a registration protocol and may age out.
+  VLAN_STATUS_DYNAMIC = 3;
+}
