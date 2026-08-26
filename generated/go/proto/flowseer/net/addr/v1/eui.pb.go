@@ -20,7 +20,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A 48-bit IEEE MAC address (EUI-48).
+// A 48-bit IEEE MAC address (EUI-48). EUI-48 is defined by the IEEE
+// Registration Authority; see
+// https://standards.ieee.org/products-programs/regauth/.
 type Eui48Address struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Octets      []byte                 `protobuf:"bytes,1,opt,name=octets"`
@@ -101,7 +103,9 @@ func (b0 Eui48Address_builder) Build() *Eui48Address {
 	return m0
 }
 
-// A 64-bit IEEE MAC address (EUI-64).
+// A 64-bit IEEE MAC address (EUI-64). EUI-64 is defined by the IEEE
+// Registration Authority; see
+// https://standards.ieee.org/products-programs/regauth/.
 type Eui64Address struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Octets      []byte                 `protobuf:"bytes,1,opt,name=octets"`
@@ -182,9 +186,10 @@ func (b0 Eui64Address_builder) Build() *Eui64Address {
 	return m0
 }
 
-// An IEEE EUI of either width. The arm is the width: consumers switch on it
-// rather than inferring it from a payload length, and each arm carries its
-// own size rule.
+// An IEEE Extended Unique Identifier of either width
+// (https://standards.ieee.org/products-programs/regauth/). The arm is the
+// width: consumers switch on it rather than inferring it from a payload
+// length, and each arm carries its own size rule.
 type EuiAddress struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Kind isEuiAddress_Kind      `protobuf_oneof:"kind"`

@@ -21,8 +21,10 @@ const (
 )
 
 // The payload protocol of an IPv4 datagram or next-header value of an IPv6
-// packet. Integers map directly to the IANA registry; unnamed values from zero
-// through 255 remain valid. Zero is real, so consumers must check presence.
+// packet. Integers map directly to the IANA Protocol Numbers registry
+// (https://www.iana.org/assignments/protocol-numbers); unnamed values from
+// zero through 255 remain valid. Zero is real, so consumers must check
+// presence.
 type IpProtocol int32
 
 const (

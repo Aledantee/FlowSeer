@@ -20,9 +20,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// An inclusive transport-layer port range. Port zero remains representable
-// because packet observations and predicates describe wire values, not only
-// valid listening endpoints.
+// An inclusive transport-layer port range. Ports are 16-bit wire values from
+// 0 through 65535 (RFC 9293,
+// https://www.rfc-editor.org/rfc/rfc9293.html#section-3.1). Port zero
+// remains representable because packet observations and predicates describe
+// wire values, not only valid listening endpoints.
 type TransportPortRange struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Start       uint32                 `protobuf:"varint,1,opt,name=start"`

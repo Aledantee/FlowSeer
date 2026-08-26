@@ -20,8 +20,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ICMPv4 type and code values. Numeric values preserve new IANA assignments
-// without requiring a schema release.
+// ICMPv4 type and code values. Types and codes are one-octet fields per the
+// IANA ICMP Parameters registry
+// (https://www.iana.org/assignments/icmp-parameters); numeric values preserve
+// new IANA assignments without requiring a schema release.
 type Icmpv4Fields struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Type        uint32                 `protobuf:"varint,1,opt,name=type"`
@@ -129,8 +131,10 @@ func (b0 Icmpv4Fields_builder) Build() *Icmpv4Fields {
 	return m0
 }
 
-// ICMPv6 type and code values. Numeric values preserve new IANA assignments
-// without requiring a schema release.
+// ICMPv6 type and code values. Types and codes are one-octet fields per the
+// IANA ICMPv6 Parameters registry
+// (https://www.iana.org/assignments/icmpv6-parameters); numeric values
+// preserve new IANA assignments without requiring a schema release.
 type Icmpv6Fields struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Type        uint32                 `protobuf:"varint,1,opt,name=type"`

@@ -21,15 +21,20 @@ const (
 )
 
 // A Differentiated Services Code Point from the six-bit IPv4 DS field or
-// IPv6 Traffic Class field. Integers map directly to RFC 2474 code points;
+// IPv6 Traffic Class field defined by RFC 2474
+// (https://www.rfc-editor.org/rfc/rfc2474.html). Integers map directly to
+// the IANA DSCP registry (https://www.iana.org/assignments/dscp-registry);
 // unnamed values from 0 through 63 remain meaningful registry values. Zero
-// is a real registry value, so consumers must check field presence.
+// is a real registry value, so consumers must check field presence. Class
+// Selector code points come from RFC 2474 and the Assured Forwarding matrix
+// from RFC 2597 (https://www.rfc-editor.org/rfc/rfc2597.html).
 type IpDscp int32
 
 const (
 	// Best Effort / Class Selector 0.
 	IpDscp_IP_DSCP_CS0 IpDscp = 0
-	// Lower Effort per-Hop Behavior.
+	// Lower Effort per-Hop Behavior (RFC 8622,
+	// https://www.rfc-editor.org/rfc/rfc8622.html).
 	IpDscp_IP_DSCP_LE IpDscp = 1
 	// Class Selector 1.
 	IpDscp_IP_DSCP_CS1 IpDscp = 8
@@ -65,11 +70,14 @@ const (
 	IpDscp_IP_DSCP_AF43 IpDscp = 38
 	// Class Selector 5.
 	IpDscp_IP_DSCP_CS5 IpDscp = 40
-	// Voice-Admit traffic.
+	// Voice-Admit traffic (RFC 5865,
+	// https://www.rfc-editor.org/rfc/rfc5865.html).
 	IpDscp_IP_DSCP_VOICE_ADMIT IpDscp = 44
-	// Non-Queue-Building per-Hop Behavior.
+	// Non-Queue-Building per-Hop Behavior (RFC 9956,
+	// https://www.rfc-editor.org/rfc/rfc9956.html).
 	IpDscp_IP_DSCP_NQB IpDscp = 45
-	// Expedited Forwarding traffic.
+	// Expedited Forwarding traffic (RFC 3246,
+	// https://www.rfc-editor.org/rfc/rfc3246.html).
 	IpDscp_IP_DSCP_EF IpDscp = 46
 	// Class Selector 6.
 	IpDscp_IP_DSCP_CS6 IpDscp = 48

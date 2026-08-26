@@ -7,7 +7,6 @@
 package addrv1
 
 import (
-	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -24,7 +23,8 @@ const (
 
 // A coarse FlowSeer classification of an IP address. This combines address
 // kinds such as loopback and multicast with common topology scopes; it is not
-// the family-specific scope field defined by an IP wire protocol.
+// the family-specific scope field defined by an IP wire protocol. The values
+// are FlowSeer-normalized, not assignments from any external registry.
 type IpScope int32
 
 const (
@@ -85,16 +85,17 @@ func (x IpScope) Number() protoreflect.EnumNumber {
 }
 
 // An IP address family without a concrete address. Integers map directly to
-// the IANA Address Family Numbers registry.
+// the IANA Address Family Numbers registry. See
+// https://www.iana.org/assignments/address-family-numbers.
 type IpVersion int32
 
 const (
-	// IANA address family 0 is reserved; absence is preferred when no family
-	// was observed.
+	// Address family number 0 is reserved; absence is preferred when no
+	// family was observed.
 	IpVersion_IP_VERSION_UNSPECIFIED IpVersion = 0
-	// IPv4, IANA address family 1.
+	// IPv4, address family number 1.
 	IpVersion_IP_VERSION_V4 IpVersion = 1
-	// IPv6, IANA address family 2.
+	// IPv6, address family number 2.
 	IpVersion_IP_VERSION_V6 IpVersion = 2
 )
 
@@ -1224,7 +1225,10 @@ func (*ipRange_V6) isIpRange_Family() {}
 
 // The preferred and valid lifetimes of an address acquired through SLAAC or
 // DHCP. A present duration is an unsigned 32-bit whole-second protocol value;
-// the reserved 0xffffffff sentinel maps to absence and means infinite.
+// the reserved 0xffffffff sentinel maps to absence and means infinite, as in
+// RFC 4861 section 4.6.2
+// (https://www.rfc-editor.org/rfc/rfc4861.html#section-4.6.2) and RFC 8415
+// section 7.7 (https://www.rfc-editor.org/rfc/rfc8415.html#section-7.7).
 // An empty message therefore means both lifetimes are infinite; omit the
 // containing IpLifetime field when no lifetime was observed. A protocol with
 // only one finite lease duration sets both fields to that duration.
@@ -1329,7 +1333,7 @@ var File_flowseer_net_addr_v1_ip_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_addr_v1_ip_proto_rawDesc = "" +
 	"\n" +
-	"\x1dflowseer/net/addr/v1/ip.proto\x12\x14flowseer.net.addr.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\"1\n" +
+	"\x1dflowseer/net/addr/v1/ip.proto\x12\x14flowseer.net.addr.v1\x1a\x1egoogle/protobuf/duration.proto\"1\n" +
 	"\vIpv4Address\x12\"\n" +
 	"\x06octets\x18\x01 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02h\x04R\x06octets\"1\n" +

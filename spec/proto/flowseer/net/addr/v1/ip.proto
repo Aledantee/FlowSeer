@@ -2,12 +2,13 @@ edition = "2024";
 
 package flowseer.net.addr.v1;
 
-import "buf/validate/validate.proto";
 import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
 
 // A coarse FlowSeer classification of an IP address. This combines address
 // kinds such as loopback and multicast with common topology scopes; it is not
-// the family-specific scope field defined by an IP wire protocol.
+// the family-specific scope field defined by an IP wire protocol. The values
+// are FlowSeer-normalized, not assignments from any external registry.
 enum IpScope {
   // The scope is absent or has not been classified.
   IP_SCOPE_UNSPECIFIED = 0;
@@ -24,14 +25,15 @@ enum IpScope {
 }
 
 // An IP address family without a concrete address. Integers map directly to
-// the IANA Address Family Numbers registry.
+// the IANA Address Family Numbers registry. See
+// https://www.iana.org/assignments/address-family-numbers.
 enum IpVersion {
-  // IANA address family 0 is reserved; absence is preferred when no family
-  // was observed.
+  // Address family number 0 is reserved; absence is preferred when no
+  // family was observed.
   IP_VERSION_UNSPECIFIED = 0;
-  // IPv4, IANA address family 1.
+  // IPv4, address family number 1.
   IP_VERSION_V4 = 1;
-  // IPv6, IANA address family 2.
+  // IPv6, address family number 2.
   IP_VERSION_V6 = 2;
 }
 
@@ -191,7 +193,10 @@ message IpRange {
 
 // The preferred and valid lifetimes of an address acquired through SLAAC or
 // DHCP. A present duration is an unsigned 32-bit whole-second protocol value;
-// the reserved 0xffffffff sentinel maps to absence and means infinite.
+// the reserved 0xffffffff sentinel maps to absence and means infinite, as in
+// RFC 4861 section 4.6.2
+// (https://www.rfc-editor.org/rfc/rfc4861.html#section-4.6.2) and RFC 8415
+// section 7.7 (https://www.rfc-editor.org/rfc/rfc8415.html#section-7.7).
 // An empty message therefore means both lifetimes are infinite; omit the
 // containing IpLifetime field when no lifetime was observed. A protocol with
 // only one finite lease duration sets both fields to that duration.

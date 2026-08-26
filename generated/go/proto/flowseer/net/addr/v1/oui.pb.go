@@ -7,7 +7,6 @@
 package addrv1
 
 import (
-	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,10 +20,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// An IEEE Organizationally Unique Identifier: the vendor-assigned prefix
-// shared by an EUI-48 and an EUI-64. Its own message rather than a view of
-// EuiAddress because discovery's vendor prefilter and vendor lookups hold an
-// OUI with no address behind it.
+// An IEEE Organizationally Unique Identifier: the vendor-assigned 24-bit
+// prefix shared by an EUI-48 and an EUI-64, assigned by the IEEE Registration
+// Authority (https://standards.ieee.org/products-programs/regauth/). Its own
+// message rather than a view of EuiAddress because discovery's vendor
+// prefilter and vendor lookups hold an OUI with no address behind it.
 type Oui struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Octets      []byte                 `protobuf:"bytes,1,opt,name=octets"`
@@ -109,7 +109,7 @@ var File_flowseer_net_addr_v1_oui_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_addr_v1_oui_proto_rawDesc = "" +
 	"\n" +
-	"\x1eflowseer/net/addr/v1/oui.proto\x12\x14flowseer.net.addr.v1\x1a\x1bbuf/validate/validate.proto\")\n" +
+	"\x1eflowseer/net/addr/v1/oui.proto\x12\x14flowseer.net.addr.v1\")\n" +
 	"\x03Oui\x12\"\n" +
 	"\x06octets\x18\x01 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02h\x03R\x06octetsB\xdf\x01\n" +

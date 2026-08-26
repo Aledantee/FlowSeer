@@ -21,8 +21,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// An IEEE EtherType. The enum intentionally names only common assignments;
-// open-enum values from 1536 through 65535 remain valid registry values.
+// An IEEE EtherType. Integers map directly to the IANA IEEE 802 Numbers
+// registry (https://www.iana.org/assignments/ieee-802-numbers). The enum
+// intentionally names only common assignments; open-enum values from 1536
+// through 65535 remain valid registry values.
 type EtherType int32
 
 const (
@@ -32,19 +34,27 @@ const (
 	EtherType_ETHER_TYPE_IPV4 EtherType = 2048
 	// Address Resolution Protocol (0x0806).
 	EtherType_ETHER_TYPE_ARP EtherType = 2054
-	// IEEE 802.1Q customer VLAN tag (0x8100).
+	// IEEE Std 802.1Q customer VLAN tag, the C-Tag (0x8100; IANA IEEE 802
+	// Numbers, https://www.iana.org/assignments/ieee-802-numbers).
 	EtherType_ETHER_TYPE_DOT1Q EtherType = 33024
 	// Internet Protocol version 6 (0x86DD).
 	EtherType_ETHER_TYPE_IPV6 EtherType = 34525
-	// MPLS unicast (0x8847).
+	// MPLS with a downstream-assigned label (0x8847). Registered as "MPLS
+	// unicast" by RFC 3032; RFC 5332 redefined the split by label-assignment
+	// kind (https://www.rfc-editor.org/rfc/rfc5332.html).
 	EtherType_ETHER_TYPE_MPLS_UNICAST EtherType = 34887
-	// MPLS multicast (0x8848).
+	// MPLS with an upstream-assigned label (0x8848). Registered as "MPLS
+	// multicast" by RFC 3032; RFC 5332 redefined the split by label-assignment
+	// kind (https://www.rfc-editor.org/rfc/rfc5332.html).
 	EtherType_ETHER_TYPE_MPLS_MULTICAST EtherType = 34888
-	// IEEE 802.1ad provider bridging service tag (0x88A8).
+	// IEEE Std 802.1Q service VLAN tag, the S-Tag (0x88A8; IANA IEEE 802
+	// Numbers, https://www.iana.org/assignments/ieee-802-numbers). Introduced
+	// by the 802.1ad provider bridging amendment, since merged into 802.1Q.
 	EtherType_ETHER_TYPE_PROVIDER_BRIDGING EtherType = 34984
 	// Link Layer Discovery Protocol (0x88CC).
 	EtherType_ETHER_TYPE_LLDP EtherType = 35020
-	// IEEE 802.1AE MAC Security (0x88E5).
+	// IEEE Std 802.1AE MAC Security (0x88E5; IANA IEEE 802 Numbers,
+	// https://www.iana.org/assignments/ieee-802-numbers).
 	EtherType_ETHER_TYPE_MACSEC EtherType = 35045
 )
 

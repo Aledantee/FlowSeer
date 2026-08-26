@@ -4,7 +4,9 @@ package flowseer.net.addr.v1;
 
 import option "buf/validate/validate.proto";
 
-// A 48-bit IEEE MAC address (EUI-48).
+// A 48-bit IEEE MAC address (EUI-48). EUI-48 is defined by the IEEE
+// Registration Authority; see
+// https://standards.ieee.org/products-programs/regauth/.
 message Eui48Address {
   // The 6 address octets in canonical wire order, most significant first.
   // Absent is invalid; omit the containing field instead.
@@ -14,7 +16,9 @@ message Eui48Address {
   ];
 }
 
-// A 64-bit IEEE MAC address (EUI-64).
+// A 64-bit IEEE MAC address (EUI-64). EUI-64 is defined by the IEEE
+// Registration Authority; see
+// https://standards.ieee.org/products-programs/regauth/.
 message Eui64Address {
   // The 8 address octets in canonical wire order, most significant first.
   // Absent is invalid; omit the containing field instead.
@@ -24,9 +28,10 @@ message Eui64Address {
   ];
 }
 
-// An IEEE EUI of either width. The arm is the width: consumers switch on it
-// rather than inferring it from a payload length, and each arm carries its
-// own size rule.
+// An IEEE Extended Unique Identifier of either width
+// (https://standards.ieee.org/products-programs/regauth/). The arm is the
+// width: consumers switch on it rather than inferring it from a payload
+// length, and each arm carries its own size rule.
 message EuiAddress {
   oneof kind {
     option (buf.validate.oneof).required = true;

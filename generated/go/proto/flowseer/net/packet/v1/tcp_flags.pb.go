@@ -22,8 +22,11 @@ const (
 )
 
 // One TCP control flag. Values are their one-hot wire bit masks rather than
-// arbitrary ordinal numbers. Unnamed one-hot values through 2048 preserve the
-// fixed reserved flag positions for future assignment.
+// arbitrary ordinal numbers, per the RFC 9293 header layout of 8 control
+// bits preceded by 4 reserved bits
+// (https://www.rfc-editor.org/rfc/rfc9293.html#section-3.1). Unnamed one-hot
+// values through 2048 preserve the fixed reserved flag positions for future
+// assignment.
 type TcpFlag int32
 
 const (

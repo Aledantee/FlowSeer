@@ -21,8 +21,9 @@ const (
 )
 
 // The Explicit Congestion Notification bits from the IPv4 DS field or IPv6
-// Traffic Class field. Integers map directly to the RFC 3168 bit patterns.
-// Zero is a real registry value, so consumers must check field presence.
+// Traffic Class field. Integers map directly to the RFC 3168 bit patterns
+// (https://www.rfc-editor.org/rfc/rfc3168.html#section-5). Zero is a real
+// registry value, so consumers must check field presence.
 type IpEcn int32
 
 const (
