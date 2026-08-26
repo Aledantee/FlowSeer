@@ -2,7 +2,7 @@
 title: Network Model Structure - Direction
 type: direction
 date: 2026-08-20
-updated: 2026-08-21
+updated: 2026-08-26
 topic: network-model-structure
 status: accepted-direction
 ---
@@ -28,8 +28,9 @@ Two kinds of message, two trees, one import rule. **Primitives** under
 entry, an interface — with no identity, tenant, lifecycle, or provenance.
 **Entities** under `flowseer/device/…`, `flowseer/inventory/…`, and above
 carry refs, lifecycle, the Config/State/Event triad, and embed primitives by
-value. Address types live in a leaf package; layer packages hold interface
-*facets* and protocol-agnostic *tables*; each protocol owns its own package;
+value. Address types and packet-header values live in independent leaf
+packages; layer packages hold interface *facets* and protocol-agnostic
+*tables*; each protocol owns its own package;
 the interface is one message whose kind is a `oneof` and whose routed persona
 is an optional cross-kind facet. Imports flow strictly upward according to the
 order recorded below.
@@ -39,10 +40,11 @@ order recorded below.
 ```
 spec/proto/flowseer/
   net/
-    addr/v1/            MAC/OUI types; ip.proto holds IP addresses, prefixes, ranges, lifetimes, and registries
-    phy/v1/             EthernetFacet: medium, speed, duplex, auto-negotiation, PoE, transceiver
-    l2/v1/              the vlan_id rule, Vlan, SwitchportFacet, AggregationFacet, FdbEntry
-    l3/v1/              IpFacet, NeighborEntry, Route, Vrf
+    addr/v1/            MAC/OUI and IP address, prefix, range, scope, and lifetime values
+    packet/v1/          EtherType, DSCP, ECN, IP protocol, ports, TCP flags, and ICMP match atoms
+    phy/v1/             Ethernet settings, capabilities, active facts, PoE, and transceiver summary
+    l2/v1/              VLANs, tag stacks, SwitchportFacet, AggregationFacet, FdbEntry
+    l3/v1/              IpFacet, InterfaceAddress, NeighborEntry
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of l2, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
@@ -58,17 +60,22 @@ the package that owns the entity; the rules that shape a package's messages
 live in [the protobuf model conventions](../conventions/protobuf.md), which
 this tree assumes throughout.
 
-Import layering is acyclic; this order is its single declaration:
+Import layering is acyclic. The foundational dependency graph is:
 
 ```
-net/addr ← net/{phy, l2, l3} ← net/interface ← net/protocol/* ← net/wlan
-         ← device ← inventory ← integration ← service ← event
+net/addr ← {net/l2, net/l3}
+net/packet ← net/l2
+{net/addr, net/packet, net/phy, net/l2, net/l3} ← net/interface
+net/interface ← {net/protocol/*, net/wlan}
+{net/interface, net/protocol/*, net/wlan} ← device
+device ← inventory ← integration ← {service, event}
 ```
 
 `net/*` never imports `device/` or above. Layers never import a protocol.
-`net/addr` is the bottom: outside its own package it imports nothing but
-protovalidate and protobuf well-known types. The IP family shares `ip.proto`,
-so its common types and variants add no internal import edges.
+`net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
+packages; `net/l2` imports address and packet values, while `net/l3` imports
+address values. Service and event packages are sibling boundary consumers and
+never import one another.
 
 ## Why this shape
 
@@ -115,8 +122,9 @@ vs `ROUTER_INTERFACE`), Junos (`family ethernet-switching` / `family inet`),
 and Meraki's WLC API (`interfaces/l2`, `interfaces/l3`). FlowSeer keeps
 `l2`/`l3` as packages because that is what they mostly hold and it keeps v1 at
 a handful of packages; messages inside are function-named (`Vlan`, `FdbEntry`,
-`IpFacet`, `Route`), never `L2Thing`. If either package grows past roughly
-eight entities, split it by function (`vlan`, `bridging`, `ip`, `routing`).
+`IpFacet`, `NeighborEntry`), never `L2Thing`. Network instances, RIBs, routes,
+and forwarding entries form separate future functional packages rather than
+growing inside `net/l3`.
 
 ### Facets versus tables
 
@@ -124,12 +132,13 @@ Each layer package holds two shapes, and the distinction matters for where a
 message is embedded:
 
 - A **facet** is a bundle of per-interface attributes for one layer
-  (`SwitchportFacet`: mode, access/native/tagged VLANs; `IpFacet`: addresses,
-  VRF, IP MTU, forwarding; `EthernetFacet`: speed, duplex, PoE). Facets are
+  (`SwitchportFacet`: PVID and exact tagged/untagged memberships; `IpFacet`:
+  per-family enablement, forwarding, and MTU; `EthernetFacet`: active speed,
+  duplex, FEC, PoE, and capabilities). Facets are
   embedded by value in `net.interface.Interface`.
 - A **table** is device-scoped state whose rows reference interfaces: the FDB
   keyed `(vlan, mac) → interface`, the IP neighbor cache keyed
-  `(interface, ip) → mac`, the VLAN database, routes keyed `(vrf, prefix)`.
+  `(interface, ip) → mac`, and the VLAN database.
   Tables hang off the device entity's State with an interface reference in
   each row, never under the interface. This is how OpenConfig
   (`network-instance/fdb`), IEEE (`bridge/component/filtering-database`),
@@ -141,7 +150,7 @@ message is embedded:
 
 ### VLAN membership has one canonical direction
 
-VLAN definitions (`Vlan`: id, name, status) are a device-level table.
+VLAN definitions (`Vlan`: id, name, registration) are a device-level table.
 Membership is stored **port-side** in the `SwitchportFacet` — as OpenConfig
 `switched-vlan`, Ansible `l2_interfaces`, and NetBox `untagged_vlan` /
 `tagged_vlans` do. The VLAN→members view that NAPALM `get_vlans`, OpenConfig's
@@ -159,8 +168,9 @@ the same package. OpenConfig's `openconfig-lldp`, `openconfig-stp`,
 `openconfig-lacp` as standalone modules, IEEE's `ieee802-dot1ab-lldp`, and the
 `lldp` tables in SuzieQ, Ansible, and Genie are the precedent. The rule that
 decides between a layer package and a protocol package: *if the table exists
-regardless of which protocol populates it (neighbor cache, FDB, RIB) it is a
-layer table; if it is the protocol's own table (LLDP neighbors, STP port
+regardless of which protocol populates it (neighbor cache, FDB, or a future
+RIB) it is a functional-domain table; if it is the protocol's own table (LLDP
+neighbors, STP port
 state, BGP peers, LACP partner) it is `protocol/<x>`.* Protocols sit above the
 layers because they reference layer types (LLDP-EXT-DOT1 carries a VLAN id,
 MSTP references VLANs, BGP references prefixes and VRFs); layers never
@@ -335,10 +345,12 @@ API_OPAQUE`.
    CEL validates their big-endian byte ordering. `IpLifetime` maps absent
    durations to the protocol-level infinite sentinel, distinguishes an omitted
    containing field from an explicit all-infinite lifetime, and validates the
-   protocols' finite whole-second range plus preferred ≤ valid. `IpDscp`, `IpEcn`, and
-   `IpProtocol` are registry pass-through enums. `IpVersion` borrows the IANA
-   address-family values for IPv4 and IPv6 but uses the registry-reserved zero
+   protocols' finite whole-second range plus preferred ≤ valid. `IpVersion`
+   borrows the IANA address-family values for IPv4 and IPv6 but uses the
+   registry-reserved zero
    as `IP_VERSION_UNSPECIFIED`; `IpScope` is a FlowSeer-normalized taxonomy.
+   Packet-header registry values (`IpDscp`, `IpEcn`, `IpProtocol`, and
+   `EtherType`) live in the independent `net/packet` leaf package.
 
    These are not the obsolete `google.protobuf` presence wrappers —
    protobuf.dev says those are unnecessary under explicit presence — they are
@@ -358,9 +370,10 @@ API_OPAQUE`.
    `extend buf.validate.UInt32Rules { bool vlan_id = 5xxxx
    [(buf.validate.predefined).cel = { … "!rule || (this >= 1u && this <=
    4094u)" }] }` once, and fields write `uint32 access_vlan = 1
-   [(buf.validate.field).uint32.(vlan_id) = true]` — including inside
-   `repeated.items`. Verified to compile, lint, and enforce in edition 2024
-   (rejects 0 and 4095, skips when unset, reports `tagged_vlans[1]`). A
+   `[(buf.validate.field).uint32.(vlan_id) = true]`. Repeated-item aggregates
+   restate the same scalar bounds because protobuf text-format aggregates
+   cannot name extension fields inside `items`. Both forms compile, lint, and
+   enforce in edition 2024. A
    `VlanId{uint32 id}` wrapper is rejected: it costs a length-prefixed
    submessage on every FDB row, introduces a second presence (the wrapper set
    but its `id` unset), and buys only a type name that the rule's `id` already
@@ -453,8 +466,9 @@ mapper from the SNMP library (whose generated `ifmib`, `lldpmib`, `qbridgemib`,
 `bridgemib`, `ipmib`, `entitymib` bindings already exist) + a wire-contract test, in
 one commit with regenerated `generated/`:
 
-1. [The entity conventions document](../conventions/protobuf.md), with `net/addr`
-   and repository conformance coverage outside the schema source tree.
+1. [The entity conventions document](../conventions/protobuf.md), with
+   `net/addr`, the independent `net/packet` header primitives, and repository
+   conformance coverage outside the schema source tree.
 2. `net/phy` and `net/interface` with the `physical`, `lag`, `vlan`,
    `loopback`, `other` arms; `device/v1` Device identity and the Interface
    entity — proven by the hand-done R11 identity read via SNMP.
@@ -463,9 +477,11 @@ one commit with regenerated `generated/`:
    (interfaces, neighbors, VLANs) via `qbridgemib`/`bridgemib`/`lldpmib`.
 4. `inventory/v1`, `integration/v1`, `service/v1` — once there is something
    real to bind and route.
-5. `net/l3` (`IpFacet`, `NeighborEntry`, `Route`, `Vrf`) via `ipmib`; needed by
-   discovery's table-walk sources anyway.
-6. `net/wlan`; further `protocol/*` on demand; hardware components with
+5. `net/l3` (`IpFacet`, `InterfaceAddress`, `NeighborEntry`) via `ipmib`; needed
+   by discovery's table-walk sources anyway.
+6. Network-instance and routing packages when a real RIB capability is ready;
+   their keys must distinguish VRFs and multiple routing-protocol instances.
+7. `net/wlan`; further `protocol/*` on demand; hardware components with
    ENTITY-MIB.
 
 ## Open questions

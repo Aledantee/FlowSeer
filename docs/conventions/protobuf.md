@@ -122,9 +122,9 @@ and event envelopes.
 
 It is never a field of an `<Entity>State` and never a field of a Primitive. Two
 consequences make this the load-bearing choice: `device/` never names a binding,
-so the `device ↔ inventory` reference cycle does not exist; and a `Vlan` or a
-`Route` row stays a value that any consumer can hold without inheriting the
-story of how it was fetched.
+so the `device ↔ inventory` reference cycle does not exist; and a `Vlan` or an
+`InterfaceAddress` row stays a value that any consumer can hold without
+inheriting the story of how it was fetched.
 
 ## Enums
 
@@ -146,7 +146,8 @@ getter, because the getter's absent default is also that registry's real zero
 value. Open pass-through enums preserve unknown registry values, but they do
 not enforce the registry's numeric width by themselves. Every field using
 `IpDscp`, `IpEcn`, or `IpProtocol` therefore validates the complete numeric
-domain at the use site: `0..63`, `0..3`, or `0..255`, respectively.
+domain at the use site: `0..63`, `0..3`, or `0..255`, respectively. These
+packet-header registries live in `net/packet/v1`, not the address package.
 
 ## Typed variants
 
