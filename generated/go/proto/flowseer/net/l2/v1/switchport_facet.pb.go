@@ -232,12 +232,12 @@ var File_flowseer_net_l2_v1_switchport_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l2_v1_switchport_facet_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/net/l2/v1/switchport_facet.proto\x12\x12flowseer.net.l2.v1\x1a(flowseer/net/l2/v1/frame_admission.proto\x1a(flowseer/net/l2/v1/switchport_mode.proto\"\xdc\x02\n" +
+	")flowseer/net/l2/v1/switchport_facet.proto\x12\x12flowseer.net.l2.v1\x1a(flowseer/net/l2/v1/frame_admission.proto\x1a(flowseer/net/l2/v1/switchport_mode.proto\"\xe2\x02\n" +
 	"\x0fSwitchportFacet\x126\n" +
 	"\x04mode\x18\x01 \x01(\x0e2\".flowseer.net.l2.v1.SwitchportModeR\x04mode\x12\x1d\n" +
-	"\x04pvid\x18\x02 \x01(\rB\t\xbaH\x06*\x04\x80\xb5\x18\x01R\x04pvid\x129\n" +
-	"\x0ftagged_vlan_ids\x18\x03 \x03(\rB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a*\x05\x18\xfe\x1f(\x01R\rtaggedVlanIds\x12=\n" +
-	"\x11untagged_vlan_ids\x18\x04 \x03(\rB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a*\x05\x18\xfe\x1f(\x01R\x0funtaggedVlanIds\x12+\n" +
+	"\x04pvid\x18\x02 \x01(\rB\t\xbaH\x06*\x04\x80\xb5\x18\x01R\x04pvid\x12<\n" +
+	"\x0ftagged_vlan_ids\x18\x03 \x03(\rB\x14\xbaH\x11\x92\x01\x0e\x10\xfe\x1f\x18\x01\"\a*\x05\x18\xfe\x1f(\x01R\rtaggedVlanIds\x12@\n" +
+	"\x11untagged_vlan_ids\x18\x04 \x03(\rB\x14\xbaH\x11\x92\x01\x0e\x10\xfe\x1f\x18\x01\"\a*\x05\x18\xfe\x1f(\x01R\x0funtaggedVlanIds\x12+\n" +
 	"\x11ingress_filtering\x18\x05 \x01(\bR\x10ingressFiltering\x12K\n" +
 	"\x0fframe_admission\x18\x06 \x01(\x0e2\".flowseer.net.l2.v1.FrameAdmissionR\x0eframeAdmissionB\xdd\x01\n" +
 	"\x16com.flowseer.net.l2.v1B\x14SwitchportFacetProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/l2/v1;l2v1\xa2\x02\x03FNL\xaa\x02\x12Flowseer.Net.L2.V1\xca\x02\x12Flowseer\\Net\\L2\\V1\xe2\x02\x1eFlowseer\\Net\\L2\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::L2::V1b\beditionsp\xe9\a"

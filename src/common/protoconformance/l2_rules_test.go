@@ -3,7 +3,6 @@ package protoconformance
 import (
 	"testing"
 
-	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
@@ -14,18 +13,14 @@ import (
 func TestLayer2PrimitiveRules(t *testing.T) {
 	validTag := func(vlanID uint32) *l2v1.VlanTag {
 		return l2v1.VlanTag_builder{
-			Tpid:   pointerTo(packetv1.EtherType_ETHER_TYPE_DOT1Q),
+			Tpid:   packetv1.EtherType_ETHER_TYPE_DOT1Q.Enum(),
 			VlanId: proto.Uint32(vlanID),
 			Pcp:    proto.Uint32(0),
 			Dei:    proto.Bool(false),
 		}.Build()
 	}
 
-	tests := []struct {
-		name      string
-		message   proto.Message
-		wantValid bool
-	}{
+	tests := []validationCase{
 		{
 			name:      "VLAN identifier absent",
 			message:   l2v1.Vlan_builder{}.Build(),
@@ -69,7 +64,7 @@ func TestLayer2PrimitiveRules(t *testing.T) {
 		{
 			name: "VLAN tag rejects IEEE 802.3 length values",
 			message: l2v1.VlanTag_builder{
-				Tpid:   pointerTo(packetv1.EtherType(1500)),
+				Tpid:   packetv1.EtherType(1500).Enum(),
 				VlanId: proto.Uint32(100),
 				Pcp:    proto.Uint32(0),
 				Dei:    proto.Bool(false),
@@ -86,7 +81,7 @@ func TestLayer2PrimitiveRules(t *testing.T) {
 			message: l2v1.VlanTagStack_builder{
 				Tags: []*l2v1.VlanTag{
 					l2v1.VlanTag_builder{
-						Tpid:   pointerTo(packetv1.EtherType_ETHER_TYPE_PROVIDER_BRIDGING),
+						Tpid:   packetv1.EtherType_ETHER_TYPE_PROVIDER_BRIDGING.Enum(),
 						VlanId: proto.Uint32(200),
 						Pcp:    proto.Uint32(5),
 						Dei:    proto.Bool(false),
@@ -137,17 +132,5 @@ func TestLayer2PrimitiveRules(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := protovalidate.Validate(tt.message)
-			gotValid := err == nil
-			if gotValid != tt.wantValid {
-				t.Errorf("got valid=%t, want %t: %v", gotValid, tt.wantValid, err)
-			}
-		})
-	}
-}
-
-func pointerTo[T any](value T) *T {
-	return &value
+	runValidationCases(t, tests)
 }

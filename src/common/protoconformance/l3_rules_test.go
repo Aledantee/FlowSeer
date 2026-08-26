@@ -3,7 +3,6 @@ package protoconformance
 import (
 	"testing"
 
-	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
@@ -38,11 +37,7 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 		}.Build()
 	}
 
-	tests := []struct {
-		name      string
-		message   proto.Message
-		wantValid bool
-	}{
+	tests := []validationCase{
 		{
 			name:      "IPv4 MTU below minimum",
 			message:   l3v1.Ipv4Facet_builder{Mtu: proto.Uint32(67)}.Build(),
@@ -104,13 +99,5 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := protovalidate.Validate(tt.message)
-			gotValid := err == nil
-			if gotValid != tt.wantValid {
-				t.Errorf("got valid=%t, want %t: %v", gotValid, tt.wantValid, err)
-			}
-		})
-	}
+	runValidationCases(t, tests)
 }

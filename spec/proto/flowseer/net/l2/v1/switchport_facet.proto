@@ -19,6 +19,7 @@ message SwitchportFacet {
   // VLANs carried with a tag. The list is an exact set, not a range expression.
   repeated uint32 tagged_vlan_ids = 3 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 4094
     items: {
       uint32: {
         gte: 1
@@ -29,6 +30,7 @@ message SwitchportFacet {
   // VLANs carried without a tag. The list is an exact set.
   repeated uint32 untagged_vlan_ids = 4 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 4094
     items: {
       uint32: {
         gte: 1

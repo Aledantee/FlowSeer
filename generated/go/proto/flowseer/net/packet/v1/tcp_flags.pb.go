@@ -233,14 +233,14 @@ var File_flowseer_net_packet_v1_tcp_flags_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_packet_v1_tcp_flags_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/net/packet/v1/tcp_flags.proto\x12\x16flowseer.net.packet.v1\"P\n" +
-	"\bTcpFlags\x12D\n" +
-	"\x03set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\x03set\"\xf1\x03\n" +
-	"\rTcpFlagsMatch\x12U\n" +
-	"\frequired_set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\vrequiredSet\x12Y\n" +
-	"\x0erequired_clear\x18\x02 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\rrequiredClear:\xad\x02\xbaH\xa9\x02\x1a\x99\x01\n" +
-	"\x19tcp_flags_match.non_empty\x12<a TCP flag match must require at least one set or clear flag\x1a>this.required_set.size() > 0 || this.required_clear.size() > 0\x1a\x8a\x01\n" +
-	"\x18tcp_flags_match.disjoint\x120a TCP flag cannot be required both set and clear\x1a<!this.required_set.exists(flag, flag in this.required_clear)*\xb4\x01\n" +
+	"&flowseer/net/packet/v1/tcp_flags.proto\x12\x16flowseer.net.packet.v1\"R\n" +
+	"\bTcpFlags\x12F\n" +
+	"\x03set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\b\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\x03set\"\xeb\x03\n" +
+	"\rTcpFlagsMatch\x12W\n" +
+	"\frequired_set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\b\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\vrequiredSet\x12[\n" +
+	"\x0erequired_clear\x18\x02 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\b\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\rrequiredClear:\xa3\x02\xbaH\x9f\x02\x1a\x99\x01\n" +
+	"\x19tcp_flags_match.non_empty\x12<a TCP flag match must require at least one set or clear flag\x1a>this.required_set.size() > 0 || this.required_clear.size() > 0\x1a\x80\x01\n" +
+	"\x18tcp_flags_match.disjoint\x120a TCP flag cannot be required both set and clear\x1a2(this.required_set + this.required_clear).unique()*\xb4\x01\n" +
 	"\aTcpFlag\x12\x18\n" +
 	"\x14TCP_FLAG_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fTCP_FLAG_FIN\x10\x01\x12\x10\n" +

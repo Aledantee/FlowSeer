@@ -52,6 +52,7 @@ message Icmpv4Match {
   // Accepted ICMPv4 types. Empty means the type is unconstrained.
   repeated uint32 types = 1 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 256
     items: {
       uint32: {lte: 255}
     }
@@ -59,6 +60,7 @@ message Icmpv4Match {
   // Accepted ICMPv4 codes. Empty means the code is unconstrained.
   repeated uint32 codes = 2 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 256
     items: {
       uint32: {lte: 255}
     }
@@ -77,6 +79,7 @@ message Icmpv6Match {
   // Accepted ICMPv6 types. Empty means the type is unconstrained.
   repeated uint32 types = 1 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 256
     items: {
       uint32: {lte: 255}
     }
@@ -84,6 +87,7 @@ message Icmpv6Match {
   // Accepted ICMPv6 codes. Empty means the code is unconstrained.
   repeated uint32 codes = 2 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 256
     items: {
       uint32: {lte: 255}
     }

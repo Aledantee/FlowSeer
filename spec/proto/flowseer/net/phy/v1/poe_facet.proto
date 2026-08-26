@@ -12,7 +12,9 @@ message PoeFacet {
   option (buf.validate.message).cel = {
     id: "poe_facet.delivery_requires_support"
     message: "PoE cannot deliver power when support is explicitly false"
-    expression: "!has(this.supported) || this.supported || !has(this.status) || this.status != 3"
+    expression:
+      "!has(this.supported) || this.supported || !has(this.status) || "
+      "this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWER"
   };
 
   // Whether the port supports PoE. Absent means capability was not reported;

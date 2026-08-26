@@ -33,6 +33,7 @@ message TcpFlags {
   // Flags set in the header. Duplicate and unspecified values are invalid.
   repeated TcpFlag set = 1 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 8
     items: {
       enum: {
         defined_only: true
@@ -54,12 +55,13 @@ message TcpFlagsMatch {
   option (buf.validate.message).cel = {
     id: "tcp_flags_match.disjoint"
     message: "a TCP flag cannot be required both set and clear"
-    expression: "!this.required_set.exists(flag, flag in this.required_clear)"
+    expression: "(this.required_set + this.required_clear).unique()"
   };
 
   // Flags that must be set. Alternatives are combined with AND.
   repeated TcpFlag required_set = 1 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 8
     items: {
       enum: {
         defined_only: true
@@ -70,6 +72,7 @@ message TcpFlagsMatch {
   // Flags that must be clear. Alternatives are combined with AND.
   repeated TcpFlag required_clear = 2 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 8
     items: {
       enum: {
         defined_only: true

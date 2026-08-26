@@ -3,18 +3,13 @@ package protoconformance
 import (
 	"testing"
 
-	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
 )
 
 func TestPacketPrimitiveRules(t *testing.T) {
-	tests := []struct {
-		name      string
-		message   proto.Message
-		wantValid bool
-	}{
+	tests := []validationCase{
 		{
 			name:      "transport port range is ordered",
 			message:   packetv1.TransportPortRange_builder{Start: proto.Uint32(443), End: proto.Uint32(80)}.Build(),
@@ -101,13 +96,5 @@ func TestPacketPrimitiveRules(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := protovalidate.Validate(tt.message)
-			gotValid := err == nil
-			if gotValid != tt.wantValid {
-				t.Errorf("got valid=%t, want %t: %v", gotValid, tt.wantValid, err)
-			}
-		})
-	}
+	runValidationCases(t, tests)
 }

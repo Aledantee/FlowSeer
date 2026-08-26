@@ -3,18 +3,13 @@ package protoconformance
 import (
 	"testing"
 
-	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 )
 
 func TestPhysicalPrimitiveRules(t *testing.T) {
-	tests := []struct {
-		name      string
-		message   proto.Message
-		wantValid bool
-	}{
+	tests := []validationCase{
 		{
 			name:      "Ethernet facts may be absent",
 			message:   phyv1.EthernetFacet_builder{}.Build(),
@@ -61,7 +56,7 @@ func TestPhysicalPrimitiveRules(t *testing.T) {
 			name: "PoE delivery requires support",
 			message: phyv1.PoeFacet_builder{
 				Supported: proto.Bool(false),
-				Status:    pointerTo(phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER),
+				Status:    phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER.Enum(),
 			}.Build(),
 			wantValid: false,
 		},
@@ -98,13 +93,5 @@ func TestPhysicalPrimitiveRules(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := protovalidate.Validate(tt.message)
-			gotValid := err == nil
-			if gotValid != tt.wantValid {
-				t.Errorf("got valid=%t, want %t: %v", gotValid, tt.wantValid, err)
-			}
-		})
-	}
+	runValidationCases(t, tests)
 }
