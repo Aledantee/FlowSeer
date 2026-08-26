@@ -143,3 +143,12 @@ func TestPoeSettingsPowerLimitPresence(t *testing.T) {
 		t.Fatalf("explicit zero power limit = %d, want 0", got)
 	}
 }
+
+func TestEthernetMediumRenumberedValues(t *testing.T) {
+	// The pre-release reserved-tombstone collapse renumbered the value that
+	// followed the removed direct-attach slot; pin the highest surviving value
+	// so an accidental re-renumber cannot land silently.
+	if got := int32(phyv1.EthernetMedium_ETHERNET_MEDIUM_OTHER); got != 4 {
+		t.Fatalf("ETHERNET_MEDIUM_OTHER = %d, want 4", got)
+	}
+}

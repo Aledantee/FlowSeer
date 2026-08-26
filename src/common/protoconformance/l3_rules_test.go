@@ -203,6 +203,19 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name: "neighbor with a resolved EUI-64 address",
+			message: l3v1.NeighborEntry_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Ip:            v4Address(192, 0, 2, 2),
+				Mac: addrv1.EuiAddress_builder{
+					Eui64: addrv1.Eui64Address_builder{
+						Octets: []byte{0x00, 0x11, 0x22, 0xff, 0xfe, 0x33, 0x44, 0x55},
+					}.Build(),
+				}.Build(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
 			name: "neighbor rejects an empty link-layer wrapper",
 			message: l3v1.NeighborEntry_builder{
 				InterfaceName: proto.String("ethernet1/1"),
@@ -226,4 +239,16 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 	}
 
 	runValidationCases(t, tests)
+}
+
+func TestAddressOriginRenumberedValues(t *testing.T) {
+	// The pre-release reserved-tombstone collapse renumbered the values that
+	// followed the removed SLAAC slot; pin the highest surviving value so an
+	// accidental re-renumber cannot land silently.
+	if got := int32(l3v1.AddressOrigin_ADDRESS_ORIGIN_LINK_LAYER); got != 4 {
+		t.Fatalf("ADDRESS_ORIGIN_LINK_LAYER = %d, want 4", got)
+	}
+	if got := int32(l3v1.AddressOrigin_ADDRESS_ORIGIN_RANDOM); got != 5 {
+		t.Fatalf("ADDRESS_ORIGIN_RANDOM = %d, want 5", got)
+	}
 }
