@@ -26,7 +26,7 @@ type Vlan struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Id           uint32                 `protobuf:"varint,1,opt,name=id"`
 	xxx_hidden_Name         *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_Registration VlanRegistration       `protobuf:"varint,3,opt,name=registration,enum=flowseer.net.l2.v1.VlanRegistration"`
+	xxx_hidden_Registration VlanRegistration       `protobuf:"varint,4,opt,name=registration,enum=flowseer.net.l2.v1.VlanRegistration"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
 	XXX_presence            [1]uint32
 	unknownFields           protoimpl.UnknownFields
@@ -172,11 +172,11 @@ var File_flowseer_net_l2_v1_vlan_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l2_v1_vlan_proto_rawDesc = "" +
 	"\n" +
-	"\x1dflowseer/net/l2/v1/vlan.proto\x12\x12flowseer.net.l2.v1\x1a*flowseer/net/l2/v1/vlan_registration.proto\"\x82\x01\n" +
+	"\x1dflowseer/net/l2/v1/vlan.proto\x12\x12flowseer.net.l2.v1\x1a*flowseer/net/l2/v1/vlan_registration.proto\"\x90\x01\n" +
 	"\x04Vlan\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12H\n" +
-	"\fregistration\x18\x03 \x01(\x0e2$.flowseer.net.l2.v1.VlanRegistrationR\fregistrationB\xd2\x01\n" +
+	"\fregistration\x18\x04 \x01(\x0e2$.flowseer.net.l2.v1.VlanRegistrationR\fregistrationJ\x04\b\x03\x10\x04R\x06statusB\xd2\x01\n" +
 	"\x16com.flowseer.net.l2.v1B\tVlanProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/l2/v1;l2v1\xa2\x02\x03FNL\xaa\x02\x12Flowseer.Net.L2.V1\xca\x02\x12Flowseer\\Net\\L2\\V1\xe2\x02\x1eFlowseer\\Net\\L2\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::L2::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_l2_v1_vlan_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

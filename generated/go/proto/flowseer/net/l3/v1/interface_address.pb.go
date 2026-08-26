@@ -245,8 +245,7 @@ type InterfaceAddress_builder struct {
 	// InterfaceAddress when no assignment was observed.
 	Address *v1.IpAddress
 	// The canonical network prefix containing the assigned address. Absent is
-	// invalid. Membership is checked by consumers because validation has no
-	// reusable bit-prefix comparison for the two byte-address values.
+	// invalid; the prefix must use the same family and contain the address.
 	Prefix *v1.IpPrefix
 	// How the address was assigned. Absent means the source did not report an
 	// origin.
@@ -292,7 +291,7 @@ var File_flowseer_net_l3_v1_interface_address_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l3_v1_interface_address_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/net/l3/v1/interface_address.proto\x12\x12flowseer.net.l3.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a'flowseer/net/l3/v1/address_origin.proto\x1a'flowseer/net/l3/v1/address_status.proto\"\xe5\x04\n" +
+	"*flowseer/net/l3/v1/interface_address.proto\x12\x12flowseer.net.l3.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a'flowseer/net/l3/v1/address_origin.proto\x1a'flowseer/net/l3/v1/address_status.proto\"\xda\x1e\n" +
 	"\x10InterfaceAddress\x121\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\n" +
 	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\rinterfaceName\x12A\n" +
@@ -301,8 +300,10 @@ const file_flowseer_net_l3_v1_interface_address_proto_rawDesc = "" +
 	"\x06origin\x18\x04 \x01(\x0e2!.flowseer.net.l3.v1.AddressOriginR\x06origin\x129\n" +
 	"\x06status\x18\x05 \x01(\x0e2!.flowseer.net.l3.v1.AddressStatusR\x06status\x123\n" +
 	"\x05scope\x18\x06 \x01(\x0e2\x1d.flowseer.net.addr.v1.IpScopeR\x05scope\x12<\n" +
-	"\blifetime\x18\a \x01(\v2 .flowseer.net.addr.v1.IpLifetimeR\blifetime:\xb1\x01\xbaH\xad\x01\x1a\xaa\x01\n" +
-	" interface_address.family_matches\x12.address and prefix must use the same IP family\x1aV!has(this.address) || !has(this.prefix) || has(this.address.v4) == has(this.prefix.v4)B\xde\x01\n" +
+	"\blifetime\x18\a \x01(\v2 .flowseer.net.addr.v1.IpLifetimeR\blifetime:\xa6\x1b\xbaH\xa2\x1b\x1a\xaa\x01\n" +
+	" interface_address.family_matches\x12.address and prefix must use the same IP family\x1aV!has(this.address) || !has(this.prefix) || has(this.address.v4) == has(this.prefix.v4)\x1a\xf6\f\n" +
+	"(interface_address.ipv4_address_in_prefix\x12-IPv4 prefix must contain the assigned address\x1a\x9a\f!has(this.address) || !has(this.prefix) || !has(this.address.v4) || !has(this.prefix.v4) || !has(this.address.v4.octets) || !has(this.prefix.v4.address) || !has(this.prefix.v4.address.octets) || !has(this.prefix.v4.length) || this.address.v4.octets.size() != 4 || this.prefix.v4.address.octets.size() != 4 || this.prefix.v4.length > 32u || ('%x'.format([this.address.v4.octets]).substring(0, int(this.prefix.v4.length / 4u)) == '%x'.format([this.prefix.v4.address.octets]).substring(0, int(this.prefix.v4.length / 4u)) && (this.prefix.v4.length % 4u == 0u || this.prefix.v4.length % 4u == 1u && ('%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + '%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) ).matches('^(0[0-7]|8[89a-f])$') || this.prefix.v4.length % 4u == 2u && ('%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + '%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) ).matches('^(0[0-3]|4[4-7]|8[89ab]|c[c-f])$') || this.prefix.v4.length % 4u == 3u && ('%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + '%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) ).matches('^(0[01]|2[23]|4[45]|6[67]|8[89]|a[ab]|c[cd]|e[ef])$')))\x1a\xf9\f\n" +
+	"(interface_address.ipv6_address_in_prefix\x12-IPv6 prefix must contain the assigned address\x1a\x9d\f!has(this.address) || !has(this.prefix) || !has(this.address.v6) || !has(this.prefix.v6) || !has(this.address.v6.octets) || !has(this.prefix.v6.address) || !has(this.prefix.v6.address.octets) || !has(this.prefix.v6.length) || this.address.v6.octets.size() != 16 || this.prefix.v6.address.octets.size() != 16 || this.prefix.v6.length > 128u || ('%x'.format([this.address.v6.octets]).substring(0, int(this.prefix.v6.length / 4u)) == '%x'.format([this.prefix.v6.address.octets]).substring(0, int(this.prefix.v6.length / 4u)) && (this.prefix.v6.length % 4u == 0u || this.prefix.v6.length % 4u == 1u && ('%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + '%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) ).matches('^(0[0-7]|8[89a-f])$') || this.prefix.v6.length % 4u == 2u && ('%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + '%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) ).matches('^(0[0-3]|4[4-7]|8[89ab]|c[c-f])$') || this.prefix.v6.length % 4u == 3u && ('%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + '%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) ).matches('^(0[01]|2[23]|4[45]|6[67]|8[89]|a[ab]|c[cd]|e[ef])$')))B\xde\x01\n" +
 	"\x16com.flowseer.net.l3.v1B\x15InterfaceAddressProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/l3/v1;l3v1\xa2\x02\x03FNL\xaa\x02\x12Flowseer.Net.L3.V1\xca\x02\x12Flowseer\\Net\\L3\\V1\xe2\x02\x1eFlowseer\\Net\\L3\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::L3::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_l3_v1_interface_address_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

@@ -106,11 +106,52 @@ func TestLayer2PrimitiveRules(t *testing.T) {
 			wantValid: false,
 		},
 		{
+			name: "switchport tagged and untagged memberships cannot overlap",
+			message: l2v1.SwitchportFacet_builder{
+				TaggedVlanIds:   []uint32{10, 20},
+				UntaggedVlanIds: []uint32{20, 30},
+			}.Build(),
+			wantValid: false,
+		},
+		{
 			name: "switchport exact memberships",
 			message: l2v1.SwitchportFacet_builder{
 				Pvid:            proto.Uint32(10),
 				TaggedVlanIds:   []uint32{20, 30},
 				UntaggedVlanIds: []uint32{10},
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name:      "aggregation thresholds absent",
+			message:   l2v1.AggregationFacet_builder{}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "aggregation minimum active links rejects zero",
+			message: l2v1.AggregationFacet_builder{
+				MinimumActiveLinks: proto.Uint32(0),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "aggregation minimum active links accepts a positive value",
+			message: l2v1.AggregationFacet_builder{
+				MinimumActiveLinks: proto.Uint32(1),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "aggregation effective speed rejects zero",
+			message: l2v1.AggregationFacet_builder{
+				EffectiveSpeedBps: proto.Uint64(0),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "aggregation effective speed accepts a positive value",
+			message: l2v1.AggregationFacet_builder{
+				EffectiveSpeedBps: proto.Uint64(10_000_000_000),
 			}.Build(),
 			wantValid: true,
 		},
@@ -130,7 +171,50 @@ func TestLayer2PrimitiveRules(t *testing.T) {
 			}.Build(),
 			wantValid: true,
 		},
+		{
+			name: "FDB entry rejects a multicast address",
+			message: l2v1.FdbEntry_builder{
+				VlanId: proto.Uint32(10),
+				Mac: addrv1.Eui48Address_builder{
+					Octets: []byte{0x01, 0x00, 0x5e, 0x00, 0x00, 0x01},
+				}.Build(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "FDB entry accepts a high-bit unicast address",
+			message: l2v1.FdbEntry_builder{
+				VlanId: proto.Uint32(10),
+				Mac: addrv1.Eui48Address_builder{
+					Octets: []byte{0x82, 0x00, 0x00, 0x00, 0x00, 0x01},
+				}.Build(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "FDB entry rejects the broadcast address",
+			message: l2v1.FdbEntry_builder{
+				VlanId: proto.Uint32(10),
+				Mac: addrv1.Eui48Address_builder{
+					Octets: []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+				}.Build(),
+			}.Build(),
+			wantValid: false,
+		},
 	}
 
 	runValidationCases(t, tests)
+}
+
+func TestVlanOldStatusWireTagDoesNotPopulateRegistration(t *testing.T) {
+	// Field 3 was the old Vlan.status enum. A permanent status value on that
+	// wire tag must remain unknown rather than becoming registration.
+	wire := []byte{0x08, 0x01, 0x18, 0x02}
+	vlan := &l2v1.Vlan{}
+	if err := proto.Unmarshal(wire, vlan); err != nil {
+		t.Fatalf("unmarshal old VLAN wire representation: %v", err)
+	}
+	if vlan.HasRegistration() {
+		t.Fatalf("old field 3 populated registration: %v", vlan.GetRegistration())
+	}
 }

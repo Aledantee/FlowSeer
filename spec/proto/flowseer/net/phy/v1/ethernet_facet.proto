@@ -19,21 +19,18 @@ message EthernetFacet {
     message: "auto-negotiation cannot be enabled when capability support is explicitly false"
     expression:
       "!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || "
-      "this.capabilities.auto_negotiation_supported || !has(this.auto_negotiation) || "
-      "!has(this.auto_negotiation.enabled) || !this.auto_negotiation.enabled"
+      "this.capabilities.auto_negotiation_supported || !has(this.applied_auto_negotiation) || "
+      "!has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabled"
   };
 
   // The link medium. Absent means the source did not report a medium.
   EthernetMedium medium = 1;
-  // The active line rate in bits per second. Absent means no negotiated or
-  // operational speed was reported; zero is invalid when present.
-  uint64 speed_bps = 2 [(buf.validate.field).uint64.gt = 0];
-  // The configured or negotiated duplex mode. Absent means the source did not
-  // report a duplex mode.
-  EthernetDuplex duplex = 3;
-  // Applied auto-negotiation value and progress. Absent means the source
-  // supplied no running auto-negotiation facts.
-  AutoNegotiationFacet auto_negotiation = 4;
+  reserved 2;
+  reserved speed_bps;
+  reserved 3;
+  reserved duplex;
+  reserved 4;
+  reserved auto_negotiation;
   // Power over Ethernet capability and state. Absent means the source supplied
   // no PoE information.
   PoeFacet poe = 5;
@@ -45,4 +42,13 @@ message EthernetFacet {
   // Physical-link capabilities. Absent means the source supplied no
   // capability information.
   EthernetCapabilities capabilities = 8;
+  // The active line rate in bits per second. Absent means no negotiated or
+  // operational speed was reported; zero is invalid when present.
+  uint64 active_speed_bps = 9 [(buf.validate.field).uint64.gt = 0];
+  // The active duplex mode. Absent means the source did not report an
+  // operational duplex mode.
+  EthernetDuplex active_duplex = 10;
+  // Applied auto-negotiation value and progress. Absent means the source
+  // supplied no running auto-negotiation facts.
+  AutoNegotiationFacet applied_auto_negotiation = 11;
 }

@@ -7,6 +7,7 @@
 package packetv1
 
 import (
+	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,7 +22,8 @@ const (
 )
 
 // One TCP control flag. Values are their one-hot wire bit masks rather than
-// arbitrary ordinal numbers.
+// arbitrary ordinal numbers. Unnamed one-hot values through 2048 preserve the
+// fixed reserved flag positions for future assignment.
 type TcpFlag int32
 
 const (
@@ -229,16 +231,33 @@ func (b0 TcpFlagsMatch_builder) Build() *TcpFlagsMatch {
 	return m0
 }
 
+var file_flowseer_net_packet_v1_tcp_flags_proto_extTypes = []protoimpl.ExtensionInfo{
+	{
+		ExtendedType:  (*validate.EnumRules)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50001,
+		Name:          "flowseer.net.packet.v1.tcp_flag",
+		Tag:           "varint,50001,opt,name=tcp_flag",
+		Filename:      "flowseer/net/packet/v1/tcp_flags.proto",
+	},
+}
+
+// Extension fields to validate.EnumRules.
+var (
+	// optional bool tcp_flag = 50001;
+	E_TcpFlag = &file_flowseer_net_packet_v1_tcp_flags_proto_extTypes[0]
+)
+
 var File_flowseer_net_packet_v1_tcp_flags_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_packet_v1_tcp_flags_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/net/packet/v1/tcp_flags.proto\x12\x16flowseer.net.packet.v1\"R\n" +
+	"&flowseer/net/packet/v1/tcp_flags.proto\x12\x16flowseer.net.packet.v1\x1a\x1bbuf/validate/validate.proto\"R\n" +
 	"\bTcpFlags\x12F\n" +
-	"\x03set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\b\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\x03set\"\xeb\x03\n" +
+	"\x03set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\f\x18\x01\"\a\x82\x01\x04\x88\xb5\x18\x01R\x03set\"\xeb\x03\n" +
 	"\rTcpFlagsMatch\x12W\n" +
-	"\frequired_set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\b\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\vrequiredSet\x12[\n" +
-	"\x0erequired_clear\x18\x02 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\b\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\rrequiredClear:\xa3\x02\xbaH\x9f\x02\x1a\x99\x01\n" +
+	"\frequired_set\x18\x01 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\f\x18\x01\"\a\x82\x01\x04\x88\xb5\x18\x01R\vrequiredSet\x12[\n" +
+	"\x0erequired_clear\x18\x02 \x03(\x0e2\x1f.flowseer.net.packet.v1.TcpFlagB\x13\xbaH\x10\x92\x01\r\x10\f\x18\x01\"\a\x82\x01\x04\x88\xb5\x18\x01R\rrequiredClear:\xa3\x02\xbaH\x9f\x02\x1a\x99\x01\n" +
 	"\x19tcp_flags_match.non_empty\x12<a TCP flag match must require at least one set or clear flag\x1a>this.required_set.size() > 0 || this.required_clear.size() > 0\x1a\x80\x01\n" +
 	"\x18tcp_flags_match.disjoint\x120a TCP flag cannot be required both set and clear\x1a2(this.required_set + this.required_clear).unique()*\xb4\x01\n" +
 	"\aTcpFlag\x12\x18\n" +
@@ -250,24 +269,29 @@ const file_flowseer_net_packet_v1_tcp_flags_proto_rawDesc = "" +
 	"\fTCP_FLAG_ACK\x10\x10\x12\x10\n" +
 	"\fTCP_FLAG_URG\x10 \x12\x10\n" +
 	"\fTCP_FLAG_ECE\x10@\x12\x11\n" +
-	"\fTCP_FLAG_CWR\x10\x80\x01B\xf2\x01\n" +
+	"\fTCP_FLAG_CWR\x10\x80\x01:\xdb\x01\n" +
+	"\btcp_flag\x12\x17.buf.validate.EnumRules\x18ц\x03 \x01(\bB\xa4\x01\xc2H\xa0\x01\n" +
+	"\x9d\x01\n" +
+	"\renum.tcp_flag\x12Fvalue must be a one-hot TCP flag bit from the fixed 12-bit flag region\x1aD!rule || this in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]R\atcpFlagB\xf2\x01\n" +
 	"\x1acom.flowseer.net.packet.v1B\rTcpFlagsProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_tcp_flags_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_packet_v1_tcp_flags_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_packet_v1_tcp_flags_proto_goTypes = []any{
-	(TcpFlag)(0),          // 0: flowseer.net.packet.v1.TcpFlag
-	(*TcpFlags)(nil),      // 1: flowseer.net.packet.v1.TcpFlags
-	(*TcpFlagsMatch)(nil), // 2: flowseer.net.packet.v1.TcpFlagsMatch
+	(TcpFlag)(0),               // 0: flowseer.net.packet.v1.TcpFlag
+	(*TcpFlags)(nil),           // 1: flowseer.net.packet.v1.TcpFlags
+	(*TcpFlagsMatch)(nil),      // 2: flowseer.net.packet.v1.TcpFlagsMatch
+	(*validate.EnumRules)(nil), // 3: buf.validate.EnumRules
 }
 var file_flowseer_net_packet_v1_tcp_flags_proto_depIdxs = []int32{
 	0, // 0: flowseer.net.packet.v1.TcpFlags.set:type_name -> flowseer.net.packet.v1.TcpFlag
 	0, // 1: flowseer.net.packet.v1.TcpFlagsMatch.required_set:type_name -> flowseer.net.packet.v1.TcpFlag
 	0, // 2: flowseer.net.packet.v1.TcpFlagsMatch.required_clear:type_name -> flowseer.net.packet.v1.TcpFlag
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
+	3, // 3: flowseer.net.packet.v1.tcp_flag:extendee -> buf.validate.EnumRules
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	3, // [3:4] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
 }
 
@@ -283,13 +307,14 @@ func file_flowseer_net_packet_v1_tcp_flags_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_net_packet_v1_tcp_flags_proto_rawDesc), len(file_flowseer_net_packet_v1_tcp_flags_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   2,
-			NumExtensions: 0,
+			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_net_packet_v1_tcp_flags_proto_goTypes,
 		DependencyIndexes: file_flowseer_net_packet_v1_tcp_flags_proto_depIdxs,
 		EnumInfos:         file_flowseer_net_packet_v1_tcp_flags_proto_enumTypes,
 		MessageInfos:      file_flowseer_net_packet_v1_tcp_flags_proto_msgTypes,
+		ExtensionInfos:    file_flowseer_net_packet_v1_tcp_flags_proto_extTypes,
 	}.Build()
 	File_flowseer_net_packet_v1_tcp_flags_proto = out.File
 	file_flowseer_net_packet_v1_tcp_flags_proto_goTypes = nil

@@ -18,6 +18,9 @@ message NeighborEntry {
     expression: "!has(this.is_router) || (has(this.ip) && has(this.ip.v6))"
   };
 
+  reserved 5;
+  reserved state;
+
   // The device-reported interface name that scopes the mapping. Absent or
   // empty is invalid; omit the containing entry when it is unavailable.
   string interface_name = 1 [
@@ -33,10 +36,10 @@ message NeighborEntry {
   // How the mapping was created. Absent means the source did not report an
   // origin.
   NeighborOrigin origin = 4;
-  // Current reachability. Absent means the source did not report it.
-  NeighborReachability reachability = 5;
   // Whether the neighbor advertises itself as an IPv6 router. Absent means
   // the source did not expose the router flag; false means it explicitly did
   // not identify the neighbor as a router.
   bool is_router = 6;
+  // Current reachability. Absent means the source did not report it.
+  NeighborReachability reachability = 7;
 }

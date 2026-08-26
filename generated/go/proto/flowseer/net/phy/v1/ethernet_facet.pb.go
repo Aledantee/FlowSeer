@@ -23,19 +23,19 @@ const (
 // Physical Ethernet attributes embedded by a physical interface kind. The
 // facet carries no interface or device identity.
 type EthernetFacet struct {
-	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Medium          EthernetMedium         `protobuf:"varint,1,opt,name=medium,enum=flowseer.net.phy.v1.EthernetMedium"`
-	xxx_hidden_SpeedBps        uint64                 `protobuf:"varint,2,opt,name=speed_bps,json=speedBps"`
-	xxx_hidden_Duplex          EthernetDuplex         `protobuf:"varint,3,opt,name=duplex,enum=flowseer.net.phy.v1.EthernetDuplex"`
-	xxx_hidden_AutoNegotiation *AutoNegotiationFacet  `protobuf:"bytes,4,opt,name=auto_negotiation,json=autoNegotiation"`
-	xxx_hidden_Poe             *PoeFacet              `protobuf:"bytes,5,opt,name=poe"`
-	xxx_hidden_Transceiver     *TransceiverFacet      `protobuf:"bytes,6,opt,name=transceiver"`
-	xxx_hidden_FecMode         EthernetFecMode        `protobuf:"varint,7,opt,name=fec_mode,json=fecMode,enum=flowseer.net.phy.v1.EthernetFecMode"`
-	xxx_hidden_Capabilities    *EthernetCapabilities  `protobuf:"bytes,8,opt,name=capabilities"`
-	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
-	XXX_presence               [1]uint32
-	unknownFields              protoimpl.UnknownFields
-	sizeCache                  protoimpl.SizeCache
+	state                             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Medium                 EthernetMedium         `protobuf:"varint,1,opt,name=medium,enum=flowseer.net.phy.v1.EthernetMedium"`
+	xxx_hidden_Poe                    *PoeFacet              `protobuf:"bytes,5,opt,name=poe"`
+	xxx_hidden_Transceiver            *TransceiverFacet      `protobuf:"bytes,6,opt,name=transceiver"`
+	xxx_hidden_FecMode                EthernetFecMode        `protobuf:"varint,7,opt,name=fec_mode,json=fecMode,enum=flowseer.net.phy.v1.EthernetFecMode"`
+	xxx_hidden_Capabilities           *EthernetCapabilities  `protobuf:"bytes,8,opt,name=capabilities"`
+	xxx_hidden_ActiveSpeedBps         uint64                 `protobuf:"varint,9,opt,name=active_speed_bps,json=activeSpeedBps"`
+	xxx_hidden_ActiveDuplex           EthernetDuplex         `protobuf:"varint,10,opt,name=active_duplex,json=activeDuplex,enum=flowseer.net.phy.v1.EthernetDuplex"`
+	xxx_hidden_AppliedAutoNegotiation *AutoNegotiationFacet  `protobuf:"bytes,11,opt,name=applied_auto_negotiation,json=appliedAutoNegotiation"`
+	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
+	XXX_presence                      [1]uint32
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
 }
 
 func (x *EthernetFacet) Reset() {
@@ -72,29 +72,6 @@ func (x *EthernetFacet) GetMedium() EthernetMedium {
 	return EthernetMedium_ETHERNET_MEDIUM_UNSPECIFIED
 }
 
-func (x *EthernetFacet) GetSpeedBps() uint64 {
-	if x != nil {
-		return x.xxx_hidden_SpeedBps
-	}
-	return 0
-}
-
-func (x *EthernetFacet) GetDuplex() EthernetDuplex {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
-			return x.xxx_hidden_Duplex
-		}
-	}
-	return EthernetDuplex_ETHERNET_DUPLEX_UNSPECIFIED
-}
-
-func (x *EthernetFacet) GetAutoNegotiation() *AutoNegotiationFacet {
-	if x != nil {
-		return x.xxx_hidden_AutoNegotiation
-	}
-	return nil
-}
-
 func (x *EthernetFacet) GetPoe() *PoeFacet {
 	if x != nil {
 		return x.xxx_hidden_Poe
@@ -111,7 +88,7 @@ func (x *EthernetFacet) GetTransceiver() *TransceiverFacet {
 
 func (x *EthernetFacet) GetFecMode() EthernetFecMode {
 	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 6) {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
 			return x.xxx_hidden_FecMode
 		}
 	}
@@ -125,23 +102,32 @@ func (x *EthernetFacet) GetCapabilities() *EthernetCapabilities {
 	return nil
 }
 
+func (x *EthernetFacet) GetActiveSpeedBps() uint64 {
+	if x != nil {
+		return x.xxx_hidden_ActiveSpeedBps
+	}
+	return 0
+}
+
+func (x *EthernetFacet) GetActiveDuplex() EthernetDuplex {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 6) {
+			return x.xxx_hidden_ActiveDuplex
+		}
+	}
+	return EthernetDuplex_ETHERNET_DUPLEX_UNSPECIFIED
+}
+
+func (x *EthernetFacet) GetAppliedAutoNegotiation() *AutoNegotiationFacet {
+	if x != nil {
+		return x.xxx_hidden_AppliedAutoNegotiation
+	}
+	return nil
+}
+
 func (x *EthernetFacet) SetMedium(v EthernetMedium) {
 	x.xxx_hidden_Medium = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 8)
-}
-
-func (x *EthernetFacet) SetSpeedBps(v uint64) {
-	x.xxx_hidden_SpeedBps = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
-}
-
-func (x *EthernetFacet) SetDuplex(v EthernetDuplex) {
-	x.xxx_hidden_Duplex = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 8)
-}
-
-func (x *EthernetFacet) SetAutoNegotiation(v *AutoNegotiationFacet) {
-	x.xxx_hidden_AutoNegotiation = v
 }
 
 func (x *EthernetFacet) SetPoe(v *PoeFacet) {
@@ -154,11 +140,25 @@ func (x *EthernetFacet) SetTransceiver(v *TransceiverFacet) {
 
 func (x *EthernetFacet) SetFecMode(v EthernetFecMode) {
 	x.xxx_hidden_FecMode = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 8)
 }
 
 func (x *EthernetFacet) SetCapabilities(v *EthernetCapabilities) {
 	x.xxx_hidden_Capabilities = v
+}
+
+func (x *EthernetFacet) SetActiveSpeedBps(v uint64) {
+	x.xxx_hidden_ActiveSpeedBps = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 8)
+}
+
+func (x *EthernetFacet) SetActiveDuplex(v EthernetDuplex) {
+	x.xxx_hidden_ActiveDuplex = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 8)
+}
+
+func (x *EthernetFacet) SetAppliedAutoNegotiation(v *AutoNegotiationFacet) {
+	x.xxx_hidden_AppliedAutoNegotiation = v
 }
 
 func (x *EthernetFacet) HasMedium() bool {
@@ -166,27 +166,6 @@ func (x *EthernetFacet) HasMedium() bool {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *EthernetFacet) HasSpeedBps() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *EthernetFacet) HasDuplex() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *EthernetFacet) HasAutoNegotiation() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_AutoNegotiation != nil
 }
 
 func (x *EthernetFacet) HasPoe() bool {
@@ -207,7 +186,7 @@ func (x *EthernetFacet) HasFecMode() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *EthernetFacet) HasCapabilities() bool {
@@ -217,23 +196,30 @@ func (x *EthernetFacet) HasCapabilities() bool {
 	return x.xxx_hidden_Capabilities != nil
 }
 
+func (x *EthernetFacet) HasActiveSpeedBps() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *EthernetFacet) HasActiveDuplex() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
+func (x *EthernetFacet) HasAppliedAutoNegotiation() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_AppliedAutoNegotiation != nil
+}
+
 func (x *EthernetFacet) ClearMedium() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Medium = EthernetMedium_ETHERNET_MEDIUM_UNSPECIFIED
-}
-
-func (x *EthernetFacet) ClearSpeedBps() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_SpeedBps = 0
-}
-
-func (x *EthernetFacet) ClearDuplex() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_Duplex = EthernetDuplex_ETHERNET_DUPLEX_UNSPECIFIED
-}
-
-func (x *EthernetFacet) ClearAutoNegotiation() {
-	x.xxx_hidden_AutoNegotiation = nil
 }
 
 func (x *EthernetFacet) ClearPoe() {
@@ -245,7 +231,7 @@ func (x *EthernetFacet) ClearTransceiver() {
 }
 
 func (x *EthernetFacet) ClearFecMode() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_FecMode = EthernetFecMode_ETHERNET_FEC_MODE_UNSPECIFIED
 }
 
@@ -253,20 +239,25 @@ func (x *EthernetFacet) ClearCapabilities() {
 	x.xxx_hidden_Capabilities = nil
 }
 
+func (x *EthernetFacet) ClearActiveSpeedBps() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_ActiveSpeedBps = 0
+}
+
+func (x *EthernetFacet) ClearActiveDuplex() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_ActiveDuplex = EthernetDuplex_ETHERNET_DUPLEX_UNSPECIFIED
+}
+
+func (x *EthernetFacet) ClearAppliedAutoNegotiation() {
+	x.xxx_hidden_AppliedAutoNegotiation = nil
+}
+
 type EthernetFacet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The link medium. Absent means the source did not report a medium.
 	Medium *EthernetMedium
-	// The active line rate in bits per second. Absent means no negotiated or
-	// operational speed was reported; zero is invalid when present.
-	SpeedBps *uint64
-	// The configured or negotiated duplex mode. Absent means the source did not
-	// report a duplex mode.
-	Duplex *EthernetDuplex
-	// Applied auto-negotiation value and progress. Absent means the source
-	// supplied no running auto-negotiation facts.
-	AutoNegotiation *AutoNegotiationFacet
 	// Power over Ethernet capability and state. Absent means the source supplied
 	// no PoE information.
 	Poe *PoeFacet
@@ -278,6 +269,15 @@ type EthernetFacet_builder struct {
 	// Physical-link capabilities. Absent means the source supplied no
 	// capability information.
 	Capabilities *EthernetCapabilities
+	// The active line rate in bits per second. Absent means no negotiated or
+	// operational speed was reported; zero is invalid when present.
+	ActiveSpeedBps *uint64
+	// The active duplex mode. Absent means the source did not report an
+	// operational duplex mode.
+	ActiveDuplex *EthernetDuplex
+	// Applied auto-negotiation value and progress. Absent means the source
+	// supplied no running auto-negotiation facts.
+	AppliedAutoNegotiation *AutoNegotiationFacet
 }
 
 func (b0 EthernetFacet_builder) Build() *EthernetFacet {
@@ -288,22 +288,22 @@ func (b0 EthernetFacet_builder) Build() *EthernetFacet {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 8)
 		x.xxx_hidden_Medium = *b.Medium
 	}
-	if b.SpeedBps != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
-		x.xxx_hidden_SpeedBps = *b.SpeedBps
-	}
-	if b.Duplex != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 8)
-		x.xxx_hidden_Duplex = *b.Duplex
-	}
-	x.xxx_hidden_AutoNegotiation = b.AutoNegotiation
 	x.xxx_hidden_Poe = b.Poe
 	x.xxx_hidden_Transceiver = b.Transceiver
 	if b.FecMode != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 8)
 		x.xxx_hidden_FecMode = *b.FecMode
 	}
 	x.xxx_hidden_Capabilities = b.Capabilities
+	if b.ActiveSpeedBps != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 8)
+		x.xxx_hidden_ActiveSpeedBps = *b.ActiveSpeedBps
+	}
+	if b.ActiveDuplex != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 8)
+		x.xxx_hidden_ActiveDuplex = *b.ActiveDuplex
+	}
+	x.xxx_hidden_AppliedAutoNegotiation = b.AppliedAutoNegotiation
 	return m0
 }
 
@@ -311,38 +311,39 @@ var File_flowseer_net_phy_v1_ethernet_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_ethernet_facet_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a)flowseer/net/phy/v1/ethernet_medium.proto\x1a#flowseer/net/phy/v1/poe_facet.proto\x1a+flowseer/net/phy/v1/transceiver_facet.proto\"\x83\a\n" +
+	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a)flowseer/net/phy/v1/ethernet_medium.proto\x1a#flowseer/net/phy/v1/poe_facet.proto\x1a+flowseer/net/phy/v1/transceiver_facet.proto\"\xfb\a\n" +
 	"\rEthernetFacet\x12;\n" +
-	"\x06medium\x18\x01 \x01(\x0e2#.flowseer.net.phy.v1.EthernetMediumR\x06medium\x12$\n" +
-	"\tspeed_bps\x18\x02 \x01(\x04B\a\xbaH\x042\x02 \x00R\bspeedBps\x12;\n" +
-	"\x06duplex\x18\x03 \x01(\x0e2#.flowseer.net.phy.v1.EthernetDuplexR\x06duplex\x12T\n" +
-	"\x10auto_negotiation\x18\x04 \x01(\v2).flowseer.net.phy.v1.AutoNegotiationFacetR\x0fautoNegotiation\x12/\n" +
+	"\x06medium\x18\x01 \x01(\x0e2#.flowseer.net.phy.v1.EthernetMediumR\x06medium\x12/\n" +
 	"\x03poe\x18\x05 \x01(\v2\x1d.flowseer.net.phy.v1.PoeFacetR\x03poe\x12G\n" +
 	"\vtransceiver\x18\x06 \x01(\v2%.flowseer.net.phy.v1.TransceiverFacetR\vtransceiver\x12?\n" +
 	"\bfec_mode\x18\a \x01(\x0e2$.flowseer.net.phy.v1.EthernetFecModeR\afecMode\x12M\n" +
-	"\fcapabilities\x18\b \x01(\v2).flowseer.net.phy.v1.EthernetCapabilitiesR\fcapabilities:\xf1\x02\xbaH\xed\x02\x1a\xea\x02\n" +
-	"0ethernet_facet.auto_negotiation_requires_support\x12Nauto-negotiation cannot be enabled when capability support is explicitly false\x1a\xe5\x01!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || this.capabilities.auto_negotiation_supported || !has(this.auto_negotiation) || !has(this.auto_negotiation.enabled) || !this.auto_negotiation.enabledB\xe2\x01\n" +
+	"\fcapabilities\x18\b \x01(\v2).flowseer.net.phy.v1.EthernetCapabilitiesR\fcapabilities\x121\n" +
+	"\x10active_speed_bps\x18\t \x01(\x04B\a\xbaH\x042\x02 \x00R\x0eactiveSpeedBps\x12H\n" +
+	"\ractive_duplex\x18\n" +
+	" \x01(\x0e2#.flowseer.net.phy.v1.EthernetDuplexR\factiveDuplex\x12c\n" +
+	"\x18applied_auto_negotiation\x18\v \x01(\v2).flowseer.net.phy.v1.AutoNegotiationFacetR\x16appliedAutoNegotiation:\x89\x03\xbaH\x85\x03\x1a\x82\x03\n" +
+	"0ethernet_facet.auto_negotiation_requires_support\x12Nauto-negotiation cannot be enabled when capability support is explicitly false\x1a\xfd\x01!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || this.capabilities.auto_negotiation_supported || !has(this.applied_auto_negotiation) || !has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabledJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\tspeed_bpsR\x06duplexR\x10auto_negotiationB\xe2\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x12EthernetFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_ethernet_facet_proto_goTypes = []any{
 	(*EthernetFacet)(nil),        // 0: flowseer.net.phy.v1.EthernetFacet
 	(EthernetMedium)(0),          // 1: flowseer.net.phy.v1.EthernetMedium
-	(EthernetDuplex)(0),          // 2: flowseer.net.phy.v1.EthernetDuplex
-	(*AutoNegotiationFacet)(nil), // 3: flowseer.net.phy.v1.AutoNegotiationFacet
-	(*PoeFacet)(nil),             // 4: flowseer.net.phy.v1.PoeFacet
-	(*TransceiverFacet)(nil),     // 5: flowseer.net.phy.v1.TransceiverFacet
-	(EthernetFecMode)(0),         // 6: flowseer.net.phy.v1.EthernetFecMode
-	(*EthernetCapabilities)(nil), // 7: flowseer.net.phy.v1.EthernetCapabilities
+	(*PoeFacet)(nil),             // 2: flowseer.net.phy.v1.PoeFacet
+	(*TransceiverFacet)(nil),     // 3: flowseer.net.phy.v1.TransceiverFacet
+	(EthernetFecMode)(0),         // 4: flowseer.net.phy.v1.EthernetFecMode
+	(*EthernetCapabilities)(nil), // 5: flowseer.net.phy.v1.EthernetCapabilities
+	(EthernetDuplex)(0),          // 6: flowseer.net.phy.v1.EthernetDuplex
+	(*AutoNegotiationFacet)(nil), // 7: flowseer.net.phy.v1.AutoNegotiationFacet
 }
 var file_flowseer_net_phy_v1_ethernet_facet_proto_depIdxs = []int32{
 	1, // 0: flowseer.net.phy.v1.EthernetFacet.medium:type_name -> flowseer.net.phy.v1.EthernetMedium
-	2, // 1: flowseer.net.phy.v1.EthernetFacet.duplex:type_name -> flowseer.net.phy.v1.EthernetDuplex
-	3, // 2: flowseer.net.phy.v1.EthernetFacet.auto_negotiation:type_name -> flowseer.net.phy.v1.AutoNegotiationFacet
-	4, // 3: flowseer.net.phy.v1.EthernetFacet.poe:type_name -> flowseer.net.phy.v1.PoeFacet
-	5, // 4: flowseer.net.phy.v1.EthernetFacet.transceiver:type_name -> flowseer.net.phy.v1.TransceiverFacet
-	6, // 5: flowseer.net.phy.v1.EthernetFacet.fec_mode:type_name -> flowseer.net.phy.v1.EthernetFecMode
-	7, // 6: flowseer.net.phy.v1.EthernetFacet.capabilities:type_name -> flowseer.net.phy.v1.EthernetCapabilities
+	2, // 1: flowseer.net.phy.v1.EthernetFacet.poe:type_name -> flowseer.net.phy.v1.PoeFacet
+	3, // 2: flowseer.net.phy.v1.EthernetFacet.transceiver:type_name -> flowseer.net.phy.v1.TransceiverFacet
+	4, // 3: flowseer.net.phy.v1.EthernetFacet.fec_mode:type_name -> flowseer.net.phy.v1.EthernetFecMode
+	5, // 4: flowseer.net.phy.v1.EthernetFacet.capabilities:type_name -> flowseer.net.phy.v1.EthernetCapabilities
+	6, // 5: flowseer.net.phy.v1.EthernetFacet.active_duplex:type_name -> flowseer.net.phy.v1.EthernetDuplex
+	7, // 6: flowseer.net.phy.v1.EthernetFacet.applied_auto_negotiation:type_name -> flowseer.net.phy.v1.AutoNegotiationFacet
 	7, // [7:7] is the sub-list for method output_type
 	7, // [7:7] is the sub-list for method input_type
 	7, // [7:7] is the sub-list for extension type_name

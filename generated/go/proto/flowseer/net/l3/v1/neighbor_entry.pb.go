@@ -30,8 +30,8 @@ type NeighborEntry struct {
 	xxx_hidden_Ip            *v1.IpAddress          `protobuf:"bytes,2,opt,name=ip"`
 	xxx_hidden_Mac           *v1.MacAddress         `protobuf:"bytes,3,opt,name=mac"`
 	xxx_hidden_Origin        NeighborOrigin         `protobuf:"varint,4,opt,name=origin,enum=flowseer.net.l3.v1.NeighborOrigin"`
-	xxx_hidden_Reachability  NeighborReachability   `protobuf:"varint,5,opt,name=reachability,enum=flowseer.net.l3.v1.NeighborReachability"`
 	xxx_hidden_IsRouter      bool                   `protobuf:"varint,6,opt,name=is_router,json=isRouter"`
+	xxx_hidden_Reachability  NeighborReachability   `protobuf:"varint,7,opt,name=reachability,enum=flowseer.net.l3.v1.NeighborReachability"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -96,20 +96,20 @@ func (x *NeighborEntry) GetOrigin() NeighborOrigin {
 	return NeighborOrigin_NEIGHBOR_ORIGIN_UNSPECIFIED
 }
 
-func (x *NeighborEntry) GetReachability() NeighborReachability {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 4) {
-			return x.xxx_hidden_Reachability
-		}
-	}
-	return NeighborReachability_NEIGHBOR_REACHABILITY_UNSPECIFIED
-}
-
 func (x *NeighborEntry) GetIsRouter() bool {
 	if x != nil {
 		return x.xxx_hidden_IsRouter
 	}
 	return false
+}
+
+func (x *NeighborEntry) GetReachability() NeighborReachability {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 5) {
+			return x.xxx_hidden_Reachability
+		}
+	}
+	return NeighborReachability_NEIGHBOR_REACHABILITY_UNSPECIFIED
 }
 
 func (x *NeighborEntry) SetInterfaceName(v string) {
@@ -130,13 +130,13 @@ func (x *NeighborEntry) SetOrigin(v NeighborOrigin) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
-func (x *NeighborEntry) SetReachability(v NeighborReachability) {
-	x.xxx_hidden_Reachability = v
+func (x *NeighborEntry) SetIsRouter(v bool) {
+	x.xxx_hidden_IsRouter = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
 }
 
-func (x *NeighborEntry) SetIsRouter(v bool) {
-	x.xxx_hidden_IsRouter = v
+func (x *NeighborEntry) SetReachability(v NeighborReachability) {
+	x.xxx_hidden_Reachability = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
@@ -168,14 +168,14 @@ func (x *NeighborEntry) HasOrigin() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
-func (x *NeighborEntry) HasReachability() bool {
+func (x *NeighborEntry) HasIsRouter() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
-func (x *NeighborEntry) HasIsRouter() bool {
+func (x *NeighborEntry) HasReachability() bool {
 	if x == nil {
 		return false
 	}
@@ -200,14 +200,14 @@ func (x *NeighborEntry) ClearOrigin() {
 	x.xxx_hidden_Origin = NeighborOrigin_NEIGHBOR_ORIGIN_UNSPECIFIED
 }
 
-func (x *NeighborEntry) ClearReachability() {
+func (x *NeighborEntry) ClearIsRouter() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
-	x.xxx_hidden_Reachability = NeighborReachability_NEIGHBOR_REACHABILITY_UNSPECIFIED
+	x.xxx_hidden_IsRouter = false
 }
 
-func (x *NeighborEntry) ClearIsRouter() {
+func (x *NeighborEntry) ClearReachability() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
-	x.xxx_hidden_IsRouter = false
+	x.xxx_hidden_Reachability = NeighborReachability_NEIGHBOR_REACHABILITY_UNSPECIFIED
 }
 
 type NeighborEntry_builder struct {
@@ -225,12 +225,12 @@ type NeighborEntry_builder struct {
 	// How the mapping was created. Absent means the source did not report an
 	// origin.
 	Origin *NeighborOrigin
-	// Current reachability. Absent means the source did not report it.
-	Reachability *NeighborReachability
 	// Whether the neighbor advertises itself as an IPv6 router. Absent means
 	// the source did not expose the router flag; false means it explicitly did
 	// not identify the neighbor as a router.
 	IsRouter *bool
+	// Current reachability. Absent means the source did not report it.
+	Reachability *NeighborReachability
 }
 
 func (b0 NeighborEntry_builder) Build() *NeighborEntry {
@@ -247,13 +247,13 @@ func (b0 NeighborEntry_builder) Build() *NeighborEntry {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_Origin = *b.Origin
 	}
-	if b.Reachability != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
-		x.xxx_hidden_Reachability = *b.Reachability
-	}
 	if b.IsRouter != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_IsRouter = *b.IsRouter
+	}
+	if b.Reachability != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_Reachability = *b.Reachability
 	}
 	return m0
 }
@@ -262,16 +262,16 @@ var File_flowseer_net_l3_v1_neighbor_entry_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l3_v1_neighbor_entry_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/net/l3/v1/neighbor_entry.proto\x12\x12flowseer.net.l3.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a&flowseer/net/addr/v1/mac_address.proto\x1a(flowseer/net/l3/v1/neighbor_origin.proto\x1a.flowseer/net/l3/v1/neighbor_reachability.proto\"\x81\x04\n" +
+	"'flowseer/net/l3/v1/neighbor_entry.proto\x12\x12flowseer.net.l3.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a&flowseer/net/addr/v1/mac_address.proto\x1a(flowseer/net/l3/v1/neighbor_origin.proto\x1a.flowseer/net/l3/v1/neighbor_reachability.proto\"\x8e\x04\n" +
 	"\rNeighborEntry\x121\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\n" +
 	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\rinterfaceName\x127\n" +
 	"\x02ip\x18\x02 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\x02ip\x122\n" +
 	"\x03mac\x18\x03 \x01(\v2 .flowseer.net.addr.v1.MacAddressR\x03mac\x12:\n" +
-	"\x06origin\x18\x04 \x01(\x0e2\".flowseer.net.l3.v1.NeighborOriginR\x06origin\x12L\n" +
-	"\freachability\x18\x05 \x01(\x0e2(.flowseer.net.l3.v1.NeighborReachabilityR\freachability\x12\x1b\n" +
-	"\tis_router\x18\x06 \x01(\bR\bisRouter:\xa8\x01\xbaH\xa4\x01\x1a\xa1\x01\n" +
-	"'neighbor_entry.router_flag_is_ipv6_only\x12;the neighbor router flag is valid only for an IPv6 neighbor\x1a9!has(this.is_router) || (has(this.ip) && has(this.ip.v6))B\xdb\x01\n" +
+	"\x06origin\x18\x04 \x01(\x0e2\".flowseer.net.l3.v1.NeighborOriginR\x06origin\x12\x1b\n" +
+	"\tis_router\x18\x06 \x01(\bR\bisRouter\x12L\n" +
+	"\freachability\x18\a \x01(\x0e2(.flowseer.net.l3.v1.NeighborReachabilityR\freachability:\xa8\x01\xbaH\xa4\x01\x1a\xa1\x01\n" +
+	"'neighbor_entry.router_flag_is_ipv6_only\x12;the neighbor router flag is valid only for an IPv6 neighbor\x1a9!has(this.is_router) || (has(this.ip) && has(this.ip.v6))J\x04\b\x05\x10\x06R\x05stateB\xdb\x01\n" +
 	"\x16com.flowseer.net.l3.v1B\x12NeighborEntryProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/l3/v1;l3v1\xa2\x02\x03FNL\xaa\x02\x12Flowseer.Net.L3.V1\xca\x02\x12Flowseer\\Net\\L3\\V1\xe2\x02\x1eFlowseer\\Net\\L3\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::L3::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_l3_v1_neighbor_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

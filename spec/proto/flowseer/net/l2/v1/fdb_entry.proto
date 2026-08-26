@@ -11,6 +11,12 @@ import option "flowseer/net/l2/v1/vlan_id.proto";
 // A device-local unicast forwarding-database row keyed by VLAN identifier and
 // EUI-48 address. Bridge-domain scoping belongs to a future instance model.
 message FdbEntry {
+  option (buf.validate.message).cel = {
+    id: "fdb_entry.mac_is_unicast"
+    message: "the FDB address must be an individual (unicast) EUI-48 address"
+    expression: "!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')"
+  };
+
   // The usable VLAN identifier. Absent is invalid; zero and 4095 are invalid.
   uint32 vlan_id = 1 [
     (buf.validate.field).required = true,

@@ -2,10 +2,19 @@ edition = "2024";
 
 package flowseer.net.packet.v1;
 
-import option "buf/validate/validate.proto";
+import "buf/validate/validate.proto";
+
+extend buf.validate.EnumRules {
+  bool tcp_flag = 50001 [(buf.validate.predefined).cel = {
+    id: "enum.tcp_flag"
+    message: "value must be a one-hot TCP flag bit from the fixed 12-bit flag region"
+    expression: "!rule || this in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]"
+  }];
+}
 
 // One TCP control flag. Values are their one-hot wire bit masks rather than
-// arbitrary ordinal numbers.
+// arbitrary ordinal numbers. Unnamed one-hot values through 2048 preserve the
+// fixed reserved flag positions for future assignment.
 enum TcpFlag {
   // No TCP flag. This sentinel is invalid inside a flag list.
   TCP_FLAG_UNSPECIFIED = 0;
@@ -33,12 +42,9 @@ message TcpFlags {
   // Flags set in the header. Duplicate and unspecified values are invalid.
   repeated TcpFlag set = 1 [(buf.validate.field).repeated = {
     unique: true
-    max_items: 8
+    max_items: 12
     items: {
-      enum: {
-        defined_only: true
-        not_in: [0]
-      }
+      enum: {[flowseer.net.packet.v1.tcp_flag]: true}
     }
   }];
 }
@@ -61,23 +67,17 @@ message TcpFlagsMatch {
   // Flags that must be set. Alternatives are combined with AND.
   repeated TcpFlag required_set = 1 [(buf.validate.field).repeated = {
     unique: true
-    max_items: 8
+    max_items: 12
     items: {
-      enum: {
-        defined_only: true
-        not_in: [0]
-      }
+      enum: {[flowseer.net.packet.v1.tcp_flag]: true}
     }
   }];
   // Flags that must be clear. Alternatives are combined with AND.
   repeated TcpFlag required_clear = 2 [(buf.validate.field).repeated = {
     unique: true
-    max_items: 8
+    max_items: 12
     items: {
-      enum: {
-        defined_only: true
-        not_in: [0]
-      }
+      enum: {[flowseer.net.packet.v1.tcp_flag]: true}
     }
   }];
 }

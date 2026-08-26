@@ -36,6 +36,56 @@ func TestPacketPrimitiveRules(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name:      "empty TCP flags are valid",
+			message:   packetv1.TcpFlags_builder{}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "duplicate TCP flags are invalid",
+			message: packetv1.TcpFlags_builder{
+				Set: []packetv1.TcpFlag{
+					packetv1.TcpFlag_TCP_FLAG_SYN,
+					packetv1.TcpFlag_TCP_FLAG_SYN,
+				},
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "unspecified TCP flag is invalid",
+			message: packetv1.TcpFlags_builder{
+				Set: []packetv1.TcpFlag{packetv1.TcpFlag_TCP_FLAG_UNSPECIFIED},
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "current TCP flag is valid",
+			message: packetv1.TcpFlags_builder{
+				Set: []packetv1.TcpFlag{packetv1.TcpFlag_TCP_FLAG_ACK},
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "unnamed one-hot TCP flag is valid",
+			message: packetv1.TcpFlags_builder{
+				Set: []packetv1.TcpFlag{packetv1.TcpFlag(256)},
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "non-one-hot TCP flag is invalid",
+			message: packetv1.TcpFlags_builder{
+				Set: []packetv1.TcpFlag{packetv1.TcpFlag(3)},
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "out-of-region TCP flag is invalid",
+			message: packetv1.TcpFlags_builder{
+				Set: []packetv1.TcpFlag{packetv1.TcpFlag(4096)},
+			}.Build(),
+			wantValid: false,
+		},
+		{
 			name:      "TCP flag match requires a predicate",
 			message:   packetv1.TcpFlagsMatch_builder{}.Build(),
 			wantValid: false,

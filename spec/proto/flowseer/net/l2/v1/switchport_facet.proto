@@ -10,6 +10,12 @@ import option "flowseer/net/l2/v1/vlan_id.proto";
 // Protocol-independent Ethernet switching attributes embedded by an
 // interface. Membership is stored only in this port-side direction.
 message SwitchportFacet {
+  option (buf.validate.message).cel = {
+    id: "switchport_facet.memberships_disjoint"
+    message: "a VLAN cannot be both tagged and untagged on one switchport"
+    expression: "(this.tagged_vlan_ids + this.untagged_vlan_ids).unique()"
+  };
+
   // A source-normalized mode hint. Absent means no mode was reported; exact
   // membership fields remain authoritative when the hint is present.
   SwitchportMode mode = 1;

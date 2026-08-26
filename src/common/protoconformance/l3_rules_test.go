@@ -77,6 +77,102 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name: "IPv4 interface address outside prefix",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address:       v4Address(192, 0, 2, 127),
+				Prefix:        v4Prefix([]byte{192, 0, 2, 128}, 25),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "IPv4 interface address at non-nibble prefix boundary",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address:       v4Address(192, 0, 2, 255),
+				Prefix:        v4Prefix([]byte{192, 0, 2, 128}, 25),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "IPv4 interface address at two-bit prefix boundary",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address:       v4Address(192, 0, 2, 255),
+				Prefix:        v4Prefix([]byte{192, 0, 2, 192}, 26),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "IPv4 interface address at three-bit prefix boundary",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address:       v4Address(192, 0, 2, 255),
+				Prefix:        v4Prefix([]byte{192, 0, 2, 224}, 27),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "IPv6 interface address outside prefix",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address: v6Address(
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				),
+				Prefix: v6Prefix([]byte{
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0x80, 0, 0, 0, 0, 0, 0, 0,
+				}, 65),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "IPv6 interface address at non-nibble prefix boundary",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address: v6Address(
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				),
+				Prefix: v6Prefix([]byte{
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0x80, 0, 0, 0, 0, 0, 0, 0,
+				}, 65),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "IPv6 interface address at two-bit prefix boundary",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address: v6Address(
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				),
+				Prefix: v6Prefix([]byte{
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0xc0, 0, 0, 0, 0, 0, 0, 0,
+				}, 66),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "IPv6 interface address at three-bit prefix boundary",
+			message: l3v1.InterfaceAddress_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Address: v6Address(
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				),
+				Prefix: v6Prefix([]byte{
+					0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+					0xe0, 0, 0, 0, 0, 0, 0, 0,
+				}, 67),
+			}.Build(),
+			wantValid: true,
+		},
+		{
 			name: "IPv4 neighbor rejects router flag",
 			message: l3v1.NeighborEntry_builder{
 				InterfaceName: proto.String("ethernet1/1"),
@@ -100,4 +196,15 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 	}
 
 	runValidationCases(t, tests)
+}
+
+func TestNeighborEntryReservedStateTag(t *testing.T) {
+	var entry l3v1.NeighborEntry
+	if err := proto.Unmarshal([]byte{0x28, 0x05}, &entry); err != nil {
+		t.Fatalf("unmarshal retired state field: %v", err)
+	}
+
+	if entry.HasReachability() {
+		t.Fatalf("retired state field populated reachability: %v", entry.GetReachability())
+	}
 }

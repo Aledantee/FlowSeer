@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Reachability of a neighbor-cache entry. Values 1 through 6 match RFC 8335
+// Reachability of a neighbor-cache entry. Values 1 through 6 match RFC 8344
 // and IPv6 Neighbor Unreachability Detection; ARP sources may report the
 // nearest equivalent.
 type NeighborReachability int32

@@ -230,13 +230,14 @@ var File_flowseer_net_l2_v1_fdb_entry_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l2_v1_fdb_entry_proto_rawDesc = "" +
 	"\n" +
-	"\"flowseer/net/l2/v1/fdb_entry.proto\x12\x12flowseer.net.l2.v1\x1a(flowseer/net/addr/v1/eui48_address.proto\x1a'flowseer/net/l2/v1/fdb_entry_kind.proto\x1a)flowseer/net/l2/v1/fdb_entry_status.proto\"\x91\x02\n" +
+	"\"flowseer/net/l2/v1/fdb_entry.proto\x12\x12flowseer.net.l2.v1\x1a(flowseer/net/addr/v1/eui48_address.proto\x1a'flowseer/net/l2/v1/fdb_entry_kind.proto\x1a)flowseer/net/l2/v1/fdb_entry_status.proto\"\xbf\x03\n" +
 	"\bFdbEntry\x12%\n" +
 	"\avlan_id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x06vlanId\x12<\n" +
 	"\x03mac\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\x03mac\x12.\n" +
 	"\x0einterface_name\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rinterfaceName\x124\n" +
 	"\x04kind\x18\x04 \x01(\x0e2 .flowseer.net.l2.v1.FdbEntryKindR\x04kind\x12:\n" +
-	"\x06status\x18\x05 \x01(\x0e2\".flowseer.net.l2.v1.FdbEntryStatusR\x06statusB\xd6\x01\n" +
+	"\x06status\x18\x05 \x01(\x0e2\".flowseer.net.l2.v1.FdbEntryStatusR\x06status:\xab\x01\xbaH\xa7\x01\x1a\xa4\x01\n" +
+	"\x18fdb_entry.mac_is_unicast\x12>the FDB address must be an individual (unicast) EUI-48 address\x1aH!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')B\xd6\x01\n" +
 	"\x16com.flowseer.net.l2.v1B\rFdbEntryProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/l2/v1;l2v1\xa2\x02\x03FNL\xaa\x02\x12Flowseer.Net.L2.V1\xca\x02\x12Flowseer\\Net\\L2\\V1\xe2\x02\x1eFlowseer\\Net\\L2\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::L2::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_l2_v1_fdb_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
