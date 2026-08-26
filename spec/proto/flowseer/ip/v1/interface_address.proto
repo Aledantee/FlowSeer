@@ -29,9 +29,8 @@ message InterfaceAddress {
   flowseer.net.addr.v1.IpAddress address = 2 [(buf.validate.field).required = true];
 
   // The canonical network prefix containing the assigned address. Absent is
-  // invalid. Membership is checked by consumers because the address uses
-  // canonical bytes while the prefix uses canonical CIDR text, which CEL
-  // cannot compare without reparsing either value.
+  // invalid. Membership is checked by consumers because validation has no
+  // reusable bit-prefix comparison for the two byte-address values.
   flowseer.net.addr.v1.IpPrefix prefix = 3 [(buf.validate.field).required = true];
 
   // How the address was assigned. Absent means the source did not report an
