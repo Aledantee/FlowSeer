@@ -9,8 +9,8 @@ import "buf/validate/validate.proto";
 // MacAddress because discovery's vendor prefilter and vendor lookups hold an
 // OUI with no address behind it.
 message Oui {
-  // The 3 prefix octets in canonical wire order, most significant first.
-  // Absent is invalid; omit the containing field instead.
+  // Exactly 3 prefix octets must be present in canonical wire order, most
+  // significant first.
   bytes octets = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).bytes.len = 3
