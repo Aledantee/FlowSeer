@@ -20,8 +20,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A normalized operational or requested switchport mode. Exact PVID and VLAN
-// membership fields remain authoritative because vendor modes differ.
+// A normalized operational or requested switchport mode. The taxonomy is
+// FlowSeer-normalized with no registry behind it because vendor modes
+// differ; exact PVID and VLAN membership fields remain authoritative.
 type SwitchportMode int32
 
 const (
@@ -35,7 +36,8 @@ const (
 	SwitchportMode_SWITCHPORT_MODE_TRUNK SwitchportMode = 3
 	// A general or hybrid port with independent tagged and untagged sets.
 	SwitchportMode_SWITCHPORT_MODE_HYBRID SwitchportMode = 4
-	// A provider edge that tunnels customer 802.1Q tags.
+	// A provider edge that tunnels customer IEEE 802.1Q tags
+	// (https://standards.ieee.org/ieee/802.1Q/10323/).
 	SwitchportMode_SWITCHPORT_MODE_DOT1Q_TUNNEL SwitchportMode = 5
 )
 

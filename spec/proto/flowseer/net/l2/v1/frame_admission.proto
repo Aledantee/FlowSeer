@@ -2,7 +2,9 @@ edition = "2024";
 
 package flowseer.net.l2.v1;
 
-// Which Ethernet frame-tag forms a switchport admits at ingress.
+// Which Ethernet frame-tag forms a switchport admits at ingress. The three
+// policies follow the acceptable-frame-types parameter of IEEE 802.1Q
+// (https://standards.ieee.org/ieee/802.1Q/10323/).
 enum FrameAdmission {
   // The source explicitly reported an unknown policy. Absence means unreported.
   FRAME_ADMISSION_UNSPECIFIED = 0;

@@ -20,8 +20,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// How a VLAN entry was registered in a bridge's VLAN database. The values
-// normalize the Q-BRIDGE-MIB registration and persistence distinctions.
+// How a VLAN entry was registered in a bridge's VLAN database. The
+// other/permanent/dynamic vocabulary normalizes the dot1qVlanStatus object
+// of the RFC 4363 Q-BRIDGE-MIB
+// (https://www.rfc-editor.org/rfc/rfc4363.html); the integer numbering is
+// FlowSeer's own and does not mirror the MIB.
 type VlanRegistration int32
 
 const (

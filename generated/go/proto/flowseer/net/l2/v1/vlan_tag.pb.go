@@ -21,8 +21,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// One exact IEEE 802.1Q tag observed on the wire. Every field is structurally
-// present in an encoded tag; configuration predicates use separate types.
+// One exact IEEE 802.1Q VLAN tag observed on the wire, carrying the TPID,
+// PCP, DEI, and VID fields defined by IEEE 802.1Q
+// (https://standards.ieee.org/ieee/802.1Q/10323/). Every field is
+// structurally present in an encoded tag; configuration predicates use
+// separate types.
 type VlanTag struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Tpid        v1.EtherType           `protobuf:"varint,1,opt,name=tpid,enum=flowseer.net.packet.v1.EtherType"`

@@ -20,8 +20,12 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// How a neighbor-cache mapping was created. The categories normalize RFC 8344
-// and the IP-MIB mapping types from RFC 4293.
+// How a neighbor-cache mapping was created. The categories normalize the
+// neighbor-origin values of RFC 8344
+// (https://www.rfc-editor.org/rfc/rfc8344.html) — other, static, and
+// dynamic — plus the local case of the RFC 4293 IP-MIB
+// ipNetToPhysicalType mapping types
+// (https://www.rfc-editor.org/rfc/rfc4293.html).
 type NeighborOrigin int32
 
 const (

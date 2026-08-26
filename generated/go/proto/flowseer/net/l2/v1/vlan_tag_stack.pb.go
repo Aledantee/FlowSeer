@@ -22,7 +22,9 @@ const (
 
 // One or more exact VLAN tags ordered from the outermost transmitted tag to
 // the innermost tag. The list is not capped at two, so it represents single
-// tagging, QinQ, and deeper provider stacks without changing shape.
+// tagging, provider bridging (QinQ) per IEEE 802.1Q
+// (https://standards.ieee.org/ieee/802.1Q/10323/), and deeper provider
+// stacks without changing shape.
 type VlanTagStack struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Tags *[]*VlanTag            `protobuf:"bytes,1,rep,name=tags"`

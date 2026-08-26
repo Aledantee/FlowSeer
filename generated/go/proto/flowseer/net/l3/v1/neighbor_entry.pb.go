@@ -220,8 +220,9 @@ type NeighborEntry_builder struct {
 	// containing entry when no neighbor address was observed.
 	Ip *v1.IpAddress
 	// The resolved link-layer address. Its width varies at the sources — RFC
-	// 4293 models it as an opaque PhysAddress, and IPv6 ND on non-Ethernet
-	// media reports an EUI-64 — so the tagged wrapper keeps the variant
+	// 4293 (https://www.rfc-editor.org/rfc/rfc4293.html) models it as an
+	// opaque PhysAddress, and IPv6 ND on non-Ethernet media reports an
+	// EUI-64 — so the tagged wrapper keeps the variant
 	// explicit instead of inferred from a byte count. Absent means it is not
 	// known, as is expected for incomplete or failed resolution.
 	Mac *v1.EuiAddress

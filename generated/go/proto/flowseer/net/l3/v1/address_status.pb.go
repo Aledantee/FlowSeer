@@ -21,7 +21,8 @@ const (
 )
 
 // The operational usability of an interface address. Values follow the
-// address status taxonomy in RFC 8344.
+// address status taxonomy in RFC 8344
+// (https://www.rfc-editor.org/rfc/rfc8344.html).
 type AddressStatus int32
 
 const (

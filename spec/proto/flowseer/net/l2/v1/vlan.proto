@@ -9,8 +9,9 @@ import option "flowseer/net/l2/v1/vlan_id.proto";
 // A VLAN database row. Interface membership is held only by the embedding
 // interface's switchport facet, so the two directions cannot drift.
 message Vlan {
-  // The IEEE 802.1Q VLAN identifier. Absent is invalid; omit the containing
-  // Vlan when no identifier is available.
+  // The IEEE 802.1Q VLAN identifier
+  // (https://standards.ieee.org/ieee/802.1Q/10323/). Absent is invalid;
+  // omit the containing Vlan when no identifier is available.
   uint32 id = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).uint32.(flowseer.net.l2.v1.vlan_id) = true

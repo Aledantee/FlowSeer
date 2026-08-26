@@ -189,15 +189,19 @@ type SwitchportFacet_builder struct {
 	// A source-normalized mode hint. Absent means no mode was reported; exact
 	// membership fields remain authoritative when the hint is present.
 	Mode *SwitchportMode
-	// The port VLAN identifier applied to untagged and priority-tagged ingress
-	// traffic. Absent means the source did not report a PVID.
+	// The port VLAN identifier (PVID) applied to untagged and priority-tagged
+	// ingress traffic, per IEEE 802.1Q
+	// (https://standards.ieee.org/ieee/802.1Q/10323/). Absent means the source
+	// did not report a PVID.
 	Pvid *uint32
 	// VLANs carried with a tag. The list is an exact set, not a range expression.
 	TaggedVlanIds []uint32
 	// VLANs carried without a tag. The list is an exact set.
 	UntaggedVlanIds []uint32
 	// Whether ingress frames are discarded when the port is not a member of
-	// their classified VLAN. Absent means the source did not report the policy.
+	// their classified VLAN, the ingress-filtering control of IEEE 802.1Q
+	// (https://standards.ieee.org/ieee/802.1Q/10323/). Absent means the source
+	// did not report the policy.
 	IngressFiltering *bool
 	// Which tag forms are admitted. Absent means the source did not report it.
 	FrameAdmission *FrameAdmission

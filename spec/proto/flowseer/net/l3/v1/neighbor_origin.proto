@@ -2,8 +2,12 @@ edition = "2024";
 
 package flowseer.net.l3.v1;
 
-// How a neighbor-cache mapping was created. The categories normalize RFC 8344
-// and the IP-MIB mapping types from RFC 4293.
+// How a neighbor-cache mapping was created. The categories normalize the
+// neighbor-origin values of RFC 8344
+// (https://www.rfc-editor.org/rfc/rfc8344.html) — other, static, and
+// dynamic — plus the local case of the RFC 4293 IP-MIB
+// ipNetToPhysicalType mapping types
+// (https://www.rfc-editor.org/rfc/rfc4293.html).
 enum NeighborOrigin {
   // The origin was explicitly reported as unknown. An unreported origin is
   // represented by an absent field instead.

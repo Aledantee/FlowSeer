@@ -2,7 +2,8 @@ edition = "2024";
 
 package flowseer.net.phy.v1;
 
-// The physical medium carrying an Ethernet link. The taxonomy is deliberately
+// The physical medium carrying an Ethernet link. The taxonomy is
+// FlowSeer-normalized with no registry behind it, and it is deliberately
 // coarse because detailed PHY and transceiver standards evolve independently.
 enum EthernetMedium {
   // The source did not report a medium.

@@ -2,7 +2,11 @@ edition = "2024";
 
 package flowseer.net.l2.v1;
 
-// Current usability of a unicast forwarding-database entry.
+// Current usability of a unicast forwarding-database entry. INVALID
+// normalizes the invalid case of the dot1qTpFdbStatus object of the RFC
+// 4363 Q-BRIDGE-MIB (https://www.rfc-editor.org/rfc/rfc4363.html); ACTIVE
+// is FlowSeer's normalized collapse of the MIB's usable cases, whose
+// ownership distinctions live in FdbEntryKind instead.
 enum FdbEntryStatus {
   // The source explicitly reported an unknown status. Absence means unreported.
   FDB_ENTRY_STATUS_UNSPECIFIED = 0;

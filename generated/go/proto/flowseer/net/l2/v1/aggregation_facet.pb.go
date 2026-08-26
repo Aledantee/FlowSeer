@@ -20,7 +20,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Protocol-independent attributes of a link aggregation. LACP actor, partner,
+// Protocol-independent attributes of a link aggregation. The attributes are
+// FlowSeer-normalized with no registry behind them; LACP actor, partner,
 // selection, and synchronization facts belong to net.protocol.lacp.
 type AggregationFacet struct {
 	state                         protoimpl.MessageState `protogen:"opaque.v1"`

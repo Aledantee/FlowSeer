@@ -20,7 +20,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Administrative priority used when a power-sourcing device is oversubscribed.
+// Administrative priority used when a power-sourcing device is
+// oversubscribed. The critical/high/low vocabulary follows the
+// pethPsePortPowerPriority object of the RFC 3621 Power Ethernet MIB
+// (https://www.rfc-editor.org/rfc/rfc3621.html); the integer numbering is
+// FlowSeer's own and does not mirror the MIB.
 type PoePriority int32
 
 const (

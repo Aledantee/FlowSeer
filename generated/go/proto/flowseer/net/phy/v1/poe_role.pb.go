@@ -20,7 +20,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The role an Ethernet port has in Power over Ethernet delivery.
+// The role an Ethernet port has in Power over Ethernet delivery. Power
+// Sourcing Equipment and Powered Device are the two roles defined by IEEE
+// 802.3 power over Ethernet, including its 802.3bt extensions
+// (https://standards.ieee.org/ieee/802.3/10422/).
 type PoeRole int32
 
 const (

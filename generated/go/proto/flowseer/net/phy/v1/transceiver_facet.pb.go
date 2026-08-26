@@ -198,8 +198,10 @@ type TransceiverFacet_builder struct {
 	// Whether a module is installed. Absent means presence was not reported;
 	// false means the source explicitly reported an empty cage.
 	Present *bool
-	// The source-reported form factor, such as SFP28 or QSFP-DD. Absent means no
-	// form factor was reported; a present value must not be empty.
+	// The source-reported form factor, such as SFP28 or QSFP-DD. The string is
+	// not normalized to a registry; the common form-factor vocabulary comes
+	// from SNIA SFF-8024 (https://members.snia.org/document/dl/26423). Absent
+	// means no form factor was reported; a present value must not be empty.
 	FormFactor *string
 	// The module vendor. Absent means no vendor was reported; a present value
 	// must not be empty.

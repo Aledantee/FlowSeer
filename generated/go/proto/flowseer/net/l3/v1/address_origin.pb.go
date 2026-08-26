@@ -21,7 +21,11 @@ const (
 )
 
 // How an address was assigned or generated on an interface. The mutually
-// exclusive taxonomy follows the origin categories in RFC 8344.
+// exclusive taxonomy follows the ip-address-origin categories of RFC 8344
+// (https://www.rfc-editor.org/rfc/rfc8344.html): other, static, dhcp,
+// link-layer, and random. A dedicated SLAAC value was deliberately reserved
+// out; SLAAC-generated addresses report the mechanism-specific LINK_LAYER
+// or RANDOM origin instead.
 type AddressOrigin int32
 
 const (

@@ -138,8 +138,9 @@ func (x *Vlan) ClearRegistration() {
 type Vlan_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The IEEE 802.1Q VLAN identifier. Absent is invalid; omit the containing
-	// Vlan when no identifier is available.
+	// The IEEE 802.1Q VLAN identifier
+	// (https://standards.ieee.org/ieee/802.1Q/10323/). Absent is invalid;
+	// omit the containing Vlan when no identifier is available.
 	Id *uint32
 	// The device-reported VLAN name. Absent means no name was reported; an empty
 	// string means the source explicitly reported an empty name.

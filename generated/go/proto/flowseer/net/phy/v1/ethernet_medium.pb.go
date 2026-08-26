@@ -20,7 +20,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The physical medium carrying an Ethernet link. The taxonomy is deliberately
+// The physical medium carrying an Ethernet link. The taxonomy is
+// FlowSeer-normalized with no registry behind it, and it is deliberately
 // coarse because detailed PHY and transceiver standards evolve independently.
 type EthernetMedium int32
 

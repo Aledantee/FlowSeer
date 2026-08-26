@@ -20,8 +20,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A normalized Ethernet forward-error-correction mode. The enum is open so
-// newer IEEE and vendor modes survive older consumers.
+// A normalized Ethernet forward-error-correction mode. The FEC schemes are
+// defined by IEEE 802.3 (https://standards.ieee.org/ieee/802.3/10422/); the
+// enum is open so newer IEEE and vendor modes survive older consumers.
 type EthernetFecMode int32
 
 const (
@@ -29,13 +30,17 @@ const (
 	EthernetFecMode_ETHERNET_FEC_MODE_UNSPECIFIED EthernetFecMode = 0
 	// Forward-error correction is explicitly disabled.
 	EthernetFecMode_ETHERNET_FEC_MODE_DISABLED EthernetFecMode = 1
-	// Clause 74 BASE-R Firecode FEC.
+	// BASE-R Firecode FEC per IEEE 802.3 Clause 74
+	// (https://standards.ieee.org/ieee/802.3/10422/).
 	EthernetFecMode_ETHERNET_FEC_MODE_FIRECODE EthernetFecMode = 2
-	// Reed-Solomon RS(528,514) FEC.
+	// Reed-Solomon RS(528,514) FEC per IEEE 802.3 Clause 91
+	// (https://standards.ieee.org/ieee/802.3/10422/).
 	EthernetFecMode_ETHERNET_FEC_MODE_RS528 EthernetFecMode = 3
-	// Reed-Solomon RS(544,514) FEC.
+	// Reed-Solomon RS(544,514) FEC per IEEE 802.3 Clause 119
+	// (https://standards.ieee.org/ieee/802.3/10422/).
 	EthernetFecMode_ETHERNET_FEC_MODE_RS544 EthernetFecMode = 4
-	// Two-way interleaved RS(544,514) FEC.
+	// Two-way interleaved RS(544,514) FEC, used by newer IEEE 802.3
+	// high-rate PHYs (https://standards.ieee.org/ieee/802.3/10422/).
 	EthernetFecMode_ETHERNET_FEC_MODE_RS544_DUAL_INTERLEAVED EthernetFecMode = 5
 	// A reported mode outside the normalized cases.
 	EthernetFecMode_ETHERNET_FEC_MODE_OTHER EthernetFecMode = 6

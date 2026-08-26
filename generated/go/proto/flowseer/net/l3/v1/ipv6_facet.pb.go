@@ -139,7 +139,10 @@ type Ipv6Facet_builder struct {
 	// not report it; false means explicitly host-only or non-forwarding.
 	Forwarding *bool
 	// IPv6 packet MTU in octets. Absent means no family-specific MTU was
-	// reported; a present value must be at least RFC 8200's minimum of 1280.
+	// reported; a present value must be at least the 1280-octet minimum link
+	// MTU of RFC 8200 Section 5
+	// (https://www.rfc-editor.org/rfc/rfc8200.html#section-5), matching the
+	// RFC 8344 ipv6 mtu range (https://www.rfc-editor.org/rfc/rfc8344.html).
 	Mtu *uint32
 }
 

@@ -20,8 +20,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Applied administrative value and current progress of Ethernet
-// auto-negotiation. Support is reported separately by EthernetCapabilities.
+// Applied administrative value and current progress of IEEE 802.3 Ethernet
+// auto-negotiation (https://standards.ieee.org/ieee/802.3/10422/). Support
+// is reported separately by EthernetCapabilities.
 type AutoNegotiationFacet struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Enabled     bool                   `protobuf:"varint,1,opt,name=enabled"`

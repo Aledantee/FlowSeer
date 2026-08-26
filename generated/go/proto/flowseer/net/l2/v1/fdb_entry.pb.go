@@ -23,6 +23,11 @@ const (
 
 // A device-local unicast forwarding-database row keyed by VLAN identifier and
 // EUI-48 address. Bridge-domain scoping belongs to a future instance model.
+// The unicast constraint checks the IEEE 802 individual/group (I/G) bit, the
+// least significant bit of the first octet, which is zero for an individual
+// (unicast) address
+// (https://www.rfc-editor.org/rfc/rfc9542.html#section-2.1); the CEL rule
+// verifies an even low nibble in the first octet's hex form.
 type FdbEntry struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_VlanId        uint32                 `protobuf:"varint,1,opt,name=vlan_id,json=vlanId"`

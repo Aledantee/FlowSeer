@@ -20,7 +20,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Current usability of a unicast forwarding-database entry.
+// Current usability of a unicast forwarding-database entry. INVALID
+// normalizes the invalid case of the dot1qTpFdbStatus object of the RFC
+// 4363 Q-BRIDGE-MIB (https://www.rfc-editor.org/rfc/rfc4363.html); ACTIVE
+// is FlowSeer's normalized collapse of the MIB's usable cases, whose
+// ownership distinctions live in FdbEntryKind instead.
 type FdbEntryStatus int32
 
 const (

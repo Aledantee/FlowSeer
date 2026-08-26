@@ -20,7 +20,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Current progress of Ethernet auto-negotiation.
+// Current progress of Ethernet auto-negotiation. The taxonomy is
+// FlowSeer-normalized with no registry behind it; the negotiation process
+// itself is defined by IEEE 802.3 Clause 28 and its sibling
+// auto-negotiation clauses (https://standards.ieee.org/ieee/802.3/10422/).
 type AutoNegotiationStatus int32
 
 const (

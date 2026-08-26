@@ -20,7 +20,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Which Ethernet frame-tag forms a switchport admits at ingress.
+// Which Ethernet frame-tag forms a switchport admits at ingress. The three
+// policies follow the acceptable-frame-types parameter of IEEE 802.1Q
+// (https://standards.ieee.org/ieee/802.1Q/10323/).
 type FrameAdmission int32
 
 const (

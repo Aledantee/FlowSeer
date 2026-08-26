@@ -19,8 +19,10 @@ message SwitchportFacet {
   // A source-normalized mode hint. Absent means no mode was reported; exact
   // membership fields remain authoritative when the hint is present.
   SwitchportMode mode = 1;
-  // The port VLAN identifier applied to untagged and priority-tagged ingress
-  // traffic. Absent means the source did not report a PVID.
+  // The port VLAN identifier (PVID) applied to untagged and priority-tagged
+  // ingress traffic, per IEEE 802.1Q
+  // (https://standards.ieee.org/ieee/802.1Q/10323/). Absent means the source
+  // did not report a PVID.
   uint32 pvid = 2 [(buf.validate.field).uint32.(flowseer.net.l2.v1.vlan_id) = true];
   // VLANs carried with a tag. The list is an exact set, not a range expression.
   repeated uint32 tagged_vlan_ids = 3 [(buf.validate.field).repeated = {
@@ -45,7 +47,9 @@ message SwitchportFacet {
     }
   }];
   // Whether ingress frames are discarded when the port is not a member of
-  // their classified VLAN. Absent means the source did not report the policy.
+  // their classified VLAN, the ingress-filtering control of IEEE 802.1Q
+  // (https://standards.ieee.org/ieee/802.1Q/10323/). Absent means the source
+  // did not report the policy.
   bool ingress_filtering = 5;
   // Which tag forms are admitted. Absent means the source did not report it.
   FrameAdmission frame_admission = 6;

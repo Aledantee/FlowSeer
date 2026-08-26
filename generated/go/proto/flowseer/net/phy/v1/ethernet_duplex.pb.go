@@ -20,7 +20,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The operational or requested duplex mode of an Ethernet link.
+// The operational or requested duplex mode of an Ethernet link. The
+// half/full vocabulary follows the dot3StatsDuplexStatus object of the RFC
+// 3635 Ethernet-like Interface MIB
+// (https://www.rfc-editor.org/rfc/rfc3635.html); the integer numbering is
+// FlowSeer's own and does not mirror the MIB.
 type EthernetDuplex int32
 
 const (

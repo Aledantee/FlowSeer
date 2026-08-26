@@ -20,7 +20,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// How a unicast forwarding-database entry was created or is owned.
+// How a unicast forwarding-database entry was created or is owned. The
+// vocabulary normalizes the ownership cases of the dot1qTpFdbStatus object
+// of the RFC 4363 Q-BRIDGE-MIB
+// (https://www.rfc-editor.org/rfc/rfc4363.html) — other, learned, self, and
+// mgmt map to OTHER, DYNAMIC, SELF, and STATIC — while REMOTE is a
+// FlowSeer-normalized extension for overlay and controller planes. The
+// integer numbering is FlowSeer's own and does not mirror the MIB.
 type FdbEntryKind int32
 
 const (

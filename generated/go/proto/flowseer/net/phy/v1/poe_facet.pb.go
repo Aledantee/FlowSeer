@@ -218,7 +218,10 @@ type PoeFacet_builder struct {
 	// Whether this port supplies or consumes power. Absent means no role was
 	// reported.
 	Role *PoeRole
-	// The IEEE 802.3 power class number. Absent means no class was reported.
+	// The IEEE 802.3 power class number, per the PSE/PD classification of
+	// IEEE 802.3 and its 802.3bt extensions
+	// (https://standards.ieee.org/ieee/802.3/10422/). Absent means no class
+	// was reported.
 	PowerClass *uint32
 	// The measured power draw in milliwatts. Absent means no measurement was
 	// reported; zero is an explicit zero-power measurement.

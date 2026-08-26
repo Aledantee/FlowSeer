@@ -20,7 +20,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Current normalized Power over Ethernet delivery status.
+// Current normalized Power over Ethernet delivery status. The vocabulary
+// follows the pethPsePortDetectionStatus states of the RFC 3621 Power
+// Ethernet MIB (https://www.rfc-editor.org/rfc/rfc3621.html) using the PSE
+// terminology of IEEE 802.3 (https://standards.ieee.org/ieee/802.3/10422/);
+// the integer numbering is FlowSeer's own and does not mirror the MIB.
 type PoeStatus int32
 
 const (

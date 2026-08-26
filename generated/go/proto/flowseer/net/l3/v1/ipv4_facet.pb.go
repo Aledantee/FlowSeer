@@ -139,7 +139,8 @@ type Ipv4Facet_builder struct {
 	// not report it; false means explicitly host-only or non-forwarding.
 	Forwarding *bool
 	// IPv4 packet MTU in octets. Absent means no family-specific MTU was
-	// reported; a present value must satisfy RFC 8344's 68..65535 range.
+	// reported; a present value must satisfy the 68..65535 range of the RFC
+	// 8344 ipv4 mtu leaf (https://www.rfc-editor.org/rfc/rfc8344.html).
 	Mtu *uint32
 }
 

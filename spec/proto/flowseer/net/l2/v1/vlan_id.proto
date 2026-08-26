@@ -4,6 +4,11 @@ package flowseer.net.l2.v1;
 
 import "buf/validate/validate.proto";
 
+// Predefined protovalidate rules (https://protovalidate.com/) for IEEE
+// 802.1Q VLAN fields (https://standards.ieee.org/ieee/802.1Q/10323/). The
+// 12-bit VID space reserves 0 for priority-tagged frames and 4095 for
+// implementation use, leaving 1 through 4094 as usable VLAN identifiers;
+// the priority code point is a three-bit field.
 extend buf.validate.UInt32Rules {
   bool vlan_id = 50000 [(buf.validate.predefined).cel = {
     id: "uint32.vlan_id"
