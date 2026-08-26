@@ -8,5 +8,9 @@
 .claude/worktrees/
 .claude/no-worktree-guard
 
+# Compound Engineering checkout-local config and scratch artifacts
+.compound-engineering/*.local.yaml
+.context/compound-engineering/
+
 # Vendored upstream cisco-mibs clone (has own .git; restore/refresh per spec/mib/README.md)
 spec/mib/cisco/enterprise/
