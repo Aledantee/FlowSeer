@@ -14,7 +14,7 @@ import (
 // generatorVersion identifies the emitter generation. Bump it whenever
 // emitted output changes shape for unchanged input — a version
 // mismatch flags every module for full regeneration (KTD7).
-const generatorVersion = "yanggen-1"
+const generatorVersion = "yanggen-2"
 
 // lockfileName is the lockfile's basename under the output directory.
 const lockfileName = "yanggen.lock.json"

@@ -27,7 +27,9 @@ type leafType struct {
 	// a shared singleton for the parameterless kinds, a literal for
 	// decimal64 and unions.
 	typeExpr func() *jen.Statement
-	// valueExpr renders a yang.Type value literal (union members).
+	// valueExpr renders a yang.Type element literal for use inside a
+	// []yang.Type slice (union members). The element omits the redundant
+	// type name so emitted code is gofmt-simplification clean.
 	valueExpr func() *jen.Statement
 	// keyString marks kinds whose key-struct field is the canonical
 	// string rather than the scalar itself (identityref, decimal64,
@@ -80,7 +82,7 @@ func simpleKind(goKind string, runtimeKind string) leafType {
 			return jen.Qual(yangPkg, kindVar[runtimeKind])
 		},
 		valueExpr: func() *jen.Statement {
-			return jen.Qual(yangPkg, "Type").Values(jen.Dict{jen.Id("Kind"): jen.Qual(yangPkg, runtimeKind)})
+			return jen.Values(jen.Dict{jen.Id("Kind"): jen.Qual(yangPkg, runtimeKind)})
 		},
 	}
 }
@@ -131,17 +133,19 @@ func mapYangType(t *goyang.YangType) leafType {
 		if fd == 0 {
 			fd = 1
 		}
-		literal := func() *jen.Statement {
-			return jen.Qual(yangPkg, "Type").Values(jen.Dict{
+		dict := func() jen.Dict {
+			return jen.Dict{
 				jen.Id("Kind"):           jen.Qual(yangPkg, "TypeDecimal64"),
 				jen.Id("FractionDigits"): jen.Lit(fd),
-			})
+			}
 		}
 		return leafType{
-			goType:    func() *jen.Statement { return jen.Qual(yangPkg, "Value") },
-			pointer:   true,
-			typeExpr:  func() *jen.Statement { return jen.Op("&").Add(literal()) },
-			valueExpr: literal,
+			goType:  func() *jen.Statement { return jen.Qual(yangPkg, "Value") },
+			pointer: true,
+			typeExpr: func() *jen.Statement {
+				return jen.Op("&").Qual(yangPkg, "Type").Values(dict())
+			},
+			valueExpr: func() *jen.Statement { return jen.Values(dict()) },
 			keyString: true,
 		}
 	case goyang.Yidentityref:
@@ -151,22 +155,24 @@ func mapYangType(t *goyang.YangType) leafType {
 		return lt
 	case goyang.Yunion:
 		members := t.Type
-		literal := func() *jen.Statement {
+		dict := func() jen.Dict {
 			memberExprs := make([]jen.Code, 0, len(members))
 			for _, m := range members {
 				mt := mapYangType(resolveLeafref(nil, m, 0))
 				memberExprs = append(memberExprs, mt.valueExpr())
 			}
-			return jen.Qual(yangPkg, "Type").Values(jen.Dict{
+			return jen.Dict{
 				jen.Id("Kind"):    jen.Qual(yangPkg, "TypeUnion"),
 				jen.Id("Members"): jen.Index().Qual(yangPkg, "Type").Values(memberExprs...),
-			})
+			}
 		}
 		return leafType{
-			goType:    func() *jen.Statement { return jen.Qual(yangPkg, "Value") },
-			pointer:   true,
-			typeExpr:  func() *jen.Statement { return jen.Op("&").Add(literal()) },
-			valueExpr: literal,
+			goType:  func() *jen.Statement { return jen.Qual(yangPkg, "Value") },
+			pointer: true,
+			typeExpr: func() *jen.Statement {
+				return jen.Op("&").Qual(yangPkg, "Type").Values(dict())
+			},
+			valueExpr: func() *jen.Statement { return jen.Values(dict()) },
 			keyString: true,
 		}
 	default:
