@@ -70,3 +70,6 @@ Three conventions below are enforced by hooks in `.claude/hooks/`, wired in
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts); relevant when orienting or discussing domain concepts.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).
+- `.serena/project.yml` — shared Serena configuration for Go-aware symbol lookup,
+  reference discovery, and diagnostics. Put machine-local
+  overrides in the ignored `.serena/project.local.yml` file.
