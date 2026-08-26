@@ -2,7 +2,7 @@ edition = "2024";
 
 package flowseer.net.l2.v1;
 
-import "flowseer/net/addr/v1/eui48_address.proto";
+import "flowseer/net/addr/v1/eui.proto";
 import "flowseer/net/l2/v1/fdb_entry_kind.proto";
 import "flowseer/net/l2/v1/fdb_entry_status.proto";
 import option "buf/validate/validate.proto";

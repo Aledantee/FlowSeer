@@ -182,6 +182,36 @@ func TestLayer3PrimitiveRules(t *testing.T) {
 			wantValid: false,
 		},
 		{
+			name: "neighbor with unresolved link-layer address",
+			message: l3v1.NeighborEntry_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Ip:            v4Address(192, 0, 2, 2),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "neighbor with a resolved EUI-48 address",
+			message: l3v1.NeighborEntry_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Ip:            v4Address(192, 0, 2, 2),
+				Mac: addrv1.EuiAddress_builder{
+					Eui48: addrv1.Eui48Address_builder{
+						Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+					}.Build(),
+				}.Build(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "neighbor rejects an empty link-layer wrapper",
+			message: l3v1.NeighborEntry_builder{
+				InterfaceName: proto.String("ethernet1/1"),
+				Ip:            v4Address(192, 0, 2, 2),
+				Mac:           addrv1.EuiAddress_builder{}.Build(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
 			name: "IPv6 router neighbor",
 			message: l3v1.NeighborEntry_builder{
 				InterfaceName: proto.String("ethernet1/1"),

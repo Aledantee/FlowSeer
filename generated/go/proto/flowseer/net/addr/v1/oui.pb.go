@@ -23,7 +23,7 @@ const (
 
 // An IEEE Organizationally Unique Identifier: the vendor-assigned prefix
 // shared by an EUI-48 and an EUI-64. Its own message rather than a view of
-// MacAddress because discovery's vendor prefilter and vendor lookups hold an
+// EuiAddress because discovery's vendor prefilter and vendor lookups hold an
 // OUI with no address behind it.
 type Oui struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`

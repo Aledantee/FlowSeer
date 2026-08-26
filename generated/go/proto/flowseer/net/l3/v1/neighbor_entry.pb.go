@@ -28,7 +28,7 @@ type NeighborEntry struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_InterfaceName *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
 	xxx_hidden_Ip            *v1.IpAddress          `protobuf:"bytes,2,opt,name=ip"`
-	xxx_hidden_Mac           *v1.MacAddress         `protobuf:"bytes,3,opt,name=mac"`
+	xxx_hidden_Mac           *v1.EuiAddress         `protobuf:"bytes,3,opt,name=mac"`
 	xxx_hidden_Origin        NeighborOrigin         `protobuf:"varint,4,opt,name=origin,enum=flowseer.net.l3.v1.NeighborOrigin"`
 	xxx_hidden_IsRouter      bool                   `protobuf:"varint,6,opt,name=is_router,json=isRouter"`
 	xxx_hidden_Reachability  NeighborReachability   `protobuf:"varint,7,opt,name=reachability,enum=flowseer.net.l3.v1.NeighborReachability"`
@@ -80,7 +80,7 @@ func (x *NeighborEntry) GetIp() *v1.IpAddress {
 	return nil
 }
 
-func (x *NeighborEntry) GetMac() *v1.MacAddress {
+func (x *NeighborEntry) GetMac() *v1.EuiAddress {
 	if x != nil {
 		return x.xxx_hidden_Mac
 	}
@@ -121,7 +121,7 @@ func (x *NeighborEntry) SetIp(v *v1.IpAddress) {
 	x.xxx_hidden_Ip = v
 }
 
-func (x *NeighborEntry) SetMac(v *v1.MacAddress) {
+func (x *NeighborEntry) SetMac(v *v1.EuiAddress) {
 	x.xxx_hidden_Mac = v
 }
 
@@ -219,9 +219,12 @@ type NeighborEntry_builder struct {
 	// The neighbor's network-layer address. Absent is invalid; omit the
 	// containing entry when no neighbor address was observed.
 	Ip *v1.IpAddress
-	// The resolved link-layer address. Absent means it is not known, as is
-	// expected for incomplete or failed resolution.
-	Mac *v1.MacAddress
+	// The resolved link-layer address. Its width varies at the sources — RFC
+	// 4293 models it as an opaque PhysAddress, and IPv6 ND on non-Ethernet
+	// media reports an EUI-64 — so the tagged wrapper keeps the variant
+	// explicit instead of inferred from a byte count. Absent means it is not
+	// known, as is expected for incomplete or failed resolution.
+	Mac *v1.EuiAddress
 	// How the mapping was created. Absent means the source did not report an
 	// origin.
 	Origin *NeighborOrigin
@@ -262,12 +265,12 @@ var File_flowseer_net_l3_v1_neighbor_entry_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l3_v1_neighbor_entry_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/net/l3/v1/neighbor_entry.proto\x12\x12flowseer.net.l3.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a&flowseer/net/addr/v1/mac_address.proto\x1a(flowseer/net/l3/v1/neighbor_origin.proto\x1a.flowseer/net/l3/v1/neighbor_reachability.proto\"\x8e\x04\n" +
+	"'flowseer/net/l3/v1/neighbor_entry.proto\x12\x12flowseer.net.l3.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a(flowseer/net/l3/v1/neighbor_origin.proto\x1a.flowseer/net/l3/v1/neighbor_reachability.proto\"\x8e\x04\n" +
 	"\rNeighborEntry\x121\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\n" +
 	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\rinterfaceName\x127\n" +
 	"\x02ip\x18\x02 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\x02ip\x122\n" +
-	"\x03mac\x18\x03 \x01(\v2 .flowseer.net.addr.v1.MacAddressR\x03mac\x12:\n" +
+	"\x03mac\x18\x03 \x01(\v2 .flowseer.net.addr.v1.EuiAddressR\x03mac\x12:\n" +
 	"\x06origin\x18\x04 \x01(\x0e2\".flowseer.net.l3.v1.NeighborOriginR\x06origin\x12\x1b\n" +
 	"\tis_router\x18\x06 \x01(\bR\bisRouter\x12L\n" +
 	"\freachability\x18\a \x01(\x0e2(.flowseer.net.l3.v1.NeighborReachabilityR\freachability:\xa8\x01\xbaH\xa4\x01\x1a\xa1\x01\n" +
@@ -278,13 +281,13 @@ var file_flowseer_net_l3_v1_neighbor_entry_proto_msgTypes = make([]protoimpl.Mes
 var file_flowseer_net_l3_v1_neighbor_entry_proto_goTypes = []any{
 	(*NeighborEntry)(nil),     // 0: flowseer.net.l3.v1.NeighborEntry
 	(*v1.IpAddress)(nil),      // 1: flowseer.net.addr.v1.IpAddress
-	(*v1.MacAddress)(nil),     // 2: flowseer.net.addr.v1.MacAddress
+	(*v1.EuiAddress)(nil),     // 2: flowseer.net.addr.v1.EuiAddress
 	(NeighborOrigin)(0),       // 3: flowseer.net.l3.v1.NeighborOrigin
 	(NeighborReachability)(0), // 4: flowseer.net.l3.v1.NeighborReachability
 }
 var file_flowseer_net_l3_v1_neighbor_entry_proto_depIdxs = []int32{
 	1, // 0: flowseer.net.l3.v1.NeighborEntry.ip:type_name -> flowseer.net.addr.v1.IpAddress
-	2, // 1: flowseer.net.l3.v1.NeighborEntry.mac:type_name -> flowseer.net.addr.v1.MacAddress
+	2, // 1: flowseer.net.l3.v1.NeighborEntry.mac:type_name -> flowseer.net.addr.v1.EuiAddress
 	3, // 2: flowseer.net.l3.v1.NeighborEntry.origin:type_name -> flowseer.net.l3.v1.NeighborOrigin
 	4, // 3: flowseer.net.l3.v1.NeighborEntry.reachability:type_name -> flowseer.net.l3.v1.NeighborReachability
 	4, // [4:4] is the sub-list for method output_type

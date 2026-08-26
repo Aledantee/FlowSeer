@@ -2,8 +2,8 @@ edition = "2024";
 
 package flowseer.net.l3.v1;
 
+import "flowseer/net/addr/v1/eui.proto";
 import "flowseer/net/addr/v1/ip.proto";
-import "flowseer/net/addr/v1/mac_address.proto";
 import "flowseer/net/l3/v1/neighbor_origin.proto";
 import "flowseer/net/l3/v1/neighbor_reachability.proto";
 import option "buf/validate/validate.proto";
@@ -30,9 +30,12 @@ message NeighborEntry {
   // The neighbor's network-layer address. Absent is invalid; omit the
   // containing entry when no neighbor address was observed.
   flowseer.net.addr.v1.IpAddress ip = 2 [(buf.validate.field).required = true];
-  // The resolved link-layer address. Absent means it is not known, as is
-  // expected for incomplete or failed resolution.
-  flowseer.net.addr.v1.MacAddress mac = 3;
+  // The resolved link-layer address. Its width varies at the sources — RFC
+  // 4293 models it as an opaque PhysAddress, and IPv6 ND on non-Ethernet
+  // media reports an EUI-64 — so the tagged wrapper keeps the variant
+  // explicit instead of inferred from a byte count. Absent means it is not
+  // known, as is expected for incomplete or failed resolution.
+  flowseer.net.addr.v1.EuiAddress mac = 3;
   // How the mapping was created. Absent means the source did not report an
   // origin.
   NeighborOrigin origin = 4;

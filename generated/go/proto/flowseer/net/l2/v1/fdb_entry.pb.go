@@ -230,7 +230,7 @@ var File_flowseer_net_l2_v1_fdb_entry_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l2_v1_fdb_entry_proto_rawDesc = "" +
 	"\n" +
-	"\"flowseer/net/l2/v1/fdb_entry.proto\x12\x12flowseer.net.l2.v1\x1a(flowseer/net/addr/v1/eui48_address.proto\x1a'flowseer/net/l2/v1/fdb_entry_kind.proto\x1a)flowseer/net/l2/v1/fdb_entry_status.proto\"\xbf\x03\n" +
+	"\"flowseer/net/l2/v1/fdb_entry.proto\x12\x12flowseer.net.l2.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a'flowseer/net/l2/v1/fdb_entry_kind.proto\x1a)flowseer/net/l2/v1/fdb_entry_status.proto\"\xbf\x03\n" +
 	"\bFdbEntry\x12%\n" +
 	"\avlan_id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x06vlanId\x12<\n" +
 	"\x03mac\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\x03mac\x12.\n" +
