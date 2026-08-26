@@ -1,7 +1,8 @@
 # AGENTS.md
 
-Index for agents and teammates working on **FlowSeer**. This file is a thin index
-only: the load-bearing rules live inside the docs it links, not here.
+Index for agents and teammates working on **FlowSeer**. Detailed conventions live
+inside the docs linked below; the repository boundaries in this file are intentionally
+short because every task must load them.
 
 ## Conventions
 
@@ -21,6 +22,19 @@ Binding on humans and agents equally; each doc states its own scope.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — the TypeScript web frontend
   (`frontend/web/`; own toolchain, the Go rules do not govern it).
 
+## Hard boundaries
+
+- `spec/proto/` is production Buf input. It contains only `.proto` files and
+  package-boundary `README.md` files. Put executable schema tests in
+  `src/common/protoconformance/` and their fixtures in that package's `testdata/`.
+- Never add a Buf exclusion, ignore, skip, lint suppression, or hook exception to
+  make a task's own artifacts pass. If a correct change requires relaxing a
+  repository guardrail, stop and request that policy change explicitly; do not bundle
+  the relaxation with the feature that depends on it.
+- Treat `AGENTS.md`, `buf.yaml`, `.agent/hooks/`, `.claude/settings.json`,
+  `.codex/hooks.json`, `src/common/protoconformance/`, and merge-gate configuration
+  as policy surfaces. Changes to them require an explicit guardrail review.
+
 ## Isolation
 
 Every session does its work in its own git worktree, so concurrent sessions cannot
@@ -34,17 +48,23 @@ no remote.
 
 ## Enforced rules
 
-Three conventions below are enforced by hooks in `.claude/hooks/`, wired in
-`.claude/settings.json`, rather than left to vigilance:
+Shared implementations live in `.agent/hooks/`; thin registrations in
+`.claude/settings.json` and `.codex/hooks.json` adapt them to each agent. Codex users
+must review changed project hooks with `/hooks` before Codex will run them.
 
-- `protect-generated.sh` (`PreToolUse`) — denies hand-edits to `generated/`,
-  `frontend/web/generated/`, and `buf.lock`. Change the source of truth instead.
+- `pre-tool-policy.sh` (`PreToolUse`) — denies hand-edits to generated output and
+  `buf.lock`, and rejects non-source artifacts under `spec/proto/`.
 - `go-format.sh` (`PostToolUse`) — runs gofumpt + goimports on every edited `.go`
   file so nothing lands lint-dirty; reports back when it rewrote the file.
 - `proto-check.sh` (`PostToolUse`) — `buf format -w`, then `buf lint` on the edited
   path (failures block and come back as feedback), then the message-sync check:
   reports Config/State/Event triad members and GlobalRef/LocalRef counterparts the
   edit did not bring along.
+- `stop-check.sh` (`Stop`) — runs the repository-layout package before an agent stops.
+
+Hooks are fast feedback, not the authority: `go test -race ./...` runs the same
+source-tree invariant through `src/common/protoconformance/` even when an edit path
+bypasses hooks.
 
 ## Layout
 

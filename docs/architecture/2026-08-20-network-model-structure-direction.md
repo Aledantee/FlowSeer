@@ -448,13 +448,13 @@ API_OPAQUE`.
 
 ## What this enables, in order
 
-Each layer lands as protos + the layering test + one Go mapper from the SNMP
-library (whose generated `ifmib`, `lldpmib`, `qbridgemib`, `bridgemib`,
-`ipmib`, `entitymib` bindings already exist) + a wire-contract test, in one
-commit with regenerated `generated/`:
+Each layer lands as protos + relevant checks in the Go conformance package + one Go
+mapper from the SNMP library (whose generated `ifmib`, `lldpmib`, `qbridgemib`,
+`bridgemib`, `ipmib`, `entitymib` bindings already exist) + a wire-contract test, in
+one commit with regenerated `generated/`:
 
-1. [The entity conventions document](../conventions/protobuf.md), with
-   `net/addr` and the layering test landing beside it.
+1. [The entity conventions document](../conventions/protobuf.md), with `net/addr`
+   and repository conformance coverage outside the schema source tree.
 2. `net/phy` and `net/interface` with the `physical`, `lag`, `vlan`,
    `loopback`, `other` arms; `device/v1` Device identity and the Interface
    entity — proven by the hand-done R11 identity read via SNMP.
@@ -572,7 +572,7 @@ documentation, API references).
   https://github.com/googleapis/googleapis/tree/master/google/type ; Google
   Compute API uses string IPs/MACs — `google/cloud/compute/v1/compute.proto`.
 - Repository: `docs/code-style-proto.md` (edition 2024 presence, `oneof` +
-  protovalidate, opaque Go API); `buf.yaml` (layering-test fixture excludes);
+  protovalidate, opaque Go API); `buf.yaml` (module, lint, and breaking policy);
   `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`
   (rule 5 presence semantics, sequencing item 1, capability list);
   `generated/go/mib/` (existing `ifmib`, `lldpmib`, `qbridgemib`, `bridgemib`,
