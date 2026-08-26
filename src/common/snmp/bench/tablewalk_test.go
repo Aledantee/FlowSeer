@@ -9,15 +9,15 @@ import (
 
 // BenchmarkTableWalk measures the generated-bindings table walk end to
 // end: session BulkWalk + generated row assembly + typed column decode.
-// This is the layer the mibgen fused-decode path optimises; the
+// This is the layer the mibgen fused-decode path optimizes; the
 // session-level BenchmarkBulkWalk deliberately excludes it.
 func BenchmarkTableWalk(b *testing.B) {
-	addr := startResponder(b, benchRows)
+	addr := startResponder(b)
 
 	b.Run("impl=flowseer", func(b *testing.B) {
 		ctx := context.Background()
 		sess := dialNative(b, addr)
-		defer sess.Close()
+		defer func() { _ = sess.Close() }()
 
 		walkTable := func() int {
 			n := 0

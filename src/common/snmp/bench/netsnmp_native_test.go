@@ -7,7 +7,7 @@ import "testing"
 // TestNetSnmpNativeSmoke confirms the cgo libnetsnmp binding links and walks
 // the loopback responder, returning the same row count the Go clients see.
 func TestNetSnmpNativeSmoke(t *testing.T) {
-	addr := startResponder(t, benchRows)
+	addr := startResponder(t)
 	sess, err := nsOpen(addr, "public")
 	if err != nil {
 		t.Fatalf("nsOpen: %v", err)

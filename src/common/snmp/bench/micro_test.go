@@ -85,7 +85,7 @@ func dialGosnmp(tb testing.TB, addr string) *g.GoSNMP {
 func benchPaired(b *testing.B, addr string, nativeOp func(snmp.Session) error, gosnmpOp func(*g.GoSNMP) error) {
 	b.Run("impl=flowseer", func(b *testing.B) {
 		sess := dialNative(b, addr)
-		defer sess.Close()
+		defer func() { _ = sess.Close() }()
 		if err := nativeOp(sess); err != nil {
 			b.Fatalf("warmup: %v", err)
 		}
@@ -99,7 +99,7 @@ func benchPaired(b *testing.B, addr string, nativeOp func(snmp.Session) error, g
 	})
 	b.Run("impl=gosnmp", func(b *testing.B) {
 		client := dialGosnmp(b, addr)
-		defer client.Conn.Close()
+		defer func() { _ = client.Conn.Close() }()
 		if err := gosnmpOp(client); err != nil {
 			b.Fatalf("warmup: %v", err)
 		}
@@ -114,7 +114,7 @@ func benchPaired(b *testing.B, addr string, nativeOp func(snmp.Session) error, g
 }
 
 func BenchmarkGet(b *testing.B) {
-	addr := startResponder(b, benchRows)
+	addr := startResponder(b)
 	ctx := context.Background()
 	nOIDs := []snmp.OID{scalarSnmpOID}
 	gOIDs := []string{scalarStr}
@@ -124,7 +124,7 @@ func BenchmarkGet(b *testing.B) {
 }
 
 func BenchmarkGetNext(b *testing.B) {
-	addr := startResponder(b, benchRows)
+	addr := startResponder(b)
 	ctx := context.Background()
 	nOIDs := []snmp.OID{ifTableSnmp}
 	gOIDs := []string{ifTableStr}
@@ -134,7 +134,7 @@ func BenchmarkGetNext(b *testing.B) {
 }
 
 func BenchmarkGetBulk(b *testing.B) {
-	addr := startResponder(b, benchRows)
+	addr := startResponder(b)
 	ctx := context.Background()
 	nOIDs := []snmp.OID{ifTableSnmp}
 	gOIDs := []string{ifTableStr}
@@ -144,12 +144,12 @@ func BenchmarkGetBulk(b *testing.B) {
 }
 
 func BenchmarkBulkWalk(b *testing.B) {
-	addr := startResponder(b, benchRows)
+	addr := startResponder(b)
 
 	b.Run("impl=flowseer", func(b *testing.B) {
 		ctx := context.Background()
 		sess := dialNative(b, addr)
-		defer sess.Close()
+		defer func() { _ = sess.Close() }()
 		walkNative := func() int {
 			n := 0
 			w := sess.BulkWalk(ctx, ifTableSnmp)
@@ -173,7 +173,7 @@ func BenchmarkBulkWalk(b *testing.B) {
 
 	b.Run("impl=gosnmp", func(b *testing.B) {
 		client := dialGosnmp(b, addr)
-		defer client.Conn.Close()
+		defer func() { _ = client.Conn.Close() }()
 		walkGosnmp := func() int {
 			res, err := client.BulkWalkAll(ifTableStr)
 			if err != nil {
@@ -211,7 +211,7 @@ func BenchmarkBulkWalk(b *testing.B) {
 const coldRedials = 5
 
 func BenchmarkColdStart(b *testing.B) {
-	addr := startResponder(b, benchRows)
+	addr := startResponder(b)
 	ctx := context.Background()
 	oids := []snmp.OID{scalarSnmpOID}
 

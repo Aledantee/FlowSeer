@@ -130,7 +130,7 @@ func BenchmarkFanoutBurst(b *testing.B) {
 // here as a reply OID that does not match its request — the reactor's
 // validate-before-deliver / single-use-waiter invariant under load.
 func TestFanoutNoCrossDelivery(t *testing.T) {
-	addr := startResponder(t, benchRows)
+	addr := startResponder(t)
 	ctx := context.Background()
 
 	const (

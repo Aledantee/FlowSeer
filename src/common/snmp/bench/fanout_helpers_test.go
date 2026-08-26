@@ -72,7 +72,7 @@ func dialWarmed(tb testing.TB, addr string, warmup func(snmp.Session) error) snm
 func fanoutSessions(b *testing.B, conc int, warmup func(snmp.Session) error) []snmp.Session {
 	sessions := make([]snmp.Session, conc)
 	for i := range sessions {
-		sessions[i] = dialWarmed(b, startResponder(b, benchRows), warmup)
+		sessions[i] = dialWarmed(b, startResponder(b), warmup)
 	}
 	b.Cleanup(func() {
 		for _, s := range sessions {

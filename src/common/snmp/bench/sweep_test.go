@@ -139,7 +139,7 @@ func sweepDial(tb testing.TB, cl sweepClient, targets int) []func() error {
 	walks := make([]func() error, targets)
 	closers := make([]func(), targets)
 	for i := 0; i < targets; i++ {
-		walks[i], closers[i] = cl.dial(tb, startResponder(tb, benchRows))
+		walks[i], closers[i] = cl.dial(tb, startResponder(tb))
 	}
 	tb.Cleanup(func() {
 		for _, c := range closers {

@@ -7,7 +7,7 @@
 //
 // # Tiers
 //
-// Tier 1 (micro, this file's neighbours in micro_test.go) runs in-process
+// Tier 1 (micro, this file's neighbors in micro_test.go) runs in-process
 // against a loopback UDP responder (responder_test.go) and compares the
 // FlowSeer client (snmp.NewSession) against a gosnmp client on identical
 // SNMP v2c operations. It reports ns/op, allocs/op, and B/op via the
@@ -39,7 +39,7 @@
 // # Profiling (profile-first workflow)
 //
 // The profile-first rule is enforced by tooling, not discipline alone: never
-// optimise a site you
+// optimize a site you
 // have not first seen in a profile. task bench:profile writes mem.prof +
 // cpu.prof and the test binary to the gitignored profiles/ dir, then prints
 // the top allocation sites:
@@ -65,7 +65,7 @@
 // testdata/baseline-micro.txt is a committed, benchstat-format snapshot of
 // the FlowSeer arm of the micro suite (task bench:micro COUNT=10). It is the
 // fixed reference every later change is measured against — task bench:gate
-// diffs a fresh run against it, and task bench:stat summarises it. Refreshing
+// diffs a fresh run against it, and task bench:stat summarizes it. Refreshing
 // the baseline is a deliberate, reviewed commit (re-run the command, commit
 // the new .txt); it is never automatic, so a regression cannot silently
 // rebaseline.

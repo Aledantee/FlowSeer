@@ -82,7 +82,7 @@ func idleHeap(tb testing.TB, addr string, n int) (heapInuse, stackInuse uint64) 
 // assertions are sanity bounds, not fixed thresholds — the absolute numbers
 // are hardware- and allocator-dependent and are logged for the record.
 func TestIdleFootprintScaling(t *testing.T) {
-	addr := startResponder(t, benchRows)
+	addr := startResponder(t)
 	counts := []int{0, 64, 256}
 	heaps := make([]uint64, len(counts))
 	for i, n := range counts {
@@ -147,7 +147,7 @@ func TestBurstyAllocRate(t *testing.T) {
 		burstOps = 8
 		idleGap  = 50 * time.Millisecond
 	)
-	addr := startResponder(t, benchRows)
+	addr := startResponder(t)
 
 	sessions := make([]snmp.Session, conc)
 	for i := range sessions {

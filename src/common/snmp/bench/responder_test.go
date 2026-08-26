@@ -60,9 +60,6 @@ func buildMIB(rows int) []mibEntry {
 	return es
 }
 
-// ifTableRoot is the BulkWalk root covering both canned columns.
-var ifTableRoot = []uint32{1, 3, 6, 1, 2, 1, 2, 2, 1}
-
 // --- BER encoding helpers --------------------------------------------
 
 func encLen(n int) []byte {
@@ -347,9 +344,9 @@ func firstGreater(mib []mibEntry, o []uint32) int {
 // startResponder launches the loopback responder and returns its
 // host:port. It stops when the benchmark ends (b.Cleanup closes the
 // socket, which unblocks the read loop).
-func startResponder(b testing.TB, rows int) string {
+func startResponder(b testing.TB) string {
 	b.Helper()
-	mib := buildMIB(rows)
+	mib := buildMIB(benchRows)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	if err != nil {
 		b.Fatalf("listen: %v", err)
