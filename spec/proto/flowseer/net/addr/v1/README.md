@@ -10,7 +10,7 @@ The package contains:
 
 - IEEE identifiers: EUI-48 and EUI-64 values, a tagged EUI/MAC address
   wrapper, and Organizationally Unique Identifiers (OUIs).
-- IP registry values: DSCP, ECN, protocol, and address-family enums.
+- IP address-family registry values and FlowSeer address classifications.
 - IP classification: FlowSeer's coarse address scopes.
 - IP values: IPv4 and IPv6 addresses, canonical masked network prefixes,
   inclusive address ranges, and address lifetimes.
@@ -33,3 +33,6 @@ contract and avoids redefining subtly different address messages in each
 layer. The package is deliberately narrow: interface scope, provenance,
 tenancy, and other layer-specific context stay in the schema that owns that
 context.
+
+Packet-header registries such as DSCP, ECN, and IP protocol numbers live in
+`flowseer.net.packet.v1`; they classify traffic rather than addresses.

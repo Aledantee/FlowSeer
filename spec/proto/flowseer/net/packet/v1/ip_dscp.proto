@@ -1,0 +1,58 @@
+edition = "2024";
+
+package flowseer.net.packet.v1;
+
+// A Differentiated Services Code Point from the six-bit IPv4 DS field or
+// IPv6 Traffic Class field. Integers map directly to RFC 2474 code points;
+// unnamed values from 0 through 63 remain meaningful registry values. Zero
+// is a real registry value, so consumers must check field presence.
+enum IpDscp {
+  // Best Effort / Class Selector 0.
+  IP_DSCP_CS0 = 0;
+  // Lower Effort per-Hop Behavior.
+  IP_DSCP_LE = 1;
+  // Class Selector 1.
+  IP_DSCP_CS1 = 8;
+  // Assured Forwarding class 1, low drop precedence.
+  IP_DSCP_AF11 = 10;
+  // Assured Forwarding class 1, medium drop precedence.
+  IP_DSCP_AF12 = 12;
+  // Assured Forwarding class 1, high drop precedence.
+  IP_DSCP_AF13 = 14;
+  // Class Selector 2.
+  IP_DSCP_CS2 = 16;
+  // Assured Forwarding class 2, low drop precedence.
+  IP_DSCP_AF21 = 18;
+  // Assured Forwarding class 2, medium drop precedence.
+  IP_DSCP_AF22 = 20;
+  // Assured Forwarding class 2, high drop precedence.
+  IP_DSCP_AF23 = 22;
+  // Class Selector 3.
+  IP_DSCP_CS3 = 24;
+  // Assured Forwarding class 3, low drop precedence.
+  IP_DSCP_AF31 = 26;
+  // Assured Forwarding class 3, medium drop precedence.
+  IP_DSCP_AF32 = 28;
+  // Assured Forwarding class 3, high drop precedence.
+  IP_DSCP_AF33 = 30;
+  // Class Selector 4.
+  IP_DSCP_CS4 = 32;
+  // Assured Forwarding class 4, low drop precedence.
+  IP_DSCP_AF41 = 34;
+  // Assured Forwarding class 4, medium drop precedence.
+  IP_DSCP_AF42 = 36;
+  // Assured Forwarding class 4, high drop precedence.
+  IP_DSCP_AF43 = 38;
+  // Class Selector 5.
+  IP_DSCP_CS5 = 40;
+  // Voice-Admit traffic.
+  IP_DSCP_VOICE_ADMIT = 44;
+  // Non-Queue-Building per-Hop Behavior.
+  IP_DSCP_NQB = 45;
+  // Expedited Forwarding traffic.
+  IP_DSCP_EF = 46;
+  // Class Selector 6.
+  IP_DSCP_CS6 = 48;
+  // Class Selector 7.
+  IP_DSCP_CS7 = 56;
+}

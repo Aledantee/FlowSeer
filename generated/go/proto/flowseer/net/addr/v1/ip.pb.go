@@ -22,290 +22,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A Differentiated Services Code Point from the six-bit IPv4 DS field or
-// IPv6 Traffic Class field. Integers map directly to RFC 2474 code points;
-// unnamed values from 0 through 63 remain meaningful registry values. Zero
-// is a real registry value, so consumers must check field presence before
-// reading a generated getter.
-type IpDscp int32
-
-const (
-	// Best Effort / Class Selector 0.
-	IpDscp_IP_DSCP_CS0 IpDscp = 0
-	// Lower Effort per-Hop Behavior.
-	IpDscp_IP_DSCP_LE IpDscp = 1
-	// Class Selector 1.
-	IpDscp_IP_DSCP_CS1 IpDscp = 8
-	// Assured Forwarding class 1, low drop precedence.
-	IpDscp_IP_DSCP_AF11 IpDscp = 10
-	// Assured Forwarding class 1, medium drop precedence.
-	IpDscp_IP_DSCP_AF12 IpDscp = 12
-	// Assured Forwarding class 1, high drop precedence.
-	IpDscp_IP_DSCP_AF13 IpDscp = 14
-	// Class Selector 2.
-	IpDscp_IP_DSCP_CS2 IpDscp = 16
-	// Assured Forwarding class 2, low drop precedence.
-	IpDscp_IP_DSCP_AF21 IpDscp = 18
-	// Assured Forwarding class 2, medium drop precedence.
-	IpDscp_IP_DSCP_AF22 IpDscp = 20
-	// Assured Forwarding class 2, high drop precedence.
-	IpDscp_IP_DSCP_AF23 IpDscp = 22
-	// Class Selector 3.
-	IpDscp_IP_DSCP_CS3 IpDscp = 24
-	// Assured Forwarding class 3, low drop precedence.
-	IpDscp_IP_DSCP_AF31 IpDscp = 26
-	// Assured Forwarding class 3, medium drop precedence.
-	IpDscp_IP_DSCP_AF32 IpDscp = 28
-	// Assured Forwarding class 3, high drop precedence.
-	IpDscp_IP_DSCP_AF33 IpDscp = 30
-	// Class Selector 4.
-	IpDscp_IP_DSCP_CS4 IpDscp = 32
-	// Assured Forwarding class 4, low drop precedence.
-	IpDscp_IP_DSCP_AF41 IpDscp = 34
-	// Assured Forwarding class 4, medium drop precedence.
-	IpDscp_IP_DSCP_AF42 IpDscp = 36
-	// Assured Forwarding class 4, high drop precedence.
-	IpDscp_IP_DSCP_AF43 IpDscp = 38
-	// Class Selector 5.
-	IpDscp_IP_DSCP_CS5 IpDscp = 40
-	// Voice-Admit traffic.
-	IpDscp_IP_DSCP_VOICE_ADMIT IpDscp = 44
-	// Non-Queue-Building per-Hop Behavior.
-	IpDscp_IP_DSCP_NQB IpDscp = 45
-	// Expedited Forwarding traffic.
-	IpDscp_IP_DSCP_EF IpDscp = 46
-	// Class Selector 6.
-	IpDscp_IP_DSCP_CS6 IpDscp = 48
-	// Class Selector 7.
-	IpDscp_IP_DSCP_CS7 IpDscp = 56
-)
-
-// Enum value maps for IpDscp.
-var (
-	IpDscp_name = map[int32]string{
-		0:  "IP_DSCP_CS0",
-		1:  "IP_DSCP_LE",
-		8:  "IP_DSCP_CS1",
-		10: "IP_DSCP_AF11",
-		12: "IP_DSCP_AF12",
-		14: "IP_DSCP_AF13",
-		16: "IP_DSCP_CS2",
-		18: "IP_DSCP_AF21",
-		20: "IP_DSCP_AF22",
-		22: "IP_DSCP_AF23",
-		24: "IP_DSCP_CS3",
-		26: "IP_DSCP_AF31",
-		28: "IP_DSCP_AF32",
-		30: "IP_DSCP_AF33",
-		32: "IP_DSCP_CS4",
-		34: "IP_DSCP_AF41",
-		36: "IP_DSCP_AF42",
-		38: "IP_DSCP_AF43",
-		40: "IP_DSCP_CS5",
-		44: "IP_DSCP_VOICE_ADMIT",
-		45: "IP_DSCP_NQB",
-		46: "IP_DSCP_EF",
-		48: "IP_DSCP_CS6",
-		56: "IP_DSCP_CS7",
-	}
-	IpDscp_value = map[string]int32{
-		"IP_DSCP_CS0":         0,
-		"IP_DSCP_LE":          1,
-		"IP_DSCP_CS1":         8,
-		"IP_DSCP_AF11":        10,
-		"IP_DSCP_AF12":        12,
-		"IP_DSCP_AF13":        14,
-		"IP_DSCP_CS2":         16,
-		"IP_DSCP_AF21":        18,
-		"IP_DSCP_AF22":        20,
-		"IP_DSCP_AF23":        22,
-		"IP_DSCP_CS3":         24,
-		"IP_DSCP_AF31":        26,
-		"IP_DSCP_AF32":        28,
-		"IP_DSCP_AF33":        30,
-		"IP_DSCP_CS4":         32,
-		"IP_DSCP_AF41":        34,
-		"IP_DSCP_AF42":        36,
-		"IP_DSCP_AF43":        38,
-		"IP_DSCP_CS5":         40,
-		"IP_DSCP_VOICE_ADMIT": 44,
-		"IP_DSCP_NQB":         45,
-		"IP_DSCP_EF":          46,
-		"IP_DSCP_CS6":         48,
-		"IP_DSCP_CS7":         56,
-	}
-)
-
-func (x IpDscp) Enum() *IpDscp {
-	p := new(IpDscp)
-	*p = x
-	return p
-}
-
-func (x IpDscp) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (IpDscp) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_net_addr_v1_ip_proto_enumTypes[0].Descriptor()
-}
-
-func (IpDscp) Type() protoreflect.EnumType {
-	return &file_flowseer_net_addr_v1_ip_proto_enumTypes[0]
-}
-
-func (x IpDscp) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// The Explicit Congestion Notification bits from the IPv4 DS field or IPv6
-// Traffic Class field. Integers map directly to the RFC 3168 bit patterns.
-// Zero is a real registry value, so consumers must check field presence before
-// reading a generated getter.
-type IpEcn int32
-
-const (
-	// Endpoints are not using ECN (binary 00).
-	IpEcn_IP_ECN_NON_ECT IpEcn = 0
-	// ECN-Capable Transport, code point 1 (binary 01); available for
-	// experimental use under RFC 8311.
-	IpEcn_IP_ECN_ECT_ONE IpEcn = 1
-	// ECN-Capable Transport, code point 0 (binary 10).
-	IpEcn_IP_ECN_ECT_ZERO IpEcn = 2
-	// Congestion Experienced (binary 11).
-	IpEcn_IP_ECN_CE IpEcn = 3
-)
-
-// Enum value maps for IpEcn.
-var (
-	IpEcn_name = map[int32]string{
-		0: "IP_ECN_NON_ECT",
-		1: "IP_ECN_ECT_ONE",
-		2: "IP_ECN_ECT_ZERO",
-		3: "IP_ECN_CE",
-	}
-	IpEcn_value = map[string]int32{
-		"IP_ECN_NON_ECT":  0,
-		"IP_ECN_ECT_ONE":  1,
-		"IP_ECN_ECT_ZERO": 2,
-		"IP_ECN_CE":       3,
-	}
-)
-
-func (x IpEcn) Enum() *IpEcn {
-	p := new(IpEcn)
-	*p = x
-	return p
-}
-
-func (x IpEcn) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (IpEcn) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_net_addr_v1_ip_proto_enumTypes[1].Descriptor()
-}
-
-func (IpEcn) Type() protoreflect.EnumType {
-	return &file_flowseer_net_addr_v1_ip_proto_enumTypes[1]
-}
-
-func (x IpEcn) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// The payload protocol of an IP datagram. Integers map directly to the IANA
-// Assigned Internet Protocol Numbers registry; unnamed values remain valid.
-// Zero is a real registry value, so consumers must check field presence before
-// reading a generated getter.
-type IpProtocol int32
-
-const (
-	// IPv6 Hop-by-Hop Option.
-	IpProtocol_IP_PROTOCOL_HOPOPT IpProtocol = 0
-	// Internet Control Message Protocol for IPv4.
-	IpProtocol_IP_PROTOCOL_ICMP IpProtocol = 1
-	// Internet Group Management Protocol.
-	IpProtocol_IP_PROTOCOL_IGMP IpProtocol = 2
-	// IPv4 encapsulation. The IANA registry keyword for value 4 is IPv4;
-	// IPIP is a distinct assignment at value 94.
-	IpProtocol_IP_PROTOCOL_IPV4 IpProtocol = 4
-	// Transmission Control Protocol.
-	IpProtocol_IP_PROTOCOL_TCP IpProtocol = 6
-	// User Datagram Protocol.
-	IpProtocol_IP_PROTOCOL_UDP IpProtocol = 17
-	// IPv6 encapsulation.
-	IpProtocol_IP_PROTOCOL_IPV6_ENCAP IpProtocol = 41
-	// Generic Routing Encapsulation.
-	IpProtocol_IP_PROTOCOL_GRE IpProtocol = 47
-	// Encapsulating Security Payload.
-	IpProtocol_IP_PROTOCOL_ESP IpProtocol = 50
-	// Authentication Header.
-	IpProtocol_IP_PROTOCOL_AH IpProtocol = 51
-	// Internet Control Message Protocol for IPv6.
-	IpProtocol_IP_PROTOCOL_ICMPV6 IpProtocol = 58
-	// Open Shortest Path First.
-	IpProtocol_IP_PROTOCOL_OSPF IpProtocol = 89
-	// Stream Control Transmission Protocol.
-	IpProtocol_IP_PROTOCOL_SCTP IpProtocol = 132
-)
-
-// Enum value maps for IpProtocol.
-var (
-	IpProtocol_name = map[int32]string{
-		0:   "IP_PROTOCOL_HOPOPT",
-		1:   "IP_PROTOCOL_ICMP",
-		2:   "IP_PROTOCOL_IGMP",
-		4:   "IP_PROTOCOL_IPV4",
-		6:   "IP_PROTOCOL_TCP",
-		17:  "IP_PROTOCOL_UDP",
-		41:  "IP_PROTOCOL_IPV6_ENCAP",
-		47:  "IP_PROTOCOL_GRE",
-		50:  "IP_PROTOCOL_ESP",
-		51:  "IP_PROTOCOL_AH",
-		58:  "IP_PROTOCOL_ICMPV6",
-		89:  "IP_PROTOCOL_OSPF",
-		132: "IP_PROTOCOL_SCTP",
-	}
-	IpProtocol_value = map[string]int32{
-		"IP_PROTOCOL_HOPOPT":     0,
-		"IP_PROTOCOL_ICMP":       1,
-		"IP_PROTOCOL_IGMP":       2,
-		"IP_PROTOCOL_IPV4":       4,
-		"IP_PROTOCOL_TCP":        6,
-		"IP_PROTOCOL_UDP":        17,
-		"IP_PROTOCOL_IPV6_ENCAP": 41,
-		"IP_PROTOCOL_GRE":        47,
-		"IP_PROTOCOL_ESP":        50,
-		"IP_PROTOCOL_AH":         51,
-		"IP_PROTOCOL_ICMPV6":     58,
-		"IP_PROTOCOL_OSPF":       89,
-		"IP_PROTOCOL_SCTP":       132,
-	}
-)
-
-func (x IpProtocol) Enum() *IpProtocol {
-	p := new(IpProtocol)
-	*p = x
-	return p
-}
-
-func (x IpProtocol) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (IpProtocol) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_net_addr_v1_ip_proto_enumTypes[2].Descriptor()
-}
-
-func (IpProtocol) Type() protoreflect.EnumType {
-	return &file_flowseer_net_addr_v1_ip_proto_enumTypes[2]
-}
-
-func (x IpProtocol) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
 // A coarse FlowSeer classification of an IP address. This combines address
 // kinds such as loopback and multicast with common topology scopes; it is not
 // the family-specific scope field defined by an IP wire protocol.
@@ -357,11 +73,11 @@ func (x IpScope) String() string {
 }
 
 func (IpScope) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_net_addr_v1_ip_proto_enumTypes[3].Descriptor()
+	return file_flowseer_net_addr_v1_ip_proto_enumTypes[0].Descriptor()
 }
 
 func (IpScope) Type() protoreflect.EnumType {
-	return &file_flowseer_net_addr_v1_ip_proto_enumTypes[3]
+	return &file_flowseer_net_addr_v1_ip_proto_enumTypes[0]
 }
 
 func (x IpScope) Number() protoreflect.EnumNumber {
@@ -407,11 +123,11 @@ func (x IpVersion) String() string {
 }
 
 func (IpVersion) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_net_addr_v1_ip_proto_enumTypes[4].Descriptor()
+	return file_flowseer_net_addr_v1_ip_proto_enumTypes[1].Descriptor()
 }
 
 func (IpVersion) Type() protoreflect.EnumType {
-	return &file_flowseer_net_addr_v1_ip_proto_enumTypes[4]
+	return &file_flowseer_net_addr_v1_ip_proto_enumTypes[1]
 }
 
 func (x IpVersion) Number() protoreflect.EnumNumber {
@@ -1659,55 +1375,7 @@ const file_flowseer_net_addr_v1_ip_proto_rawDesc = "" +
 	"\x05valid\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\x9b\x01\xbaH\x97\x01\xba\x01\x86\x01\n" +
 	"\x1fip_lifetime.valid_whole_seconds\x120valid lifetime must be a whole number of seconds\x1a1this == duration(string(this.getSeconds()) + 's')\xaa\x01\n" +
 	"\"\x06\b\xfe\xff\xff\xff\x0f2\x00R\x05valid:\xa5\x01\xbaH\xa1\x01\x1a\x9e\x01\n" +
-	"\x1eip_lifetime.preferred_le_valid\x121preferred lifetime must not exceed valid lifetime\x1aI!has(this.valid) || (has(this.preferred) && this.preferred <= this.valid)*\xb2\x03\n" +
-	"\x06IpDscp\x12\x0f\n" +
-	"\vIP_DSCP_CS0\x10\x00\x12\x0e\n" +
-	"\n" +
-	"IP_DSCP_LE\x10\x01\x12\x0f\n" +
-	"\vIP_DSCP_CS1\x10\b\x12\x10\n" +
-	"\fIP_DSCP_AF11\x10\n" +
-	"\x12\x10\n" +
-	"\fIP_DSCP_AF12\x10\f\x12\x10\n" +
-	"\fIP_DSCP_AF13\x10\x0e\x12\x0f\n" +
-	"\vIP_DSCP_CS2\x10\x10\x12\x10\n" +
-	"\fIP_DSCP_AF21\x10\x12\x12\x10\n" +
-	"\fIP_DSCP_AF22\x10\x14\x12\x10\n" +
-	"\fIP_DSCP_AF23\x10\x16\x12\x0f\n" +
-	"\vIP_DSCP_CS3\x10\x18\x12\x10\n" +
-	"\fIP_DSCP_AF31\x10\x1a\x12\x10\n" +
-	"\fIP_DSCP_AF32\x10\x1c\x12\x10\n" +
-	"\fIP_DSCP_AF33\x10\x1e\x12\x0f\n" +
-	"\vIP_DSCP_CS4\x10 \x12\x10\n" +
-	"\fIP_DSCP_AF41\x10\"\x12\x10\n" +
-	"\fIP_DSCP_AF42\x10$\x12\x10\n" +
-	"\fIP_DSCP_AF43\x10&\x12\x0f\n" +
-	"\vIP_DSCP_CS5\x10(\x12\x17\n" +
-	"\x13IP_DSCP_VOICE_ADMIT\x10,\x12\x0f\n" +
-	"\vIP_DSCP_NQB\x10-\x12\x0e\n" +
-	"\n" +
-	"IP_DSCP_EF\x10.\x12\x0f\n" +
-	"\vIP_DSCP_CS6\x100\x12\x0f\n" +
-	"\vIP_DSCP_CS7\x108*S\n" +
-	"\x05IpEcn\x12\x12\n" +
-	"\x0eIP_ECN_NON_ECT\x10\x00\x12\x12\n" +
-	"\x0eIP_ECN_ECT_ONE\x10\x01\x12\x13\n" +
-	"\x0fIP_ECN_ECT_ZERO\x10\x02\x12\r\n" +
-	"\tIP_ECN_CE\x10\x03*\xaf\x02\n" +
-	"\n" +
-	"IpProtocol\x12\x16\n" +
-	"\x12IP_PROTOCOL_HOPOPT\x10\x00\x12\x14\n" +
-	"\x10IP_PROTOCOL_ICMP\x10\x01\x12\x14\n" +
-	"\x10IP_PROTOCOL_IGMP\x10\x02\x12\x14\n" +
-	"\x10IP_PROTOCOL_IPV4\x10\x04\x12\x13\n" +
-	"\x0fIP_PROTOCOL_TCP\x10\x06\x12\x13\n" +
-	"\x0fIP_PROTOCOL_UDP\x10\x11\x12\x1a\n" +
-	"\x16IP_PROTOCOL_IPV6_ENCAP\x10)\x12\x13\n" +
-	"\x0fIP_PROTOCOL_GRE\x10/\x12\x13\n" +
-	"\x0fIP_PROTOCOL_ESP\x102\x12\x12\n" +
-	"\x0eIP_PROTOCOL_AH\x103\x12\x16\n" +
-	"\x12IP_PROTOCOL_ICMPV6\x10:\x12\x14\n" +
-	"\x10IP_PROTOCOL_OSPF\x10Y\x12\x15\n" +
-	"\x10IP_PROTOCOL_SCTP\x10\x84\x01*\x9b\x01\n" +
+	"\x1eip_lifetime.preferred_le_valid\x121preferred lifetime must not exceed valid lifetime\x1aI!has(this.valid) || (has(this.preferred) && this.preferred <= this.valid)*\x9b\x01\n" +
 	"\aIpScope\x12\x18\n" +
 	"\x14IP_SCOPE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11IP_SCOPE_LOOPBACK\x10\x01\x12\x17\n" +
@@ -1721,41 +1389,38 @@ const file_flowseer_net_addr_v1_ip_proto_rawDesc = "" +
 	"\rIP_VERSION_V6\x10\x02B\xde\x01\n" +
 	"\x18com.flowseer.net.addr.v1B\aIpProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1;addrv1\xa2\x02\x03FNA\xaa\x02\x14Flowseer.Net.Addr.V1\xca\x02\x14Flowseer\\Net\\Addr\\V1\xe2\x02 Flowseer\\Net\\Addr\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Addr::V1b\beditionsp\xe9\a"
 
-var file_flowseer_net_addr_v1_ip_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_flowseer_net_addr_v1_ip_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_net_addr_v1_ip_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_flowseer_net_addr_v1_ip_proto_goTypes = []any{
-	(IpDscp)(0),                 // 0: flowseer.net.addr.v1.IpDscp
-	(IpEcn)(0),                  // 1: flowseer.net.addr.v1.IpEcn
-	(IpProtocol)(0),             // 2: flowseer.net.addr.v1.IpProtocol
-	(IpScope)(0),                // 3: flowseer.net.addr.v1.IpScope
-	(IpVersion)(0),              // 4: flowseer.net.addr.v1.IpVersion
-	(*Ipv4Address)(nil),         // 5: flowseer.net.addr.v1.Ipv4Address
-	(*Ipv6Address)(nil),         // 6: flowseer.net.addr.v1.Ipv6Address
-	(*IpAddress)(nil),           // 7: flowseer.net.addr.v1.IpAddress
-	(*Ipv4Prefix)(nil),          // 8: flowseer.net.addr.v1.Ipv4Prefix
-	(*Ipv6Prefix)(nil),          // 9: flowseer.net.addr.v1.Ipv6Prefix
-	(*IpPrefix)(nil),            // 10: flowseer.net.addr.v1.IpPrefix
-	(*Ipv4Range)(nil),           // 11: flowseer.net.addr.v1.Ipv4Range
-	(*Ipv6Range)(nil),           // 12: flowseer.net.addr.v1.Ipv6Range
-	(*IpRange)(nil),             // 13: flowseer.net.addr.v1.IpRange
-	(*IpLifetime)(nil),          // 14: flowseer.net.addr.v1.IpLifetime
-	(*durationpb.Duration)(nil), // 15: google.protobuf.Duration
+	(IpScope)(0),                // 0: flowseer.net.addr.v1.IpScope
+	(IpVersion)(0),              // 1: flowseer.net.addr.v1.IpVersion
+	(*Ipv4Address)(nil),         // 2: flowseer.net.addr.v1.Ipv4Address
+	(*Ipv6Address)(nil),         // 3: flowseer.net.addr.v1.Ipv6Address
+	(*IpAddress)(nil),           // 4: flowseer.net.addr.v1.IpAddress
+	(*Ipv4Prefix)(nil),          // 5: flowseer.net.addr.v1.Ipv4Prefix
+	(*Ipv6Prefix)(nil),          // 6: flowseer.net.addr.v1.Ipv6Prefix
+	(*IpPrefix)(nil),            // 7: flowseer.net.addr.v1.IpPrefix
+	(*Ipv4Range)(nil),           // 8: flowseer.net.addr.v1.Ipv4Range
+	(*Ipv6Range)(nil),           // 9: flowseer.net.addr.v1.Ipv6Range
+	(*IpRange)(nil),             // 10: flowseer.net.addr.v1.IpRange
+	(*IpLifetime)(nil),          // 11: flowseer.net.addr.v1.IpLifetime
+	(*durationpb.Duration)(nil), // 12: google.protobuf.Duration
 }
 var file_flowseer_net_addr_v1_ip_proto_depIdxs = []int32{
-	5,  // 0: flowseer.net.addr.v1.IpAddress.v4:type_name -> flowseer.net.addr.v1.Ipv4Address
-	6,  // 1: flowseer.net.addr.v1.IpAddress.v6:type_name -> flowseer.net.addr.v1.Ipv6Address
-	5,  // 2: flowseer.net.addr.v1.Ipv4Prefix.address:type_name -> flowseer.net.addr.v1.Ipv4Address
-	6,  // 3: flowseer.net.addr.v1.Ipv6Prefix.address:type_name -> flowseer.net.addr.v1.Ipv6Address
-	8,  // 4: flowseer.net.addr.v1.IpPrefix.v4:type_name -> flowseer.net.addr.v1.Ipv4Prefix
-	9,  // 5: flowseer.net.addr.v1.IpPrefix.v6:type_name -> flowseer.net.addr.v1.Ipv6Prefix
-	5,  // 6: flowseer.net.addr.v1.Ipv4Range.start:type_name -> flowseer.net.addr.v1.Ipv4Address
-	5,  // 7: flowseer.net.addr.v1.Ipv4Range.end:type_name -> flowseer.net.addr.v1.Ipv4Address
-	6,  // 8: flowseer.net.addr.v1.Ipv6Range.start:type_name -> flowseer.net.addr.v1.Ipv6Address
-	6,  // 9: flowseer.net.addr.v1.Ipv6Range.end:type_name -> flowseer.net.addr.v1.Ipv6Address
-	11, // 10: flowseer.net.addr.v1.IpRange.v4:type_name -> flowseer.net.addr.v1.Ipv4Range
-	12, // 11: flowseer.net.addr.v1.IpRange.v6:type_name -> flowseer.net.addr.v1.Ipv6Range
-	15, // 12: flowseer.net.addr.v1.IpLifetime.preferred:type_name -> google.protobuf.Duration
-	15, // 13: flowseer.net.addr.v1.IpLifetime.valid:type_name -> google.protobuf.Duration
+	2,  // 0: flowseer.net.addr.v1.IpAddress.v4:type_name -> flowseer.net.addr.v1.Ipv4Address
+	3,  // 1: flowseer.net.addr.v1.IpAddress.v6:type_name -> flowseer.net.addr.v1.Ipv6Address
+	2,  // 2: flowseer.net.addr.v1.Ipv4Prefix.address:type_name -> flowseer.net.addr.v1.Ipv4Address
+	3,  // 3: flowseer.net.addr.v1.Ipv6Prefix.address:type_name -> flowseer.net.addr.v1.Ipv6Address
+	5,  // 4: flowseer.net.addr.v1.IpPrefix.v4:type_name -> flowseer.net.addr.v1.Ipv4Prefix
+	6,  // 5: flowseer.net.addr.v1.IpPrefix.v6:type_name -> flowseer.net.addr.v1.Ipv6Prefix
+	2,  // 6: flowseer.net.addr.v1.Ipv4Range.start:type_name -> flowseer.net.addr.v1.Ipv4Address
+	2,  // 7: flowseer.net.addr.v1.Ipv4Range.end:type_name -> flowseer.net.addr.v1.Ipv4Address
+	3,  // 8: flowseer.net.addr.v1.Ipv6Range.start:type_name -> flowseer.net.addr.v1.Ipv6Address
+	3,  // 9: flowseer.net.addr.v1.Ipv6Range.end:type_name -> flowseer.net.addr.v1.Ipv6Address
+	8,  // 10: flowseer.net.addr.v1.IpRange.v4:type_name -> flowseer.net.addr.v1.Ipv4Range
+	9,  // 11: flowseer.net.addr.v1.IpRange.v6:type_name -> flowseer.net.addr.v1.Ipv6Range
+	12, // 12: flowseer.net.addr.v1.IpLifetime.preferred:type_name -> google.protobuf.Duration
+	12, // 13: flowseer.net.addr.v1.IpLifetime.valid:type_name -> google.protobuf.Duration
 	14, // [14:14] is the sub-list for method output_type
 	14, // [14:14] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name
@@ -1785,7 +1450,7 @@ func file_flowseer_net_addr_v1_ip_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_net_addr_v1_ip_proto_rawDesc), len(file_flowseer_net_addr_v1_ip_proto_rawDesc)),
-			NumEnums:      5,
+			NumEnums:      2,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,

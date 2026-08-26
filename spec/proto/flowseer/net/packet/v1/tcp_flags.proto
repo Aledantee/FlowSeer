@@ -1,0 +1,80 @@
+edition = "2024";
+
+package flowseer.net.packet.v1;
+
+import option "buf/validate/validate.proto";
+
+// One TCP control flag. Values are their one-hot wire bit masks rather than
+// arbitrary ordinal numbers.
+enum TcpFlag {
+  // No TCP flag. This sentinel is invalid inside a flag list.
+  TCP_FLAG_UNSPECIFIED = 0;
+  // Finish sending data.
+  TCP_FLAG_FIN = 1;
+  // Synchronize sequence numbers.
+  TCP_FLAG_SYN = 2;
+  // Reset the connection.
+  TCP_FLAG_RST = 4;
+  // Push buffered data to the receiving application.
+  TCP_FLAG_PSH = 8;
+  // The acknowledgment field is significant.
+  TCP_FLAG_ACK = 16;
+  // The urgent pointer field is significant.
+  TCP_FLAG_URG = 32;
+  // ECN Echo.
+  TCP_FLAG_ECE = 64;
+  // Congestion Window Reduced.
+  TCP_FLAG_CWR = 128;
+}
+
+// The exact set of flags observed in one TCP header. A present empty message
+// means no control flags were set; an absent containing field means unknown.
+message TcpFlags {
+  // Flags set in the header. Duplicate and unspecified values are invalid.
+  repeated TcpFlag set = 1 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {
+        defined_only: true
+        not_in: [0]
+      }
+    }
+  }];
+}
+
+// A TCP flag predicate. All required_set flags must be present and all
+// required_clear flags must be absent. Omit the containing matcher to place no
+// constraint on flags.
+message TcpFlagsMatch {
+  option (buf.validate.message).cel = {
+    id: "tcp_flags_match.non_empty"
+    message: "a TCP flag match must require at least one set or clear flag"
+    expression: "this.required_set.size() > 0 || this.required_clear.size() > 0"
+  };
+  option (buf.validate.message).cel = {
+    id: "tcp_flags_match.disjoint"
+    message: "a TCP flag cannot be required both set and clear"
+    expression: "!this.required_set.exists(flag, flag in this.required_clear)"
+  };
+
+  // Flags that must be set. Alternatives are combined with AND.
+  repeated TcpFlag required_set = 1 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {
+        defined_only: true
+        not_in: [0]
+      }
+    }
+  }];
+  // Flags that must be clear. Alternatives are combined with AND.
+  repeated TcpFlag required_clear = 2 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {
+        defined_only: true
+        not_in: [0]
+      }
+    }
+  }];
+}

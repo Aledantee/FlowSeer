@@ -1,0 +1,104 @@
+edition = "2024";
+
+package flowseer.net.packet.v1;
+
+import option "buf/validate/validate.proto";
+
+// ICMPv4 type and code values. Numeric values preserve new IANA assignments
+// without requiring a schema release.
+message Icmpv4Fields {
+  // The ICMPv4 type. Absent is invalid; values occupy one octet.
+  uint32 type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 255
+  ];
+  // The ICMPv4 code. Absent means the source did not report it.
+  uint32 code = 2 [(buf.validate.field).uint32.lte = 255];
+}
+
+// ICMPv6 type and code values. Numeric values preserve new IANA assignments
+// without requiring a schema release.
+message Icmpv6Fields {
+  // The ICMPv6 type. Absent is invalid; values occupy one octet.
+  uint32 type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 255
+  ];
+  // The ICMPv6 code. Absent means the source did not report it.
+  uint32 code = 2 [(buf.validate.field).uint32.lte = 255];
+}
+
+// ICMP fields with an explicit address family.
+message IcmpFields {
+  oneof family {
+    option (buf.validate.oneof).required = true;
+
+    // ICMP for IPv4.
+    Icmpv4Fields v4 = 1;
+    // ICMP for IPv6.
+    Icmpv6Fields v6 = 2;
+  }
+}
+
+// An ICMPv4 type-and-code predicate. Values within one list are ORed; when
+// both lists are populated, their predicates are ANDed.
+message Icmpv4Match {
+  option (buf.validate.message).cel = {
+    id: "icmpv4_match.non_empty"
+    message: "an ICMPv4 match must constrain type or code"
+    expression: "this.types.size() > 0 || this.codes.size() > 0"
+  };
+
+  // Accepted ICMPv4 types. Empty means the type is unconstrained.
+  repeated uint32 types = 1 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint32: {lte: 255}
+    }
+  }];
+  // Accepted ICMPv4 codes. Empty means the code is unconstrained.
+  repeated uint32 codes = 2 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint32: {lte: 255}
+    }
+  }];
+}
+
+// An ICMPv6 type-and-code predicate. Values within one list are ORed; when
+// both lists are populated, their predicates are ANDed.
+message Icmpv6Match {
+  option (buf.validate.message).cel = {
+    id: "icmpv6_match.non_empty"
+    message: "an ICMPv6 match must constrain type or code"
+    expression: "this.types.size() > 0 || this.codes.size() > 0"
+  };
+
+  // Accepted ICMPv6 types. Empty means the type is unconstrained.
+  repeated uint32 types = 1 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint32: {lte: 255}
+    }
+  }];
+  // Accepted ICMPv6 codes. Empty means the code is unconstrained.
+  repeated uint32 codes = 2 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint32: {lte: 255}
+    }
+  }];
+}
+
+// An ICMP predicate with an explicit address family. Absence of the containing
+// IcmpMatch means the packet's ICMP fields are unconstrained.
+message IcmpMatch {
+  oneof family {
+    option (buf.validate.oneof).required = true;
+
+    // ICMPv4 predicate.
+    Icmpv4Match v4 = 1;
+    // ICMPv6 predicate.
+    Icmpv6Match v6 = 2;
+  }
+}

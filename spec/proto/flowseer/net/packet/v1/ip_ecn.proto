@@ -1,0 +1,17 @@
+edition = "2024";
+
+package flowseer.net.packet.v1;
+
+// The Explicit Congestion Notification bits from the IPv4 DS field or IPv6
+// Traffic Class field. Integers map directly to the RFC 3168 bit patterns.
+// Zero is a real registry value, so consumers must check field presence.
+enum IpEcn {
+  // Endpoints are not using ECN (binary 00).
+  IP_ECN_NON_ECT = 0;
+  // ECN-Capable Transport, code point 1 (binary 01).
+  IP_ECN_ECT_ONE = 1;
+  // ECN-Capable Transport, code point 0 (binary 10).
+  IP_ECN_ECT_ZERO = 2;
+  // Congestion Experienced (binary 11).
+  IP_ECN_CE = 3;
+}

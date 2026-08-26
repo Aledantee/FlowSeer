@@ -1,0 +1,38 @@
+edition = "2024";
+
+package flowseer.net.packet.v1;
+
+import "buf/validate/validate.proto";
+
+extend buf.validate.EnumRules {
+  bool ether_type = 50000 [(buf.validate.predefined).cel = {
+    id: "enum.ether_type"
+    message: "value must be an IEEE EtherType rather than an IEEE 802.3 length"
+    expression: "!rule || (this >= 1536 && this <= 65535)"
+  }];
+}
+
+// An IEEE EtherType. The enum intentionally names only common assignments;
+// open-enum values from 1536 through 65535 remain valid registry values.
+enum EtherType {
+  // No EtherType was reported. Zero is not an EtherType wire value.
+  ETHER_TYPE_UNSPECIFIED = 0;
+  // Internet Protocol version 4 (0x0800).
+  ETHER_TYPE_IPV4 = 2048;
+  // Address Resolution Protocol (0x0806).
+  ETHER_TYPE_ARP = 2054;
+  // IEEE 802.1Q customer VLAN tag (0x8100).
+  ETHER_TYPE_DOT1Q = 33024;
+  // Internet Protocol version 6 (0x86DD).
+  ETHER_TYPE_IPV6 = 34525;
+  // MPLS unicast (0x8847).
+  ETHER_TYPE_MPLS_UNICAST = 34887;
+  // MPLS multicast (0x8848).
+  ETHER_TYPE_MPLS_MULTICAST = 34888;
+  // IEEE 802.1ad provider bridging service tag (0x88A8).
+  ETHER_TYPE_PROVIDER_BRIDGING = 34984;
+  // Link Layer Discovery Protocol (0x88CC).
+  ETHER_TYPE_LLDP = 35020;
+  // IEEE 802.1AE MAC Security (0x88E5).
+  ETHER_TYPE_MACSEC = 35045;
+}
