@@ -209,6 +209,8 @@ func TestT4ReversibleEdit(t *testing.T) {
 // not a failure.
 //
 // Covers conformance matrix row: rc-t4-depth-fields
+// Covers conformance matrix row: rc-depth-fields-unverified (the hardware
+// measurement resolved that row's open question).
 func TestT4DepthFieldsSupport(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.BaseURL, func(t *testing.T) {
