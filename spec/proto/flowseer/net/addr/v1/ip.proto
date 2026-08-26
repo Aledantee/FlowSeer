@@ -176,24 +176,70 @@ message IpAddress {
 // A canonical IPv4 network prefix. Every host bit beyond the prefix length is
 // zero.
 message Ipv4Prefix {
-  reserved 1, 2;
+  reserved 3;
 
-  // The masked prefix in IPv4 CIDR notation, for example 192.0.2.0/24.
-  string prefix = 3 [
+  // Hex formatting preserves network bit order while exposing boundary
+  // nibbles to CEL, which cannot index bytes directly.
+  option (buf.validate.message).cel = {
+    id: "ipv4_prefix.masked"
+    message: "address must have zero host bits beyond length"
+    expression:
+      "!has(this.address) || !has(this.length) || "
+      "!has(this.address.octets) || this.address.octets.size() != 4 || this.length > 32u || "
+      "("
+      "'%x'.format([this.address.octets]).substring(int((this.length + 3u) / 4u)).matches('^0*$') && "
+      "("
+      "this.length % 4u == 0u || "
+      "this.length % 4u == 1u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[08]$') || "
+      "this.length % 4u == 2u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[048c]$') || "
+      "this.length % 4u == 3u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[02468ace]$')"
+      ")"
+      ")"
+  };
+
+  // The masked network address. It must be present.
+  Ipv4Address address = 1 [(buf.validate.field).required = true];
+
+  // The prefix length in bits. It must be present; zero denotes the default
+  // route.
+  uint32 length = 2 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.ipv4_prefix = true
+    (buf.validate.field).uint32.lte = 32
   ];
 }
 
 // A canonical IPv6 network prefix. Every host bit beyond the prefix length is
 // zero.
 message Ipv6Prefix {
-  reserved 1, 2;
+  reserved 3;
 
-  // The masked prefix in IPv6 CIDR notation, for example 2001:db8::/32.
-  string prefix = 3 [
+  // Hex formatting preserves network bit order while exposing boundary
+  // nibbles to CEL, which cannot index bytes directly.
+  option (buf.validate.message).cel = {
+    id: "ipv6_prefix.masked"
+    message: "address must have zero host bits beyond length"
+    expression:
+      "!has(this.address) || !has(this.length) || "
+      "!has(this.address.octets) || this.address.octets.size() != 16 || this.length > 128u || "
+      "("
+      "'%x'.format([this.address.octets]).substring(int((this.length + 3u) / 4u)).matches('^0*$') && "
+      "("
+      "this.length % 4u == 0u || "
+      "this.length % 4u == 1u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[08]$') || "
+      "this.length % 4u == 2u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[048c]$') || "
+      "this.length % 4u == 3u && '%x'.format([this.address.octets]).substring(int(this.length / 4u), int(this.length / 4u + 1u)).matches('^[02468ace]$')"
+      ")"
+      ")"
+  };
+
+  // The masked network address. It must be present.
+  Ipv6Address address = 1 [(buf.validate.field).required = true];
+
+  // The prefix length in bits. It must be present; zero denotes the default
+  // route.
+  uint32 length = 2 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.ipv6_prefix = true
+    (buf.validate.field).uint32.lte = 128
   ];
 }
 
