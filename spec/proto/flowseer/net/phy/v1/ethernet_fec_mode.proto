@@ -1,0 +1,22 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// A normalized Ethernet forward-error-correction mode. The enum is open so
+// newer IEEE and vendor modes survive older consumers.
+enum EthernetFecMode {
+  // The source explicitly reported an unknown mode. Absence means unreported.
+  ETHERNET_FEC_MODE_UNSPECIFIED = 0;
+  // Forward-error correction is explicitly disabled.
+  ETHERNET_FEC_MODE_DISABLED = 1;
+  // Clause 74 BASE-R Firecode FEC.
+  ETHERNET_FEC_MODE_FIRECODE = 2;
+  // Reed-Solomon RS(528,514) FEC.
+  ETHERNET_FEC_MODE_RS528 = 3;
+  // Reed-Solomon RS(544,514) FEC.
+  ETHERNET_FEC_MODE_RS544 = 4;
+  // Two-way interleaved RS(544,514) FEC.
+  ETHERNET_FEC_MODE_RS544_DUAL_INTERLEAVED = 5;
+  // A reported mode outside the normalized cases.
+  ETHERNET_FEC_MODE_OTHER = 6;
+}

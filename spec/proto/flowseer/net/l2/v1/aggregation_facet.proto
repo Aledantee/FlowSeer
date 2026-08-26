@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.l2.v1;
+
+import option "buf/validate/validate.proto";
+
+// Protocol-independent attributes of a link aggregation. LACP actor, partner,
+// selection, and synchronization facts belong to net.protocol.lacp.
+message AggregationFacet {
+  // The minimum number of active member links required for service. Absent
+  // means the source did not report a threshold; zero is invalid when present.
+  uint32 minimum_active_links = 1 [(buf.validate.field).uint32.gt = 0];
+  // The active aggregate capacity in bits per second. Absent means the source
+  // did not report it; zero is invalid when present.
+  uint64 effective_speed_bps = 2 [(buf.validate.field).uint64.gt = 0];
+}

@@ -2,16 +2,9 @@ edition = "2024";
 
 package flowseer.net.l2.v1;
 
-import "buf/validate/validate.proto";
-import "flowseer/net/l2/v1/vlan_status.proto";
-
-extend buf.validate.UInt32Rules {
-  bool vlan_id = 50000 [(buf.validate.predefined).cel = {
-    id: "uint32.vlan_id"
-    message: "value must be a usable IEEE 802.1Q VLAN identifier"
-    expression: "!rule || (this >= 1u && this <= 4094u)"
-  }];
-}
+import "flowseer/net/l2/v1/vlan_registration.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/l2/v1/vlan_id.proto";
 
 // A VLAN database row. Interface membership is held only by the embedding
 // interface's switchport facet, so the two directions cannot drift.
@@ -20,11 +13,14 @@ message Vlan {
   // Vlan when no identifier is available.
   uint32 id = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).uint32.(vlan_id) = true
+    (buf.validate.field).uint32.(flowseer.net.l2.v1.vlan_id) = true
   ];
   // The device-reported VLAN name. Absent means no name was reported; an empty
   // string means the source explicitly reported an empty name.
   string name = 2;
-  // The VLAN's observed lifetime. Absent means no status was reported.
-  VlanStatus status = 3;
+  reserved 3;
+  reserved status;
+  // How the VLAN was registered in the bridge. Absent means the source did
+  // not report whether the entry is permanent or dynamic.
+  VlanRegistration registration = 4;
 }

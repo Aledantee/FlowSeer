@@ -1,0 +1,24 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/ethernet_duplex.proto";
+import "flowseer/net/phy/v1/ethernet_fec_mode.proto";
+import option "buf/validate/validate.proto";
+
+// Requested Ethernet physical-link settings. Applied and negotiated facts are
+// represented separately by EthernetFacet.
+message EthernetSettings {
+  // Whether auto-negotiation should be enabled. Absent leaves the existing or
+  // source-default setting unchanged.
+  bool auto_negotiation_enabled = 1;
+  // Requested line rate in bits per second. Absent leaves it unspecified; zero
+  // is invalid when present.
+  uint64 speed_bps = 2 [(buf.validate.field).uint64.gt = 0];
+  // Requested duplex mode. Absent leaves it unspecified; an explicitly
+  // unspecified sentinel is invalid in intended settings.
+  EthernetDuplex duplex = 3 [(buf.validate.field).enum.not_in = 0];
+  // Requested FEC mode. Absent leaves it unspecified; an explicitly
+  // unspecified sentinel is invalid in intended settings.
+  EthernetFecMode fec_mode = 4 [(buf.validate.field).enum.not_in = 0];
+}

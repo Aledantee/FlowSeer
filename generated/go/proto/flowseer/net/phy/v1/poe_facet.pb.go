@@ -23,17 +23,17 @@ const (
 // Power over Ethernet attributes for one physical link. Presence of the
 // containing message means the source supplied PoE information.
 type PoeFacet struct {
-	state                           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Supported            bool                   `protobuf:"varint,1,opt,name=supported"`
-	xxx_hidden_Enabled              bool                   `protobuf:"varint,2,opt,name=enabled"`
-	xxx_hidden_Role                 PoeRole                `protobuf:"varint,3,opt,name=role,enum=flowseer.net.phy.v1.PoeRole"`
-	xxx_hidden_PowerClass           uint32                 `protobuf:"varint,4,opt,name=power_class,json=powerClass"`
-	xxx_hidden_PowerLimitMilliwatts uint32                 `protobuf:"varint,5,opt,name=power_limit_milliwatts,json=powerLimitMilliwatts"`
-	xxx_hidden_PowerDrawMilliwatts  uint32                 `protobuf:"varint,6,opt,name=power_draw_milliwatts,json=powerDrawMilliwatts"`
-	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
-	XXX_presence                    [1]uint32
-	unknownFields                   protoimpl.UnknownFields
-	sizeCache                       protoimpl.SizeCache
+	state                               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Supported                bool                   `protobuf:"varint,1,opt,name=supported"`
+	xxx_hidden_Role                     PoeRole                `protobuf:"varint,3,opt,name=role,enum=flowseer.net.phy.v1.PoeRole"`
+	xxx_hidden_PowerClass               uint32                 `protobuf:"varint,4,opt,name=power_class,json=powerClass"`
+	xxx_hidden_PowerDrawMilliwatts      uint32                 `protobuf:"varint,6,opt,name=power_draw_milliwatts,json=powerDrawMilliwatts"`
+	xxx_hidden_Status                   PoeStatus              `protobuf:"varint,7,opt,name=status,enum=flowseer.net.phy.v1.PoeStatus"`
+	xxx_hidden_AllocatedPowerMilliwatts uint32                 `protobuf:"varint,8,opt,name=allocated_power_milliwatts,json=allocatedPowerMilliwatts"`
+	XXX_raceDetectHookData              protoimpl.RaceDetectHookData
+	XXX_presence                        [1]uint32
+	unknownFields                       protoimpl.UnknownFields
+	sizeCache                           protoimpl.SizeCache
 }
 
 func (x *PoeFacet) Reset() {
@@ -68,16 +68,9 @@ func (x *PoeFacet) GetSupported() bool {
 	return false
 }
 
-func (x *PoeFacet) GetEnabled() bool {
-	if x != nil {
-		return x.xxx_hidden_Enabled
-	}
-	return false
-}
-
 func (x *PoeFacet) GetRole() PoeRole {
 	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
 			return x.xxx_hidden_Role
 		}
 	}
@@ -91,16 +84,25 @@ func (x *PoeFacet) GetPowerClass() uint32 {
 	return 0
 }
 
-func (x *PoeFacet) GetPowerLimitMilliwatts() uint32 {
+func (x *PoeFacet) GetPowerDrawMilliwatts() uint32 {
 	if x != nil {
-		return x.xxx_hidden_PowerLimitMilliwatts
+		return x.xxx_hidden_PowerDrawMilliwatts
 	}
 	return 0
 }
 
-func (x *PoeFacet) GetPowerDrawMilliwatts() uint32 {
+func (x *PoeFacet) GetStatus() PoeStatus {
 	if x != nil {
-		return x.xxx_hidden_PowerDrawMilliwatts
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 4) {
+			return x.xxx_hidden_Status
+		}
+	}
+	return PoeStatus_POE_STATUS_UNSPECIFIED
+}
+
+func (x *PoeFacet) GetAllocatedPowerMilliwatts() uint32 {
+	if x != nil {
+		return x.xxx_hidden_AllocatedPowerMilliwatts
 	}
 	return 0
 }
@@ -110,28 +112,28 @@ func (x *PoeFacet) SetSupported(v bool) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
-func (x *PoeFacet) SetEnabled(v bool) {
-	x.xxx_hidden_Enabled = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
-}
-
 func (x *PoeFacet) SetRole(v PoeRole) {
 	x.xxx_hidden_Role = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *PoeFacet) SetPowerClass(v uint32) {
 	x.xxx_hidden_PowerClass = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
-}
-
-func (x *PoeFacet) SetPowerLimitMilliwatts(v uint32) {
-	x.xxx_hidden_PowerLimitMilliwatts = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
 func (x *PoeFacet) SetPowerDrawMilliwatts(v uint32) {
 	x.xxx_hidden_PowerDrawMilliwatts = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+}
+
+func (x *PoeFacet) SetStatus(v PoeStatus) {
+	x.xxx_hidden_Status = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *PoeFacet) SetAllocatedPowerMilliwatts(v uint32) {
+	x.xxx_hidden_AllocatedPowerMilliwatts = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
@@ -142,35 +144,35 @@ func (x *PoeFacet) HasSupported() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *PoeFacet) HasEnabled() bool {
+func (x *PoeFacet) HasRole() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *PoeFacet) HasRole() bool {
+func (x *PoeFacet) HasPowerClass() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *PoeFacet) HasPowerClass() bool {
+func (x *PoeFacet) HasPowerDrawMilliwatts() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
-func (x *PoeFacet) HasPowerLimitMilliwatts() bool {
+func (x *PoeFacet) HasStatus() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
-func (x *PoeFacet) HasPowerDrawMilliwatts() bool {
+func (x *PoeFacet) HasAllocatedPowerMilliwatts() bool {
 	if x == nil {
 		return false
 	}
@@ -182,29 +184,29 @@ func (x *PoeFacet) ClearSupported() {
 	x.xxx_hidden_Supported = false
 }
 
-func (x *PoeFacet) ClearEnabled() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Enabled = false
-}
-
 func (x *PoeFacet) ClearRole() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_Role = PoeRole_POE_ROLE_UNSPECIFIED
 }
 
 func (x *PoeFacet) ClearPowerClass() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_PowerClass = 0
 }
 
-func (x *PoeFacet) ClearPowerLimitMilliwatts() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
-	x.xxx_hidden_PowerLimitMilliwatts = 0
+func (x *PoeFacet) ClearPowerDrawMilliwatts() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_PowerDrawMilliwatts = 0
 }
 
-func (x *PoeFacet) ClearPowerDrawMilliwatts() {
+func (x *PoeFacet) ClearStatus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Status = PoeStatus_POE_STATUS_UNSPECIFIED
+}
+
+func (x *PoeFacet) ClearAllocatedPowerMilliwatts() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
-	x.xxx_hidden_PowerDrawMilliwatts = 0
+	x.xxx_hidden_AllocatedPowerMilliwatts = 0
 }
 
 type PoeFacet_builder struct {
@@ -213,20 +215,19 @@ type PoeFacet_builder struct {
 	// Whether the port supports PoE. Absent means capability was not reported;
 	// false means the source explicitly reported no support.
 	Supported *bool
-	// Whether PoE is administratively enabled. Absent means the source did not
-	// report or express an enabled state.
-	Enabled *bool
 	// Whether this port supplies or consumes power. Absent means no role was
 	// reported.
 	Role *PoeRole
 	// The IEEE 802.3 power class number. Absent means no class was reported.
 	PowerClass *uint32
-	// The configured or negotiated power ceiling in milliwatts. Absent means no
-	// ceiling was reported; zero is an explicit zero-power ceiling.
-	PowerLimitMilliwatts *uint32
 	// The measured power draw in milliwatts. Absent means no measurement was
 	// reported; zero is an explicit zero-power measurement.
 	PowerDrawMilliwatts *uint32
+	// Current delivery status. Absent means the source did not report it.
+	Status *PoeStatus
+	// Power allocated to the port in milliwatts. Absent means no allocation was
+	// reported; zero is an explicit zero-power allocation.
+	AllocatedPowerMilliwatts *uint32
 }
 
 func (b0 PoeFacet_builder) Build() *PoeFacet {
@@ -237,25 +238,25 @@ func (b0 PoeFacet_builder) Build() *PoeFacet {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_Supported = *b.Supported
 	}
-	if b.Enabled != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
-		x.xxx_hidden_Enabled = *b.Enabled
-	}
 	if b.Role != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_Role = *b.Role
 	}
 	if b.PowerClass != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_PowerClass = *b.PowerClass
 	}
-	if b.PowerLimitMilliwatts != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
-		x.xxx_hidden_PowerLimitMilliwatts = *b.PowerLimitMilliwatts
-	}
 	if b.PowerDrawMilliwatts != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_PowerDrawMilliwatts = *b.PowerDrawMilliwatts
+	}
+	if b.Status != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		x.xxx_hidden_Status = *b.Status
+	}
+	if b.AllocatedPowerMilliwatts != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_AllocatedPowerMilliwatts = *b.AllocatedPowerMilliwatts
 	}
 	return m0
 }
@@ -264,30 +265,32 @@ var File_flowseer_net_phy_v1_poe_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_poe_facet_proto_rawDesc = "" +
 	"\n" +
-	"#flowseer/net/phy/v1/poe_facet.proto\x12\x13flowseer.net.phy.v1\x1a\"flowseer/net/phy/v1/poe_role.proto\"\xb4\x03\n" +
+	"#flowseer/net/phy/v1/poe_facet.proto\x12\x13flowseer.net.phy.v1\x1a\"flowseer/net/phy/v1/poe_role.proto\x1a$flowseer/net/phy/v1/poe_status.proto\"\xc6\x04\n" +
 	"\bPoeFacet\x12\x1c\n" +
-	"\tsupported\x18\x01 \x01(\bR\tsupported\x12\x18\n" +
-	"\aenabled\x18\x02 \x01(\bR\aenabled\x120\n" +
+	"\tsupported\x18\x01 \x01(\bR\tsupported\x120\n" +
 	"\x04role\x18\x03 \x01(\x0e2\x1c.flowseer.net.phy.v1.PoeRoleR\x04role\x12\x1f\n" +
 	"\vpower_class\x18\x04 \x01(\rR\n" +
-	"powerClass\x124\n" +
-	"\x16power_limit_milliwatts\x18\x05 \x01(\rR\x14powerLimitMilliwatts\x122\n" +
-	"\x15power_draw_milliwatts\x18\x06 \x01(\rR\x13powerDrawMilliwatts:\xb2\x01\xbaH\xae\x01\x1a\xab\x01\n" +
-	"\"poe_facet.enabled_requires_support\x126PoE cannot be enabled when support is explicitly false\x1aM!has(this.supported) || this.supported || !has(this.enabled) || !this.enabledB\xdd\x01\n" +
+	"powerClass\x122\n" +
+	"\x15power_draw_milliwatts\x18\x06 \x01(\rR\x13powerDrawMilliwatts\x126\n" +
+	"\x06status\x18\a \x01(\x0e2\x1e.flowseer.net.phy.v1.PoeStatusR\x06status\x12<\n" +
+	"\x1aallocated_power_milliwatts\x18\b \x01(\rR\x18allocatedPowerMilliwatts:\xf1\x01\xbaH\xed\x01\x1a\xea\x01\n" +
+	"#poe_facet.delivery_requires_support\x129PoE cannot deliver power when support is explicitly false\x1a\x87\x01!has(this.supported) || this.supported || !has(this.status) || this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWERJ\x04\b\x02\x10\x03J\x04\b\x05\x10\x06R\aenabledR\x16power_limit_milliwattsB\xdd\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\rPoeFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_poe_facet_proto_goTypes = []any{
 	(*PoeFacet)(nil), // 0: flowseer.net.phy.v1.PoeFacet
 	(PoeRole)(0),     // 1: flowseer.net.phy.v1.PoeRole
+	(PoeStatus)(0),   // 2: flowseer.net.phy.v1.PoeStatus
 }
 var file_flowseer_net_phy_v1_poe_facet_proto_depIdxs = []int32{
 	1, // 0: flowseer.net.phy.v1.PoeFacet.role:type_name -> flowseer.net.phy.v1.PoeRole
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: flowseer.net.phy.v1.PoeFacet.status:type_name -> flowseer.net.phy.v1.PoeStatus
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_phy_v1_poe_facet_proto_init() }
@@ -296,6 +299,7 @@ func file_flowseer_net_phy_v1_poe_facet_proto_init() {
 		return
 	}
 	file_flowseer_net_phy_v1_poe_role_proto_init()
+	file_flowseer_net_phy_v1_poe_status_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

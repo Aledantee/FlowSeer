@@ -13,8 +13,8 @@ enum EthernetMedium {
   ETHERNET_MEDIUM_FIBER = 2;
   // A chassis or system backplane.
   ETHERNET_MEDIUM_BACKPLANE = 3;
-  // A passive or active direct-attach cable.
-  ETHERNET_MEDIUM_DIRECT_ATTACH = 4;
+  reserved 4;
+  reserved ETHERNET_MEDIUM_DIRECT_ATTACH;
   // A reported medium outside the normalized cases.
   ETHERNET_MEDIUM_OTHER = 5;
 }

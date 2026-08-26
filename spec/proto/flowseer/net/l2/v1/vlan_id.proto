@@ -1,0 +1,23 @@
+edition = "2024";
+
+package flowseer.net.l2.v1;
+
+import "buf/validate/validate.proto";
+
+extend buf.validate.UInt32Rules {
+  bool vlan_id = 50000 [(buf.validate.predefined).cel = {
+    id: "uint32.vlan_id"
+    message: "value must be a usable IEEE 802.1Q VLAN identifier"
+    expression: "!rule || (this >= 1u && this <= 4094u)"
+  }];
+  bool vlan_tag_vid = 50001 [(buf.validate.predefined).cel = {
+    id: "uint32.vlan_tag_vid"
+    message: "value must fit an IEEE 802.1Q tag VID and must not be reserved"
+    expression: "!rule || this <= 4094u"
+  }];
+  bool vlan_pcp = 50002 [(buf.validate.predefined).cel = {
+    id: "uint32.vlan_pcp"
+    message: "value must fit the three-bit IEEE 802.1Q priority code point"
+    expression: "!rule || this <= 7u"
+  }];
+}

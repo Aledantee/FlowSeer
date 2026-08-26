@@ -1,0 +1,52 @@
+edition = "2024";
+
+package flowseer.net.l2.v1;
+
+import "flowseer/net/l2/v1/frame_admission.proto";
+import "flowseer/net/l2/v1/switchport_mode.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/l2/v1/vlan_id.proto";
+
+// Protocol-independent Ethernet switching attributes embedded by an
+// interface. Membership is stored only in this port-side direction.
+message SwitchportFacet {
+  option (buf.validate.message).cel = {
+    id: "switchport_facet.memberships_disjoint"
+    message: "a VLAN cannot be both tagged and untagged on one switchport"
+    expression: "(this.tagged_vlan_ids + this.untagged_vlan_ids).unique()"
+  };
+
+  // A source-normalized mode hint. Absent means no mode was reported; exact
+  // membership fields remain authoritative when the hint is present.
+  SwitchportMode mode = 1;
+  // The port VLAN identifier applied to untagged and priority-tagged ingress
+  // traffic. Absent means the source did not report a PVID.
+  uint32 pvid = 2 [(buf.validate.field).uint32.(flowseer.net.l2.v1.vlan_id) = true];
+  // VLANs carried with a tag. The list is an exact set, not a range expression.
+  repeated uint32 tagged_vlan_ids = 3 [(buf.validate.field).repeated = {
+    unique: true
+    max_items: 4094
+    items: {
+      uint32: {
+        gte: 1
+        lte: 4094
+      }
+    }
+  }];
+  // VLANs carried without a tag. The list is an exact set.
+  repeated uint32 untagged_vlan_ids = 4 [(buf.validate.field).repeated = {
+    unique: true
+    max_items: 4094
+    items: {
+      uint32: {
+        gte: 1
+        lte: 4094
+      }
+    }
+  }];
+  // Whether ingress frames are discarded when the port is not a member of
+  // their classified VLAN. Absent means the source did not report the policy.
+  bool ingress_filtering = 5;
+  // Which tag forms are admitted. Absent means the source did not report it.
+  FrameAdmission frame_admission = 6;
+}

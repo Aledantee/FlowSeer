@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/auto_negotiation_status.proto";
+
+// Applied administrative value and current progress of Ethernet
+// auto-negotiation. Support is reported separately by EthernetCapabilities.
+message AutoNegotiationFacet {
+  // Whether auto-negotiation is administratively enabled on the running
+  // interface. Absent means the applied value was not reported.
+  bool enabled = 1;
+  // Current negotiation progress. Absent means the source did not report it.
+  AutoNegotiationStatus status = 2;
+}

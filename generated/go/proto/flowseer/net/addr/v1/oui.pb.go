@@ -89,8 +89,8 @@ func (x *Oui) ClearOctets() {
 type Oui_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The 3 prefix octets in canonical wire order, most significant first.
-	// Absent is invalid; omit the containing field instead.
+	// Exactly 3 prefix octets must be present in canonical wire order, most
+	// significant first.
 	Octets []byte
 }
 

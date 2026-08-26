@@ -3,32 +3,38 @@ edition = "2024";
 package flowseer.net.phy.v1;
 
 import "flowseer/net/phy/v1/poe_role.proto";
+import "flowseer/net/phy/v1/poe_status.proto";
 import option "buf/validate/validate.proto";
 
 // Power over Ethernet attributes for one physical link. Presence of the
 // containing message means the source supplied PoE information.
 message PoeFacet {
   option (buf.validate.message).cel = {
-    id: "poe_facet.enabled_requires_support"
-    message: "PoE cannot be enabled when support is explicitly false"
-    expression: "!has(this.supported) || this.supported || !has(this.enabled) || !this.enabled"
+    id: "poe_facet.delivery_requires_support"
+    message: "PoE cannot deliver power when support is explicitly false"
+    expression:
+      "!has(this.supported) || this.supported || !has(this.status) || "
+      "this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWER"
   };
 
   // Whether the port supports PoE. Absent means capability was not reported;
   // false means the source explicitly reported no support.
   bool supported = 1;
-  // Whether PoE is administratively enabled. Absent means the source did not
-  // report or express an enabled state.
-  bool enabled = 2;
+  reserved 2;
+  reserved enabled;
   // Whether this port supplies or consumes power. Absent means no role was
   // reported.
   PoeRole role = 3;
   // The IEEE 802.3 power class number. Absent means no class was reported.
   uint32 power_class = 4;
-  // The configured or negotiated power ceiling in milliwatts. Absent means no
-  // ceiling was reported; zero is an explicit zero-power ceiling.
-  uint32 power_limit_milliwatts = 5;
+  reserved 5;
+  reserved power_limit_milliwatts;
   // The measured power draw in milliwatts. Absent means no measurement was
   // reported; zero is an explicit zero-power measurement.
   uint32 power_draw_milliwatts = 6;
+  // Current delivery status. Absent means the source did not report it.
+  PoeStatus status = 7;
+  // Power allocated to the port in milliwatts. Absent means no allocation was
+  // reported; zero is an explicit zero-power allocation.
+  uint32 allocated_power_milliwatts = 8;
 }

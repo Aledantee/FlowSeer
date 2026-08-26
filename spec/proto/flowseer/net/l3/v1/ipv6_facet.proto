@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.l3.v1;
+
+import option "buf/validate/validate.proto";
+
+// Protocol-independent IPv6 attributes applied to or observed on an interface.
+message Ipv6Facet {
+  // Whether IPv6 is enabled. Absent means the source did not report it; false
+  // means explicitly disabled.
+  bool enabled = 1;
+  // Whether the interface forwards IPv6 packets. Absent means the source did
+  // not report it; false means explicitly host-only or non-forwarding.
+  bool forwarding = 2;
+  // IPv6 packet MTU in octets. Absent means no family-specific MTU was
+  // reported; a present value must be at least RFC 8200's minimum of 1280.
+  uint32 mtu = 3 [(buf.validate.field).uint32.gte = 1280];
+}

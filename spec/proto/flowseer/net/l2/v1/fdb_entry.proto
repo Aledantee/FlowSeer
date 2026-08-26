@@ -1,0 +1,34 @@
+edition = "2024";
+
+package flowseer.net.l2.v1;
+
+import "flowseer/net/addr/v1/eui48_address.proto";
+import "flowseer/net/l2/v1/fdb_entry_kind.proto";
+import "flowseer/net/l2/v1/fdb_entry_status.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/l2/v1/vlan_id.proto";
+
+// A device-local unicast forwarding-database row keyed by VLAN identifier and
+// EUI-48 address. Bridge-domain scoping belongs to a future instance model.
+message FdbEntry {
+  option (buf.validate.message).cel = {
+    id: "fdb_entry.mac_is_unicast"
+    message: "the FDB address must be an individual (unicast) EUI-48 address"
+    expression: "!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')"
+  };
+
+  // The usable VLAN identifier. Absent is invalid; zero and 4095 are invalid.
+  uint32 vlan_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.(flowseer.net.l2.v1.vlan_id) = true
+  ];
+  // The unicast Ethernet address. Absent is invalid.
+  flowseer.net.addr.v1.Eui48Address mac = 2 [(buf.validate.field).required = true];
+  // The device-reported egress interface name. Absent is valid for local,
+  // remote, invalid, or unresolved entries; a present name must not be empty.
+  string interface_name = 3 [(buf.validate.field).string.min_len = 1];
+  // How the entry was created or is owned. Absent means unreported.
+  FdbEntryKind kind = 4;
+  // Current forwarding usability. Absent means unreported.
+  FdbEntryStatus status = 5;
+}

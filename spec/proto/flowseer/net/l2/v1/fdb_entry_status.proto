@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.l2.v1;
+
+// Current usability of a unicast forwarding-database entry.
+enum FdbEntryStatus {
+  // The source explicitly reported an unknown status. Absence means unreported.
+  FDB_ENTRY_STATUS_UNSPECIFIED = 0;
+  // The entry is eligible for forwarding.
+  FDB_ENTRY_STATUS_ACTIVE = 1;
+  // The entry remains visible but is not eligible for forwarding.
+  FDB_ENTRY_STATUS_INVALID = 2;
+}

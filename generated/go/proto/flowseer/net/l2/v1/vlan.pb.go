@@ -7,7 +7,6 @@
 package l2v1
 
 import (
-	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -24,14 +23,14 @@ const (
 // A VLAN database row. Interface membership is held only by the embedding
 // interface's switchport facet, so the two directions cannot drift.
 type Vlan struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Id          uint32                 `protobuf:"varint,1,opt,name=id"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_Status      VlanStatus             `protobuf:"varint,3,opt,name=status,enum=flowseer.net.l2.v1.VlanStatus"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id           uint32                 `protobuf:"varint,1,opt,name=id"`
+	xxx_hidden_Name         *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Registration VlanRegistration       `protobuf:"varint,4,opt,name=registration,enum=flowseer.net.l2.v1.VlanRegistration"`
+	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
+	XXX_presence            [1]uint32
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *Vlan) Reset() {
@@ -76,13 +75,13 @@ func (x *Vlan) GetName() string {
 	return ""
 }
 
-func (x *Vlan) GetStatus() VlanStatus {
+func (x *Vlan) GetRegistration() VlanRegistration {
 	if x != nil {
 		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
-			return x.xxx_hidden_Status
+			return x.xxx_hidden_Registration
 		}
 	}
-	return VlanStatus_VLAN_STATUS_UNSPECIFIED
+	return VlanRegistration_VLAN_REGISTRATION_UNSPECIFIED
 }
 
 func (x *Vlan) SetId(v uint32) {
@@ -95,8 +94,8 @@ func (x *Vlan) SetName(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
 
-func (x *Vlan) SetStatus(v VlanStatus) {
-	x.xxx_hidden_Status = v
+func (x *Vlan) SetRegistration(v VlanRegistration) {
+	x.xxx_hidden_Registration = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
@@ -114,7 +113,7 @@ func (x *Vlan) HasName() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *Vlan) HasStatus() bool {
+func (x *Vlan) HasRegistration() bool {
 	if x == nil {
 		return false
 	}
@@ -131,9 +130,9 @@ func (x *Vlan) ClearName() {
 	x.xxx_hidden_Name = nil
 }
 
-func (x *Vlan) ClearStatus() {
+func (x *Vlan) ClearRegistration() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_Status = VlanStatus_VLAN_STATUS_UNSPECIFIED
+	x.xxx_hidden_Registration = VlanRegistration_VLAN_REGISTRATION_UNSPECIFIED
 }
 
 type Vlan_builder struct {
@@ -145,8 +144,9 @@ type Vlan_builder struct {
 	// The device-reported VLAN name. Absent means no name was reported; an empty
 	// string means the source explicitly reported an empty name.
 	Name *string
-	// The VLAN's observed lifetime. Absent means no status was reported.
-	Status *VlanStatus
+	// How the VLAN was registered in the bridge. Absent means the source did
+	// not report whether the entry is permanent or dynamic.
+	Registration *VlanRegistration
 }
 
 func (b0 Vlan_builder) Build() *Vlan {
@@ -161,57 +161,35 @@ func (b0 Vlan_builder) Build() *Vlan {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_Name = b.Name
 	}
-	if b.Status != nil {
+	if b.Registration != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
-		x.xxx_hidden_Status = *b.Status
+		x.xxx_hidden_Registration = *b.Registration
 	}
 	return m0
 }
-
-var file_flowseer_net_l2_v1_vlan_proto_extTypes = []protoimpl.ExtensionInfo{
-	{
-		ExtendedType:  (*validate.UInt32Rules)(nil),
-		ExtensionType: (*bool)(nil),
-		Field:         50000,
-		Name:          "flowseer.net.l2.v1.vlan_id",
-		Tag:           "varint,50000,opt,name=vlan_id",
-		Filename:      "flowseer/net/l2/v1/vlan.proto",
-	},
-}
-
-// Extension fields to validate.UInt32Rules.
-var (
-	// optional bool vlan_id = 50000;
-	E_VlanId = &file_flowseer_net_l2_v1_vlan_proto_extTypes[0]
-)
 
 var File_flowseer_net_l2_v1_vlan_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_l2_v1_vlan_proto_rawDesc = "" +
 	"\n" +
-	"\x1dflowseer/net/l2/v1/vlan.proto\x12\x12flowseer.net.l2.v1\x1a\x1bbuf/validate/validate.proto\x1a$flowseer/net/l2/v1/vlan_status.proto\"p\n" +
+	"\x1dflowseer/net/l2/v1/vlan.proto\x12\x12flowseer.net.l2.v1\x1a*flowseer/net/l2/v1/vlan_registration.proto\"\x90\x01\n" +
 	"\x04Vlan\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x126\n" +
-	"\x06status\x18\x03 \x01(\x0e2\x1e.flowseer.net.l2.v1.VlanStatusR\x06status:\xa7\x01\n" +
-	"\avlan_id\x12\x19.buf.validate.UInt32Rules\x18І\x03 \x01(\bBq\xc2Hn\n" +
-	"l\n" +
-	"\x0euint32.vlan_id\x122value must be a usable IEEE 802.1Q VLAN identifier\x1a&!rule || (this >= 1u && this <= 4094u)R\x06vlanIdB\xd2\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12H\n" +
+	"\fregistration\x18\x04 \x01(\x0e2$.flowseer.net.l2.v1.VlanRegistrationR\fregistrationJ\x04\b\x03\x10\x04R\x06statusB\xd2\x01\n" +
 	"\x16com.flowseer.net.l2.v1B\tVlanProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/l2/v1;l2v1\xa2\x02\x03FNL\xaa\x02\x12Flowseer.Net.L2.V1\xca\x02\x12Flowseer\\Net\\L2\\V1\xe2\x02\x1eFlowseer\\Net\\L2\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::L2::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_l2_v1_vlan_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_l2_v1_vlan_proto_goTypes = []any{
-	(*Vlan)(nil),                 // 0: flowseer.net.l2.v1.Vlan
-	(VlanStatus)(0),              // 1: flowseer.net.l2.v1.VlanStatus
-	(*validate.UInt32Rules)(nil), // 2: buf.validate.UInt32Rules
+	(*Vlan)(nil),          // 0: flowseer.net.l2.v1.Vlan
+	(VlanRegistration)(0), // 1: flowseer.net.l2.v1.VlanRegistration
 }
 var file_flowseer_net_l2_v1_vlan_proto_depIdxs = []int32{
-	1, // 0: flowseer.net.l2.v1.Vlan.status:type_name -> flowseer.net.l2.v1.VlanStatus
-	2, // 1: flowseer.net.l2.v1.vlan_id:extendee -> buf.validate.UInt32Rules
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	1, // [1:2] is the sub-list for extension extendee
+	1, // 0: flowseer.net.l2.v1.Vlan.registration:type_name -> flowseer.net.l2.v1.VlanRegistration
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
 }
 
@@ -220,7 +198,7 @@ func file_flowseer_net_l2_v1_vlan_proto_init() {
 	if File_flowseer_net_l2_v1_vlan_proto != nil {
 		return
 	}
-	file_flowseer_net_l2_v1_vlan_status_proto_init()
+	file_flowseer_net_l2_v1_vlan_registration_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
@@ -228,13 +206,12 @@ func file_flowseer_net_l2_v1_vlan_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_net_l2_v1_vlan_proto_rawDesc), len(file_flowseer_net_l2_v1_vlan_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
-			NumExtensions: 1,
+			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_net_l2_v1_vlan_proto_goTypes,
 		DependencyIndexes: file_flowseer_net_l2_v1_vlan_proto_depIdxs,
 		MessageInfos:      file_flowseer_net_l2_v1_vlan_proto_msgTypes,
-		ExtensionInfos:    file_flowseer_net_l2_v1_vlan_proto_extTypes,
 	}.Build()
 	File_flowseer_net_l2_v1_vlan_proto = out.File
 	file_flowseer_net_l2_v1_vlan_proto_goTypes = nil
