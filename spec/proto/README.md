@@ -24,5 +24,5 @@ specs in [`../openapi/README.md`](../openapi/README.md).
 
 Same policy as `../mib/`: `ruckus/` is a vendored cache of vendor-published
 interface definitions under the vendor's terms (the files carry Ruckus
-confidentiality headers — do not redistribute). `nanopb/nanopb.proto` is from
+confidentiality headers — do not redistribute). `ruckus/nanopb/nanopb.proto` is from
 the nanopb project (zlib license).

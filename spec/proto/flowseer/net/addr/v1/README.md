@@ -8,8 +8,10 @@ facets, configuration, state, or events.
 
 The package contains:
 
-- IEEE identifiers: EUI-48 and EUI-64 values, a tagged EUI/MAC address
-  wrapper, and Organizationally Unique Identifiers (OUIs).
+- IEEE identifiers: `Eui48Address` and `Eui64Address` value types, the tagged
+  `EuiAddress` wrapper whose oneof arm names the width, and Organizationally
+  Unique Identifiers (OUIs). There is no separate MAC address message; an
+  Ethernet MAC address is an EUI-48.
 - IP address-family registry values and FlowSeer address classifications.
 - IP classification: FlowSeer's coarse address scopes.
 - IP values: IPv4 and IPv6 addresses, canonical masked network prefixes,
@@ -36,3 +38,15 @@ context.
 
 Packet-header registries such as DSCP, ECN, and IP protocol numbers live in
 `flowseer.net.packet.v1`; they classify traffic rather than addresses.
+
+## Sources
+
+The package's field and enum contracts cite:
+
+- The [IEEE Registration Authority](https://standards.ieee.org/products-programs/regauth/)
+  for EUI-48, EUI-64, and OUI identifier formats.
+- The IANA [Address Family Numbers](https://www.iana.org/assignments/address-family-numbers)
+  registry for address-family values.
+- [RFC 4861, section 4.6.2](https://www.rfc-editor.org/rfc/rfc4861.html#section-4.6.2)
+  and [RFC 8415, section 7.7](https://www.rfc-editor.org/rfc/rfc8415.html#section-7.7)
+  for address-lifetime encoding, including the infinite-lifetime sentinel.

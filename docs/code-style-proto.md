@@ -173,7 +173,12 @@ That covers casing. The rules the compiler does not check still stand:
 **Evolution**
 
 - Never reuse or renumber a field. On removal, `reserved` the number *and* the name
-  in the same change.
+  in the same change. One dated exception: on 2026-08-26, inside the pre-release
+  window while breaking checks are suspended, a one-time reviewed collapse removed
+  every reserved tombstone under `spec/proto/flowseer/` and renumbered the remaining
+  fields and enum values to contiguous
+  (plan: `docs/plans/2026-08-26-1856-refactor-proto-docs-standards-cleanup-plan.md`).
+  From the first stable release onward the prohibition is absolute.
 - Prefer adding a field over changing a field's meaning. A semantic change behind an
   unchanged field number is invisible on the wire and is the worst class of schema bug.
 - **A feature change is a schema change.** Editions add a failure mode proto3 did not
@@ -182,8 +187,11 @@ That covers casing. The rules the compiler does not check still stand:
   same care as a renumber. `buf breaking` has editions-aware rules for exactly this —
   `FIELD_SAME_CARDINALITY`, `FIELD_WIRE_COMPATIBLE_CARDINALITY`, `ENUM_SAME_TYPE`,
   `FIELD_SAME_UTF8_VALIDATION`, `MESSAGE_SAME_JSON_FORMAT`.
-- Breaking checks are suspended (`breaking.use: []`) until the first stable release;
-  until then the rules above are held in review, after it `buf breaking` takes over.
+- Breaking checks are suspended until the first stable release via a module-wide
+  `breaking.ignore` of `spec/proto/flowseer` in `buf.yaml` (an empty `breaking.use: []`
+  would not disable them — buf treats it as unset and falls back to its default `FILE`
+  category); until then the rules above are held in review, after it `buf breaking`
+  takes over.
 - Bumping the edition of an existing file is a deliberate, reviewed migration, not
   housekeeping: the new edition's defaults apply to every field at once. Edition 2026
   exists on paper — it changes `default_symbol_visibility` to `STRICT`, naming to
