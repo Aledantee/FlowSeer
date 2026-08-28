@@ -1,0 +1,37 @@
+edition = "2024";
+
+package flowseer.api.inventory.v1;
+
+import option "buf/validate/validate.proto";
+
+// A device-functionality area exposed through a FlowSeer API service.
+enum Capability {
+  // No capability was specified. Absence from Capabilities means unsupported.
+  CAPABILITY_UNSPECIFIED = 0;
+  // System identity, status, and device-wide settings.
+  CAPABILITY_SYSTEM = 1;
+  // Network-interface state and configuration.
+  CAPABILITY_INTERFACE = 2;
+  // Layer-two switching state and configuration.
+  CAPABILITY_SWITCHING = 3;
+  // Layer-three routing state and configuration.
+  CAPABILITY_ROUTING = 4;
+  // Firewall policy, state, and configuration.
+  CAPABILITY_FIREWALL = 5;
+  // Wireless radio, network, client, and configuration functionality.
+  CAPABILITY_WIRELESS = 6;
+}
+
+// The capability areas supported by one inventory binding.
+message Capabilities {
+  // Supported capability areas. An empty list means the binding exposes none;
+  // unspecified entries and duplicates are invalid.
+  repeated Capability capabilities = 1 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {
+        not_in: [0]
+      }
+    }
+  }];
+}
