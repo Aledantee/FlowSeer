@@ -10,12 +10,12 @@ func TestInventoryCapabilityRules(t *testing.T) {
 	tests := []validationCase{
 		{
 			name:      "capabilities may be empty",
-			message:   inventoryv1.Capabilities_builder{}.Build(),
+			message:   inventoryv1.CapabilitySet_builder{}.Build(),
 			wantValid: true,
 		},
 		{
 			name: "capabilities are unique",
-			message: inventoryv1.Capabilities_builder{
+			message: inventoryv1.CapabilitySet_builder{
 				Capabilities: []inventoryv1.Capability{
 					inventoryv1.Capability_CAPABILITY_INTERFACE,
 					inventoryv1.Capability_CAPABILITY_INTERFACE,
@@ -25,7 +25,7 @@ func TestInventoryCapabilityRules(t *testing.T) {
 		},
 		{
 			name: "capabilities reject unspecified",
-			message: inventoryv1.Capabilities_builder{
+			message: inventoryv1.CapabilitySet_builder{
 				Capabilities: []inventoryv1.Capability{
 					inventoryv1.Capability_CAPABILITY_UNSPECIFIED,
 				},
@@ -34,7 +34,7 @@ func TestInventoryCapabilityRules(t *testing.T) {
 		},
 		{
 			name: "unknown nonzero capabilities remain valid",
-			message: inventoryv1.Capabilities_builder{
+			message: inventoryv1.CapabilitySet_builder{
 				Capabilities: []inventoryv1.Capability{
 					inventoryv1.Capability(99),
 				},
@@ -43,7 +43,7 @@ func TestInventoryCapabilityRules(t *testing.T) {
 		},
 		{
 			name: "distinct capabilities are valid",
-			message: inventoryv1.Capabilities_builder{
+			message: inventoryv1.CapabilitySet_builder{
 				Capabilities: []inventoryv1.Capability{
 					inventoryv1.Capability_CAPABILITY_SYSTEM,
 					inventoryv1.Capability_CAPABILITY_INTERFACE,

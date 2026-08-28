@@ -6,7 +6,7 @@ import option "buf/validate/validate.proto";
 
 // A device-functionality area exposed through a FlowSeer API service.
 enum Capability {
-  // No capability was specified. Absence from Capabilities means unsupported.
+  // No capability was specified. Absence from CapabilitySet means unsupported.
   CAPABILITY_UNSPECIFIED = 0;
   // System identity, status, and device-wide settings.
   CAPABILITY_SYSTEM = 1;
@@ -23,7 +23,7 @@ enum Capability {
 }
 
 // The capability areas supported by one inventory binding.
-message Capabilities {
+message CapabilitySet {
   // Supported capability areas. An empty list means the binding exposes none;
   // unspecified entries and duplicates are invalid.
   repeated Capability capabilities = 1 [(buf.validate.field).repeated = {

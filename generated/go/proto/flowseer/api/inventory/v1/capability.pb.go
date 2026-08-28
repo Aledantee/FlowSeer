@@ -24,7 +24,7 @@ const (
 type Capability int32
 
 const (
-	// No capability was specified. Absence from Capabilities means unsupported.
+	// No capability was specified. Absence from CapabilitySet means unsupported.
 	Capability_CAPABILITY_UNSPECIFIED Capability = 0
 	// System identity, status, and device-wide settings.
 	Capability_CAPABILITY_SYSTEM Capability = 1
@@ -85,27 +85,27 @@ func (x Capability) Number() protoreflect.EnumNumber {
 }
 
 // The capability areas supported by one inventory binding.
-type Capabilities struct {
+type CapabilitySet struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Capabilities []Capability           `protobuf:"varint,1,rep,packed,name=capabilities,enum=flowseer.api.inventory.v1.Capability"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
 
-func (x *Capabilities) Reset() {
-	*x = Capabilities{}
+func (x *CapabilitySet) Reset() {
+	*x = CapabilitySet{}
 	mi := &file_flowseer_api_inventory_v1_capability_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Capabilities) String() string {
+func (x *CapabilitySet) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Capabilities) ProtoMessage() {}
+func (*CapabilitySet) ProtoMessage() {}
 
-func (x *Capabilities) ProtoReflect() protoreflect.Message {
+func (x *CapabilitySet) ProtoReflect() protoreflect.Message {
 	mi := &file_flowseer_api_inventory_v1_capability_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -117,18 +117,18 @@ func (x *Capabilities) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Capabilities) GetCapabilities() []Capability {
+func (x *CapabilitySet) GetCapabilities() []Capability {
 	if x != nil {
 		return x.xxx_hidden_Capabilities
 	}
 	return nil
 }
 
-func (x *Capabilities) SetCapabilities(v []Capability) {
+func (x *CapabilitySet) SetCapabilities(v []Capability) {
 	x.xxx_hidden_Capabilities = v
 }
 
-type Capabilities_builder struct {
+type CapabilitySet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Supported capability areas. An empty list means the binding exposes none;
@@ -136,8 +136,8 @@ type Capabilities_builder struct {
 	Capabilities []Capability
 }
 
-func (b0 Capabilities_builder) Build() *Capabilities {
-	m0 := &Capabilities{}
+func (b0 CapabilitySet_builder) Build() *CapabilitySet {
+	m0 := &CapabilitySet{}
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Capabilities = b.Capabilities
@@ -148,8 +148,8 @@ var File_flowseer_api_inventory_v1_capability_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_capability_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/api/inventory/v1/capability.proto\x12\x19flowseer.api.inventory.v1\"j\n" +
-	"\fCapabilities\x12Z\n" +
+	"*flowseer/api/inventory/v1/capability.proto\x12\x19flowseer.api.inventory.v1\"k\n" +
+	"\rCapabilitySet\x12Z\n" +
 	"\fcapabilities\x18\x01 \x03(\x0e2%.flowseer.api.inventory.v1.CapabilityB\x0f\xbaH\f\x92\x01\t\x18\x01\"\x05\x82\x01\x02 \x00R\fcapabilities*\xbd\x01\n" +
 	"\n" +
 	"Capability\x12\x1a\n" +
@@ -165,11 +165,11 @@ const file_flowseer_api_inventory_v1_capability_proto_rawDesc = "" +
 var file_flowseer_api_inventory_v1_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_api_inventory_v1_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_api_inventory_v1_capability_proto_goTypes = []any{
-	(Capability)(0),      // 0: flowseer.api.inventory.v1.Capability
-	(*Capabilities)(nil), // 1: flowseer.api.inventory.v1.Capabilities
+	(Capability)(0),       // 0: flowseer.api.inventory.v1.Capability
+	(*CapabilitySet)(nil), // 1: flowseer.api.inventory.v1.CapabilitySet
 }
 var file_flowseer_api_inventory_v1_capability_proto_depIdxs = []int32{
-	0, // 0: flowseer.api.inventory.v1.Capabilities.capabilities:type_name -> flowseer.api.inventory.v1.Capability
+	0, // 0: flowseer.api.inventory.v1.CapabilitySet.capabilities:type_name -> flowseer.api.inventory.v1.Capability
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
