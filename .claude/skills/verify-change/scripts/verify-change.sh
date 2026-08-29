@@ -213,7 +213,10 @@ if ((${#modules[@]})); then
     echo "== Go module: $module =="
     (
       cd "$module"
-      run go build -o "$build_dir/" ./...
+      # No -o: with an output directory, go refuses a module that builds no
+      # main packages (e.g. a fully build-tag-gated bench module). Plain
+      # go build compiles everything and discards the binaries.
+      run go build ./...
       run go vet ./...
       run go test -race ./...
       # ./... would make the linters load and analyze the generated trees
@@ -222,7 +225,12 @@ if ((${#modules[@]})); then
       lint_pkgs=()
       module_dir=$PWD
       while IFS= read -r pkg_dir; do
-        lint_pkgs+=("./${pkg_dir#"$module_dir"/}")
+        # The module root strips to an empty string, not a relative path;
+        # without the fallback it would be passed as an absolute path glued
+        # to "./", which golangci-lint reports as a typechecking error.
+        pkg_rel=${pkg_dir#"$module_dir"}
+        pkg_rel=${pkg_rel#/}
+        lint_pkgs+=("./${pkg_rel:-.}")
       done < <(go list -f '{{.Dir}}' ./... | grep -vE '/generated(/|$)')
       if ((${#lint_pkgs[@]})); then
         run golangci-lint run --config "$root/.golangci.yml" "${lint_pkgs[@]}"
@@ -239,10 +247,10 @@ if [[ $proto == true ]]; then
       proto_path_args+=(--path "$proto_file")
     done
   fi
-  run buf format -d --exit-code "${proto_path_args[@]}"
-  run buf lint "${proto_path_args[@]}"
+  run buf format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
+  run buf lint ${proto_path_args[@]+"${proto_path_args[@]}"}
   if git show-ref --verify --quiet refs/heads/master; then
-    run buf breaking --against '.git#branch=master' "${proto_path_args[@]}"
+    run buf breaking --against '.git#branch=master' ${proto_path_args[@]+"${proto_path_args[@]}"}
   fi
   generated_dir=$build_dir/generated
   run buf generate -o "$generated_dir"
