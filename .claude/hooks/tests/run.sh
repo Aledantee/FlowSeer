@@ -74,6 +74,22 @@ source_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/device
 assert_allow "$repo_root/.agent/hooks/pre-tool-policy.sh" "$source_input"
 ok "Edit allows protobuf source"
 
+outside_input=$(jq -n --arg cwd "$fixture" --arg path "$(dirname "$fixture")/outside.txt" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+assert_allow "$repo_root/.agent/hooks/pre-tool-policy.sh" "$outside_input"
+ok "Edit allows absolute paths outside the repository"
+
+dotfile_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/flowseer/api/v1/.gitkeep" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+mkdir -p "$fixture/spec/proto/flowseer/api/v1"
+assert_allow "$repo_root/.agent/hooks/pre-tool-policy.sh" "$dotfile_input"
+ok "Edit allows dotfile placeholders under spec/proto"
+
+stray_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/notes.txt" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+assert_deny "$repo_root/.agent/hooks/pre-tool-policy.sh" "$stray_input"
+ok "Edit denies stray non-schema files under spec/proto"
+
 bash_edit=$(jq -n --arg cwd "$fixture" \
   --arg command "sed -i '' -e s/old/new/ generated/device.pb.go" \
   '{cwd:$cwd,tool_input:{command:$command}}')

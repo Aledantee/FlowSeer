@@ -19,6 +19,9 @@ hook_paths() {
       -e 's/^\*\*\* Move to: (.*)$/\1/p'
 }
 
+# Prints the repository-relative path for a candidate file.
+# Returns 1 when the path cannot be resolved safely, 2 when the path is
+# absolute and lies outside the repository (repository policy does not apply).
 hook_relative_path() {
   local candidate_file="$1"
   local candidate_dir
@@ -32,7 +35,7 @@ hook_relative_path() {
   case "$candidate_file" in
     "$HOOK_ROOT") relative_file="" ;;
     "$HOOK_ROOT"/*) relative_file=${candidate_file#"$HOOK_ROOT"/} ;;
-    /*) return 1 ;;
+    /*) return 2 ;;
     *) relative_file="$HOOK_PREFIX$candidate_file" ;;
   esac
 
