@@ -40,10 +40,40 @@ back in that language; otherwise they come back in English. Translations
 live on the server, so each response carries exactly one name per tag and
 the wire messages stay unchanged.
 
+## Attributes
+
+Where a tag marks, an attribute measures: an attached attribute always
+carries at least one typed value, and a marker without a value belongs in
+the tag tree instead. The schema splits the concern across two families and
+a shared foundation:
+
+- `entity.proto` holds the `EntityType` enum, the `EntityRef` that points at
+  an entity whose kind is decided at runtime, and the `Entity` handle.
+  Attribute targeting and value ownership are why it exists; the
+  [`EntityRef` rule](../../../../../../docs/conventions/protobuf.md) in the
+  conventions doc bounds when it may be used instead of a typed ref.
+- The definition family (`attribute.proto`) names the attribute: a stable
+  machine key consumers address it by, a display name, one value type
+  (string, number, closed enum with the vocabulary as data on the
+  definition, or entity reference), the entity kinds it targets, and its
+  cardinality.
+- The assignment family (`attribute_value.proto`) carries the values: one
+  assignment per owner and definition, owned by exactly that owner, holding
+  one payload or a list when the definition allows it.
+
+Both families are Config-and-Event only; their file comments record the
+deliberately absent `State`. The lifecycle rules that need server state —
+key uniqueness and immutability, target and cardinality checks, the
+drop-or-block gate on invalidating definition edits, and the silent cascade
+when a referenced entity is deleted — live in the message comments and are
+enforced by the inventory service.
+
 ## Other entities
 
 `Tenant`, `Device`, and the `Capability` enum with its `CapabilitySet` are
 early sketches predating the conventions doc and are refined entity by
-entity; the tag family above is the package's first fully-shaped one. How
-tags attach to taggable entities (tag refs on the entity versus a separate
-assignment entity) is decided when the first taggable entity's triad lands.
+entity; the tag and attribute families above are the package's fully-shaped
+ones. How tags attach to taggable entities (tag refs on the entity versus a
+separate assignment entity) is still decided when the first taggable
+entity's triad lands — the attribute assignment family is the separate-entity
+precedent to weigh when that decision comes up.

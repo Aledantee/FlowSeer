@@ -1,0 +1,74 @@
+edition = "2024";
+
+// The entity foundation: EntityType names the kinds a dynamic reference may
+// carry, EntityRef points at one entity of such a kind, and Entity wraps the
+// ref as the uniform generic handle. The three are one contract designed
+// together, which is why they share this file the same way the address
+// variants share ip.proto.
+//
+// EntityRef exists for the places where the referenced kind is decided at
+// runtime, such as attribute targeting and ownership. A statically-known
+// target keeps its typed LocalRef/GlobalRef pair; reaching for EntityRef
+// there trades away the type safety the pair exists for.
+package flowseer.api.inventory.v1;
+
+import option "buf/validate/validate.proto";
+
+// The kinds attribute targeting, ownership, and reference values may name.
+// Membership is a contract, not a list of what exists: a kind joins only
+// when its entity is identified by a FlowSeer-assigned UUID, its delete flow
+// cascades attribute values that reference it, and its store can answer the
+// existence check a reference-value write needs. Landing a new top-level
+// entity includes joining this enum in the same change.
+//
+// Capability stays out because it is a closed enum, not an identified
+// entity. The attribute-value assignment stays out because nothing targets
+// or references an assignment.
+enum EntityType {
+  // No kind named. Refs reject the zero value; it exists only so an unset
+  // field is distinguishable from a chosen kind.
+  ENTITY_TYPE_UNSPECIFIED = 0;
+  // The tenant. The tenant entity is still a stub without an id surface;
+  // tenant UUIDs are defined when it matures. A ref to a tenant is content
+  // on the pointing entity, never the request's tenancy scope — ambient
+  // tenancy is unchanged by this kind existing.
+  ENTITY_TYPE_TENANT = 1;
+  // The device — the primary carrier of attributes and the inventory
+  // plane's central entity.
+  ENTITY_TYPE_DEVICE = 2;
+  // The tag. A tag can carry attributes like any other kind here; marking
+  // an entity with a tag stays the tag tree's own mechanism.
+  ENTITY_TYPE_TAG = 3;
+  // The attribute definition itself, so definitions can be targeted or
+  // referenced like any other entity.
+  ENTITY_TYPE_ATTRIBUTE = 4;
+}
+
+// A reference to one entity whose kind is decided at runtime. The flat
+// type-and-id shape can only address top-level entities; an entity
+// identified relative to an owning parent has no id of its own to carry
+// here and keeps its typed GlobalRef.
+message EntityRef {
+  // The referenced entity's kind. Must be present; the zero value is
+  // rejected.
+  EntityType type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      not_in: [0]
+    }
+  ];
+  // FlowSeer-assigned identifier of the referenced entity. Must be present.
+  string id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The uniform generic handle: an entity of any kind, as nothing more than
+// its ref. Nothing in this package consumes it yet; it completes the ref
+// family so a consumer that needs "some entity" as a value has one shape to
+// share. Anything richer than identity is read from the concrete entity.
+message Entity {
+  // The entity's ref. Must be present.
+  EntityRef ref = 1 [(buf.validate.field).required = true];
+}

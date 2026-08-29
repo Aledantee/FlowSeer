@@ -15,7 +15,7 @@ written — edition 2024 presence, symbol visibility, naming, evolution,
 protovalidate — and governs everything here. This document defines what
 Primitive, Entity, Triad, Ref Pair, Typed Variant, Provenance Envelope, and
 Facet oblige a schema author to write, and is the "conventions doc" that
-`.claude/hooks/proto-check.sh` names when it reports a missing family member.
+`.agent/hooks/proto-check.sh` names when it reports a missing family member.
 
 The package tree, the import layering, and the primitive/entity split are fixed
 by [the network model structure
@@ -31,10 +31,13 @@ Every Entity has three messages, named for the same base:
 | `<Entity>State` | What was *observed* — what the device or platform actually reported. |
 | `<Entity>Event` | What *changed* — one transition, carried on the broker and the event envelope. |
 
-All three are defined together in the Entity's own package, one message per
-file. Defining them together is not tidiness: intended and observed have to be
-diffable field-for-field, and an `Event` that does not know both sides cannot
-describe a transition.
+All three are defined together in the Entity's own package, in one file per
+family — the tag, attribute, and attribute-value families are the shape to
+copy. A family's messages are one contract designed together, so splitting
+them across files hides the coupling; the one-declaration-per-file default in
+the style doc yields to this. Defining them together is not tidiness: intended
+and observed have to be diffable field-for-field, and an `Event` that does not
+know both sides cannot describe a transition.
 
 Config and State are separate messages rather than one message with a
 datastore axis, and neither is a subset of the other by construction — a device
@@ -42,12 +45,13 @@ reports things nobody configured (link speed, uptime) and accepts things it
 never reports back.
 
 A family may be **deliberately partial**. A machine-observed entity nobody
-configures has no `Config`; a projection nobody stores has no `Event`. When a
-member is deliberately absent, say so in the file-level doc comment of the
-family's `State` — the one member every family has — naming what is missing and
-why. The hook reports every missing member and cannot tell deliberate from
-forgotten, so the comment is what lets the next reader tell, and putting it in
-a predictable place is what lets them find it.
+configures has no `Config`; a pure-intent entity nobody observes has no
+`State`; a projection nobody stores has no `Event`. When a member is
+deliberately absent, say so in the family file's file-level doc comment,
+naming what is missing and why — the attribute families are the worked
+example. The hook reports every missing member and cannot tell deliberate
+from forgotten, so the comment is what lets the next reader tell, and putting
+it in a predictable place is what lets them find it.
 
 ## The ref pair
 
@@ -91,6 +95,36 @@ Vendor-side identity — serial number, base MAC, cloud object id — is
 correlation data on the Entity, never the ref's key. Correlating two sightings
 into one Entity is a service concern; a ref that carried a serial would make
 every consumer party to that decision.
+
+## EntityRef: the dynamic-kind exception
+
+The typed `LocalRef`/`GlobalRef` pair stays the norm for every reference whose
+target kind is known when the schema is written. `EntityRef` in
+`inventory/v1/entity.proto` exists for the one case the pair cannot express: a
+field that points at "some entity of a kind decided at runtime", such as the
+owner of an attribute value:
+
+```protobuf
+// The entity carrying the values. Must be present. The kind is dynamic,
+// which is what EntityRef exists for; the assignment is owned by exactly
+// this entity.
+EntityRef owner = 2 [(buf.validate.field).required = true];
+```
+
+Three boundaries keep it from eroding the typed refs:
+
+- **Top-level entities only.** `EntityRef` is a flat kind-and-id with no
+  ancestry chain, so it cannot address an entity identified relative to an
+  owning parent. A nested entity keeps its typed `GlobalRef`.
+- **Admission to `EntityType` is a contract.** A kind joins the enum only when
+  its entity is UUID-identified, its delete flow cascades attribute values
+  that reference it, and its store can answer the existence check a
+  reference-value write needs. Landing a new top-level entity includes joining
+  the enum in the same change; the hook does not police `EntityRef`, so this
+  rule is the only guard.
+- **A ref to a tenant is data, not scoping.** Tenancy stays ambient: an
+  `EntityRef` naming a tenant entity is content on the pointing entity and
+  never stands in for the request's tenant context.
 
 ## Primitives refer to peers by key, never by ref
 

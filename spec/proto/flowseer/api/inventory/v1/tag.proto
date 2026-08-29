@@ -96,6 +96,20 @@ message TagEvent {
     message: "a tag event must carry a before or an after"
     expression: "has(this.before) || has(this.after)"
   };
+  option (buf.validate.message).cel = {
+    id: "tag_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref.tag.id == this.ref.tag.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "tag_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref.tag.id == this.ref.tag.id"
+  };
 
   // The ref to the tag that changed. Must be present.
   TagGlobalRef ref = 1 [(buf.validate.field).required = true];

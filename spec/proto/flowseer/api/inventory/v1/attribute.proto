@@ -1,14 +1,182 @@
 edition = "2024";
 
+// The attribute definition family: what an attribute is called, what type
+// its values carry, and where they may attach. Values themselves live in
+// the assignment family in attribute_value.proto.
+//
+// The family is deliberately partial: it has no AttributeState. A
+// definition is pure operator intent with nothing observed or derived, so
+// the triad is Config and Event only. The sync hook's report of a missing
+// State member is answered by this comment.
 package flowseer.api.inventory.v1;
 
-message AttributeRef {
-  string id = 1;
+import "flowseer/api/inventory/v1/entity.proto";
+import option "buf/validate/validate.proto";
+
+// The key of an attribute definition within its tenant. The definition is a
+// top-level entity, so the local ref carries the FlowSeer-assigned
+// identifier and nothing else.
+message AttributeLocalRef {
+  // FlowSeer-assigned definition identifier. Must be present; omit the
+  // containing field instead.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
 }
 
-message Attribute {
-  AttributeRef ref = 1;
+// The definition is top-level, so its global ref wraps only the local ref,
+// kept as a wrapper so refs compose uniformly and the sync hook can check
+// the pair mechanically. Tenancy is ambient and never part of the ref.
+message AttributeGlobalRef {
+  // The definition's own key. Must be present; omit the containing field
+  // instead.
+  AttributeLocalRef attribute = 1 [(buf.validate.field).required = true];
+}
 
-  string name = 10;
-  string description = 11;
+// A free-text value type. Values parse as text of 1 to 2048 characters;
+// the cap is declared here once and the value payload in
+// attribute_value.proto follows it.
+message StringType {}
+
+// A numeric value type. Values carry the Number variant from
+// attribute_value.proto: an exact int64 integer or a finite double.
+message NumberType {}
+
+// A closed-vocabulary value type. The operator defines the vocabulary as
+// data on the definition, so extending it is an ordinary update, never a
+// schema change. A value carries one of these keys, and the key string is
+// what survives a retype to string.
+message EnumType {
+  // The allowed value keys. Must hold at least one key; keys are stable
+  // machine identifiers, never localized. Uniqueness within the list is
+  // enforced here; nothing else constrains the vocabulary.
+  repeated string values = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 64
+        pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+      }
+    }
+  }];
+}
+
+// An entity-reference value type. Values point at an existing entity of the
+// declared kind; the server checks existence at write time, and deleting
+// the referenced entity silently removes the values that point at it.
+message ReferenceType {
+  // The kind referenced values must point at. Must be present; the zero
+  // value is rejected.
+  EntityType kind = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      not_in: [0]
+    }
+  ];
+}
+
+// The intended definition of one attribute: its machine key, its display
+// name, its value type, the entity kinds it may attach to, and whether an
+// assignment holds one value or a list.
+//
+// Constraints that need more state than this message carries are enforced
+// by the inventory service: the key is unique within the tenant (the same
+// way tag sibling names are) and immutable after creation, and every edit
+// that can invalidate existing values — changing the type, removing an
+// enum key, removing a target kind, switching multi-valued to single, or
+// deleting the definition — is gated by an explicit operator decision to
+// drop the invalidated values or abandon the edit. Survival under a type
+// change is deterministic: only the enum-key-to-string conversion preserves
+// values; every other type pair invalidates.
+message AttributeConfig {
+  // The ref to this definition. Must be present.
+  AttributeGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Stable machine key consumers address the attribute by. Unique within
+  // the tenant, never localized, immutable after creation. Must be present.
+  string key = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 64
+      pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+    }
+  ];
+  // Operator-assigned display name. Reads carry it localized per the RPC's
+  // language header when a translation exists; otherwise it comes back in
+  // English. The translation mapping is server-side and never part of the
+  // payload.
+  // Must be present.
+  string name = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description of what the attribute measures. Unset means none
+  // was provided.
+  string description = 4 [(buf.validate.field).string.max_len = 2048];
+  // The entity kinds that may carry this attribute's values. Must hold at
+  // least one kind; a write against any other kind is rejected.
+  repeated EntityType targets = 5 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 16
+    unique: true
+    items: {
+      enum: {
+        not_in: [0]
+      }
+    }
+  }];
+  // Whether one assignment may hold a list of values. False means exactly
+  // one value per assignment. Must be present: every definition declares
+  // its cardinality explicitly.
+  bool multi_valued = 6 [(buf.validate.field).required = true];
+
+  // The type every value of this attribute must parse under. Exactly one
+  // arm is set; the arm is the type, so consumers switch on it instead of
+  // probing payloads.
+  oneof type {
+    option (buf.validate.oneof).required = true;
+
+    // Values are free text.
+    StringType string_type = 10;
+    // Values are numbers.
+    NumberType number_type = 11;
+    // Values are keys from the definition's closed vocabulary.
+    EnumType enum_type = 12;
+    // Values are references to entities of one declared kind.
+    ReferenceType reference_type = 13;
+  }
+}
+
+// One transition of an attribute definition. Provenance and timing ride the
+// event envelope, never this message.
+message AttributeEvent {
+  option (buf.validate.message).cel = {
+    id: "attribute_event.has_side"
+    message: "an attribute event must carry a before or an after"
+    expression: "has(this.before) || has(this.after)"
+  };
+  option (buf.validate.message).cel = {
+    id: "attribute_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression: "!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.attribute.id == this.ref.attribute.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "attribute_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression: "!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.attribute.id == this.ref.attribute.id"
+  };
+
+  // The ref to the definition that changed. Must be present.
+  AttributeGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The intended definition before the transition. Unset means the
+  // definition was created.
+  AttributeConfig before = 2;
+  // The intended definition after the transition. Unset means the
+  // definition was deleted.
+  AttributeConfig after = 3;
 }

@@ -605,12 +605,14 @@ const file_flowseer_api_inventory_v1_tag_proto_rawDesc = "" +
 	"\x03ref\x18\x01 \x01(\v2'.flowseer.api.inventory.v1.TagGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12E\n" +
 	"\tancestors\x18\x02 \x03(\v2'.flowseer.api.inventory.v1.TagGlobalRefR\tancestors\x12#\n" +
 	"\x04path\x18\x03 \x03(\tB\x0f\xbaH\f\x92\x01\t\"\ar\x05\x10\x01\x18\x80\x01R\x04path:\x95\x01\xbaH\x91\x01\x1a\x8e\x01\n" +
-	"\x1ftag_state.path_covers_ancestors\x12<path must hold one name per ancestor plus the tag's own name\x1a-this.path.size() == this.ancestors.size() + 1\"\xb4\x02\n" +
+	"\x1ftag_state.path_covers_ancestors\x12<path must hold one name per ancestor plus the tag's own name\x1a-this.path.size() == this.ancestors.size() + 1\"\xbd\x05\n" +
 	"\bTagEvent\x12A\n" +
 	"\x03ref\x18\x01 \x01(\v2'.flowseer.api.inventory.v1.TagGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12<\n" +
 	"\x06before\x18\x02 \x01(\v2$.flowseer.api.inventory.v1.TagConfigR\x06before\x12:\n" +
-	"\x05after\x18\x03 \x01(\v2$.flowseer.api.inventory.v1.TagConfigR\x05after:k\xbaHh\x1af\n" +
-	"\x12tag_event.has_side\x12+a tag event must carry a before or an after\x1a#has(this.before) || has(this.after)B\x82\x02\n" +
+	"\x05after\x18\x03 \x01(\v2$.flowseer.api.inventory.v1.TagConfigR\x05after:\xf3\x03\xbaH\xef\x03\x1af\n" +
+	"\x12tag_event.has_side\x12+a tag event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xc3\x01\n" +
+	"\x1ctag_event.before_matches_ref\x128the before side must describe the entity the event names\x1ai!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.tag.id == this.ref.tag.id\x1a\xbe\x01\n" +
+	"\x1btag_event.after_matches_ref\x127the after side must describe the entity the event names\x1af!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.tag.id == this.ref.tag.idB\x82\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\bTagProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_tag_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
