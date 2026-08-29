@@ -1,0 +1,19 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// Administrative priority used when a power-sourcing device is
+// oversubscribed. The critical/high/low vocabulary follows the
+// pethPsePortPowerPriority object of the RFC 3621 Power Ethernet MIB
+// (https://www.rfc-editor.org/rfc/rfc3621.html); the integer numbering is
+// FlowSeer's own and does not mirror the MIB.
+enum PoePriority {
+  // The source explicitly reported an unknown priority. Absence means unreported.
+  POE_PRIORITY_UNSPECIFIED = 0;
+  // Lowest power-delivery priority.
+  POE_PRIORITY_LOW = 1;
+  // Elevated power-delivery priority.
+  POE_PRIORITY_HIGH = 2;
+  // Critical power-delivery priority.
+  POE_PRIORITY_CRITICAL = 3;
+}

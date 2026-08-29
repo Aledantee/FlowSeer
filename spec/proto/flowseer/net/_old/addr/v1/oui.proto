@@ -1,0 +1,19 @@
+edition = "2024";
+
+package flowseer.net.addr.v1;
+
+import option "buf/validate/validate.proto";
+
+// An IEEE Organizationally Unique Identifier: the vendor-assigned 24-bit
+// prefix shared by an EUI-48 and an EUI-64, assigned by the IEEE Registration
+// Authority (https://standards.ieee.org/products-programs/regauth/). Its own
+// message rather than a view of EuiAddress because discovery's vendor
+// prefilter and vendor lookups hold an OUI with no address behind it.
+message Oui {
+  // Exactly 3 prefix octets must be present in canonical wire order, most
+  // significant first.
+  bytes octets = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 3
+  ];
+}

@@ -1,0 +1,48 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/auto_negotiation_facet.proto";
+import "flowseer/net/phy/v1/ethernet_capabilities.proto";
+import "flowseer/net/phy/v1/ethernet_duplex.proto";
+import "flowseer/net/phy/v1/ethernet_fec_mode.proto";
+import "flowseer/net/phy/v1/ethernet_medium.proto";
+import "flowseer/net/phy/v1/poe_facet.proto";
+import "flowseer/net/phy/v1/transceiver_facet.proto";
+import option "buf/validate/validate.proto";
+
+// Physical Ethernet attributes embedded by a physical interface kind. The
+// facet carries no interface or device identity.
+message EthernetFacet {
+  option (buf.validate.message).cel = {
+    id: "ethernet_facet.auto_negotiation_requires_support"
+    message: "auto-negotiation cannot be enabled when capability support is explicitly false"
+    expression:
+      "!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || "
+      "this.capabilities.auto_negotiation_supported || !has(this.applied_auto_negotiation) || "
+      "!has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabled"
+  };
+
+  // The link medium. Absent means the source did not report a medium.
+  EthernetMedium medium = 1;
+  // Power over Ethernet capability and state. Absent means the source supplied
+  // no PoE information.
+  PoeFacet poe = 2;
+  // Pluggable-transceiver presence and identity. Absent means the source
+  // supplied no transceiver information.
+  TransceiverFacet transceiver = 3;
+  // Active forward-error-correction mode. Absent means no mode was reported.
+  EthernetFecMode fec_mode = 4;
+  // Physical-link capabilities. Absent means the source supplied no
+  // capability information.
+  EthernetCapabilities capabilities = 5;
+  // The active line rate in bits per second. Absent means no negotiated or
+  // operational speed was reported; zero is invalid when present.
+  uint64 active_speed_bps = 6 [(buf.validate.field).uint64.gt = 0];
+  // The active duplex mode. Absent means the source did not report an
+  // operational duplex mode.
+  EthernetDuplex active_duplex = 7;
+  // Applied auto-negotiation value and progress. Absent means the source
+  // supplied no running auto-negotiation facts.
+  AutoNegotiationFacet applied_auto_negotiation = 8;
+}
