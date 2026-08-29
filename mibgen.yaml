@@ -2,23 +2,23 @@
 #
 # Search paths are resolved relative to this file. Module names match
 # the MODULE-IDENTITY declarations inside spec/mib/ietf/<NAME>.
-#
-# depends_on is intentionally empty for every module: every entry lives
-# under the same search path, so gosmi resolves transitive IMPORTS for
-# free (KTD-10). Cross-authority deps (e.g. a vendor MIB → IETF MIB)
-# would be the only reason to add depends_on.
 
 search_paths:
-  - ../../../../../spec/mib/ietf
-  - ../../../../../spec/mib/ieee
-  - ../../../../../spec/mib/mikrotik
+  - spec/mib/ietf
+  - spec/mib/ieee
+  - spec/mib/mikrotik
 
 modules:
-  - { name: SNMPv2-SMI,        package: snmpv2smi }
-  - { name: SNMPv2-TC,         package: snmpv2tc }
-  - { name: SNMPv2-CONF,       package: snmpv2conf }
-  - { name: IANAifType-MIB,    package: ianaiftype }
-  - { name: SNMPv2-MIB,        package: snmpv2mib }
+  - name: SNMPv2-SMI
+    package: snmpv2smi
+  - name: SNMPv2-TC
+    package: snmpv2tc
+  - name: SNMPv2-CONF
+    package: snmpv2conf
+  - name: IANAifType-MIB
+    package: ianaiftype
+  - name: SNMPv2-MIB
+    package: snmpv2mib
   - name: IF-MIB
     package: ifmib
     # IF-MIB has three indicators; only the per-row IfLastChange is

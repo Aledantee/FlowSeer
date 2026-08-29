@@ -6,7 +6,7 @@
 // directory; root `go build ./...` / `go mod tidy` do not descend here.
 module go.aledante.io/FlowSeer/src/edge/netpen
 
-go 1.26.5
+go 1.27
 
 replace go.aledante.io/FlowSeer => ../../../
 

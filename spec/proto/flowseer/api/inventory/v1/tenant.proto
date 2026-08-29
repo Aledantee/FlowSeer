@@ -1,0 +1,7 @@
+edition = "2024";
+
+package flowseer.api.inventory.v1;
+
+import option "buf/validate/validate.proto";
+
+message TenantRef {}
