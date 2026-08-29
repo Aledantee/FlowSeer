@@ -4,6 +4,15 @@
 // 	protoc        (unknown)
 // source: flowseer/api/inventory/v1/attribute.proto
 
+// The attribute definition family: what an attribute is called, what type
+// its values carry, and where they may attach. Values themselves live in
+// the assignment family in attribute_value.proto.
+//
+// The family is deliberately partial: it has no AttributeState. A
+// definition is pure operator intent with nothing observed or derived, so
+// the triad is Config and Event only. The sync hook's report of a missing
+// State member is answered by this comment.
+
 package inventoryv1
 
 import (
@@ -20,7 +29,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type AttributeRef struct {
+// The key of an attribute definition within its tenant. The definition is a
+// top-level entity, so the local ref carries the FlowSeer-assigned
+// identifier and nothing else.
+type AttributeLocalRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
@@ -29,20 +41,20 @@ type AttributeRef struct {
 	sizeCache              protoimpl.SizeCache
 }
 
-func (x *AttributeRef) Reset() {
-	*x = AttributeRef{}
+func (x *AttributeLocalRef) Reset() {
+	*x = AttributeLocalRef{}
 	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AttributeRef) String() string {
+func (x *AttributeLocalRef) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AttributeRef) ProtoMessage() {}
+func (*AttributeLocalRef) ProtoMessage() {}
 
-func (x *AttributeRef) ProtoReflect() protoreflect.Message {
+func (x *AttributeLocalRef) ProtoReflect() protoreflect.Message {
 	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -54,7 +66,7 @@ func (x *AttributeRef) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *AttributeRef) GetId() string {
+func (x *AttributeLocalRef) GetId() string {
 	if x != nil {
 		if x.xxx_hidden_Id != nil {
 			return *x.xxx_hidden_Id
@@ -64,31 +76,33 @@ func (x *AttributeRef) GetId() string {
 	return ""
 }
 
-func (x *AttributeRef) SetId(v string) {
+func (x *AttributeLocalRef) SetId(v string) {
 	x.xxx_hidden_Id = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
 }
 
-func (x *AttributeRef) HasId() bool {
+func (x *AttributeLocalRef) HasId() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *AttributeRef) ClearId() {
+func (x *AttributeLocalRef) ClearId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Id = nil
 }
 
-type AttributeRef_builder struct {
+type AttributeLocalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// FlowSeer-assigned definition identifier. Must be present; omit the
+	// containing field instead.
 	Id *string
 }
 
-func (b0 AttributeRef_builder) Build() *AttributeRef {
-	m0 := &AttributeRef{}
+func (b0 AttributeLocalRef_builder) Build() *AttributeLocalRef {
+	m0 := &AttributeLocalRef{}
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Id != nil {
@@ -98,31 +112,30 @@ func (b0 AttributeRef_builder) Build() *AttributeRef {
 	return m0
 }
 
-type Attribute struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ref         *AttributeRef          `protobuf:"bytes,1,opt,name=ref"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,10,opt,name=name"`
-	xxx_hidden_Description *string                `protobuf:"bytes,11,opt,name=description"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+// The definition is top-level, so its global ref wraps only the local ref,
+// kept as a wrapper so refs compose uniformly and the sync hook can check
+// the pair mechanically. Tenancy is ambient and never part of the ref.
+type AttributeGlobalRef struct {
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Attribute *AttributeLocalRef     `protobuf:"bytes,1,opt,name=attribute"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
-func (x *Attribute) Reset() {
-	*x = Attribute{}
+func (x *AttributeGlobalRef) Reset() {
+	*x = AttributeGlobalRef{}
 	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Attribute) String() string {
+func (x *AttributeGlobalRef) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Attribute) ProtoMessage() {}
+func (*AttributeGlobalRef) ProtoMessage() {}
 
-func (x *Attribute) ProtoReflect() protoreflect.Message {
+func (x *AttributeGlobalRef) ProtoReflect() protoreflect.Message {
 	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -134,14 +147,352 @@ func (x *Attribute) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Attribute) GetRef() *AttributeRef {
+func (x *AttributeGlobalRef) GetAttribute() *AttributeLocalRef {
+	if x != nil {
+		return x.xxx_hidden_Attribute
+	}
+	return nil
+}
+
+func (x *AttributeGlobalRef) SetAttribute(v *AttributeLocalRef) {
+	x.xxx_hidden_Attribute = v
+}
+
+func (x *AttributeGlobalRef) HasAttribute() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Attribute != nil
+}
+
+func (x *AttributeGlobalRef) ClearAttribute() {
+	x.xxx_hidden_Attribute = nil
+}
+
+type AttributeGlobalRef_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The definition's own key. Must be present; omit the containing field
+	// instead.
+	Attribute *AttributeLocalRef
+}
+
+func (b0 AttributeGlobalRef_builder) Build() *AttributeGlobalRef {
+	m0 := &AttributeGlobalRef{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Attribute = b.Attribute
+	return m0
+}
+
+// A free-text value type. Values parse as text of 1 to 2048 characters;
+// the cap is declared here once and the value payload in
+// attribute_value.proto follows it.
+type StringType struct {
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringType) Reset() {
+	*x = StringType{}
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringType) ProtoMessage() {}
+
+func (x *StringType) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type StringType_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 StringType_builder) Build() *StringType {
+	m0 := &StringType{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
+
+// A numeric value type. Values carry the Number variant from
+// attribute_value.proto: an exact int64 integer or a finite double.
+type NumberType struct {
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NumberType) Reset() {
+	*x = NumberType{}
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NumberType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NumberType) ProtoMessage() {}
+
+func (x *NumberType) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type NumberType_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 NumberType_builder) Build() *NumberType {
+	m0 := &NumberType{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
+
+// A closed-vocabulary value type. The operator defines the vocabulary as
+// data on the definition, so extending it is an ordinary update, never a
+// schema change. A value carries one of these keys, and the key string is
+// what survives a retype to string.
+type EnumType struct {
+	state             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Values []string               `protobuf:"bytes,1,rep,name=values"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *EnumType) Reset() {
+	*x = EnumType{}
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnumType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnumType) ProtoMessage() {}
+
+func (x *EnumType) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *EnumType) GetValues() []string {
+	if x != nil {
+		return x.xxx_hidden_Values
+	}
+	return nil
+}
+
+func (x *EnumType) SetValues(v []string) {
+	x.xxx_hidden_Values = v
+}
+
+type EnumType_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The allowed value keys. Must hold at least one key; keys are stable
+	// machine identifiers, never localized. Uniqueness within the list is
+	// enforced here; nothing else constrains the vocabulary.
+	Values []string
+}
+
+func (b0 EnumType_builder) Build() *EnumType {
+	m0 := &EnumType{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Values = b.Values
+	return m0
+}
+
+// An entity-reference value type. Values point at an existing entity of the
+// declared kind; the server checks existence at write time, and deleting
+// the referenced entity silently removes the values that point at it.
+type ReferenceType struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Kind        EntityType             `protobuf:"varint,1,opt,name=kind,enum=flowseer.api.inventory.v1.EntityType"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ReferenceType) Reset() {
+	*x = ReferenceType{}
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReferenceType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReferenceType) ProtoMessage() {}
+
+func (x *ReferenceType) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReferenceType) GetKind() EntityType {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Kind
+		}
+	}
+	return EntityType_ENTITY_TYPE_UNSPECIFIED
+}
+
+func (x *ReferenceType) SetKind(v EntityType) {
+	x.xxx_hidden_Kind = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *ReferenceType) HasKind() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ReferenceType) ClearKind() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Kind = EntityType_ENTITY_TYPE_UNSPECIFIED
+}
+
+type ReferenceType_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The kind referenced values must point at. Must be present; the zero
+	// value is rejected.
+	Kind *EntityType
+}
+
+func (b0 ReferenceType_builder) Build() *ReferenceType {
+	m0 := &ReferenceType{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Kind != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Kind = *b.Kind
+	}
+	return m0
+}
+
+// The intended definition of one attribute: its machine key, its display
+// name, its value type, the entity kinds it may attach to, and whether an
+// assignment holds one value or a list.
+//
+// Constraints that need more state than this message carries are enforced
+// by the inventory service: the key is unique within the tenant (the same
+// way tag sibling names are) and immutable after creation, and every edit
+// that can invalidate existing values — changing the type, removing an
+// enum key, removing a target kind, switching multi-valued to single, or
+// deleting the definition — is gated by an explicit operator decision to
+// drop the invalidated values or abandon the edit. Survival under a type
+// change is deterministic: only the enum-key-to-string conversion preserves
+// values; every other type pair invalidates.
+type AttributeConfig struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref         *AttributeGlobalRef    `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Key         *string                `protobuf:"bytes,2,opt,name=key"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,3,opt,name=name"`
+	xxx_hidden_Description *string                `protobuf:"bytes,4,opt,name=description"`
+	xxx_hidden_Targets     []EntityType           `protobuf:"varint,5,rep,packed,name=targets,enum=flowseer.api.inventory.v1.EntityType"`
+	xxx_hidden_MultiValued bool                   `protobuf:"varint,6,opt,name=multi_valued,json=multiValued"`
+	xxx_hidden_Type        isAttributeConfig_Type `protobuf_oneof:"type"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *AttributeConfig) Reset() {
+	*x = AttributeConfig{}
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttributeConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttributeConfig) ProtoMessage() {}
+
+func (x *AttributeConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AttributeConfig) GetRef() *AttributeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Ref
 	}
 	return nil
 }
 
-func (x *Attribute) GetName() string {
+func (x *AttributeConfig) GetKey() string {
+	if x != nil {
+		if x.xxx_hidden_Key != nil {
+			return *x.xxx_hidden_Key
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *AttributeConfig) GetName() string {
 	if x != nil {
 		if x.xxx_hidden_Name != nil {
 			return *x.xxx_hidden_Name
@@ -151,7 +502,7 @@ func (x *Attribute) GetName() string {
 	return ""
 }
 
-func (x *Attribute) GetDescription() string {
+func (x *AttributeConfig) GetDescription() string {
 	if x != nil {
 		if x.xxx_hidden_Description != nil {
 			return *x.xxx_hidden_Description
@@ -161,76 +512,505 @@ func (x *Attribute) GetDescription() string {
 	return ""
 }
 
-func (x *Attribute) SetRef(v *AttributeRef) {
+func (x *AttributeConfig) GetTargets() []EntityType {
+	if x != nil {
+		return x.xxx_hidden_Targets
+	}
+	return nil
+}
+
+func (x *AttributeConfig) GetMultiValued() bool {
+	if x != nil {
+		return x.xxx_hidden_MultiValued
+	}
+	return false
+}
+
+func (x *AttributeConfig) GetStringType() *StringType {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Type.(*attributeConfig_StringType); ok {
+			return x.StringType
+		}
+	}
+	return nil
+}
+
+func (x *AttributeConfig) GetNumberType() *NumberType {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Type.(*attributeConfig_NumberType); ok {
+			return x.NumberType
+		}
+	}
+	return nil
+}
+
+func (x *AttributeConfig) GetEnumType() *EnumType {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Type.(*attributeConfig_EnumType); ok {
+			return x.EnumType
+		}
+	}
+	return nil
+}
+
+func (x *AttributeConfig) GetReferenceType() *ReferenceType {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Type.(*attributeConfig_ReferenceType); ok {
+			return x.ReferenceType
+		}
+	}
+	return nil
+}
+
+func (x *AttributeConfig) SetRef(v *AttributeGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
 
-func (x *Attribute) SetName(v string) {
+func (x *AttributeConfig) SetKey(v string) {
+	x.xxx_hidden_Key = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
+}
+
+func (x *AttributeConfig) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
 }
 
-func (x *Attribute) SetDescription(v string) {
+func (x *AttributeConfig) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
 }
 
-func (x *Attribute) HasRef() bool {
+func (x *AttributeConfig) SetTargets(v []EntityType) {
+	x.xxx_hidden_Targets = v
+}
+
+func (x *AttributeConfig) SetMultiValued(v bool) {
+	x.xxx_hidden_MultiValued = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
+}
+
+func (x *AttributeConfig) SetStringType(v *StringType) {
+	if v == nil {
+		x.xxx_hidden_Type = nil
+		return
+	}
+	x.xxx_hidden_Type = &attributeConfig_StringType{v}
+}
+
+func (x *AttributeConfig) SetNumberType(v *NumberType) {
+	if v == nil {
+		x.xxx_hidden_Type = nil
+		return
+	}
+	x.xxx_hidden_Type = &attributeConfig_NumberType{v}
+}
+
+func (x *AttributeConfig) SetEnumType(v *EnumType) {
+	if v == nil {
+		x.xxx_hidden_Type = nil
+		return
+	}
+	x.xxx_hidden_Type = &attributeConfig_EnumType{v}
+}
+
+func (x *AttributeConfig) SetReferenceType(v *ReferenceType) {
+	if v == nil {
+		x.xxx_hidden_Type = nil
+		return
+	}
+	x.xxx_hidden_Type = &attributeConfig_ReferenceType{v}
+}
+
+func (x *AttributeConfig) HasRef() bool {
 	if x == nil {
 		return false
 	}
 	return x.xxx_hidden_Ref != nil
 }
 
-func (x *Attribute) HasName() bool {
+func (x *AttributeConfig) HasKey() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *Attribute) HasDescription() bool {
+func (x *AttributeConfig) HasName() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *Attribute) ClearRef() {
+func (x *AttributeConfig) HasDescription() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *AttributeConfig) HasMultiValued() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *AttributeConfig) HasType() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Type != nil
+}
+
+func (x *AttributeConfig) HasStringType() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Type.(*attributeConfig_StringType)
+	return ok
+}
+
+func (x *AttributeConfig) HasNumberType() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Type.(*attributeConfig_NumberType)
+	return ok
+}
+
+func (x *AttributeConfig) HasEnumType() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Type.(*attributeConfig_EnumType)
+	return ok
+}
+
+func (x *AttributeConfig) HasReferenceType() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Type.(*attributeConfig_ReferenceType)
+	return ok
+}
+
+func (x *AttributeConfig) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
 
-func (x *Attribute) ClearName() {
+func (x *AttributeConfig) ClearKey() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Key = nil
+}
+
+func (x *AttributeConfig) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_Name = nil
 }
 
-func (x *Attribute) ClearDescription() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+func (x *AttributeConfig) ClearDescription() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_Description = nil
 }
 
-type Attribute_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	Ref         *AttributeRef
-	Name        *string
-	Description *string
+func (x *AttributeConfig) ClearMultiValued() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_MultiValued = false
 }
 
-func (b0 Attribute_builder) Build() *Attribute {
-	m0 := &Attribute{}
+func (x *AttributeConfig) ClearType() {
+	x.xxx_hidden_Type = nil
+}
+
+func (x *AttributeConfig) ClearStringType() {
+	if _, ok := x.xxx_hidden_Type.(*attributeConfig_StringType); ok {
+		x.xxx_hidden_Type = nil
+	}
+}
+
+func (x *AttributeConfig) ClearNumberType() {
+	if _, ok := x.xxx_hidden_Type.(*attributeConfig_NumberType); ok {
+		x.xxx_hidden_Type = nil
+	}
+}
+
+func (x *AttributeConfig) ClearEnumType() {
+	if _, ok := x.xxx_hidden_Type.(*attributeConfig_EnumType); ok {
+		x.xxx_hidden_Type = nil
+	}
+}
+
+func (x *AttributeConfig) ClearReferenceType() {
+	if _, ok := x.xxx_hidden_Type.(*attributeConfig_ReferenceType); ok {
+		x.xxx_hidden_Type = nil
+	}
+}
+
+const AttributeConfig_Type_not_set_case case_AttributeConfig_Type = 0
+const AttributeConfig_StringType_case case_AttributeConfig_Type = 10
+const AttributeConfig_NumberType_case case_AttributeConfig_Type = 11
+const AttributeConfig_EnumType_case case_AttributeConfig_Type = 12
+const AttributeConfig_ReferenceType_case case_AttributeConfig_Type = 13
+
+func (x *AttributeConfig) WhichType() case_AttributeConfig_Type {
+	if x == nil {
+		return AttributeConfig_Type_not_set_case
+	}
+	switch x.xxx_hidden_Type.(type) {
+	case *attributeConfig_StringType:
+		return AttributeConfig_StringType_case
+	case *attributeConfig_NumberType:
+		return AttributeConfig_NumberType_case
+	case *attributeConfig_EnumType:
+		return AttributeConfig_EnumType_case
+	case *attributeConfig_ReferenceType:
+		return AttributeConfig_ReferenceType_case
+	default:
+		return AttributeConfig_Type_not_set_case
+	}
+}
+
+type AttributeConfig_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ref to this definition. Must be present.
+	Ref *AttributeGlobalRef
+	// Stable machine key consumers address the attribute by. Unique within
+	// the tenant, never localized, immutable after creation. Must be present.
+	Key *string
+	// Operator-assigned display name. Reads carry it localized per the RPC's
+	// language header when a translation exists, falling through to English;
+	// the translation mapping is server-side and never part of the payload.
+	// Must be present.
+	Name *string
+	// Free-text description of what the attribute measures. Unset means none
+	// was provided.
+	Description *string
+	// The entity kinds that may carry this attribute's values. Must hold at
+	// least one kind; a write against any other kind is rejected.
+	Targets []EntityType
+	// Whether one assignment may hold a list of values. False means exactly
+	// one value per assignment.
+	MultiValued *bool
+	// The type every value of this attribute must parse under. Exactly one
+	// arm is set; the arm is the type, so consumers switch on it instead of
+	// probing payloads.
+
+	// Fields of oneof xxx_hidden_Type:
+	// Values are free text.
+	StringType *StringType
+	// Values are numbers.
+	NumberType *NumberType
+	// Values are keys from the definition's closed vocabulary.
+	EnumType *EnumType
+	// Values are references to entities of one declared kind.
+	ReferenceType *ReferenceType
+	// -- end of xxx_hidden_Type
+}
+
+func (b0 AttributeConfig_builder) Build() *AttributeConfig {
+	m0 := &AttributeConfig{}
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
+	if b.Key != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
+		x.xxx_hidden_Key = b.Key
+	}
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
 		x.xxx_hidden_Description = b.Description
 	}
+	x.xxx_hidden_Targets = b.Targets
+	if b.MultiValued != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		x.xxx_hidden_MultiValued = *b.MultiValued
+	}
+	if b.StringType != nil {
+		x.xxx_hidden_Type = &attributeConfig_StringType{b.StringType}
+	}
+	if b.NumberType != nil {
+		x.xxx_hidden_Type = &attributeConfig_NumberType{b.NumberType}
+	}
+	if b.EnumType != nil {
+		x.xxx_hidden_Type = &attributeConfig_EnumType{b.EnumType}
+	}
+	if b.ReferenceType != nil {
+		x.xxx_hidden_Type = &attributeConfig_ReferenceType{b.ReferenceType}
+	}
+	return m0
+}
+
+type case_AttributeConfig_Type protoreflect.FieldNumber
+
+func (x case_AttributeConfig_Type) String() string {
+	md := file_flowseer_api_inventory_v1_attribute_proto_msgTypes[6].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isAttributeConfig_Type interface {
+	isAttributeConfig_Type()
+}
+
+type attributeConfig_StringType struct {
+	// Values are free text.
+	StringType *StringType `protobuf:"bytes,10,opt,name=string_type,json=stringType,oneof"`
+}
+
+type attributeConfig_NumberType struct {
+	// Values are numbers.
+	NumberType *NumberType `protobuf:"bytes,11,opt,name=number_type,json=numberType,oneof"`
+}
+
+type attributeConfig_EnumType struct {
+	// Values are keys from the definition's closed vocabulary.
+	EnumType *EnumType `protobuf:"bytes,12,opt,name=enum_type,json=enumType,oneof"`
+}
+
+type attributeConfig_ReferenceType struct {
+	// Values are references to entities of one declared kind.
+	ReferenceType *ReferenceType `protobuf:"bytes,13,opt,name=reference_type,json=referenceType,oneof"`
+}
+
+func (*attributeConfig_StringType) isAttributeConfig_Type() {}
+
+func (*attributeConfig_NumberType) isAttributeConfig_Type() {}
+
+func (*attributeConfig_EnumType) isAttributeConfig_Type() {}
+
+func (*attributeConfig_ReferenceType) isAttributeConfig_Type() {}
+
+// One transition of an attribute definition. Provenance and timing ride the
+// event envelope, never this message.
+type AttributeEvent struct {
+	state             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref    *AttributeGlobalRef    `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Before *AttributeConfig       `protobuf:"bytes,2,opt,name=before"`
+	xxx_hidden_After  *AttributeConfig       `protobuf:"bytes,3,opt,name=after"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AttributeEvent) Reset() {
+	*x = AttributeEvent{}
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttributeEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttributeEvent) ProtoMessage() {}
+
+func (x *AttributeEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_attribute_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AttributeEvent) GetRef() *AttributeGlobalRef {
+	if x != nil {
+		return x.xxx_hidden_Ref
+	}
+	return nil
+}
+
+func (x *AttributeEvent) GetBefore() *AttributeConfig {
+	if x != nil {
+		return x.xxx_hidden_Before
+	}
+	return nil
+}
+
+func (x *AttributeEvent) GetAfter() *AttributeConfig {
+	if x != nil {
+		return x.xxx_hidden_After
+	}
+	return nil
+}
+
+func (x *AttributeEvent) SetRef(v *AttributeGlobalRef) {
+	x.xxx_hidden_Ref = v
+}
+
+func (x *AttributeEvent) SetBefore(v *AttributeConfig) {
+	x.xxx_hidden_Before = v
+}
+
+func (x *AttributeEvent) SetAfter(v *AttributeConfig) {
+	x.xxx_hidden_After = v
+}
+
+func (x *AttributeEvent) HasRef() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Ref != nil
+}
+
+func (x *AttributeEvent) HasBefore() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Before != nil
+}
+
+func (x *AttributeEvent) HasAfter() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_After != nil
+}
+
+func (x *AttributeEvent) ClearRef() {
+	x.xxx_hidden_Ref = nil
+}
+
+func (x *AttributeEvent) ClearBefore() {
+	x.xxx_hidden_Before = nil
+}
+
+func (x *AttributeEvent) ClearAfter() {
+	x.xxx_hidden_After = nil
+}
+
+type AttributeEvent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ref to the definition that changed. Must be present.
+	Ref *AttributeGlobalRef
+	// The intended definition before the transition. Unset means the
+	// definition was created.
+	Before *AttributeConfig
+	// The intended definition after the transition. Unset means the
+	// definition was deleted.
+	After *AttributeConfig
+}
+
+func (b0 AttributeEvent_builder) Build() *AttributeEvent {
+	m0 := &AttributeEvent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Ref = b.Ref
+	x.xxx_hidden_Before = b.Before
+	x.xxx_hidden_After = b.After
 	return m0
 }
 
@@ -238,28 +1018,71 @@ var File_flowseer_api_inventory_v1_attribute_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_attribute_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/api/inventory/v1/attribute.proto\x12\x19flowseer.api.inventory.v1\"\x1e\n" +
-	"\fAttributeRef\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"|\n" +
-	"\tAttribute\x129\n" +
-	"\x03ref\x18\x01 \x01(\v2'.flowseer.api.inventory.v1.AttributeRefR\x03ref\x12\x12\n" +
-	"\x04name\x18\n" +
-	" \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\v \x01(\tR\vdescriptionB\x88\x02\n" +
+	")flowseer/api/inventory/v1/attribute.proto\x12\x19flowseer.api.inventory.v1\x1a&flowseer/api/inventory/v1/entity.proto\"0\n" +
+	"\x11AttributeLocalRef\x12\x1b\n" +
+	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"h\n" +
+	"\x12AttributeGlobalRef\x12R\n" +
+	"\tattribute\x18\x01 \x01(\v2,.flowseer.api.inventory.v1.AttributeLocalRefB\x06\xbaH\x03\xc8\x01\x01R\tattribute\"\f\n" +
+	"\n" +
+	"StringType\"\f\n" +
+	"\n" +
+	"NumberType\"Z\n" +
+	"\bEnumType\x12N\n" +
+	"\x06values\x18\x01 \x03(\tB6\xbaH3\x92\x010\b\x01\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[a-z0-9]([a-z0-9-]*[a-z0-9])?$R\x06values\"W\n" +
+	"\rReferenceType\x12F\n" +
+	"\x04kind\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\v\xbaH\b\xc8\x01\x01\x82\x01\x02 \x00R\x04kind\"\x9d\x05\n" +
+	"\x0fAttributeConfig\x12G\n" +
+	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
+	"\x03key\x18\x02 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[a-z0-9]([a-z0-9-]*[a-z0-9])?$R\x03key\x12!\n" +
+	"\x04name\x18\x03 \x01(\tB\r\xbaH\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x04name\x12*\n" +
+	"\vdescription\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10R\vdescription\x12T\n" +
+	"\atargets\x18\x05 \x03(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\x13\xbaH\x10\x92\x01\r\b\x01\x10\x10\x18\x01\"\x05\x82\x01\x02 \x00R\atargets\x12!\n" +
+	"\fmulti_valued\x18\x06 \x01(\bR\vmultiValued\x12H\n" +
+	"\vstring_type\x18\n" +
+	" \x01(\v2%.flowseer.api.inventory.v1.StringTypeH\x00R\n" +
+	"stringType\x12H\n" +
+	"\vnumber_type\x18\v \x01(\v2%.flowseer.api.inventory.v1.NumberTypeH\x00R\n" +
+	"numberType\x12B\n" +
+	"\tenum_type\x18\f \x01(\v2#.flowseer.api.inventory.v1.EnumTypeH\x00R\benumType\x12Q\n" +
+	"\x0ereference_type\x18\r \x01(\v2(.flowseer.api.inventory.v1.ReferenceTypeH\x00R\rreferenceTypeB\r\n" +
+	"\x04type\x12\x05\xbaH\x02\b\x01\"\xd9\x02\n" +
+	"\x0eAttributeEvent\x12G\n" +
+	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12B\n" +
+	"\x06before\x18\x02 \x01(\v2*.flowseer.api.inventory.v1.AttributeConfigR\x06before\x12@\n" +
+	"\x05after\x18\x03 \x01(\v2*.flowseer.api.inventory.v1.AttributeConfigR\x05after:x\xbaHu\x1as\n" +
+	"\x18attribute_event.has_side\x122an attribute event must carry a before or an after\x1a#has(this.before) || has(this.after)B\x88\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\x0eAttributeProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_inventory_v1_attribute_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_api_inventory_v1_attribute_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_flowseer_api_inventory_v1_attribute_proto_goTypes = []any{
-	(*AttributeRef)(nil), // 0: flowseer.api.inventory.v1.AttributeRef
-	(*Attribute)(nil),    // 1: flowseer.api.inventory.v1.Attribute
+	(*AttributeLocalRef)(nil),  // 0: flowseer.api.inventory.v1.AttributeLocalRef
+	(*AttributeGlobalRef)(nil), // 1: flowseer.api.inventory.v1.AttributeGlobalRef
+	(*StringType)(nil),         // 2: flowseer.api.inventory.v1.StringType
+	(*NumberType)(nil),         // 3: flowseer.api.inventory.v1.NumberType
+	(*EnumType)(nil),           // 4: flowseer.api.inventory.v1.EnumType
+	(*ReferenceType)(nil),      // 5: flowseer.api.inventory.v1.ReferenceType
+	(*AttributeConfig)(nil),    // 6: flowseer.api.inventory.v1.AttributeConfig
+	(*AttributeEvent)(nil),     // 7: flowseer.api.inventory.v1.AttributeEvent
+	(EntityType)(0),            // 8: flowseer.api.inventory.v1.EntityType
 }
 var file_flowseer_api_inventory_v1_attribute_proto_depIdxs = []int32{
-	0, // 0: flowseer.api.inventory.v1.Attribute.ref:type_name -> flowseer.api.inventory.v1.AttributeRef
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0,  // 0: flowseer.api.inventory.v1.AttributeGlobalRef.attribute:type_name -> flowseer.api.inventory.v1.AttributeLocalRef
+	8,  // 1: flowseer.api.inventory.v1.ReferenceType.kind:type_name -> flowseer.api.inventory.v1.EntityType
+	1,  // 2: flowseer.api.inventory.v1.AttributeConfig.ref:type_name -> flowseer.api.inventory.v1.AttributeGlobalRef
+	8,  // 3: flowseer.api.inventory.v1.AttributeConfig.targets:type_name -> flowseer.api.inventory.v1.EntityType
+	2,  // 4: flowseer.api.inventory.v1.AttributeConfig.string_type:type_name -> flowseer.api.inventory.v1.StringType
+	3,  // 5: flowseer.api.inventory.v1.AttributeConfig.number_type:type_name -> flowseer.api.inventory.v1.NumberType
+	4,  // 6: flowseer.api.inventory.v1.AttributeConfig.enum_type:type_name -> flowseer.api.inventory.v1.EnumType
+	5,  // 7: flowseer.api.inventory.v1.AttributeConfig.reference_type:type_name -> flowseer.api.inventory.v1.ReferenceType
+	1,  // 8: flowseer.api.inventory.v1.AttributeEvent.ref:type_name -> flowseer.api.inventory.v1.AttributeGlobalRef
+	6,  // 9: flowseer.api.inventory.v1.AttributeEvent.before:type_name -> flowseer.api.inventory.v1.AttributeConfig
+	6,  // 10: flowseer.api.inventory.v1.AttributeEvent.after:type_name -> flowseer.api.inventory.v1.AttributeConfig
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_attribute_proto_init() }
@@ -267,13 +1090,20 @@ func file_flowseer_api_inventory_v1_attribute_proto_init() {
 	if File_flowseer_api_inventory_v1_attribute_proto != nil {
 		return
 	}
+	file_flowseer_api_inventory_v1_entity_proto_init()
+	file_flowseer_api_inventory_v1_attribute_proto_msgTypes[6].OneofWrappers = []any{
+		(*attributeConfig_StringType)(nil),
+		(*attributeConfig_NumberType)(nil),
+		(*attributeConfig_EnumType)(nil),
+		(*attributeConfig_ReferenceType)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_inventory_v1_attribute_proto_rawDesc), len(file_flowseer_api_inventory_v1_attribute_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
