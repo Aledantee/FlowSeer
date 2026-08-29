@@ -793,7 +793,8 @@ type AttributeConfig_builder struct {
 	// least one kind; a write against any other kind is rejected.
 	Targets []EntityType
 	// Whether one assignment may hold a list of values. False means exactly
-	// one value per assignment.
+	// one value per assignment. Must be present: every definition declares
+	// its cardinality explicitly.
 	MultiValued *bool
 	// The type every value of this attribute must parse under. Exactly one
 	// arm is set; the arm is the type, so consumers switch on it instead of
@@ -1031,15 +1032,15 @@ const file_flowseer_api_inventory_v1_attribute_proto_rawDesc = "" +
 	"\bEnumType\x12N\n" +
 	"\x06values\x18\x01 \x03(\tB6\xbaH3\x92\x010\b\x01\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[a-z0-9]([a-z0-9-]*[a-z0-9])?$R\x06values\"W\n" +
 	"\rReferenceType\x12F\n" +
-	"\x04kind\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\v\xbaH\b\xc8\x01\x01\x82\x01\x02 \x00R\x04kind\"\x9d\x05\n" +
+	"\x04kind\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\v\xbaH\b\xc8\x01\x01\x82\x01\x02 \x00R\x04kind\"\xa5\x05\n" +
 	"\x0fAttributeConfig\x12G\n" +
 	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
 	"\x03key\x18\x02 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[a-z0-9]([a-z0-9-]*[a-z0-9])?$R\x03key\x12!\n" +
 	"\x04name\x18\x03 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x04name\x12*\n" +
 	"\vdescription\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10R\vdescription\x12T\n" +
-	"\atargets\x18\x05 \x03(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\x13\xbaH\x10\x92\x01\r\b\x01\x10\x10\x18\x01\"\x05\x82\x01\x02 \x00R\atargets\x12!\n" +
-	"\fmulti_valued\x18\x06 \x01(\bR\vmultiValued\x12H\n" +
+	"\atargets\x18\x05 \x03(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\x13\xbaH\x10\x92\x01\r\b\x01\x10\x10\x18\x01\"\x05\x82\x01\x02 \x00R\atargets\x12)\n" +
+	"\fmulti_valued\x18\x06 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\vmultiValued\x12H\n" +
 	"\vstring_type\x18\n" +
 	" \x01(\v2%.flowseer.api.inventory.v1.StringTypeH\x00R\n" +
 	"stringType\x12H\n" +

@@ -131,8 +131,9 @@ message AttributeConfig {
     }
   }];
   // Whether one assignment may hold a list of values. False means exactly
-  // one value per assignment.
-  bool multi_valued = 6;
+  // one value per assignment. Must be present: every definition declares
+  // its cardinality explicitly.
+  bool multi_valued = 6 [(buf.validate.field).required = true];
 
   // The type every value of this attribute must parse under. Exactly one
   // arm is set; the arm is the type, so consumers switch on it instead of
