@@ -12,9 +12,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	"iter"
 	"time"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 )
 
 // EntityAdminState is the SMI enum EntityAdminState.

@@ -10,7 +10,7 @@ import (
 // Default values for the CLI flags. These are duplicated in the package
 // doc comment (doc.go) and the plan; keep them in sync.
 const (
-	defaultConfigPath = "src/common/snmp/cmd/mibgen/mibgen.yaml"
+	defaultConfigPath = "mibgen.yaml"
 	defaultOutDir     = "generated/go/mib"
 	defaultPkgPrefix  = "go.aledante.io/FlowSeer/generated/go/mib"
 )

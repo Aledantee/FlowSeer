@@ -12,8 +12,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	"iter"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 )
 
 // EntitySensorDataScale is the SMI enum EntitySensorDataScale.

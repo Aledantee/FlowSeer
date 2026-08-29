@@ -2,7 +2,7 @@
 //
 // Source MIB:    MIKROTIK-MIB
 // Source path:   spec/mib/mikrotik/MIKROTIK-MIB
-// Source SHA-256: c26e27e693a7cf3b4d7b2d31560f0b2a55df69c4aae62fcfe6329adf0dd92312
+// Source SHA-256: b1a65ff8009d2b958177440e53005579305298eefcdeb062d236b305ce2373fb
 //
 // Regenerate with `go generate ./...` or `go tool mibgen`.
 
@@ -12,11 +12,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 	"iter"
 	"net"
 	"time"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	ae "go.aledante.io/ae"
 )
 
 // BoolValue is the SMI enum BoolValue.
@@ -163,6 +164,100 @@ func (v MtxrLTEModemAccessTechnologyValue) String() string {
 	return fmt.Sprintf("MtxrLTEModemAccessTechnologyValue(%d)", v)
 }
 
+// MtxrOpticalConnectorTypeValue is the SMI enum mtxrOpticalConnectorType (inline).
+// Transceiver connector type, SFF-8024 connector value
+type MtxrOpticalConnectorTypeValue int32
+
+const (
+	MtxrOpticalConnectorTypeValueUnknown              MtxrOpticalConnectorTypeValue = 0
+	MtxrOpticalConnectorTypeValueSc                   MtxrOpticalConnectorTypeValue = 1
+	MtxrOpticalConnectorTypeValueLc                   MtxrOpticalConnectorTypeValue = 7
+	MtxrOpticalConnectorTypeValueOpticalPigtail       MtxrOpticalConnectorTypeValue = 11
+	MtxrOpticalConnectorTypeValueMpo1x12              MtxrOpticalConnectorTypeValue = 12
+	MtxrOpticalConnectorTypeValueMpo2x16              MtxrOpticalConnectorTypeValue = 13
+	MtxrOpticalConnectorTypeValueHssdc2               MtxrOpticalConnectorTypeValue = 32
+	MtxrOpticalConnectorTypeValueCopperPigtail        MtxrOpticalConnectorTypeValue = 33
+	MtxrOpticalConnectorTypeValueRj45                 MtxrOpticalConnectorTypeValue = 34
+	MtxrOpticalConnectorTypeValueNoSeparableConnector MtxrOpticalConnectorTypeValue = 35
+	MtxrOpticalConnectorTypeValueMpo2x12              MtxrOpticalConnectorTypeValue = 39
+	MtxrOpticalConnectorTypeValueMpo1x16              MtxrOpticalConnectorTypeValue = 40
+)
+
+func (v MtxrOpticalConnectorTypeValue) String() string {
+	switch v {
+	case MtxrOpticalConnectorTypeValueUnknown:
+		return "unknown"
+	case MtxrOpticalConnectorTypeValueSc:
+		return "sc"
+	case MtxrOpticalConnectorTypeValueLc:
+		return "lc"
+	case MtxrOpticalConnectorTypeValueOpticalPigtail:
+		return "opticalPigtail"
+	case MtxrOpticalConnectorTypeValueMpo1x12:
+		return "mpo1x12"
+	case MtxrOpticalConnectorTypeValueMpo2x16:
+		return "mpo2x16"
+	case MtxrOpticalConnectorTypeValueHssdc2:
+		return "hssdc2"
+	case MtxrOpticalConnectorTypeValueCopperPigtail:
+		return "copperPigtail"
+	case MtxrOpticalConnectorTypeValueRj45:
+		return "rj45"
+	case MtxrOpticalConnectorTypeValueNoSeparableConnector:
+		return "noSeparableConnector"
+	case MtxrOpticalConnectorTypeValueMpo2x12:
+		return "mpo2x12"
+	case MtxrOpticalConnectorTypeValueMpo1x16:
+		return "mpo1x16"
+	}
+
+	return fmt.Sprintf("MtxrOpticalConnectorTypeValue(%d)", v)
+}
+
+// MtxrOpticalTypeValue is the SMI enum mtxrOpticalType (inline).
+// Transceiver module type, SFF-8024 identifier value
+type MtxrOpticalTypeValue int32
+
+const (
+	MtxrOpticalTypeValueUnknown  MtxrOpticalTypeValue = 0
+	MtxrOpticalTypeValueGbic     MtxrOpticalTypeValue = 1
+	MtxrOpticalTypeValueSoldered MtxrOpticalTypeValue = 2
+	MtxrOpticalTypeValueSfp      MtxrOpticalTypeValue = 3
+	MtxrOpticalTypeValueDwdmSfp  MtxrOpticalTypeValue = 11
+	MtxrOpticalTypeValueQsfp     MtxrOpticalTypeValue = 12
+	MtxrOpticalTypeValueQsfpPlus MtxrOpticalTypeValue = 13
+	MtxrOpticalTypeValueQsfp28   MtxrOpticalTypeValue = 17
+	MtxrOpticalTypeValueQsfpDD   MtxrOpticalTypeValue = 24
+	MtxrOpticalTypeValueQsfpCmis MtxrOpticalTypeValue = 30
+)
+
+func (v MtxrOpticalTypeValue) String() string {
+	switch v {
+	case MtxrOpticalTypeValueUnknown:
+		return "unknown"
+	case MtxrOpticalTypeValueGbic:
+		return "gbic"
+	case MtxrOpticalTypeValueSoldered:
+		return "soldered"
+	case MtxrOpticalTypeValueSfp:
+		return "sfp"
+	case MtxrOpticalTypeValueDwdmSfp:
+		return "dwdmSfp"
+	case MtxrOpticalTypeValueQsfp:
+		return "qsfp"
+	case MtxrOpticalTypeValueQsfpPlus:
+		return "qsfpPlus"
+	case MtxrOpticalTypeValueQsfp28:
+		return "qsfp28"
+	case MtxrOpticalTypeValueQsfpDD:
+		return "qsfpDD"
+	case MtxrOpticalTypeValueQsfpCmis:
+		return "qsfpCmis"
+	}
+
+	return fmt.Sprintf("MtxrOpticalTypeValue(%d)", v)
+}
+
 // MtxrPOEStatusValue is the SMI enum mtxrPOEStatus (inline).
 type MtxrPOEStatusValue int32
 
@@ -258,9 +353,9 @@ func MtxrWlRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, er
 		return 0, ae.Msg("empty Get response for mtxrWlRtabEntryCount")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWlCMRtabEntryCountGet reads the SMIv2 scalar mtxrWlCMRtabEntryCount.
@@ -275,9 +370,9 @@ func MtxrWlCMRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, 
 		return 0, ae.Msg("empty Get response for mtxrWlCMRtabEntryCount")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWlCMREntryCountGet reads the SMIv2 scalar mtxrWlCMREntryCount.
@@ -292,9 +387,9 @@ func MtxrWlCMREntryCountGet(ctx context.Context, sess snmp.Session) (uint32, err
 		return 0, ae.Msg("empty Get response for mtxrWlCMREntryCount")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlCoreVoltageGet reads the SMIv2 scalar mtxrHlCoreVoltage.
@@ -309,9 +404,9 @@ func MtxrHlCoreVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, ae.Msg("empty Get response for mtxrHlCoreVoltage")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlThreeDotThreeVoltageGet reads the SMIv2 scalar mtxrHlThreeDotThreeVoltage.
@@ -326,9 +421,9 @@ func MtxrHlThreeDotThreeVoltageGet(ctx context.Context, sess snmp.Session) (int3
 		return 0, ae.Msg("empty Get response for mtxrHlThreeDotThreeVoltage")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlFiveVoltageGet reads the SMIv2 scalar mtxrHlFiveVoltage.
@@ -343,9 +438,9 @@ func MtxrHlFiveVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, ae.Msg("empty Get response for mtxrHlFiveVoltage")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlTwelveVoltageGet reads the SMIv2 scalar mtxrHlTwelveVoltage.
@@ -360,9 +455,9 @@ func MtxrHlTwelveVoltageGet(ctx context.Context, sess snmp.Session) (int32, erro
 		return 0, ae.Msg("empty Get response for mtxrHlTwelveVoltage")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlSensorTemperatureGet reads the SMIv2 scalar mtxrHlSensorTemperature.
@@ -377,9 +472,9 @@ func MtxrHlSensorTemperatureGet(ctx context.Context, sess snmp.Session) (int32, 
 		return 0, ae.Msg("empty Get response for mtxrHlSensorTemperature")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlCpuTemperatureGet reads the SMIv2 scalar mtxrHlCpuTemperature.
@@ -394,9 +489,9 @@ func MtxrHlCpuTemperatureGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, ae.Msg("empty Get response for mtxrHlCpuTemperature")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlBoardTemperatureGet reads the SMIv2 scalar mtxrHlBoardTemperature.
@@ -410,9 +505,9 @@ func MtxrHlBoardTemperatureGet(ctx context.Context, sess snmp.Session) (int32, e
 		return 0, ae.Msg("empty Get response for mtxrHlBoardTemperature")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlVoltageGet reads the SMIv2 scalar mtxrHlVoltage.
@@ -426,9 +521,9 @@ func MtxrHlVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for mtxrHlVoltage")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlActiveFanGet reads the SMIv2 scalar mtxrHlActiveFan.
@@ -442,9 +537,9 @@ func MtxrHlActiveFanGet(ctx context.Context, sess snmp.Session) (string, error) 
 		return "", ae.Msg("empty Get response for mtxrHlActiveFan")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlTemperatureGet reads the SMIv2 scalar mtxrHlTemperature.
@@ -458,9 +553,9 @@ func MtxrHlTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, ae.Msg("empty Get response for mtxrHlTemperature")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlProcessorTemperatureGet reads the SMIv2 scalar mtxrHlProcessorTemperature.
@@ -474,9 +569,9 @@ func MtxrHlProcessorTemperatureGet(ctx context.Context, sess snmp.Session) (int3
 		return 0, ae.Msg("empty Get response for mtxrHlProcessorTemperature")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlPowerGet reads the SMIv2 scalar mtxrHlPower.
@@ -491,9 +586,9 @@ func MtxrHlPowerGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for mtxrHlPower")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlCurrentGet reads the SMIv2 scalar mtxrHlCurrent.
@@ -508,9 +603,9 @@ func MtxrHlCurrentGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for mtxrHlCurrent")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlProcessorFrequencyGet reads the SMIv2 scalar mtxrHlProcessorFrequency.
@@ -525,9 +620,9 @@ func MtxrHlProcessorFrequencyGet(ctx context.Context, sess snmp.Session) (int32,
 		return 0, ae.Msg("empty Get response for mtxrHlProcessorFrequency")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlPowerSupplyStateGet reads the SMIv2 scalar mtxrHlPowerSupplyState.
@@ -542,13 +637,13 @@ func MtxrHlPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (BoolValu
 		return BoolValue(0), ae.Msg("empty Get response for mtxrHlPowerSupplyState")
 	}
 
-	return (func(vb snmp.VarBind) (BoolValue, error) {
+	return func(vb snmp.VarBind) (BoolValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return BoolValue(0), err
 		}
 		return BoolValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlBackupPowerSupplyStateGet reads the SMIv2 scalar mtxrHlBackupPowerSupplyState.
@@ -563,13 +658,13 @@ func MtxrHlBackupPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (Bo
 		return BoolValue(0), ae.Msg("empty Get response for mtxrHlBackupPowerSupplyState")
 	}
 
-	return (func(vb snmp.VarBind) (BoolValue, error) {
+	return func(vb snmp.VarBind) (BoolValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return BoolValue(0), err
 		}
 		return BoolValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlFanSpeed1Get reads the SMIv2 scalar mtxrHlFanSpeed1.
@@ -584,9 +679,9 @@ func MtxrHlFanSpeed1Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for mtxrHlFanSpeed1")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrHlFanSpeed2Get reads the SMIv2 scalar mtxrHlFanSpeed2.
@@ -601,9 +696,9 @@ func MtxrHlFanSpeed2Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for mtxrHlFanSpeed2")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrAlarmSocketStatusGet reads the SMIv2 scalar mtxrAlarmSocketStatus.
@@ -618,13 +713,13 @@ func MtxrAlarmSocketStatusGet(ctx context.Context, sess snmp.Session) (MtxrAlarm
 		return MtxrAlarmSocketStatusValue(0), ae.Msg("empty Get response for mtxrAlarmSocketStatus")
 	}
 
-	return (func(vb snmp.VarBind) (MtxrAlarmSocketStatusValue, error) {
+	return func(vb snmp.VarBind) (MtxrAlarmSocketStatusValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return MtxrAlarmSocketStatusValue(0), err
 		}
 		return MtxrAlarmSocketStatusValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrLicSoftwareIdGet reads the SMIv2 scalar mtxrLicSoftwareId.
@@ -639,9 +734,9 @@ func MtxrLicSoftwareIdGet(ctx context.Context, sess snmp.Session) (string, error
 		return "", ae.Msg("empty Get response for mtxrLicSoftwareId")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrLicUpgrUntilGet reads the SMIv2 scalar mtxrLicUpgrUntil.
@@ -656,9 +751,9 @@ func MtxrLicUpgrUntilGet(ctx context.Context, sess snmp.Session) (time.Time, err
 		return time.Time{}, ae.Msg("empty Get response for mtxrLicUpgrUntil")
 	}
 
-	return (func(vb snmp.VarBind) (time.Time, error) {
+	return func(vb snmp.VarBind) (time.Time, error) {
 		return snmp.DecodeDateAndTime(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrLicLevelGet reads the SMIv2 scalar mtxrLicLevel.
@@ -673,9 +768,9 @@ func MtxrLicLevelGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for mtxrLicLevel")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrLicVersionGet reads the SMIv2 scalar mtxrLicVersion.
@@ -690,9 +785,9 @@ func MtxrLicVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrLicVersion")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrLicUpgradableToGet reads the SMIv2 scalar mtxrLicUpgradableTo.
@@ -707,9 +802,43 @@ func MtxrLicUpgradableToGet(ctx context.Context, sess snmp.Session) (int32, erro
 		return 0, ae.Msg("empty Get response for mtxrLicUpgradableTo")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
+}
+
+// MtxrHotspotActiveUserCountGet reads the SMIv2 scalar mtxrHotspotActiveUserCount.
+// Number of active (logged-in) HotSpot clients
+func MtxrHotspotActiveUserCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 2, 0)})
+	if err != nil {
+		return 0, err
+	}
+
+	if len(vbs) == 0 {
+		return 0, ae.Msg("empty Get response for mtxrHotspotActiveUserCount")
+	}
+
+	return func(vb snmp.VarBind) (uint32, error) {
+		return snmp.DecodeUint32(vb)
+	}(vbs[0])
+}
+
+// MtxrHotspotHostCountGet reads the SMIv2 scalar mtxrHotspotHostCount.
+// Number of HotSpot hosts
+func MtxrHotspotHostCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 3, 0)})
+	if err != nil {
+		return 0, err
+	}
+
+	if len(vbs) == 0 {
+		return 0, ae.Msg("empty Get response for mtxrHotspotHostCount")
+	}
+
+	return func(vb snmp.VarBind) (uint32, error) {
+		return snmp.DecodeUint32(vb)
+	}(vbs[0])
 }
 
 // MtxrDHCPLeaseCountGet reads the SMIv2 scalar mtxrDHCPLeaseCount.
@@ -723,9 +852,9 @@ func MtxrDHCPLeaseCountGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for mtxrDHCPLeaseCount")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrSystemRebootGet reads the SMIv2 scalar mtxrSystemReboot.
@@ -740,9 +869,9 @@ func MtxrSystemRebootGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, ae.Msg("empty Get response for mtxrSystemReboot")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrUSBPowerResetGet reads the SMIv2 scalar mtxrUSBPowerReset.
@@ -757,9 +886,9 @@ func MtxrUSBPowerResetGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, ae.Msg("empty Get response for mtxrUSBPowerReset")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrSerialNumberGet reads the SMIv2 scalar mtxrSerialNumber.
@@ -774,9 +903,9 @@ func MtxrSerialNumberGet(ctx context.Context, sess snmp.Session) (string, error)
 		return "", ae.Msg("empty Get response for mtxrSerialNumber")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrFirmwareVersionGet reads the SMIv2 scalar mtxrFirmwareVersion.
@@ -791,9 +920,9 @@ func MtxrFirmwareVersionGet(ctx context.Context, sess snmp.Session) (string, err
 		return "", ae.Msg("empty Get response for mtxrFirmwareVersion")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrNoteGet reads the SMIv2 scalar mtxrNote.
@@ -808,9 +937,9 @@ func MtxrNoteGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrNote")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrBuildTimeGet reads the SMIv2 scalar mtxrBuildTime.
@@ -825,9 +954,9 @@ func MtxrBuildTimeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrBuildTime")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrFirmwareUpgradeVersionGet reads the SMIv2 scalar mtxrFirmwareUpgradeVersion.
@@ -842,9 +971,9 @@ func MtxrFirmwareUpgradeVersionGet(ctx context.Context, sess snmp.Session) (stri
 		return "", ae.Msg("empty Get response for mtxrFirmwareUpgradeVersion")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrDisplayNameGet reads the SMIv2 scalar mtxrDisplayName.
@@ -859,9 +988,9 @@ func MtxrDisplayNameGet(ctx context.Context, sess snmp.Session) (string, error) 
 		return "", ae.Msg("empty Get response for mtxrDisplayName")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrBoardNameGet reads the SMIv2 scalar mtxrBoardName.
@@ -876,9 +1005,9 @@ func MtxrBoardNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrBoardName")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrDateGet reads the SMIv2 scalar mtxrDate.
@@ -893,9 +1022,9 @@ func MtxrDateGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for mtxrDate")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrLongtitudeGet reads the SMIv2 scalar mtxrLongtitude.
@@ -910,9 +1039,9 @@ func MtxrLongtitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrLongtitude")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrLatitudeGet reads the SMIv2 scalar mtxrLatitude.
@@ -927,9 +1056,9 @@ func MtxrLatitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrLatitude")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrAltitudeGet reads the SMIv2 scalar mtxrAltitude.
@@ -944,9 +1073,9 @@ func MtxrAltitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrAltitude")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrSpeedGet reads the SMIv2 scalar mtxrSpeed.
@@ -961,9 +1090,9 @@ func MtxrSpeedGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for mtxrSpeed")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrSattelitesGet reads the SMIv2 scalar mtxrSattelites.
@@ -978,9 +1107,9 @@ func MtxrSattelitesGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for mtxrSattelites")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrValidGet reads the SMIv2 scalar mtxrValid.
@@ -995,9 +1124,9 @@ func MtxrValidGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for mtxrValid")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemSignalStrengthGet reads the SMIv2 scalar mtxrWirelessModemSignalStrength.
@@ -1012,9 +1141,9 @@ func MtxrWirelessModemSignalStrengthGet(ctx context.Context, sess snmp.Session) 
 		return 0, ae.Msg("empty Get response for mtxrWirelessModemSignalStrength")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemSignalECIOGet reads the SMIv2 scalar mtxrWirelessModemSignalECIO.
@@ -1029,9 +1158,9 @@ func MtxrWirelessModemSignalECIOGet(ctx context.Context, sess snmp.Session) (int
 		return 0, ae.Msg("empty Get response for mtxrWirelessModemSignalECIO")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemManufacturerGet reads the SMIv2 scalar mtxrWirelessModemManufacturer.
@@ -1046,9 +1175,9 @@ func MtxrWirelessModemManufacturerGet(ctx context.Context, sess snmp.Session) (s
 		return "", ae.Msg("empty Get response for mtxrWirelessModemManufacturer")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemModelGet reads the SMIv2 scalar mtxrWirelessModemModel.
@@ -1063,9 +1192,9 @@ func MtxrWirelessModemModelGet(ctx context.Context, sess snmp.Session) (string, 
 		return "", ae.Msg("empty Get response for mtxrWirelessModemModel")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemRevisionGet reads the SMIv2 scalar mtxrWirelessModemRevision.
@@ -1080,9 +1209,9 @@ func MtxrWirelessModemRevisionGet(ctx context.Context, sess snmp.Session) (strin
 		return "", ae.Msg("empty Get response for mtxrWirelessModemRevision")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemIMEIGet reads the SMIv2 scalar mtxrWirelessModemIMEI.
@@ -1097,9 +1226,9 @@ func MtxrWirelessModemIMEIGet(ctx context.Context, sess snmp.Session) (string, e
 		return "", ae.Msg("empty Get response for mtxrWirelessModemIMEI")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemIMSIGet reads the SMIv2 scalar mtxrWirelessModemIMSI.
@@ -1114,9 +1243,9 @@ func MtxrWirelessModemIMSIGet(ctx context.Context, sess snmp.Session) (string, e
 		return "", ae.Msg("empty Get response for mtxrWirelessModemIMSI")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemAccessTechnologyGet reads the SMIv2 scalar mtxrWirelessModemAccessTechnology.
@@ -1131,9 +1260,9 @@ func MtxrWirelessModemAccessTechnologyGet(ctx context.Context, sess snmp.Session
 		return "", ae.Msg("empty Get response for mtxrWirelessModemAccessTechnology")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemFrameErrorRateGet reads the SMIv2 scalar mtxrWirelessModemFrameErrorRate.
@@ -1148,9 +1277,9 @@ func MtxrWirelessModemFrameErrorRateGet(ctx context.Context, sess snmp.Session) 
 		return "", ae.Msg("empty Get response for mtxrWirelessModemFrameErrorRate")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemRSRPGet reads the SMIv2 scalar mtxrWirelessModemRSRP.
@@ -1165,9 +1294,9 @@ func MtxrWirelessModemRSRPGet(ctx context.Context, sess snmp.Session) (int32, er
 		return 0, ae.Msg("empty Get response for mtxrWirelessModemRSRP")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemRSRQGet reads the SMIv2 scalar mtxrWirelessModemRSRQ.
@@ -1182,9 +1311,9 @@ func MtxrWirelessModemRSRQGet(ctx context.Context, sess snmp.Session) (int32, er
 		return 0, ae.Msg("empty Get response for mtxrWirelessModemRSRQ")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemSINRGet reads the SMIv2 scalar mtxrWirelessModemSINR.
@@ -1199,9 +1328,9 @@ func MtxrWirelessModemSINRGet(ctx context.Context, sess snmp.Session) (int32, er
 		return 0, ae.Msg("empty Get response for mtxrWirelessModemSINR")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWirelessModemPinStatusGet reads the SMIv2 scalar mtxrWirelessModemPinStatus.
@@ -1216,9 +1345,114 @@ func MtxrWirelessModemPinStatusGet(ctx context.Context, sess snmp.Session) (stri
 		return "", ae.Msg("empty Get response for mtxrWirelessModemPinStatus")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
+}
+
+// MtxrLteFirmwareInstalledVersionGet reads the SMIv2 scalar mtxrLteFirmwareInstalledVersion.
+// Firmware version currently installed on the LTE modem.
+func MtxrLteFirmwareInstalledVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 1, 0)})
+	if err != nil {
+		return "", err
+	}
+
+	if len(vbs) == 0 {
+		return "", ae.Msg("empty Get response for mtxrLteFirmwareInstalledVersion")
+	}
+
+	return func(vb snmp.VarBind) (string, error) {
+		return snmp.DecodeDisplayString(vb)
+	}(vbs[0])
+}
+
+// MtxrLteFirmwareLatestVersionGet reads the SMIv2 scalar mtxrLteFirmwareLatestVersion.
+// Latest firmware version available for the LTE modem, as determined by
+// the most recent successful version check.
+func MtxrLteFirmwareLatestVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 2, 0)})
+	if err != nil {
+		return "", err
+	}
+
+	if len(vbs) == 0 {
+		return "", ae.Msg("empty Get response for mtxrLteFirmwareLatestVersion")
+	}
+
+	return func(vb snmp.VarBind) (string, error) {
+		return snmp.DecodeDisplayString(vb)
+	}(vbs[0])
+}
+
+// MtxrLteFirmwareStatusGet reads the SMIv2 scalar mtxrLteFirmwareStatus.
+func MtxrLteFirmwareStatusGet(ctx context.Context, sess snmp.Session) (string, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 3, 0)})
+	if err != nil {
+		return "", err
+	}
+
+	if len(vbs) == 0 {
+		return "", ae.Msg("empty Get response for mtxrLteFirmwareStatus")
+	}
+
+	return func(vb snmp.VarBind) (string, error) {
+		return snmp.DecodeDisplayString(vb)
+	}(vbs[0])
+}
+
+// MtxrLteFirmwareLastCheckedGet reads the SMIv2 scalar mtxrLteFirmwareLastChecked.
+// Unix epoch timestamp indicating when the firmware version was last
+// successfully checked online.
+func MtxrLteFirmwareLastCheckedGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 4, 0)})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(vbs) == 0 {
+		return nil, ae.Msg("empty Get response for mtxrLteFirmwareLastChecked")
+	}
+
+	return func(vb snmp.VarBind) ([]byte, error) {
+		return snmp.DecodeBytes(vb)
+	}(vbs[0])
+}
+
+// MtxrLteFirmwareCheckTriggerGet reads the SMIv2 scalar mtxrLteFirmwareCheckTrigger.
+// Write the LTE modem device ID to this object to initiate firmware
+// version check for that modem.
+func MtxrLteFirmwareCheckTriggerGet(ctx context.Context, sess snmp.Session) (int32, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 5, 0)})
+	if err != nil {
+		return 0, err
+	}
+
+	if len(vbs) == 0 {
+		return 0, ae.Msg("empty Get response for mtxrLteFirmwareCheckTrigger")
+	}
+
+	return func(vb snmp.VarBind) (int32, error) {
+		return snmp.DecodeInt32(vb)
+	}(vbs[0])
+}
+
+// MtxrLteFirmwareInstallTriggerGet reads the SMIv2 scalar mtxrLteFirmwareInstallTrigger.
+// Write the LTE modem device ID to this object to initiate firmware
+// upgrade for that modem.
+func MtxrLteFirmwareInstallTriggerGet(ctx context.Context, sess snmp.Session) (int32, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 6, 0)})
+	if err != nil {
+		return 0, err
+	}
+
+	if len(vbs) == 0 {
+		return 0, ae.Msg("empty Get response for mtxrLteFirmwareInstallTrigger")
+	}
+
+	return func(vb snmp.VarBind) (int32, error) {
+		return snmp.DecodeInt32(vb)
+	}(vbs[0])
 }
 
 // MtxrIkeSACountGet reads the SMIv2 scalar mtxrIkeSACount.
@@ -1233,9 +1467,9 @@ func MtxrIkeSACountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for mtxrIkeSACount")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanEnabledGet reads the SMIv2 scalar mtxrWifiCapsmanEnabled.
@@ -1250,9 +1484,9 @@ func MtxrWifiCapsmanEnabledGet(ctx context.Context, sess snmp.Session) (bool, er
 		return false, ae.Msg("empty Get response for mtxrWifiCapsmanEnabled")
 	}
 
-	return (func(vb snmp.VarBind) (bool, error) {
+	return func(vb snmp.VarBind) (bool, error) {
 		return snmp.DecodeTruthValue(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanInterfacesGet reads the SMIv2 scalar mtxrWifiCapsmanInterfaces.
@@ -1267,9 +1501,9 @@ func MtxrWifiCapsmanInterfacesGet(ctx context.Context, sess snmp.Session) (strin
 		return "", ae.Msg("empty Get response for mtxrWifiCapsmanInterfaces")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanCACertificateGet reads the SMIv2 scalar mtxrWifiCapsmanCACertificate.
@@ -1284,9 +1518,9 @@ func MtxrWifiCapsmanCACertificateGet(ctx context.Context, sess snmp.Session) (st
 		return "", ae.Msg("empty Get response for mtxrWifiCapsmanCACertificate")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanCertificate.
@@ -1301,9 +1535,9 @@ func MtxrWifiCapsmanCertificateGet(ctx context.Context, sess snmp.Session) (stri
 		return "", ae.Msg("empty Get response for mtxrWifiCapsmanCertificate")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanRequirePeerCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanRequirePeerCertificate.
@@ -1318,9 +1552,9 @@ func MtxrWifiCapsmanRequirePeerCertificateGet(ctx context.Context, sess snmp.Ses
 		return false, ae.Msg("empty Get response for mtxrWifiCapsmanRequirePeerCertificate")
 	}
 
-	return (func(vb snmp.VarBind) (bool, error) {
+	return func(vb snmp.VarBind) (bool, error) {
 		return snmp.DecodeTruthValue(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanPackagePathGet reads the SMIv2 scalar mtxrWifiCapsmanPackagePath.
@@ -1335,9 +1569,9 @@ func MtxrWifiCapsmanPackagePathGet(ctx context.Context, sess snmp.Session) (stri
 		return "", ae.Msg("empty Get response for mtxrWifiCapsmanPackagePath")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanUpgradePolicyGet reads the SMIv2 scalar mtxrWifiCapsmanUpgradePolicy.
@@ -1352,9 +1586,9 @@ func MtxrWifiCapsmanUpgradePolicyGet(ctx context.Context, sess snmp.Session) (in
 		return 0, ae.Msg("empty Get response for mtxrWifiCapsmanUpgradePolicy")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanGeneratedCaCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanGeneratedCaCertificate.
@@ -1369,9 +1603,9 @@ func MtxrWifiCapsmanGeneratedCaCertificateGet(ctx context.Context, sess snmp.Ses
 		return "", ae.Msg("empty Get response for mtxrWifiCapsmanGeneratedCaCertificate")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWifiCapsmanGeneratedCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanGeneratedCertificate.
@@ -1386,9 +1620,9 @@ func MtxrWifiCapsmanGeneratedCertificateGet(ctx context.Context, sess snmp.Sessi
 		return "", ae.Msg("empty Get response for mtxrWifiCapsmanGeneratedCertificate")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapEnabledGet reads the SMIv2 scalar mtxrCapEnabled.
@@ -1403,9 +1637,9 @@ func MtxrCapEnabledGet(ctx context.Context, sess snmp.Session) (bool, error) {
 		return false, ae.Msg("empty Get response for mtxrCapEnabled")
 	}
 
-	return (func(vb snmp.VarBind) (bool, error) {
+	return func(vb snmp.VarBind) (bool, error) {
 		return snmp.DecodeTruthValue(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapInterfacesGet reads the SMIv2 scalar mtxrCapInterfaces.
@@ -1420,9 +1654,9 @@ func MtxrCapInterfacesGet(ctx context.Context, sess snmp.Session) (string, error
 		return "", ae.Msg("empty Get response for mtxrCapInterfaces")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapCertificateGet reads the SMIv2 scalar mtxrCapCertificate.
@@ -1437,9 +1671,9 @@ func MtxrCapCertificateGet(ctx context.Context, sess snmp.Session) (string, erro
 		return "", ae.Msg("empty Get response for mtxrCapCertificate")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapCapsManAddressesGet reads the SMIv2 scalar mtxrCapCapsManAddresses.
@@ -1454,9 +1688,9 @@ func MtxrCapCapsManAddressesGet(ctx context.Context, sess snmp.Session) (string,
 		return "", ae.Msg("empty Get response for mtxrCapCapsManAddresses")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapCapsManNamesGet reads the SMIv2 scalar mtxrCapCapsManNames.
@@ -1471,9 +1705,9 @@ func MtxrCapCapsManNamesGet(ctx context.Context, sess snmp.Session) (string, err
 		return "", ae.Msg("empty Get response for mtxrCapCapsManNames")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapCapsManCertificateCommonNamesGet reads the SMIv2 scalar mtxrCapCapsManCertificateCommonNames.
@@ -1488,9 +1722,9 @@ func MtxrCapCapsManCertificateCommonNamesGet(ctx context.Context, sess snmp.Sess
 		return "", ae.Msg("empty Get response for mtxrCapCapsManCertificateCommonNames")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapLockToCapsManGet reads the SMIv2 scalar mtxrCapLockToCapsMan.
@@ -1505,9 +1739,9 @@ func MtxrCapLockToCapsManGet(ctx context.Context, sess snmp.Session) (bool, erro
 		return false, ae.Msg("empty Get response for mtxrCapLockToCapsMan")
 	}
 
-	return (func(vb snmp.VarBind) (bool, error) {
+	return func(vb snmp.VarBind) (bool, error) {
 		return snmp.DecodeTruthValue(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapSlavesStaticGet reads the SMIv2 scalar mtxrCapSlavesStatic.
@@ -1522,9 +1756,9 @@ func MtxrCapSlavesStaticGet(ctx context.Context, sess snmp.Session) (bool, error
 		return false, ae.Msg("empty Get response for mtxrCapSlavesStatic")
 	}
 
-	return (func(vb snmp.VarBind) (bool, error) {
+	return func(vb snmp.VarBind) (bool, error) {
 		return snmp.DecodeTruthValue(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapSlavesDatapathGet reads the SMIv2 scalar mtxrCapSlavesDatapath.
@@ -1539,9 +1773,9 @@ func MtxrCapSlavesDatapathGet(ctx context.Context, sess snmp.Session) (string, e
 		return "", ae.Msg("empty Get response for mtxrCapSlavesDatapath")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapRequestedCertificateGet reads the SMIv2 scalar mtxrCapRequestedCertificate.
@@ -1556,9 +1790,9 @@ func MtxrCapRequestedCertificateGet(ctx context.Context, sess snmp.Session) (str
 		return "", ae.Msg("empty Get response for mtxrCapRequestedCertificate")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapLockedCapsManCommonNameGet reads the SMIv2 scalar mtxrCapLockedCapsManCommonName.
@@ -1573,9 +1807,9 @@ func MtxrCapLockedCapsManCommonNameGet(ctx context.Context, sess snmp.Session) (
 		return "", ae.Msg("empty Get response for mtxrCapLockedCapsManCommonName")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapCurrentCapsManAddressGet reads the SMIv2 scalar mtxrCapCurrentCapsManAddress.
@@ -1590,9 +1824,9 @@ func MtxrCapCurrentCapsManAddressGet(ctx context.Context, sess snmp.Session) (st
 		return "", ae.Msg("empty Get response for mtxrCapCurrentCapsManAddress")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCapCurrentCapsManIdentityGet reads the SMIv2 scalar mtxrCapCurrentCapsManIdentity.
@@ -1607,15 +1841,15 @@ func MtxrCapCurrentCapsManIdentityGet(ctx context.Context, sess snmp.Session) (s
 		return "", ae.Msg("empty Get response for mtxrCapCurrentCapsManIdentity")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCtTotalEntriesGet reads the SMIv2 scalar mtxrCtTotalEntries.
 // Total number of connections
 func MtxrCtTotalEntriesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
-	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 1, 1, 0)})
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 1, 0)})
 	if err != nil {
 		return 0, err
 	}
@@ -1624,15 +1858,15 @@ func MtxrCtTotalEntriesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for mtxrCtTotalEntries")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCtIP4EntriesGet reads the SMIv2 scalar mtxrCtIP4Entries.
 // Total number of ipv4 connections
 func MtxrCtIP4EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
-	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 1, 2, 0)})
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 2, 0)})
 	if err != nil {
 		return 0, err
 	}
@@ -1641,15 +1875,15 @@ func MtxrCtIP4EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, ae.Msg("empty Get response for mtxrCtIP4Entries")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrCtIP6EntriesGet reads the SMIv2 scalar mtxrCtIP6Entries.
 // Total number of ipv6 connections
 func MtxrCtIP6EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
-	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 1, 3, 0)})
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 3, 0)})
 	if err != nil {
 		return 0, err
 	}
@@ -1658,9 +1892,9 @@ func MtxrCtIP6EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, ae.Msg("empty Get response for mtxrCtIP6Entries")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // MtxrWlStatTxRate is the column mtxrWlStatTxRate of table mtxrWlStatTable.
@@ -8527,6 +8761,61 @@ var MtxrLTEModemRAT = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 1498
 	return snmp.DecodeDisplayString(vb)
 })
 
+// MtxrLTEModemPrimaryBand is the column mtxrLTEModemPrimaryBand of table mtxrLTEModemTable.
+var MtxrLTEModemPrimaryBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 15), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
+// MtxrLTEModemSessionUptime is the column mtxrLTEModemSessionUptime of table mtxrLTEModemTable.
+var MtxrLTEModemSessionUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 16), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
+	return snmp.DecodeUint32(vb)
+})
+
+// MtxrLTEModemRegStatus is the column mtxrLTEModemRegStatus of table mtxrLTEModemTable.
+var MtxrLTEModemRegStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 17), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
+// MtxrLTEModemPinStatus is the column mtxrLTEModemPinStatus of table mtxrLTEModemTable.
+var MtxrLTEModemPinStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 18), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
+// MtxrLTEModemModel is the column mtxrLTEModemModel of table mtxrLTEModemTable.
+var MtxrLTEModemModel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 19), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
+// MtxrLTEModemFirmware is the column mtxrLTEModemFirmware of table mtxrLTEModemTable.
+var MtxrLTEModemFirmware = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 20), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
+// MtxrLTEModemCQI is the column mtxrLTEModemCQI of table mtxrLTEModemTable.
+var MtxrLTEModemCQI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 21), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTEModemNrRSRP is the column mtxrLTEModemNrRSRP of table mtxrLTEModemTable.
+var MtxrLTEModemNrRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 22), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTEModemNrRSRQ is the column mtxrLTEModemNrRSRQ of table mtxrLTEModemTable.
+var MtxrLTEModemNrRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 23), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTEModemNrSINR is the column mtxrLTEModemNrSINR of table mtxrLTEModemTable.
+var MtxrLTEModemNrSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 24), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTEModemSignalRSRQD10 is the column mtxrLTEModemSignalRSRQD10 of table mtxrLTEModemTable.
+var MtxrLTEModemSignalRSRQD10 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 25), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
 // MtxrLTEModemTableRow is one row of mtxrLTEModemTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk().
@@ -8545,6 +8834,17 @@ type MtxrLTEModemTableRow struct {
 	MtxrLTEModemIMSI             string
 	MtxrLTEModemUICC             string
 	MtxrLTEModemRAT              string
+	MtxrLTEModemPrimaryBand      string
+	MtxrLTEModemSessionUptime    uint32
+	MtxrLTEModemRegStatus        string
+	MtxrLTEModemPinStatus        string
+	MtxrLTEModemModel            string
+	MtxrLTEModemFirmware         string
+	MtxrLTEModemCQI              int32
+	MtxrLTEModemNrRSRP           int32
+	MtxrLTEModemNrRSRQ           int32
+	MtxrLTEModemNrSINR           int32
+	MtxrLTEModemSignalRSRQD10    int32
 }
 
 // MtxrLTEModemTableWalker is a table-aware walker over mtxrLTEModemTable.
@@ -8809,6 +9109,162 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 						row.MtxrLTEModemRAT = dv
 					}
 				}
+			case 15:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrLTEModemPrimaryBand.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrLTEModemPrimaryBand = dv
+					}
+				}
+			case 16:
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+					row.MtxrLTEModemSessionUptime = uint32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTEModemSessionUptime.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTEModemSessionUptime = dv
+						}
+					}
+				}
+			case 17:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrLTEModemRegStatus.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrLTEModemRegStatus = dv
+					}
+				}
+			case 18:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrLTEModemPinStatus.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrLTEModemPinStatus = dv
+					}
+				}
+			case 19:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrLTEModemModel.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrLTEModemModel = dv
+					}
+				}
+			case 20:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrLTEModemFirmware.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrLTEModemFirmware = dv
+					}
+				}
+			case 21:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTEModemCQI = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTEModemCQI.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTEModemCQI = dv
+						}
+					}
+				}
+			case 22:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTEModemNrRSRP = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTEModemNrRSRP.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTEModemNrRSRP = dv
+						}
+					}
+				}
+			case 23:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTEModemNrRSRQ = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTEModemNrRSRQ.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTEModemNrRSRQ = dv
+						}
+					}
+				}
+			case 24:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTEModemNrSINR = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTEModemNrSINR.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTEModemNrSINR = dv
+						}
+					}
+				}
+			case 25:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTEModemSignalRSRQD10 = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTEModemSignalRSRQD10.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTEModemSignalRSRQD10 = dv
+						}
+					}
+				}
 			}
 			if derr != nil {
 				for i := 0; i < len(orderKey); i++ {
@@ -8864,6 +9320,384 @@ func (mtxrLTEModemTableT) Walk(ctx context.Context, sess snmp.Session, cols ...s
 	}
 
 	return &MtxrLTEModemTableWalker{
+		byCol: byCol,
+		cols:  cols,
+		rw:    w,
+	}
+}
+
+// MtxrLTECarrierAggBand is the column mtxrLTECarrierAggBand of table mtxrLTECarrierAggTable.
+var MtxrLTECarrierAggBand = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggEARFCN is the column mtxrLTECarrierAggEARFCN of table mtxrLTECarrierAggTable.
+var MtxrLTECarrierAggEARFCN = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggBandwidth is the column mtxrLTECarrierAggBandwidth of table mtxrLTECarrierAggTable.
+// MHz
+var MtxrLTECarrierAggBandwidth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggPhyCellId is the column mtxrLTECarrierAggPhyCellId of table mtxrLTECarrierAggTable.
+var MtxrLTECarrierAggPhyCellId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggRSSI is the column mtxrLTECarrierAggRSSI of table mtxrLTECarrierAggTable.
+// dBm
+var MtxrLTECarrierAggRSSI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggRSRP is the column mtxrLTECarrierAggRSRP of table mtxrLTECarrierAggTable.
+// dBm
+var MtxrLTECarrierAggRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggRSRQ is the column mtxrLTECarrierAggRSRQ of table mtxrLTECarrierAggTable.
+// dB
+var MtxrLTECarrierAggRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggSINR is the column mtxrLTECarrierAggSINR of table mtxrLTECarrierAggTable.
+// dB
+var MtxrLTECarrierAggSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggSNR is the column mtxrLTECarrierAggSNR of table mtxrLTECarrierAggTable.
+// dB
+var MtxrLTECarrierAggSNR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// MtxrLTECarrierAggNR is the column mtxrLTECarrierAggNR of table mtxrLTECarrierAggTable.
+var MtxrLTECarrierAggNR = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
+	return snmp.DecodeTruthValue(vb)
+})
+
+// MtxrLTECarrierAggUplink is the column mtxrLTECarrierAggUplink of table mtxrLTECarrierAggTable.
+var MtxrLTECarrierAggUplink = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
+	return snmp.DecodeTruthValue(vb)
+})
+
+// MtxrLTECarrierAggTableRow is one row of mtxrLTECarrierAggTable. Index carries the OID
+// suffix beyond the table-entry prefix; the remaining fields are
+// populated only for columns the caller passed to Walk().
+type MtxrLTECarrierAggTableRow struct {
+	Index                      snmp.OID
+	MtxrLTECarrierAggBand      int32
+	MtxrLTECarrierAggEARFCN    int32
+	MtxrLTECarrierAggBandwidth int32
+	MtxrLTECarrierAggPhyCellId int32
+	MtxrLTECarrierAggRSSI      int32
+	MtxrLTECarrierAggRSRP      int32
+	MtxrLTECarrierAggRSRQ      int32
+	MtxrLTECarrierAggSINR      int32
+	MtxrLTECarrierAggSNR       int32
+	MtxrLTECarrierAggNR        bool
+	MtxrLTECarrierAggUplink    bool
+}
+
+// MtxrLTECarrierAggTableWalker is a table-aware walker over mtxrLTECarrierAggTable.
+// Construct via MtxrLTECarrierAggTable.Walk(ctx, sess, cols...).
+type MtxrLTECarrierAggTableWalker struct {
+	rw    *snmp.RawWalker
+	cols  []snmp.AnyColumn
+	byCol map[uint32]snmp.AnyColumn
+}
+
+// Iter yields one (Index, Row) pair per row of the table walk. The
+// full BulkWalk is buffered before any row is yielded, so the
+// generated walker is correct over both column-major and row-major
+// agent emission. Contracts:
+//
+//  1. Ordering: rows yield in the index's first-appearance position
+//     in the agent's BulkWalk response — which for a well-behaved
+//     agent equals lexicographic OID order over the index suffix.
+//     This is NOT numerical order for composite-index tables
+//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
+//     before 192.168.0.2). Integer-keyed tables (ifTable,
+//     hrProcessorTable) get numeric order for free.
+//
+//  2. Row presence: every index observed under the entry prefix
+//     yields a row, even when only unrequested columns landed on
+//     that index. The row's requested-column fields stay at zero.
+//
+//  3. Decode error: rows for indexes strictly before the failing
+//     index in appearance order flush before Walker.Fail is set,
+//     preserving partial-progress visibility for the operator.
+//     The failing row and anything after it are not yielded.
+//     Check Err() afterwards for the terminal cause.
+//
+//  4. Memory profile: O(rows × requested columns) buffered before
+//     the first yield. Bounded by table size, not walk position —
+//     callers that broke out early via 'for row := range Iter()'
+//     still pay the full-walk buffer cost.
+func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrierAggTableRow] {
+	return func(yield func(snmp.OID, MtxrLTECarrierAggTableRow) bool) {
+		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1).WireBytes()
+		buffer := make(map[string]*MtxrLTECarrierAggTableRow)
+		var orderIdx []snmp.OID
+		var orderKey []string
+
+		for rv := range tw.rw.Iter() {
+			if !bytes.HasPrefix(rv.OID, entryWire) {
+				continue
+			}
+			suffix := rv.OID[len(entryWire):]
+			colID, colLen, okArc := snmp.RawFirstArc(suffix)
+			if !okArc || colLen >= len(suffix) {
+				continue
+			}
+			idxWire := suffix[colLen:]
+			row, exists := buffer[string(idxWire)]
+			if !exists {
+				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
+				if idxErr != nil {
+					continue
+				}
+				key := string(idxWire)
+				row = &MtxrLTECarrierAggTableRow{}
+				buffer[key] = row
+				orderIdx = append(orderIdx, idx)
+				orderKey = append(orderKey, key)
+			}
+			_, ok := tw.byCol[colID]
+			if !ok {
+				continue
+			}
+			var derr error
+			switch colID {
+			case 3:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggBand = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggBand.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggBand = dv
+						}
+					}
+				}
+			case 4:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggEARFCN = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggEARFCN.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggEARFCN = dv
+						}
+					}
+				}
+			case 5:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggBandwidth = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggBandwidth.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggBandwidth = dv
+						}
+					}
+				}
+			case 6:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggPhyCellId = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggPhyCellId.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggPhyCellId = dv
+						}
+					}
+				}
+			case 7:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggRSSI = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggRSSI.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggRSSI = dv
+						}
+					}
+				}
+			case 8:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggRSRP = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggRSRP.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggRSRP = dv
+						}
+					}
+				}
+			case 9:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggRSRQ = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggRSRQ.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggRSRQ = dv
+						}
+					}
+				}
+			case 10:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggSINR = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggSINR.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggSINR = dv
+						}
+					}
+				}
+			case 11:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrLTECarrierAggSNR = int32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrLTECarrierAggSNR.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrLTECarrierAggSNR = dv
+						}
+					}
+				}
+			case 12:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrLTECarrierAggNR.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrLTECarrierAggNR = dv
+					}
+				}
+			case 13:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrLTECarrierAggUplink.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrLTECarrierAggUplink = dv
+					}
+				}
+			}
+			if derr != nil {
+				for i := 0; i < len(orderKey); i++ {
+					if orderKey[i] == string(idxWire) {
+						break
+					}
+					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+						tw.rw.Fail(derr)
+						return
+					}
+				}
+				tw.rw.Fail(derr)
+				return
+			}
+		}
+
+		for i := 0; i < len(orderIdx); i++ {
+			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+				return
+			}
+		}
+	}
+}
+
+// Err returns the underlying walker's terminal error, or nil if
+// the walk completed naturally.
+func (tw *MtxrLTECarrierAggTableWalker) Err() error {
+	return tw.rw.Err()
+}
+
+// mtxrLTECarrierAggTableT is the singleton type of MtxrLTECarrierAggTable.
+type mtxrLTECarrierAggTableT struct{}
+
+// MtxrLTECarrierAggTable is the descriptor for the mtxrLTECarrierAggTable table.
+var MtxrLTECarrierAggTable mtxrLTECarrierAggTableT
+
+// Walk launches a BulkWalk over mtxrLTECarrierAggTable and returns a
+// table-aware iterator. Only the columns listed in cols are
+// decoded; varbinds for unlisted columns are skipped. The walk
+// rides the raw fast path (BulkWalkRaw); sessions or responses
+// that cannot deliver raw bytes degrade transparently to the
+// generic per-varbind decode.
+func (mtxrLTECarrierAggTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTECarrierAggTableWalker {
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1))
+	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+
+	for _, c := range cols {
+		o := c.OID()
+		if o.Len() == 0 {
+			continue
+		}
+		byCol[o.At(o.Len()-1)] = c
+	}
+
+	return &MtxrLTECarrierAggTableWalker{
 		byCol: byCol,
 		cols:  cols,
 		rw:    w,
@@ -9339,22 +10173,76 @@ var MtxrOpticalVendorSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4,
 	return snmp.DecodeDisplayString(vb)
 })
 
+// MtxrOpticalModulePresent is the column mtxrOpticalModulePresent of table mtxrOpticalTable.
+// Whether a transceiver module is inserted in the cage
+var MtxrOpticalModulePresent = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+	v, err := snmp.DecodeInt32(vb)
+	if err != nil {
+		return BoolValue(0), err
+	}
+	return BoolValue(v), nil
+})
+
+// MtxrOpticalVendorPartNumber is the column mtxrOpticalVendorPartNumber of table mtxrOpticalTable.
+// Vendor part number of the transceiver module
+var MtxrOpticalVendorPartNumber = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 14), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
+// MtxrOpticalType is the column mtxrOpticalType of table mtxrOpticalTable.
+// Transceiver module type, SFF-8024 identifier value
+var MtxrOpticalType = snmp.NewColumn[MtxrOpticalTypeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrOpticalTypeValue, error) {
+	v, err := snmp.DecodeInt32(vb)
+	if err != nil {
+		return MtxrOpticalTypeValue(0), err
+	}
+	return MtxrOpticalTypeValue(v), nil
+})
+
+// MtxrOpticalConnectorType is the column mtxrOpticalConnectorType of table mtxrOpticalTable.
+// Transceiver connector type, SFF-8024 connector value
+var MtxrOpticalConnectorType = snmp.NewColumn[MtxrOpticalConnectorTypeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrOpticalConnectorTypeValue, error) {
+	v, err := snmp.DecodeInt32(vb)
+	if err != nil {
+		return MtxrOpticalConnectorTypeValue(0), err
+	}
+	return MtxrOpticalConnectorTypeValue(v), nil
+})
+
+// MtxrOpticalLinkLengthCopperOM4 is the column mtxrOpticalLinkLengthCopperOM4 of table mtxrOpticalTable.
+// Supported link length for copper cable or OM4 fiber
+var MtxrOpticalLinkLengthCopperOM4 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 17), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
+	return snmp.DecodeUint32(vb)
+})
+
+// MtxrOpticalSupportedRates is the column mtxrOpticalSupportedRates of table mtxrOpticalTable.
+// Comma separated list of link rates supported by the module
+var MtxrOpticalSupportedRates = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 18), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
 // MtxrOpticalTableRow is one row of mtxrOpticalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk().
 type MtxrOpticalTableRow struct {
-	Index                    snmp.OID
-	MtxrOpticalName          string
-	MtxrOpticalRxLoss        BoolValue
-	MtxrOpticalTxFault       BoolValue
-	MtxrOpticalWavelength    uint32
-	MtxrOpticalTemperature   uint32
-	MtxrOpticalSupplyVoltage uint32
-	MtxrOpticalTxBiasCurrent uint32
-	MtxrOpticalTxPower       int32
-	MtxrOpticalRxPower       int32
-	MtxrOpticalVendorName    string
-	MtxrOpticalVendorSerial  string
+	Index                          snmp.OID
+	MtxrOpticalName                string
+	MtxrOpticalRxLoss              BoolValue
+	MtxrOpticalTxFault             BoolValue
+	MtxrOpticalWavelength          uint32
+	MtxrOpticalTemperature         uint32
+	MtxrOpticalSupplyVoltage       uint32
+	MtxrOpticalTxBiasCurrent       uint32
+	MtxrOpticalTxPower             int32
+	MtxrOpticalRxPower             int32
+	MtxrOpticalVendorName          string
+	MtxrOpticalVendorSerial        string
+	MtxrOpticalModulePresent       BoolValue
+	MtxrOpticalVendorPartNumber    string
+	MtxrOpticalType                MtxrOpticalTypeValue
+	MtxrOpticalConnectorType       MtxrOpticalConnectorTypeValue
+	MtxrOpticalLinkLengthCopperOM4 uint32
+	MtxrOpticalSupportedRates      string
 }
 
 // MtxrOpticalTableWalker is a table-aware walker over mtxrOpticalTable.
@@ -9589,6 +10477,94 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 						derr = dErr
 					} else {
 						row.MtxrOpticalVendorSerial = dv
+					}
+				}
+			case 13:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrOpticalModulePresent = BoolValue(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrOpticalModulePresent.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrOpticalModulePresent = dv
+						}
+					}
+				}
+			case 14:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrOpticalVendorPartNumber.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrOpticalVendorPartNumber = dv
+					}
+				}
+			case 15:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrOpticalType = MtxrOpticalTypeValue(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrOpticalType.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrOpticalType = dv
+						}
+					}
+				}
+			case 16:
+				if v, okRaw := snmp.RawInteger32(rv); okRaw {
+					row.MtxrOpticalConnectorType = MtxrOpticalConnectorTypeValue(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrOpticalConnectorType.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrOpticalConnectorType = dv
+						}
+					}
+				}
+			case 17:
+				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+					row.MtxrOpticalLinkLengthCopperOM4 = uint32(v)
+				} else {
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrOpticalLinkLengthCopperOM4.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrOpticalLinkLengthCopperOM4 = dv
+						}
+					}
+				}
+			case 18:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrOpticalSupportedRates.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrOpticalSupportedRates = dv
 					}
 				}
 			}
@@ -11092,14 +12068,22 @@ var MtxrWifiInterfacesFreq = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 
 	return snmp.DecodeDisplayString(vb)
 })
 
+// MtxrWifiInterfacesCurrentChannel is the column mtxrWifiInterfacesCurrentChannel of table mtxrWifiInterfaces.
+// Channel currently in use by the WiFi interface. Empty when the interface
+// is not running
+var MtxrWifiInterfacesCurrentChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
 // MtxrWifiInterfacesRow is one row of mtxrWifiInterfaces. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk().
 type MtxrWifiInterfacesRow struct {
-	Index                  snmp.OID
-	MtxrWifiInterfacesName string
-	MtxrWifiInterfacesSsid string
-	MtxrWifiInterfacesFreq string
+	Index                            snmp.OID
+	MtxrWifiInterfacesName           string
+	MtxrWifiInterfacesSsid           string
+	MtxrWifiInterfacesFreq           string
+	MtxrWifiInterfacesCurrentChannel string
 }
 
 // MtxrWifiInterfacesWalker is a table-aware walker over mtxrWifiInterfaces.
@@ -11208,6 +12192,18 @@ func (tw *MtxrWifiInterfacesWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiInterface
 						row.MtxrWifiInterfacesFreq = dv
 					}
 				}
+			case 5:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := MtxrWifiInterfacesCurrentChannel.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.MtxrWifiInterfacesCurrentChannel = dv
+					}
+				}
 			}
 			if derr != nil {
 				for i := 0; i < len(orderKey); i++ {
@@ -11274,293 +12270,322 @@ func (mtxrWifiInterfacesT) Walk(ctx context.Context, sess snmp.Session, cols ...
 // lookup during table-walk decoding. Per-MIB-module — no global
 // registry; cross-package callers should consult OIDDispatch().
 var mIKROTIKMIBOIDDispatch = map[string]snmp.AnyColumn{
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 10).WireKey():  MtxrWlStatRxCCQ,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 2).WireKey():   MtxrWlStatTxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 3).WireKey():   MtxrWlStatRxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 4).WireKey():   MtxrWlStatStrength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 5).WireKey():   MtxrWlStatSsid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 6).WireKey():   MtxrWlStatBssid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 7).WireKey():   MtxrWlStatFreq,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 8).WireKey():   MtxrWlStatBand,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 9).WireKey():   MtxrWlStatTxCCQ,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 2).WireKey():  MtxrWlCMRemoteName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 3).WireKey():  MtxrWlCMRemoteState,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 4).WireKey():  MtxrWlCMRemoteAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 5).WireKey():  MtxrWlCMRemoteRadios,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 10).WireKey():  MtxrWlRtabRouterOSVersion,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 11).WireKey():  MtxrWlRtabUptime,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 12).WireKey():  MtxrWlRtabSignalToNoise,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 13).WireKey():  MtxrWlRtabTxStrengthCh0,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 14).WireKey():  MtxrWlRtabRxStrengthCh0,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 15).WireKey():  MtxrWlRtabTxStrengthCh1,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 16).WireKey():  MtxrWlRtabRxStrengthCh1,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 17).WireKey():  MtxrWlRtabTxStrengthCh2,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 18).WireKey():  MtxrWlRtabRxStrengthCh2,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 19).WireKey():  MtxrWlRtabTxStrength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 20).WireKey():  MtxrWlRtabRadioName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 3).WireKey():   MtxrWlRtabStrength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 4).WireKey():   MtxrWlRtabTxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 5).WireKey():   MtxrWlRtabRxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 6).WireKey():   MtxrWlRtabTxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 7).WireKey():   MtxrWlRtabRxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 8).WireKey():   MtxrWlRtabTxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 9).WireKey():   MtxrWlRtabRxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 10).WireKey():  MtxrWlApOverallTxCCQ,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 11).WireKey():  MtxrWlApAuthClientCount,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 2).WireKey():   MtxrWlApTxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 3).WireKey():   MtxrWlApRxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 4).WireKey():   MtxrWlApSsid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 5).WireKey():   MtxrWlApBssid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 6).WireKey():   MtxrWlApClientCount,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 7).WireKey():   MtxrWlApFreq,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 8).WireKey():   MtxrWlApBand,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 9).WireKey():   MtxrWlApNoiseFloor,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 1).WireKey():   MtxrWlCMRtabAddr,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 10).WireKey():  MtxrWlCMRtabTxStrength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 11).WireKey():  MtxrWlCMRtabRxStrength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 12).WireKey():  MtxrWlCMRtabSsid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 13).WireKey():  MtxrWlCMRtabEapIdent,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 3).WireKey():   MtxrWlCMRtabUptime,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 4).WireKey():   MtxrWlCMRtabTxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 5).WireKey():   MtxrWlCMRtabRxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 6).WireKey():   MtxrWlCMRtabTxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 7).WireKey():   MtxrWlCMRtabRxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 8).WireKey():   MtxrWlCMRtabTxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 9).WireKey():   MtxrWlCMRtabRxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 2).WireKey():   MtxrWlCMRegClientCount,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 3).WireKey():   MtxrWlCMAuthClientCount,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 4).WireKey():   MtxrWlCMState,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 5).WireKey():   MtxrWlCMChannel,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 11).WireKey():  MtxrWl60GTxSectorInfo,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 12).WireKey():  MtxrWl60GRssi,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 13).WireKey():  MtxrWl60GPhyRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 2).WireKey():   MtxrWl60GMode,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 3).WireKey():   MtxrWl60GSsid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 4).WireKey():   MtxrWl60GConnected,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 5).WireKey():   MtxrWl60GRemote,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 6).WireKey():   MtxrWl60GFreq,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 7).WireKey():   MtxrWl60GMcs,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 8).WireKey():   MtxrWl60GSignal,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 9).WireKey():   MtxrWl60GTxSector,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 10).WireKey():  MtxrWl60GStaDistance,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 2).WireKey():   MtxrWl60GStaConnected,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 3).WireKey():   MtxrWl60GStaRemote,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 4).WireKey():   MtxrWl60GStaMcs,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 5).WireKey():   MtxrWl60GStaSignal,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 6).WireKey():   MtxrWl60GStaTxSector,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 8).WireKey():   MtxrWl60GStaPhyRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 9).WireKey():   MtxrWl60GStaRssi,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 2).WireKey():  MtxrDnStatTxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 3).WireKey():  MtxrDnStatRxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 4).WireKey():  MtxrDnStatTxStrength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 5).WireKey():  MtxrDnStatRxStrength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 6).WireKey():  MtxrDnConnected,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2).WireKey():  MtxrNeighborIpAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3).WireKey():  MtxrNeighborMacAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4).WireKey():  MtxrNeighborVersion,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 5).WireKey():  MtxrNeighborPlatform,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 6).WireKey():  MtxrNeighborIdentity,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 7).WireKey():  MtxrNeighborSoftwareID,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 8).WireKey():  MtxrNeighborInterfaceID,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 11).WireKey(): MtxrInterfaceStatsDriverRxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 12).WireKey(): MtxrInterfaceStatsDriverRxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 13).WireKey(): MtxrInterfaceStatsDriverTxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 14).WireKey(): MtxrInterfaceStatsDriverTxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 15).WireKey(): MtxrInterfaceStatsTxRx64,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 16).WireKey(): MtxrInterfaceStatsTxRx65To127,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 17).WireKey(): MtxrInterfaceStatsTxRx128To255,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 18).WireKey(): MtxrInterfaceStatsTxRx256To511,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 19).WireKey(): MtxrInterfaceStatsTxRx512To1023,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 2).WireKey():  MtxrInterfaceStatsName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 20).WireKey(): MtxrInterfaceStatsTxRx1024To1518,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 21).WireKey(): MtxrInterfaceStatsTxRx1519ToMax,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 31).WireKey(): MtxrInterfaceStatsRxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 32).WireKey(): MtxrInterfaceStatsRxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 33).WireKey(): MtxrInterfaceStatsRxTooShort,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 34).WireKey(): MtxrInterfaceStatsRx64,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 35).WireKey(): MtxrInterfaceStatsRx65To127,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 36).WireKey(): MtxrInterfaceStatsRx128To255,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 37).WireKey(): MtxrInterfaceStatsRx256To511,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 38).WireKey(): MtxrInterfaceStatsRx512To1023,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 39).WireKey(): MtxrInterfaceStatsRx1024To1518,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 40).WireKey(): MtxrInterfaceStatsRx1519ToMax,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 41).WireKey(): MtxrInterfaceStatsRxTooLong,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 42).WireKey(): MtxrInterfaceStatsRxBroadcast,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 43).WireKey(): MtxrInterfaceStatsRxPause,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 44).WireKey(): MtxrInterfaceStatsRxMulticast,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 45).WireKey(): MtxrInterfaceStatsRxFCSError,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 46).WireKey(): MtxrInterfaceStatsRxAlignError,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 47).WireKey(): MtxrInterfaceStatsRxFragment,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 48).WireKey(): MtxrInterfaceStatsRxOverflow,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 49).WireKey(): MtxrInterfaceStatsRxControl,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 50).WireKey(): MtxrInterfaceStatsRxUnknownOp,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 51).WireKey(): MtxrInterfaceStatsRxLengthError,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 52).WireKey(): MtxrInterfaceStatsRxCodeError,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 53).WireKey(): MtxrInterfaceStatsRxCarrierError,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 54).WireKey(): MtxrInterfaceStatsRxJabber,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 55).WireKey(): MtxrInterfaceStatsRxDrop,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 61).WireKey(): MtxrInterfaceStatsTxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 62).WireKey(): MtxrInterfaceStatsTxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 63).WireKey(): MtxrInterfaceStatsTxTooShort,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 64).WireKey(): MtxrInterfaceStatsTx64,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 65).WireKey(): MtxrInterfaceStatsTx65To127,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 66).WireKey(): MtxrInterfaceStatsTx128To255,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 67).WireKey(): MtxrInterfaceStatsTx256To511,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 68).WireKey(): MtxrInterfaceStatsTx512To1023,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 69).WireKey(): MtxrInterfaceStatsTx1024To1518,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 70).WireKey(): MtxrInterfaceStatsTx1519ToMax,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 71).WireKey(): MtxrInterfaceStatsTxTooLong,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 72).WireKey(): MtxrInterfaceStatsTxBroadcast,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 73).WireKey(): MtxrInterfaceStatsTxPause,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 74).WireKey(): MtxrInterfaceStatsTxMulticast,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 75).WireKey(): MtxrInterfaceStatsTxUnderrun,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 76).WireKey(): MtxrInterfaceStatsTxCollision,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 77).WireKey(): MtxrInterfaceStatsTxExcessiveCollision,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 78).WireKey(): MtxrInterfaceStatsTxMultipleCollision,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 79).WireKey(): MtxrInterfaceStatsTxSingleCollision,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 80).WireKey(): MtxrInterfaceStatsTxExcessiveDeferred,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 81).WireKey(): MtxrInterfaceStatsTxDeferred,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 82).WireKey(): MtxrInterfaceStatsTxLateCollision,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 83).WireKey(): MtxrInterfaceStatsTxTotalCollision,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 84).WireKey(): MtxrInterfaceStatsTxPauseHonored,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 85).WireKey(): MtxrInterfaceStatsTxDrop,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 86).WireKey(): MtxrInterfaceStatsTxJabber,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 87).WireKey(): MtxrInterfaceStatsTxFCSError,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 88).WireKey(): MtxrInterfaceStatsTxControl,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 89).WireKey(): MtxrInterfaceStatsTxFragment,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 90).WireKey(): MtxrInterfaceStatsLinkDowns,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 91).WireKey(): MtxrInterfaceStatsTxRx1024ToMax,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 2).WireKey():  MtxrPOEName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 3).WireKey():  MtxrPOEStatus,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 4).WireKey():  MtxrPOEVoltage,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 5).WireKey():  MtxrPOECurrent,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 6).WireKey():  MtxrPOEPower,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 10).WireKey(): MtxrLTEModemLac,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 11).WireKey(): MtxrLTEModemIMEI,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 12).WireKey(): MtxrLTEModemIMSI,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 13).WireKey(): MtxrLTEModemUICC,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 14).WireKey(): MtxrLTEModemRAT,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 2).WireKey():  MtxrLTEModemSignalRSSI,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 3).WireKey():  MtxrLTEModemSignalRSRQ,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4).WireKey():  MtxrLTEModemSignalRSRP,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5).WireKey():  MtxrLTEModemCellId,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 6).WireKey():  MtxrLTEModemAccessTechnology,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7).WireKey():  MtxrLTEModemSignalSINR,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8).WireKey():  MtxrLTEModemEnbId,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9).WireKey():  MtxrLTEModemSectorId,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 2).WireKey():  MtxrPartitionName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 3).WireKey():  MtxrPartitionSize,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 4).WireKey():  MtxrPartitionVersion,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 5).WireKey():  MtxrPartitionActive,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 6).WireKey():  MtxrPartitionRunning,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1, 2).WireKey():  MtxrScriptRunOutput,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 10).WireKey(): MtxrOpticalRxPower,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 11).WireKey(): MtxrOpticalVendorName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 12).WireKey(): MtxrOpticalVendorSerial,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 2).WireKey():  MtxrOpticalName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 3).WireKey():  MtxrOpticalRxLoss,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 4).WireKey():  MtxrOpticalTxFault,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5).WireKey():  MtxrOpticalWavelength,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 6).WireKey():  MtxrOpticalTemperature,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7).WireKey():  MtxrOpticalSupplyVoltage,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 8).WireKey():  MtxrOpticalTxBiasCurrent,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 9).WireKey():  MtxrOpticalTxPower,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 10).WireKey():  MtxrQueueSimplePacketsIn,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 11).WireKey():  MtxrQueueSimplePacketsOut,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 12).WireKey():  MtxrQueueSimplePCQQueuesIn,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 13).WireKey():  MtxrQueueSimplePCQQueuesOut,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 14).WireKey():  MtxrQueueSimpleDroppedIn,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 15).WireKey():  MtxrQueueSimpleDroppedOut,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 2).WireKey():   MtxrQueueSimpleName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 3).WireKey():   MtxrQueueSimpleSrcAddr,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 4).WireKey():   MtxrQueueSimpleSrcMask,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 5).WireKey():   MtxrQueueSimpleDstAddr,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 6).WireKey():   MtxrQueueSimpleDstMask,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 7).WireKey():   MtxrQueueSimpleIface,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 8).WireKey():   MtxrQueueSimpleBytesIn,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 9).WireKey():   MtxrQueueSimpleBytesOut,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 2).WireKey():   MtxrQueueTreeName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 3).WireKey():   MtxrQueueTreeFlow,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 4).WireKey():   MtxrQueueTreeParentIndex,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 5).WireKey():   MtxrQueueTreeBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 6).WireKey():   MtxrQueueTreePackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 7).WireKey():   MtxrQueueTreeHCBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 8).WireKey():   MtxrQueueTreePCQQueues,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 9).WireKey():   MtxrQueueTreeDropped,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 10).WireKey(): MtxrIkeSAIdentity,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 11).WireKey(): MtxrIkeSAPh2Count,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 12).WireKey(): MtxrIkeSALocalAddressType,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 13).WireKey(): MtxrIkeSALocalAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 14).WireKey(): MtxrIkeSALocalPort,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 15).WireKey(): MtxrIkeSAPeerAddressType,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 16).WireKey(): MtxrIkeSAPeerAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 17).WireKey(): MtxrIkeSAPeerPort,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 18).WireKey(): MtxrIkeSADynamicAddressType,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 19).WireKey(): MtxrIkeSADynamicAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 2).WireKey():  MtxrIkeSAInitiatorCookie,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 20).WireKey(): MtxrIkeSATxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 21).WireKey(): MtxrIkeSARxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 22).WireKey(): MtxrIkeSATxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 23).WireKey(): MtxrIkeSARxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 3).WireKey():  MtxrIkeSAResponderCookie,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 4).WireKey():  MtxrIkeSAResponder,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 5).WireKey():  MtxrIkeSANatt,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 6).WireKey():  MtxrIkeSAVersion,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 7).WireKey():  MtxrIkeSAState,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 8).WireKey():  MtxrIkeSAUptime,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 9).WireKey():  MtxrIkeSASeen,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 2).WireKey():  MtxrRemoteCapAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 3).WireKey():  MtxrRemoteCapIdentity,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 4).WireKey():  MtxrRemoteCapBoardName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 5).WireKey():  MtxrRemoteCapSerial,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6).WireKey():  MtxrRemoteCapVersion,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7).WireKey():  MtxrRemoteCapBaseMac,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 8).WireKey():  MtxrRemoteCapCommonName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 9).WireKey():  MtxrRemoteCapState,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1).WireKey():  MtxrWifiRegistrationMacAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 10).WireKey(): MtxrWifiRegistrationRxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 11).WireKey(): MtxrWifiRegistrationTxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 12).WireKey(): MtxrWifiRegistrationRxPackets,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 13).WireKey(): MtxrWifiRegistrationTxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 14).WireKey(): MtxrWifiRegistrationRxBytes,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 15).WireKey(): MtxrWifiRegistrationTxBitsPerSecond,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16).WireKey(): MtxrWifiRegistrationRxBitsPerSecond,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17).WireKey(): MtxrWifiRegistrationVlanId,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 18).WireKey(): MtxrWifiRegistrationAuthorized,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 3).WireKey():  MtxrWifiRegistrationSsid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 4).WireKey():  MtxrWifiRegistrationUptime,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 5).WireKey():  MtxrWifiRegistrationLastActivity,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 6).WireKey():  MtxrWifiRegistrationSignal,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 7).WireKey():  MtxrWifiRegistrationAuthType,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 8).WireKey():  MtxrWifiRegistrationBand,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 9).WireKey():  MtxrWifiRegistrationTxRate,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 2).WireKey():  MtxrWifiInterfacesName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 3).WireKey():  MtxrWifiInterfacesSsid,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 4).WireKey():  MtxrWifiInterfacesFreq,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 2).WireKey(): MtxrGaugeName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 3).WireKey(): MtxrGaugeValue,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 4).WireKey(): MtxrGaugeUnit,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 10).WireKey():  MtxrHotspotActiveUserIdleTimeout,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 11).WireKey():  MtxrHotspotActiveUserPingTimeout,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 12).WireKey():  MtxrHotspotActiveUserBytesIn,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 13).WireKey():  MtxrHotspotActiveUserBytesOut,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 14).WireKey():  MtxrHotspotActiveUserPacketsIn,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 15).WireKey():  MtxrHotspotActiveUserPacketsOut,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 16).WireKey():  MtxrHotspotActiveUserLimitBytesIn,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 17).WireKey():  MtxrHotspotActiveUserLimitBytesOut,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 18).WireKey():  MtxrHotspotActiveUserAdvertStatus,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 19).WireKey():  MtxrHotspotActiveUserRadius,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 2).WireKey():   MtxrHotspotActiveUserServerID,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 20).WireKey():  MtxrHotspotActiveUserBlockedByAdvert,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 3).WireKey():   MtxrHotspotActiveUserName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 4).WireKey():   MtxrHotspotActiveUserDomain,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 5).WireKey():   MtxrHotspotActiveUserIP,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 6).WireKey():   MtxrHotspotActiveUserMAC,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 7).WireKey():   MtxrHotspotActiveUserConnectTime,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 8).WireKey():   MtxrHotspotActiveUserValidTillTime,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 9).WireKey():   MtxrHotspotActiveUserIdleStartTime,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 2).WireKey():   MtxrScriptName,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 3).WireKey():   MtxrScriptRunCmd,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 10).WireKey():     MtxrWlStatRxCCQ,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 2).WireKey():      MtxrWlStatTxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 3).WireKey():      MtxrWlStatRxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 4).WireKey():      MtxrWlStatStrength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 5).WireKey():      MtxrWlStatSsid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 6).WireKey():      MtxrWlStatBssid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 7).WireKey():      MtxrWlStatFreq,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 8).WireKey():      MtxrWlStatBand,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 9).WireKey():      MtxrWlStatTxCCQ,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 2).WireKey():     MtxrWlCMRemoteName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 3).WireKey():     MtxrWlCMRemoteState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 4).WireKey():     MtxrWlCMRemoteAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 5).WireKey():     MtxrWlCMRemoteRadios,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 10).WireKey():     MtxrWlRtabRouterOSVersion,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 11).WireKey():     MtxrWlRtabUptime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 12).WireKey():     MtxrWlRtabSignalToNoise,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 13).WireKey():     MtxrWlRtabTxStrengthCh0,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 14).WireKey():     MtxrWlRtabRxStrengthCh0,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 15).WireKey():     MtxrWlRtabTxStrengthCh1,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 16).WireKey():     MtxrWlRtabRxStrengthCh1,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 17).WireKey():     MtxrWlRtabTxStrengthCh2,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 18).WireKey():     MtxrWlRtabRxStrengthCh2,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 19).WireKey():     MtxrWlRtabTxStrength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 20).WireKey():     MtxrWlRtabRadioName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 3).WireKey():      MtxrWlRtabStrength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 4).WireKey():      MtxrWlRtabTxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 5).WireKey():      MtxrWlRtabRxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 6).WireKey():      MtxrWlRtabTxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 7).WireKey():      MtxrWlRtabRxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 8).WireKey():      MtxrWlRtabTxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 9).WireKey():      MtxrWlRtabRxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 10).WireKey():     MtxrWlApOverallTxCCQ,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 11).WireKey():     MtxrWlApAuthClientCount,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 2).WireKey():      MtxrWlApTxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 3).WireKey():      MtxrWlApRxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 4).WireKey():      MtxrWlApSsid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 5).WireKey():      MtxrWlApBssid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 6).WireKey():      MtxrWlApClientCount,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 7).WireKey():      MtxrWlApFreq,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 8).WireKey():      MtxrWlApBand,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 9).WireKey():      MtxrWlApNoiseFloor,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 1).WireKey():      MtxrWlCMRtabAddr,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 10).WireKey():     MtxrWlCMRtabTxStrength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 11).WireKey():     MtxrWlCMRtabRxStrength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 12).WireKey():     MtxrWlCMRtabSsid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 13).WireKey():     MtxrWlCMRtabEapIdent,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 3).WireKey():      MtxrWlCMRtabUptime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 4).WireKey():      MtxrWlCMRtabTxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 5).WireKey():      MtxrWlCMRtabRxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 6).WireKey():      MtxrWlCMRtabTxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 7).WireKey():      MtxrWlCMRtabRxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 8).WireKey():      MtxrWlCMRtabTxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 9).WireKey():      MtxrWlCMRtabRxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 2).WireKey():      MtxrWlCMRegClientCount,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 3).WireKey():      MtxrWlCMAuthClientCount,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 4).WireKey():      MtxrWlCMState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 5).WireKey():      MtxrWlCMChannel,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 11).WireKey():     MtxrWl60GTxSectorInfo,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 12).WireKey():     MtxrWl60GRssi,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 13).WireKey():     MtxrWl60GPhyRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 2).WireKey():      MtxrWl60GMode,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 3).WireKey():      MtxrWl60GSsid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 4).WireKey():      MtxrWl60GConnected,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 5).WireKey():      MtxrWl60GRemote,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 6).WireKey():      MtxrWl60GFreq,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 7).WireKey():      MtxrWl60GMcs,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 8).WireKey():      MtxrWl60GSignal,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 9).WireKey():      MtxrWl60GTxSector,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 10).WireKey():     MtxrWl60GStaDistance,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 2).WireKey():      MtxrWl60GStaConnected,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 3).WireKey():      MtxrWl60GStaRemote,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 4).WireKey():      MtxrWl60GStaMcs,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 5).WireKey():      MtxrWl60GStaSignal,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 6).WireKey():      MtxrWl60GStaTxSector,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 8).WireKey():      MtxrWl60GStaPhyRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 9).WireKey():      MtxrWl60GStaRssi,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 2).WireKey():     MtxrDnStatTxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 3).WireKey():     MtxrDnStatRxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 4).WireKey():     MtxrDnStatTxStrength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 5).WireKey():     MtxrDnStatRxStrength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 6).WireKey():     MtxrDnConnected,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2).WireKey():     MtxrNeighborIpAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3).WireKey():     MtxrNeighborMacAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4).WireKey():     MtxrNeighborVersion,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 5).WireKey():     MtxrNeighborPlatform,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 6).WireKey():     MtxrNeighborIdentity,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 7).WireKey():     MtxrNeighborSoftwareID,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 8).WireKey():     MtxrNeighborInterfaceID,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 11).WireKey():    MtxrInterfaceStatsDriverRxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 12).WireKey():    MtxrInterfaceStatsDriverRxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 13).WireKey():    MtxrInterfaceStatsDriverTxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 14).WireKey():    MtxrInterfaceStatsDriverTxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 15).WireKey():    MtxrInterfaceStatsTxRx64,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 16).WireKey():    MtxrInterfaceStatsTxRx65To127,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 17).WireKey():    MtxrInterfaceStatsTxRx128To255,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 18).WireKey():    MtxrInterfaceStatsTxRx256To511,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 19).WireKey():    MtxrInterfaceStatsTxRx512To1023,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 2).WireKey():     MtxrInterfaceStatsName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 20).WireKey():    MtxrInterfaceStatsTxRx1024To1518,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 21).WireKey():    MtxrInterfaceStatsTxRx1519ToMax,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 31).WireKey():    MtxrInterfaceStatsRxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 32).WireKey():    MtxrInterfaceStatsRxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 33).WireKey():    MtxrInterfaceStatsRxTooShort,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 34).WireKey():    MtxrInterfaceStatsRx64,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 35).WireKey():    MtxrInterfaceStatsRx65To127,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 36).WireKey():    MtxrInterfaceStatsRx128To255,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 37).WireKey():    MtxrInterfaceStatsRx256To511,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 38).WireKey():    MtxrInterfaceStatsRx512To1023,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 39).WireKey():    MtxrInterfaceStatsRx1024To1518,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 40).WireKey():    MtxrInterfaceStatsRx1519ToMax,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 41).WireKey():    MtxrInterfaceStatsRxTooLong,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 42).WireKey():    MtxrInterfaceStatsRxBroadcast,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 43).WireKey():    MtxrInterfaceStatsRxPause,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 44).WireKey():    MtxrInterfaceStatsRxMulticast,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 45).WireKey():    MtxrInterfaceStatsRxFCSError,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 46).WireKey():    MtxrInterfaceStatsRxAlignError,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 47).WireKey():    MtxrInterfaceStatsRxFragment,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 48).WireKey():    MtxrInterfaceStatsRxOverflow,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 49).WireKey():    MtxrInterfaceStatsRxControl,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 50).WireKey():    MtxrInterfaceStatsRxUnknownOp,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 51).WireKey():    MtxrInterfaceStatsRxLengthError,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 52).WireKey():    MtxrInterfaceStatsRxCodeError,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 53).WireKey():    MtxrInterfaceStatsRxCarrierError,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 54).WireKey():    MtxrInterfaceStatsRxJabber,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 55).WireKey():    MtxrInterfaceStatsRxDrop,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 61).WireKey():    MtxrInterfaceStatsTxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 62).WireKey():    MtxrInterfaceStatsTxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 63).WireKey():    MtxrInterfaceStatsTxTooShort,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 64).WireKey():    MtxrInterfaceStatsTx64,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 65).WireKey():    MtxrInterfaceStatsTx65To127,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 66).WireKey():    MtxrInterfaceStatsTx128To255,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 67).WireKey():    MtxrInterfaceStatsTx256To511,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 68).WireKey():    MtxrInterfaceStatsTx512To1023,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 69).WireKey():    MtxrInterfaceStatsTx1024To1518,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 70).WireKey():    MtxrInterfaceStatsTx1519ToMax,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 71).WireKey():    MtxrInterfaceStatsTxTooLong,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 72).WireKey():    MtxrInterfaceStatsTxBroadcast,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 73).WireKey():    MtxrInterfaceStatsTxPause,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 74).WireKey():    MtxrInterfaceStatsTxMulticast,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 75).WireKey():    MtxrInterfaceStatsTxUnderrun,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 76).WireKey():    MtxrInterfaceStatsTxCollision,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 77).WireKey():    MtxrInterfaceStatsTxExcessiveCollision,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 78).WireKey():    MtxrInterfaceStatsTxMultipleCollision,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 79).WireKey():    MtxrInterfaceStatsTxSingleCollision,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 80).WireKey():    MtxrInterfaceStatsTxExcessiveDeferred,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 81).WireKey():    MtxrInterfaceStatsTxDeferred,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 82).WireKey():    MtxrInterfaceStatsTxLateCollision,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 83).WireKey():    MtxrInterfaceStatsTxTotalCollision,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 84).WireKey():    MtxrInterfaceStatsTxPauseHonored,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 85).WireKey():    MtxrInterfaceStatsTxDrop,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 86).WireKey():    MtxrInterfaceStatsTxJabber,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 87).WireKey():    MtxrInterfaceStatsTxFCSError,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 88).WireKey():    MtxrInterfaceStatsTxControl,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 89).WireKey():    MtxrInterfaceStatsTxFragment,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 90).WireKey():    MtxrInterfaceStatsLinkDowns,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 91).WireKey():    MtxrInterfaceStatsTxRx1024ToMax,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 2).WireKey():     MtxrPOEName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 3).WireKey():     MtxrPOEStatus,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 4).WireKey():     MtxrPOEVoltage,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 5).WireKey():     MtxrPOECurrent,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 6).WireKey():     MtxrPOEPower,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 10).WireKey():    MtxrLTEModemLac,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 11).WireKey():    MtxrLTEModemIMEI,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 12).WireKey():    MtxrLTEModemIMSI,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 13).WireKey():    MtxrLTEModemUICC,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 14).WireKey():    MtxrLTEModemRAT,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 15).WireKey():    MtxrLTEModemPrimaryBand,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 16).WireKey():    MtxrLTEModemSessionUptime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 17).WireKey():    MtxrLTEModemRegStatus,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 18).WireKey():    MtxrLTEModemPinStatus,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 19).WireKey():    MtxrLTEModemModel,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 2).WireKey():     MtxrLTEModemSignalRSSI,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 20).WireKey():    MtxrLTEModemFirmware,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 21).WireKey():    MtxrLTEModemCQI,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 22).WireKey():    MtxrLTEModemNrRSRP,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 23).WireKey():    MtxrLTEModemNrRSRQ,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 24).WireKey():    MtxrLTEModemNrSINR,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 25).WireKey():    MtxrLTEModemSignalRSRQD10,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 3).WireKey():     MtxrLTEModemSignalRSRQ,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4).WireKey():     MtxrLTEModemSignalRSRP,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5).WireKey():     MtxrLTEModemCellId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 6).WireKey():     MtxrLTEModemAccessTechnology,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7).WireKey():     MtxrLTEModemSignalSINR,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8).WireKey():     MtxrLTEModemEnbId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9).WireKey():     MtxrLTEModemSectorId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 10).WireKey(): MtxrLTECarrierAggSINR,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 11).WireKey(): MtxrLTECarrierAggSNR,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 12).WireKey(): MtxrLTECarrierAggNR,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 13).WireKey(): MtxrLTECarrierAggUplink,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 3).WireKey():  MtxrLTECarrierAggBand,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 4).WireKey():  MtxrLTECarrierAggEARFCN,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5).WireKey():  MtxrLTECarrierAggBandwidth,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6).WireKey():  MtxrLTECarrierAggPhyCellId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 7).WireKey():  MtxrLTECarrierAggRSSI,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 8).WireKey():  MtxrLTECarrierAggRSRP,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 9).WireKey():  MtxrLTECarrierAggRSRQ,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 2).WireKey():     MtxrPartitionName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 3).WireKey():     MtxrPartitionSize,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 4).WireKey():     MtxrPartitionVersion,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 5).WireKey():     MtxrPartitionActive,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 6).WireKey():     MtxrPartitionRunning,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1, 2).WireKey():     MtxrScriptRunOutput,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 10).WireKey():    MtxrOpticalRxPower,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 11).WireKey():    MtxrOpticalVendorName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 12).WireKey():    MtxrOpticalVendorSerial,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 13).WireKey():    MtxrOpticalModulePresent,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 14).WireKey():    MtxrOpticalVendorPartNumber,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 15).WireKey():    MtxrOpticalType,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 16).WireKey():    MtxrOpticalConnectorType,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 17).WireKey():    MtxrOpticalLinkLengthCopperOM4,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 18).WireKey():    MtxrOpticalSupportedRates,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 2).WireKey():     MtxrOpticalName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 3).WireKey():     MtxrOpticalRxLoss,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 4).WireKey():     MtxrOpticalTxFault,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5).WireKey():     MtxrOpticalWavelength,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 6).WireKey():     MtxrOpticalTemperature,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7).WireKey():     MtxrOpticalSupplyVoltage,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 8).WireKey():     MtxrOpticalTxBiasCurrent,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 9).WireKey():     MtxrOpticalTxPower,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 10).WireKey():     MtxrQueueSimplePacketsIn,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 11).WireKey():     MtxrQueueSimplePacketsOut,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 12).WireKey():     MtxrQueueSimplePCQQueuesIn,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 13).WireKey():     MtxrQueueSimplePCQQueuesOut,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 14).WireKey():     MtxrQueueSimpleDroppedIn,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 15).WireKey():     MtxrQueueSimpleDroppedOut,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 2).WireKey():      MtxrQueueSimpleName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 3).WireKey():      MtxrQueueSimpleSrcAddr,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 4).WireKey():      MtxrQueueSimpleSrcMask,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 5).WireKey():      MtxrQueueSimpleDstAddr,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 6).WireKey():      MtxrQueueSimpleDstMask,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 7).WireKey():      MtxrQueueSimpleIface,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 8).WireKey():      MtxrQueueSimpleBytesIn,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 9).WireKey():      MtxrQueueSimpleBytesOut,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 2).WireKey():      MtxrQueueTreeName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 3).WireKey():      MtxrQueueTreeFlow,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 4).WireKey():      MtxrQueueTreeParentIndex,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 5).WireKey():      MtxrQueueTreeBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 6).WireKey():      MtxrQueueTreePackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 7).WireKey():      MtxrQueueTreeHCBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 8).WireKey():      MtxrQueueTreePCQQueues,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 9).WireKey():      MtxrQueueTreeDropped,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 10).WireKey():    MtxrIkeSAIdentity,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 11).WireKey():    MtxrIkeSAPh2Count,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 12).WireKey():    MtxrIkeSALocalAddressType,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 13).WireKey():    MtxrIkeSALocalAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 14).WireKey():    MtxrIkeSALocalPort,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 15).WireKey():    MtxrIkeSAPeerAddressType,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 16).WireKey():    MtxrIkeSAPeerAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 17).WireKey():    MtxrIkeSAPeerPort,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 18).WireKey():    MtxrIkeSADynamicAddressType,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 19).WireKey():    MtxrIkeSADynamicAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 2).WireKey():     MtxrIkeSAInitiatorCookie,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 20).WireKey():    MtxrIkeSATxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 21).WireKey():    MtxrIkeSARxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 22).WireKey():    MtxrIkeSATxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 23).WireKey():    MtxrIkeSARxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 3).WireKey():     MtxrIkeSAResponderCookie,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 4).WireKey():     MtxrIkeSAResponder,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 5).WireKey():     MtxrIkeSANatt,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 6).WireKey():     MtxrIkeSAVersion,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 7).WireKey():     MtxrIkeSAState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 8).WireKey():     MtxrIkeSAUptime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 9).WireKey():     MtxrIkeSASeen,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 2).WireKey():     MtxrRemoteCapAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 3).WireKey():     MtxrRemoteCapIdentity,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 4).WireKey():     MtxrRemoteCapBoardName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 5).WireKey():     MtxrRemoteCapSerial,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6).WireKey():     MtxrRemoteCapVersion,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7).WireKey():     MtxrRemoteCapBaseMac,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 8).WireKey():     MtxrRemoteCapCommonName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 9).WireKey():     MtxrRemoteCapState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1).WireKey():     MtxrWifiRegistrationMacAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 10).WireKey():    MtxrWifiRegistrationRxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 11).WireKey():    MtxrWifiRegistrationTxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 12).WireKey():    MtxrWifiRegistrationRxPackets,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 13).WireKey():    MtxrWifiRegistrationTxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 14).WireKey():    MtxrWifiRegistrationRxBytes,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 15).WireKey():    MtxrWifiRegistrationTxBitsPerSecond,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16).WireKey():    MtxrWifiRegistrationRxBitsPerSecond,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17).WireKey():    MtxrWifiRegistrationVlanId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 18).WireKey():    MtxrWifiRegistrationAuthorized,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 3).WireKey():     MtxrWifiRegistrationSsid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 4).WireKey():     MtxrWifiRegistrationUptime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 5).WireKey():     MtxrWifiRegistrationLastActivity,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 6).WireKey():     MtxrWifiRegistrationSignal,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 7).WireKey():     MtxrWifiRegistrationAuthType,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 8).WireKey():     MtxrWifiRegistrationBand,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 9).WireKey():     MtxrWifiRegistrationTxRate,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 2).WireKey():     MtxrWifiInterfacesName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 3).WireKey():     MtxrWifiInterfacesSsid,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 4).WireKey():     MtxrWifiInterfacesFreq,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 5).WireKey():     MtxrWifiInterfacesCurrentChannel,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 2).WireKey():    MtxrGaugeName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 3).WireKey():    MtxrGaugeValue,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 4).WireKey():    MtxrGaugeUnit,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 10).WireKey():     MtxrHotspotActiveUserIdleTimeout,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 11).WireKey():     MtxrHotspotActiveUserPingTimeout,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 12).WireKey():     MtxrHotspotActiveUserBytesIn,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 13).WireKey():     MtxrHotspotActiveUserBytesOut,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 14).WireKey():     MtxrHotspotActiveUserPacketsIn,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 15).WireKey():     MtxrHotspotActiveUserPacketsOut,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 16).WireKey():     MtxrHotspotActiveUserLimitBytesIn,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 17).WireKey():     MtxrHotspotActiveUserLimitBytesOut,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 18).WireKey():     MtxrHotspotActiveUserAdvertStatus,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 19).WireKey():     MtxrHotspotActiveUserRadius,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 2).WireKey():      MtxrHotspotActiveUserServerID,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 20).WireKey():     MtxrHotspotActiveUserBlockedByAdvert,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 3).WireKey():      MtxrHotspotActiveUserName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 4).WireKey():      MtxrHotspotActiveUserDomain,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 5).WireKey():      MtxrHotspotActiveUserIP,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 6).WireKey():      MtxrHotspotActiveUserMAC,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 7).WireKey():      MtxrHotspotActiveUserConnectTime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 8).WireKey():      MtxrHotspotActiveUserValidTillTime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 9).WireKey():      MtxrHotspotActiveUserIdleStartTime,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 2).WireKey():      MtxrScriptName,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 3).WireKey():      MtxrScriptRunCmd,
 }
 
 // OIDDispatch returns a shallow copy of the package's wire-key →

@@ -2,7 +2,7 @@
 //
 // Source MIB:    LLDP-MIB
 // Source path:   spec/mib/ieee/LLDP-MIB
-// Source SHA-256: f0dac7bac08b6d632d2f2363aba8acf106ee7cf83c15f14823489390c31d6769
+// Source SHA-256: 2a7beaaf41d626e038b2e3e03ad6a35cab4d4b3753ef1878e77674ed7d1de272
 //
 // Regenerate with `go generate ./...` or `go tool mibgen`.
 
@@ -12,9 +12,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"iter"
+
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	ae "go.aledante.io/ae"
-	"iter"
 )
 
 // LldpChassisIdSubtype is the SMI enum LldpChassisIdSubtype.
@@ -257,9 +258,9 @@ func LldpMessageTxIntervalGet(ctx context.Context, sess snmp.Session) (int32, er
 		return 0, ae.Msg("empty Get response for lldpMessageTxInterval")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpMessageTxHoldMultiplierGet reads the SMIv2 scalar lldpMessageTxHoldMultiplier.
@@ -284,9 +285,9 @@ func LldpMessageTxHoldMultiplierGet(ctx context.Context, sess snmp.Session) (int
 		return 0, ae.Msg("empty Get response for lldpMessageTxHoldMultiplier")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpReinitDelayGet reads the SMIv2 scalar lldpReinitDelay.
@@ -306,9 +307,9 @@ func LldpReinitDelayGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for lldpReinitDelay")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpTxDelayGet reads the SMIv2 scalar lldpTxDelay.
@@ -329,9 +330,9 @@ func LldpTxDelayGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for lldpTxDelay")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpNotificationIntervalGet reads the SMIv2 scalar lldpNotificationInterval.
@@ -358,9 +359,9 @@ func LldpNotificationIntervalGet(ctx context.Context, sess snmp.Session) (int32,
 		return 0, ae.Msg("empty Get response for lldpNotificationInterval")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpStatsRemTablesLastChangeTimeGet reads the SMIv2 scalar lldpStatsRemTablesLastChangeTime.
@@ -379,9 +380,9 @@ func LldpStatsRemTablesLastChangeTimeGet(ctx context.Context, sess snmp.Session)
 		return 0, ae.Msg("empty Get response for lldpStatsRemTablesLastChangeTime")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpStatsRemTablesInsertsGet reads the SMIv2 scalar lldpStatsRemTablesInserts.
@@ -409,9 +410,9 @@ func LldpStatsRemTablesInsertsGet(ctx context.Context, sess snmp.Session) (uint3
 		return 0, ae.Msg("empty Get response for lldpStatsRemTablesInserts")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpStatsRemTablesDeletesGet reads the SMIv2 scalar lldpStatsRemTablesDeletes.
@@ -433,9 +434,9 @@ func LldpStatsRemTablesDeletesGet(ctx context.Context, sess snmp.Session) (uint3
 		return 0, ae.Msg("empty Get response for lldpStatsRemTablesDeletes")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpStatsRemTablesDropsGet reads the SMIv2 scalar lldpStatsRemTablesDrops.
@@ -453,9 +454,9 @@ func LldpStatsRemTablesDropsGet(ctx context.Context, sess snmp.Session) (uint32,
 		return 0, ae.Msg("empty Get response for lldpStatsRemTablesDrops")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpStatsRemTablesAgeoutsGet reads the SMIv2 scalar lldpStatsRemTablesAgeouts.
@@ -477,9 +478,9 @@ func LldpStatsRemTablesAgeoutsGet(ctx context.Context, sess snmp.Session) (uint3
 		return 0, ae.Msg("empty Get response for lldpStatsRemTablesAgeouts")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpLocChassisIdSubtypeGet reads the SMIv2 scalar lldpLocChassisIdSubtype.
@@ -495,13 +496,13 @@ func LldpLocChassisIdSubtypeGet(ctx context.Context, sess snmp.Session) (LldpCha
 		return LldpChassisIdSubtype(0), ae.Msg("empty Get response for lldpLocChassisIdSubtype")
 	}
 
-	return (func(vb snmp.VarBind) (LldpChassisIdSubtype, error) {
+	return func(vb snmp.VarBind) (LldpChassisIdSubtype, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return LldpChassisIdSubtype(0), err
 		}
 		return LldpChassisIdSubtype(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpLocChassisIdGet reads the SMIv2 scalar lldpLocChassisId.
@@ -517,9 +518,9 @@ func LldpLocChassisIdGet(ctx context.Context, sess snmp.Session) ([]byte, error)
 		return nil, ae.Msg("empty Get response for lldpLocChassisId")
 	}
 
-	return (func(vb snmp.VarBind) ([]byte, error) {
+	return func(vb snmp.VarBind) ([]byte, error) {
 		return snmp.DecodeBytes(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpLocSysNameGet reads the SMIv2 scalar lldpLocSysName.
@@ -536,9 +537,9 @@ func LldpLocSysNameGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
 		return nil, ae.Msg("empty Get response for lldpLocSysName")
 	}
 
-	return (func(vb snmp.VarBind) ([]byte, error) {
+	return func(vb snmp.VarBind) ([]byte, error) {
 		return snmp.DecodeBytes(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpLocSysDescGet reads the SMIv2 scalar lldpLocSysDesc.
@@ -555,9 +556,9 @@ func LldpLocSysDescGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
 		return nil, ae.Msg("empty Get response for lldpLocSysDesc")
 	}
 
-	return (func(vb snmp.VarBind) ([]byte, error) {
+	return func(vb snmp.VarBind) ([]byte, error) {
 		return snmp.DecodeBytes(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpLocSysCapSupportedGet reads the SMIv2 scalar lldpLocSysCapSupported.
@@ -573,13 +574,13 @@ func LldpLocSysCapSupportedGet(ctx context.Context, sess snmp.Session) (LldpSyst
 		return LldpSystemCapabilitiesMap(0), ae.Msg("empty Get response for lldpLocSysCapSupported")
 	}
 
-	return (func(vb snmp.VarBind) (LldpSystemCapabilitiesMap, error) {
+	return func(vb snmp.VarBind) (LldpSystemCapabilitiesMap, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return LldpSystemCapabilitiesMap(0), err
 		}
 		return LldpSystemCapabilitiesMap(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpLocSysCapEnabledGet reads the SMIv2 scalar lldpLocSysCapEnabled.
@@ -595,13 +596,13 @@ func LldpLocSysCapEnabledGet(ctx context.Context, sess snmp.Session) (LldpSystem
 		return LldpSystemCapabilitiesMap(0), ae.Msg("empty Get response for lldpLocSysCapEnabled")
 	}
 
-	return (func(vb snmp.VarBind) (LldpSystemCapabilitiesMap, error) {
+	return func(vb snmp.VarBind) (LldpSystemCapabilitiesMap, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return LldpSystemCapabilitiesMap(0), err
 		}
 		return LldpSystemCapabilitiesMap(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // LldpPortConfigAdminStatus is the column lldpPortConfigAdminStatus of table lldpPortConfigTable.

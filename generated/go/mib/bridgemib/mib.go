@@ -12,10 +12,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 	"iter"
 	"net"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	ae "go.aledante.io/ae"
 )
 
 // Dot1dBaseTypeValue is the SMI enum dot1dBaseType (inline).
@@ -225,9 +226,9 @@ func Dot1dBaseBridgeAddressGet(ctx context.Context, sess snmp.Session) (net.Hard
 		return nil, ae.Msg("empty Get response for dot1dBaseBridgeAddress")
 	}
 
-	return (func(vb snmp.VarBind) (net.HardwareAddr, error) {
+	return func(vb snmp.VarBind) (net.HardwareAddr, error) {
 		return snmp.DecodeMacAddress(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dBaseNumPortsGet reads the SMIv2 scalar dot1dBaseNumPorts.
@@ -242,9 +243,9 @@ func Dot1dBaseNumPortsGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, ae.Msg("empty Get response for dot1dBaseNumPorts")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dBaseTypeGet reads the SMIv2 scalar dot1dBaseType.
@@ -261,13 +262,13 @@ func Dot1dBaseTypeGet(ctx context.Context, sess snmp.Session) (Dot1dBaseTypeValu
 		return Dot1dBaseTypeValue(0), ae.Msg("empty Get response for dot1dBaseType")
 	}
 
-	return (func(vb snmp.VarBind) (Dot1dBaseTypeValue, error) {
+	return func(vb snmp.VarBind) (Dot1dBaseTypeValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return Dot1dBaseTypeValue(0), err
 		}
 		return Dot1dBaseTypeValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpProtocolSpecificationGet reads the SMIv2 scalar dot1dStpProtocolSpecification.
@@ -287,13 +288,13 @@ func Dot1dStpProtocolSpecificationGet(ctx context.Context, sess snmp.Session) (D
 		return Dot1dStpProtocolSpecificationValue(0), ae.Msg("empty Get response for dot1dStpProtocolSpecification")
 	}
 
-	return (func(vb snmp.VarBind) (Dot1dStpProtocolSpecificationValue, error) {
+	return func(vb snmp.VarBind) (Dot1dStpProtocolSpecificationValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return Dot1dStpProtocolSpecificationValue(0), err
 		}
 		return Dot1dStpProtocolSpecificationValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpPriorityGet reads the SMIv2 scalar dot1dStpPriority.
@@ -312,9 +313,9 @@ func Dot1dStpPriorityGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, ae.Msg("empty Get response for dot1dStpPriority")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpTimeSinceTopologyChangeGet reads the SMIv2 scalar dot1dStpTimeSinceTopologyChange.
@@ -331,9 +332,9 @@ func Dot1dStpTimeSinceTopologyChangeGet(ctx context.Context, sess snmp.Session) 
 		return 0, ae.Msg("empty Get response for dot1dStpTimeSinceTopologyChange")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpTopChangesGet reads the SMIv2 scalar dot1dStpTopChanges.
@@ -349,9 +350,9 @@ func Dot1dStpTopChangesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for dot1dStpTopChanges")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpDesignatedRootGet reads the SMIv2 scalar dot1dStpDesignatedRoot.
@@ -369,9 +370,9 @@ func Dot1dStpDesignatedRootGet(ctx context.Context, sess snmp.Session) ([]byte, 
 		return nil, ae.Msg("empty Get response for dot1dStpDesignatedRoot")
 	}
 
-	return (func(vb snmp.VarBind) ([]byte, error) {
+	return func(vb snmp.VarBind) ([]byte, error) {
 		return snmp.DecodeBytes(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpRootCostGet reads the SMIv2 scalar dot1dStpRootCost.
@@ -386,9 +387,9 @@ func Dot1dStpRootCostGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, ae.Msg("empty Get response for dot1dStpRootCost")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpRootPortGet reads the SMIv2 scalar dot1dStpRootPort.
@@ -404,9 +405,9 @@ func Dot1dStpRootPortGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, ae.Msg("empty Get response for dot1dStpRootPort")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpMaxAgeGet reads the SMIv2 scalar dot1dStpMaxAge.
@@ -423,9 +424,9 @@ func Dot1dStpMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for dot1dStpMaxAge")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpHelloTimeGet reads the SMIv2 scalar dot1dStpHelloTime.
@@ -443,9 +444,9 @@ func Dot1dStpHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, ae.Msg("empty Get response for dot1dStpHelloTime")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpHoldTimeGet reads the SMIv2 scalar dot1dStpHoldTime.
@@ -462,9 +463,9 @@ func Dot1dStpHoldTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, ae.Msg("empty Get response for dot1dStpHoldTime")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpForwardDelayGet reads the SMIv2 scalar dot1dStpForwardDelay.
@@ -488,9 +489,9 @@ func Dot1dStpForwardDelayGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, ae.Msg("empty Get response for dot1dStpForwardDelay")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpBridgeMaxAgeGet reads the SMIv2 scalar dot1dStpBridgeMaxAge.
@@ -510,9 +511,9 @@ func Dot1dStpBridgeMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, ae.Msg("empty Get response for dot1dStpBridgeMaxAge")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpBridgeHelloTimeGet reads the SMIv2 scalar dot1dStpBridgeHelloTime.
@@ -530,9 +531,9 @@ func Dot1dStpBridgeHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, 
 		return 0, ae.Msg("empty Get response for dot1dStpBridgeHelloTime")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dStpBridgeForwardDelayGet reads the SMIv2 scalar dot1dStpBridgeForwardDelay.
@@ -552,9 +553,9 @@ func Dot1dStpBridgeForwardDelayGet(ctx context.Context, sess snmp.Session) (int3
 		return 0, ae.Msg("empty Get response for dot1dStpBridgeForwardDelay")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dTpLearnedEntryDiscardsGet reads the SMIv2 scalar dot1dTpLearnedEntryDiscards.
@@ -575,9 +576,9 @@ func Dot1dTpLearnedEntryDiscardsGet(ctx context.Context, sess snmp.Session) (uin
 		return 0, ae.Msg("empty Get response for dot1dTpLearnedEntryDiscards")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dTpAgingTimeGet reads the SMIv2 scalar dot1dTpAgingTime.
@@ -593,9 +594,9 @@ func Dot1dTpAgingTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, ae.Msg("empty Get response for dot1dTpAgingTime")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dBasePort is the column dot1dBasePort of table dot1dBasePortTable.

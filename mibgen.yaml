@@ -1,7 +1,7 @@
 # mibgen configuration — first-set MIB modules.
 #
 # Search paths are resolved relative to this file. Module names match
-# the MODULE-IDENTITY declarations inside spec/mib/ietf/<NAME>.
+# the MODULE-IDENTITY declarations inside spec/mib/<authority>/<NAME>.
 
 search_paths:
   - spec/mib/ietf

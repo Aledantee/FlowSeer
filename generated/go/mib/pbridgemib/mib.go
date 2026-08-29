@@ -12,10 +12,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 	"iter"
 	"net"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	ae "go.aledante.io/ae"
 )
 
 // EnabledStatus is the SMI enum EnabledStatus.
@@ -65,9 +66,9 @@ func Dot1dDeviceCapabilitiesGet(ctx context.Context, sess snmp.Session) ([]byte,
 		return nil, ae.Msg("empty Get response for dot1dDeviceCapabilities")
 	}
 
-	return (func(vb snmp.VarBind) ([]byte, error) {
+	return func(vb snmp.VarBind) ([]byte, error) {
 		return snmp.DecodeBytes(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dTrafficClassesEnabledGet reads the SMIv2 scalar dot1dTrafficClassesEnabled.
@@ -85,9 +86,9 @@ func Dot1dTrafficClassesEnabledGet(ctx context.Context, sess snmp.Session) (bool
 		return false, ae.Msg("empty Get response for dot1dTrafficClassesEnabled")
 	}
 
-	return (func(vb snmp.VarBind) (bool, error) {
+	return func(vb snmp.VarBind) (bool, error) {
 		return snmp.DecodeTruthValue(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dGmrpStatusGet reads the SMIv2 scalar dot1dGmrpStatus.
@@ -110,13 +111,13 @@ func Dot1dGmrpStatusGet(ctx context.Context, sess snmp.Session) (EnabledStatus, 
 		return EnabledStatus(0), ae.Msg("empty Get response for dot1dGmrpStatus")
 	}
 
-	return (func(vb snmp.VarBind) (EnabledStatus, error) {
+	return func(vb snmp.VarBind) (EnabledStatus, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return EnabledStatus(0), err
 		}
 		return EnabledStatus(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1dTpHCPortInFrames is the column dot1dTpHCPortInFrames of table dot1dTpHCPortTable.
