@@ -7,8 +7,7 @@ import option "buf/validate/validate.proto";
 // The kinds of entity a dynamic reference may name. EntityType, EntityRef,
 // and Entity are one contract designed together — the enum names the kinds,
 // the ref points at one entity of such a kind, and Entity wraps the ref as
-// the uniform generic handle — which is why they share this file the same
-// way the address variants share ip.proto.
+// the uniform generic handle.
 //
 // Membership is a contract, not a list of what exists: a kind joins only
 // when its entity is identified by a FlowSeer-assigned UUID, its delete
