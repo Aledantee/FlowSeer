@@ -10,8 +10,7 @@
 //
 // The family is deliberately partial: it has no AttributeValueState. An
 // assignment is pure operator intent with nothing observed or derived, so
-// the triad is Config and Event only. The sync hook's report of a missing
-// State member is answered by this comment.
+// the triad is Config and Event only.
 
 package inventoryv1
 
@@ -113,9 +112,8 @@ func (b0 AttributeValueLocalRef_builder) Build() *AttributeValueLocalRef {
 	return m0
 }
 
-// The assignment is top-level, so its global ref wraps only the local ref,
-// kept as a wrapper so refs compose uniformly and the sync hook can check
-// the pair mechanically. Tenancy is ambient and never part of the ref.
+// The assignment is top-level, so its global ref wraps only the local ref.
+// Tenancy is ambient and never part of the ref.
 type AttributeValueGlobalRef struct {
 	state                     protoimpl.MessageState  `protogen:"opaque.v1"`
 	xxx_hidden_AttributeValue *AttributeValueLocalRef `protobuf:"bytes,1,opt,name=attribute_value,json=attributeValue"`
@@ -637,17 +635,16 @@ func (*attributeValuePayload_EnumKey) isAttributeValuePayload_Value() {}
 func (*attributeValuePayload_Reference) isAttributeValuePayload_Value() {}
 
 // The intended values one entity carries for one attribute: the assignment
-// joining owner, definition, and payloads. Attachment implies a value —
-// there is no valueless assignment; a marker without a value is a tag.
+// joining owner, definition, and payloads. Attachment implies a value;
+// there is no valueless assignment.
 //
 // Rules that need more state than this message carries are enforced by the
 // inventory service: at most one assignment exists per owner and
-// definition (the way tag sibling names are unique), the owner's kind must
-// be among the definition's targets, every payload must parse under the
-// definition's type, and more than one value is allowed only when the
-// definition is multi-valued. An assignment shares its owner's lifecycle
-// and disappears with it, and disappears when a cascade removes its last
-// value.
+// definition, the owner's kind must be among the definition's targets,
+// every payload must parse under the definition's type, and more than one
+// value is allowed only when the definition is multi-valued. An assignment
+// shares its owner's lifecycle and disappears with it, and disappears when
+// a cascade removes its last value.
 type AttributeValueConfig struct {
 	state                protoimpl.MessageState    `protogen:"opaque.v1"`
 	xxx_hidden_Ref       *AttributeValueGlobalRef  `protobuf:"bytes,1,opt,name=ref"`

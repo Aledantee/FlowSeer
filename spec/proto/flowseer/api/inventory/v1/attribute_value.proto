@@ -6,8 +6,7 @@ edition = "2024";
 //
 // The family is deliberately partial: it has no AttributeValueState. An
 // assignment is pure operator intent with nothing observed or derived, so
-// the triad is Config and Event only. The sync hook's report of a missing
-// State member is answered by this comment.
+// the triad is Config and Event only.
 package flowseer.api.inventory.v1;
 
 import "flowseer/api/inventory/v1/attribute.proto";
@@ -27,9 +26,8 @@ message AttributeValueLocalRef {
   ];
 }
 
-// The assignment is top-level, so its global ref wraps only the local ref,
-// kept as a wrapper so refs compose uniformly and the sync hook can check
-// the pair mechanically. Tenancy is ambient and never part of the ref.
+// The assignment is top-level, so its global ref wraps only the local ref.
+// Tenancy is ambient and never part of the ref.
 message AttributeValueGlobalRef {
   // The assignment's own key. Must be present; omit the containing field
   // instead.
@@ -86,17 +84,16 @@ message AttributeValuePayload {
 }
 
 // The intended values one entity carries for one attribute: the assignment
-// joining owner, definition, and payloads. Attachment implies a value —
-// there is no valueless assignment; a marker without a value is a tag.
+// joining owner, definition, and payloads. Attachment implies a value;
+// there is no valueless assignment.
 //
 // Rules that need more state than this message carries are enforced by the
 // inventory service: at most one assignment exists per owner and
-// definition (the way tag sibling names are unique), the owner's kind must
-// be among the definition's targets, every payload must parse under the
-// definition's type, and more than one value is allowed only when the
-// definition is multi-valued. An assignment shares its owner's lifecycle
-// and disappears with it, and disappears when a cascade removes its last
-// value.
+// definition, the owner's kind must be among the definition's targets,
+// every payload must parse under the definition's type, and more than one
+// value is allowed only when the definition is multi-valued. An assignment
+// shares its owner's lifecycle and disappears with it, and disappears when
+// a cascade removes its last value.
 message AttributeValueConfig {
   // The ref to this assignment. Must be present.
   AttributeValueGlobalRef ref = 1 [(buf.validate.field).required = true];

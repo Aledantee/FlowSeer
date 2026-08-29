@@ -10,8 +10,7 @@
 //
 // The family is deliberately partial: it has no AttributeState. A
 // definition is pure operator intent with nothing observed or derived, so
-// the triad is Config and Event only. The sync hook's report of a missing
-// State member is answered by this comment.
+// the triad is Config and Event only.
 
 package inventoryv1
 
@@ -112,9 +111,8 @@ func (b0 AttributeLocalRef_builder) Build() *AttributeLocalRef {
 	return m0
 }
 
-// The definition is top-level, so its global ref wraps only the local ref,
-// kept as a wrapper so refs compose uniformly and the sync hook can check
-// the pair mechanically. Tenancy is ambient and never part of the ref.
+// The definition is top-level, so its global ref wraps only the local ref.
+// Tenancy is ambient and never part of the ref.
 type AttributeGlobalRef struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Attribute *AttributeLocalRef     `protobuf:"bytes,1,opt,name=attribute"`
@@ -185,9 +183,8 @@ func (b0 AttributeGlobalRef_builder) Build() *AttributeGlobalRef {
 	return m0
 }
 
-// A free-text value type. Values parse as text of 1 to 2048 characters;
-// the cap is declared here once and the value payload in
-// attribute_value.proto follows it.
+// A free-text value type. Values parse as text of 1 to 2048 characters,
+// enforced on the payload arm in attribute_value.proto.
 type StringType struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -276,10 +273,10 @@ func (b0 NumberType_builder) Build() *NumberType {
 	return m0
 }
 
-// A closed-vocabulary value type. The operator defines the vocabulary as
-// data on the definition, so extending it is an ordinary update, never a
-// schema change. A value carries one of these keys, and the key string is
-// what survives a retype to string.
+// A closed-vocabulary value type: the operator defines the vocabulary as
+// data on the definition and extends it with an ordinary update. A value
+// carries one of these keys, and the key string is what survives a retype
+// to string.
 type EnumType struct {
 	state             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Values []string               `protobuf:"bytes,1,rep,name=values"`
@@ -327,8 +324,7 @@ type EnumType_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The allowed value keys. Must hold at least one key; keys are stable
-	// machine identifiers, never localized. Uniqueness within the list is
-	// enforced here; nothing else constrains the vocabulary.
+	// machine identifiers, never localized, unique within the list.
 	Values []string
 }
 
@@ -427,14 +423,14 @@ func (b0 ReferenceType_builder) Build() *ReferenceType {
 // assignment holds one value or a list.
 //
 // Constraints that need more state than this message carries are enforced
-// by the inventory service: the key is unique within the tenant (the same
-// way tag sibling names are) and immutable after creation, and every edit
-// that can invalidate existing values — changing the type, removing an
-// enum key, removing a target kind, switching multi-valued to single, or
-// deleting the definition — is gated by an explicit operator decision to
-// drop the invalidated values or abandon the edit. Survival under a type
-// change is deterministic: only the enum-key-to-string conversion preserves
-// values; every other type pair invalidates.
+// by the inventory service: the key is unique within the tenant and
+// immutable after creation, and every edit that can invalidate existing
+// values — changing the type, removing an enum key, removing a target
+// kind, switching multi-valued to single, or deleting the definition — is
+// gated by an explicit operator decision to drop the invalidated values or
+// abandon the edit. Survival under a type change is deterministic: only
+// the enum-key-to-string conversion preserves values; every other type
+// pair invalidates.
 type AttributeConfig struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref         *AttributeGlobalRef    `protobuf:"bytes,1,opt,name=ref"`
