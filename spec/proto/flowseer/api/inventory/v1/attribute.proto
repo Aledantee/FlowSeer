@@ -1,0 +1,14 @@
+edition = "2024";
+
+package flowseer.api.inventory.v1;
+
+message AttributeRef {
+  string id = 1;
+}
+
+message Attribute {
+  AttributeRef ref = 1;
+
+  string name = 10;
+  string description = 11;
+}
