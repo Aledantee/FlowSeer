@@ -13,6 +13,12 @@ Binding on humans and agents equally; each doc states its own scope.
   enum placement, typed variants.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — TypeScript web frontend
   (`frontend/web/`; own toolchain, Go rules do not apply).
+- [`docs/doc-style.md`](docs/doc-style.md) — all prose: docs, READMEs, schema
+  comments, commit and PR text. The load-bearing rules: explain why, show a
+  working example, document the hard parts, no marketing register, update docs
+  in the change that invalidates them, and write like a person — none of the
+  machine-writing tells that doc catalogues (em-dash chains, rule-of-three
+  lists, trailing participles, puffery, comment-per-line).
 - [`docs/agent-knowledge.md`](docs/agent-knowledge.md) — where shared rules and
   learnings live; repository guidance wins over private memory.
 

@@ -1,6 +1,6 @@
 ---
 name: Code & Comment Style
-last_updated: 2026-08-16
+last_updated: 2026-08-29
 ---
 
 # FlowSeer — Code & Comment Style
@@ -106,6 +106,12 @@ Never commit: comments that restate the line, banner/section dividers, commented
 code, `// TODO` notes (solve it or raise it in review), or hedging asides
 (`// this might be slow`). A stale comment is worse than none — update or delete it
 the moment the code changes.
+
+How the prose itself reads — in comments, READMEs, and everything under `docs/` —
+is governed by [`doc-style.md`](doc-style.md): explain why, show a working
+example, document the hard parts, no marketing register, and none of the
+machine-writing tells it catalogues. Comment density is part of the same rule:
+a comment on every line is the most-cited sign of unreviewed machine output.
 
 ## Naming
 

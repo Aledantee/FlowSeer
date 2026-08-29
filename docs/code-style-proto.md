@@ -19,7 +19,10 @@ does with it.
 
 The comment discipline and the *Rules for coding agents* in
 [`code-style.md`](code-style.md) apply language-independently — comments explain
-*why*, no process narration, no planning identifiers, no TODOs.
+*why*, no process narration, no planning identifiers, no TODOs. Explanatory
+prose in schema comments and package READMEs additionally follows
+[`doc-style.md`](doc-style.md): state what the type cannot, and avoid the
+machine-writing tells it lists.
 
 [buf-style]: https://buf.build/docs/best-practices/style-guide/
 [editions]: https://protobuf.dev/editions/overview/
