@@ -24,8 +24,8 @@ Binding on humans and agents equally; each doc states its own scope.
 ## Hard boundaries
 
 - `spec/proto/` is production Buf input. It contains only `.proto` files and
-  package-boundary `README.md` files. Put executable schema tests in
-  `src/common/protoconformance/` and their fixtures in that package's `testdata/`.
+  package-boundary `README.md` files. Enforce schema rules through `buf lint`,
+  not executable tests.
 - Never add a Buf exclusion, ignore, skip, lint suppression, or hook exception to
   make a task's own artifacts pass. If a correct change requires relaxing a
   repository guardrail, stop and request that policy change explicitly; do not bundle
