@@ -4,7 +4,7 @@
 // Source path:   spec/mib/mikrotik/MIKROTIK-MIB
 // Source SHA-256: b1a65ff8009d2b958177440e53005579305298eefcdeb062d236b305ce2373fb
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package mikrotik
 

@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/HOST-RESOURCES-MIB
 // Source SHA-256: 0406b893dcfacc370a1ae04ccfe6ffdecb15f93e3377a1a5ded2bbde5d944165
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package hostresourcesmib
 

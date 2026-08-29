@@ -43,10 +43,9 @@ const (
 type indicatorSource uint8
 
 const (
-	indicatorFromStructuralPerRow      indicatorSource = iota // column inside the row matches name heuristic
-	indicatorFromStructuralNamePrefix                         // scalar name is the table's name plus an indicator suffix
-	indicatorFromStructuralSingleTable                        // single-table-sibling scalar matches heuristic
-	indicatorFromConfig                                       // user-declared in mibgen.yaml
+	indicatorFromStructuralPerRow     indicatorSource = iota // column inside the row matches name heuristic
+	indicatorFromStructuralNamePrefix                        // scalar name is the table's name plus an indicator suffix
+	indicatorFromConfig                                      // user-declared in mibgen.yaml
 )
 
 // indicatorSuffixes lists the object-name patterns that classify a
@@ -88,8 +87,6 @@ func matchesIndicatorNameSuffix(name string) bool {
 //  2. Config-declared (whether scalar or column override).
 //  3. Structural name-prefix scalar (scalar named after the table plus
 //     an indicator suffix, e.g. ifStackLastChange for ifStackTable).
-//  4. Structural single-table-sibling scalar (fallback for the narrow
-//     case where the scalar's parent has exactly one table child).
 //
 // The result is the source of truth for whether a package contains
 // any Watch-eligible tables — emit_tier.go's emission gate consults
@@ -122,11 +119,6 @@ func discoverIndicators(ec *emitCtx, mod *gosmi.SmiModule) []tableIndicator {
 		}
 		// 3) Structural name-prefix scalar.
 		if ind, ok := discoverNamePrefixScalarIndicator(tbl, scalars); ok {
-			out = append(out, ind)
-			continue
-		}
-		// 4) Structural single-table-sibling scalar.
-		if ind, ok := discoverSingleTableScalarIndicator(tbl, tables, scalars); ok {
 			out = append(out, ind)
 		}
 	}
@@ -269,6 +261,12 @@ func discoverNamePrefixScalarIndicator(
 	}
 	for _, prefix := range prefixes {
 		for _, sc := range scalars {
+			// A not-accessible scalar cannot be polled, so binding it
+			// would leave the Watcher probing a dead OID forever. Same
+			// guard discoverPerRowIndicator applies to columns.
+			if sc.Access == gosmitypes.AccessNotAccessible {
+				continue
+			}
 			scLower := strings.ToLower(sc.Name)
 			for _, suffix := range indicatorSuffixes {
 				if scLower == prefix+suffix {
@@ -283,79 +281,4 @@ func discoverNamePrefixScalarIndicator(
 		}
 	}
 	return tableIndicator{}, false
-}
-
-// discoverSingleTableScalarIndicator looks for a module-level scalar
-// whose object name matches the indicator-suffix heuristic AND whose
-// parent OID has *exactly one* table child, AND that one table is
-// `table`. The narrow rule catches sysORLastChange (parent `system`
-// has only sysORTable as a table child) but deliberately does NOT
-// match IF-MIB's ifTableLastChange (parent ifMIBObjects has 4 table
-// children) — those require a config-declared indicator.
-func discoverSingleTableScalarIndicator(
-	table gosmi.SmiNode,
-	tables []gosmi.SmiNode,
-	scalars []gosmi.SmiNode,
-) (tableIndicator, bool) {
-	for _, sc := range scalars {
-		if !matchesIndicatorNameSuffix(sc.Name) {
-			continue
-		}
-		if len(sc.Oid) < 2 {
-			continue
-		}
-		parent := sc.Oid[:len(sc.Oid)-1]
-		// Count table children of parent.
-		tableChildren := make([]gosmi.SmiNode, 0)
-		for _, t := range tables {
-			if len(t.Oid) != len(parent)+1 {
-				continue
-			}
-			if !oidPrefixMatch(t.Oid, parent) {
-				continue
-			}
-			tableChildren = append(tableChildren, t)
-		}
-		if len(tableChildren) != 1 {
-			continue
-		}
-		if !oidSlicesEqual(tableChildren[0].Oid, table.Oid) {
-			continue
-		}
-		return tableIndicator{
-			Table:         table,
-			Kind:          indicatorScalar,
-			IndicatorNode: sc,
-			Source:        indicatorFromStructuralSingleTable,
-		}, true
-	}
-	return tableIndicator{}, false
-}
-
-// oidPrefixMatch reports whether sub is a prefix of full (both are
-// gosmi Oid slices). True when len(sub) <= len(full) and every
-// sub-id in sub equals the matching position in full.
-func oidPrefixMatch(full, sub gosmitypes.Oid) bool {
-	if len(sub) > len(full) {
-		return false
-	}
-	for i := range sub {
-		if full[i] != sub[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// oidSlicesEqual compares two gosmi Oid slices for identity.
-func oidSlicesEqual(a, b gosmitypes.Oid) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

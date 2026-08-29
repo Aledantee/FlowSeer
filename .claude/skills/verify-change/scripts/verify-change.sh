@@ -113,6 +113,7 @@ modules=()
 proto_files=()
 proto=false
 claude=false
+mib=false
 
 add_module() {
   local candidate=$1
@@ -146,6 +147,7 @@ if [[ $full == true ]]; then
   done < <(find . -name '*.go' -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './generated/*' -not -path './frontend/web/generated/*' -print | sort)
   proto=true
   claude=true
+  mib=true
 else
   for path in "${paths[@]}"; do
     case "$path" in
@@ -173,6 +175,12 @@ else
       .claude/*)
         claude=true
         ;;
+    esac
+    # Independent of the classification above: a change to the mibgen
+    # generator, its config, or a MIB source can silently drift the
+    # committed bindings under generated/go/mib.
+    case "$path" in
+      mibgen.yaml|spec/mib/*|src/common/snmp/cmd/mibgen/*) mib=true ;;
     esac
   done
 fi
@@ -250,6 +258,13 @@ if [[ $proto == true ]]; then
   if [[ -d frontend/web/generated || -d $generated_dir/frontend/web/generated ]]; then
     run diff -qr frontend/web/generated "$generated_dir/frontend/web/generated"
   fi
+fi
+
+if [[ $mib == true ]]; then
+  # Regenerates into a tmpdir and diffs against the committed bindings;
+  # exits non-zero on drift. Pairs with the buf-generate diff above so
+  # both code generators are gated the same way.
+  run go run ./src/common/snmp/cmd/mibgen -check
 fi
 
 if [[ $claude == true ]]; then

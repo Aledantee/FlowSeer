@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/ENTITY-STATE-MIB
 // Source SHA-256: 5bf27909987c6f15e3ae5c81a02394e82c27f39e059717f4f65af03779bf6c8a
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package entitystatemib
 

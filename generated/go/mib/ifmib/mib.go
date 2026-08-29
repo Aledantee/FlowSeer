@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/IF-MIB
 // Source SHA-256: a41d2d0414bd6e1b3249257d0d035ea11554624c525b830f6910195b72b0c297
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package ifmib
 

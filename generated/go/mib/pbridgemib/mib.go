@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/P-BRIDGE-MIB
 // Source SHA-256: 6dc239385992f51c08aca390749ed1af5ac16449394b33b19a98b9873f78d74e
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package pbridgemib
 

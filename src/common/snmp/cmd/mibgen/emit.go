@@ -218,7 +218,7 @@ func writeHeader(f *jen.File, mod *gosmi.SmiModule, cm Module) {
 			"// Source path:   %s\n"+
 			"// Source SHA-256: %s\n"+
 			"//\n"+
-			"// Regenerate with `go generate ./...` or `go tool mibgen`.",
+			"// Regenerate with `go generate .` at the repository root.",
 		cm.Name, relPath, hash,
 	)
 	f.HeaderComment(header)

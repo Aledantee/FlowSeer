@@ -100,8 +100,6 @@ func emitIndicatorSourceComment(f *jen.File, src indicatorSource) {
 		f.Comment("// Discovered by mibgen structural rule: per-row column name matches indicator-suffix heuristic.")
 	case indicatorFromStructuralNamePrefix:
 		f.Comment("// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.")
-	case indicatorFromStructuralSingleTable:
-		f.Comment("// Discovered by mibgen structural rule: single-table-sibling scalar.")
 	case indicatorFromConfig:
 		f.Comment("// Declared in mibgen.yaml under modules.<name>.indicators.")
 	}

@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/SNMPv2-TC
 // Source SHA-256: c1379575e6a0ad25b2d7da68294153c1fd79750827376f2aa6323d072d73f0b8
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package snmpv2tc
 
