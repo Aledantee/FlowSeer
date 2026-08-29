@@ -3011,5 +3011,5 @@ var IfTableIndicator = snmp.MustChangeIndicator(snmp.NewPerRowIndicator(IfLastCh
 // The Watcher Gets ifStackLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
-// Declared in mibgen.yaml under modules.<name>.indicators.
+// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
 var IfStackTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 6), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2)}))

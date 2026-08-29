@@ -19,22 +19,11 @@ modules:
     package: ianaiftype
   - name: SNMPv2-MIB
     package: snmpv2mib
+  # IF-MIB's indicators are all structurally discoverable: ifTable
+  # binds its per-row ifLastChange column, and ifStackTable binds the
+  # ifStackLastChange scalar via the name-prefix rule.
   - name: IF-MIB
     package: ifmib
-    # IF-MIB has three indicators; only the per-row IfLastChange is
-    # structurally discoverable (column inside ifTable's row matches
-    # the *LastChange* heuristic). The two scalars below cover
-    # ifTable and ifStackTable but live in a different subtree
-    # (ifMIBObjects) with multiple table siblings, so the
-    # single-table-sibling structural rule fails — they require
-    # explicit declaration here.
-    indicators:
-      - scalar_oid:    "1.3.6.1.2.1.31.1.5"     # ifTableLastChange (ifMIBObjects.5)
-        covers_tables:
-          - "1.3.6.1.2.1.2.2"                   # ifTable
-      - scalar_oid:    "1.3.6.1.2.1.31.1.6"     # ifStackLastChange (ifMIBObjects.6)
-        covers_tables:
-          - "1.3.6.1.2.1.31.1.2"                # ifStackTable
   - { name: BRIDGE-MIB,        package: bridgemib }
   - { name: P-BRIDGE-MIB,      package: pbridgemib }
   - { name: Q-BRIDGE-MIB,      package: qbridgemib }
@@ -58,10 +47,8 @@ modules:
   - { name: IP-MIB,            package: ipmib }
   - { name: HOST-RESOURCES-MIB, package: hostresourcesmib }
   - { name: LLDP-MIB,          package: lldpmib }
-  - name: MIKROTIK-MIB
-    package: mikrotik
-    # Cross-authority dep: MIKROTIK-MIB lives under spec/mib/mikrotik/
-    # but imports from the SNMPv2-* base modules under spec/mib/ietf/.
-    # gosmi resolves IMPORTS via the combined search_paths; depends_on
-    # only orders the topological sort across path boundaries.
-    depends_on: [SNMPv2-SMI, SNMPv2-TC, SNMPv2-CONF]
+  # MIKROTIK-MIB lives under spec/mib/mikrotik/ but imports from the
+  # SNMPv2-* base modules under spec/mib/ietf/; gosmi resolves IMPORTS
+  # across the combined search_paths regardless of listing order, so no
+  # depends_on edge is needed.
+  - { name: MIKROTIK-MIB,      package: mikrotik }
