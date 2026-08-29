@@ -35,9 +35,11 @@ sibling-name uniqueness, cycle-freedom of the parent chain, and the deletion
 semantics of a tag that still has children. A tag names its parent but not
 its children; the children of a tag are a query, not a field.
 
-Tag names are operator-authored opaque strings. There is no per-locale
-variant today; if localization is ever needed, a locale map can be added
-beside `name` without breaking the existing contract.
+Tag names are localized at serving time: the RPC's language header selects
+the rendering of `name` (and of the names in `TagState.path`) when a
+translation exists, falling through to English otherwise. The translation
+mapping is server-side and never part of the payload; the wire messages
+carry one name per request language.
 
 ## Other entities
 
