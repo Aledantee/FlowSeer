@@ -72,8 +72,7 @@ func buildV2cTrap(t *testing.T, vbs []VarBind) []byte {
 
 func buildV1Trap(t *testing.T, community string, enterprise OID, agent net.IP, generic, specific int, ts uint32, payload []VarBind) []byte {
 	t.Helper()
-	var body []byte
-	body = appendOID(body, enterprise)
+	body := encodeOID(enterprise)
 	ip, err := appendIPv4(agent)
 	if err != nil {
 		t.Fatalf("agent ip: %v", err)

@@ -184,8 +184,7 @@ func TestRoundTrip_GetBulkRequest(t *testing.T) {
 
 func TestDecode_V1TrapPDU(t *testing.T) {
 	// Build a v1 Trap-PDU by hand (encodePDU does not emit traps).
-	var body []byte
-	body = appendOID(body, MustOID(1, 3, 6, 1, 4, 1, 9)) // enterprise (Cisco)
+	body := encodeOID(MustOID(1, 3, 6, 1, 4, 1, 9)) // enterprise (Cisco)
 	ip, err := appendIPv4(net.IPv4(10, 1, 2, 3))
 	if err != nil {
 		t.Fatal(err)

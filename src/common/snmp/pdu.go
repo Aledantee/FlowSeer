@@ -887,7 +887,7 @@ func encodeVarBind(vb VarBind) ([]byte, error) {
 	case OctetStringVar:
 		value = appendOctetString(nil, tagOctetString, x.Value)
 	case ObjectIDVar:
-		value = appendOID(nil, x.Value)
+		value = encodeOID(x.Value)
 	case BitStringVar:
 		value = appendOctetString(nil, tagBitString, x.Value)
 	case Counter32Var:
@@ -923,8 +923,7 @@ func encodeVarBind(vb VarBind) ([]byte, error) {
 	default:
 		return nil, errs.Wrapf(errMalformedPDU, "unsupported VarBind variant %T", vb)
 	}
-	var body []byte
-	body = appendOID(body, hdr.OID)
+	body := encodeOID(hdr.OID)
 	body = append(body, value...)
 	return appendSequence(tagSequence, body), nil
 }

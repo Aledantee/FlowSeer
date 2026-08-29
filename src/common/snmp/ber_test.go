@@ -412,7 +412,7 @@ func TestAppendTLVEncoders(t *testing.T) {
 	})
 	t.Run("appendOID", func(t *testing.T) {
 		want := MustOID(1, 3, 6, 1, 2, 1, 1, 1, 0)
-		enc := appendOID(nil, want)
+		enc := encodeOID(want)
 		tag, content, _, err := parseTLV(enc)
 		if err != nil || tag != tagOID {
 			t.Fatalf("tag=0x%02x err=%v", tag, err)
