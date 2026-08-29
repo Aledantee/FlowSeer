@@ -38,7 +38,8 @@ message AttributeValueGlobalRef {
 
 // A number as either of two precisions. The arm is part of the value:
 // consumers switch on it instead of guessing whether a float carries an
-// exact count.
+// exact count. In JSON, the integer arm serializes as a string and the
+// decimal arm as a number, so JSON consumers convert by arm.
 message Number {
   // The precision the value was written in. Exactly one arm is set.
   oneof precision {
@@ -122,6 +123,16 @@ message AttributeValueEvent {
     id: "attribute_value_event.has_side"
     message: "an attribute value event must carry a before or an after"
     expression: "has(this.before) || has(this.after)"
+  };
+  option (buf.validate.message).cel = {
+    id: "attribute_value_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression: "!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.value.id == this.ref.value.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "attribute_value_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression: "!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.value.id == this.ref.value.id"
   };
 
   // The ref to the assignment that changed. Must be present.

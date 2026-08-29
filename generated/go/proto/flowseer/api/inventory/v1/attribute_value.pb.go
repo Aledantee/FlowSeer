@@ -188,7 +188,8 @@ func (b0 AttributeValueGlobalRef_builder) Build() *AttributeValueGlobalRef {
 
 // A number as either of two precisions. The arm is part of the value:
 // consumers switch on it instead of guessing whether a float carries an
-// exact count.
+// exact count. In JSON, the integer arm serializes as a string and the
+// decimal arm as a number, so JSON consumers convert by arm.
 type Number struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Precision isNumber_Precision     `protobuf_oneof:"precision"`
@@ -939,12 +940,14 @@ const file_flowseer_api_inventory_v1_attribute_value_proto_rawDesc = "" +
 	"\x03ref\x18\x01 \x01(\v22.flowseer.api.inventory.v1.AttributeValueGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12B\n" +
 	"\x05owner\x18\x02 \x01(\v2$.flowseer.api.inventory.v1.EntityRefB\x06\xbaH\x03\xc8\x01\x01R\x05owner\x12S\n" +
 	"\tattribute\x18\x03 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\tattribute\x12U\n" +
-	"\x06values\x18\x04 \x03(\v20.flowseer.api.inventory.v1.AttributeValuePayloadB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x01R\x06values\"\xfb\x02\n" +
+	"\x06values\x18\x04 \x03(\v20.flowseer.api.inventory.v1.AttributeValuePayloadB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x01R\x06values\"\xa2\x06\n" +
 	"\x13AttributeValueEvent\x12L\n" +
 	"\x03ref\x18\x01 \x01(\v22.flowseer.api.inventory.v1.AttributeValueGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12G\n" +
 	"\x06before\x18\x02 \x01(\v2/.flowseer.api.inventory.v1.AttributeValueConfigR\x06before\x12E\n" +
-	"\x05after\x18\x03 \x01(\v2/.flowseer.api.inventory.v1.AttributeValueConfigR\x05after:\x85\x01\xbaH\x81\x01\x1a\x7f\n" +
-	"\x1eattribute_value_event.has_side\x128an attribute value event must carry a before or an after\x1a#has(this.before) || has(this.after)B\x8d\x02\n" +
+	"\x05after\x18\x03 \x01(\v2/.flowseer.api.inventory.v1.AttributeValueConfigR\x05after:\xac\x04\xbaH\xa8\x04\x1a\x7f\n" +
+	"\x1eattribute_value_event.has_side\x128an attribute value event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xd3\x01\n" +
+	"(attribute_value_event.before_matches_ref\x128the before side must describe the entity the event names\x1am!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.value.id == this.ref.value.id\x1a\xce\x01\n" +
+	"'attribute_value_event.after_matches_ref\x127the after side must describe the entity the event names\x1aj!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.value.id == this.ref.value.idB\x8d\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\x13AttributeValueProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_attribute_value_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

@@ -781,8 +781,9 @@ type AttributeConfig_builder struct {
 	// the tenant, never localized, immutable after creation. Must be present.
 	Key *string
 	// Operator-assigned display name. Reads carry it localized per the RPC's
-	// language header when a translation exists, falling through to English;
-	// the translation mapping is server-side and never part of the payload.
+	// language header when a translation exists; otherwise it comes back in
+	// English. The translation mapping is server-side and never part of the
+	// payload.
 	// Must be present.
 	Name *string
 	// Free-text description of what the attribute measures. Unset means none
@@ -1046,12 +1047,14 @@ const file_flowseer_api_inventory_v1_attribute_proto_rawDesc = "" +
 	"numberType\x12B\n" +
 	"\tenum_type\x18\f \x01(\v2#.flowseer.api.inventory.v1.EnumTypeH\x00R\benumType\x12Q\n" +
 	"\x0ereference_type\x18\r \x01(\v2(.flowseer.api.inventory.v1.ReferenceTypeH\x00R\rreferenceTypeB\r\n" +
-	"\x04type\x12\x05\xbaH\x02\b\x01\"\xd9\x02\n" +
+	"\x04type\x12\x05\xbaH\x02\b\x01\"\x86\x06\n" +
 	"\x0eAttributeEvent\x12G\n" +
 	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12B\n" +
 	"\x06before\x18\x02 \x01(\v2*.flowseer.api.inventory.v1.AttributeConfigR\x06before\x12@\n" +
-	"\x05after\x18\x03 \x01(\v2*.flowseer.api.inventory.v1.AttributeConfigR\x05after:x\xbaHu\x1as\n" +
-	"\x18attribute_event.has_side\x122an attribute event must carry a before or an after\x1a#has(this.before) || has(this.after)B\x88\x02\n" +
+	"\x05after\x18\x03 \x01(\v2*.flowseer.api.inventory.v1.AttributeConfigR\x05after:\xa4\x04\xbaH\xa0\x04\x1as\n" +
+	"\x18attribute_event.has_side\x122an attribute event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xd5\x01\n" +
+	"\"attribute_event.before_matches_ref\x128the before side must describe the entity the event names\x1au!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.attribute.id == this.ref.attribute.id\x1a\xd0\x01\n" +
+	"!attribute_event.after_matches_ref\x127the after side must describe the entity the event names\x1ar!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.attribute.id == this.ref.attribute.idB\x88\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\x0eAttributeProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_attribute_proto_msgTypes = make([]protoimpl.MessageInfo, 8)

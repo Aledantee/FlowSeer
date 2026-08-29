@@ -106,8 +106,9 @@ message AttributeConfig {
     }
   ];
   // Operator-assigned display name. Reads carry it localized per the RPC's
-  // language header when a translation exists, falling through to English;
-  // the translation mapping is server-side and never part of the payload.
+  // language header when a translation exists; otherwise it comes back in
+  // English. The translation mapping is server-side and never part of the
+  // payload.
   // Must be present.
   string name = 3 [
     (buf.validate.field).required = true,
@@ -157,6 +158,16 @@ message AttributeEvent {
     id: "attribute_event.has_side"
     message: "an attribute event must carry a before or an after"
     expression: "has(this.before) || has(this.after)"
+  };
+  option (buf.validate.message).cel = {
+    id: "attribute_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression: "!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.attribute.id == this.ref.attribute.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "attribute_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression: "!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.attribute.id == this.ref.attribute.id"
   };
 
   // The ref to the definition that changed. Must be present.
