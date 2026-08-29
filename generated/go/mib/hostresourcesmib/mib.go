@@ -3513,5 +3513,5 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 // The Watcher Gets hrSWInstalledLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
-// Discovered by mibgen structural rule: single-table-sibling scalar.
+// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
 var HrSWInstalledTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 1), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3)}))

@@ -136,6 +136,60 @@ func TestMatchesIndicatorNameSuffix_Cases(t *testing.T) {
 	}
 }
 
+// --- discoverNamePrefixScalarIndicator ------------------------------
+
+func TestDiscoverNamePrefixScalar_BaseForm(t *testing.T) {
+	// ifStackLastChange = "ifStack" (table name minus "Table") + suffix.
+	table := nodeFor("ifStackTable", "")
+	scalars := []gosmi.SmiNode{nodeFor("ifStackLastChange", "")}
+	ind, ok := discoverNamePrefixScalarIndicator(table, scalars)
+	if !ok {
+		t.Fatal("ifStackLastChange should bind ifStackTable")
+	}
+	if ind.Kind != indicatorScalar || ind.Source != indicatorFromStructuralNamePrefix {
+		t.Errorf("kind/source = %v/%v, want scalar/name-prefix", ind.Kind, ind.Source)
+	}
+	if ind.IndicatorNode.Name != "ifStackLastChange" {
+		t.Errorf("bound %q, want ifStackLastChange", ind.IndicatorNode.Name)
+	}
+}
+
+func TestDiscoverNamePrefixScalar_FullNameForm(t *testing.T) {
+	// ifTableLastChange keeps "Table" in the scalar name.
+	table := nodeFor("ifTable", "")
+	scalars := []gosmi.SmiNode{nodeFor("ifTableLastChange", "")}
+	if _, ok := discoverNamePrefixScalarIndicator(table, scalars); !ok {
+		t.Error("ifTableLastChange should bind ifTable")
+	}
+}
+
+func TestDiscoverNamePrefixScalar_FullNamePreferred(t *testing.T) {
+	table := nodeFor("fooTable", "")
+	scalars := []gosmi.SmiNode{
+		nodeFor("fooLastChange", ""),
+		nodeFor("fooTableLastChange", ""),
+	}
+	ind, ok := discoverNamePrefixScalarIndicator(table, scalars)
+	if !ok {
+		t.Fatal("expected a binding")
+	}
+	if ind.IndicatorNode.Name != "fooTableLastChange" {
+		t.Errorf("bound %q, want the full-name form fooTableLastChange", ind.IndicatorNode.Name)
+	}
+}
+
+func TestDiscoverNamePrefixScalar_NoMatch(t *testing.T) {
+	table := nodeFor("fooTable", "")
+	scalars := []gosmi.SmiNode{
+		nodeFor("barLastChange", ""),      // different base
+		nodeFor("fooLastChangeExtra", ""), // suffix not terminal
+		nodeFor("fooTable", ""),           // no suffix at all
+	}
+	if _, ok := discoverNamePrefixScalarIndicator(table, scalars); ok {
+		t.Error("no scalar should bind fooTable")
+	}
+}
+
 // --- Discovery integration ------------------------------------------
 
 // TestDiscoverIndicators_FakeMIB_PerRow exercises the structural

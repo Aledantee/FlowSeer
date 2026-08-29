@@ -44,6 +44,7 @@ type indicatorSource uint8
 
 const (
 	indicatorFromStructuralPerRow      indicatorSource = iota // column inside the row matches name heuristic
+	indicatorFromStructuralNamePrefix                         // scalar name is the table's name plus an indicator suffix
 	indicatorFromStructuralSingleTable                        // single-table-sibling scalar matches heuristic
 	indicatorFromConfig                                       // user-declared in mibgen.yaml
 )
@@ -85,7 +86,9 @@ func matchesIndicatorNameSuffix(name string) bool {
 //
 //  1. Structural per-row (most precise — one probe per row).
 //  2. Config-declared (whether scalar or column override).
-//  3. Structural single-table-sibling scalar (fallback for the narrow
+//  3. Structural name-prefix scalar (scalar named after the table plus
+//     an indicator suffix, e.g. ifStackLastChange for ifStackTable).
+//  4. Structural single-table-sibling scalar (fallback for the narrow
 //     case where the scalar's parent has exactly one table child).
 //
 // The result is the source of truth for whether a package contains
@@ -117,7 +120,12 @@ func discoverIndicators(ec *emitCtx, mod *gosmi.SmiModule) []tableIndicator {
 			out = append(out, ind)
 			continue
 		}
-		// 3) Structural single-table-sibling scalar.
+		// 3) Structural name-prefix scalar.
+		if ind, ok := discoverNamePrefixScalarIndicator(tbl, scalars); ok {
+			out = append(out, ind)
+			continue
+		}
+		// 4) Structural single-table-sibling scalar.
 		if ind, ok := discoverSingleTableScalarIndicator(tbl, tables, scalars); ok {
 			out = append(out, ind)
 		}
@@ -230,6 +238,49 @@ func discoverPerRowIndicator(table gosmi.SmiNode) (tableIndicator, bool) {
 			IndicatorNode: col,
 			Source:        indicatorFromStructuralPerRow,
 		}, true
+	}
+	return tableIndicator{}, false
+}
+
+// discoverNamePrefixScalarIndicator looks for a module-level scalar
+// whose object name is the table's name plus an indicator suffix — the
+// conventional SMIv2 spelling for a table-covering change scalar. Two
+// name shapes are accepted, checked in this order across all scalars:
+//
+//   - `<tableName><suffix>`: ifTableLastChange for ifTable.
+//   - `<base><suffix>` where base is the table name with a trailing
+//     "Table" stripped: ifStackLastChange for ifStackTable.
+//
+// The full-name form is tried first so a module that (pathologically)
+// declares both spellings binds the more explicit one. Matching is
+// case-insensitive. The rule needs no subtree relationship between
+// scalar and table: the name correlation alone is specific enough that
+// a false binding would require two unrelated objects sharing an exact
+// `<table><suffix>` spelling within one module.
+func discoverNamePrefixScalarIndicator(
+	table gosmi.SmiNode,
+	scalars []gosmi.SmiNode,
+) (tableIndicator, bool) {
+	tblLower := strings.ToLower(table.Name)
+	base := strings.TrimSuffix(tblLower, "table")
+	prefixes := []string{tblLower}
+	if base != tblLower && base != "" {
+		prefixes = append(prefixes, base)
+	}
+	for _, prefix := range prefixes {
+		for _, sc := range scalars {
+			scLower := strings.ToLower(sc.Name)
+			for _, suffix := range indicatorSuffixes {
+				if scLower == prefix+suffix {
+					return tableIndicator{
+						Table:         table,
+						Kind:          indicatorScalar,
+						IndicatorNode: sc,
+						Source:        indicatorFromStructuralNamePrefix,
+					}, true
+				}
+			}
+		}
 	}
 	return tableIndicator{}, false
 }

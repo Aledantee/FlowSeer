@@ -2294,6 +2294,168 @@ func (ipv4InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	}
 }
 
+// decodeIpv4InterfaceTableRow decodes one row of Ipv4InterfaceTable from the supplied
+// VarBinds. Each VarBind's OID determines which row field it populates
+// (via the column's last sub-id). VarBinds with unknown column-ids are
+// ignored. Absent columns leave their field at its zero value.
+func decodeIpv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv4InterfaceTableRow, error) {
+	var row Ipv4InterfaceTableRow
+	row.Index = idx
+
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 2:
+			dv, derr := Ipv4InterfaceReasmMaxSize.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv4InterfaceReasmMaxSize = dv
+		case 3:
+			dv, derr := Ipv4InterfaceEnableStatus.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv4InterfaceEnableStatus = dv
+		case 4:
+			dv, derr := Ipv4InterfaceRetransmitTime.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv4InterfaceRetransmitTime = dv
+		}
+	}
+
+	return row, nil
+}
+
+// equalIpv4InterfaceTableRow compares two Ipv4InterfaceTableRow values for equality.
+// Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
+// field with the type-appropriate comparator (bytes.Equal for []byte,
+// OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
+func equalIpv4InterfaceTableRow(a Ipv4InterfaceTableRow, b Ipv4InterfaceTableRow) bool {
+	return a.Index.Equal(b.Index) && a.Ipv4InterfaceReasmMaxSize == b.Ipv4InterfaceReasmMaxSize && a.Ipv4InterfaceEnableStatus == b.Ipv4InterfaceEnableStatus && a.Ipv4InterfaceRetransmitTime == b.Ipv4InterfaceRetransmitTime
+}
+
+// mergeIpv4InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
+// whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
+// to maintain per-row state under partial-column fetches (Counter-tier,
+// Static-tier). Best-effort: individual VarBind decode failures are
+// silently skipped rather than propagated, because partial-fetch ticks
+// surface transient errors through [snmp.Watcher.LastTickErr] at the
+// call-site granularity rather than per-VarBind.
+func mergeIpv4InterfaceTableRow(dst *Ipv4InterfaceTableRow, vbs []snmp.VarBind) {
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 2:
+			dv, derr := Ipv4InterfaceReasmMaxSize.Decode(vb)
+			if derr == nil {
+				dst.Ipv4InterfaceReasmMaxSize = dv
+			}
+		case 3:
+			dv, derr := Ipv4InterfaceEnableStatus.Decode(vb)
+			if derr == nil {
+				dst.Ipv4InterfaceEnableStatus = dv
+			}
+		case 4:
+			dv, derr := Ipv4InterfaceRetransmitTime.Decode(vb)
+			if derr == nil {
+				dst.Ipv4InterfaceRetransmitTime = dv
+			}
+		}
+	}
+}
+
+// Ipv4InterfaceTableWatcher is a table-aware Watcher over Ipv4InterfaceTable.
+// Construct via Ipv4InterfaceTable.Watch(ctx, sess, cols, opts...).
+type Ipv4InterfaceTableWatcher struct {
+	w *snmp.Watcher[Ipv4InterfaceTableRow]
+}
+
+// Iter returns the range-over-func view of the Watcher's event stream.
+// See [snmp.Watcher.Iter] for the contract.
+func (tw *Ipv4InterfaceTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[Ipv4InterfaceTableRow]] {
+	return tw.w.Iter()
+}
+
+// Err returns the underlying Watcher's terminal error, or nil if it
+// completed naturally. See [snmp.Watcher.Err].
+func (tw *Ipv4InterfaceTableWatcher) Err() error {
+	return tw.w.Err()
+}
+
+// Close signals the Watcher's tick goroutine to terminate. Idempotent.
+// See [snmp.Watcher.Close].
+func (tw *Ipv4InterfaceTableWatcher) Close() error {
+	return tw.w.Close()
+}
+
+// Fallback reports whether the Watcher has transitioned to fallback
+// mode. See [snmp.Watcher.Fallback].
+func (tw *Ipv4InterfaceTableWatcher) Fallback() bool {
+	return tw.w.Fallback()
+}
+
+// LastTickErr returns the most-recent transient per-tick error.
+// See [snmp.Watcher.LastTickErr].
+func (tw *Ipv4InterfaceTableWatcher) LastTickErr() error {
+	return tw.w.LastTickErr()
+}
+
+// TableRoot returns the OID of the table this Watcher operates over.
+func (tw *Ipv4InterfaceTableWatcher) TableRoot() snmp.OID {
+	return tw.w.TableRoot()
+}
+
+// Watch opens a long-lived watch on Ipv4InterfaceTable.
+//
+// cols selects the columns whose values are reported on every emitted
+// event. opts override cadence bounds, per-column tier classifications,
+// fallback behavior, and other policy — see [snmp.WatchOption] for the
+// full set.
+//
+// cols is a slice rather than variadic because opts is variadic and
+// Go forbids two variadic parameters.
+//
+// Events emitted on this stream:
+//   - ChangeKindAdded    — Row populated, Prev always nil.
+//   - ChangeKindModified — Row is current state. Prev is nil unless
+//     the caller passed [snmp.WithPrevRow]; when
+//     set, Prev carries the previous Row.
+//   - ChangeKindRemoved  — Row carries the last-known state at the
+//     time the row disappeared. Prev is nil.
+//
+// The returned Watcher must be Closed when the caller is done; iteration
+// exit alone does not free the underlying goroutine until Close.
+//
+// On validation failure (invalid cadence bounds, tier override of the
+// indicator column, etc.) Watch returns a Watcher whose Err() returns
+// the cause immediately; range loops exit without emitting events and
+// Close is a no-op.
+func (ipv4InterfaceTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *Ipv4InterfaceTableWatcher {
+	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
+	w, _ := snmp.NewWatcher[Ipv4InterfaceTableRow](ctx, sess, Ipv4InterfaceTableIndicator, cols, decodeIpv4InterfaceTableRow, equalIpv4InterfaceTableRow, mergeIpv4InterfaceTableRow, allOpts...)
+
+	return &Ipv4InterfaceTableWatcher{w: w}
+}
+
 // Ipv6InterfaceReasmMaxSize is the column ipv6InterfaceReasmMaxSize of table ipv6InterfaceTable.
 // The size of the largest IPv6 datagram that this entity can re-assemble
 // from incoming IPv6 fragmented datagrams received on this interface.
@@ -2596,6 +2758,201 @@ func (ipv6InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 		cols:  cols,
 		rw:    w,
 	}
+}
+
+// decodeIpv6InterfaceTableRow decodes one row of Ipv6InterfaceTable from the supplied
+// VarBinds. Each VarBind's OID determines which row field it populates
+// (via the column's last sub-id). VarBinds with unknown column-ids are
+// ignored. Absent columns leave their field at its zero value.
+func decodeIpv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv6InterfaceTableRow, error) {
+	var row Ipv6InterfaceTableRow
+	row.Index = idx
+
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 2:
+			dv, derr := Ipv6InterfaceReasmMaxSize.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv6InterfaceReasmMaxSize = dv
+		case 3:
+			dv, derr := Ipv6InterfaceIdentifier.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv6InterfaceIdentifier = dv
+		case 5:
+			dv, derr := Ipv6InterfaceEnableStatus.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv6InterfaceEnableStatus = dv
+		case 6:
+			dv, derr := Ipv6InterfaceReachableTime.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv6InterfaceReachableTime = dv
+		case 7:
+			dv, derr := Ipv6InterfaceRetransmitTime.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv6InterfaceRetransmitTime = dv
+		case 8:
+			dv, derr := Ipv6InterfaceForwarding.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.Ipv6InterfaceForwarding = dv
+		}
+	}
+
+	return row, nil
+}
+
+// equalIpv6InterfaceTableRow compares two Ipv6InterfaceTableRow values for equality.
+// Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
+// field with the type-appropriate comparator (bytes.Equal for []byte,
+// OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
+func equalIpv6InterfaceTableRow(a Ipv6InterfaceTableRow, b Ipv6InterfaceTableRow) bool {
+	return a.Index.Equal(b.Index) && a.Ipv6InterfaceReasmMaxSize == b.Ipv6InterfaceReasmMaxSize && bytes.Equal(a.Ipv6InterfaceIdentifier, b.Ipv6InterfaceIdentifier) && a.Ipv6InterfaceEnableStatus == b.Ipv6InterfaceEnableStatus && a.Ipv6InterfaceReachableTime == b.Ipv6InterfaceReachableTime && a.Ipv6InterfaceRetransmitTime == b.Ipv6InterfaceRetransmitTime && a.Ipv6InterfaceForwarding == b.Ipv6InterfaceForwarding
+}
+
+// mergeIpv6InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
+// whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
+// to maintain per-row state under partial-column fetches (Counter-tier,
+// Static-tier). Best-effort: individual VarBind decode failures are
+// silently skipped rather than propagated, because partial-fetch ticks
+// surface transient errors through [snmp.Watcher.LastTickErr] at the
+// call-site granularity rather than per-VarBind.
+func mergeIpv6InterfaceTableRow(dst *Ipv6InterfaceTableRow, vbs []snmp.VarBind) {
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 2:
+			dv, derr := Ipv6InterfaceReasmMaxSize.Decode(vb)
+			if derr == nil {
+				dst.Ipv6InterfaceReasmMaxSize = dv
+			}
+		case 3:
+			dv, derr := Ipv6InterfaceIdentifier.Decode(vb)
+			if derr == nil {
+				dst.Ipv6InterfaceIdentifier = dv
+			}
+		case 5:
+			dv, derr := Ipv6InterfaceEnableStatus.Decode(vb)
+			if derr == nil {
+				dst.Ipv6InterfaceEnableStatus = dv
+			}
+		case 6:
+			dv, derr := Ipv6InterfaceReachableTime.Decode(vb)
+			if derr == nil {
+				dst.Ipv6InterfaceReachableTime = dv
+			}
+		case 7:
+			dv, derr := Ipv6InterfaceRetransmitTime.Decode(vb)
+			if derr == nil {
+				dst.Ipv6InterfaceRetransmitTime = dv
+			}
+		case 8:
+			dv, derr := Ipv6InterfaceForwarding.Decode(vb)
+			if derr == nil {
+				dst.Ipv6InterfaceForwarding = dv
+			}
+		}
+	}
+}
+
+// Ipv6InterfaceTableWatcher is a table-aware Watcher over Ipv6InterfaceTable.
+// Construct via Ipv6InterfaceTable.Watch(ctx, sess, cols, opts...).
+type Ipv6InterfaceTableWatcher struct {
+	w *snmp.Watcher[Ipv6InterfaceTableRow]
+}
+
+// Iter returns the range-over-func view of the Watcher's event stream.
+// See [snmp.Watcher.Iter] for the contract.
+func (tw *Ipv6InterfaceTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[Ipv6InterfaceTableRow]] {
+	return tw.w.Iter()
+}
+
+// Err returns the underlying Watcher's terminal error, or nil if it
+// completed naturally. See [snmp.Watcher.Err].
+func (tw *Ipv6InterfaceTableWatcher) Err() error {
+	return tw.w.Err()
+}
+
+// Close signals the Watcher's tick goroutine to terminate. Idempotent.
+// See [snmp.Watcher.Close].
+func (tw *Ipv6InterfaceTableWatcher) Close() error {
+	return tw.w.Close()
+}
+
+// Fallback reports whether the Watcher has transitioned to fallback
+// mode. See [snmp.Watcher.Fallback].
+func (tw *Ipv6InterfaceTableWatcher) Fallback() bool {
+	return tw.w.Fallback()
+}
+
+// LastTickErr returns the most-recent transient per-tick error.
+// See [snmp.Watcher.LastTickErr].
+func (tw *Ipv6InterfaceTableWatcher) LastTickErr() error {
+	return tw.w.LastTickErr()
+}
+
+// TableRoot returns the OID of the table this Watcher operates over.
+func (tw *Ipv6InterfaceTableWatcher) TableRoot() snmp.OID {
+	return tw.w.TableRoot()
+}
+
+// Watch opens a long-lived watch on Ipv6InterfaceTable.
+//
+// cols selects the columns whose values are reported on every emitted
+// event. opts override cadence bounds, per-column tier classifications,
+// fallback behavior, and other policy — see [snmp.WatchOption] for the
+// full set.
+//
+// cols is a slice rather than variadic because opts is variadic and
+// Go forbids two variadic parameters.
+//
+// Events emitted on this stream:
+//   - ChangeKindAdded    — Row populated, Prev always nil.
+//   - ChangeKindModified — Row is current state. Prev is nil unless
+//     the caller passed [snmp.WithPrevRow]; when
+//     set, Prev carries the previous Row.
+//   - ChangeKindRemoved  — Row carries the last-known state at the
+//     time the row disappeared. Prev is nil.
+//
+// The returned Watcher must be Closed when the caller is done; iteration
+// exit alone does not free the underlying goroutine until Close.
+//
+// On validation failure (invalid cadence bounds, tier override of the
+// indicator column, etc.) Watch returns a Watcher whose Err() returns
+// the cause immediately; range loops exit without emitting events and
+// Close is a no-op.
+func (ipv6InterfaceTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *Ipv6InterfaceTableWatcher {
+	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
+	w, _ := snmp.NewWatcher[Ipv6InterfaceTableRow](ctx, sess, Ipv6InterfaceTableIndicator, cols, decodeIpv6InterfaceTableRow, equalIpv6InterfaceTableRow, mergeIpv6InterfaceTableRow, allOpts...)
+
+	return &Ipv6InterfaceTableWatcher{w: w}
 }
 
 // IpSystemStatsInReceives is the column ipSystemStatsInReceives of table ipSystemStatsTable.
@@ -5364,6 +5721,619 @@ func (ipIfStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp
 		cols:  cols,
 		rw:    w,
 	}
+}
+
+// decodeIpIfStatsTableRow decodes one row of IpIfStatsTable from the supplied
+// VarBinds. Each VarBind's OID determines which row field it populates
+// (via the column's last sub-id). VarBinds with unknown column-ids are
+// ignored. Absent columns leave their field at its zero value.
+func decodeIpIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpIfStatsTableRow, error) {
+	var row IpIfStatsTableRow
+	row.Index = idx
+
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 3:
+			dv, derr := IpIfStatsInReceives.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInReceives = dv
+		case 4:
+			dv, derr := IpIfStatsHCInReceives.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCInReceives = dv
+		case 5:
+			dv, derr := IpIfStatsInOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInOctets = dv
+		case 6:
+			dv, derr := IpIfStatsHCInOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCInOctets = dv
+		case 7:
+			dv, derr := IpIfStatsInHdrErrors.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInHdrErrors = dv
+		case 8:
+			dv, derr := IpIfStatsInNoRoutes.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInNoRoutes = dv
+		case 9:
+			dv, derr := IpIfStatsInAddrErrors.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInAddrErrors = dv
+		case 10:
+			dv, derr := IpIfStatsInUnknownProtos.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInUnknownProtos = dv
+		case 11:
+			dv, derr := IpIfStatsInTruncatedPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInTruncatedPkts = dv
+		case 12:
+			dv, derr := IpIfStatsInForwDatagrams.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInForwDatagrams = dv
+		case 13:
+			dv, derr := IpIfStatsHCInForwDatagrams.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCInForwDatagrams = dv
+		case 14:
+			dv, derr := IpIfStatsReasmReqds.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsReasmReqds = dv
+		case 15:
+			dv, derr := IpIfStatsReasmOKs.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsReasmOKs = dv
+		case 16:
+			dv, derr := IpIfStatsReasmFails.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsReasmFails = dv
+		case 17:
+			dv, derr := IpIfStatsInDiscards.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInDiscards = dv
+		case 18:
+			dv, derr := IpIfStatsInDelivers.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInDelivers = dv
+		case 19:
+			dv, derr := IpIfStatsHCInDelivers.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCInDelivers = dv
+		case 20:
+			dv, derr := IpIfStatsOutRequests.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutRequests = dv
+		case 21:
+			dv, derr := IpIfStatsHCOutRequests.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCOutRequests = dv
+		case 23:
+			dv, derr := IpIfStatsOutForwDatagrams.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutForwDatagrams = dv
+		case 24:
+			dv, derr := IpIfStatsHCOutForwDatagrams.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCOutForwDatagrams = dv
+		case 25:
+			dv, derr := IpIfStatsOutDiscards.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutDiscards = dv
+		case 26:
+			dv, derr := IpIfStatsOutFragReqds.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutFragReqds = dv
+		case 27:
+			dv, derr := IpIfStatsOutFragOKs.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutFragOKs = dv
+		case 28:
+			dv, derr := IpIfStatsOutFragFails.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutFragFails = dv
+		case 29:
+			dv, derr := IpIfStatsOutFragCreates.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutFragCreates = dv
+		case 30:
+			dv, derr := IpIfStatsOutTransmits.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutTransmits = dv
+		case 31:
+			dv, derr := IpIfStatsHCOutTransmits.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCOutTransmits = dv
+		case 32:
+			dv, derr := IpIfStatsOutOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutOctets = dv
+		case 33:
+			dv, derr := IpIfStatsHCOutOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCOutOctets = dv
+		case 34:
+			dv, derr := IpIfStatsInMcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInMcastPkts = dv
+		case 35:
+			dv, derr := IpIfStatsHCInMcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCInMcastPkts = dv
+		case 36:
+			dv, derr := IpIfStatsInMcastOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInMcastOctets = dv
+		case 37:
+			dv, derr := IpIfStatsHCInMcastOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCInMcastOctets = dv
+		case 38:
+			dv, derr := IpIfStatsOutMcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutMcastPkts = dv
+		case 39:
+			dv, derr := IpIfStatsHCOutMcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCOutMcastPkts = dv
+		case 40:
+			dv, derr := IpIfStatsOutMcastOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutMcastOctets = dv
+		case 41:
+			dv, derr := IpIfStatsHCOutMcastOctets.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCOutMcastOctets = dv
+		case 42:
+			dv, derr := IpIfStatsInBcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsInBcastPkts = dv
+		case 43:
+			dv, derr := IpIfStatsHCInBcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCInBcastPkts = dv
+		case 44:
+			dv, derr := IpIfStatsOutBcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsOutBcastPkts = dv
+		case 45:
+			dv, derr := IpIfStatsHCOutBcastPkts.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsHCOutBcastPkts = dv
+		case 46:
+			dv, derr := IpIfStatsDiscontinuityTime.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsDiscontinuityTime = dv
+		case 47:
+			dv, derr := IpIfStatsRefreshRate.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.IpIfStatsRefreshRate = dv
+		}
+	}
+
+	return row, nil
+}
+
+// equalIpIfStatsTableRow compares two IpIfStatsTableRow values for equality.
+// Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
+// field with the type-appropriate comparator (bytes.Equal for []byte,
+// OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
+func equalIpIfStatsTableRow(a IpIfStatsTableRow, b IpIfStatsTableRow) bool {
+	return a.Index.Equal(b.Index) && a.IpIfStatsInReceives == b.IpIfStatsInReceives && a.IpIfStatsHCInReceives == b.IpIfStatsHCInReceives && a.IpIfStatsInOctets == b.IpIfStatsInOctets && a.IpIfStatsHCInOctets == b.IpIfStatsHCInOctets && a.IpIfStatsInHdrErrors == b.IpIfStatsInHdrErrors && a.IpIfStatsInNoRoutes == b.IpIfStatsInNoRoutes && a.IpIfStatsInAddrErrors == b.IpIfStatsInAddrErrors && a.IpIfStatsInUnknownProtos == b.IpIfStatsInUnknownProtos && a.IpIfStatsInTruncatedPkts == b.IpIfStatsInTruncatedPkts && a.IpIfStatsInForwDatagrams == b.IpIfStatsInForwDatagrams && a.IpIfStatsHCInForwDatagrams == b.IpIfStatsHCInForwDatagrams && a.IpIfStatsReasmReqds == b.IpIfStatsReasmReqds && a.IpIfStatsReasmOKs == b.IpIfStatsReasmOKs && a.IpIfStatsReasmFails == b.IpIfStatsReasmFails && a.IpIfStatsInDiscards == b.IpIfStatsInDiscards && a.IpIfStatsInDelivers == b.IpIfStatsInDelivers && a.IpIfStatsHCInDelivers == b.IpIfStatsHCInDelivers && a.IpIfStatsOutRequests == b.IpIfStatsOutRequests && a.IpIfStatsHCOutRequests == b.IpIfStatsHCOutRequests && a.IpIfStatsOutForwDatagrams == b.IpIfStatsOutForwDatagrams && a.IpIfStatsHCOutForwDatagrams == b.IpIfStatsHCOutForwDatagrams && a.IpIfStatsOutDiscards == b.IpIfStatsOutDiscards && a.IpIfStatsOutFragReqds == b.IpIfStatsOutFragReqds && a.IpIfStatsOutFragOKs == b.IpIfStatsOutFragOKs && a.IpIfStatsOutFragFails == b.IpIfStatsOutFragFails && a.IpIfStatsOutFragCreates == b.IpIfStatsOutFragCreates && a.IpIfStatsOutTransmits == b.IpIfStatsOutTransmits && a.IpIfStatsHCOutTransmits == b.IpIfStatsHCOutTransmits && a.IpIfStatsOutOctets == b.IpIfStatsOutOctets && a.IpIfStatsHCOutOctets == b.IpIfStatsHCOutOctets && a.IpIfStatsInMcastPkts == b.IpIfStatsInMcastPkts && a.IpIfStatsHCInMcastPkts == b.IpIfStatsHCInMcastPkts && a.IpIfStatsInMcastOctets == b.IpIfStatsInMcastOctets && a.IpIfStatsHCInMcastOctets == b.IpIfStatsHCInMcastOctets && a.IpIfStatsOutMcastPkts == b.IpIfStatsOutMcastPkts && a.IpIfStatsHCOutMcastPkts == b.IpIfStatsHCOutMcastPkts && a.IpIfStatsOutMcastOctets == b.IpIfStatsOutMcastOctets && a.IpIfStatsHCOutMcastOctets == b.IpIfStatsHCOutMcastOctets && a.IpIfStatsInBcastPkts == b.IpIfStatsInBcastPkts && a.IpIfStatsHCInBcastPkts == b.IpIfStatsHCInBcastPkts && a.IpIfStatsOutBcastPkts == b.IpIfStatsOutBcastPkts && a.IpIfStatsHCOutBcastPkts == b.IpIfStatsHCOutBcastPkts && a.IpIfStatsDiscontinuityTime == b.IpIfStatsDiscontinuityTime && a.IpIfStatsRefreshRate == b.IpIfStatsRefreshRate
+}
+
+// mergeIpIfStatsTableRow merges the values decoded from vbs into dst, leaving fields
+// whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
+// to maintain per-row state under partial-column fetches (Counter-tier,
+// Static-tier). Best-effort: individual VarBind decode failures are
+// silently skipped rather than propagated, because partial-fetch ticks
+// surface transient errors through [snmp.Watcher.LastTickErr] at the
+// call-site granularity rather than per-VarBind.
+func mergeIpIfStatsTableRow(dst *IpIfStatsTableRow, vbs []snmp.VarBind) {
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 3:
+			dv, derr := IpIfStatsInReceives.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInReceives = dv
+			}
+		case 4:
+			dv, derr := IpIfStatsHCInReceives.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCInReceives = dv
+			}
+		case 5:
+			dv, derr := IpIfStatsInOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInOctets = dv
+			}
+		case 6:
+			dv, derr := IpIfStatsHCInOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCInOctets = dv
+			}
+		case 7:
+			dv, derr := IpIfStatsInHdrErrors.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInHdrErrors = dv
+			}
+		case 8:
+			dv, derr := IpIfStatsInNoRoutes.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInNoRoutes = dv
+			}
+		case 9:
+			dv, derr := IpIfStatsInAddrErrors.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInAddrErrors = dv
+			}
+		case 10:
+			dv, derr := IpIfStatsInUnknownProtos.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInUnknownProtos = dv
+			}
+		case 11:
+			dv, derr := IpIfStatsInTruncatedPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInTruncatedPkts = dv
+			}
+		case 12:
+			dv, derr := IpIfStatsInForwDatagrams.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInForwDatagrams = dv
+			}
+		case 13:
+			dv, derr := IpIfStatsHCInForwDatagrams.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCInForwDatagrams = dv
+			}
+		case 14:
+			dv, derr := IpIfStatsReasmReqds.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsReasmReqds = dv
+			}
+		case 15:
+			dv, derr := IpIfStatsReasmOKs.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsReasmOKs = dv
+			}
+		case 16:
+			dv, derr := IpIfStatsReasmFails.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsReasmFails = dv
+			}
+		case 17:
+			dv, derr := IpIfStatsInDiscards.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInDiscards = dv
+			}
+		case 18:
+			dv, derr := IpIfStatsInDelivers.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInDelivers = dv
+			}
+		case 19:
+			dv, derr := IpIfStatsHCInDelivers.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCInDelivers = dv
+			}
+		case 20:
+			dv, derr := IpIfStatsOutRequests.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutRequests = dv
+			}
+		case 21:
+			dv, derr := IpIfStatsHCOutRequests.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCOutRequests = dv
+			}
+		case 23:
+			dv, derr := IpIfStatsOutForwDatagrams.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutForwDatagrams = dv
+			}
+		case 24:
+			dv, derr := IpIfStatsHCOutForwDatagrams.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCOutForwDatagrams = dv
+			}
+		case 25:
+			dv, derr := IpIfStatsOutDiscards.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutDiscards = dv
+			}
+		case 26:
+			dv, derr := IpIfStatsOutFragReqds.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutFragReqds = dv
+			}
+		case 27:
+			dv, derr := IpIfStatsOutFragOKs.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutFragOKs = dv
+			}
+		case 28:
+			dv, derr := IpIfStatsOutFragFails.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutFragFails = dv
+			}
+		case 29:
+			dv, derr := IpIfStatsOutFragCreates.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutFragCreates = dv
+			}
+		case 30:
+			dv, derr := IpIfStatsOutTransmits.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutTransmits = dv
+			}
+		case 31:
+			dv, derr := IpIfStatsHCOutTransmits.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCOutTransmits = dv
+			}
+		case 32:
+			dv, derr := IpIfStatsOutOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutOctets = dv
+			}
+		case 33:
+			dv, derr := IpIfStatsHCOutOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCOutOctets = dv
+			}
+		case 34:
+			dv, derr := IpIfStatsInMcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInMcastPkts = dv
+			}
+		case 35:
+			dv, derr := IpIfStatsHCInMcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCInMcastPkts = dv
+			}
+		case 36:
+			dv, derr := IpIfStatsInMcastOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInMcastOctets = dv
+			}
+		case 37:
+			dv, derr := IpIfStatsHCInMcastOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCInMcastOctets = dv
+			}
+		case 38:
+			dv, derr := IpIfStatsOutMcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutMcastPkts = dv
+			}
+		case 39:
+			dv, derr := IpIfStatsHCOutMcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCOutMcastPkts = dv
+			}
+		case 40:
+			dv, derr := IpIfStatsOutMcastOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutMcastOctets = dv
+			}
+		case 41:
+			dv, derr := IpIfStatsHCOutMcastOctets.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCOutMcastOctets = dv
+			}
+		case 42:
+			dv, derr := IpIfStatsInBcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsInBcastPkts = dv
+			}
+		case 43:
+			dv, derr := IpIfStatsHCInBcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCInBcastPkts = dv
+			}
+		case 44:
+			dv, derr := IpIfStatsOutBcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsOutBcastPkts = dv
+			}
+		case 45:
+			dv, derr := IpIfStatsHCOutBcastPkts.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsHCOutBcastPkts = dv
+			}
+		case 46:
+			dv, derr := IpIfStatsDiscontinuityTime.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsDiscontinuityTime = dv
+			}
+		case 47:
+			dv, derr := IpIfStatsRefreshRate.Decode(vb)
+			if derr == nil {
+				dst.IpIfStatsRefreshRate = dv
+			}
+		}
+	}
+}
+
+// IpIfStatsTableWatcher is a table-aware Watcher over IpIfStatsTable.
+// Construct via IpIfStatsTable.Watch(ctx, sess, cols, opts...).
+type IpIfStatsTableWatcher struct {
+	w *snmp.Watcher[IpIfStatsTableRow]
+}
+
+// Iter returns the range-over-func view of the Watcher's event stream.
+// See [snmp.Watcher.Iter] for the contract.
+func (tw *IpIfStatsTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IpIfStatsTableRow]] {
+	return tw.w.Iter()
+}
+
+// Err returns the underlying Watcher's terminal error, or nil if it
+// completed naturally. See [snmp.Watcher.Err].
+func (tw *IpIfStatsTableWatcher) Err() error {
+	return tw.w.Err()
+}
+
+// Close signals the Watcher's tick goroutine to terminate. Idempotent.
+// See [snmp.Watcher.Close].
+func (tw *IpIfStatsTableWatcher) Close() error {
+	return tw.w.Close()
+}
+
+// Fallback reports whether the Watcher has transitioned to fallback
+// mode. See [snmp.Watcher.Fallback].
+func (tw *IpIfStatsTableWatcher) Fallback() bool {
+	return tw.w.Fallback()
+}
+
+// LastTickErr returns the most-recent transient per-tick error.
+// See [snmp.Watcher.LastTickErr].
+func (tw *IpIfStatsTableWatcher) LastTickErr() error {
+	return tw.w.LastTickErr()
+}
+
+// TableRoot returns the OID of the table this Watcher operates over.
+func (tw *IpIfStatsTableWatcher) TableRoot() snmp.OID {
+	return tw.w.TableRoot()
+}
+
+// Watch opens a long-lived watch on IpIfStatsTable.
+//
+// cols selects the columns whose values are reported on every emitted
+// event. opts override cadence bounds, per-column tier classifications,
+// fallback behavior, and other policy — see [snmp.WatchOption] for the
+// full set.
+//
+// cols is a slice rather than variadic because opts is variadic and
+// Go forbids two variadic parameters.
+//
+// Events emitted on this stream:
+//   - ChangeKindAdded    — Row populated, Prev always nil.
+//   - ChangeKindModified — Row is current state. Prev is nil unless
+//     the caller passed [snmp.WithPrevRow]; when
+//     set, Prev carries the previous Row.
+//   - ChangeKindRemoved  — Row carries the last-known state at the
+//     time the row disappeared. Prev is nil.
+//
+// The returned Watcher must be Closed when the caller is done; iteration
+// exit alone does not free the underlying goroutine until Close.
+//
+// On validation failure (invalid cadence bounds, tier override of the
+// indicator column, etc.) Watch returns a Watcher whose Err() returns
+// the cause immediately; range loops exit without emitting events and
+// Close is a no-op.
+func (ipIfStatsTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IpIfStatsTableWatcher {
+	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
+	w, _ := snmp.NewWatcher[IpIfStatsTableRow](ctx, sess, IpIfStatsTableIndicator, cols, decodeIpIfStatsTableRow, equalIpIfStatsTableRow, mergeIpIfStatsTableRow, allOpts...)
+
+	return &IpIfStatsTableWatcher{w: w}
 }
 
 // IpAddressPrefixOrigin is the column ipAddressPrefixOrigin of table ipAddressPrefixTable.
@@ -8493,6 +9463,27 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 	}
 	return t
 }
+
+// Ipv4InterfaceTableIndicator is the scalar change indicator for ipv4InterfaceTable.
+// The Watcher Gets ipv4InterfaceTableLastChange on each tick; when the value
+// advances the full table is walked and diffed against the snapshot.
+// See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
+// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
+var Ipv4InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28)}))
+
+// Ipv6InterfaceTableIndicator is the scalar change indicator for ipv6InterfaceTable.
+// The Watcher Gets ipv6InterfaceTableLastChange on each tick; when the value
+// advances the full table is walked and diffed against the snapshot.
+// See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
+// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
+var Ipv6InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30)}))
+
+// IpIfStatsTableIndicator is the scalar change indicator for ipIfStatsTable.
+// The Watcher Gets ipIfStatsTableLastChange on each tick; when the value
+// advances the full table is walked and diffed against the snapshot.
+// See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
+// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
+var IpIfStatsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3)}))
 
 // IpAddressTableIndicator is the per-row change indicator for ipAddressTable.
 // The Watcher probes the indicator column on each tick and only

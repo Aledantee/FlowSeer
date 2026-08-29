@@ -1267,5 +1267,5 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 // The Watcher Gets sysORLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
-// Discovered by mibgen structural rule: single-table-sibling scalar.
+// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
 var SysORTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 8), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9)}))
