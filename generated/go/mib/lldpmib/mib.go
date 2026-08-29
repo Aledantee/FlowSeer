@@ -2,9 +2,9 @@
 //
 // Source MIB:    LLDP-MIB
 // Source path:   spec/mib/ieee/LLDP-MIB
-// Source SHA-256: 2a7beaaf41d626e038b2e3e03ad6a35cab4d4b3753ef1878e77674ed7d1de272
+// Source SHA-256: 7e8dcb98f124fb05a91160b134e73ac46ae5a16400fe6733a2e48773b75d5e4f
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package lldpmib
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/sleepinggenius2/gosmi"
 	gosmimodels "github.com/sleepinggenius2/gosmi/models"
+	gosmitypes "github.com/sleepinggenius2/gosmi/types"
 )
 
 // nodeFor builds an in-memory gosmi.SmiNode with the supplied object
@@ -178,6 +179,24 @@ func TestDiscoverNamePrefixScalar_FullNamePreferred(t *testing.T) {
 	}
 }
 
+func TestDiscoverNamePrefixScalar_SkipsNotAccessible(t *testing.T) {
+	// A not-accessible scalar cannot be polled; binding it would leave
+	// the Watcher probing a dead OID forever, silently.
+	table := nodeFor("fooTable", "")
+	sc := nodeFor("fooLastChange", "")
+	sc.Access = gosmitypes.AccessNotAccessible
+	if _, ok := discoverNamePrefixScalarIndicator(table, []gosmi.SmiNode{sc}); ok {
+		t.Error("a not-accessible scalar must not bind as an indicator")
+	}
+
+	// Same name, readable: binds. Confirms the guard is what rejected
+	// the case above, not the name.
+	sc.Access = gosmitypes.AccessReadOnly
+	if _, ok := discoverNamePrefixScalarIndicator(table, []gosmi.SmiNode{sc}); !ok {
+		t.Error("a read-only scalar with a matching name should bind")
+	}
+}
+
 func TestDiscoverNamePrefixScalar_NoMatch(t *testing.T) {
 	table := nodeFor("fooTable", "")
 	scalars := []gosmi.SmiNode{
@@ -192,29 +211,91 @@ func TestDiscoverNamePrefixScalar_NoMatch(t *testing.T) {
 
 // --- Discovery integration ------------------------------------------
 
-// TestDiscoverIndicators_FakeMIB_PerRow exercises the structural
-// per-row discovery rule against the test fixture, which has
-// fakeLastChange inside fakeTable's row.
-func TestDiscoverIndicators_FakeMIB_PerRow(t *testing.T) {
+// TestDiscoverIndicators_FakeMIB exercises both structural discovery
+// rules end-to-end against a real gosmi-parsed module: fakeTable binds
+// its per-row fakeLastChange column, and fakeStackTable binds the
+// module-level fakeStackLastChange scalar through the name-prefix rule.
+//
+// The synthetic-node unit tests above pin the matching logic; this one
+// is the guard that the rules still fire after gosmi parsing, which is
+// what the emitted bindings actually depend on.
+func TestDiscoverIndicators_FakeMIB(t *testing.T) {
 	mod, cleanup := loadFakeMIB(t)
 	defer cleanup()
 
 	ec := &emitCtx{}
 	indicators := discoverIndicators(ec, mod)
-	if len(indicators) != 1 {
-		t.Fatalf("indicators = %v, want 1", indicators)
+	if len(indicators) != 2 {
+		t.Fatalf("indicators = %v, want 2", indicators)
 	}
-	ind := indicators[0]
-	if ind.Kind != indicatorPerRow {
-		t.Errorf("indicator kind = %v, want indicatorPerRow", ind.Kind)
+
+	byTable := make(map[string]tableIndicator, len(indicators))
+	for _, ind := range indicators {
+		byTable[ind.Table.Name] = ind
 	}
-	if !strings.Contains(ind.IndicatorNode.Name, "LastChange") &&
-		!strings.Contains(ind.IndicatorNode.Name, "lastChange") {
-		t.Errorf("indicator name = %q, want fakeLastChange", ind.IndicatorNode.Name)
+
+	perRow, ok := byTable["fakeTable"]
+	if !ok {
+		t.Fatalf("no indicator bound to fakeTable; got %v", byTable)
 	}
-	if ind.Source != indicatorFromStructuralPerRow {
-		t.Errorf("source = %v, want structural per-row", ind.Source)
+	if perRow.Kind != indicatorPerRow {
+		t.Errorf("fakeTable kind = %v, want indicatorPerRow", perRow.Kind)
 	}
+	if perRow.Source != indicatorFromStructuralPerRow {
+		t.Errorf("fakeTable source = %v, want structural per-row", perRow.Source)
+	}
+	if !strings.EqualFold(perRow.IndicatorNode.Name, "fakeLastChange") {
+		t.Errorf("fakeTable indicator = %q, want fakeLastChange", perRow.IndicatorNode.Name)
+	}
+
+	namePrefix, ok := byTable["fakeStackTable"]
+	if !ok {
+		t.Fatalf("no indicator bound to fakeStackTable; got %v", byTable)
+	}
+	if namePrefix.Kind != indicatorScalar {
+		t.Errorf("fakeStackTable kind = %v, want indicatorScalar", namePrefix.Kind)
+	}
+	if namePrefix.Source != indicatorFromStructuralNamePrefix {
+		t.Errorf("fakeStackTable source = %v, want structural name-prefix", namePrefix.Source)
+	}
+	if !strings.EqualFold(namePrefix.IndicatorNode.Name, "fakeStackLastChange") {
+		t.Errorf("fakeStackTable indicator = %q, want fakeStackLastChange", namePrefix.IndicatorNode.Name)
+	}
+}
+
+// TestDiscoverIndicators_ConfigOutranksNamePrefix pins the precedence
+// that protects an operator override: when mibgen.yaml declares an
+// indicator for a table, that declaration wins over a name-prefix
+// scalar that would otherwise match. Without this ordering a wrong
+// structural guess could not be corrected from config.
+func TestDiscoverIndicators_ConfigOutranksNamePrefix(t *testing.T) {
+	mod, cleanup := loadFakeMIB(t)
+	defer cleanup()
+
+	// fakeScalar (fakeMIB 1) is not an indicator by name, so only the
+	// config declaration can bind it to fakeStackTable.
+	ec := &emitCtx{cm: Module{
+		Name:    "FAKE-MIB",
+		Package: "fakemib",
+		Indicators: []IndicatorDecl{{
+			ScalarOID:    "1.3.6.1.4.1.99999.1.1",
+			CoversTables: []string{"1.3.6.1.4.1.99999.1.4"},
+		}},
+	}}
+
+	for _, ind := range discoverIndicators(ec, mod) {
+		if ind.Table.Name != "fakeStackTable" {
+			continue
+		}
+		if ind.Source != indicatorFromConfig {
+			t.Errorf("fakeStackTable source = %v, want config-declared", ind.Source)
+		}
+		if !strings.EqualFold(ind.IndicatorNode.Name, "fakeScalar") {
+			t.Errorf("fakeStackTable indicator = %q, want fakeScalar", ind.IndicatorNode.Name)
+		}
+		return
+	}
+	t.Fatal("no indicator bound to fakeStackTable")
 }
 
 // TestTierMap_GatedOnIndicator verifies that emitTierMap emits the

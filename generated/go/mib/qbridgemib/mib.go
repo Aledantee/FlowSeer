@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/Q-BRIDGE-MIB
 // Source SHA-256: 7c89bcd1830251189afd6b326650f2b6eb2f31c4a04c3f82d45453bd2c194fbb
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package qbridgemib
 

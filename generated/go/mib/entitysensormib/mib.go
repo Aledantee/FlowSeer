@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/ENTITY-SENSOR-MIB
 // Source SHA-256: 3ca987418ef2875b785725ac197be52730d5b4225b8a6961ad3983cbb5640be3
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package entitysensormib
 

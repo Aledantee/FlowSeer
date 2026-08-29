@@ -4,6 +4,6 @@
 // Source path:   spec/mib/ietf/SNMPv2-SMI
 // Source SHA-256: ece2355fc8b6140af702f86d77bd3f7398d80375fc6278c3e30ff3a31b53e0b7
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package snmpv2smi
