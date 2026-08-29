@@ -2,9 +2,9 @@
 //
 // Source MIB:    FAKE-MIB
 // Source path:   testdata/mibs/FAKE-MIB.mib
-// Source SHA-256: d7a61033db860789a6a9f9d77b049561dd46eb130a03a7186a75ed43c3cf6f49
+// Source SHA-256: 017b9b891806d51793385eae2e523b91eda1c4085f91210998e638b9bd102a78
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package fakemib
 
@@ -77,6 +77,24 @@ func FakeStatusGet(ctx context.Context, sess snmp.Session) (FakeStatusValue, err
 			return FakeStatusValue(0), err
 		}
 		return FakeStatusValue(v), nil
+	}(vbs[0])
+}
+
+// FakeStackLastChangeGet reads the SMIv2 scalar fakeStackLastChange.
+// Scalar change indicator covering fakeStackTable. Bound by the
+// name-prefix structural rule, not by per-row discovery.
+func FakeStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 5, 0)})
+	if err != nil {
+		return 0, err
+	}
+
+	if len(vbs) == 0 {
+		return 0, ae.Msg("empty Get response for fakeStackLastChange")
+	}
+
+	return func(vb snmp.VarBind) (uint32, error) {
+		return snmp.DecodeUint32(vb)
 	}(vbs[0])
 }
 
@@ -477,6 +495,303 @@ func (fakeTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyC
 	return &FakeTableWatcher{w: w}
 }
 
+// FakeStackName is the column fakeStackName of table fakeStackTable.
+// Name.
+var FakeStackName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
+	return snmp.DecodeDisplayString(vb)
+})
+
+// FakeStackTableRow is one row of fakeStackTable. Index carries the OID
+// suffix beyond the table-entry prefix; the remaining fields are
+// populated only for columns the caller passed to Walk().
+type FakeStackTableRow struct {
+	Index         snmp.OID
+	FakeStackName string
+}
+
+// FakeStackTableWalker is a table-aware walker over fakeStackTable.
+// Construct via FakeStackTable.Walk(ctx, sess, cols...).
+type FakeStackTableWalker struct {
+	rw    *snmp.RawWalker
+	cols  []snmp.AnyColumn
+	byCol map[uint32]snmp.AnyColumn
+}
+
+// Iter yields one (Index, Row) pair per row of the table walk. The
+// full BulkWalk is buffered before any row is yielded, so the
+// generated walker is correct over both column-major and row-major
+// agent emission. Contracts:
+//
+//  1. Ordering: rows yield in the index's first-appearance position
+//     in the agent's BulkWalk response — which for a well-behaved
+//     agent equals lexicographic OID order over the index suffix.
+//     This is NOT numerical order for composite-index tables
+//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
+//     before 192.168.0.2). Integer-keyed tables (ifTable,
+//     hrProcessorTable) get numeric order for free.
+//
+//  2. Row presence: every index observed under the entry prefix
+//     yields a row, even when only unrequested columns landed on
+//     that index. The row's requested-column fields stay at zero.
+//
+//  3. Decode error: rows for indexes strictly before the failing
+//     index in appearance order flush before Walker.Fail is set,
+//     preserving partial-progress visibility for the operator.
+//     The failing row and anything after it are not yielded.
+//     Check Err() afterwards for the terminal cause.
+//
+//  4. Memory profile: O(rows × requested columns) buffered before
+//     the first yield. Bounded by table size, not walk position —
+//     callers that broke out early via 'for row := range Iter()'
+//     still pay the full-walk buffer cost.
+func (tw *FakeStackTableWalker) Iter() iter.Seq2[snmp.OID, FakeStackTableRow] {
+	return func(yield func(snmp.OID, FakeStackTableRow) bool) {
+		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1).WireBytes()
+		buffer := make(map[string]*FakeStackTableRow)
+		var orderIdx []snmp.OID
+		var orderKey []string
+
+		for rv := range tw.rw.Iter() {
+			if !bytes.HasPrefix(rv.OID, entryWire) {
+				continue
+			}
+			suffix := rv.OID[len(entryWire):]
+			colID, colLen, okArc := snmp.RawFirstArc(suffix)
+			if !okArc || colLen >= len(suffix) {
+				continue
+			}
+			idxWire := suffix[colLen:]
+			row, exists := buffer[string(idxWire)]
+			if !exists {
+				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
+				if idxErr != nil {
+					continue
+				}
+				key := string(idxWire)
+				row = &FakeStackTableRow{}
+				buffer[key] = row
+				orderIdx = append(orderIdx, idx)
+				orderKey = append(orderKey, key)
+			}
+			_, ok := tw.byCol[colID]
+			if !ok {
+				continue
+			}
+			var derr error
+			switch colID {
+			case 2:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := FakeStackName.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.FakeStackName = dv
+					}
+				}
+			}
+			if derr != nil {
+				for i := 0; i < len(orderKey); i++ {
+					if orderKey[i] == string(idxWire) {
+						break
+					}
+					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+						tw.rw.Fail(derr)
+						return
+					}
+				}
+				tw.rw.Fail(derr)
+				return
+			}
+		}
+
+		for i := 0; i < len(orderIdx); i++ {
+			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+				return
+			}
+		}
+	}
+}
+
+// Err returns the underlying walker's terminal error, or nil if
+// the walk completed naturally.
+func (tw *FakeStackTableWalker) Err() error {
+	return tw.rw.Err()
+}
+
+// fakeStackTableT is the singleton type of FakeStackTable.
+type fakeStackTableT struct{}
+
+// FakeStackTable is the descriptor for the fakeStackTable table.
+var FakeStackTable fakeStackTableT
+
+// Walk launches a BulkWalk over fakeStackTable and returns a
+// table-aware iterator. Only the columns listed in cols are
+// decoded; varbinds for unlisted columns are skipped. The walk
+// rides the raw fast path (BulkWalkRaw); sessions or responses
+// that cannot deliver raw bytes degrade transparently to the
+// generic per-varbind decode.
+func (fakeStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeStackTableWalker {
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4))
+	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+
+	for _, c := range cols {
+		o := c.OID()
+		if o.Len() == 0 {
+			continue
+		}
+		byCol[o.At(o.Len()-1)] = c
+	}
+
+	return &FakeStackTableWalker{
+		byCol: byCol,
+		cols:  cols,
+		rw:    w,
+	}
+}
+
+// decodeFakeStackTableRow decodes one row of FakeStackTable from the supplied
+// VarBinds. Each VarBind's OID determines which row field it populates
+// (via the column's last sub-id). VarBinds with unknown column-ids are
+// ignored. Absent columns leave their field at its zero value.
+func decodeFakeStackTableRow(idx snmp.OID, vbs []snmp.VarBind) (FakeStackTableRow, error) {
+	var row FakeStackTableRow
+	row.Index = idx
+
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 2:
+			dv, derr := FakeStackName.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.FakeStackName = dv
+		}
+	}
+
+	return row, nil
+}
+
+// equalFakeStackTableRow compares two FakeStackTableRow values for equality.
+// Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
+// field with the type-appropriate comparator (bytes.Equal for []byte,
+// OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
+func equalFakeStackTableRow(a FakeStackTableRow, b FakeStackTableRow) bool {
+	return a.Index.Equal(b.Index) && a.FakeStackName == b.FakeStackName
+}
+
+// mergeFakeStackTableRow merges the values decoded from vbs into dst, leaving fields
+// whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
+// to maintain per-row state under partial-column fetches (Counter-tier,
+// Static-tier). Best-effort: individual VarBind decode failures are
+// silently skipped rather than propagated, because partial-fetch ticks
+// surface transient errors through [snmp.Watcher.LastTickErr] at the
+// call-site granularity rather than per-VarBind.
+func mergeFakeStackTableRow(dst *FakeStackTableRow, vbs []snmp.VarBind) {
+	for _, vb := range vbs {
+		o := vb.GetHeader().OID
+		if o.Len() == 0 {
+			continue
+		}
+		entryLen := snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1).Len()
+		if o.Len() <= entryLen {
+			continue
+		}
+		colID := o.At(entryLen)
+		switch colID {
+		case 2:
+			dv, derr := FakeStackName.Decode(vb)
+			if derr == nil {
+				dst.FakeStackName = dv
+			}
+		}
+	}
+}
+
+// FakeStackTableWatcher is a table-aware Watcher over FakeStackTable.
+// Construct via FakeStackTable.Watch(ctx, sess, cols, opts...).
+type FakeStackTableWatcher struct {
+	w *snmp.Watcher[FakeStackTableRow]
+}
+
+// Iter returns the range-over-func view of the Watcher's event stream.
+// See [snmp.Watcher.Iter] for the contract.
+func (tw *FakeStackTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[FakeStackTableRow]] {
+	return tw.w.Iter()
+}
+
+// Err returns the underlying Watcher's terminal error, or nil if it
+// completed naturally. See [snmp.Watcher.Err].
+func (tw *FakeStackTableWatcher) Err() error {
+	return tw.w.Err()
+}
+
+// Close signals the Watcher's tick goroutine to terminate. Idempotent.
+// See [snmp.Watcher.Close].
+func (tw *FakeStackTableWatcher) Close() error {
+	return tw.w.Close()
+}
+
+// Fallback reports whether the Watcher has transitioned to fallback
+// mode. See [snmp.Watcher.Fallback].
+func (tw *FakeStackTableWatcher) Fallback() bool {
+	return tw.w.Fallback()
+}
+
+// LastTickErr returns the most-recent transient per-tick error.
+// See [snmp.Watcher.LastTickErr].
+func (tw *FakeStackTableWatcher) LastTickErr() error {
+	return tw.w.LastTickErr()
+}
+
+// TableRoot returns the OID of the table this Watcher operates over.
+func (tw *FakeStackTableWatcher) TableRoot() snmp.OID {
+	return tw.w.TableRoot()
+}
+
+// Watch opens a long-lived watch on FakeStackTable.
+//
+// cols selects the columns whose values are reported on every emitted
+// event. opts override cadence bounds, per-column tier classifications,
+// fallback behavior, and other policy — see [snmp.WatchOption] for the
+// full set.
+//
+// cols is a slice rather than variadic because opts is variadic and
+// Go forbids two variadic parameters.
+//
+// Events emitted on this stream:
+//   - ChangeKindAdded    — Row populated, Prev always nil.
+//   - ChangeKindModified — Row is current state. Prev is nil unless
+//     the caller passed [snmp.WithPrevRow]; when
+//     set, Prev carries the previous Row.
+//   - ChangeKindRemoved  — Row carries the last-known state at the
+//     time the row disappeared. Prev is nil.
+//
+// The returned Watcher must be Closed when the caller is done; iteration
+// exit alone does not free the underlying goroutine until Close.
+//
+// On validation failure (invalid cadence bounds, tier override of the
+// indicator column, etc.) Watch returns a Watcher whose Err() returns
+// the cause immediately; range loops exit without emitting events and
+// Close is a no-op.
+func (fakeStackTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *FakeStackTableWatcher {
+	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
+	w, _ := snmp.NewWatcher[FakeStackTableRow](ctx, sess, FakeStackTableIndicator, cols, decodeFakeStackTableRow, equalFakeStackTableRow, mergeFakeStackTableRow, allOpts...)
+
+	return &FakeStackTableWatcher{w: w}
+}
+
 // fAKEMIBOIDDispatch maps column wire keys ([snmp.OID.WireKey]) to their
 // typed AnyColumn for fast
 // lookup during table-walk decoding. Per-MIB-module — no global
@@ -486,6 +801,7 @@ var fAKEMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3).WireKey(): FakeMac,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4).WireKey(): FakeOctets,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 5).WireKey(): FakeLastChange,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1, 2).WireKey(): FakeStackName,
 }
 
 // OIDDispatch returns a shallow copy of the package's wire-key →
@@ -510,6 +826,7 @@ var fAKEMIBColumnTiers = map[string]snmp.Tier{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3).WireKey(): snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4).WireKey(): snmp.TierCounter,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 5).WireKey(): snmp.TierIndicator,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1, 2).WireKey(): snmp.TierState,
 }
 
 // ColumnTier returns the codegen-classified [snmp.Tier] for col, or
@@ -536,3 +853,10 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 // [snmp.Watcher] for the consumption contract.
 // Discovered by mibgen structural rule: per-row column name matches indicator-suffix heuristic.
 var FakeTableIndicator = snmp.MustChangeIndicator(snmp.NewPerRowIndicator(FakeLastChange, snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3)))
+
+// FakeStackTableIndicator is the scalar change indicator for fakeStackTable.
+// The Watcher Gets fakeStackLastChange on each tick; when the value
+// advances the full table is walked and diffed against the snapshot.
+// See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
+// Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
+var FakeStackTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 5), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4)}))

@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/IP-MIB
 // Source SHA-256: 6a6ec284b2de6f21a4d090927dba474a131c777d1c0b5a80a57fe21a7dd4a3d3
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package ipmib
 

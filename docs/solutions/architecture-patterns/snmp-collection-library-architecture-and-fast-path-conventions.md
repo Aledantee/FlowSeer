@@ -196,14 +196,34 @@ dispatch map, `snmp.Decode*` for textual conventions
 `src/common/snmp/session.go:53`) and emits per column a fused arm with a generic
 `else` (`emit_table.go:359`) — Convention 1 expressed in the emitter.
 
-- CLI is `go tool mibgen`, with `-verify`, `-check` (fail on output drift), and
-  `-update` (`src/common/snmp/cmd/mibgen/main.go:41`; defaults at `main.go:12`).
+- CLI is `go run ./src/common/snmp/cmd/mibgen`, with `-verify`, `-check` (fail on
+  output drift), and `-update` (`src/common/snmp/cmd/mibgen/main.go:41`; defaults
+  at `main.go:12`). The repository-root `generate.go` carries the `go:generate`
+  directive, so `go generate .` at the root is the normal entry point. There is
+  no `tool` directive for mibgen in `go.mod`.
 - **`search_paths` resolve relative to the config file's own directory**
-  (`src/common/snmp/cmd/mibgen/config.go:183`), which is why `mibgen.yaml` carries
-  five `../` levels (`mibgen.yaml:11`). Moving the config changes the depth.
+  (`src/common/snmp/cmd/mibgen/config.go:183`). `mibgen.yaml` lives at the
+  repository root, so its entries are bare repo-relative paths (`spec/mib/ietf`).
+  Moving the config changes that depth.
 - An emitter change is not done until the golden fixture is refreshed:
   `go test ./src/common/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden`
   (`src/common/snmp/cmd/mibgen/doc.go:26`).
+- **Change-indicator discovery is structural first, config only as the
+  exception** (`emit_discovery.go:94`). Precedence: (1) a per-row column inside
+  the table matching the indicator name-suffix heuristic; (2) a `mibgen.yaml`
+  `indicators:` declaration; (3) a module scalar named `<table><suffix>` or
+  `<base><suffix>` with a trailing `Table` stripped (`ifStackLastChange` →
+  `ifStackTable`). Rule 3 covers the conventional SMIv2 spelling, so most
+  modules need no config at all. Explicit `indicators:` remain necessary only
+  where the name carries no correlation — ENTITY-MIB's single
+  `entLastChangeTime` fans out across five tables in three sibling subtrees and
+  fits no structural rule.
+- **gosmi v0.4.4 panics — it does not return an error — on `DEFVAL { { } }`**
+  (an empty BITS default), aborting `go generate` with a parser stack trace. The
+  repo's workaround is to comment the clause out in the vendored MIB behind a
+  `-- FlowSeer local patch:` marker (`spec/mib/ieee/LLDP-MIB`,
+  `spec/mib/ieee/LLDP-EXT-DOT3-MIB`); mibgen consumes no DEFVAL, so nothing is
+  lost. Re-apply after any upstream MIB re-sync.
 - Tier classification is codegen-time and rule-based — Counter32/64 →
   `TierCounter`; TC `TimeStamp` → `TierIndicator`; indicator name-suffix →
   `TierIndicator`; else `TierState`; `TierStatic` is never auto-assigned

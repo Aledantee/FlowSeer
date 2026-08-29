@@ -4,7 +4,7 @@
 // Source path:   spec/mib/ietf/IANAifType-MIB
 // Source SHA-256: 1bb1a2e5938abfd21ed019ff0c9cec71d2e2387b266737a37fe9516307b7afd8
 //
-// Regenerate with `go generate ./...` or `go tool mibgen`.
+// Regenerate with `go generate .` at the repository root.
 
 package ianaiftype
 

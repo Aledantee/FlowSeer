@@ -90,4 +90,54 @@ fakeLastChange OBJECT-TYPE
                  time and structural discovery binds it to fakeTable."
     ::= { fakeEntry 5 }
 
+-- fakeStackTable has no per-row indicator column, so structural
+-- per-row discovery cannot bind it. Its indicator is the module-level
+-- fakeStackLastChange scalar below, reachable only through the
+-- name-prefix rule: "fakeStack" (the table name minus its trailing
+-- "Table") plus the "LastChange" suffix. This pair is the golden
+-- fixture's coverage for discoverNamePrefixScalarIndicator.
+
+fakeStackTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeStackEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table whose change indicator is a sibling scalar."
+    ::= { fakeMIB 4 }
+
+fakeStackEntry OBJECT-TYPE
+    SYNTAX      FakeStackEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeStackTable."
+    INDEX { fakeStackIndex }
+    ::= { fakeStackTable 1 }
+
+FakeStackEntry ::= SEQUENCE {
+    fakeStackIndex  Integer32,
+    fakeStackName   DisplayString
+}
+
+fakeStackIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row index."
+    ::= { fakeStackEntry 1 }
+
+fakeStackName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Name."
+    ::= { fakeStackEntry 2 }
+
+fakeStackLastChange OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Scalar change indicator covering fakeStackTable. Bound
+                 by the name-prefix structural rule, not by per-row
+                 discovery."
+    ::= { fakeMIB 5 }
+
 END
