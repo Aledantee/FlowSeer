@@ -1,9 +1,5 @@
 # AGENTS.md
 
-Index for agents and teammates working on **FlowSeer**. Detailed conventions live
-inside the docs linked below; the repository boundaries in this file are intentionally
-short because every task must load them.
-
 ## Conventions
 
 Binding on humans and agents equally; each doc states its own scope.
