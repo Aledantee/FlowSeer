@@ -230,7 +230,15 @@ if ((${#modules[@]})); then
       lint_pkgs=()
       module_dir=$PWD
       while IFS= read -r pkg_dir; do
-        lint_pkgs+=("./${pkg_dir#"$module_dir"/}")
+        # The module root itself can hold a package (the repo-root
+        # generate.go). Stripping "$module_dir/" leaves that dir
+        # untouched — no trailing slash to match — which would emit
+        # ".//<abspath>" and fail golangci-lint with a typecheck error.
+        if [[ $pkg_dir == "$module_dir" ]]; then
+          lint_pkgs+=(".")
+        else
+          lint_pkgs+=("./${pkg_dir#"$module_dir"/}")
+        fi
       done < <(go list -f '{{.Dir}}' ./... | grep -vE '/generated(/|$)')
       if ((${#lint_pkgs[@]})); then
         run golangci-lint run --config "$root/.golangci.yml" "${lint_pkgs[@]}"
