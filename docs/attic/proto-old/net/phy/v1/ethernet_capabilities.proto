@@ -1,0 +1,31 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/ethernet_fec_mode.proto";
+import option "buf/validate/validate.proto";
+
+// Ethernet physical-link capabilities reported for one interface.
+message EthernetCapabilities {
+  // Supported line rates in bits per second. The list is an exact set; every
+  // rate must be positive and duplicates are invalid.
+  repeated uint64 supported_speeds_bps = 1 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint64: {gt: 0}
+    }
+  }];
+  // Whether auto-negotiation is supported. Absent means capability support was
+  // not reported; false means explicitly unsupported.
+  bool auto_negotiation_supported = 2;
+  // Supported FEC modes. The list is an exact set; unspecified entries and
+  // duplicates are invalid, while unknown open-enum values remain valid.
+  repeated EthernetFecMode supported_fec_modes = 3 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {
+        not_in: [0]
+      }
+    }
+  }];
+}

@@ -1,0 +1,102 @@
+edition = "2024";
+
+package flowseer.net.l3.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/l3/v1/address_origin.proto";
+import "flowseer/net/l3/v1/address_status.proto";
+import option "buf/validate/validate.proto";
+
+// An IP address and network prefix assigned to one device-local interface.
+// This is a table row, not an address value: canonical address, prefix, scope,
+// and lifetime types remain in flowseer.net.addr.v1.
+message InterfaceAddress {
+  option (buf.validate.message).cel = {
+    id: "interface_address.family_matches"
+    message: "address and prefix must use the same IP family"
+    expression: "!has(this.address) || !has(this.prefix) || has(this.address.v4) == has(this.prefix.v4)"
+  };
+  option (buf.validate.message).cel = {
+    id: "interface_address.ipv4_address_in_prefix"
+    message: "IPv4 prefix must contain the assigned address"
+    expression:
+      "!has(this.address) || !has(this.prefix) || !has(this.address.v4) || !has(this.prefix.v4) || "
+      "!has(this.address.v4.octets) || !has(this.prefix.v4.address) || "
+      "!has(this.prefix.v4.address.octets) || !has(this.prefix.v4.length) || "
+      "this.address.v4.octets.size() != 4 || this.prefix.v4.address.octets.size() != 4 || "
+      "this.prefix.v4.length > 32u || "
+      "("
+      "'%x'.format([this.address.v4.octets]).substring(0, int(this.prefix.v4.length / 4u)) == "
+      "'%x'.format([this.prefix.v4.address.octets]).substring(0, int(this.prefix.v4.length / 4u)) && "
+      "("
+      "this.prefix.v4.length % 4u == 0u || "
+      "this.prefix.v4.length % 4u == 1u && ("
+      "'%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + "
+      "'%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) "
+      ").matches('^(0[0-7]|8[89a-f])$') || "
+      "this.prefix.v4.length % 4u == 2u && ("
+      "'%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + "
+      "'%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) "
+      ").matches('^(0[0-3]|4[4-7]|8[89ab]|c[c-f])$') || "
+      "this.prefix.v4.length % 4u == 3u && ("
+      "'%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + "
+      "'%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) "
+      ").matches('^(0[01]|2[23]|4[45]|6[67]|8[89]|a[ab]|c[cd]|e[ef])$')"
+      ")"
+      ")"
+  };
+  option (buf.validate.message).cel = {
+    id: "interface_address.ipv6_address_in_prefix"
+    message: "IPv6 prefix must contain the assigned address"
+    expression:
+      "!has(this.address) || !has(this.prefix) || !has(this.address.v6) || !has(this.prefix.v6) || "
+      "!has(this.address.v6.octets) || !has(this.prefix.v6.address) || "
+      "!has(this.prefix.v6.address.octets) || !has(this.prefix.v6.length) || "
+      "this.address.v6.octets.size() != 16 || this.prefix.v6.address.octets.size() != 16 || "
+      "this.prefix.v6.length > 128u || "
+      "("
+      "'%x'.format([this.address.v6.octets]).substring(0, int(this.prefix.v6.length / 4u)) == "
+      "'%x'.format([this.prefix.v6.address.octets]).substring(0, int(this.prefix.v6.length / 4u)) && "
+      "("
+      "this.prefix.v6.length % 4u == 0u || "
+      "this.prefix.v6.length % 4u == 1u && ("
+      "'%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + "
+      "'%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) "
+      ").matches('^(0[0-7]|8[89a-f])$') || "
+      "this.prefix.v6.length % 4u == 2u && ("
+      "'%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + "
+      "'%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) "
+      ").matches('^(0[0-3]|4[4-7]|8[89ab]|c[c-f])$') || "
+      "this.prefix.v6.length % 4u == 3u && ("
+      "'%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + "
+      "'%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) "
+      ").matches('^(0[01]|2[23]|4[45]|6[67]|8[89]|a[ab]|c[cd]|e[ef])$')"
+      ")"
+      ")"
+  };
+
+  // The device-reported interface name. Absent or empty is invalid; omit the
+  // containing InterfaceAddress when no interface identity is available.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  // The assigned host address. Absent is invalid; omit the containing
+  // InterfaceAddress when no assignment was observed.
+  flowseer.net.addr.v1.IpAddress address = 2 [(buf.validate.field).required = true];
+  // The canonical network prefix containing the assigned address. Absent is
+  // invalid; the prefix must use the same family and contain the address.
+  flowseer.net.addr.v1.IpPrefix prefix = 3 [(buf.validate.field).required = true];
+  // How the address was assigned. Absent means the source did not report an
+  // origin.
+  AddressOrigin origin = 4;
+  // Current usability of the address. Absent means the source did not report
+  // a status.
+  AddressStatus status = 5;
+  // Coarse routing or topology scope. Absent means the source did not report
+  // a scope and FlowSeer has not classified one.
+  flowseer.net.addr.v1.IpScope scope = 6;
+  // Preferred and valid lease lifetimes. Absent means no lifetime information
+  // was observed; a present empty value means both lifetimes are infinite.
+  flowseer.net.addr.v1.IpLifetime lifetime = 7;
+}

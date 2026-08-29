@@ -1,0 +1,22 @@
+edition = "2024";
+
+package flowseer.net.l2.v1;
+
+// A normalized operational or requested switchport mode. The taxonomy is
+// FlowSeer-normalized with no registry behind it because vendor modes
+// differ; exact PVID and VLAN membership fields remain authoritative.
+enum SwitchportMode {
+  // The source explicitly reported an unknown mode. Absence means unreported.
+  SWITCHPORT_MODE_UNSPECIFIED = 0;
+  // A source-specific mode outside the normalized cases.
+  SWITCHPORT_MODE_OTHER = 1;
+  // One primary untagged customer VLAN.
+  SWITCHPORT_MODE_ACCESS = 2;
+  // Multiple tagged VLANs with an optional untagged VLAN.
+  SWITCHPORT_MODE_TRUNK = 3;
+  // A general or hybrid port with independent tagged and untagged sets.
+  SWITCHPORT_MODE_HYBRID = 4;
+  // A provider edge that tunnels customer IEEE 802.1Q tags
+  // (https://standards.ieee.org/ieee/802.1Q/10323/).
+  SWITCHPORT_MODE_DOT1Q_TUNNEL = 5;
+}

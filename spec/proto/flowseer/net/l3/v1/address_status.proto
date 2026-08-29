@@ -1,0 +1,30 @@
+edition = "2024";
+
+package flowseer.net.l3.v1;
+
+// The operational usability of an interface address. Values follow the
+// address status taxonomy in RFC 8344
+// (https://www.rfc-editor.org/rfc/rfc8344.html).
+enum AddressStatus {
+  // The status was explicitly reported as unknown or not classified. An
+  // unreported status is represented by an absent field instead.
+  ADDRESS_STATUS_UNSPECIFIED = 0;
+  // The address is preferred for new communication.
+  ADDRESS_STATUS_PREFERRED = 1;
+  // The address remains valid for existing communication but is not
+  // preferred for new communication.
+  ADDRESS_STATUS_DEPRECATED = 2;
+  // The address is no longer valid.
+  ADDRESS_STATUS_INVALID = 3;
+  // The address is valid but unreachable from this interface.
+  ADDRESS_STATUS_INACCESSIBLE = 4;
+  // The device cannot determine the address status.
+  ADDRESS_STATUS_UNKNOWN = 5;
+  // IPv6 Duplicate Address Detection has not completed.
+  ADDRESS_STATUS_TENTATIVE = 6;
+  // IPv6 Duplicate Address Detection found a duplicate.
+  ADDRESS_STATUS_DUPLICATE = 7;
+  // The optimistic IPv6 address may be used before Duplicate Address
+  // Detection completes.
+  ADDRESS_STATUS_OPTIMISTIC = 8;
+}

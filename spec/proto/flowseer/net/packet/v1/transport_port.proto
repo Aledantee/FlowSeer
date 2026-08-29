@@ -1,0 +1,42 @@
+edition = "2024";
+
+package flowseer.net.packet.v1;
+
+import option "buf/validate/validate.proto";
+
+// An inclusive transport-layer port range. Ports are 16-bit wire values from
+// 0 through 65535 (RFC 9293,
+// https://www.rfc-editor.org/rfc/rfc9293.html#section-3.1). Port zero
+// remains representable because packet observations and predicates describe
+// wire values, not only valid listening endpoints.
+message TransportPortRange {
+  option (buf.validate.message).cel = {
+    id: "transport_port_range.ordered"
+    message: "transport port range start must not exceed end"
+    expression: "!has(this.start) || !has(this.end) || this.start <= this.end"
+  };
+
+  // The inclusive first port. Absent is invalid; zero is a valid wire value.
+  uint32 start = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // The inclusive last port. Absent is invalid; zero is a valid wire value.
+  uint32 end = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+}
+
+// An exact or inclusive-range transport-port predicate. Absence of the
+// containing TransportPortMatch means the packet's port is unconstrained.
+message TransportPortMatch {
+  oneof selection {
+    option (buf.validate.oneof).required = true;
+
+    // Match one exact port, including port zero.
+    uint32 exact = 1 [(buf.validate.field).uint32.lte = 65535];
+    // Match every port in the inclusive range.
+    TransportPortRange range = 2;
+  }
+}

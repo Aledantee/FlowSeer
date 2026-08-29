@@ -1,0 +1,41 @@
+edition = "2024";
+
+package flowseer.net.packet.v1;
+
+// The payload protocol of an IPv4 datagram or next-header value of an IPv6
+// packet. Integers map directly to the IANA Protocol Numbers registry
+// (https://www.iana.org/assignments/protocol-numbers); unnamed values from
+// zero through 255 remain valid. Zero is real, so consumers must check
+// presence.
+enum IpProtocol {
+  // IPv6 Hop-by-Hop Option.
+  IP_PROTOCOL_HOPOPT = 0;
+  // Internet Control Message Protocol for IPv4.
+  IP_PROTOCOL_ICMP = 1;
+  // Internet Group Management Protocol.
+  IP_PROTOCOL_IGMP = 2;
+  // IPv4 encapsulation.
+  IP_PROTOCOL_IPV4 = 4;
+  // Transmission Control Protocol.
+  IP_PROTOCOL_TCP = 6;
+  // User Datagram Protocol.
+  IP_PROTOCOL_UDP = 17;
+  // IPv6 encapsulation.
+  IP_PROTOCOL_IPV6_ENCAP = 41;
+  // Generic Routing Encapsulation.
+  IP_PROTOCOL_GRE = 47;
+  // Encapsulating Security Payload.
+  IP_PROTOCOL_ESP = 50;
+  // Authentication Header.
+  IP_PROTOCOL_AH = 51;
+  // Internet Control Message Protocol for IPv6.
+  IP_PROTOCOL_ICMPV6 = 58;
+  // Open Shortest Path First.
+  IP_PROTOCOL_OSPF = 89;
+  // Protocol Independent Multicast.
+  IP_PROTOCOL_PIM = 103;
+  // Virtual Router Redundancy Protocol.
+  IP_PROTOCOL_VRRP = 112;
+  // Stream Control Transmission Protocol.
+  IP_PROTOCOL_SCTP = 132;
+}

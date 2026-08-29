@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// Current normalized Power over Ethernet delivery status. The vocabulary
+// follows the pethPsePortDetectionStatus states of the RFC 3621 Power
+// Ethernet MIB (https://www.rfc-editor.org/rfc/rfc3621.html) using the PSE
+// terminology of IEEE 802.3 (https://standards.ieee.org/ieee/802.3/10422/);
+// the integer numbering is FlowSeer's own and does not mirror the MIB.
+enum PoeStatus {
+  // The source explicitly reported an unknown status. Absence means unreported.
+  POE_STATUS_UNSPECIFIED = 0;
+  // Power delivery is administratively disabled or inactive.
+  POE_STATUS_DISABLED = 1;
+  // The PSE is searching for or classifying a powered device.
+  POE_STATUS_SEARCHING = 2;
+  // Power is being delivered to a powered device.
+  POE_STATUS_DELIVERING_POWER = 3;
+  // The port is performing a test.
+  POE_STATUS_TEST = 4;
+  // Delivery stopped because of a fault.
+  POE_STATUS_FAULT = 5;
+  // A source-specific fault outside the normalized cases.
+  POE_STATUS_OTHER_FAULT = 6;
+}

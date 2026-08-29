@@ -1,0 +1,37 @@
+edition = "2024";
+
+package flowseer.api.inventory.v1;
+
+import "flowseer/api/inventory/v1/tag_global_ref.proto";
+import option "buf/validate/validate.proto";
+
+// The observed placement of one tag in the tenant's tag tree. Nothing on a
+// device reports tags; this state is derived by the inventory service from
+// the configured parent chain and rewritten on every rename or reparent
+// below or above the tag. It is denormalized so that consumers resolve a
+// tag's ancestry and full display path from one read instead of one lookup
+// per level.
+message TagState {
+  option (buf.validate.message).cel = {
+    id: "tag_state.path_covers_ancestors"
+    message: "path must hold one name per ancestor plus the tag's own name"
+    expression: "this.path.size() == this.ancestors.size() + 1"
+  };
+
+  // The ref to this tag. Absent is invalid.
+  TagGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The ancestor chain from the root of the tree to the direct parent,
+  // root first, excluding this tag. Empty means this tag is a root.
+  repeated TagGlobalRef ancestors = 2;
+  // The configured names along the same chain, root first, ending with this
+  // tag's own name. Element i names the tag at ancestors[i]; the last
+  // element has no ancestor entry.
+  repeated string path = 3 [(buf.validate.field).repeated = {
+    items: {
+      string: {
+        min_len: 1
+        max_len: 128
+      }
+    }
+  }];
+}
