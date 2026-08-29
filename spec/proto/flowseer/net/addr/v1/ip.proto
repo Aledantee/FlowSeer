@@ -39,7 +39,7 @@ enum IpVersion {
 
 // An IPv4 address.
 message Ipv4Address {
-  // The 4 address octets in network byte order. Absent is invalid; omit the
+  // The 4 address octets in network byte order. Must be present; omit the
   // containing field instead.
   bytes octets = 1 [
     (buf.validate.field).required = true,
@@ -50,7 +50,7 @@ message Ipv4Address {
 // An IPv6 address. There is no zone field: a link-local address is scoped by
 // the interface column of whichever table carries it.
 message Ipv6Address {
-  // The 16 address octets in network byte order. Absent is invalid; omit the
+  // The 16 address octets in network byte order. Must be present; omit the
   // containing field instead.
   bytes octets = 1 [
     (buf.validate.field).required = true,
@@ -152,10 +152,10 @@ message Ipv4Range {
     expression: "!has(this.start) || !has(this.end) || this.start.octets <= this.end.octets"
   };
 
-  // The inclusive lower bound. Absent is invalid; omit the containing field
+  // The inclusive lower bound. Must be present; omit the containing field
   // instead.
   Ipv4Address start = 1 [(buf.validate.field).required = true];
-  // The inclusive upper bound. Absent is invalid; omit the containing field
+  // The inclusive upper bound. Must be present; omit the containing field
   // instead.
   Ipv4Address end = 2 [(buf.validate.field).required = true];
 }
@@ -168,10 +168,10 @@ message Ipv6Range {
     expression: "!has(this.start) || !has(this.end) || this.start.octets <= this.end.octets"
   };
 
-  // The inclusive lower bound. Absent is invalid; omit the containing field
+  // The inclusive lower bound. Must be present; omit the containing field
   // instead.
   Ipv6Address start = 1 [(buf.validate.field).required = true];
-  // The inclusive upper bound. Absent is invalid; omit the containing field
+  // The inclusive upper bound. Must be present; omit the containing field
   // instead.
   Ipv6Address end = 2 [(buf.validate.field).required = true];
 }

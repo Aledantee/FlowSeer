@@ -8,7 +8,7 @@ import option "buf/validate/validate.proto";
 // position in the tag tree is content on the tag, not part of its identity,
 // so the local ref carries the FlowSeer-assigned identifier and nothing else.
 message TagLocalRef {
-  // FlowSeer-assigned tag identifier. Absent is invalid; omit the containing
+  // FlowSeer-assigned tag identifier. Must be present; omit the containing
   // field instead.
   string id = 1 [
     (buf.validate.field).required = true,
@@ -21,7 +21,7 @@ message TagLocalRef {
 // GlobalRef pair so refs compose uniformly and the sync hook can check them
 // mechanically. Tenancy is ambient and never part of the ref.
 message TagGlobalRef {
-  // The tag's own key. Absent is invalid; omit the containing field instead.
+  // The tag's own key. Must be present; omit the containing field instead.
   TagLocalRef tag = 1 [(buf.validate.field).required = true];
 }
 
@@ -38,7 +38,7 @@ message TagConfig {
       "this.parent.tag.id != this.ref.tag.id"
   };
 
-  // The ref to this tag. Absent is invalid.
+  // The ref to this tag. Must be present.
   TagGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The ref to the parent tag. Unset means this tag is a root of the
   // tenant's tag tree.
@@ -46,7 +46,7 @@ message TagConfig {
   // Operator-assigned name, unique among the siblings under one parent.
   // Reads carry it localized per the RPC's language header when a
   // translation exists, falling through to English; the translation mapping
-  // is server-side and never part of the payload. Absent is invalid.
+  // is server-side and never part of the payload. Must be present.
   string name = 3 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
@@ -70,7 +70,7 @@ message TagState {
     expression: "this.path.size() == this.ancestors.size() + 1"
   };
 
-  // The ref to this tag. Absent is invalid.
+  // The ref to this tag. Must be present.
   TagGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The ancestor chain from the root of the tree to the direct parent,
   // root first, excluding this tag. Empty means this tag is a root.
@@ -97,7 +97,7 @@ message TagEvent {
     expression: "has(this.before) || has(this.after)"
   };
 
-  // The ref to the tag that changed. Absent is invalid.
+  // The ref to the tag that changed. Must be present.
   TagGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The intended definition before the transition. Unset means the tag was
   // created.

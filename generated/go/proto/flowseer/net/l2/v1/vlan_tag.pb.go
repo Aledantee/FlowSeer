@@ -164,15 +164,15 @@ func (x *VlanTag) ClearDei() {
 type VlanTag_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The tag protocol identifier. Absent is invalid; open EtherType values are
+	// The tag protocol identifier. Must be present; open EtherType values are
 	// accepted when they fall in the structural EtherType range.
 	Tpid *v1.EtherType
-	// The 12-bit VID. Absent is invalid; zero is a valid priority-tagged value
+	// The 12-bit VID. Must be present; zero is a valid priority-tagged value
 	// and 4095 is reserved.
 	VlanId *uint32
-	// The three-bit priority code point. Absent is invalid; zero is valid.
+	// The three-bit priority code point. Must be present; zero is valid.
 	Pcp *uint32
-	// The drop-eligible indicator. Absent is invalid; false is a real wire value.
+	// The drop-eligible indicator. Must be present; false is a real wire value.
 	Dei *bool
 }
 

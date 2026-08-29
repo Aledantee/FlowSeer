@@ -22,12 +22,12 @@ message FdbEntry {
     expression: "!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')"
   };
 
-  // The usable VLAN identifier. Absent is invalid; zero and 4095 are invalid.
+  // The usable VLAN identifier. Must be present; zero and 4095 are invalid.
   uint32 vlan_id = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).uint32.(flowseer.net.l2.v1.vlan_id) = true
   ];
-  // The unicast Ethernet address. Absent is invalid.
+  // The unicast Ethernet address. Must be present.
   flowseer.net.addr.v1.Eui48Address mac = 2 [(buf.validate.field).required = true];
   // The device-reported egress interface name. Absent is valid for local,
   // remote, invalid, or unresolved entries; a present name must not be empty.

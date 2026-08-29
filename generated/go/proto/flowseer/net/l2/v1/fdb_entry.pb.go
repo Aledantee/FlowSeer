@@ -194,9 +194,9 @@ func (x *FdbEntry) ClearStatus() {
 type FdbEntry_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The usable VLAN identifier. Absent is invalid; zero and 4095 are invalid.
+	// The usable VLAN identifier. Must be present; zero and 4095 are invalid.
 	VlanId *uint32
-	// The unicast Ethernet address. Absent is invalid.
+	// The unicast Ethernet address. Must be present.
 	Mac *v1.Eui48Address
 	// The device-reported egress interface name. Absent is valid for local,
 	// remote, invalid, or unresolved entries; a present name must not be empty.

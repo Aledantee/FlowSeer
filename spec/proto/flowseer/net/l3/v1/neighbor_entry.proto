@@ -24,7 +24,7 @@ message NeighborEntry {
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1
   ];
-  // The neighbor's network-layer address. Absent is invalid; omit the
+  // The neighbor's network-layer address. Must be present; omit the
   // containing entry when no neighbor address was observed.
   flowseer.net.addr.v1.IpAddress ip = 2 [(buf.validate.field).required = true];
   // The resolved link-layer address. Its width varies at the sources — RFC

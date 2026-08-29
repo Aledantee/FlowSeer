@@ -111,9 +111,9 @@ func (x *TransportPortRange) ClearEnd() {
 type TransportPortRange_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The inclusive first port. Absent is invalid; zero is a valid wire value.
+	// The inclusive first port. Must be present; zero is a valid wire value.
 	Start *uint32
-	// The inclusive last port. Absent is invalid; zero is a valid wire value.
+	// The inclusive last port. Must be present; zero is a valid wire value.
 	End *uint32
 }
 

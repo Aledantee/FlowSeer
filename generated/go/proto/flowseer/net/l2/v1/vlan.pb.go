@@ -139,7 +139,7 @@ type Vlan_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The IEEE 802.1Q VLAN identifier
-	// (https://standards.ieee.org/ieee/802.1Q/10323/). Absent is invalid;
+	// (https://standards.ieee.org/ieee/802.1Q/10323/). Must be present;
 	// omit the containing Vlan when no identifier is available.
 	Id *uint32
 	// The device-reported VLAN name. Absent means no name was reported; an empty

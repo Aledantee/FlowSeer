@@ -88,7 +88,7 @@ type Eui48Address_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The 6 address octets in canonical wire order, most significant first.
-	// Absent is invalid; omit the containing field instead.
+	// Must be present; omit the containing field instead.
 	Octets []byte
 }
 
@@ -171,7 +171,7 @@ type Eui64Address_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The 8 address octets in canonical wire order, most significant first.
-	// Absent is invalid; omit the containing field instead.
+	// Must be present; omit the containing field instead.
 	Octets []byte
 }
 

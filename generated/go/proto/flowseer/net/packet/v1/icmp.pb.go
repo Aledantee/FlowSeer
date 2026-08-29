@@ -110,7 +110,7 @@ func (x *Icmpv4Fields) ClearCode() {
 type Icmpv4Fields_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The ICMPv4 type. Absent is invalid; values occupy one octet.
+	// The ICMPv4 type. Must be present; values occupy one octet.
 	Type *uint32
 	// The ICMPv4 code. Absent means the source did not report it.
 	Code *uint32
@@ -221,7 +221,7 @@ func (x *Icmpv6Fields) ClearCode() {
 type Icmpv6Fields_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The ICMPv6 type. Absent is invalid; values occupy one octet.
+	// The ICMPv6 type. Must be present; values occupy one octet.
 	Type *uint32
 	// The ICMPv6 code. Absent means the source did not report it.
 	Code *uint32

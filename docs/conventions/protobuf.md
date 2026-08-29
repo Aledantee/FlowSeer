@@ -78,7 +78,7 @@ wire model. A top-level `LocalRef` holds them as:
 
 ```protobuf
 message DeviceLocalRef {
-  // FlowSeer-assigned device identifier. Absent is invalid; omit the
+  // FlowSeer-assigned device identifier. Must be present; omit the
   // containing field instead.
   string id = 1 [
     (buf.validate.field).required = true,

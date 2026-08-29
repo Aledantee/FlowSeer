@@ -87,7 +87,7 @@ func (x *TagLocalRef) ClearId() {
 type TagLocalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// FlowSeer-assigned tag identifier. Absent is invalid; omit the containing
+	// FlowSeer-assigned tag identifier. Must be present; omit the containing
 	// field instead.
 	Id *string
 }
@@ -164,7 +164,7 @@ func (x *TagGlobalRef) ClearTag() {
 type TagGlobalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The tag's own key. Absent is invalid; omit the containing field instead.
+	// The tag's own key. Must be present; omit the containing field instead.
 	Tag *TagLocalRef
 }
 
@@ -318,7 +318,7 @@ func (x *TagConfig) ClearDescription() {
 type TagConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The ref to this tag. Absent is invalid.
+	// The ref to this tag. Must be present.
 	Ref *TagGlobalRef
 	// The ref to the parent tag. Unset means this tag is a root of the
 	// tenant's tag tree.
@@ -326,7 +326,7 @@ type TagConfig_builder struct {
 	// Operator-assigned name, unique among the siblings under one parent.
 	// Reads carry it localized per the RPC's language header when a
 	// translation exists, falling through to English; the translation mapping
-	// is server-side and never part of the payload. Absent is invalid.
+	// is server-side and never part of the payload. Must be present.
 	Name *string
 	// Free-text description of what the tag groups. Unset means none was
 	// provided.
@@ -439,7 +439,7 @@ func (x *TagState) ClearRef() {
 type TagState_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The ref to this tag. Absent is invalid.
+	// The ref to this tag. Must be present.
 	Ref *TagGlobalRef
 	// The ancestor chain from the root of the tree to the direct parent,
 	// root first, excluding this tag. Empty means this tag is a root.
@@ -565,7 +565,7 @@ func (x *TagEvent) ClearAfter() {
 type TagEvent_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The ref to the tag that changed. Absent is invalid.
+	// The ref to the tag that changed. Must be present.
 	Ref *TagGlobalRef
 	// The intended definition before the transition. Unset means the tag was
 	// created.

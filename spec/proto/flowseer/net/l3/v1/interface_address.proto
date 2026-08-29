@@ -81,7 +81,7 @@ message InterfaceAddress {
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1
   ];
-  // The assigned host address. Absent is invalid; omit the containing
+  // The assigned host address. Must be present; omit the containing
   // InterfaceAddress when no assignment was observed.
   flowseer.net.addr.v1.IpAddress address = 2 [(buf.validate.field).required = true];
   // The canonical network prefix containing the assigned address. Absent is

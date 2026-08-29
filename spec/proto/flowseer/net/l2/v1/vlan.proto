@@ -10,7 +10,7 @@ import option "flowseer/net/l2/v1/vlan_id.proto";
 // interface's switchport facet, so the two directions cannot drift.
 message Vlan {
   // The IEEE 802.1Q VLAN identifier
-  // (https://standards.ieee.org/ieee/802.1Q/10323/). Absent is invalid;
+  // (https://standards.ieee.org/ieee/802.1Q/10323/). Must be present;
   // omit the containing Vlan when no identifier is available.
   uint32 id = 1 [
     (buf.validate.field).required = true,

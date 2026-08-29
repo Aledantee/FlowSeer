@@ -216,7 +216,7 @@ type NeighborEntry_builder struct {
 	// The device-reported interface name that scopes the mapping. Absent or
 	// empty is invalid; omit the containing entry when it is unavailable.
 	InterfaceName *string
-	// The neighbor's network-layer address. Absent is invalid; omit the
+	// The neighbor's network-layer address. Must be present; omit the
 	// containing entry when no neighbor address was observed.
 	Ip *v1.IpAddress
 	// The resolved link-layer address. Its width varies at the sources — RFC

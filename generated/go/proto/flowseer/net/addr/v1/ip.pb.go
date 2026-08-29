@@ -200,7 +200,7 @@ func (x *Ipv4Address) ClearOctets() {
 type Ipv4Address_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The 4 address octets in network byte order. Absent is invalid; omit the
+	// The 4 address octets in network byte order. Must be present; omit the
 	// containing field instead.
 	Octets []byte
 }
@@ -282,7 +282,7 @@ func (x *Ipv6Address) ClearOctets() {
 type Ipv6Address_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The 16 address octets in network byte order. Absent is invalid; omit the
+	// The 16 address octets in network byte order. Must be present; omit the
 	// containing field instead.
 	Octets []byte
 }
@@ -935,10 +935,10 @@ func (x *Ipv4Range) ClearEnd() {
 type Ipv4Range_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The inclusive lower bound. Absent is invalid; omit the containing field
+	// The inclusive lower bound. Must be present; omit the containing field
 	// instead.
 	Start *Ipv4Address
-	// The inclusive upper bound. Absent is invalid; omit the containing field
+	// The inclusive upper bound. Must be present; omit the containing field
 	// instead.
 	End *Ipv4Address
 }
@@ -1033,10 +1033,10 @@ func (x *Ipv6Range) ClearEnd() {
 type Ipv6Range_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The inclusive lower bound. Absent is invalid; omit the containing field
+	// The inclusive lower bound. Must be present; omit the containing field
 	// instead.
 	Start *Ipv6Address
-	// The inclusive upper bound. Absent is invalid; omit the containing field
+	// The inclusive upper bound. Must be present; omit the containing field
 	// instead.
 	End *Ipv6Address
 }

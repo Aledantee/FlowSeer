@@ -241,7 +241,7 @@ type InterfaceAddress_builder struct {
 	// The device-reported interface name. Absent or empty is invalid; omit the
 	// containing InterfaceAddress when no interface identity is available.
 	InterfaceName *string
-	// The assigned host address. Absent is invalid; omit the containing
+	// The assigned host address. Must be present; omit the containing
 	// InterfaceAddress when no assignment was observed.
 	Address *v1.IpAddress
 	// The canonical network prefix containing the assigned address. Absent is
