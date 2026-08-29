@@ -117,10 +117,10 @@ func (b0 AttributeValueLocalRef_builder) Build() *AttributeValueLocalRef {
 // kept as a wrapper so refs compose uniformly and the sync hook can check
 // the pair mechanically. Tenancy is ambient and never part of the ref.
 type AttributeValueGlobalRef struct {
-	state            protoimpl.MessageState  `protogen:"opaque.v1"`
-	xxx_hidden_Value *AttributeValueLocalRef `protobuf:"bytes,1,opt,name=value"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                     protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_AttributeValue *AttributeValueLocalRef `protobuf:"bytes,1,opt,name=attribute_value,json=attributeValue"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *AttributeValueGlobalRef) Reset() {
@@ -148,26 +148,26 @@ func (x *AttributeValueGlobalRef) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *AttributeValueGlobalRef) GetValue() *AttributeValueLocalRef {
+func (x *AttributeValueGlobalRef) GetAttributeValue() *AttributeValueLocalRef {
 	if x != nil {
-		return x.xxx_hidden_Value
+		return x.xxx_hidden_AttributeValue
 	}
 	return nil
 }
 
-func (x *AttributeValueGlobalRef) SetValue(v *AttributeValueLocalRef) {
-	x.xxx_hidden_Value = v
+func (x *AttributeValueGlobalRef) SetAttributeValue(v *AttributeValueLocalRef) {
+	x.xxx_hidden_AttributeValue = v
 }
 
-func (x *AttributeValueGlobalRef) HasValue() bool {
+func (x *AttributeValueGlobalRef) HasAttributeValue() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Value != nil
+	return x.xxx_hidden_AttributeValue != nil
 }
 
-func (x *AttributeValueGlobalRef) ClearValue() {
-	x.xxx_hidden_Value = nil
+func (x *AttributeValueGlobalRef) ClearAttributeValue() {
+	x.xxx_hidden_AttributeValue = nil
 }
 
 type AttributeValueGlobalRef_builder struct {
@@ -175,14 +175,14 @@ type AttributeValueGlobalRef_builder struct {
 
 	// The assignment's own key. Must be present; omit the containing field
 	// instead.
-	Value *AttributeValueLocalRef
+	AttributeValue *AttributeValueLocalRef
 }
 
 func (b0 AttributeValueGlobalRef_builder) Build() *AttributeValueGlobalRef {
 	m0 := &AttributeValueGlobalRef{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Value = b.Value
+	x.xxx_hidden_AttributeValue = b.AttributeValue
 	return m0
 }
 
@@ -922,9 +922,9 @@ const file_flowseer_api_inventory_v1_attribute_value_proto_rawDesc = "" +
 	"\n" +
 	"/flowseer/api/inventory/v1/attribute_value.proto\x12\x19flowseer.api.inventory.v1\x1a)flowseer/api/inventory/v1/attribute.proto\x1a&flowseer/api/inventory/v1/entity.proto\"5\n" +
 	"\x16AttributeValueLocalRef\x12\x1b\n" +
-	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"j\n" +
-	"\x17AttributeValueGlobalRef\x12O\n" +
-	"\x05value\x18\x01 \x01(\v21.flowseer.api.inventory.v1.AttributeValueLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x05value\"]\n" +
+	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"}\n" +
+	"\x17AttributeValueGlobalRef\x12b\n" +
+	"\x0fattribute_value\x18\x01 \x01(\v21.flowseer.api.inventory.v1.AttributeValueLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x0eattributeValue\"]\n" +
 	"\x06Number\x12\x1a\n" +
 	"\ainteger\x18\x01 \x01(\x03H\x00R\ainteger\x12#\n" +
 	"\adecimal\x18\x02 \x01(\x01B\a\xbaH\x04\x12\x02@\x01H\x00R\adecimalB\x12\n" +
@@ -940,14 +940,14 @@ const file_flowseer_api_inventory_v1_attribute_value_proto_rawDesc = "" +
 	"\x03ref\x18\x01 \x01(\v22.flowseer.api.inventory.v1.AttributeValueGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12B\n" +
 	"\x05owner\x18\x02 \x01(\v2$.flowseer.api.inventory.v1.EntityRefB\x06\xbaH\x03\xc8\x01\x01R\x05owner\x12S\n" +
 	"\tattribute\x18\x03 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\tattribute\x12U\n" +
-	"\x06values\x18\x04 \x03(\v20.flowseer.api.inventory.v1.AttributeValuePayloadB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x01R\x06values\"\xa2\x06\n" +
+	"\x06values\x18\x04 \x03(\v20.flowseer.api.inventory.v1.AttributeValuePayloadB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x01R\x06values\"\xcb\x06\n" +
 	"\x13AttributeValueEvent\x12L\n" +
 	"\x03ref\x18\x01 \x01(\v22.flowseer.api.inventory.v1.AttributeValueGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12G\n" +
 	"\x06before\x18\x02 \x01(\v2/.flowseer.api.inventory.v1.AttributeValueConfigR\x06before\x12E\n" +
-	"\x05after\x18\x03 \x01(\v2/.flowseer.api.inventory.v1.AttributeValueConfigR\x05after:\xac\x04\xbaH\xa8\x04\x1a\x7f\n" +
-	"\x1eattribute_value_event.has_side\x128an attribute value event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xd3\x01\n" +
-	"(attribute_value_event.before_matches_ref\x128the before side must describe the entity the event names\x1am!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.value.id == this.ref.value.id\x1a\xce\x01\n" +
-	"'attribute_value_event.after_matches_ref\x127the after side must describe the entity the event names\x1aj!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.value.id == this.ref.value.idB\x8d\x02\n" +
+	"\x05after\x18\x03 \x01(\v2/.flowseer.api.inventory.v1.AttributeValueConfigR\x05after:\xd5\x04\xbaH\xd1\x04\x1a\x7f\n" +
+	"\x1eattribute_value_event.has_side\x128an attribute value event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xe8\x01\n" +
+	"(attribute_value_event.before_matches_ref\x128the before side must describe the entity the event names\x1a\x81\x01!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.attribute_value.id == this.ref.attribute_value.id\x1a\xe2\x01\n" +
+	"'attribute_value_event.after_matches_ref\x127the after side must describe the entity the event names\x1a~!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.attribute_value.id == this.ref.attribute_value.idB\x8d\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\x13AttributeValueProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_attribute_value_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
@@ -962,7 +962,7 @@ var file_flowseer_api_inventory_v1_attribute_value_proto_goTypes = []any{
 	(*AttributeGlobalRef)(nil),      // 7: flowseer.api.inventory.v1.AttributeGlobalRef
 }
 var file_flowseer_api_inventory_v1_attribute_value_proto_depIdxs = []int32{
-	0,  // 0: flowseer.api.inventory.v1.AttributeValueGlobalRef.value:type_name -> flowseer.api.inventory.v1.AttributeValueLocalRef
+	0,  // 0: flowseer.api.inventory.v1.AttributeValueGlobalRef.attribute_value:type_name -> flowseer.api.inventory.v1.AttributeValueLocalRef
 	2,  // 1: flowseer.api.inventory.v1.AttributeValuePayload.number:type_name -> flowseer.api.inventory.v1.Number
 	6,  // 2: flowseer.api.inventory.v1.AttributeValuePayload.reference:type_name -> flowseer.api.inventory.v1.EntityRef
 	1,  // 3: flowseer.api.inventory.v1.AttributeValueConfig.ref:type_name -> flowseer.api.inventory.v1.AttributeValueGlobalRef

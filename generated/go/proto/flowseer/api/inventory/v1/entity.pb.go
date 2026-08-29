@@ -52,11 +52,14 @@ const (
 	// on the pointing entity, never the request's tenancy scope — ambient
 	// tenancy is unchanged by this kind existing.
 	EntityType_ENTITY_TYPE_TENANT EntityType = 1
-	// The device.
+	// The device — the primary carrier of attributes and the inventory
+	// plane's central entity.
 	EntityType_ENTITY_TYPE_DEVICE EntityType = 2
-	// The tag.
+	// The tag. A tag can carry attributes like any other kind here; marking
+	// an entity with a tag stays the tag tree's own mechanism.
 	EntityType_ENTITY_TYPE_TAG EntityType = 3
-	// The attribute definition.
+	// The attribute definition itself, so definitions can be targeted or
+	// referenced like any other entity.
 	EntityType_ENTITY_TYPE_ATTRIBUTE EntityType = 4
 )
 

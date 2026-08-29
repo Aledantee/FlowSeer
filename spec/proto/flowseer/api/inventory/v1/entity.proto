@@ -33,11 +33,14 @@ enum EntityType {
   // on the pointing entity, never the request's tenancy scope — ambient
   // tenancy is unchanged by this kind existing.
   ENTITY_TYPE_TENANT = 1;
-  // The device.
+  // The device — the primary carrier of attributes and the inventory
+  // plane's central entity.
   ENTITY_TYPE_DEVICE = 2;
-  // The tag.
+  // The tag. A tag can carry attributes like any other kind here; marking
+  // an entity with a tag stays the tag tree's own mechanism.
   ENTITY_TYPE_TAG = 3;
-  // The attribute definition.
+  // The attribute definition itself, so definitions can be targeted or
+  // referenced like any other entity.
   ENTITY_TYPE_ATTRIBUTE = 4;
 }
 

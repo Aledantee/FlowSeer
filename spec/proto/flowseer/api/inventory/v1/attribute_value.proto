@@ -33,7 +33,7 @@ message AttributeValueLocalRef {
 message AttributeValueGlobalRef {
   // The assignment's own key. Must be present; omit the containing field
   // instead.
-  AttributeValueLocalRef value = 1 [(buf.validate.field).required = true];
+  AttributeValueLocalRef attribute_value = 1 [(buf.validate.field).required = true];
 }
 
 // A number as either of two precisions. The arm is part of the value:
@@ -127,12 +127,16 @@ message AttributeValueEvent {
   option (buf.validate.message).cel = {
     id: "attribute_value_event.before_matches_ref"
     message: "the before side must describe the entity the event names"
-    expression: "!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.value.id == this.ref.value.id"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref.attribute_value.id == this.ref.attribute_value.id"
   };
   option (buf.validate.message).cel = {
     id: "attribute_value_event.after_matches_ref"
     message: "the after side must describe the entity the event names"
-    expression: "!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.value.id == this.ref.value.id"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref.attribute_value.id == this.ref.attribute_value.id"
   };
 
   // The ref to the assignment that changed. Must be present.
