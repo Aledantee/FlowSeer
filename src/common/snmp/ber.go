@@ -472,11 +472,11 @@ func encodeUnsigned(v uint64) []byte {
 	return appendUint(nil, tagCounter32, v)[2:]
 }
 
-// appendOID appends an OBJECT IDENTIFIER TLV encoding o. The empty OID
+// encodeOID returns an OBJECT IDENTIFIER TLV encoding o. The empty OID
 // encodes as a zero-length OID TLV (the inverse of [decodeOID]'s
 // zero-length sentinel handling).
-func appendOID(dst []byte, o OID) []byte {
-	return appendTLV(dst, tagOID, encodeOIDContent(o))
+func encodeOID(o OID) []byte {
+	return appendTLV(nil, tagOID, encodeOIDContent(o))
 }
 
 // encodeOIDContent returns the BER content octets for o (without the tag

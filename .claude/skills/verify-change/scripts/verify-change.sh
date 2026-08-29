@@ -216,7 +216,17 @@ if ((${#modules[@]})); then
       run go build -o "$build_dir/" ./...
       run go vet ./...
       run go test -race ./...
-      run golangci-lint run --config "$root/.golangci.yml" ./...
+      # ./... would make the linters load and analyze the generated trees
+      # even though their findings are excluded; enumerate packages and
+      # drop generated output so lint stays bounded by hand-written code.
+      lint_pkgs=()
+      module_dir=$PWD
+      while IFS= read -r pkg_dir; do
+        lint_pkgs+=("./${pkg_dir#"$module_dir"/}")
+      done < <(go list -f '{{.Dir}}' ./... | grep -vE '/generated(/|$)')
+      if ((${#lint_pkgs[@]})); then
+        run golangci-lint run --config "$root/.golangci.yml" "${lint_pkgs[@]}"
+      fi
     )
   done
 fi
