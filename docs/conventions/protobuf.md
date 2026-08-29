@@ -12,10 +12,9 @@ tenancy and provenance live, and where enums go.
 This is the model layer, not the style layer.
 [`code-style-proto.md`](../code-style-proto.md) owns how a `.proto` file is
 written — edition 2024 presence, symbol visibility, naming, evolution,
-protovalidate — and governs everything here. The vocabulary is
-[`CONCEPTS.md`](../../CONCEPTS.md) §Schema model: Primitive, Entity, Triad, Ref
-Pair, Typed Variant, Provenance Envelope, Facet. This document says what those
-words oblige a schema author to write, and is the "conventions doc" that
+protovalidate — and governs everything here. This document defines what
+Primitive, Entity, Triad, Ref Pair, Typed Variant, Provenance Envelope, and
+Facet oblige a schema author to write, and is the "conventions doc" that
 `.claude/hooks/proto-check.sh` names when it reports a missing family member.
 
 The package tree, the import layering, and the primitive/entity split are fixed
@@ -276,4 +275,4 @@ Read it for four things: the ref pair composes (`InterfaceGlobalRef` = parent's
 an `observed_at` or a binding, and the Primitive (`MacAddress`) is embedded by
 value from `net/addr` with nothing flowing back the other way.
 
-[facet]: ../../CONCEPTS.md#facet
+[facet]: ../architecture/2026-08-20-network-model-structure-direction.md#facets-versus-tables

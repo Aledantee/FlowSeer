@@ -68,5 +68,4 @@ invariants.
   device service, inventory, discovery, or ingestion planes.
 - `docs/solutions/` — captured learnings (bugs, conventions, patterns) with YAML
   frontmatter; check when working in a documented area.
-- `CONCEPTS.md` — shared domain vocabulary.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).
