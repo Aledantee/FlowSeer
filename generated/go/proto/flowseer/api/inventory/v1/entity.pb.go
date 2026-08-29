@@ -4,17 +4,6 @@
 // 	protoc        (unknown)
 // source: flowseer/api/inventory/v1/entity.proto
 
-// The entity foundation: EntityType names the kinds a dynamic reference may
-// carry, EntityRef points at one entity of such a kind, and Entity wraps the
-// ref as the uniform generic handle. The three are one contract designed
-// together, which is why they share this file the same way the address
-// variants share ip.proto.
-//
-// EntityRef exists for the places where the referenced kind is decided at
-// runtime, such as attribute targeting and ownership. A statically-known
-// target keeps its typed LocalRef/GlobalRef pair; reaching for EntityRef
-// there trades away the type safety the pair exists for.
-
 package inventoryv1
 
 import (
@@ -31,16 +20,21 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The kinds attribute targeting, ownership, and reference values may name.
+// The kinds of entity a dynamic reference may name. EntityType, EntityRef,
+// and Entity are one contract designed together — the enum names the kinds,
+// the ref points at one entity of such a kind, and Entity wraps the ref as
+// the uniform generic handle — which is why they share this file the same
+// way the address variants share ip.proto.
+//
 // Membership is a contract, not a list of what exists: a kind joins only
-// when its entity is identified by a FlowSeer-assigned UUID, its delete flow
-// cascades attribute values that reference it, and its store can answer the
-// existence check a reference-value write needs. Landing a new top-level
-// entity includes joining this enum in the same change.
+// when its entity is identified by a FlowSeer-assigned UUID, its delete
+// flow cleans up whatever points at it through EntityRef, and its store can
+// answer the existence check a reference write needs. Landing a new
+// top-level entity includes joining this enum in the same change.
 //
 // Capability stays out because it is a closed enum, not an identified
-// entity. The attribute-value assignment stays out because nothing targets
-// or references an assignment.
+// entity. The attribute-value assignment stays out because nothing points
+// at an assignment.
 type EntityType int32
 
 const (
@@ -52,14 +46,12 @@ const (
 	// on the pointing entity, never the request's tenancy scope — ambient
 	// tenancy is unchanged by this kind existing.
 	EntityType_ENTITY_TYPE_TENANT EntityType = 1
-	// The device — the primary carrier of attributes and the inventory
-	// plane's central entity.
+	// The device, the inventory plane's central entity.
 	EntityType_ENTITY_TYPE_DEVICE EntityType = 2
-	// The tag. A tag can carry attributes like any other kind here; marking
-	// an entity with a tag stays the tag tree's own mechanism.
+	// The tag. Pointing at a tag is distinct from marking an entity with
+	// one; marking stays the tag tree's own mechanism.
 	EntityType_ENTITY_TYPE_TAG EntityType = 3
-	// The attribute definition itself, so definitions can be targeted or
-	// referenced like any other entity.
+	// The attribute definition, an addressable entity in its own right.
 	EntityType_ENTITY_TYPE_ATTRIBUTE EntityType = 4
 )
 
@@ -103,10 +95,12 @@ func (x EntityType) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// A reference to one entity whose kind is decided at runtime. The flat
-// type-and-id shape can only address top-level entities; an entity
-// identified relative to an owning parent has no id of its own to carry
-// here and keeps its typed GlobalRef.
+// A reference to one entity whose kind is decided at runtime. A
+// statically-known target keeps its typed LocalRef/GlobalRef pair —
+// reaching for EntityRef there trades away the type safety the pair exists
+// for. The flat kind-and-id shape can only address top-level entities; an
+// entity identified relative to an owning parent has no id of its own to
+// carry here and keeps its typed GlobalRef.
 type EntityRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Type        EntityType             `protobuf:"varint,1,opt,name=type,enum=flowseer.api.inventory.v1.EntityType"`
