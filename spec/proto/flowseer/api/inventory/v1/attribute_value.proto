@@ -1,0 +1,135 @@
+edition = "2024";
+
+// The attribute value family: one assignment joins one owning entity, one
+// attribute definition, and the values the owner carries for it. The
+// definition side lives in attribute.proto.
+//
+// The family is deliberately partial: it has no AttributeValueState. An
+// assignment is pure operator intent with nothing observed or derived, so
+// the triad is Config and Event only. The sync hook's report of a missing
+// State member is answered by this comment.
+package flowseer.api.inventory.v1;
+
+import "flowseer/api/inventory/v1/attribute.proto";
+import "flowseer/api/inventory/v1/entity.proto";
+import option "buf/validate/validate.proto";
+
+// The key of an assignment within its tenant. The assignment is a top-level
+// relationship entity, so the local ref carries the FlowSeer-assigned
+// identifier and nothing else; the owner and definition it joins are
+// content on the assignment, not part of its identity.
+message AttributeValueLocalRef {
+  // FlowSeer-assigned assignment identifier. Must be present; omit the
+  // containing field instead.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The assignment is top-level, so its global ref wraps only the local ref,
+// kept as a wrapper so refs compose uniformly and the sync hook can check
+// the pair mechanically. Tenancy is ambient and never part of the ref.
+message AttributeValueGlobalRef {
+  // The assignment's own key. Must be present; omit the containing field
+  // instead.
+  AttributeValueLocalRef value = 1 [(buf.validate.field).required = true];
+}
+
+// A number as either of two precisions. The arm is part of the value:
+// consumers switch on it instead of guessing whether a float carries an
+// exact count.
+message Number {
+  // The precision the value was written in. Exactly one arm is set.
+  oneof precision {
+    option (buf.validate.oneof).required = true;
+
+    // An exact integer.
+    int64 integer = 1;
+    // A finite floating-point number. NaN and infinities are rejected;
+    // they have no meaning as an attribute value and poison comparisons.
+    double decimal = 2 [(buf.validate.field).double.finite = true];
+  }
+}
+
+// One value under the definition's declared type. The arm must match the
+// definition — text under StringType, a number under NumberType, a
+// vocabulary key under EnumType, a reference under ReferenceType — which
+// needs the definition and is checked by the inventory service, not here.
+message AttributeValuePayload {
+  // The value itself. Exactly one arm is set.
+  oneof value {
+    option (buf.validate.oneof).required = true;
+
+    // Free text, capped at the 2048 characters StringType declares.
+    string text = 1 [(buf.validate.field).string = {
+      min_len: 1
+      max_len: 2048
+    }];
+    // A number.
+    Number number = 2;
+    // One key from the definition's closed vocabulary, in the same shape
+    // EnumType constrains its keys to. Membership in the vocabulary is
+    // checked by the service.
+    string enum_key = 3 [(buf.validate.field).string = {
+      min_len: 1
+      max_len: 64
+      pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+    }];
+    // A reference to an existing entity of the definition's declared kind.
+    // Existence and kind are checked by the service at write time; deleting
+    // the referenced entity later removes this value from its owner without
+    // prompting.
+    EntityRef reference = 4;
+  }
+}
+
+// The intended values one entity carries for one attribute: the assignment
+// joining owner, definition, and payloads. Attachment implies a value —
+// there is no valueless assignment; a marker without a value is a tag.
+//
+// Rules that need more state than this message carries are enforced by the
+// inventory service: at most one assignment exists per owner and
+// definition (the way tag sibling names are unique), the owner's kind must
+// be among the definition's targets, every payload must parse under the
+// definition's type, and more than one value is allowed only when the
+// definition is multi-valued. An assignment shares its owner's lifecycle
+// and disappears with it, and disappears when a cascade removes its last
+// value.
+message AttributeValueConfig {
+  // The ref to this assignment. Must be present.
+  AttributeValueGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The entity carrying the values. Must be present. The kind is dynamic,
+  // which is what EntityRef exists for; the assignment is owned by exactly
+  // this entity.
+  EntityRef owner = 2 [(buf.validate.field).required = true];
+  // The definition the values are written under. Must be present. The kind
+  // is statically known, so the typed ref applies.
+  AttributeGlobalRef attribute = 3 [(buf.validate.field).required = true];
+  // The values themselves. Must hold at least one payload.
+  repeated AttributeValuePayload values = 4 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 128
+  }];
+}
+
+// One transition of an assignment. Provenance and timing ride the event
+// envelope, never this message — a cascade removal, an operator delete,
+// and a drop during a definition retype all look like a deletion here, and
+// the envelope says which happened.
+message AttributeValueEvent {
+  option (buf.validate.message).cel = {
+    id: "attribute_value_event.has_side"
+    message: "an attribute value event must carry a before or an after"
+    expression: "has(this.before) || has(this.after)"
+  };
+
+  // The ref to the assignment that changed. Must be present.
+  AttributeValueGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The intended assignment before the transition. Unset means it was
+  // created.
+  AttributeValueConfig before = 2;
+  // The intended assignment after the transition. Unset means it was
+  // deleted.
+  AttributeValueConfig after = 3;
+}
