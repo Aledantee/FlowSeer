@@ -218,9 +218,8 @@ func TestT4InterfaceWalk(t *testing.T) {
 }
 
 // TestT4RevisionDrift exercises the runtime revision-drift check:
-// device-advertised module
-// revisions are compared against the committed lockfile; drift is a
-// warning, not a failure.
+// device-advertised module revisions are compared against the
+// committed lockfile; drift is a warning, not a failure.
 //
 // Covers conformance matrix row: nc-t4-revision-drift
 func TestT4RevisionDrift(t *testing.T) {

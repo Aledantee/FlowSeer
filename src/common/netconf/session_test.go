@@ -162,8 +162,8 @@ func TestApplyCandidateHappyPath(t *testing.T) {
 
 // TestApplyValidateFailureDiscardsAndUnlocks is the unit-level analog
 // of the invalid-edit rollback proof: a validate rejection triggers
-// discard-changes plus unlock,
-// and the device's error surfaces to the caller.
+// discard-changes plus unlock, and the device's error surfaces to the
+// caller.
 // Covers conformance matrix row: nc-validate-fail-discard-unlock
 func TestApplyValidateFailureDiscardsAndUnlocks(t *testing.T) {
 	f := newFake(capCandidate, capValidate)

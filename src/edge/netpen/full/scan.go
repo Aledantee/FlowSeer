@@ -72,8 +72,8 @@ func NewScan(cfg ScanConfig) *Scan {
 // probes candidate VLANs. Findings are emitted for each detected
 // protocol issue class.
 //
-// A named-but-absent watch leg fails fast (deviation from the baseline's silent degradation), matching the
-// `full` orchestrator's contract.
+// A named-but-absent watch leg fails fast (deviation from the baseline's
+// silent degradation). This matches the `full` orchestrator's contract.
 func (s *Scan) Run(ctx context.Context) error {
 	defer s.closeRecords()
 	if s.cfg.WatchLegNamed != "" && s.cfg.WatchLeg == nil {

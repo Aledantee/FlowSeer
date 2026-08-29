@@ -113,9 +113,9 @@ func TestT1CandidateEditCommitCycle(t *testing.T) {
 }
 
 // TestT1InvalidEditIsRejectedAndDiscarded is the t1 analog of the
-// invalid-edit rollback proof: an
-// out-of-range key value fails the edit, the library discards and
-// unlocks, and read-back shows running unchanged.
+// invalid-edit rollback proof: an out-of-range key value fails the
+// edit, the library discards and unlocks, and read-back shows running
+// unchanged.
 //
 // Covers conformance matrix row: nc-invalid-edit-discard
 func TestT1InvalidEditIsRejectedAndDiscarded(t *testing.T) {

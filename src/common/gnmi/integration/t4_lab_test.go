@@ -32,8 +32,7 @@ func dialT4(t *testing.T, target t4Target) *gnmi.Session {
 }
 
 // identityPaths are the identity leaves (hostname, version, serial,
-// model) per the OpenConfig models
-// AOS-CX advertises.
+// model) per the OpenConfig models AOS-CX advertises.
 func identityPaths() []yang.Path {
 	mk := func(names ...string) yang.Path {
 		var p yang.Path

@@ -65,8 +65,8 @@ func (r *recorder) appendRecord(rec findings.Record) {
 	}
 }
 
-// missingWatchLegErr builds the deviation error for a named-but-absent
-// watch leg. Both orchestrators fail fast before recon with the same
+// missingWatchLegErr builds the error a named-but-absent watch leg
+// triggers. Both orchestrators fail fast before recon with the same
 // code, attributes, exit code, user message, and hint.
 func missingWatchLegErr(name string) error {
 	return errs.New().
