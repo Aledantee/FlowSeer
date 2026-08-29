@@ -49,6 +49,7 @@ func TestProtoPathPolicy(t *testing.T) {
 	}{
 		{name: "schema", path: "flowseer/net/addr/v1/ip.proto", valid: true},
 		{name: "package readme", path: "flowseer/net/addr/v1/README.md", valid: true},
+		{name: "dotfile placeholder", path: "flowseer/api/switching/v1/.gitkeep", valid: true},
 		{name: "Go test", path: "addr_rules_test.go"},
 		{name: "source inventory", path: "flowseer/SOURCES.md"},
 		{name: "fixture directory", path: "flowseer/net/addr/_test_fixtures", isDir: true},
@@ -67,8 +68,7 @@ func TestProtoPathPolicy(t *testing.T) {
 }
 
 func protoPathViolation(path string, isDir bool) string {
-	parts := strings.Split(filepath.ToSlash(path), "/")
-	for _, part := range parts {
+	for part := range strings.SplitSeq(filepath.ToSlash(path), "/") {
 		switch part {
 		case "_test_fixtures", "fixtures", "testdata":
 			return "test artifacts belong under src/common/protoconformance/testdata, outside the Buf source tree"
@@ -78,11 +78,12 @@ func protoPathViolation(path string, isDir bool) string {
 	if isDir {
 		return ""
 	}
-	if filepath.Base(path) == "README.md" || filepath.Ext(path) == ".proto" {
+	base := filepath.Base(path)
+	if base == "README.md" || strings.HasPrefix(base, ".") || filepath.Ext(path) == ".proto" {
 		return ""
 	}
 
-	return "spec/proto contains only .proto schemas and package-boundary README.md files"
+	return "spec/proto contains only .proto schemas, package-boundary README.md files, and dotfiles"
 }
 
 func repoRoot(t *testing.T) string {

@@ -16,7 +16,13 @@ while IFS= read -r candidate_file; do
   [ -n "$candidate_file" ] || continue
   found_path=true
 
-  if ! relative_file=$(hook_relative_path "$candidate_file"); then
+  relative_file=$(hook_relative_path "$candidate_file")
+  resolve_rc=$?
+  if [ "$resolve_rc" -eq 2 ]; then
+    # Absolute path outside the repository: repository policy does not apply.
+    continue
+  fi
+  if [ "$resolve_rc" -ne 0 ]; then
     hook_deny "$candidate_file cannot be resolved safely inside the repository. Use a normalized repository-relative path."
   fi
   case "$relative_file" in
@@ -32,10 +38,15 @@ while IFS= read -r candidate_file; do
           hook_deny "$relative_file is a test artifact inside the Buf source tree. Put schema tests and fixtures under src/common/protoconformance instead."
           ;;
       esac
-      case "$relative_file" in
-        *.proto|*/README.md) ;;
+      case "${relative_file##*/}" in
+        README.md|.*) ;;
         *)
-          hook_deny "$relative_file is not a production schema or package README. spec/proto is source-only; put executable tests under src/common/protoconformance."
+          case "$relative_file" in
+            *.proto) ;;
+            *)
+              hook_deny "$relative_file is not a production schema, package README, or dotfile placeholder. spec/proto is source-only; put executable tests under src/common/protoconformance."
+              ;;
+          esac
           ;;
       esac
       ;;
