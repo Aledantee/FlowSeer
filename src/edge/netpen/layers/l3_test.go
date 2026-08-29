@@ -1,6 +1,6 @@
-// Tests for netpen's owned L3/name-resolution decoders (U3). Each protocol
+// Tests for netpen's owned L3/name-resolution decoders. Each protocol
 // is pinned against pcap fixtures harvested from the Python tool's byte
-// construction (KTD14): byte-for-byte where deterministic, field-set where
+// construction: byte-for-byte where deterministic, field-set where
 // randomized. Malformed and adversarial frames carry provenance notes in
 // the corpus, never deleted.
 

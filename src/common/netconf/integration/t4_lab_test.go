@@ -39,7 +39,7 @@ func dialT4(t *testing.T, target t4Target) *netconf.Session {
 // TestT4IdentityRead reads hostname, OS version, and — via the
 // device-hardware oper model — serial and model as typed values.
 //
-// Covers AE1 (IOS-XE leg). Covers conformance matrix row: nc-t4-identity
+// Covers the typed identity read (IOS-XE leg). Covers conformance matrix row: nc-t4-identity
 func TestT4IdentityRead(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestT4IdentityRead(t *testing.T) {
 // datastore, expects the device's rejection, and proves by read-back
 // diff that running is unchanged.
 //
-// Covers AE2. Covers conformance matrix row: nc-t4-invalid-rollback
+// Covers the invalid-edit rollback proof. Covers conformance matrix row: nc-t4-invalid-rollback
 func TestT4InvalidEditRollback(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -140,8 +140,8 @@ func TestT4InvalidEditRollback(t *testing.T) {
 }
 
 // TestT4ReversibleEditCycle applies a small change, proves it by
-// read-back, reverts it, and proves the revert — the write-validation
-// half of R12 for the NETCONF family.
+// read-back, reverts it, and proves the revert — the lab-hardware
+// write-validation half of v1 acceptance for the NETCONF family.
 //
 // Covers conformance matrix row: nc-t4-reversible-edit
 func TestT4ReversibleEditCycle(t *testing.T) {
@@ -217,7 +217,8 @@ func TestT4InterfaceWalk(t *testing.T) {
 	}
 }
 
-// TestT4RevisionDrift exercises R8: device-advertised module
+// TestT4RevisionDrift exercises the runtime revision-drift check:
+// device-advertised module
 // revisions are compared against the committed lockfile; drift is a
 // warning, not a failure.
 //

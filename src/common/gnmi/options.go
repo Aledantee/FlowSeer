@@ -18,7 +18,7 @@ const (
 	defaultRPCTimeout  = 60 * time.Second
 )
 
-// Options is the plain options struct for [Dial] (KTD8): credential
+// Options is the plain options struct for [Dial]: credential
 // metadata, the TLS posture, and timeouts. Required parameters (the
 // target address) are positional on Dial. Exactly one TLS posture
 // must be chosen — there is no permissive default.
@@ -81,7 +81,7 @@ func (o Options) transportCredentials() (credentials.TransportCredentials, error
 
 	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	if o.InsecureSkipTLSVerify {
-		cfg.InsecureSkipVerify = true //nolint:gosec // documented explicit lab opt-in (KTD8)
+		cfg.InsecureSkipVerify = true //nolint:gosec // documented explicit lab opt-in, never a default
 	}
 	if len(o.CACertPEM) > 0 {
 		pool := x509.NewCertPool()

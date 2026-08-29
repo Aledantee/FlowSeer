@@ -74,8 +74,8 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
-// Unwrap returns the error's causes, making them visible to [errors.Is] and
-// [errors.As]. The result is nil when the error has no causes.
+// Unwrap returns the error's causes so [errors.Is] and [errors.As] can walk
+// them. The result is nil when the error has no causes.
 //
 // The returned slice aliases the error's own storage and must not be
 // modified — the same contract the standard library's [errors.Join] result

@@ -30,7 +30,7 @@ func TestT1RootDiscovery(t *testing.T) {
 	}
 }
 
-// TestT1EditWithReadBack drives the KTD9 write path: PUT, read-back
+// TestT1EditWithReadBack drives the conditional-write path: PUT, read-back
 // carries the value, delete verified gone.
 //
 // Covers conformance matrix row: rc-edit-read-back

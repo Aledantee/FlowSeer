@@ -1,6 +1,6 @@
 package full
 
-// gates.go ports the baseline's two gate surfaces verbatim (KTD8: the
+// gates.go ports the baseline's two gate surfaces verbatim (the
 // catalog precondition entries are the single source; here they are the
 // orchestration-side mirror, since `full` carries no catalog row of its
 // own). Both surfaces consume only the [Evidence] map recon emits.
@@ -36,7 +36,7 @@ import (
 )
 
 // burstCore is the seven workers that ALWAYS fire in the burst, in the
-// baseline's worker-list order. These are unconditional (R3).
+// baseline's worker-list order. These are unconditional.
 var burstCore = []string{
 	"stproot", "camflood", "dhcpstarve", "gratarp", "dtp", "roguera", "llmnr",
 }
@@ -48,7 +48,7 @@ var burstCore = []string{
 //
 // The returned list is the set of (name, mode) pairs the burst phase
 // dispatches concurrently. All are mode-less (empty mode) — the burst
-// never dispatches a permanent mode (R15: Orchestrated closes the
+// never dispatches a permanent mode (Orchestrated closes the
 // permanent path entirely).
 func armBurst(ev Evidence, noSpoof bool) []runner.AttackRef {
 	out := make([]runner.AttackRef, 0, len(burstCore)+3)
@@ -84,7 +84,7 @@ type followUpEntry struct {
 
 // selectFollowUps computes the phase-3 follow-up list from the recon
 // evidence and the watch-leg presence. Follow-ups are sequential and
-// selected ONLY by recon evidence (R3: no blind attack sequences in
+// selected ONLY by recon evidence (no blind attack sequences in
 // follow-up selection). The order mirrors the baseline's phase-3 block:
 //
 //	ghost, vlanhop (first three), voicevlan, vtp, roguedhcp6, raguard,

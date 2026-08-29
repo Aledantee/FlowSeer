@@ -457,7 +457,7 @@ func TestAppendTLVEncoders(t *testing.T) {
 
 // TestGoldenWireVectors decodes hand-authored raw wire octets — not a
 // re-encode of our own output — so a shared encoder/decoder co-bug cannot
-// hide (doc-review A8). These are the bytes a real agent puts on the wire.
+// hide. These are the bytes a real agent puts on the wire.
 func TestGoldenWireVectors(t *testing.T) {
 	t.Run("Counter32 with long-form length", func(t *testing.T) {
 		// Counter32 (0x41), long-form length 0x81 0x04, value 0x0F4240 = 1_000_000.

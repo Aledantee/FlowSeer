@@ -65,7 +65,7 @@ var indicatorSuffixes = []string{
 // matchesIndicatorNameSuffix reports whether name fits the
 // indicator-name-suffix heuristic. The check is
 // case-insensitive substring match against the patterns listed in
-// [indicatorSuffixes]. The "suffix" terminology in the plan refers to
+// [indicatorSuffixes]. "Suffix" here refers to
 // the conventional SMIv2 naming pattern (`<table>LastChange`,
 // `<table>LastChangeTime`); this implementation treats the matcher as
 // substring-anywhere for robustness against edge spellings.

@@ -7,11 +7,11 @@ import (
 
 // emit_type.go maps resolved goyang leaf types onto the generated Go
 // representation and the runtime yang.Type descriptor. Leafrefs are
-// chased to their target type here (generation-time resolution per
-// KTD4); an unresolvable leafref degrades to string.
+// chased to their target type here at generation time; an
+// unresolvable leafref degrades to string.
 
 // yangPkg is the runtime package every generated file imports — the
-// only permitted import (R7).
+// only permitted import.
 const yangPkg = "go.aledante.io/FlowSeer/src/common/yang"
 
 // leafType is the emission plan for one leaf: the Go scalar type, how

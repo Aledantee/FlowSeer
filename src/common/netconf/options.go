@@ -12,7 +12,7 @@ const (
 	defaultRPCTimeout  = 60 * time.Second
 )
 
-// Options is the plain options struct for [Dial] (KTD8): the SSH
+// Options is the plain options struct for [Dial]: the SSH
 // credential surface, timeouts, and the keepalive guard. Required
 // parameters (address) are positional on Dial; everything here is
 // optional.

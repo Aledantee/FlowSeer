@@ -12,8 +12,8 @@ import (
 )
 
 // DefaultTeardownBudget bounds the total time the teardown executor may
-// spend running armed steps before forcing completion (KTD11: roughly
-// ten seconds). Tests scale this down by setting [Options.TeardownBudget]
+// spend running armed steps before forcing completion (roughly ten
+// seconds). Tests scale this down by setting [Options.TeardownBudget]
 // so the bounded-budget assertion runs in milliseconds.
 const DefaultTeardownBudget = 10 * time.Second
 
@@ -40,11 +40,11 @@ type gateDecision struct {
 }
 
 // gate evaluates the durability class for one (attack, mode) pair and
-// decides whether and how to dispatch (R13, R14, R15; KTD11). It consults
+// decides whether and how to dispatch. It consults
 // the catalog entry BEFORE the leg's TX is ever handed to the behavior:
 // a refused behavior literally never receives a send-capable leg, so zero
-// frames are possible (AE1). The ack set is per (name, mode); the
-// orchestration flag closes the permanent path entirely (R15).
+// frames are possible. The ack set is per (name, mode); the
+// orchestration flag closes the permanent path entirely.
 //
 // On refusal the gate emits the typed refusal record through the stream
 // and returns proceed=false; Run then returns the coded non-zero exit.
@@ -55,20 +55,20 @@ func gate(s *Stream, entry catalog.Entry, ack map[string]bool, orchestrated bool
 
 	case catalog.TransientDecay:
 		// Announce the catalog's decay bound as a run-start record
-		// before executing; arm nothing (R14: transient-decay has no
+		// before executing; arm nothing (transient-decay has no
 		// restore).
 		rec := decayAnnouncement(entry)
 		return gateDecision{proceed: true, announce: rec}
 
 	case catalog.TemporaryRestored:
 		// Teardown armed before the first frame; steps execute on
-		// completion or interrupt (R14). The handle is returned; the
+		// completion or interrupt. The handle is returned; the
 		// behavior arms steps against it.
 		return gateDecision{proceed: true, teardown: newTeardown(s, entry)}
 
 	case catalog.PermanentDestructive:
 		// Under orchestration the permanent path is closed regardless
-		// of ack (R15: full never dispatches a permanent mode).
+		// of ack (full never dispatches a permanent mode).
 		if orchestrated {
 			rec := refusalRecord(entry, "permanent-destructive mode cannot dispatch under orchestration")
 			_ = s.send(*rec)
@@ -83,8 +83,7 @@ func gate(s *Stream, entry catalog.Entry, ack map[string]bool, orchestrated bool
 		}
 		// Acknowledged permanent: announce the accepted mode + consequence
 		// before the first frame, then treat like temporary-restored for
-		// teardown arming (KTD11: "then treated like temporary-restored
-		// for teardown arming").
+		// teardown arming.
 		rec := acceptedAnnouncement(entry)
 		return gateDecision{proceed: true, announce: rec, teardown: newTeardown(s, entry)}
 
@@ -98,7 +97,7 @@ func gate(s *Stream, entry catalog.Entry, ack map[string]bool, orchestrated bool
 }
 
 // requiredOptIn returns the opt-in flag string the operator must supply to
-// acknowledge a permanent-destructive mode (R15: the acknowledgment names
+// acknowledge a permanent-destructive mode (the acknowledgment names
 // each permanent mode). It is the mode flag with the leading dashes the
 // CLI uses, mirroring the baseline's --i-know gate shape.
 func requiredOptIn(entry catalog.Entry) string {
@@ -109,8 +108,8 @@ func requiredOptIn(entry catalog.Entry) string {
 }
 
 // refusalRecord builds a typed [findings.KindRefusal] record naming the
-// attack, the mode, and the reason the gate declined before any frame
-// (AE1). The record's Reason is the stable machine-contract string a
+// attack, the mode, and the reason the gate declined before any frame.
+// The record's Reason is the stable machine-contract string a
 // consumer matches on.
 func refusalRecord(entry catalog.Entry, reason string) *findings.Record {
 	r := findings.NewRecord(findings.KindRefusal)
@@ -121,8 +120,8 @@ func refusalRecord(entry catalog.Entry, reason string) *findings.Record {
 }
 
 // decayAnnouncement builds the run-start announcement record for a
-// transient-decay entry: the catalog's recorded decay bound (R14: the
-// decay bound is announced at run start). It rides as a progress record
+// transient-decay entry: the catalog's recorded decay bound (the decay
+// bound is announced at run start). It rides as a progress record
 // so both output modes surface it before the first finding.
 func decayAnnouncement(entry catalog.Entry) *findings.Record {
 	r := findings.NewRecord(findings.KindProgress)
@@ -141,8 +140,7 @@ func decayAnnouncement(entry catalog.Entry) *findings.Record {
 
 // acceptedAnnouncement builds the run-start announcement record for an
 // acknowledged permanent-destructive entry: it names the accepted mode and
-// its consequence (KTD11: "a run-start announcement naming the accepted
-// mode and its consequence before the first frame").
+// its consequence before the first frame.
 func acceptedAnnouncement(entry catalog.Entry) *findings.Record {
 	r := findings.NewRecord(findings.KindProgress)
 	r.Attack = entry.Name
@@ -155,7 +153,7 @@ func acceptedAnnouncement(entry catalog.Entry) *findings.Record {
 }
 
 // Teardown is the arming handle a temporary-restored behavior registers
-// its restore steps against (R14, KTD11). The runner constructs one
+// its restore steps against. The runner constructs one
 // before invoking the behavior and hands it through [Deps.Teardown]; the
 // behavior arms each named restore step via [Teardown.Arm] before its
 // first frame. After the behavior returns (or is interrupted), the
@@ -168,7 +166,7 @@ func acceptedAnnouncement(entry catalog.Entry) *findings.Record {
 // one failing step does not abandon later ones. Per-step failures collect
 // into a named partial-failure record ([findings.KindError] carrying
 // [catalog.ErrCodeTeardownPartial] and the failed step names) and set
-// the non-zero exit (KTD13).
+// the non-zero exit.
 //
 // A Teardown is safe for concurrent use: the behavior arms steps from its
 // own goroutine, and completion and interrupt may both call Run — the
@@ -198,7 +196,7 @@ type Teardown struct {
 	completed []string
 
 	// runOnce ensures Run executes the steps exactly once even when
-	// completion and interrupt call it concurrently (KTD11: completion
+	// completion and interrupt call it concurrently (completion
 	// and interrupt share one entry point).
 	runOnce sync.Once
 }
@@ -244,7 +242,7 @@ func (t *Teardown) armed() bool {
 }
 
 // partialRecord builds the named partial-failure record for a teardown
-// that could not complete every step (KTD13). It carries
+// that could not complete every step. It carries
 // [catalog.ErrCodeTeardownPartial] and names the failed steps so the
 // operator knows exactly what could not be restored.
 func (t *Teardown) partialRecord() findings.Record {

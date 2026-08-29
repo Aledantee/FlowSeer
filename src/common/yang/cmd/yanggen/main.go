@@ -110,7 +110,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "OK: %d module(s) match the committed lockfile\n", total)
 		return 0
 	default:
-		_ = update // -update and the default path both regenerate; they diverge when emitters land (U4).
+		_ = update // -update and the default path both regenerate; they diverge once emitters land.
 		if err := Emit(sets, *outDir, *pkgPrefix); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1

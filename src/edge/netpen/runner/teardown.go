@@ -10,9 +10,9 @@ import (
 
 // Run executes the armed teardown steps in arm order (reverse-dependency:
 // least-dependent — host-local state — first), each in its own error
-// scope, so one failing step does not abandon later ones (R14, KTD11).
+// scope, so one failing step does not abandon later ones.
 // Per-step failures collect into the named partial-failure record and
-// set the returned error's exit code to 1 (KTD13). Completion and
+// set the returned error's exit code to 1. Completion and
 // interrupt share this one entry point.
 //
 // The total time is bounded by budget (or [DefaultTeardownBudget] when

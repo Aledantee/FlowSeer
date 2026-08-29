@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Covers AE2: the outermost value wins for a repeated key.
+// The outermost value wins for a repeated key.
 func TestAttributesOutermostWins(t *testing.T) {
 	inner := New().Attr("have", 4).Msg("short read")
 	outer := From(inner).Attr("have", 8).Msg("decode failed")
@@ -21,7 +21,7 @@ func TestAttributesOutermostWins(t *testing.T) {
 	}
 }
 
-// Covers AE5: joined branches are traversed left to right and the first
+// Joined branches are traversed left to right and the first
 // value encountered wins.
 func TestAttributesTraverseJoinedBranchesLeftToRight(t *testing.T) {
 	left := New().Attr("proto", "usm-aes").Msg("left")

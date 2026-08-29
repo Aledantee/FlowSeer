@@ -11,7 +11,7 @@ import (
 
 // TestValidationMatrixCompleteness walks the catalog and asserts every
 // (behavior, mode) pair appears in VALIDATION_MATRIX.md. This is the
-// single-source guard (KTD8 spirit): the catalog is the source of truth,
+// single-source guard: the catalog is the source of truth,
 // and the matrix cannot drift from it.
 //
 // The test checks that each behavior name appears as the first column of
@@ -54,8 +54,8 @@ func TestValidationMatrixCompleteness(t *testing.T) {
 	}
 }
 
-// TestSupersetAttacksInMatrix asserts the eight R4 superset attacks
-// all appear in the AE6 section of the matrix.
+// TestSupersetAttacksInMatrix asserts the eight superset attacks
+// all appear in the superset-validation section of the matrix.
 func TestSupersetAttacksInMatrix(t *testing.T) {
 	matrixPath := filepath.Join(".", "VALIDATION_MATRIX.md")
 	data, err := os.ReadFile(matrixPath)

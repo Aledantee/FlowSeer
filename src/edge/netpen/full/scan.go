@@ -5,7 +5,7 @@ package full
 // active VLAN probing (tagged + untagged) unless --no-probe. It uses
 // dual-segment observe (attack leg + watch leg) and emits findings per
 // the baseline's scan finding classes. The catalog class is
-// non-destructive (R13) — scan changes no device or neighbor state.
+// non-destructive — scan changes no device or neighbor state.
 //
 // It emits findings directly through the orchestrator's record
 // collection, not through the runner's behavior dispatch.
@@ -36,7 +36,7 @@ type ScanConfig struct {
 	// WatchLeg is the optional watch leg for dual-segment observe.
 	WatchLeg link.Leg
 	// WatchLegNamed is the watch interface name (-w). Non-empty + nil
-	// WatchLeg fails fast (R2).
+	// WatchLeg fails fast.
 	WatchLegNamed string
 	// AttackLegName is the attack interface name (for the meta record).
 	AttackLegName string
@@ -72,7 +72,7 @@ func NewScan(cfg ScanConfig) *Scan {
 // probes candidate VLANs. Findings are emitted for each detected
 // protocol issue class.
 //
-// A named-but-absent watch leg fails fast (R2 deviation), matching the
+// A named-but-absent watch leg fails fast (deviation from the baseline's silent degradation), matching the
 // `full` orchestrator's contract.
 func (s *Scan) Run(ctx context.Context) error {
 	defer s.closeRecords()

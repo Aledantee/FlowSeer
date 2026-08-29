@@ -26,7 +26,7 @@ var (
 	testCodeAuthFail    = NewCode("errstest/auth-fail")
 )
 
-// Covers AE1: a peer error reconstructed from a code — no shared identity
+// A peer error reconstructed from a code — no shared identity
 // with the local sentinel — still matches it.
 func TestIsMatchesByCode(t *testing.T) {
 	sentinel := New().Code(testCodePrivDecrypt).Msg("privacy decryption failed")

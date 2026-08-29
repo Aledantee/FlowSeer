@@ -13,7 +13,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/yang"
 )
 
-// TestT4WatcherObservesInducedChange is AE4 on hardware: a Watcher
+// TestT4WatcherObservesInducedChange is the one-change-per-row
+// watcher contract on hardware: a Watcher
 // over the interface subtree must emit exactly one Modified for an
 // interface whose state the operator changes during the window.
 //
@@ -22,7 +23,7 @@ import (
 // YANG_T4_INDUCE=1 accompanies the target env — the rest of the t4
 // tier stays hands-off.
 //
-// Covers AE4 (hardware leg). Covers conformance matrix row: nc-t4-watch-induced
+// Covers the induced-change watch (hardware leg). Covers conformance matrix row: nc-t4-watch-induced
 func TestT4WatcherObservesInducedChange(t *testing.T) {
 	if os.Getenv("YANG_T4_INDUCE") != "1" {
 		t.Skip("set YANG_T4_INDUCE=1 and toggle an interface during the window to run the AE4 hardware check")

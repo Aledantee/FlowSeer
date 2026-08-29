@@ -104,8 +104,8 @@ func (p *Pump[T]) SignalStop() {
 
 // CloseData closes the data channel exactly once under the sendMu
 // write lock so a concurrent in-flight send (which holds the read
-// lock) finishes before the channel is closed, eliminating the
-// send-on-closed panic.
+// lock) finishes before the channel is closed and cannot panic on a
+// closed channel.
 func (p *Pump[T]) CloseData() {
 	p.chOnce.Do(func() {
 		p.sendMu.Lock()

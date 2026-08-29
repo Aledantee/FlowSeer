@@ -14,7 +14,8 @@ import (
 //	go test ./src/common/gnmi -run TestConformanceMatrixUpToDate -update-conformance
 var updateConformance = flag.Bool("update-conformance", false, "rewrite CONFORMANCE.md from the corpus")
 
-// gnmiCorpus is the library's quirk catalog (R13).
+// gnmiCorpus is the library's quirk catalog: device and server quirks
+// recorded with provenance and covered by cited tests.
 var gnmiCorpus = []conformance.Row{
 	{
 		ID: "gn-proto-only-encoding", Clause: "gNMI spec §2.2.3",

@@ -19,7 +19,7 @@ import (
 // context-specific constructed tags (class 0b10, constructed 0x20), so
 // PDU n is 0x80|0x20|n = 0xA0|n.
 //
-// Note on the v1 Trap-PDU: the plan/RFC refer to it by its context tag
+// Note on the v1 Trap-PDU: RFC 1157 refers to it by its context tag
 // *number* 4 ("0x04"); the identifier octet on the wire is 0xA4. The v2c
 // SNMPv2-Trap-PDU is tag number 7 → 0xA7. The pinning test fixes both.
 type pduType byte

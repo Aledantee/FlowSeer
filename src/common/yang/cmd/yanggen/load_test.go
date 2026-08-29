@@ -115,7 +115,8 @@ func TestLoadVendorStaleSkipFails(t *testing.T) {
 	}
 }
 
-// TestClosureHashesFollowTheDependencyGraph covers KTD7: a source
+// TestClosureHashesFollowTheDependencyGraph covers closure
+// invalidation: a source
 // change anywhere in a module's closure — including reverse
 // augment/deviation contributors — changes its closure hash, and
 // modules outside the closure keep theirs.

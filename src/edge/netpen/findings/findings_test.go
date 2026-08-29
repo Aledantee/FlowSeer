@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TestSchemaVersionIsOne pins KTD10's major-version contract: the machine
+// TestSchemaVersionIsOne pins the major-version contract: the machine
 // contract starts at 1.
 func TestSchemaVersionIsOne(t *testing.T) {
 	if SchemaVersion != 1 {
@@ -53,7 +53,7 @@ func TestRecordMarshalJSONEmitsSchemaVersion(t *testing.T) {
 }
 
 // TestKindsEnumerate is the enumeration completeness check: the kinds the
-// machine contract names (KTD10) all exist. A new kind without a constant
+// machine contract names all exist. A new kind without a constant
 // fails here.
 func TestKindsEnumerate(t *testing.T) {
 	want := []Kind{
@@ -69,7 +69,7 @@ func TestKindsEnumerate(t *testing.T) {
 	}
 }
 
-// TestSecretMarshalRedactsValue is the secret-material rule proof (KTD9):
+// TestSecretMarshalRedactsValue is the secret-material rule proof:
 // a Secret's JSON encoding carries the protocol and the length only; the
 // raw value never escapes through marshaling.
 func TestSecretMarshalRedactsValue(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// Conformance corpus (SNMP test-completeness & conformance hardening, U1).
+// Conformance corpus (SNMP test-completeness & conformance hardening).
 //
 // This file is the durable, re-runnable coverage map and the
 // provenance-citing regression corpus for the native SNMP codec.
@@ -42,7 +42,7 @@ import (
 //
 //	pending      — cataloged but not yet pinned/closed. Allowed on the dev
 //	               branch (the integrity gate stays green); the build-tagged
-//	               completeness gate (run at the U9 merge gate / CI) forbids it.
+//	               completeness gate (run at merge time / in CI) forbids it.
 //	covered      — a citing test exists AND an adversarial input is named.
 //	accepted-risk — deliberately not closed; requires a reason AND membership
 //	               on acceptedRiskAllowlist (a reviewable diff, not a free string).
@@ -69,7 +69,8 @@ type corpusRow struct {
 
 // conformanceCorpus is the master catalog. Rows start "pending" and flip to
 // "covered"/"accepted-risk" as their owning unit lands, keeping the integrity
-// gate green from this commit forward (the plan's resolved lazy-seeding).
+// gate green from this commit forward: the catalog is seeded once and rows
+// flip in place, never added lazily.
 //
 // Editing rules:
 //   - never delete a row (a removed quirk loses its institutional memory);
@@ -113,7 +114,7 @@ var conformanceCorpus = []corpusRow{
 	{ID: "usm-3step-discovery", Clause: "RFC 3414 §4", Provenance: "gosnmp #511", Behavior: "initial discovery performs the authenticated boots/time resync before the first real request", Adversarial: "empty-EngineID session forced through probe -> unknownEngineID Report -> authenticated request", Unit: "U8", Status: statusCovered},
 	{ID: "usm-trap-reportable", Clause: "RFC 3412 §6.4", Provenance: "gosnmp #391", Behavior: "reportable-flag handling correct on received v3 traps vs informs", Adversarial: "decoded v3 trap (reportable clear) vs v3 inform (reportable set); tampered trap dropped with no Report", Unit: "U8", Status: statusCovered},
 
-	// ---- R25 raw fast path (fused decode / generic fallback boundary) ----
+	// ---- raw fast path (fused decode / generic fallback boundary) ----
 	{ID: "raw-wrong-typed-column", Clause: "RFC 2578 §7.1.6", Provenance: "telegraf #14598; snmp_exporter #338 (proprietary/buggy agents reporting types diverging from the MIB declaration)", Behavior: "column value whose wire tag diverges from the MIB-declared Kind: the fused arm declines (ok=false, never an error) and the generic decoder's coercion rules apply — values and errors identical to the pre-R25 path", Adversarial: "walk where a Counter32-declared column arrives Gauge32-tagged (coerces) and an Integer32-declared column arrives OctetString-tagged (typed mismatch error)", Unit: "R25", Status: statusCovered},
 	{ID: "raw-noncanonical-oid-arc", Clause: "X.690 §8.19.2", Provenance: "chemist/snmp #17 (agents emitting BER that is valid but not shortest-form)", Behavior: "response name OID carrying a zero-padded (0x80-prefixed) sub-identifier: mirror validation refuses raw delivery and the read loop decodes eagerly — the walk yields identical data via pre-decoded varbinds, and the byte-order walk guards never see a non-canonical arc", Adversarial: "GetResponse datagram whose varbind name encodes a sub-identifier with a redundant leading 0x80 continuation octet", Unit: "R25", Status: statusCovered},
 
@@ -127,11 +128,10 @@ var conformanceCorpus = []corpusRow{
 // acceptedRiskAllowlist gates which rows may carry Status accepted-risk.
 // Adding a row here is a deliberate, reviewable diff — the governance bound
 // that stops a genuine code gap from being relabeled to green under deadline.
-// Empty until U8/U9 ratify the two architecture-note rows.
 var acceptedRiskAllowlist = map[string]bool{
-	"enc-unsigned-as-signed":         true, // U3: reject negative INTEGER-tagged unsigned (user-ratified)
-	"usm-keycache-passphrase":        true, // U8: no passphrase-keyed cache exists
-	"usm-authoritative-boots-pinned": true, // U8: boots pinned, quarantine bounds replay (persistent-boots follow-up)
+	"enc-unsigned-as-signed":         true, // reject negative INTEGER-tagged unsigned rather than reinterpret
+	"usm-keycache-passphrase":        true, // no passphrase-keyed cache exists
+	"usm-authoritative-boots-pinned": true, // boots pinned, quarantine bounds replay (persistent-boots follow-up)
 }
 
 // kindBaselineTest maps every non-Unknown Kind to a baseline decode/structural
@@ -335,8 +335,8 @@ func collectTestFuncNames(t *testing.T) map[string]bool {
 
 // TestConformanceGate_RejectsBadRows proves the gate predicate bites: each
 // synthetic malformed row must produce an error, and each well-formed row must
-// not. This is the U1 verification that the gate logic is correct independent
-// of the real corpus state.
+// not. This verifies that the gate logic is correct independent of the real
+// corpus state.
 func TestConformanceGate_RejectsBadRows(t *testing.T) {
 	allow := map[string]bool{"ok-accepted": true}
 	cases := []struct {
@@ -437,7 +437,7 @@ func renderConformanceMatrix(rows []corpusRow) string {
 }
 
 // TestConformanceMatrixUpToDate keeps CONFORMANCE.md in lockstep with the
-// manifest (R5: durable, re-runnable). Set UPDATE_CONFORMANCE=1 to regenerate.
+// manifest (durable, re-runnable). Set UPDATE_CONFORMANCE=1 to regenerate.
 func TestConformanceMatrixUpToDate(t *testing.T) {
 	_, here, _, ok := runtime.Caller(0)
 	if !ok {

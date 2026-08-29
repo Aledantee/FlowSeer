@@ -8,7 +8,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// revisions.go is R8's runtime half: the yanggen lockfile records the
+// revisions.go is the runtime half of revision-drift detection: the
+// yanggen lockfile records the
 // module revisions the committed bindings were generated from; a
 // session's advertised revisions are compared against them and any
 // mismatch surfaces as a warning-grade drift list (warn-and-proceed

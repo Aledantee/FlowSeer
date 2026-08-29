@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 )
 
-// TestAE4JSONModeHygiene saturates AE4: stdout decodes as JSONL with
+// TestAE4JSONModeHygiene verifies JSON-mode output hygiene: stdout decodes as JSONL with
 // schema_version on every line, a leading meta record, and zero escape
 // sequences.
 func TestAE4JSONModeHygiene(t *testing.T) {

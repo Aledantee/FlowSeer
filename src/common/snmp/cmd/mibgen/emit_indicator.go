@@ -15,10 +15,10 @@ import (
 //	    snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2),
 //	))
 //
-// Scalar indicator emission (single Coverage entry per emitted var
-// per the plan's "each of the 5 ENTITY-MIB Watchers fires its own
-// probe" design — the per-table Watcher only needs to know that its
-// table is covered, not which other tables share the scalar):
+// Scalar indicator emission (single Coverage entry per emitted var:
+// each Watcher fires its own probe, so the per-table Watcher only needs
+// to know that its table is covered, not which other tables share the
+// scalar):
 //
 //	var EntPhysicalTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(
 //	    snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1),

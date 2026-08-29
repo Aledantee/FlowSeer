@@ -8,7 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/yang"
 )
 
-// watch.go wires the Collection Primitives onto gNMI per KTD5: the
+// watch.go wires the Collection Primitives onto gNMI: the
 // Walker runs Subscribe ONCE and yields the assembled rows; the
 // Watcher wraps Subscribe STREAM — the device owns the cadence, the
 // sync_response maps to cold-start-complete (initial rows emit as
@@ -82,8 +82,7 @@ type Watcher[Row any, Key comparable] struct {
 // Watch subscribes STREAM to desc's subtree and emits row-granular
 // change events: updates before sync buffer as initial state and
 // emit as Added at sync (the SNMP cold-start contract); afterwards
-// each notification batch emits at most one event per affected row
-// (AE4).
+// each notification batch emits at most one event per affected row.
 func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yang.ListDescriptor[Row, Key], opts WatchOptions) (*Watcher[Row, Key], error) {
 	stream, err := sess.Subscribe(ctx, SubscribeOptions{
 		Mode:           ModeStream,

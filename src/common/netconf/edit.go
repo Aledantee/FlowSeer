@@ -20,7 +20,7 @@ import (
 //     the peer supports it) → commit → unlock. On any failure after
 //     the lock, changes are discarded and the lock released before
 //     the device's error is surfaced, so the running config is
-//     provably untouched (AE2).
+//     provably untouched.
 //   - writable-running peer: lock running → edit-config
 //     (rollback-on-error when advertised) → unlock.
 //

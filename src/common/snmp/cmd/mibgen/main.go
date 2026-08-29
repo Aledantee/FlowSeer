@@ -8,7 +8,7 @@ import (
 )
 
 // Default values for the CLI flags. These are duplicated in the package
-// doc comment (doc.go) and the plan; keep them in sync.
+// doc comment (doc.go); keep them in sync.
 const (
 	defaultConfigPath = "mibgen.yaml"
 	defaultOutDir     = "generated/go/mib"

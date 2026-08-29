@@ -58,7 +58,7 @@ func logRecord(t *testing.T, err error) map[string]any {
 	return record
 }
 
-// Covers AE2: one grouped record, the outermost value, no duplicate key.
+// One grouped record, the outermost value, no duplicate key.
 func TestLogValueReportsOutermostAttribute(t *testing.T) {
 	inner := New().Attr("have", 4).Msg("short read")
 	outer := From(inner).Attr("have", 8).Msg("decode failed")
@@ -76,7 +76,7 @@ func TestLogValueReportsOutermostAttribute(t *testing.T) {
 	}
 }
 
-// Covers AE5: the log record and the extractor agree on the winning value.
+// The log record and the extractor agree on the winning value.
 func TestLogValueAndAttributesAgree(t *testing.T) {
 	left := New().Attr("proto", "usm-aes").Attr("engine_id", "80001f88").Msg("left")
 	right := New().Attr("proto", "usm-des").Msg("right")

@@ -1,7 +1,7 @@
 // Package version holds the netpen binary's build-time version metadata.
 //
 // The fields are injected via -ldflags '-X' at release time by the
-// Taskfile `release` task (KTD16): the Go linker rewrites the string
+// Taskfile `release` task: the Go linker rewrites the string
 // values in place, so a release binary carries its git commit, build
 // date, and semantic version without a runtime git invocation.
 //

@@ -93,8 +93,8 @@ func collectEvents[Row any, Key comparable](t *testing.T, ch <-chan yang.WatchEv
 	return out
 }
 
-// TestTickWatcherAE4 covers AE4's unit shape: one leaf change between
-// ticks emits exactly one Modify for that row, and Close terminates
+// TestTickWatcherAE4 checks that one leaf change between ticks
+// emits exactly one Modify for that row, and Close terminates
 // promptly.
 func TestTickWatcherAE4(t *testing.T) {
 	fetch := &scriptedFetch{payloads: []any{

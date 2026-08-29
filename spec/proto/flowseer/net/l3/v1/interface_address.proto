@@ -75,8 +75,8 @@ message InterfaceAddress {
       ")"
   };
 
-  // The device-reported interface name. Absent or empty is invalid; omit the
-  // containing InterfaceAddress when no interface identity is available.
+  // The device-reported interface name. Must be present and non-empty; omit
+  // the containing InterfaceAddress when no interface identity is available.
   string interface_name = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1
@@ -84,8 +84,8 @@ message InterfaceAddress {
   // The assigned host address. Must be present; omit the containing
   // InterfaceAddress when no assignment was observed.
   flowseer.net.addr.v1.IpAddress address = 2 [(buf.validate.field).required = true];
-  // The canonical network prefix containing the assigned address. Absent is
-  // invalid; the prefix must use the same family and contain the address.
+  // The canonical network prefix containing the assigned address. Must be
+  // present; the prefix must use the same family and contain the address.
   flowseer.net.addr.v1.IpPrefix prefix = 3 [(buf.validate.field).required = true];
   // How the address was assigned. Absent means the source did not report an
   // origin.

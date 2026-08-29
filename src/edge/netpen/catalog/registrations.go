@@ -39,8 +39,8 @@ func init() {
 		{
 			Name: "vtp", Protocols: []string{"vtp"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "revision-bump side effect recorded", Help: "VTP domain manipulation (SAFE mode default)",
 			Modes: []Mode{
-				{Flag: "wipe", Class: PermanentDestructive, Teardown: "opt-in per R15", Help: "VTP VLAN-database wipe"},
-				{Flag: "set", Class: PermanentDestructive, Teardown: "opt-in per R15", Help: "VTP VLAN-database overwrite"},
+				{Flag: "wipe", Class: PermanentDestructive, Teardown: "requires per-run opt-in", Help: "VTP VLAN-database wipe"},
+				{Flag: "set", Class: PermanentDestructive, Teardown: "requires per-run opt-in", Help: "VTP VLAN-database overwrite"},
 			},
 		},
 		{Name: "ospf", Protocols: []string{"ospf"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "goodbye/flush teardown", Help: "OSPF LSA injection"},
@@ -76,9 +76,9 @@ func init() {
 		},
 		{Name: "hsrp", Protocols: []string{"hsrp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "resign teardown", Help: "HSRP active-router hijack"},
 		{
-			Name: "dtp", Protocols: []string{"dtp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "access-port restore armed by default (KTD12)", Help: "DTP trunk negotiation",
+			Name: "dtp", Protocols: []string{"dtp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "access-port restore armed by default", Help: "DTP trunk negotiation",
 			Modes: []Mode{
-				{Flag: "keep-trunk", Class: PermanentDestructive, Teardown: "opt-in per KTD12", Help: "keep the negotiated trunk (no restore)"},
+				{Flag: "keep-trunk", Class: PermanentDestructive, Teardown: "opt-in to keep the negotiated trunk", Help: "keep the negotiated trunk (no restore)"},
 			},
 		},
 		{Name: "eigrp", Protocols: []string{"eigrp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "goodbye/flush teardown", Help: "EIGRP route injection"},
@@ -90,8 +90,7 @@ func init() {
 	}
 
 	// full is orchestration scripting the gate and carries no (attack,
-	// mode) entry of its own (plan: "Durability classification of all 35
-	// behaviors" — full excluded). It has a CLI dispatch handler but no
+	// mode) entry of its own. It has a CLI dispatch handler but no
 	// catalog row; the CLI reconciliation test allows it as the sole
 	// CLI-only orchestration name.
 }

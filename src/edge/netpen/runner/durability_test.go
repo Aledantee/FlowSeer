@@ -24,7 +24,7 @@ import (
 // reads cleanly without importing golang.org/x/sys/unix.
 var unixSIGHUP = syscall.SIGHUP
 
-// sendCountingLeg is a [link.Leg] whose Send is counted. It is the AE1
+// sendCountingLeg is a [link.Leg] whose Send is counted. It is the
 // proof that a refused behavior never emits a frame: the gate evaluates
 // before the leg's TX is handed to the behavior, so a refused behavior
 // never receives a send-capable leg.
@@ -56,7 +56,7 @@ func (l *sendCountingLeg) Close() error {
 
 func (l *sendCountingLeg) sendCount() int64 { return l.sends.Load() }
 
-// TestPermanentRefusalZeroFrames proves AE1: a permanent-destructive
+// TestPermanentRefusalZeroFrames proves a permanent-destructive
 // (attack, mode) pair invoked without its acknowledgment refuses at the
 // gate before any frame is emitted. The behavior is never invoked (so it
 // never receives a send-capable leg), the leg's Send is never called
@@ -81,7 +81,7 @@ func TestPermanentRefusalZeroFrames(t *testing.T) {
 
 	recs, err := drainStreamAsync(t, context.Background(), r)
 
-	// Exit non-zero: the refusal is a runtime failure (KTD13: 1).
+	// Exit non-zero: the refusal is a runtime failure (exit 1).
 	if err == nil {
 		t.Fatal("Run returned nil, want coded refusal error")
 	}
@@ -120,7 +120,7 @@ func TestPermanentRefusalZeroFrames(t *testing.T) {
 	}
 }
 
-// TestPermanentRefusalNeverEnablesTX proves the harder AE1 invariant: the
+// TestPermanentRefusalNeverEnablesTX proves the harder invariant: the
 // leg's TX capability is never handed to a refused behavior, not merely
 // that no write call was made. A hooked mock leg whose Send panics if
 // called is passed to the behavior; because the behavior is never
@@ -160,7 +160,7 @@ func TestPermanentRefusalNeverEnablesTX(t *testing.T) {
 // permanent path: when the per-run opt-in names the permanent mode, the
 // gate emits a run-start announcement naming the accepted mode + its
 // consequence before the first frame, then treats the entry like
-// temporary-restored for teardown arming (KTD11).
+// temporary-restored for teardown arming.
 func TestAcknowledgedPermanentAnnouncesBeforeFrame(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
@@ -218,7 +218,7 @@ func TestAcknowledgedPermanentAnnouncesBeforeFrame(t *testing.T) {
 	}
 }
 
-// TestAcknowledgedPermanentIsPerPair proves R15's per-pair semantics:
+// TestAcknowledgedPermanentIsPerPair proves the opt-in's per-pair semantics:
 // acknowledging "vtp wipe" does not accept "vtp set". A different
 // permanent mode without its own ack still refuses.
 func TestAcknowledgedPermanentIsPerPair(t *testing.T) {
@@ -344,7 +344,7 @@ func TestNonDestructiveNoAnnouncementNoTeardown(t *testing.T) {
 	}
 }
 
-// TestInterruptTeardownCompletesPartialFailure proves AE2: when an
+// TestInterruptTeardownCompletesPartialFailure proves that when an
 // interrupt arrives mid-run on a temporary-restored behavior, the
 // teardown completes before exit; one step planted to fail still lets
 // later steps run; the partial record names the failed step; exit is 1.
@@ -444,7 +444,7 @@ func TestInterruptTeardownCompletesPartialFailure(t *testing.T) {
 		t.Errorf("partial record message %q, want it to name the failed step", partial.Message)
 	}
 
-	// Exit 1 (KTD13: teardown partial failure = 1).
+	// Exit 1 (teardown partial failure = 1).
 	if got := errs.ExitCode(r.Stream().Err()); got != 1 {
 		t.Errorf("exit code: got %d, want 1", got)
 	}
@@ -562,7 +562,7 @@ func TestTeardownBudgetBounded(t *testing.T) {
 
 // TestTemporaryRestoredZeroStepsArmedFails proves the loud-failure
 // contract: a temporary-restored behavior that arms zero teardown steps
-// is a coded runtime failure at arm time, not a silent skip (KTD11).
+// is a coded runtime failure at arm time, not a silent skip.
 func TestTemporaryRestoredZeroStepsArmedFails(t *testing.T) {
 	leg := &sendCountingLeg{}
 	t.Cleanup(func() { _ = leg.Close() })
@@ -591,7 +591,7 @@ func TestTemporaryRestoredZeroStepsArmedFails(t *testing.T) {
 	}
 }
 
-// TestOrchestratedPermanentCannotDispatch proves R15: under orchestration
+// TestOrchestratedPermanentCannotDispatch proves that under orchestration
 // (Options.Orchestrated, set by the full command), no permanent entry
 // may dispatch even with an ack supplied. The gate has no path.
 func TestOrchestratedPermanentCannotDispatch(t *testing.T) {
@@ -677,7 +677,7 @@ func TestSignalInterruptEngagesTeardown(t *testing.T) {
 }
 
 // TestSignalHupEngagesTeardown proves SIGHUP engages the same teardown
-// path as SIGINT (KTD11: SIGINT/SIGTERM/SIGHUP all engage the same path).
+// path as SIGINT (SIGINT/SIGTERM/SIGHUP all engage the same path).
 func TestSignalHupEngagesTeardown(t *testing.T) {
 	if testing.Short() {
 		t.Skip("subprocess signal test skipped in -short")

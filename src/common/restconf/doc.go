@@ -28,11 +28,12 @@
 //
 // # Writes
 //
-// [Session.Put] and [Session.Patch] follow KTD9: capture the
+// [Session.Put] and [Session.Patch] follow the conditional-write
+// discipline: capture the
 // resource's ETag with a conditional GET, send If-Match when the peer
 // provided one, and re-read the resource afterwards — the returned
 // [WriteResult] carries the read-back body so the caller can prove
-// the edit by diff rather than trusting the status code (R12).
+// the edit by diff rather than trusting the status code.
 // Missing ETag support degrades to an unconditional write plus
 // read-back. 409 and 412 responses surface as the retryable
 // [ErrCodeConflict].

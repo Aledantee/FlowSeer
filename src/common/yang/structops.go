@@ -8,7 +8,7 @@ import (
 
 // structops.go: the generic row machinery over [Schema] — change
 // detection, partial-update merge, and leaf enumeration — that
-// yanggen's per-list wrappers delegate to (KTD4).
+// yanggen's per-list wrappers delegate to.
 
 // EqualStructs reports whether two conforming struct values carry
 // identical data. Pointer fields compare by pointee.

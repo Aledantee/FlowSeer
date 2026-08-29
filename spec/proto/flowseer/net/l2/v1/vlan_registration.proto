@@ -8,8 +8,8 @@ package flowseer.net.l2.v1;
 // (https://www.rfc-editor.org/rfc/rfc4363.html); the integer numbering is
 // FlowSeer's own and does not mirror the MIB.
 enum VlanRegistration {
-  // The source explicitly reported an unknown registration mechanism. An
-  // unreported value is represented by an absent field.
+  // The source explicitly reported an unknown registration mechanism.
+  // Absence means unreported.
   VLAN_REGISTRATION_UNSPECIFIED = 0;
   // A registration mechanism outside the normalized cases.
   VLAN_REGISTRATION_OTHER = 1;

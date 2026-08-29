@@ -45,7 +45,7 @@ type Frame struct {
 // A Leg is safe for concurrent use by one writer and one reader: the RX loop
 // runs in a single goroutine and Close is called from the signal path. The fd
 // lifecycle is mutex-guarded inside the implementation so close-during-poll is
-// an orderly EBADF exit, not a use-after-close race (KTD4).
+// an orderly EBADF exit, not a use-after-close race.
 type Leg interface {
 	// Send writes pkt to the wire. It returns an error matching
 	// [ErrCodeLegOpen] when the leg is closed or the write fails.

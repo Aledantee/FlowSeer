@@ -127,8 +127,6 @@ func TestValueSymmetry(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ParseCanonical(%q): %v", canon, err)
 			}
-			// Decimal64 canonical form trims trailing zeros, so
-			// compare re-encoded forms, not raw representations.
 			assertValueEqual(t, "canonical", decoded, tc.value)
 
 			j, err := tc.value.MarshalJSON7951()
@@ -147,8 +145,7 @@ func TestValueSymmetry(t *testing.T) {
 	}
 }
 
-// assertValueEqual compares decoded against want structurally. Bits
-// decode from "" as a nil slice; normalize before comparing.
+// assertValueEqual compares decoded against want structurally.
 func assertValueEqual(t *testing.T, form string, got, want yang.Value) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {

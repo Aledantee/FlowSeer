@@ -1,7 +1,7 @@
 // bpf.go builds BPF filter programs as raw instructions. The string BPF DSL
 // (tcpdump syntax) is a libpcap feature and does not exist in the cgo-free
 // path, so filters are assembled programmatically with golang.org/x/net/bpf
-// and converted to the raw form afpacket.SetBPF accepts (KTD4).
+// and converted to the raw form afpacket.SetBPF accepts.
 
 package link
 

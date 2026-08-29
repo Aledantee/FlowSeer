@@ -28,8 +28,8 @@ const (
 type VlanRegistration int32
 
 const (
-	// The source explicitly reported an unknown registration mechanism. An
-	// unreported value is represented by an absent field.
+	// The source explicitly reported an unknown registration mechanism.
+	// Absence means unreported.
 	VlanRegistration_VLAN_REGISTRATION_UNSPECIFIED VlanRegistration = 0
 	// A registration mechanism outside the normalized cases.
 	VlanRegistration_VLAN_REGISTRATION_OTHER VlanRegistration = 1

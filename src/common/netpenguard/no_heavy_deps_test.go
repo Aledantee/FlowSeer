@@ -3,7 +3,7 @@
 // module's dependency graph. The test walks from the repo root (the repoRoot
 // pattern from src/common/errs/code_test.go) and asserts zero charm.land/ or
 // github.com/gopacket/ imports outside src/edge/netpen, the sole exempt
-// directory (KTD1).
+// directory.
 package netpenguard
 
 import (

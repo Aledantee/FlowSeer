@@ -14,7 +14,8 @@ import (
 //	go test ./src/common/restconf -run TestConformanceMatrixUpToDate -update-conformance
 var updateConformance = flag.Bool("update-conformance", false, "rewrite CONFORMANCE.md from the corpus")
 
-// restconfCorpus is the library's quirk catalog (R13).
+// restconfCorpus is the library's quirk catalog: device and server
+// quirks recorded with provenance and covered by cited tests.
 var restconfCorpus = []conformance.Row{
 	{
 		ID: "rc-host-meta-discovery", Clause: "RFC 8040 §3.1",

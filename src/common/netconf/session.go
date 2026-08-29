@@ -21,7 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/yang"
 )
 
-// Transport is the RPC transport seam (KTD1): the envelope layer the
+// Transport is the RPC transport seam: the envelope layer the
 // session drives. The production implementation wraps
 // nemith.io/netconf; tests script a fake; a house transport can
 // replace the dependency without touching callers.
@@ -102,7 +102,7 @@ func sshConfig(opts Options) (*ssh.ClientConfig, error) {
 	case opts.InsecureIgnoreHostKey && opts.HostKeySHA256 != "":
 		return nil, errs.New().Code(ErrCodeTransport).Msg("options: host-key pin and insecure opt-in are mutually exclusive")
 	case opts.InsecureIgnoreHostKey:
-		hostKey = ssh.InsecureIgnoreHostKey() //nolint:gosec // documented explicit lab opt-in (KTD8)
+		hostKey = ssh.InsecureIgnoreHostKey() //nolint:gosec // documented explicit lab opt-in, never a default
 	case opts.HostKeySHA256 != "":
 		want := opts.HostKeySHA256
 		if !hasSHA256Prefix(want) {
@@ -194,12 +194,12 @@ func NewSession(t Transport, opts Options) *Session {
 func (s *Session) Capabilities() []string { return s.caps.all }
 
 // EditTarget returns the datastore this peer's edits address
-// (capability-driven per R1) and whether the peer is editable at all.
+// (capability-driven) and whether the peer is editable at all.
 func (s *Session) EditTarget() (Datastore, bool) { return s.caps.editTarget() }
 
 // ModuleRevisions extracts the module→revision map from the hello's
 // capability URIs (the module=X&revision=Y query parameters of RFC
-// 6020 §5.6.4) — the advertised side of R8's revision-drift check;
+// 6020 §5.6.4) — the advertised side of the revision-drift check;
 // compare against yang.ParseLockfileRevisions with
 // yang.DiffRevisions.
 func (s *Session) ModuleRevisions() map[string]string {

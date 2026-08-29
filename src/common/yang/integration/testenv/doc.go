@@ -1,5 +1,5 @@
 // Package testenv provides the shared container environment for the
-// YANG protocol libraries' t1 integration tier (KTD10): a
+// YANG protocol libraries' t1 integration tier: a
 // netopeer2/sysrepo NETCONF server with the yanggen fixture modules
 // installed, a clixon RESTCONF server, and FlowSeer's own gNMI
 // reference target — each built or configured from a Docker context

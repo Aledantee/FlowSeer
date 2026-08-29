@@ -10,9 +10,9 @@ import (
 
 // golden_roundtrip_test.go drives the committed generated fixture
 // package through the runtime codecs: the same struct round-trips
-// NETCONF XML and RFC 7951 JSON (R6), the row machinery detects and
-// merges changes (AE4 groundwork), and nested flat rows carry
-// ancestor keys (KTD4).
+// NETCONF XML and RFC 7951 JSON, the row machinery detects and
+// merges changes, and nested flat rows carry
+// ancestor keys.
 
 func sampleGenServer() fixturemain.Servers_Server {
 	name := "edge-1"
@@ -89,7 +89,7 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 	}
 }
 
-// TestGeneratedRowMachinery covers the AE4 groundwork: equal detects
+// TestGeneratedRowMachinery covers the row machinery: equal detects
 // a single leaf change in a keyed row, merge preserves unchanged
 // fields, and the key extractor produces the composite identity.
 func TestGeneratedRowMachinery(t *testing.T) {
@@ -120,7 +120,7 @@ func TestGeneratedRowMachinery(t *testing.T) {
 	}
 }
 
-// TestGeneratedNestedFlatRows covers KTD4's flattening: inner-list
+// TestGeneratedNestedFlatRows covers nested-list flattening: inner-list
 // rows decoded across two parents carry each parent's key, and the
 // composite key struct includes it.
 func TestGeneratedNestedFlatRows(t *testing.T) {

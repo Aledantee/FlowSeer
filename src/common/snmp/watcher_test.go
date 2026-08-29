@@ -571,7 +571,7 @@ func TestWatcher_EmptyColdStart(t *testing.T) {
 		t.Errorf("Err = %v, want nil", err)
 	}
 	// Close before reading the goroutine-owned snapshot to avoid a
-	// data race with the tick loop (#17). Drain any in-flight events.
+	// data race with the tick loop. Drain any in-flight events.
 	_ = w.Close()
 	for {
 		ev, ok := <-w.pump.Data()

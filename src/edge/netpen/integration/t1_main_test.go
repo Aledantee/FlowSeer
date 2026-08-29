@@ -31,8 +31,7 @@ const frrTopologyDir = "t1/testdata/frr"
 // lab down.
 //
 // containerlab is preferred when installed; otherwise plain docker compose
-// with FRR nodes on a custom bridge. This mirrors the HOST REALITY decision
-// from the U13 plan.
+// with FRR nodes on a custom bridge.
 func TestMain(m *testing.M) {
 	if !testenv.HasDocker() {
 		fmt.Fprintln(os.Stderr, "[netpen_t1] docker not on PATH; skipping tier")

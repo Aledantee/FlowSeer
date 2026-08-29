@@ -11,11 +11,12 @@ import (
 )
 
 // watch.go is the shared row plumbing under the protocol libraries'
-// Collection Primitives (KTD4, KTD7 of the SNMP lineage): a generic
+// Collection Primitives, mirroring the SNMP library's shape: a generic
 // bounded Walker and a tick-diff Watcher engine, both driven by a
 // protocol-supplied fetch function and a [ListDescriptor]'s row
 // codec. The NETCONF and RESTCONF libraries wrap these; gNMI's
-// stream-fed Watcher lives in the gnmi package per KTD5.
+// stream-fed Watcher, built on Subscribe STREAM, lives in the gnmi
+// package.
 
 // ChangeKind classifies a watch event.
 type ChangeKind int
@@ -158,7 +159,7 @@ func (c WatchConfig) withDefaults() WatchConfig {
 }
 
 // TickWatcher re-reads a bounded subtree every tick and diffs rows by
-// identity (KTD4): cold start emits Added per row, later ticks emit
+// identity: cold start emits Added per row, later ticks emit
 // Added/Modified/Removed per changed row. Transient tick errors go to
 // [TickWatcher.LastTickErr]; the configured consecutive-failure
 // threshold latches the Watcher terminally. A dropped session never

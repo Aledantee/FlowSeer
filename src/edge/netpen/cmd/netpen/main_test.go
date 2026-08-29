@@ -275,7 +275,7 @@ func TestResolveMode(t *testing.T) {
 
 // TestStreamingJSONWritesRecordsMidRun verifies that JSONL records are
 // written to stdout WHILE the run is in flight, not buffered until
-// completion (R11 live feed, KTD10 streaming). A slow producer emits
+// completion. A slow producer emits
 // two records with a gap between them; the first record's bytes must
 // appear on stdout before the second is emitted.
 func TestStreamingJSONWritesRecordsMidRun(t *testing.T) {

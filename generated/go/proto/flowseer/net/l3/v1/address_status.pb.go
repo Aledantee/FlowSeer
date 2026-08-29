@@ -26,8 +26,8 @@ const (
 type AddressStatus int32
 
 const (
-	// The status was explicitly reported as unknown or not classified. An
-	// unreported status is represented by an absent field instead.
+	// The status was explicitly reported as unknown or not classified. Absence
+	// means unreported.
 	AddressStatus_ADDRESS_STATUS_UNSPECIFIED AddressStatus = 0
 	// The address is preferred for new communication.
 	AddressStatus_ADDRESS_STATUS_PREFERRED AddressStatus = 1

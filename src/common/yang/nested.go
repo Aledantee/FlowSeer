@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// nested.go supports KTD4's nested-list flattening: an inner-list
+// nested.go supports nested-list flattening: an inner-list
 // entry is its own row, identified by the full keyed instance path,
 // so decoding must recover each ancestor list level's key values from
 // the wire payload alongside the entry itself. yanggen emits flat-row
@@ -338,7 +338,7 @@ func SubtreeDescriptor[Row any](s *Schema, path Path) ListDescriptor[Row, struct
 }
 
 // ContainerRowCodec is the synthetic-row codec for a non-list
-// subtree (KTD4): the whole subtree is one row whose identity is the
+// subtree: the whole subtree is one row whose identity is the
 // subtree path, so Key is the unit type. Decoding an absent subtree
 // yields zero rows — a presence container disappearing surfaces as a
 // Remove event.

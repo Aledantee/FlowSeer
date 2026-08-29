@@ -14,7 +14,7 @@ import (
 //	go test ./src/common/netconf -run TestConformanceMatrixUpToDate -update-conformance
 var updateConformance = flag.Bool("update-conformance", false, "rewrite CONFORMANCE.md from the corpus")
 
-// netconfCorpus is the library's quirk catalog (R13): append-only,
+// netconfCorpus is the library's quirk catalog: append-only,
 // provenance-cited, joined to its pinning tests by
 // `// Covers conformance matrix row:` markers.
 var netconfCorpus = []conformance.Row{

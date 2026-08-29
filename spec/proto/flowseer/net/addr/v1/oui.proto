@@ -10,8 +10,8 @@ import option "buf/validate/validate.proto";
 // message rather than a view of EuiAddress because discovery's vendor
 // prefilter and vendor lookups hold an OUI with no address behind it.
 message Oui {
-  // Exactly 3 prefix octets must be present in canonical wire order, most
-  // significant first.
+  // The 3 prefix octets in canonical wire order, most significant first.
+  // Must be present; omit the containing field instead.
   bytes octets = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).bytes.len = 3

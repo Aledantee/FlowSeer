@@ -112,7 +112,8 @@ func TestT1CandidateEditCommitCycle(t *testing.T) {
 	}
 }
 
-// TestT1InvalidEditIsRejectedAndDiscarded is the t1 AE2 analog: an
+// TestT1InvalidEditIsRejectedAndDiscarded is the t1 analog of the
+// invalid-edit rollback proof: an
 // out-of-range key value fails the edit, the library discards and
 // unlocks, and read-back shows running unchanged.
 //

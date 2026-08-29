@@ -6,8 +6,8 @@ package flowseer.net.l3.v1;
 // address status taxonomy in RFC 8344
 // (https://www.rfc-editor.org/rfc/rfc8344.html).
 enum AddressStatus {
-  // The status was explicitly reported as unknown or not classified. An
-  // unreported status is represented by an absent field instead.
+  // The status was explicitly reported as unknown or not classified. Absence
+  // means unreported.
   ADDRESS_STATUS_UNSPECIFIED = 0;
   // The address is preferred for new communication.
   ADDRESS_STATUS_PREFERRED = 1;

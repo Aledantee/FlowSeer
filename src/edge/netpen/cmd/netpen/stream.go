@@ -3,7 +3,7 @@ package main
 // stream.go provides the live-streaming output consumers for the runner's
 // findings stream. Both the JSONL writer and the TUI program consume
 // records AS THEY ARRIVE while the run is in flight — not buffered until
-// the run completes (R11: live findings feed; KTD10: streaming JSONL).
+// the run completes (live findings feed; streaming JSONL).
 //
 // Both consumers accept a <-chan findings.Record: the caller starts the
 // run (runner.Run or orchestrator.Run) in a goroutine, then calls the
@@ -21,7 +21,7 @@ import (
 )
 
 // streamJSON consumes the live record channel, writing each record as a
-// JSONL line to stdout as it arrives (R11, KTD10). The meta header is
+// JSONL line to stdout as it arrives. The meta header is
 // written first, then each record immediately, then a closing summary.
 // It blocks until the channel closes (run completes or context cancel).
 func streamJSON(stdout, stderr io.Writer, ch <-chan findings.Record, meta findings.Meta) {
@@ -85,7 +85,7 @@ func drainRecords(ch <-chan findings.Record) {
 // live from the record channel. A goroutine reads the channel and sends
 // each record to the program via p.Send; the model's Update handles
 // findings.Record messages. When the channel closes, p.Quit stops the
-// program so main resumes and runs teardown (U7: teardown owned outside
+// program so main resumes and runs teardown (teardown owned outside
 // bubbletea, no quit hook).
 //
 // streamTUI is only called when stdout is a tty (ResolveMode selects TUI

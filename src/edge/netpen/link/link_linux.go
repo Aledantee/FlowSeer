@@ -1,7 +1,7 @@
 // link_linux.go is the AF_PACKET leg implementation. It wraps afpacket.TPacket
 // (v3 ring RX, promiscuous, WritePacketData TX) with a poll-loop cancellation
 // contract: Receive polls with a short timeout and checks ctx.Done() each
-// cycle, and Close from the signal path unblocks the poll (KTD4).
+// cycle, and Close from the signal path unblocks the poll.
 //
 // AF_PACKET uses unix.Poll, not the Go netpoller, so there is no read deadline.
 // The fd lifecycle is mutex-guarded against the polling goroutine: poll setup

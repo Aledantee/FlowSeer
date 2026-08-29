@@ -29,8 +29,7 @@ const (
 type AddressOrigin int32
 
 const (
-	// The origin was explicitly reported as unknown. An unreported origin is
-	// represented by an absent field instead.
+	// The origin was explicitly reported as unknown. Absence means unreported.
 	AddressOrigin_ADDRESS_ORIGIN_UNSPECIFIED AddressOrigin = 0
 	// An origin outside the normalized categories.
 	AddressOrigin_ADDRESS_ORIGIN_OTHER AddressOrigin = 1

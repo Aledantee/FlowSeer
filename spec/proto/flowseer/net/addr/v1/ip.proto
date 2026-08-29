@@ -91,9 +91,9 @@ message Ipv4Prefix {
       ")"
   };
 
-  // The masked network address. It must be present.
+  // The masked network address. Must be present.
   Ipv4Address address = 1 [(buf.validate.field).required = true];
-  // The prefix length in bits. It must be present; zero denotes the default
+  // The prefix length in bits. Must be present; zero denotes the default
   // route.
   uint32 length = 2 [
     (buf.validate.field).required = true,
@@ -123,9 +123,9 @@ message Ipv6Prefix {
       ")"
   };
 
-  // The masked network address. It must be present.
+  // The masked network address. Must be present.
   Ipv6Address address = 1 [(buf.validate.field).required = true];
-  // The prefix length in bits. It must be present; zero denotes the default
+  // The prefix length in bits. Must be present; zero denotes the default
   // route.
   uint32 length = 2 [
     (buf.validate.field).required = true,

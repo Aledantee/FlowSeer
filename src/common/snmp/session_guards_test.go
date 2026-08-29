@@ -129,7 +129,7 @@ func TestWalkGuard_IgnoreNonIncreasingForwardCursor(t *testing.T) {
 func TestWalkGuard_ExactRepeatIsCycle(t *testing.T) {
 	root := ifDescrRoot()
 	// Even with IgnoreNonIncreasing, an exact-repeat OID is an
-	// unambiguous cycle and must abort (doc-review A7).
+	// unambiguous cycle and must abort.
 	agent := startScriptedGetNext(t, [][]VarBind{
 		{octet(root.Append(1), "eth1")},
 		{octet(root.Append(1), "eth1")}, // exact repeat

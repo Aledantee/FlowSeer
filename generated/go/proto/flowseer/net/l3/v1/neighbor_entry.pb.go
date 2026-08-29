@@ -213,8 +213,8 @@ func (x *NeighborEntry) ClearReachability() {
 type NeighborEntry_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The device-reported interface name that scopes the mapping. Absent or
-	// empty is invalid; omit the containing entry when it is unavailable.
+	// The device-reported interface name that scopes the mapping. Must be
+	// present and non-empty; omit the containing entry when it is unavailable.
 	InterfaceName *string
 	// The neighbor's network-layer address. Must be present; omit the
 	// containing entry when no neighbor address was observed.

@@ -13,12 +13,12 @@ import (
 // emit_module.go renders one module's binding package: typed structs
 // for containers and lists, one yang.Schema descriptor per struct,
 // identity values, composite key structs (ancestor keys included for
-// flattened nested lists per KTD4), and descriptor functions — one
+// flattened nested lists), and descriptor functions — one
 // per list, plus one per top-level container (deeper subtrees compose
 // yang.SubtreeDescriptor from the exported schema and a path). Wire
 // codecs are the runtime's generic schema-driven implementations, so
-// generated code consumes only src/common/yang's public API (R7) and
-// one struct serves all three wire forms (R6).
+// generated code consumes only src/common/yang's public API and
+// one struct serves all three wire forms.
 //
 // Two scale rules shaped this emitter (the IOS-XE native module is a
 // quarter-million-line package):
@@ -268,7 +268,8 @@ func (em *moduleEmitter) emitNode(e *goyang.Entry, parentStruct string, path []p
 }
 
 // emitContainerDescriptor renders the synthetic-row descriptor
-// function for a top-level container (KTD4's non-list subtree row).
+// function for a top-level container (the synthetic non-list
+// subtree row).
 // Deeper subtrees compose yang.SubtreeDescriptor from the exported
 // schema and path.
 func (em *moduleEmitter) emitContainerDescriptor(structName string, path []pathSeg) {
@@ -288,7 +289,7 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 	keyNames := strings.Fields(e.Key)
 	if len(keyNames) == 0 {
 		// A keyless list (config false) has no stable row identity;
-		// no descriptor is emitted, matching KTD4's bounded scope.
+		// no descriptor is emitted.
 		return nil
 	}
 
@@ -394,7 +395,7 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 	}
 	flatFields = append(flatFields, jen.Id("Entry").Id(structName))
 	em.addCommented(
-		fmt.Sprintf("%s flattens one %s entry with its ancestor list keys (KTD4).", flatName, structName),
+		fmt.Sprintf("%s flattens one %s entry with its ancestor list keys.", flatName, structName),
 		jen.Type().Id(flatName).Struct(flatFields...),
 	)
 

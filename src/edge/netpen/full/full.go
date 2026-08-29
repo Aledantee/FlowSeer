@@ -1,7 +1,7 @@
 package full
 
-// full.go implements the four-phase evidence-gated `full` orchestration
-// (R3, F1). The orchestrator is a thin coordinator over the runner: it
+// full.go implements the four-phase evidence-gated `full` orchestration.
+// The orchestrator is a thin coordinator over the runner: it
 // runs recon, arms the burst from the evidence, selects follow-ups from
 // the evidence, and emits a summary. Each phase drives its own runner
 // instance (the runner is single-Run); the orchestrator merges the
@@ -14,21 +14,21 @@ package full
 //     leg. Unconditional core (stproot, camflood, dhcpstarve, gratarp,
 //     dtp, roguera, llmnr) always fires; daddos/arpspoof/vrrp armed by
 //     recon evidence/flags. All run under Orchestrated=true so no
-//     permanent mode can dispatch (R15).
-//  3. follow-ups: sequential, selected ONLY by recon evidence (R3: no
+//     permanent mode can dispatch.
+//  3. follow-ups: sequential, selected ONLY by recon evidence (no
 //     blind sequences). Each gated follow-up runs as its own runner
 //     invocation with Orchestrated=true.
 //  4. report: a summary record closes the run, including the sweep-net
 //     fallback chain and the traversal verdicts.
 //
-// Interrupted run in ANY phase emits partial findings (F1): the runner's
+// Interrupted run in ANY phase emits partial findings: the runner's
 // SignalHandler engages teardown and the stream flushes before the
 // process exits. The watch-leg evidence window derives from the ACTUAL
 // burst end (not flag arithmetic): the orchestrator records burstEnd
 // when the burst phase completes (or is interrupted) and the follow-up
 // phase uses it.
 //
-// A named-but-absent watch leg FAILS FAST per R2 before recon — a
+// A named-but-absent watch leg FAILS FAST before recon — a
 // deliberate deviation from the baseline's silent single-leg
 // degradation, asserted as intentional.
 
@@ -54,12 +54,12 @@ type Config struct {
 	AttackLeg link.Leg
 	// WatchLeg is the optional watch leg. nil = single-leg run (pending
 	// verdicts). A non-nil WatchLegNamed that does not exist fails fast
-	// before recon (R2 deviation).
+	// before recon (a deviation from the baseline, which degraded silently).
 	WatchLeg link.Leg
 	// WatchLegNamed is the watch interface name the operator passed
 	// (-w). When non-empty, the orchestrator fails fast if WatchLeg is
 	// nil — a named-but-absent watch leg is an error, not a silent
-	// single-leg degradation (R2).
+	// single-leg degradation.
 	WatchLegNamed string
 	// AttackLegName is the attack interface name (for the meta record).
 	AttackLegName string
@@ -126,17 +126,17 @@ func (f *Full) appendVerdict(v verdict) {
 
 // Run executes the four-phase orchestration. It blocks until all phases
 // complete or the context is canceled. On cancellation, partial
-// findings are still emitted (F1): each phase's runner flushes its
+// findings are still emitted: each phase's runner flushes its
 // stream before returning, and the orchestrator collects whatever
 // completed.
 //
 // The returned error is non-nil only for orchestration-level failures
 // (named-but-absent watch leg, recon failure). Behavior-level failures
 // surface as typed error records in the findings, not as a run failure
-// (KTD13: findings never move the exit code).
+// (findings never move the exit code).
 func (f *Full) Run(ctx context.Context) error {
 	defer f.closeRecords()
-	// R2 deviation: a named-but-absent watch leg fails fast before recon.
+	// Deviation from the baseline: a named-but-absent watch leg fails fast before recon.
 	if f.cfg.WatchLegNamed != "" && f.cfg.WatchLeg == nil {
 		err := missingWatchLegErr(f.cfg.WatchLegNamed)
 		f.appendRecord(errRecord(err, "full", ""))
@@ -185,7 +185,7 @@ func (f *Full) Run(ctx context.Context) error {
 	f.appendRecord(progress("full", "", "burst", "done"))
 
 	// Watch-leg traversal evidence: capture on the watch leg for a
-	// bounded window from the ACTUAL burst end (F4, R2). Any frame seen
+	// bounded window from the ACTUAL burst end. Any frame seen
 	// in the window marks traversal; verdicts key off this evidence.
 	if f.cfg.WatchLeg != nil && observeTraversal(ctx, f.cfg.WatchLeg, traversalWindow) {
 		ev["watch-recording"] = true
@@ -273,12 +273,12 @@ func (f *Full) runPhase(ctx context.Context, refs []runner.AttackRef, timeout ti
 //   - resisted: watch leg present but no traversal evidence
 //   - confirmed: watch leg recorded burst frames (upgrade pending->confirmed)
 //
-// The upgrade is R2's two-leg semantics: the watch-leg evidence window
+// The upgrade is the two-leg semantics: the watch-leg evidence window
 // derives from the ACTUAL burst end (recorded by Run), not flag
 // arithmetic.
 // traversalWindow is how long the watch leg is observed after the burst
 // ends. It derives the evidence window from the actual burst end, never
-// from flag arithmetic (R2, F4).
+// from flag arithmetic.
 const traversalWindow = 2 * time.Second
 
 // observeTraversal reports whether any frame appears on the watch leg

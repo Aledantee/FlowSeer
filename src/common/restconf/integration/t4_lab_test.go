@@ -36,7 +36,7 @@ func dialT4(t *testing.T, target t4Target) *restconf.Session {
 // TestT4IdentityRead reads hostname, OS version, serial, and model as
 // typed values via the generated openconfig bindings.
 //
-// Covers AE1 (ICX leg). Covers conformance matrix row: rc-t4-identity
+// Covers the typed identity read (ICX leg). Covers conformance matrix row: rc-t4-identity
 func TestT4IdentityRead(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.BaseURL, func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestT4IdentityRead(t *testing.T) {
 			}
 			// FastIron 10.0.10g mirrors hostname into config, not state
 			// (state is returned empty), so accept either. This is the
-			// concrete typed-value proof for AE1 end to end:
+			// concrete typed-value identity-read proof end to end:
 			// dial -> host-meta discovery -> GET -> JSON7951 decode.
 			hostname := ""
 			if system.State != nil && system.State.Hostname != nil {
@@ -112,8 +112,8 @@ func TestT4IdentityRead(t *testing.T) {
 }
 
 // TestT4ReversibleEdit applies a reversible interface-description
-// change and proves both the edit and the revert by read-back
-// (R12's ICX leg).
+// change and proves both the edit and the revert by read-back — the
+// ICX leg of the lab-hardware write validation.
 //
 // FastIron 10.0.10g rejects writes to openconfig-system config leaves
 // (login-banner/hostname return "invalid internal value"); the
@@ -203,8 +203,8 @@ func TestT4ReversibleEdit(t *testing.T) {
 	}
 }
 
-// TestT4DepthFieldsSupport verifies the plan's ICX assumption: are
-// the depth/fields query parameters honored? Either answer is
+// TestT4DepthFieldsSupport verifies the ICX assumption that the
+// depth/fields query parameters are honored. Either answer is
 // recorded; an ignored parameter is the client-side-pruning fallback,
 // not a failure.
 //

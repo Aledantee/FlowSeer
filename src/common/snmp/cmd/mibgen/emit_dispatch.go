@@ -50,7 +50,7 @@ func emitDispatch(f *jen.File, ec *emitCtx) {
 
 	f.Comment("OIDDispatch returns a shallow copy of the package's wire-key →")
 	f.Comment("AnyColumn map. The copy isolates callers from accidental mutation")
-	f.Comment("of the package-internal map (#12).")
+	f.Comment("of the package-internal map.")
 	f.Func().Id("OIDDispatch").Params().Map(jen.String()).Qual(snmpImport, "AnyColumn").Block(
 		jen.Id("out").Op(":=").Make(
 			jen.Map(jen.String()).Qual(snmpImport, "AnyColumn"),

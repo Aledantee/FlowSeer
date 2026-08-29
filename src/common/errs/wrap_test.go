@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Covers AE4: the error-first Wrapf signature interpolates its arguments and
+// The error-first Wrapf signature interpolates its arguments and
 // keeps the wrapped error matchable.
 func TestWrapfInterpolatesAndPreservesMatching(t *testing.T) {
 	dialErr := Msg("connection refused")

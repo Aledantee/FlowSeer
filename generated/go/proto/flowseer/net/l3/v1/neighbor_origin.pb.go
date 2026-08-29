@@ -29,8 +29,7 @@ const (
 type NeighborOrigin int32
 
 const (
-	// The origin was explicitly reported as unknown. An unreported origin is
-	// represented by an absent field instead.
+	// The origin was explicitly reported as unknown. Absence means unreported.
 	NeighborOrigin_NEIGHBOR_ORIGIN_UNSPECIFIED NeighborOrigin = 0
 	// An origin outside the normalized categories.
 	NeighborOrigin_NEIGHBOR_ORIGIN_OTHER NeighborOrigin = 1

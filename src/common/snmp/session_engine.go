@@ -327,7 +327,7 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 				switch cmp := h.OID.Compare(prev); {
 				case cmp == 0:
 					// Exact-repeat OID is an unambiguous cycle — always
-					// abort, even in skip mode (doc-review A7).
+					// abort, even in skip mode.
 					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "repeated OID %s", h.OID)
 					w.Fail(walkErr)
 					return

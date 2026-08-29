@@ -121,7 +121,7 @@ func TestWalk_NoSuchObjectTerminatesSubtree(t *testing.T) {
 	}
 }
 
-// Covers conformance matrix row: walk-mid-pdu-eomv (RFC 3416). AE3: in the
+// Covers conformance matrix row: walk-mid-pdu-eomv (RFC 3416). In the
 // single-OID GETBULK chain this codec issues, all value varbinds preceding an
 // endOfMibView in the same PDU are yielded before the walk terminates at the
 // endOfMibView marker — no data is lost. (Per-column EOMV across a multi-OID
@@ -139,7 +139,7 @@ func TestWalk_MidPduEndOfMibView(t *testing.T) {
 	}
 }
 
-// Covers conformance matrix row: walk-mutate-midwalk (RFC 3416; WLAN). AE5: a
+// Covers conformance matrix row: walk-mutate-midwalk (RFC 3416; WLAN). A
 // table that gains/loses rows between successive PDUs yields a self-consistent
 // snapshot — strictly increasing OIDs, no duplicates, no loop, no error.
 func TestWalk_MutateMidWalk(t *testing.T) {

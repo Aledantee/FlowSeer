@@ -2058,7 +2058,7 @@ var bRIDGEMIBOIDDispatch = map[string]snmp.AnyColumn{
 
 // OIDDispatch returns a shallow copy of the package's wire-key →
 // AnyColumn map. The copy isolates callers from accidental mutation
-// of the package-internal map (#12).
+// of the package-internal map.
 func OIDDispatch() map[string]snmp.AnyColumn {
 	out := make(map[string]snmp.AnyColumn, len(bRIDGEMIBOIDDispatch))
 	for k, v := range bRIDGEMIBOIDDispatch {

@@ -5,8 +5,7 @@ package full
 // CDP, DTP, VTP, LLDP, HSRP, VRRP, DHCP, ARP, IPv6 RA, MVRP). The
 // passive listen and ARP sweep require AF_PACKET (Linux); on non-Linux
 // the leg returns ErrUnsupportedPlatform and recon produces empty
-// evidence, which still fires the burst's unconditional core (R3
-// parity).
+// evidence, which still fires the burst's unconditional core.
 //
 // The recon function is the Config.ReconFn seam: tests substitute a
 // stub that returns canned Evidence, so the orchestration tests run
@@ -30,7 +29,7 @@ import (
 //
 // On non-Linux (no AF_PACKET), the passive listen observes nothing and
 // the ARP sweep is a no-op; the returned Evidence is empty, which still
-// fires the burst's unconditional core (R3 parity). On Linux, the listen
+// fires the burst's unconditional core. On Linux, the listen
 // and sweep populate the evidence keys.
 func defaultRecon(ctx context.Context, cfg Config) (Evidence, error) {
 	ev := Evidence{}

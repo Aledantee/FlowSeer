@@ -31,7 +31,8 @@ func dialT4(t *testing.T, target t4Target) *gnmi.Session {
 	return s
 }
 
-// identityPaths are the AE1 identity leaves per the OpenConfig models
+// identityPaths are the identity leaves (hostname, version, serial,
+// model) per the OpenConfig models
 // AOS-CX advertises.
 func identityPaths() []yang.Path {
 	mk := func(names ...string) yang.Path {
@@ -50,9 +51,9 @@ func identityPaths() []yang.Path {
 }
 
 // TestT4CapabilitiesAndIdentity records the peer's capability surface
-// and reads the AE1 identity leaves.
+// and reads the identity leaves as typed values.
 //
-// Covers AE1 (Aruba leg). Covers conformance matrix row: gn-t4-identity
+// Covers the typed identity read (Aruba leg). Covers conformance matrix row: gn-t4-identity
 func TestT4CapabilitiesAndIdentity(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -84,13 +85,14 @@ func TestT4CapabilitiesAndIdentity(t *testing.T) {
 	}
 }
 
-// TestT4ArubaSetCapability is the R14 early verification: a small
-// reversible config change via Set either round-trips (recorded), or
-// the incapacity is recorded and the Aruba write criterion converts
-// per R14 — this test then reports the verdict without failing the
-// tier for the other families.
+// TestT4ArubaSetCapability is the early write-capability
+// verification: a small reversible config change via Set either
+// round-trips (recorded), or the incapacity is recorded and the Aruba
+// write-acceptance criterion converts to a documented gap with the
+// fallback path recorded — this test then reports the verdict without
+// failing the tier for the other families.
 //
-// Covers AE3. Covers conformance matrix row: gn-t4-set-verdict
+// Covers the reversible-Set acceptance check. Covers conformance matrix row: gn-t4-set-verdict
 func TestT4ArubaSetCapability(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -120,8 +122,9 @@ func TestT4ArubaSetCapability(t *testing.T) {
 
 			err := s.Set(ctx, gnmi.SetRequest{Updates: []gnmi.PathValue{{Path: banner, JSON: []byte(`"flowseer-t4"`)}}})
 			if err != nil {
-				// The R14 escape hatch: record the incapacity; the
-				// corpus row and plan conversion are the follow-up.
+				// The documented escape hatch: record the incapacity;
+				// the corpus row and write-criterion conversion are
+				// the follow-up.
 				t.Logf("R14 VERDICT: gNMI Set rejected on %s: %v — convert the Aruba write criterion per R14", target.Addr, err)
 				t.Skip("Set unsupported; R14 conversion applies")
 			}
@@ -196,7 +199,7 @@ func TestT4SubscribeStream(t *testing.T) {
 }
 
 // TestT4RevisionDrift compares the peer's advertised model versions
-// against the committed lockfile (R8); drift is a warning.
+// against the committed lockfile; drift is a warning.
 //
 // Covers conformance matrix row: gn-t4-revision-drift
 func TestT4RevisionDrift(t *testing.T) {

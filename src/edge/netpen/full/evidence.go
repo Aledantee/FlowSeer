@@ -4,7 +4,7 @@
 // the runner: they build [runner.Options], drive the runner, and stream
 // findings into the output layer selected by the CLI.
 //
-// The orchestration contract (R3, F1) is split across the files in this
+// The orchestration contract is split across the files in this
 // package:
 //
 //   - evidence.go: the typed [Evidence] map recon emits and both gate
@@ -19,7 +19,7 @@ package full
 // Evidence is the typed evidence map the recon phase emits. Both gate
 // surfaces — burst arming (phase 2) and follow-up selection (phase 3) —
 // consume only this map; nothing reads recon state directly. The keys are
-// the stable evidence identifiers the plan names:
+// the stable evidence identifiers:
 //
 //   - "ra6":   IPv6 Router Advertisements were observed in recon.
 //   - "vlans": 802.1Q tags were observed on the wire.
@@ -31,7 +31,7 @@ package full
 //   - "vrids": at least one VRRP virtual-router id was detected.
 //
 // An empty Evidence (recon saw nothing) still fires the burst's
-// unconditional core (R3 baseline parity); the armed workers simply do
+// unconditional core (baseline parity); the armed workers simply do
 // not arm. The values are the raw evidence payloads (counts, sets, or
 // typed structs) the gate surfaces and the report read; tests assert on
 // them directly.

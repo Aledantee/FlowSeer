@@ -42,7 +42,7 @@ func TestRunMissingConfigExitOne(t *testing.T) {
 	}
 }
 
-// TestRunVerifyRealTrees is the U3 end-to-end gate: all three vendored
+// TestRunVerifyRealTrees is the end-to-end load gate: all three vendored
 // trees load with the committed manifest, modulo recorded skips. It
 // costs tens of seconds, so -short skips it.
 func TestRunVerifyRealTrees(t *testing.T) {

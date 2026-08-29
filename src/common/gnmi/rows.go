@@ -12,8 +12,9 @@ import (
 // rows.go assembles rows from gNMI's leaf-granular updates. The
 // stream delivers (path, value) pairs; the descriptor's codec wants
 // RFC 7951 subtree JSON. A rowStore keeps one JSON tree per row —
-// identified by its keyed instance path, ancestor keys included per
-// KTD4 — applies updates and deletes to the trees, and re-decodes a
+// identified by its keyed instance path, ancestor keys included
+// (inner-list keys are unique only within their parent) — applies
+// updates and deletes to the trees, and re-decodes a
 // row through the descriptor's DecodeJSON whenever it must be
 // emitted. That keeps the gnmi package free of schema knowledge: the
 // generated codec is the only interpreter of the assembled JSON.

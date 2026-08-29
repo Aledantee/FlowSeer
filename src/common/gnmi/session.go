@@ -49,8 +49,8 @@ type Capabilities struct {
 	Version string
 }
 
-// Model identifies one supported YANG model; Version feeds R8's
-// revision-drift detection.
+// Model identifies one supported YANG model; Version feeds the
+// revision-drift detection against the vendored module revisions.
 type Model struct {
 	Name         string
 	Organization string
@@ -58,7 +58,7 @@ type Model struct {
 }
 
 // ModelRevisions maps model names to advertised versions — the
-// advertised side of R8's revision-drift check; compare against
+// advertised side of the revision-drift check; compare against
 // yang.ParseLockfileRevisions with yang.DiffRevisions.
 func (c Capabilities) ModelRevisions() map[string]string {
 	out := make(map[string]string, len(c.Models))
@@ -69,7 +69,7 @@ func (c Capabilities) ModelRevisions() map[string]string {
 }
 
 // Dial establishes the channel, records Capabilities, and negotiates
-// the encoding (KTD5: JSON_IETF preferred, PROTO fallback).
+// the encoding (JSON_IETF preferred, PROTO fallback).
 func Dial(ctx context.Context, target string, opts Options) (*Session, error) {
 	opts = opts.withDefaults()
 	creds, err := opts.transportCredentials()
@@ -127,8 +127,8 @@ func NewSession(ctx context.Context, cc *grpc.ClientConn, opts Options) (*Sessio
 	return s, nil
 }
 
-// negotiateEncoding picks JSON_IETF when offered, PROTO otherwise
-// (KTD5). An empty advertisement counts as JSON_IETF: several
+// negotiateEncoding picks JSON_IETF when offered, PROTO otherwise.
+// An empty advertisement counts as JSON_IETF: several
 // implementations omit the field yet accept it.
 func negotiateEncoding(offered []gpb.Encoding) (gpb.Encoding, error) {
 	if len(offered) == 0 {

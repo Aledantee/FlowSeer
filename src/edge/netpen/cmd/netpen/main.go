@@ -5,7 +5,7 @@
 // Every catalog command name dispatches to a real behavior: open legs via
 // link.Open, build runner.Options, construct a Runner, install the
 // SignalHandler, run, stream findings into the output layer selected by
-// ResolveMode, and exit via run()'s 0/1/2 contract (KTD13).
+// ResolveMode, and exit via run()'s 0/1/2 contract.
 package main
 
 import (
@@ -36,11 +36,11 @@ const defaultIface = "eth0"
 
 // versionCmd is the version string printed by `netpen version`. It is
 // sourced from the version package so the release Taskfile can inject
-// the git commit, build date, and semantic tag via -ldflags '-X' (KTD16).
+// the git commit, build date, and semantic tag via -ldflags '-X'.
 var versionCmd = version.String
 
 // subcommand is one entry in the dispatch table. Each command gets its own
-// flag.FlagSet (KTD2). setup registers the command-specific flags into the
+// flag.FlagSet. setup registers the command-specific flags into the
 // cmdFlags struct; run reads them after parsing.
 type subcommand struct {
 	name  string
@@ -160,7 +160,7 @@ func init() {
 
 // run is the unit-testable netpen entrypoint.
 //
-// Exit-code contract (KTD13):
+// Exit-code contract:
 //
 //	0  run completion regardless of findings
 //	1  runtime failure (carries errs ExitCode(1))
@@ -415,7 +415,7 @@ func runFull(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 
 // runOrchestrator is the shared live-streaming driver for full and scan.
 // It starts the run in a goroutine, then drains the live record channel
-// into the output layer (JSONL or TUI) concurrently (R11, KTD10).
+// into the output layer (JSONL or TUI) concurrently.
 func runOrchestrator(ctx context.Context, ch <-chan findings.Record, runFn func(context.Context) error, cf *cmdFlags, stdout, stderr io.Writer) error {
 	meta := findings.Meta{
 		Tool:      "netpen",
@@ -482,7 +482,7 @@ func runScan(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 }
 
 // runAndOutput runs a single-attack runner and streams findings LIVE
-// into the output layer as they arrive (R11, KTD10). The runner's
+// into the output layer as they arrive. The runner's
 // stream is consumed concurrently with Run.
 func runAndOutput(ctx context.Context, opts runner.Options, cf *cmdFlags, stdout, stderr io.Writer) error {
 	r := runner.NewRunner(opts)

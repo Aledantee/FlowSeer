@@ -10,7 +10,7 @@ import (
 )
 
 // SignalHandler installs the three-signal lifecycle (SIGINT, SIGTERM,
-// SIGHUP) over a [Runner] (KTD11). All three engage the same teardown
+// SIGHUP) over a [Runner]. All three engage the same teardown
 // path: the first signal interrupts the run (canceling the in-flight
 // behavior) and runs the armed teardown steps; a second signal during
 // teardown force-exits the process and reports by name the teardown

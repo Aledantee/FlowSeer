@@ -9,8 +9,7 @@ package flowseer.net.l3.v1;
 // SLAAC-generated addresses report the mechanism-specific LINK_LAYER or
 // RANDOM origin instead.
 enum AddressOrigin {
-  // The origin was explicitly reported as unknown. An unreported origin is
-  // represented by an absent field instead.
+  // The origin was explicitly reported as unknown. Absence means unreported.
   ADDRESS_ORIGIN_UNSPECIFIED = 0;
   // An origin outside the normalized categories.
   ADDRESS_ORIGIN_OTHER = 1;

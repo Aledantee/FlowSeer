@@ -10,7 +10,7 @@
 // # Transport
 //
 // The wire envelope is nemith.io/netconf behind the [Transport] seam
-// (KTD1): [Dial] builds the production SSH transport; [NewSession]
+// seam: [Dial] builds the production SSH transport; [NewSession]
 // accepts any Transport, which is how tests script a fake and how a
 // house transport could replace the dependency without touching
 // callers.
@@ -29,7 +29,7 @@
 //
 // # Datastores and the edit flow
 //
-// Datastore writability is capability-driven per session (R1): a
+// Datastore writability is capability-driven per session: a
 // candidate-mode peer (IOS-XE) edits the candidate datastore under
 // lock; a writable-running peer edits running directly; a peer with
 // neither surfaces [ErrCodeUnsupported]. [Session.Apply] runs the

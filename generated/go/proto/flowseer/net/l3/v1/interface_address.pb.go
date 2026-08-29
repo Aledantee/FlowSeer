@@ -238,14 +238,14 @@ func (x *InterfaceAddress) ClearLifetime() {
 type InterfaceAddress_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The device-reported interface name. Absent or empty is invalid; omit the
-	// containing InterfaceAddress when no interface identity is available.
+	// The device-reported interface name. Must be present and non-empty; omit
+	// the containing InterfaceAddress when no interface identity is available.
 	InterfaceName *string
 	// The assigned host address. Must be present; omit the containing
 	// InterfaceAddress when no assignment was observed.
 	Address *v1.IpAddress
-	// The canonical network prefix containing the assigned address. Absent is
-	// invalid; the prefix must use the same family and contain the address.
+	// The canonical network prefix containing the assigned address. Must be
+	// present; the prefix must use the same family and contain the address.
 	Prefix *v1.IpPrefix
 	// How the address was assigned. Absent means the source did not report an
 	// origin.

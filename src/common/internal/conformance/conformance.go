@@ -1,6 +1,6 @@
 // Package conformance is the shared quirk-corpus machinery the YANG
-// protocol libraries transcribe from the SNMP library's discipline
-// (R13): append-only rows with provenance and adversarial input,
+// protocol libraries transcribe from the SNMP library's discipline:
+// append-only rows with provenance and adversarial input,
 // `// Covers conformance matrix row: <ID>` markers joining rows to
 // citing tests, an always-on integrity gate, a build-tagged
 // completeness gate, and a generated CONFORMANCE.md golden.

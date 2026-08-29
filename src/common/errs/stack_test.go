@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Covers AE3: a stack is captured once, at the origin.
+// A stack is captured once, at the origin.
 func TestStackCapturedOnceAtOrigin(t *testing.T) {
 	origin := New().Msg("origin")
 	wrapped := Wrap(Wrap(origin, "middle"), "outer")
@@ -80,7 +80,7 @@ func TestWrapStackFramesNameTheWrapSite(t *testing.T) {
 	}
 }
 
-// Covers R7: a stack-carrying error exposes symbolized frames in its log
+// A stack-carrying error exposes symbolized frames in its log
 // record, the only surface stacks reach today.
 func TestLogValueExposesStack(t *testing.T) {
 	record := logRecord(t, originForStackTest())

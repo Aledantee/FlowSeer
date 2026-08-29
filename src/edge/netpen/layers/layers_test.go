@@ -1,5 +1,5 @@
 // Tests for netpen's owned L2 decoders. Each protocol is pinned against pcap
-// fixtures harvested from the Python tool's byte construction (KTD14):
+// fixtures harvested from the Python tool's byte construction:
 // byte-for-byte where deterministic, field-set where randomized. Malformed
 // and adversarial frames carry provenance notes in the corpus, never deleted.
 

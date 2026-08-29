@@ -9,8 +9,7 @@ package flowseer.net.l3.v1;
 // ipNetToPhysicalType mapping types
 // (https://www.rfc-editor.org/rfc/rfc4293.html).
 enum NeighborOrigin {
-  // The origin was explicitly reported as unknown. An unreported origin is
-  // represented by an absent field instead.
+  // The origin was explicitly reported as unknown. Absence means unreported.
   NEIGHBOR_ORIGIN_UNSPECIFIED = 0;
   // An origin outside the normalized categories.
   NEIGHBOR_ORIGIN_OTHER = 1;

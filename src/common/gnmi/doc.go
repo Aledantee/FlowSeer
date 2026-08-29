@@ -11,12 +11,12 @@
 // (CA pin, mTLS, plaintext, or the documented insecure opt-in; there
 // is no permissive default) — and issues Capabilities to record the
 // peer's models and negotiate the encoding: JSON_IETF preferred,
-// PROTO fallback (KTD5). Close is idempotent. A Session is safe for
+// PROTO fallback. Close is idempotent. A Session is safe for
 // concurrent use.
 //
 // # Reads and streams
 //
-// [Session.Get] serves small targeted reads (R11 identity).
+// [Session.Get] serves small targeted reads such as device identity.
 // [Session.Subscribe] returns a pump-backed [Stream]: ONCE backs
 // bounded traversals, STREAM backs the Watcher — the device owns the
 // cadence, the sync_response marker surfaces as a [SubscribeEvent]

@@ -1,5 +1,5 @@
 // Package integration drives the FlowSeer NETCONF library against
-// real servers, mirroring the SNMP library's tier model (KTD10):
+// real servers, mirroring the SNMP library's tier model:
 //
 //   - yang_integration_t1: netopeer2/sysrepo in Docker with the
 //     yanggen fixture modules installed. Owns the protocol smoke —
@@ -9,7 +9,8 @@
 //     generated fixture bindings.
 //   - yang_integration_t4: opt-in live lab devices via the
 //     YANG_NETCONF_T4_TARGETS environment contract (unset = skip,
-//     malformed = fail). Owns AE1/AE2 on IOS-XE hardware.
+//     malformed = fail). Owns the typed identity read and the
+//     invalid-edit rollback proof on IOS-XE hardware.
 //
 // Each tier installs its own TestMain in a build-tag-guarded file;
 // selecting two tier tags at once fails to compile, by design. Bare

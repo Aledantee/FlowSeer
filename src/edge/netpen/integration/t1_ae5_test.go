@@ -15,7 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/integration/testenv"
 )
 
-// TestAE5_StaticBinaryFullCompletion verifies AE5: the static netpen
+// TestAE5_StaticBinaryFullCompletion verifies the static netpen
 // binary (built with CGO_ENABLED=0, no Python, no packages, no network
 // resolution) runs `netpen full --json=true` to completion in the t1
 // environment. The binary runs inside the FRR r1 container (which has
@@ -26,7 +26,8 @@ import (
 //   - at least one emitted JSONL record parses as a findings.Record
 //
 // The test does not assert finding *content* — only that the binary
-// runs to completion and emits parseable records (the AE5 contract).
+// runs to completion and emits parseable records (the air-gapped
+// drop-in contract).
 func TestAE5_StaticBinaryFullCompletion(t *testing.T) {
 	target := testenv.Target()
 	if target == "" {
@@ -43,14 +44,14 @@ func TestAE5_StaticBinaryFullCompletion(t *testing.T) {
 	cmd := exec.CommandContext(ctx, "docker", "exec", "netpen-t1-frr-r1",
 		"netpen", "full", "--json=true", "-i", "eth0", "--duration", "3")
 	// If netpen is not installed in the FRR container, this fails — but
-	// the AE5 shape is about the *release* binary, not the container's
+	// the air-gapped shape is about the *release* binary, not the container's
 	// PATH. The test documents the shape; a full end-to-end run requires
 	// copying the release binary into the container (done by the
 	// release-smoke task on a linux host).
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// The FRR container does not have netpen installed; we still
-		// validate the AE5 shape by running the release binary in a
+		// validate the air-gapped shape by running the release binary in a
 		// netpen container. Skip with a clear reason if the binary is
 		// not found.
 		if strings.Contains(string(out), "not found") || strings.Contains(string(out), "executable file not found") {
@@ -83,7 +84,8 @@ func TestAE5_StaticBinaryFullCompletion(t *testing.T) {
 }
 
 // TestAE5_ReleaseBinaryStatic verifies the release binary (if present
-// in dist/) is statically linked. This is the `file`-check half of AE5:
+// in dist/) is statically linked. This is the `file`-check half of the
+// air-gapped drop-in check:
 // the binary has no dynamic linking, no Python interpreter, no shared
 // libraries. On a darwin host, `file` confirms the ELF shape; the
 // binary is not runnable here (see release-smoke task for the linux

@@ -3,8 +3,8 @@ package yang
 // codec.go declares the wire-codec contracts generated bindings
 // implement. One generated struct satisfies all of them, so the same
 // typed value drives NETCONF XML, RESTCONF RFC 7951 JSON, and — via
-// [LeafEnumerator] — gNMI path/typed-value pairs (R6). This package is
-// the only API surface generated code may depend on (R7); the
+// [LeafEnumerator] — gNMI path/typed-value pairs. This package is
+// the only API surface generated code may depend on; the
 // protocol libraries consume these interfaces and never import
 // generated packages.
 

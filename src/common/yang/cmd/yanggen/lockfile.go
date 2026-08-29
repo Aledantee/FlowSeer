@@ -13,8 +13,8 @@ import (
 
 // generatorVersion identifies the emitter generation. Bump it whenever
 // emitted output changes shape for unchanged input — a version
-// mismatch flags every module for full regeneration (KTD7).
-const generatorVersion = "yanggen-2"
+// mismatch flags every module for full regeneration.
+const generatorVersion = "yanggen-3"
 
 // lockfileName is the lockfile's basename under the output directory.
 const lockfileName = "yanggen.lock.json"
@@ -22,9 +22,9 @@ const lockfileName = "yanggen.lock.json"
 // Lockfile is the committed record tying generated output to the
 // exact sources it was built from: one generator version for the run
 // plus, per module, its newest revision, its own source hash, and the
-// KTD7 closure hash covering every source in its dependency closure
+// closure hash covering every source in its dependency closure
 // (imports, includes, and reverse augment/deviation contributors).
-// The recorded revisions also feed R8's runtime revision-drift
+// The recorded revisions also feed runtime revision-drift
 // detection.
 type Lockfile struct {
 	GeneratorVersion string                  `json:"generator_version"`
@@ -97,8 +97,8 @@ func ReadLockfile(outDir string) (*Lockfile, error) {
 // DiffLockfiles compares the committed lockfile against the freshly
 // computed one and returns the keys needing regeneration, sorted:
 // changed closures, new modules, and removed modules all flag. A
-// generator-version mismatch flags every module (KTD7's full-regen
-// rule). committed == nil flags everything.
+// generator-version mismatch flags every module for full
+// regeneration. committed == nil flags everything.
 func DiffLockfiles(committed, fresh *Lockfile) (flagged []string, versionMismatch bool) {
 	if committed == nil || committed.GeneratorVersion != fresh.GeneratorVersion {
 		flagged = make([]string, 0, len(fresh.Modules))

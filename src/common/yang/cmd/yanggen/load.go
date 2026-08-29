@@ -30,7 +30,7 @@ type SourceFile struct {
 // LoadedModule is one module resolved for generation: its goyang
 // parse node, its resolved [yang.Entry] tree, its newest revision
 // date, and the closure hash covering every source file its output
-// depends on (KTD7).
+// depends on.
 type LoadedModule struct {
 	Vendor      string
 	Name        string
@@ -93,7 +93,7 @@ func LoadVendors(cfg *Config) ([]*VendorSet, error) {
 // every .yang file under the vendor's paths is parsed, the skip-list
 // subtracted, goyang resolves the schema (groupings, augments,
 // deviations), and each surviving module gets its Entry tree and
-// KTD7 closure hash.
+// closure hash.
 func LoadVendor(v *Vendor) (*VendorSet, error) {
 	files, err := discoverSources(v)
 	if err != nil {
@@ -335,7 +335,7 @@ func discoverSources(v *Vendor) (map[string]SourceFile, error) {
 	return files, nil
 }
 
-// closureGraph holds the dependency edges KTD7's closure hash walks:
+// closureGraph holds the dependency edges the closure hash walks:
 // forward import/include edges, and reverse augment/deviation edges
 // (a module that augments A changes A's output without appearing in
 // A's imports).
@@ -424,7 +424,7 @@ func targetModule(mod *yang.Module, path string) string {
 // forward edges, plus the reverse-edge contributors of every reached
 // node and their forward closures — and hashes the sorted
 // (name, source hash) pairs. Any source change anywhere in the
-// closure changes the hash, which is exactly the KTD7 invalidation
+// closure changes the hash, which is exactly the drift-check invalidation
 // rule.
 func (g *closureGraph) closureHash(name string) (sum string, size int) {
 	visited := make(map[string]struct{})

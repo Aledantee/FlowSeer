@@ -627,7 +627,7 @@ func (w *Watcher[Row]) run() {
 	// is safe-by-construction.
 	defer w.pump.CloseData()
 	// Latch any panic as a terminal error so a misbehaving
-	// session/decode path cannot tear down the host process (#5).
+	// session/decode path cannot tear down the host process.
 	defer func() {
 		if r := recover(); r != nil {
 			var err error
@@ -1053,7 +1053,7 @@ func (w *Watcher[Row]) enterFallback(reason string) {
 // Returns (advanced, ok) so the State-tier cadence still adapts
 // based on whether the walk surfaced any change. advanced is
 // derived from the walk's emitted-event count (counted before
-// send) so a fast consumer cannot mask the signal (#1).
+// send) so a fast consumer cannot mask the signal.
 func (w *Watcher[Row]) fallbackTick() (bool, bool) {
 	return w.fullWalkAndDiff(false /* emitRemoved */)
 }
@@ -1407,7 +1407,7 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 		// or any other exception variant during steady-state probing
 		// breaks the equality invariant (a missing value cannot serve
 		// as a future advance baseline). Latch the observation and
-		// transition to fallback after the walk completes (#6).
+		// transition to fallback after the walk completes.
 		if IsException(vb) {
 			sawException = true
 			continue
@@ -1608,7 +1608,7 @@ func (w *Watcher[Row]) forcedFullWalk() bool {
 //
 // Returns (advanced, ok): advanced is len(events) > 0 counted before
 // any send, so a fast consumer draining the channel between the send
-// and the caller cannot misclassify an emitting walk as quiet (#1).
+// and the caller cannot misclassify an emitting walk as quiet.
 // ok is false on terminal error (already latched via w.fail).
 func (w *Watcher[Row]) fullWalkAndDiff(emitRemoved bool) (bool, bool) {
 	walker := w.sess.BulkWalk(w.pump.Context(), w.tableRoot)
@@ -1668,7 +1668,7 @@ func (w *Watcher[Row]) fullWalkAndDiff(emitRemoved bool) (bool, bool) {
 	// intentionally do NOT evict from w.snapshot here: if Close
 	// races between the send loop and the snapshot eviction, the
 	// consumer would observe a mutated snapshot without seeing the
-	// corresponding Removed event (#11). Eviction happens only after
+	// corresponding Removed event. Eviction happens only after
 	// each Removed event is successfully sent.
 	type removed struct {
 		idx     OID

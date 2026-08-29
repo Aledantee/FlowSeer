@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// TestGeneratedCatalogIsCurrent is the drift gate (KTD8): regenerating the
+// TestGeneratedCatalogIsCurrent is the drift gate: regenerating the
 // catalog must produce byte-identical source. A divergence means a
 // registration changed without regenerating, and the committed catalog
 // is stale.
@@ -44,7 +44,7 @@ func trunc(b []byte, n int) []byte {
 }
 
 // TestCrossCheckRegistrationsAndGenerated proves every registration appears
-// in the generated catalog and vice versa (KTD8 cross-check).
+// in the generated catalog and vice versa.
 func TestCrossCheckRegistrationsAndGenerated(t *testing.T) {
 	inMemory := Entries()
 	if len(inMemory) != len(GeneratedEntries) {
@@ -66,7 +66,7 @@ func entriesEqual(a, b Entry) bool {
 }
 
 // TestFamilyGuardRejectsUnknownClass is the family-guard test transplanted
-// from the snmp corpus renderer's truncation guard (KTD8): an unrecognized
+// from the snmp corpus renderer's truncation guard: an unrecognized
 // durability class cannot silently vanish from listings and gates. A
 // fabricated entry with a bogus class must fail loudly.
 func TestFamilyGuardRejectsUnknownClass(t *testing.T) {
@@ -113,7 +113,7 @@ func TestRegistrationValidatorRejectsBadRegistrations(t *testing.T) {
 	}
 }
 
-// oracleRow is one row of the plan's authoritative durability table.
+// oracleRow is one row of the authoritative durability table.
 type oracleRow struct {
 	name     string
 	mode     string
@@ -121,12 +121,11 @@ type oracleRow struct {
 	teardown string
 }
 
-// planOracle is the authoritative "Durability classification of all 35
-// behaviors" table transcribed from the plan's High-Level Technical
-// Design. A misclassified row here fails the test, not just the family
-// guard. full is orchestration and carries no durability row of its own
-// (the plan says so); it is registered for dispatch/help reconciliation
-// but excluded from this oracle.
+// planOracle is the authoritative durability classification of all 35
+// behaviors. A misclassified row here fails the test, not just the family
+// guard. full is orchestration and carries no durability row of its own;
+// it is registered for dispatch/help reconciliation but excluded from
+// this oracle.
 var planOracle = []oracleRow{
 	// non-destructive
 	{"scan", "", NonDestructive, ""},
@@ -161,21 +160,21 @@ var planOracle = []oracleRow{
 	{"vlanhop", "", TemporaryRestored, "active restore armed"},
 	{"voicevlan", "", TemporaryRestored, "active restore armed"},
 	{"hsrp", "", TemporaryRestored, "resign teardown"},
-	{"dtp", "", TemporaryRestored, "access-port restore armed by default (KTD12)"},
+	{"dtp", "", TemporaryRestored, "access-port restore armed by default"},
 	{"ospf", "", TemporaryRestored, "goodbye/flush teardown"},
 	{"eigrp", "", TemporaryRestored, "goodbye/flush teardown"},
 	{"etherchannel", "", TemporaryRestored, "port-channel release"},
 	{"glbp", "", TemporaryRestored, "resign teardown"},
 	// permanent-destructive (modes)
-	{"vtp", "wipe", PermanentDestructive, "opt-in per R15"},
-	{"vtp", "set", PermanentDestructive, "opt-in per R15"},
+	{"vtp", "wipe", PermanentDestructive, "requires per-run opt-in"},
+	{"vtp", "set", PermanentDestructive, "requires per-run opt-in"},
 	{"vlanhop", "persist", PermanentDestructive, "host-side persistence, flag is the opt-in"},
 	{"voicevlan", "persist", PermanentDestructive, "host-side persistence, flag is the opt-in"},
-	{"dtp", "keep-trunk", PermanentDestructive, "opt-in per KTD12"},
+	{"dtp", "keep-trunk", PermanentDestructive, "opt-in to keep the negotiated trunk"},
 }
 
-// TestOracleDurabilityClassification pins the plan's authoritative table
-// row-for-row against the generated catalog.
+// TestOracleDurabilityClassification pins the authoritative durability
+// classification table row-for-row against the generated catalog.
 func TestOracleDurabilityClassification(t *testing.T) {
 	byKey := make(map[string]Entry)
 	for _, e := range GeneratedEntries {
@@ -213,7 +212,7 @@ func TestOracleDurabilityClassification(t *testing.T) {
 	}
 }
 
-// TestPermanentModesRequireOptIn pins R15: every permanent-destructive
+// TestPermanentModesRequireOptIn pins that every permanent-destructive
 // entry is a mode (the base behaviors are never permanent). This is the
 // invariant `full` relies on when it refuses permanent modes regardless
 // of acknowledgments.
@@ -225,7 +224,7 @@ func TestPermanentModesRequireOptIn(t *testing.T) {
 	}
 }
 
-// TestCLIReconciliation is the integration test (KTD8): every catalog
+// TestCLIReconciliation is the integration test: every catalog
 // entry name has a registered FlagSet handler in cmd/netpen's stub
 // dispatch table and vice versa. Since cmd/netpen is a main package and
 // cannot be imported, the test parses main.go's AST (the errs

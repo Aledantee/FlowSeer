@@ -22,7 +22,7 @@ const (
 )
 
 // capabilities is the parsed hello: the raw set plus the derived
-// datastore facts the edit flow keys on (R1).
+// datastore facts the edit flow keys on.
 type capabilities struct {
 	all             []string
 	candidate       bool

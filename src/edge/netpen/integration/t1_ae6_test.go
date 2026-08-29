@@ -13,7 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/integration/testenv"
 )
 
-// supersetAttacks is the eight R4 attacks that earn the AE6
+// supersetAttacks is the eight superset attacks that earn the
 // reproducibility shape in the t1 tier. Each runs twice against the
 // same target and must produce the same findings class both times.
 var supersetAttacks = []string{
@@ -27,7 +27,7 @@ var supersetAttacks = []string{
 	"glbp",
 }
 
-// TestAE6_SupersetReproducibility verifies AE6: each of the eight
+// TestAE6_SupersetReproducibility verifies each of the eight
 // superset attacks runs twice in the t1 tier and produces the same
 // findings class both times. The matrix is recorded in
 // VALIDATION_MATRIX.md.
@@ -71,7 +71,7 @@ func TestAE6_SupersetReproducibility(t *testing.T) {
 // runAttackClass runs a single attack via the netpen binary (in the
 // FRR container or via the release binary) and returns the findings
 // class: a sorted, deduplicated set of "Kind:Module" pairs from the
-// JSONL output. Two runs with the same class are AE6-reproducible.
+// JSONL output. Two runs with the same class are reproducible.
 func runAttackClass(t *testing.T, ctx context.Context, attack, target string) string {
 	t.Helper()
 	cmd := exec.CommandContext(ctx, "docker", "exec", "netpen-t1-frr-r1",
@@ -80,7 +80,7 @@ func runAttackClass(t *testing.T, ctx context.Context, attack, target string) st
 	if err != nil {
 		// If the binary is not in the container, the attack class is
 		// "skip" (consistent across runs — still reproducible in the
-		// AE6 sense, but recorded as a skip in the matrix).
+		// same sense, but recorded as a skip in the matrix).
 		if strings.Contains(string(out), "not found") || strings.Contains(string(out), "executable file not found") {
 			return "skip:binary-not-installed"
 		}
@@ -91,7 +91,7 @@ func runAttackClass(t *testing.T, ctx context.Context, attack, target string) st
 
 // parseFindingsClass extracts the sorted set of "Kind:Module" pairs
 // from JSONL output. This is the reproducibility fingerprint: two
-// runs with the same set are AE6-consistent.
+// runs with the same set are consistent.
 func parseFindingsClass(out string) string {
 	seen := map[string]bool{}
 	for _, line := range strings.Split(out, "\n") {
@@ -101,7 +101,7 @@ func parseFindingsClass(out string) string {
 		}
 		// Extract Kind and Module fields without full JSON parse
 		// (keeps the test dependency-light; the full parse is in
-		// the AE5 test).
+		// the air-gapped smoke test).
 		kind := extractJSONField(line, "kind")
 		module := extractJSONField(line, "module")
 		if kind == "" {

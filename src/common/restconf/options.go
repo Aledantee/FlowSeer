@@ -15,7 +15,7 @@ import (
 // carries no earlier deadline.
 const defaultTimeout = 30 * time.Second
 
-// Options is the plain options struct for [Dial] (KTD8): the basic
+// Options is the plain options struct for [Dial]: the basic
 // auth credential surface, the TLS posture, and timeouts. Required
 // parameters (the base URL) are positional on Dial.
 type Options struct {
@@ -64,7 +64,7 @@ func (o Options) httpClient() (*http.Client, error) {
 	}
 	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	if o.InsecureSkipTLSVerify {
-		tlsCfg.InsecureSkipVerify = true //nolint:gosec // documented explicit lab opt-in (KTD8)
+		tlsCfg.InsecureSkipVerify = true //nolint:gosec // documented explicit lab opt-in, never a default
 	}
 	if len(o.CACertPEM) > 0 {
 		pool := x509.NewCertPool()

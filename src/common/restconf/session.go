@@ -141,7 +141,7 @@ func (s *Session) Get(ctx context.Context, p yang.Path, opts GetOptions) ([]byte
 // holds afterwards.
 type WriteResult struct {
 	// UsedIfMatch reports whether the peer supplied an ETag and the
-	// write was conditional (KTD9). False means the peer offered no
+	// write was conditional. False means the peer offered no
 	// ETag and the write degraded to unconditional.
 	UsedIfMatch bool
 	// ReadBack is the resource's RFC 7951 JSON after the write — the
@@ -151,7 +151,7 @@ type WriteResult struct {
 	ReadBack []byte
 }
 
-// Put replaces a data resource (KTD9: ETag capture, conditional
+// Put replaces a data resource (ETag capture, conditional
 // write, read-back).
 func (s *Session) Put(ctx context.Context, p yang.Path, body []byte) (WriteResult, error) {
 	return s.write(ctx, http.MethodPut, p, body)
@@ -189,7 +189,8 @@ func (s *Session) Delete(ctx context.Context, p yang.Path) error {
 	return nil
 }
 
-// write is the shared KTD9 write path.
+// write is the shared conditional-write path: ETag capture, If-Match
+// when available, read-back after the edit.
 func (s *Session) write(ctx context.Context, method string, p yang.Path, body []byte) (WriteResult, error) {
 	etag, _ := s.captureETag(ctx, p)
 	headers := map[string]string{"Content-Type": yangDataJSON}

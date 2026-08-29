@@ -79,8 +79,8 @@ func closeLeg(t *testing.T, leg *mockLeg) {
 }
 
 // drainStream consumes all records from the stream until it ends, returning
-// them in order. It is the in-memory consumer harness (the A3-shaped harness
-// with no CLI wiring).
+// them in order. It is the in-memory consumer harness (the embedded-host
+// shape with no CLI wiring).
 func drainStream(s *runner.Stream) []findings.Record {
 	var recs []findings.Record
 	for rec := range s.Iter() {
@@ -309,7 +309,7 @@ func TestBehaviorErrorTypedRecordAndContinues(t *testing.T) {
 	stub2 := func(_ context.Context, deps runner.Deps) error {
 		callOrder.Add(1)
 		// arpspoof is temporary-restored: arm a restore step so the
-		// U6 teardown gate does not fail it for arming zero steps.
+		// teardown gate does not fail it for arming zero steps.
 		if deps.Teardown != nil {
 			deps.Teardown.Arm("restore", func(_ context.Context) error { return nil })
 		}
@@ -416,7 +416,7 @@ func TestInMemoryConsumerReceivesTypedStream(t *testing.T) {
 		AttackLeg: leg,
 		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
 		Behaviors: map[string]runner.Behavior{"arpsweep": stub},
-		// SuppressOutput is the A3 embed seam — the host consumes the
+		// SuppressOutput is the embed seam for a host that consumes the
 		// stream programmatically and suppresses CLI output.
 		SuppressOutput: true,
 	})

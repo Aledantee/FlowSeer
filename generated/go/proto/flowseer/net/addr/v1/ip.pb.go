@@ -557,9 +557,9 @@ func (x *Ipv4Prefix) ClearLength() {
 type Ipv4Prefix_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The masked network address. It must be present.
+	// The masked network address. Must be present.
 	Address *Ipv4Address
-	// The prefix length in bits. It must be present; zero denotes the default
+	// The prefix length in bits. Must be present; zero denotes the default
 	// route.
 	Length *uint32
 }
@@ -662,9 +662,9 @@ func (x *Ipv6Prefix) ClearLength() {
 type Ipv6Prefix_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The masked network address. It must be present.
+	// The masked network address. Must be present.
 	Address *Ipv6Address
-	// The prefix length in bits. It must be present; zero denotes the default
+	// The prefix length in bits. Must be present; zero denotes the default
 	// route.
 	Length *uint32
 }

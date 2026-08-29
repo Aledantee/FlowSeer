@@ -19,7 +19,7 @@ import (
 // much memory.
 const defaultEventBuffer = 256
 
-// SubscribeMode selects the subscription lifetime (KTD5: POLL is
+// SubscribeMode selects the subscription lifetime (POLL is
 // deferred).
 type SubscribeMode int
 
@@ -52,7 +52,7 @@ type SubscribeOptions struct {
 // SubscribeEvent is one element of a subscription stream — one
 // notification batch, or the sync marker. Batch granularity is
 // deliberate: a row changing several leaves arrives as one event, so
-// consumers can emit exactly one change per row (AE4).
+// consumers can emit exactly one change per row.
 type SubscribeEvent struct {
 	// Sync marks the device's sync_response: the initial state is
 	// complete (the Watcher's cold-start-complete signal). No other
@@ -75,7 +75,7 @@ type Stream struct {
 	pump *pump.Pump[SubscribeEvent]
 }
 
-// Subscribe opens a subscription (KTD5). The stream lives until the
+// Subscribe opens a subscription. The stream lives until the
 // server ends it (ONCE after sync), the caller closes it, or ctx is
 // canceled.
 func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream, error) {

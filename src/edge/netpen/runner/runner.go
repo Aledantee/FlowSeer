@@ -30,8 +30,8 @@ var errNoAttackLeg = errs.New().
 // Runner is the embeddable run engine. It resolves each [Options.Attacks]
 // entry through the [catalog] (unknown name = usage-shaped coded error),
 // enforces leg preconditions uniformly (a behavior requiring a watch leg
-// when none is attached fails fast before invocation with a coded error —
-// R2), and executes each behavior under a per-attack context derived from
+// when none is attached fails fast before invocation with a coded error),
+// and executes each behavior under a per-attack context derived from
 // Run's ctx (zgrab2's cancellation pattern).
 //
 // Error semantics: a behavior erroring mid-run surfaces as a typed
@@ -66,7 +66,7 @@ type Runner struct {
 	// currently-armed teardown and its per-attack cancel, so the
 	// signal [Runner.Interrupt] path can run the same teardown the
 	// completion path runs (completion and interrupt share one entry
-	// point — KTD11).
+	// point).
 	teardownMu     sync.Mutex
 	activeTeardown *Teardown
 	activeCancel   context.CancelFunc
@@ -179,7 +179,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		lookup[entryKey(e.Name, e.Mode)] = e
 	}
 
-	// Build the opt-in acknowledgment set (R15): per (name, mode), so
+	// Build the opt-in acknowledgment set: per (name, mode), so
 	// accepting "vtp wipe" does not accept "vtp set".
 	ack := make(map[string]bool, len(r.opts.Acknowledged))
 	for _, a := range r.opts.Acknowledged {
@@ -239,7 +239,7 @@ func (r *Runner) Run(ctx context.Context) error {
 			return err
 		}
 
-		// Enforce the catalog's legs requirement uniformly (R2). The
+		// Enforce the catalog's legs requirement uniformly. The
 		// runtime fails fast before invocation so no behavior
 		// re-checks it.
 		if entry.Legs == catalog.WatchRequired && r.opts.WatchLeg == nil {
@@ -253,15 +253,15 @@ func (r *Runner) Run(ctx context.Context) error {
 			return err
 		}
 
-		// Durability gate (R13, R14, R15; KTD11). The gate consults
+		// Durability gate. The gate consults
 		// the catalog entry BEFORE the leg's TX is ever handed to the
 		// behavior: a refused behavior literally never receives a
-		// send-capable leg, so zero frames are possible (AE1).
+		// send-capable leg, so zero frames are possible.
 		dec := gate(r.stream, entry, ack, r.opts.Orchestrated)
 		if !dec.proceed {
 			// Refusal: the gate already emitted the typed refusal
-			// record. Return the coded non-zero exit (KTD13:
-			// runtime failure = 1).
+			// record. Return the coded non-zero exit (runtime
+			// failure = 1).
 			err := errs.New().
 				Code(catalog.ErrCodePermanentRefused).
 				Attr("name", ref.Name).
@@ -292,7 +292,7 @@ func (r *Runner) Run(ctx context.Context) error {
 
 		// Emit the run-start announcement (if any) before the first
 		// frame: transient-decay's decay bound, or the acknowledged-
-		// permanent accepted-mode + consequence (KTD11).
+		// permanent accepted-mode + consequence.
 		if dec.announce != nil {
 			if !r.stream.send(*dec.announce) {
 				// Stream terminating; stop dispatching.
@@ -317,7 +317,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		// Register the active teardown + cancel so [Runner.Interrupt]
 		// (the signal path) can engage the same teardown the
 		// completion path runs (completion and interrupt share one
-		// entry point — KTD11).
+		// entry point).
 		r.teardownMu.Lock()
 		r.activeTeardown = dec.teardown
 		r.activeCancel = cancel
@@ -340,7 +340,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		// order, each in its own error scope, bounded by the budget.
 		// A temporary-restored behavior that armed zero steps is a
 		// coded runtime failure (a required restore that restores
-		// nothing is a bug, not a silent skip — KTD11).
+		// nothing is a bug, not a silent skip).
 		if dec.teardown != nil {
 			tdErr := r.runTeardown(runCtx, dec.teardown, teardownBudget)
 			if tdErr != nil {
@@ -406,7 +406,7 @@ func (r *Runner) Run(ctx context.Context) error {
 }
 
 // runTeardown executes the armed teardown steps and returns the partial-
-// failure error when one or more steps failed (KTD11, KTD13). It is the
+// failure error when one or more steps failed. It is the
 // single entry point shared by completion and interrupt: the dispatch
 // loop calls it after the behavior returns, and [Runner.Interrupt]
 // (the signal path) calls it when a signal arrives mid-behavior. The
@@ -415,7 +415,7 @@ func (r *Runner) Run(ctx context.Context) error {
 func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Duration) error {
 	// A temporary-restored behavior that armed zero steps is a coded
 	// runtime failure: a required restore that restores nothing is a
-	// bug, not a silent skip (KTD11).
+	// bug, not a silent skip.
 	if !t.armed() {
 		err := errs.New().
 			Code(catalog.ErrCodeTeardownPartial).
@@ -432,7 +432,7 @@ func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Durat
 }
 
 // Interrupt engages the teardown path from a signal (SIGINT, SIGTERM, or
-// SIGHUP — KTD11). It cancels the in-flight behavior's per-attack context
+// SIGHUP). It cancels the in-flight behavior's per-attack context
 // (so the behavior returns promptly) and then runs the currently-armed
 // teardown through the same entry point completion uses. If no teardown
 // is armed (the run is between behaviors, or the current behavior is not
@@ -471,13 +471,13 @@ func (r *Runner) Interrupt(forceExit <-chan struct{}) {
 			// If teardown failed, emit the named partial-failure
 			// record through the stream so the consumer sees it
 			// before the stream closes (teardown completes before
-			// sink flush — KTD11). The completion path's Run call is
+			// sink flush). The completion path's Run call is
 			// a no-op (runOnce), so only this path emits the record.
 			if tdErr != nil {
 				// Emit the named partial-failure record through the
 				// stream so the consumer sees it before the stream
-				// closes (teardown completes before sink flush —
-				// KTD11). Store the error for the dispatch loop to
+				// closes (teardown completes before sink flush).
+				// Store the error for the dispatch loop to
 				// surface as Run's return value; do NOT call
 				// stream.fail here, because that would stop the
 				// stream and make the dispatch loop treat the

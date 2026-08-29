@@ -9,8 +9,8 @@ import (
 // watch.go wires the shared Collection Primitives (yang.Walker /
 // yang.TickWatcher) to NETCONF reads: subtree-filtered <get> per
 // traversal or tick, decoded by the descriptor's XML row codec. The
-// session never sees generated packages — callers hand it descriptors
-// (R7).
+// session never sees generated packages — callers hand it
+// descriptors, so generated code needs only the public API.
 
 // Walk starts a bounded traversal of desc's subtree over sess: one
 // <get> under the descriptor's subtree filter, every decoded row
@@ -19,8 +19,8 @@ func Walk[Row any, Key comparable](ctx context.Context, sess *Session, desc yang
 	return yang.NewWalker(ctx, sessionFetch(sess, desc.Path), desc.Codec.DecodeXML, 0)
 }
 
-// Watch starts a tick-diff Watcher over desc's subtree (KTD4:
-// bounded-cardinality subtrees only — config trees, interface state).
+// Watch starts a tick-diff Watcher over desc's subtree
+// (bounded-cardinality subtrees only — config trees, interface state).
 // Cold start emits Added per row; ticks re-read the subtree and emit
 // Added/Modified/Removed per changed row.
 func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yang.ListDescriptor[Row, Key], cfg yang.WatchConfig) *yang.TickWatcher[Row, Key] {

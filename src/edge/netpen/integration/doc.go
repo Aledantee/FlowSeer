@@ -12,9 +12,9 @@
 //   - netpen_t1: FRRouting (FRR) containers provide OSPF/EIGRP-adjacent
 //     targets, plus a netpen-vs-netpen ring for Cisco-proprietary
 //     protocols (DTP, VTP, MVRP, etc.) that no open-source container can
-//     impersonate. Owns the AE6 superset validation matrix: each of the
+//     impersonate. Owns the superset validation matrix: each of the
 //     eight superset attacks runs twice and must produce the same
-//     findings class. Also owns the AE5 air-gapped smoke: the static
+//     findings class. Also owns the air-gapped smoke: the static
 //     binary runs `netpen full` to completion with no Python/network.
 //   - netpen_t2: operator-supplied vIOS-class Cisco image. Owns the
 //     behavioral-truth validation (ground-truth source (b)). Never
@@ -25,8 +25,8 @@
 //
 // Each tier installs its own TestMain in a build-tag-guarded file under
 // this package. Setting two tier tags at the same invocation produces a
-// compile error ("multiple definitions of TestMain") — by design, mir
-// roring the SNMP integration tier pattern (KTD15). There is no runtime
+// compile error ("multiple definitions of TestMain") — by design, the
+// same pattern as the SNMP integration tiers. There is no runtime
 // guard with a friendlier message because the offending invocation never
 // produces a runnable test binary; the failure surfaces at `go test`
 // compile time. Always select exactly one tier tag:
@@ -46,5 +46,5 @@
 // # Operator entry points
 //
 // See the Taskfile `tier-t1` and `tier-t2` tasks, and VALIDATION_MATRIX.md
-// for the per-attack ground-truth labels and AE6 status.
+// for the per-attack ground-truth labels and superset-validation status.
 package integration
