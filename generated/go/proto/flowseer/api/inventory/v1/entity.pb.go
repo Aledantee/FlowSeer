@@ -23,35 +23,18 @@ const (
 // The kinds of entity a dynamic reference may name. EntityType, EntityRef,
 // and Entity are one contract designed together — the enum names the kinds,
 // the ref points at one entity of such a kind, and Entity wraps the ref as
-// the uniform generic handle — which is why they share this file the same
-// way the address variants share ip.proto.
-//
-// Membership is a contract, not a list of what exists: a kind joins only
-// when its entity is identified by a FlowSeer-assigned UUID, its delete
-// flow cleans up whatever points at it through EntityRef, and its store can
-// answer the existence check a reference write needs. Landing a new
-// top-level entity includes joining this enum in the same change.
-//
-// Capability stays out because it is a closed enum, not an identified
-// entity. The attribute-value assignment stays out because nothing points
-// at an assignment.
+// the uniform generic handle. What admission to this enum obliges is the
+// conventions doc's EntityRef rule.
 type EntityType int32
 
 const (
 	// No kind named. Refs reject the zero value; it exists only so an unset
 	// field is distinguishable from a chosen kind.
 	EntityType_ENTITY_TYPE_UNSPECIFIED EntityType = 0
-	// The tenant. The tenant entity is still a stub without an id surface;
-	// tenant UUIDs are defined when it matures. A ref to a tenant is content
-	// on the pointing entity, never the request's tenancy scope — ambient
-	// tenancy is unchanged by this kind existing.
-	EntityType_ENTITY_TYPE_TENANT EntityType = 1
-	// The device, the inventory plane's central entity.
-	EntityType_ENTITY_TYPE_DEVICE EntityType = 2
-	// The tag. Pointing at a tag is distinct from marking an entity with
-	// one; marking stays the tag tree's own mechanism.
-	EntityType_ENTITY_TYPE_TAG EntityType = 3
-	// The attribute definition, an addressable entity in its own right.
+	EntityType_ENTITY_TYPE_TENANT      EntityType = 1
+	EntityType_ENTITY_TYPE_DEVICE      EntityType = 2
+	EntityType_ENTITY_TYPE_TAG         EntityType = 3
+	// The attribute definition, never a value assignment.
 	EntityType_ENTITY_TYPE_ATTRIBUTE EntityType = 4
 )
 
@@ -215,9 +198,7 @@ func (b0 EntityRef_builder) Build() *EntityRef {
 }
 
 // The uniform generic handle: an entity of any kind, as nothing more than
-// its ref. Nothing in this package consumes it yet; it completes the ref
-// family so a consumer that needs "some entity" as a value has one shape to
-// share. Anything richer than identity is read from the concrete entity.
+// its ref. Anything richer than identity is read from the concrete entity.
 type Entity struct {
 	state          protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref *EntityRef             `protobuf:"bytes,1,opt,name=ref"`

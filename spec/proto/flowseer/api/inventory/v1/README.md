@@ -51,7 +51,12 @@ a shared foundation:
   an entity whose kind is decided at runtime, and the `Entity` handle.
   Attribute targeting and value ownership are why it exists; the
   [`EntityRef` rule](../../../../../../docs/conventions/protobuf.md) in the
-  conventions doc bounds when it may be used instead of a typed ref.
+  conventions doc bounds when it may be used instead of a typed ref and what
+  admission to `EntityType` obliges. Capability and the value assignment
+  stay outside the enum: one is a closed enum rather than an identified
+  entity, and nothing points at an assignment. Tenant is in the enum ahead
+  of the tenant entity gaining an id surface; a ref to a tenant is content
+  on the pointing entity, never the request's tenancy scope.
 - The definition family (`attribute.proto`) names the attribute: a stable
   machine key consumers address it by, a display name, one value type
   (string, number, closed enum with the vocabulary as data on the

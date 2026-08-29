@@ -7,32 +7,16 @@ import option "buf/validate/validate.proto";
 // The kinds of entity a dynamic reference may name. EntityType, EntityRef,
 // and Entity are one contract designed together — the enum names the kinds,
 // the ref points at one entity of such a kind, and Entity wraps the ref as
-// the uniform generic handle.
-//
-// Membership is a contract, not a list of what exists: a kind joins only
-// when its entity is identified by a FlowSeer-assigned UUID, its delete
-// flow cleans up whatever points at it through EntityRef, and its store can
-// answer the existence check a reference write needs. Landing a new
-// top-level entity includes joining this enum in the same change.
-//
-// Capability stays out because it is a closed enum, not an identified
-// entity. The attribute-value assignment stays out because nothing points
-// at an assignment.
+// the uniform generic handle. What admission to this enum obliges is the
+// conventions doc's EntityRef rule.
 enum EntityType {
   // No kind named. Refs reject the zero value; it exists only so an unset
   // field is distinguishable from a chosen kind.
   ENTITY_TYPE_UNSPECIFIED = 0;
-  // The tenant. The tenant entity is still a stub without an id surface;
-  // tenant UUIDs are defined when it matures. A ref to a tenant is content
-  // on the pointing entity, never the request's tenancy scope — ambient
-  // tenancy is unchanged by this kind existing.
   ENTITY_TYPE_TENANT = 1;
-  // The device, the inventory plane's central entity.
   ENTITY_TYPE_DEVICE = 2;
-  // The tag. Pointing at a tag is distinct from marking an entity with
-  // one; marking stays the tag tree's own mechanism.
   ENTITY_TYPE_TAG = 3;
-  // The attribute definition, an addressable entity in its own right.
+  // The attribute definition, never a value assignment.
   ENTITY_TYPE_ATTRIBUTE = 4;
 }
 
@@ -59,9 +43,7 @@ message EntityRef {
 }
 
 // The uniform generic handle: an entity of any kind, as nothing more than
-// its ref. Nothing in this package consumes it yet; it completes the ref
-// family so a consumer that needs "some entity" as a value has one shape to
-// share. Anything richer than identity is read from the concrete entity.
+// its ref. Anything richer than identity is read from the concrete entity.
 message Entity {
   // The entity's ref. Must be present.
   EntityRef ref = 1 [(buf.validate.field).required = true];
