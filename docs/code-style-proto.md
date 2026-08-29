@@ -210,6 +210,14 @@ makes *every* singular field absent-able, the last of those is no longer optiona
 prose — it is the field's most easily-missed state. Generated docs are read by
 consumers who never open this repo — write for them.
 
+The contract is also the comment's *limit*. Decision rationale, current
+implementation status ("still a stub", "defined when it matures"), design
+history, and observations that do not change what a consumer sends or reads
+belong in the conventions doc, an architecture record, or the package README —
+never in the schema. A comment that would survive the decision being made
+differently is not documenting the contract. When a declaration's meaning is
+fully carried by its name, no comment at all beats one that restates it.
+
 **Message field spacing**
 
 Inside any message under `spec/proto/`, place adjacent fields directly next to
