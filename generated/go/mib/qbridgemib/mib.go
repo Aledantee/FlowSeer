@@ -12,11 +12,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"iter"
+	"net"
+
 	pbridgemib "go.aledante.io/FlowSeer/generated/go/mib/pbridgemib"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	ae "go.aledante.io/ae"
-	"iter"
-	"net"
 )
 
 // Dot1qConstraintTypeDefaultValue is the SMI enum dot1qConstraintTypeDefault (inline).
@@ -303,13 +304,13 @@ func Dot1qVlanVersionNumberGet(ctx context.Context, sess snmp.Session) (Dot1qVla
 		return Dot1qVlanVersionNumberValue(0), ae.Msg("empty Get response for dot1qVlanVersionNumber")
 	}
 
-	return (func(vb snmp.VarBind) (Dot1qVlanVersionNumberValue, error) {
+	return func(vb snmp.VarBind) (Dot1qVlanVersionNumberValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return Dot1qVlanVersionNumberValue(0), err
 		}
 		return Dot1qVlanVersionNumberValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qMaxVlanIdGet reads the SMIv2 scalar dot1qMaxVlanId.
@@ -324,9 +325,9 @@ func Dot1qMaxVlanIdGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for dot1qMaxVlanId")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qMaxSupportedVlansGet reads the SMIv2 scalar dot1qMaxSupportedVlans.
@@ -341,9 +342,9 @@ func Dot1qMaxSupportedVlansGet(ctx context.Context, sess snmp.Session) (uint32, 
 		return 0, ae.Msg("empty Get response for dot1qMaxSupportedVlans")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qNumVlansGet reads the SMIv2 scalar dot1qNumVlans.
@@ -359,9 +360,9 @@ func Dot1qNumVlansGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for dot1qNumVlans")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qGvrpStatusGet reads the SMIv2 scalar dot1qGvrpStatus.
@@ -383,13 +384,13 @@ func Dot1qGvrpStatusGet(ctx context.Context, sess snmp.Session) (pbridgemib.Enab
 		return pbridgemib.EnabledStatus(0), ae.Msg("empty Get response for dot1qGvrpStatus")
 	}
 
-	return (func(vb snmp.VarBind) (pbridgemib.EnabledStatus, error) {
+	return func(vb snmp.VarBind) (pbridgemib.EnabledStatus, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return pbridgemib.EnabledStatus(0), err
 		}
 		return pbridgemib.EnabledStatus(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qVlanNumDeletesGet reads the SMIv2 scalar dot1qVlanNumDeletes.
@@ -406,9 +407,9 @@ func Dot1qVlanNumDeletesGet(ctx context.Context, sess snmp.Session) (uint32, err
 		return 0, ae.Msg("empty Get response for dot1qVlanNumDeletes")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qNextFreeLocalVlanIndexGet reads the SMIv2 scalar dot1qNextFreeLocalVlanIndex.
@@ -433,9 +434,9 @@ func Dot1qNextFreeLocalVlanIndexGet(ctx context.Context, sess snmp.Session) (int
 		return 0, ae.Msg("empty Get response for dot1qNextFreeLocalVlanIndex")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qConstraintSetDefaultGet reads the SMIv2 scalar dot1qConstraintSetDefault.
@@ -453,9 +454,9 @@ func Dot1qConstraintSetDefaultGet(ctx context.Context, sess snmp.Session) (int32
 		return 0, ae.Msg("empty Get response for dot1qConstraintSetDefault")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qConstraintTypeDefaultGet reads the SMIv2 scalar dot1qConstraintTypeDefault.
@@ -473,13 +474,13 @@ func Dot1qConstraintTypeDefaultGet(ctx context.Context, sess snmp.Session) (Dot1
 		return Dot1qConstraintTypeDefaultValue(0), ae.Msg("empty Get response for dot1qConstraintTypeDefault")
 	}
 
-	return (func(vb snmp.VarBind) (Dot1qConstraintTypeDefaultValue, error) {
+	return func(vb snmp.VarBind) (Dot1qConstraintTypeDefaultValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return Dot1qConstraintTypeDefaultValue(0), err
 		}
 		return Dot1qConstraintTypeDefaultValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // Dot1qFdbDynamicCount is the column dot1qFdbDynamicCount of table dot1qFdbTable.

@@ -12,9 +12,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"iter"
+
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	ae "go.aledante.io/ae"
-	"iter"
 )
 
 // SnmpEnableAuthenTrapsValue is the SMI enum snmpEnableAuthenTraps (inline).
@@ -57,9 +58,9 @@ func SysDescrGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for sysDescr")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysObjectIDGet reads the SMIv2 scalar sysObjectID.
@@ -80,9 +81,9 @@ func SysObjectIDGet(ctx context.Context, sess snmp.Session) (snmp.OID, error) {
 		return snmp.OID{}, ae.Msg("empty Get response for sysObjectID")
 	}
 
-	return (func(vb snmp.VarBind) (snmp.OID, error) {
+	return func(vb snmp.VarBind) (snmp.OID, error) {
 		return snmp.DecodeOID(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysUpTimeGet reads the SMIv2 scalar sysUpTime.
@@ -98,9 +99,9 @@ func SysUpTimeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for sysUpTime")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysContactGet reads the SMIv2 scalar sysContact.
@@ -117,9 +118,9 @@ func SysContactGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for sysContact")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysNameGet reads the SMIv2 scalar sysName.
@@ -136,9 +137,9 @@ func SysNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for sysName")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysLocationGet reads the SMIv2 scalar sysLocation.
@@ -155,9 +156,9 @@ func SysLocationGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", ae.Msg("empty Get response for sysLocation")
 	}
 
-	return (func(vb snmp.VarBind) (string, error) {
+	return func(vb snmp.VarBind) (string, error) {
 		return snmp.DecodeDisplayString(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysServicesGet reads the SMIv2 scalar sysServices.
@@ -184,9 +185,9 @@ func SysServicesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for sysServices")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysORLastChangeGet reads the SMIv2 scalar sysORLastChange.
@@ -202,9 +203,9 @@ func SysORLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for sysORLastChange")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInPktsGet reads the SMIv2 scalar snmpInPkts.
@@ -220,9 +221,9 @@ func SnmpInPktsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpInPkts")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutPktsGet reads the SMIv2 scalar snmpOutPkts.
@@ -238,9 +239,9 @@ func SnmpOutPktsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpOutPkts")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInBadVersionsGet reads the SMIv2 scalar snmpInBadVersions.
@@ -256,9 +257,9 @@ func SnmpInBadVersionsGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for snmpInBadVersions")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInBadCommunityNamesGet reads the SMIv2 scalar snmpInBadCommunityNames.
@@ -282,9 +283,9 @@ func SnmpInBadCommunityNamesGet(ctx context.Context, sess snmp.Session) (uint32,
 		return 0, ae.Msg("empty Get response for snmpInBadCommunityNames")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInBadCommunityUsesGet reads the SMIv2 scalar snmpInBadCommunityUses.
@@ -307,9 +308,9 @@ func SnmpInBadCommunityUsesGet(ctx context.Context, sess snmp.Session) (uint32, 
 		return 0, ae.Msg("empty Get response for snmpInBadCommunityUses")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInASNParseErrsGet reads the SMIv2 scalar snmpInASNParseErrs.
@@ -325,9 +326,9 @@ func SnmpInASNParseErrsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for snmpInASNParseErrs")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInTooBigsGet reads the SMIv2 scalar snmpInTooBigs.
@@ -343,9 +344,9 @@ func SnmpInTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpInTooBigs")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInNoSuchNamesGet reads the SMIv2 scalar snmpInNoSuchNames.
@@ -362,9 +363,9 @@ func SnmpInNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for snmpInNoSuchNames")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInBadValuesGet reads the SMIv2 scalar snmpInBadValues.
@@ -380,9 +381,9 @@ func SnmpInBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for snmpInBadValues")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInReadOnlysGet reads the SMIv2 scalar snmpInReadOnlys.
@@ -402,9 +403,9 @@ func SnmpInReadOnlysGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for snmpInReadOnlys")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInGenErrsGet reads the SMIv2 scalar snmpInGenErrs.
@@ -420,9 +421,9 @@ func SnmpInGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpInGenErrs")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInTotalReqVarsGet reads the SMIv2 scalar snmpInTotalReqVars.
@@ -439,9 +440,9 @@ func SnmpInTotalReqVarsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for snmpInTotalReqVars")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInTotalSetVarsGet reads the SMIv2 scalar snmpInTotalSetVars.
@@ -458,9 +459,9 @@ func SnmpInTotalSetVarsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for snmpInTotalSetVars")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInGetRequestsGet reads the SMIv2 scalar snmpInGetRequests.
@@ -476,9 +477,9 @@ func SnmpInGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for snmpInGetRequests")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInGetNextsGet reads the SMIv2 scalar snmpInGetNexts.
@@ -494,9 +495,9 @@ func SnmpInGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpInGetNexts")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInSetRequestsGet reads the SMIv2 scalar snmpInSetRequests.
@@ -512,9 +513,9 @@ func SnmpInSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for snmpInSetRequests")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInGetResponsesGet reads the SMIv2 scalar snmpInGetResponses.
@@ -530,9 +531,9 @@ func SnmpInGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for snmpInGetResponses")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpInTrapsGet reads the SMIv2 scalar snmpInTraps.
@@ -548,9 +549,9 @@ func SnmpInTrapsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpInTraps")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutTooBigsGet reads the SMIv2 scalar snmpOutTooBigs.
@@ -566,9 +567,9 @@ func SnmpOutTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpOutTooBigs")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutNoSuchNamesGet reads the SMIv2 scalar snmpOutNoSuchNames.
@@ -584,9 +585,9 @@ func SnmpOutNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for snmpOutNoSuchNames")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutBadValuesGet reads the SMIv2 scalar snmpOutBadValues.
@@ -602,9 +603,9 @@ func SnmpOutBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, ae.Msg("empty Get response for snmpOutBadValues")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutGenErrsGet reads the SMIv2 scalar snmpOutGenErrs.
@@ -620,9 +621,9 @@ func SnmpOutGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpOutGenErrs")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutGetRequestsGet reads the SMIv2 scalar snmpOutGetRequests.
@@ -638,9 +639,9 @@ func SnmpOutGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for snmpOutGetRequests")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutGetNextsGet reads the SMIv2 scalar snmpOutGetNexts.
@@ -656,9 +657,9 @@ func SnmpOutGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for snmpOutGetNexts")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutSetRequestsGet reads the SMIv2 scalar snmpOutSetRequests.
@@ -674,9 +675,9 @@ func SnmpOutSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, ae.Msg("empty Get response for snmpOutSetRequests")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutGetResponsesGet reads the SMIv2 scalar snmpOutGetResponses.
@@ -692,9 +693,9 @@ func SnmpOutGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, err
 		return 0, ae.Msg("empty Get response for snmpOutGetResponses")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpOutTrapsGet reads the SMIv2 scalar snmpOutTraps.
@@ -710,9 +711,9 @@ func SnmpOutTrapsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpOutTraps")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpEnableAuthenTrapsGet reads the SMIv2 scalar snmpEnableAuthenTraps.
@@ -733,13 +734,13 @@ func SnmpEnableAuthenTrapsGet(ctx context.Context, sess snmp.Session) (SnmpEnabl
 		return SnmpEnableAuthenTrapsValue(0), ae.Msg("empty Get response for snmpEnableAuthenTraps")
 	}
 
-	return (func(vb snmp.VarBind) (SnmpEnableAuthenTrapsValue, error) {
+	return func(vb snmp.VarBind) (SnmpEnableAuthenTrapsValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
 			return SnmpEnableAuthenTrapsValue(0), err
 		}
 		return SnmpEnableAuthenTrapsValue(v), nil
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpSilentDropsGet reads the SMIv2 scalar snmpSilentDrops.
@@ -760,9 +761,9 @@ func SnmpSilentDropsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for snmpSilentDrops")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpProxyDropsGet reads the SMIv2 scalar snmpProxyDrops.
@@ -782,9 +783,9 @@ func SnmpProxyDropsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for snmpProxyDrops")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpTrapOIDGet reads the SMIv2 scalar snmpTrapOID.
@@ -801,9 +802,9 @@ func SnmpTrapOIDGet(ctx context.Context, sess snmp.Session) (snmp.OID, error) {
 		return snmp.OID{}, ae.Msg("empty Get response for snmpTrapOID")
 	}
 
-	return (func(vb snmp.VarBind) (snmp.OID, error) {
+	return func(vb snmp.VarBind) (snmp.OID, error) {
 		return snmp.DecodeOID(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpTrapEnterpriseGet reads the SMIv2 scalar snmpTrapEnterprise.
@@ -821,9 +822,9 @@ func SnmpTrapEnterpriseGet(ctx context.Context, sess snmp.Session) (snmp.OID, er
 		return snmp.OID{}, ae.Msg("empty Get response for snmpTrapEnterprise")
 	}
 
-	return (func(vb snmp.VarBind) (snmp.OID, error) {
+	return func(vb snmp.VarBind) (snmp.OID, error) {
 		return snmp.DecodeOID(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SnmpSetSerialNoGet reads the SMIv2 scalar snmpSetSerialNo.
@@ -842,9 +843,9 @@ func SnmpSetSerialNoGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, ae.Msg("empty Get response for snmpSetSerialNo")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // SysORID is the column sysORID of table sysORTable.

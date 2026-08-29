@@ -8,16 +8,18 @@
 // per-package OID → AnyColumn dispatch map. Well-known SMIv2
 // textual conventions delegate to [snmp.Decode*] helpers.
 //
-// Invoke via the Go tool directive declared in go.mod:
+// Invoke from the repository root:
 //
-//	go tool mibgen [-config <yaml>] [-out <dir>] [-pkg-prefix <importpath>]
-//	go tool mibgen -verify        # load-only; no codegen
-//	go tool mibgen -check         # exit non-zero if regenerated output drifts
-//	go tool mibgen -update        # regenerate committed bindings
+//	go run ./src/common/snmp/cmd/mibgen [-config <yaml>] [-out <dir>] [-pkg-prefix <importpath>]
+//	go run ./src/common/snmp/cmd/mibgen -verify   # load-only; no codegen
+//	go run ./src/common/snmp/cmd/mibgen -check    # exit non-zero if regenerated output drifts
+//	go run ./src/common/snmp/cmd/mibgen -update   # regenerate committed bindings
 //
-// The configuration file (default src/common/snmp/cmd/mibgen/mibgen.yaml)
+// The configuration file (default mibgen.yaml, at the repository root)
 // declares MIB search paths, the module list with optional cross-authority
-// depends_on edges, and per-OID Go-type overrides.
+// depends_on edges, and per-OID Go-type overrides. The repository-root
+// generate.go carries the go:generate directive, so `go generate .` at
+// the root regenerates the committed bindings.
 //
 // The emitter lives in emit.go (and per-shape companions emit_scalar.go,
 // emit_table.go, emit_enum.go, emit_tc.go, emit_dispatch.go); the CLI

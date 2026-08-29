@@ -12,10 +12,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 	"iter"
 	"time"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	ae "go.aledante.io/ae"
 )
 
 // PhysicalClass is the SMI enum PhysicalClass.
@@ -129,9 +130,9 @@ func EntLastChangeTimeGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for entLastChangeTime")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // EntPhysicalDescr is the column entPhysicalDescr of table entPhysicalTable.

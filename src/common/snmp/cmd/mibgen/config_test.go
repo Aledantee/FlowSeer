@@ -37,11 +37,11 @@ func TestLoadConfig_Minimal(t *testing.T) {
 	}
 }
 
-// TestLoadConfig_FullSchema loads the committed default mibgen.yaml and
-// confirms the bundled module set is sixteen modules with unique
-// names/packages.
+// TestLoadConfig_FullSchema loads the committed default mibgen.yaml
+// (at the repository root) and confirms the bundled module set is
+// sixteen modules with unique names/packages.
 func TestLoadConfig_FullSchema(t *testing.T) {
-	cfg, err := LoadConfig("mibgen.yaml")
+	cfg, err := LoadConfig(filepath.Join("..", "..", "..", "..", "..", "mibgen.yaml"))
 	if err != nil {
 		t.Fatalf("LoadConfig(mibgen.yaml): %v", err)
 	}

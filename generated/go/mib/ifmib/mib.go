@@ -12,10 +12,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"iter"
+
 	ianaiftype "go.aledante.io/FlowSeer/generated/go/mib/ianaiftype"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	ae "go.aledante.io/ae"
-	"iter"
 )
 
 // IfAdminStatusValue is the SMI enum ifAdminStatus (inline).
@@ -219,9 +220,9 @@ func IfNumberGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for ifNumber")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // IfTableLastChangeGet reads the SMIv2 scalar ifTableLastChange.
@@ -239,9 +240,9 @@ func IfTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for ifTableLastChange")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // IfStackLastChangeGet reads the SMIv2 scalar ifStackLastChange.
@@ -261,9 +262,9 @@ func IfStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for ifStackLastChange")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // IfIndex is the column ifIndex of table ifTable.

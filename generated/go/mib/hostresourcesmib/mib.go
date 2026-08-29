@@ -12,10 +12,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 	"iter"
 	"time"
+
+	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	ae "go.aledante.io/ae"
 )
 
 // HrDeviceStatusValue is the SMI enum hrDeviceStatus (inline).
@@ -264,9 +265,9 @@ func HrSystemUptimeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, ae.Msg("empty Get response for hrSystemUptime")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSystemDateGet reads the SMIv2 scalar hrSystemDate.
@@ -281,9 +282,9 @@ func HrSystemDateGet(ctx context.Context, sess snmp.Session) (time.Time, error) 
 		return time.Time{}, ae.Msg("empty Get response for hrSystemDate")
 	}
 
-	return (func(vb snmp.VarBind) (time.Time, error) {
+	return func(vb snmp.VarBind) (time.Time, error) {
 		return snmp.DecodeDateAndTime(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSystemInitialLoadDeviceGet reads the SMIv2 scalar hrSystemInitialLoadDevice.
@@ -303,9 +304,9 @@ func HrSystemInitialLoadDeviceGet(ctx context.Context, sess snmp.Session) (int32
 		return 0, ae.Msg("empty Get response for hrSystemInitialLoadDevice")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSystemInitialLoadParametersGet reads the SMIv2 scalar hrSystemInitialLoadParameters.
@@ -324,9 +325,9 @@ func HrSystemInitialLoadParametersGet(ctx context.Context, sess snmp.Session) ([
 		return nil, ae.Msg("empty Get response for hrSystemInitialLoadParameters")
 	}
 
-	return (func(vb snmp.VarBind) ([]byte, error) {
+	return func(vb snmp.VarBind) ([]byte, error) {
 		return snmp.DecodeBytes(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSystemNumUsersGet reads the SMIv2 scalar hrSystemNumUsers.
@@ -344,9 +345,9 @@ func HrSystemNumUsersGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, ae.Msg("empty Get response for hrSystemNumUsers")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSystemProcessesGet reads the SMIv2 scalar hrSystemProcesses.
@@ -362,9 +363,9 @@ func HrSystemProcessesGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, ae.Msg("empty Get response for hrSystemProcesses")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSystemMaxProcessesGet reads the SMIv2 scalar hrSystemMaxProcesses.
@@ -382,9 +383,9 @@ func HrSystemMaxProcessesGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, ae.Msg("empty Get response for hrSystemMaxProcesses")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrMemorySizeGet reads the SMIv2 scalar hrMemorySize.
@@ -400,9 +401,9 @@ func HrMemorySizeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for hrMemorySize")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSWOSIndexGet reads the SMIv2 scalar hrSWOSIndex.
@@ -419,9 +420,9 @@ func HrSWOSIndexGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, ae.Msg("empty Get response for hrSWOSIndex")
 	}
 
-	return (func(vb snmp.VarBind) (int32, error) {
+	return func(vb snmp.VarBind) (int32, error) {
 		return snmp.DecodeInt32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSWInstalledLastChangeGet reads the SMIv2 scalar hrSWInstalledLastChange.
@@ -439,9 +440,9 @@ func HrSWInstalledLastChangeGet(ctx context.Context, sess snmp.Session) (uint32,
 		return 0, ae.Msg("empty Get response for hrSWInstalledLastChange")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrSWInstalledLastUpdateTimeGet reads the SMIv2 scalar hrSWInstalledLastUpdateTime.
@@ -459,9 +460,9 @@ func HrSWInstalledLastUpdateTimeGet(ctx context.Context, sess snmp.Session) (uin
 		return 0, ae.Msg("empty Get response for hrSWInstalledLastUpdateTime")
 	}
 
-	return (func(vb snmp.VarBind) (uint32, error) {
+	return func(vb snmp.VarBind) (uint32, error) {
 		return snmp.DecodeUint32(vb)
-	})(vbs[0])
+	}(vbs[0])
 }
 
 // HrStorageIndex is the column hrStorageIndex of table hrStorageTable.
