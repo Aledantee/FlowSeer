@@ -160,7 +160,7 @@ const file_flowseer_api_inventory_v1_capability_proto_rawDesc = "" +
 	"\x12CAPABILITY_ROUTING\x10\x04\x12\x17\n" +
 	"\x13CAPABILITY_FIREWALL\x10\x05\x12\x17\n" +
 	"\x13CAPABILITY_WIRELESS\x10\x06B\x89\x02\n" +
-	"\x1dcom.flowseer.api.inventory.v1B\x0fCapabilityProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\az\x1bbuf/validate/validate.proto"
+	"\x1dcom.flowseer.api.inventory.v1B\x0fCapabilityProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_api_inventory_v1_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

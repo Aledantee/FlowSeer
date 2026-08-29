@@ -3,7 +3,6 @@ edition = "2024";
 package flowseer.api.inventory.v1;
 
 import "flowseer/api/inventory/v1/tenant.proto";
-import option "buf/validate/validate.proto";
 
 message DeviceRef {
   string id = 1;
