@@ -7,7 +7,6 @@ import option "buf/validate/validate.proto";
 
 message DeviceRef {
   string id = 1;
-  TenantRef tenant = 2;
 }
 
 message Device {
