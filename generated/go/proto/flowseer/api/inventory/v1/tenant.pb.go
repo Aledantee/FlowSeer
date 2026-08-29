@@ -63,24 +63,96 @@ func (b0 TenantRef_builder) Build() *TenantRef {
 	return m0
 }
 
+type Tenant struct {
+	state          protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref *TenantRef             `protobuf:"bytes,1,opt,name=ref"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *Tenant) Reset() {
+	*x = Tenant{}
+	mi := &file_flowseer_api_inventory_v1_tenant_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Tenant) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Tenant) ProtoMessage() {}
+
+func (x *Tenant) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_tenant_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *Tenant) GetRef() *TenantRef {
+	if x != nil {
+		return x.xxx_hidden_Ref
+	}
+	return nil
+}
+
+func (x *Tenant) SetRef(v *TenantRef) {
+	x.xxx_hidden_Ref = v
+}
+
+func (x *Tenant) HasRef() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Ref != nil
+}
+
+func (x *Tenant) ClearRef() {
+	x.xxx_hidden_Ref = nil
+}
+
+type Tenant_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Ref *TenantRef
+}
+
+func (b0 Tenant_builder) Build() *Tenant {
+	m0 := &Tenant{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Ref = b.Ref
+	return m0
+}
+
 var File_flowseer_api_inventory_v1_tenant_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_tenant_proto_rawDesc = "" +
 	"\n" +
 	"&flowseer/api/inventory/v1/tenant.proto\x12\x19flowseer.api.inventory.v1\"\v\n" +
-	"\tTenantRefB\x85\x02\n" +
+	"\tTenantRef\"@\n" +
+	"\x06Tenant\x126\n" +
+	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.TenantRefR\x03refB\x85\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\vTenantProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_inventory_v1_tenant_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_flowseer_api_inventory_v1_tenant_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_api_inventory_v1_tenant_proto_goTypes = []any{
 	(*TenantRef)(nil), // 0: flowseer.api.inventory.v1.TenantRef
+	(*Tenant)(nil),    // 1: flowseer.api.inventory.v1.Tenant
 }
 var file_flowseer_api_inventory_v1_tenant_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: flowseer.api.inventory.v1.Tenant.ref:type_name -> flowseer.api.inventory.v1.TenantRef
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_tenant_proto_init() }
@@ -94,7 +166,7 @@ func file_flowseer_api_inventory_v1_tenant_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_inventory_v1_tenant_proto_rawDesc), len(file_flowseer_api_inventory_v1_tenant_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

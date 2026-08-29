@@ -2,11 +2,8 @@ edition = "2024";
 
 package flowseer.api.inventory.v1;
 
-import "flowseer/api/inventory/v1/tenant.proto";
-
 message DeviceRef {
   string id = 1;
-  TenantRef tenant = 2;
 }
 
 message Device {

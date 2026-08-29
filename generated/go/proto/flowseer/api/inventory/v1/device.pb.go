@@ -23,7 +23,6 @@ const (
 type DeviceRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
-	xxx_hidden_Tenant      *TenantRef             `protobuf:"bytes,2,opt,name=tenant"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -65,20 +64,9 @@ func (x *DeviceRef) GetId() string {
 	return ""
 }
 
-func (x *DeviceRef) GetTenant() *TenantRef {
-	if x != nil {
-		return x.xxx_hidden_Tenant
-	}
-	return nil
-}
-
 func (x *DeviceRef) SetId(v string) {
 	x.xxx_hidden_Id = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
-}
-
-func (x *DeviceRef) SetTenant(v *TenantRef) {
-	x.xxx_hidden_Tenant = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
 }
 
 func (x *DeviceRef) HasId() bool {
@@ -88,27 +76,15 @@ func (x *DeviceRef) HasId() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *DeviceRef) HasTenant() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Tenant != nil
-}
-
 func (x *DeviceRef) ClearId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Id = nil
 }
 
-func (x *DeviceRef) ClearTenant() {
-	x.xxx_hidden_Tenant = nil
-}
-
 type DeviceRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Id     *string
-	Tenant *TenantRef
+	Id *string
 }
 
 func (b0 DeviceRef_builder) Build() *DeviceRef {
@@ -116,10 +92,9 @@ func (b0 DeviceRef_builder) Build() *DeviceRef {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Id != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
 		x.xxx_hidden_Id = b.Id
 	}
-	x.xxx_hidden_Tenant = b.Tenant
 	return m0
 }
 
@@ -195,10 +170,9 @@ var File_flowseer_api_inventory_v1_device_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\x1a&flowseer/api/inventory/v1/tenant.proto\"Y\n" +
+	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\"\x1b\n" +
 	"\tDeviceRef\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12<\n" +
-	"\x06tenant\x18\x02 \x01(\v2$.flowseer.api.inventory.v1.TenantRefR\x06tenant\"@\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
 	"\x06Device\x126\n" +
 	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.DeviceRefR\x03refB\x85\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\vDeviceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
@@ -207,16 +181,14 @@ var file_flowseer_api_inventory_v1_device_proto_msgTypes = make([]protoimpl.Mess
 var file_flowseer_api_inventory_v1_device_proto_goTypes = []any{
 	(*DeviceRef)(nil), // 0: flowseer.api.inventory.v1.DeviceRef
 	(*Device)(nil),    // 1: flowseer.api.inventory.v1.Device
-	(*TenantRef)(nil), // 2: flowseer.api.inventory.v1.TenantRef
 }
 var file_flowseer_api_inventory_v1_device_proto_depIdxs = []int32{
-	2, // 0: flowseer.api.inventory.v1.DeviceRef.tenant:type_name -> flowseer.api.inventory.v1.TenantRef
-	0, // 1: flowseer.api.inventory.v1.Device.ref:type_name -> flowseer.api.inventory.v1.DeviceRef
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0, // 0: flowseer.api.inventory.v1.Device.ref:type_name -> flowseer.api.inventory.v1.DeviceRef
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_device_proto_init() }
@@ -224,7 +196,6 @@ func file_flowseer_api_inventory_v1_device_proto_init() {
 	if File_flowseer_api_inventory_v1_device_proto != nil {
 		return
 	}
-	file_flowseer_api_inventory_v1_tenant_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
