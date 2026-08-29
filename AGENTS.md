@@ -42,36 +42,61 @@ Binding on humans and agents equally; each doc states its own scope.
 
 Every session does its work in its own git worktree, so concurrent sessions cannot
 clobber each other's edits. Starting on `master` (or any protected branch) in the
-primary checkout, call the `EnterWorktree` tool with a short task-shaped name before
-the first edit; read-only exploration in the primary checkout is fine. A
-`PreToolUse` hook (`~/.claude/hooks/worktree-guard.sh`) denies mutating tools until
-you do. Worktrees land in `.claude/worktrees/` and are gitignored; branch off local
-`HEAD` (`.claude/settings.json` sets `worktree.baseRef: head`) because this repo has
-no remote.
+primary checkout, enter a session worktree with a short task-shaped name before the
+first edit; read-only exploration in the primary checkout is fine. A pre-tool hook
+(`worktree-guard.sh`) denies mutating tools until you do. Worktrees land in
+`.claude/worktrees/` and are gitignored; branch off local `HEAD`
+(`worktree.baseRef: head`) because this repo has no remote. Do not emulate isolation
+by editing the primary checkout.
+
+## Agent behavior
+
+- Prefer the runtime's native tools and subagents; compatibility mappings for other
+  runtimes do not replace native capabilities.
+- Use the read-only `repo-researcher` subagent for a bounded repository question
+  that can be investigated independently. Use `independent-reviewer` for a fresh
+  standards and correctness pass over specified changed files.
+- Keep small, sequential tasks in the main conversation. Give every subagent a
+  precise question, relevant paths, and the expected output; do not delegate the
+  same investigation twice.
+- Treat native auto-memory as personal and fallible. Promote durable team facts
+  to the repository locations defined in `docs/agent-knowledge.md`.
+
+## Investigation discipline
+
+- State the leading hypothesis, plausible alternatives, and a discriminating test
+  before claiming a root cause. Run the test and cite the evidence before editing.
+- Never guess a device identity, hostname, or port mapping; query the available
+  inventory or control plane first.
+- After roughly 15 exploratory shell commands without a concrete finding, stop and
+  summarize what is ruled out and the two best next checks before continuing.
+- Before a live-device write or a data mutation affecting more than 10,000 records,
+  state the blast radius and wait for explicit approval.
 
 ## Enforced rules
 
-Shared implementations live in `.agent/hooks/`; thin registrations in
-`.claude/settings.json` and `.codex/hooks.json` adapt them to each agent. Codex users
-must review changed project hooks with `/hooks` before Codex will run them.
+Shared implementations live in `.agent/hooks/`; thin per-runtime registrations
+(`.claude/settings.json`, `.codex/hooks.json`) adapt them to each agent. Runtimes
+that require reviewing changed project hooks before running them must do that
+review first.
 
-- `pre-tool-policy.sh` (`PreToolUse`) — denies hand-edits to generated output and
+- `pre-tool-policy.sh` (pre-tool) — denies hand-edits to generated output and
   `buf.lock`, and rejects non-source artifacts under `spec/proto/`.
-- `protect-generated-bash.sh` (`PreToolUse`) — denies common shell mutations to
+- `protect-generated-bash.sh` (pre-tool) — denies common shell mutations to
   generated output and `buf.lock`; direct edit tools use the shared policy above.
-- `go-format.sh` (`PostToolUse`) — runs gofumpt + goimports on every edited `.go`
+- `go-format.sh` (post-tool) — runs gofumpt + goimports on every edited `.go`
   file so nothing lands lint-dirty; reports back when it rewrote the file.
-- `proto-check.sh` (`PostToolUse`) — `buf format -w`, then `buf lint` on the edited
+- `proto-check.sh` (post-tool) — `buf format -w`, then `buf lint` on the edited
   path (failures block and come back as feedback), then the message-sync check:
   reports Config/State/Event triad members and GlobalRef/LocalRef counterparts the
   edit did not bring along.
 - `.claude/hooks/tests/run.sh` — exercises the hook allow/deny contract and the
-  settings matchers; the `verify-change` skill runs it for Claude configuration
+  settings matchers; the `verify-change` skill runs it for agent configuration
   changes.
 - `mark-verification-dirty.sh` plus `require-verification-receipt.sh` — track
   source/config edits and block one completion attempt until the affected scope
   passes the `verify-change` skill. Receipts live in the worktree's git metadata.
-- `stop-check.sh` (`Stop`) — runs the repository-layout package before an agent stops.
+- `stop-check.sh` (stop) — runs the repository-layout package before an agent stops.
 
 Hooks are fast feedback, not the authority: `go test -race ./...` runs the same
 source-tree invariant through `src/common/protoconformance/` even when an edit path
