@@ -69,10 +69,11 @@ package flowseer.device.v1;
   schema file remains normal Buf input. Never add a `buf.yaml` exclude or lint ignore
   to shelter test artifacts inside the schema tree.
 - One top-level declaration per file by default; file names `lower_snake_case.proto`.
-  A tightly coupled Primitive family may share one file when its variants and
-  value types are designed, imported, and evolved as one contract. The
-  `net/addr/v1/ip.proto` family is the worked exception; each Entity triad and
-  ref message remains in its own file.
+  A tightly coupled family may share one file when its messages are designed,
+  imported, and evolved as one contract. The `net/addr/v1/ip.proto` variants
+  are the Primitive-side worked exception, and an Entity's triad and ref pair
+  share the family's one file per the conventions doc — `tag.proto` and the
+  attribute families are the shape to copy.
 - Package names are versioned: `flowseer.<domain>.v1`. Directory structure matches
   the package (`spec/proto/flowseer/<domain>/v1/…`).
 - Never use `import public` — it is still legal grammar in edition 2024, and still
