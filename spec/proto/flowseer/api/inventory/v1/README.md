@@ -11,35 +11,34 @@ FlowSeer-assigned UUID.
 
 A tag is an operator-curated grouping label. Tags are hierarchical: each tag
 may name one parent, and a tag with no parent is a root of its tenant's tag
-tree. The hierarchy buys rollup — anything tagged `EMEA/Berlin/DC-1` is
-matched by a filter, report, or authorization grant scoped to `EMEA` without
-being tagged three times.
+tree. The point of the hierarchy is rollup. A filter, report, or
+authorization grant scoped to `EMEA` also matches everything tagged
+`EMEA/Berlin/DC-1`, so nobody has to tag a switch three times.
 
 The family is a full triad, split along intended versus derived:
 
-- `TagConfig` — what the operator intends: name, description, and parent.
-  The parent is an ordinary `TagGlobalRef` field, not part of the tag's
-  identity; a tag's key never changes when it is reparented, and the global
-  ref does not grow with tree depth.
-- `TagState` — what the platform derives: the tag's `ancestors` (refs, root
-  first) and its `path` (the names along that chain, ending with the tag's
-  own name). Both are denormalized by the inventory service so consumers
-  resolve ancestry and display paths from one read instead of one lookup per
-  tree level, and both are rewritten when a rename or reparent anywhere on
-  the chain invalidates them.
-- `TagEvent` — one transition, carried as the intended definition before and
-  after; an unset side means creation or deletion.
+- `TagConfig` holds what the operator intends: name, description, and
+  parent. The parent is an ordinary `TagGlobalRef` field rather than part of
+  the tag's identity, so a reparented tag keeps its key and the global ref
+  stays the same size no matter how deep the tree gets.
+- `TagState` holds what the platform derives: `ancestors` (refs, root first)
+  and `path` (the names along that chain, ending with the tag's own name).
+  The inventory service denormalizes both so that one read answers "where
+  does this tag sit and what do I print for it", and rewrites them whenever
+  a rename or reparent anywhere on the chain invalidates them.
+- `TagEvent` carries one transition as the intended definition before and
+  after. An unset side means the tag was created or deleted.
 
-Invariants the messages cannot express are the inventory service's to hold:
-sibling-name uniqueness, cycle-freedom of the parent chain, and the deletion
-semantics of a tag that still has children. A tag names its parent but not
-its children; the children of a tag are a query, not a field.
+The messages cannot express every invariant, so the inventory service holds
+the rest: sibling names must be unique, the parent chain must stay
+cycle-free, and the service decides what deleting a tag that still has
+children means. A tag names only its parent; to find its children, query.
 
-Tag names are localized at serving time: the RPC's language header selects
-the rendering of `name` (and of the names in `TagState.path`) when a
-translation exists, falling through to English otherwise. The translation
-mapping is server-side and never part of the payload; the wire messages
-carry one name per request language.
+Tag names are localized at serving time. When the RPC's language header
+matches a stored translation, `name` and the entries of `TagState.path` come
+back in that language; otherwise they come back in English. Translations
+live on the server, so each response carries exactly one name per tag and
+the wire messages stay unchanged.
 
 ## Other entities
 
