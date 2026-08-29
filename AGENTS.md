@@ -46,10 +46,6 @@ and branch off local `HEAD` — the repo has no remote.
 
 - State the leading hypothesis, alternatives, and a discriminating test before
   claiming a root cause; cite the evidence before editing.
-- Never guess a device identity, hostname, or port mapping; query the inventory
-  or control plane first.
-- After ~15 exploratory commands without a finding, summarize what is ruled out
-  and the two best next checks before continuing.
 - Before a live-device write or a mutation over 10,000 records, state the blast
   radius and wait for explicit approval.
 
