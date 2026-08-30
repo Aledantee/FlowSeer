@@ -399,18 +399,3 @@ func TestNoPanicEscapesTheFrame(t *testing.T) {
 		}
 	}
 }
-
-func FuzzParse(f *testing.F) {
-	f.Add("TEST-MIB DEFINITIONS ::= BEGIN\nx OBJECT-TYPE SYNTAX INTEGER ::= { a 1 }\nEND\n")
-	f.Add("A DEFINITIONS ::= BEGIN\nB ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION \"\" SYNTAX INTEGER\nEND")
-	f.Add("A DEFINITIONS ::= BEGIN\nc MODULE-COMPLIANCE MODULE OBJECT x SYNTAX INTEGER ::= { a 1 }\nEND")
-
-	f.Fuzz(func(_ *testing.T, src string) {
-		r := Parse(frame.Cut([]byte(src), frame.Options{File: testFile}))
-		for _, m := range r.Modules {
-			for _, ref := range m.Decls {
-				_ = m.Decl(ref).Name
-			}
-		}
-	})
-}

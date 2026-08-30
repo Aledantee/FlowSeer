@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\xef\xbb\xbfA DEFINITIONS ::= BEGIN\r\n\tx OBJECT-TYPE\x0bSYNTAX INTEGER MAX-ACCESS read-only STATUS current DESCRIPTION \"Z\xfcrich\x00\x7f\xff\" ::= { a 1 }\r\nEND\r\n")

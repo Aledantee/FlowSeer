@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("A DEFINITIONS ::= BEGIN\ngood OBJECT-TYPE SYNTAX INTEGER MAX-ACCESS read-only STATUS current DESCRIPTION \"d\" ::= { a 1 }\ncut OBJECT-TYPE SYNTAX INTEGER { on(1), off(")

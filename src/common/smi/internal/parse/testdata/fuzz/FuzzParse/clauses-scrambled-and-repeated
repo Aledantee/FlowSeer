@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("A DEFINITIONS ::= BEGIN\nx OBJECT-TYPE DESCRIPTION \"d\" STATUS current UNITS \"s\" SYNTAX INTEGER (0..7) MAX-ACCESS read-only DESCRIPTION \"again\" REFERENCE \"r\" INDEX { IMPLIED a, b } DEFVAL { 3 } ::= { a 1 }\nEND\n")
