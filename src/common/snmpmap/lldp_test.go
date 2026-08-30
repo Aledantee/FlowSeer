@@ -372,6 +372,75 @@ func TestLLDP_IncompleteNeighborReported(t *testing.T) {
 	validateFacts(t, facts)
 }
 
+// TestLLDP_FailedEnrichingWalksKeepFacts covers the two LLDP tables that
+// only enrich rows another table already named: losing one costs those
+// rows some facts, not their existence.
+func TestLLDP_FailedEnrichingWalksKeepFacts(t *testing.T) {
+	tests := []struct {
+		name string
+		root snmp.OID
+	}{
+		{"lldpLocPortTable", snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 7)},
+		{"lldpRemManAddrTable", snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 2)},
+	}
+
+	vbs := append(macRemRow(),
+		intAt(colOID(lldpPortConfigEntry, 2, 3), 3), // txAndRx
+		octetsAt(colOID(lldpLocPortEntry, 4, 3), []byte("uplink")),
+		intAt(colOID(lldpRemManAddrEntry, 4, 1000, 3, 1, 1, 4, 198, 51, 100, 7), 1),
+	)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			facts, err := snmpmap.LLDP(context.Background(), walkFailure(vbs, tc.root), map[uint32]string{3: "eth0"})
+			if err == nil {
+				t.Fatalf("got no error, want the failed %s walk reported", tc.name)
+			}
+
+			walkErr := errs.New().Code(snmpmap.ErrCodeLLDPWalk).Msg("walk")
+			if !errors.Is(err, walkErr) {
+				t.Errorf("got %v, want an LLDP-walk code", err)
+			}
+
+			if len(facts.Ports) != 1 {
+				t.Errorf("got %d ports, want the lldpPortConfigTable row", len(facts.Ports))
+			}
+
+			if len(facts.Neighbors) != 1 {
+				t.Fatalf("got %d neighbors, want the lldpRemTable row", len(facts.Neighbors))
+			}
+
+			validateFacts(t, facts)
+		})
+	}
+}
+
+// TestLLDP_UnusableRowsSurviveLaterFailure keeps the neighbor rows that
+// could not be mapped visible when a later walk fails too: an operator
+// who is told only about the walk never learns the rows were unusable.
+func TestLLDP_UnusableRowsSurviveLaterFailure(t *testing.T) {
+	vbs := append(macRemRow(), intAt(colOID(lldpRemEntry, 4, 2000, 4, 1), 4)) // chassis subtype alone
+
+	// The local management addresses are read after the neighbors, and
+	// their table is one the local system is keyed on.
+	sess := walkFailure(vbs, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8))
+
+	_, err := snmpmap.LLDP(context.Background(), sess, map[uint32]string{3: "eth0"})
+	if err == nil {
+		t.Fatal("got no error, want both failures reported")
+	}
+
+	incomplete := errs.New().Code(snmpmap.ErrCodeLLDPNeighborIncomplete).Msg("incomplete")
+	if !errors.Is(err, incomplete) {
+		t.Errorf("got %v, want the incomplete-neighbor code alongside the walk failure", err)
+	}
+
+	walkErr := errs.New().Code(snmpmap.ErrCodeLLDPWalk).Msg("walk")
+	if !errors.Is(err, walkErr) {
+		t.Errorf("got %v, want an LLDP-walk code", err)
+	}
+}
+
 // TestLLDP_PortSettingsTlvBitmap covers the translation this mapper owns:
 // lldpPortConfigTLVsTxEnable is a bitmap of MIB bit positions, while the
 // schema speaks 802.1AB TLV type numbers.
@@ -419,6 +488,34 @@ func TestLLDP_PortSettingsTlvBitmap(t *testing.T) {
 
 	if port.GetPortDescription() != "uplink" {
 		t.Errorf("got port description %q, want %q", port.GetPortDescription(), "uplink")
+	}
+}
+
+// TestLLDP_TlvBitmapKeepsUnnamedPositions covers a bitmap position past
+// the four the MIB spells out: the bitmap and the type registry are one
+// arithmetic relation, so a position the schema does not name still says
+// which TLV the port transmits.
+func TestLLDP_TlvBitmapKeepsUnnamedPositions(t *testing.T) {
+	vbs := []vbFixture{
+		intAt(colOID(lldpPortConfigEntry, 2, 3), 3), // txAndRx
+		octetsAt(colOID(lldpPortConfigEntry, 4, 3), bitsOctets(4, 20, 124)),
+	}
+
+	facts := lldpFacts(t, vbs, nil)
+	if len(facts.Ports) != 1 {
+		t.Fatalf("got %d ports, want 1", len(facts.Ports))
+	}
+
+	want := []lldpv1.TlvType{
+		lldpv1.TlvType_TLV_TYPE_MANAGEMENT_ADDRESS, // bit 4
+		lldpv1.TlvType(24),                         // bit 20, unnamed
+	}
+	if got := facts.Ports[0].GetTransmittedTlvs(); !slices.Equal(got, want) {
+		t.Errorf("got TLVs %v, want %v: bit 124 names no type and is dropped", got, want)
+	}
+
+	if want[1].Enum().Descriptor().Values().ByNumber(24) != nil {
+		t.Error("type 24 is a named TLV; pick an unnamed one for this test")
 	}
 }
 

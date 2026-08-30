@@ -24,7 +24,9 @@ var (
 	// Interface carries one.
 	ErrCodeInterfaceUntyped = errs.NewCode("snmpmap/interface-untyped")
 	// ErrCodeInterfaceWalk identifies a failure of one of the IF-MIB table
-	// walks. No interfaces are returned with it.
+	// walks. A failed ifTable walk yields no interfaces; a failed ifXTable
+	// or ifStackTable walk yields the interfaces ifTable carried, with
+	// fewer facts on them.
 	ErrCodeInterfaceWalk = errs.NewCode("snmpmap/interface-walk")
 )
 
@@ -104,17 +106,19 @@ type IfMIBRows struct {
 // that does not implement them yields interfaces built from ifTable
 // alone.
 //
-// A failed walk returns no interfaces and an error carrying
-// [ErrCodeInterfaceWalk]. A row that cannot produce a valid message
-// returns alongside the rows that could, as described on
+// A failed ifTable walk returns no interfaces and an error carrying
+// [ErrCodeInterfaceWalk]. A failed ifXTable or ifStackTable walk returns
+// the interfaces ifTable carried and that same error beside them: those
+// tables only enrich rows that already stand on their own, so losing one
+// degrades the answer rather than voiding it. A row that cannot produce
+// a valid message returns alongside the rows that could, as described on
 // [InterfacesFromRows].
 func Interfaces(ctx context.Context, sess snmp.Session) ([]*interfacev1.Interface, error) {
-	rows, err := walkIfMIB(ctx, sess)
-	if err != nil {
-		return nil, err
-	}
+	rows, walkErr := walkIfMIB(ctx, sess)
 
-	return InterfacesFromRows(rows)
+	ifaces, rowErr := InterfacesFromRows(rows)
+
+	return ifaces, errors.Join(walkErr, rowErr)
 }
 
 // InterfacesFromRows maps already-walked rows, so a caller that walks
@@ -166,9 +170,15 @@ func InterfacesFromRows(rows IfMIBRows) ([]*interfacev1.Interface, error) {
 	return ifaces, errors.Join(rowErrs...)
 }
 
-// walkIfMIB collects the three IF-MIB tables the interface mapping reads.
+// walkIfMIB collects the three IF-MIB tables the interface mapping
+// reads. Only ifTable is fatal; a failure of either optional table
+// returns the rows collected so far beside the error, since a walk that
+// stops partway still carried real rows before it stopped.
 func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
-	var rows IfMIBRows
+	var (
+		rows     IfMIBRows
+		walkErrs []error
+	)
 
 	ifWalk := ifmib.IfTable.Walk(ctx, sess, ifTableColumns...)
 	for idx, row := range ifWalk.Iter() {
@@ -195,7 +205,7 @@ func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 	}
 
 	if err := xWalk.Err(); err != nil {
-		return IfMIBRows{}, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifXTable")
+		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifXTable"))
 	}
 
 	// ifStackTable's whole payload is its index; the status column is
@@ -210,10 +220,10 @@ func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 	}
 
 	if err := stackWalk.Err(); err != nil {
-		return IfMIBRows{}, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifStackTable")
+		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifStackTable"))
 	}
 
-	return rows, nil
+	return rows, errors.Join(walkErrs...)
 }
 
 // ifStack is the layering ifStackTable declares, read in both

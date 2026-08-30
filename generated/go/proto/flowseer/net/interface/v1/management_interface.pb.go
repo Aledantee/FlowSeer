@@ -20,8 +20,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// An out-of-band management interface. The arm names the kind; management
-// reachability attributes are not part of this version's contract.
+// An out-of-band management interface. The arm carries no fields; selecting
+// it says only what the interface is.
 type ManagementInterface struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
 	unknownFields protoimpl.UnknownFields

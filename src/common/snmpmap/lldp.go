@@ -20,9 +20,29 @@ var (
 	// message.
 	ErrCodeLLDPNeighborIncomplete = errs.NewCode("snmpmap/lldp-neighbor-incomplete")
 	// ErrCodeLLDPWalk identifies a failure of one of the LLDP-MIB table
-	// walks. No LLDP facts are returned with it.
+	// walks. A failed walk of a table the facts are keyed on —
+	// lldpPortConfigTable, lldpRemTable, lldpLocManAddrTable — returns no
+	// LLDP facts; a failed walk of one that only enriches those rows
+	// returns them with fewer facts on them.
 	ErrCodeLLDPWalk = errs.NewCode("snmpmap/lldp-walk")
 )
+
+// fatalWalk marks the failure of a table the surrounding mapping cannot
+// stand without, telling [LLDP] apart from the failure of a table that
+// only enriches rows already collected. It unwraps to the error it
+// marks, so the code and attributes stay discoverable.
+type fatalWalk struct{ err error }
+
+func (f fatalWalk) Error() string { return f.err.Error() }
+
+func (f fatalWalk) Unwrap() error { return f.err }
+
+// isFatalWalk reports whether err carries a [fatalWalk] mark.
+func isFatalWalk(err error) bool {
+	var f fatalWalk
+
+	return errors.As(err, &f)
+}
 
 // LLDPFacts are the messages one device's LLDP-MIB yields: what the
 // device announces about itself, how each of its ports runs the
@@ -88,17 +108,19 @@ const (
 	ipv6Family = 2
 )
 
-// tlvTypeOfBit translates the bit positions of lldpPortConfigTLVsTxEnable
-// into the TLV type numbers IEEE Std 802.1AB assigns, which is what the
-// schema speaks. The two numberings are unrelated — bit 0 enables the TLV
-// of type 4 — and the MIB names no other position, so a position outside
-// this table names no TLV and is dropped rather than guessed at.
-var tlvTypeOfBit = map[snmp.BitPos]lldpv1.TlvType{
-	0: lldpv1.TlvType_TLV_TYPE_PORT_DESCRIPTION,
-	1: lldpv1.TlvType_TLV_TYPE_SYSTEM_NAME,
-	2: lldpv1.TlvType_TLV_TYPE_SYSTEM_DESCRIPTION,
-	3: lldpv1.TlvType_TLV_TYPE_SYSTEM_CAPABILITIES,
-}
+// tlvTypeOfBitOffset is the distance between the bit positions of
+// lldpPortConfigTLVsTxEnable and the TLV type numbers IEEE Std 802.1AB
+// assigns, which is what the schema speaks: the bitmap starts at the
+// first optional TLV, so position 0 enables the type-4 port description
+// and every position after it counts along the same registry.
+//
+// maxTLVTypeBit is the last position that lands on a type the protocol
+// has: types run to 127, and the offset keeps the mapping clear of type
+// 0, the end-of-LLDPDU marker the schema rejects.
+const (
+	tlvTypeOfBitOffset = 4
+	maxTLVTypeBit      = 127 - tlvTypeOfBitOffset
+)
 
 // LLDP walks LLDP-MIB on sess and returns the device's own announcement,
 // its per-port settings, and the neighbors it holds.
@@ -110,31 +132,35 @@ var tlvTypeOfBit = map[snmp.BitPos]lldpv1.TlvType{
 // resolve is rendered as its decimal digits rather than dropped: the
 // announcement is real and the port number is what identifies it.
 //
-// A failed walk returns no facts and an error carrying [ErrCodeLLDPWalk].
-// A remote row that cannot produce a valid message returns alongside the
-// rows that could, reported through the joined error, so a caller that
-// ignores the error still sees a truthful if incomplete neighbor set. A
-// row whose index suffix is not what the MIB's INDEX clause describes is
-// skipped silently, as is a scalar the agent does not implement.
+// A failed walk of a table the facts are keyed on returns no facts and an
+// error carrying [ErrCodeLLDPWalk]; a failed walk of an enriching table
+// returns the facts collected so far and that error beside them. A remote
+// row that cannot produce a valid message returns alongside the rows that
+// could, reported through the joined error, so a caller that ignores the
+// error still sees a truthful if incomplete neighbor set. A row whose
+// index suffix is not what the MIB's INDEX clause describes is skipped
+// silently, as is a scalar the agent does not implement.
 func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (LLDPFacts, error) {
-	ports, err := lldpPorts(ctx, sess, portNames)
-	if err != nil {
-		return LLDPFacts{}, err
+	// A base table's failed walk is fatal where an enriching walk's and a
+	// row that could not be mapped are not, so results and errors travel
+	// back together and the fatal ones carry a mark.
+	ports, portErr := lldpPorts(ctx, sess, portNames)
+	if isFatalWalk(portErr) {
+		return LLDPFacts{}, portErr
 	}
 
-	// A failed walk is fatal where a row that could not be mapped is not,
-	// so the two travel back together and are told apart by their code.
-	neighbors, rowErr := lldpNeighbors(ctx, sess, portNames)
-	if code, ok := errs.CodeOf(rowErr); ok && code == ErrCodeLLDPWalk {
-		return LLDPFacts{}, rowErr
+	neighbors, neighborErr := lldpNeighbors(ctx, sess, portNames)
+	if isFatalWalk(neighborErr) {
+		return LLDPFacts{}, errors.Join(neighborErr, portErr)
 	}
 
 	local, err := lldpLocalSystem(ctx, sess)
 	if err != nil {
-		return LLDPFacts{}, err
+		return LLDPFacts{}, errors.Join(err, portErr, neighborErr)
 	}
 
-	return LLDPFacts{LocalSystem: local, Ports: ports, Neighbors: neighbors}, rowErr
+	return LLDPFacts{LocalSystem: local, Ports: ports, Neighbors: neighbors},
+		errors.Join(portErr, neighborErr)
 }
 
 // lldpLocalSystem reads the device's own announcement: the local-system
@@ -220,7 +246,9 @@ func lldpLocManAddrs(ctx context.Context, sess snmp.Session) ([]*lldpv1.Manageme
 
 // lldpPorts maps the per-port settings of both port tables, joined on the
 // LLDP port number their indexes carry. A device that implements only one
-// of the two still yields ports, with fewer facts on them.
+// of the two still yields ports, with fewer facts on them, and so does a
+// device whose lldpLocPortTable walk fails partway — that table only
+// enriches the ports lldpPortConfigTable already named.
 func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]string) ([]*lldpv1.PortSettings, error) {
 	type portRow struct {
 		config lldpmib.LldpPortConfigTableRow
@@ -253,7 +281,7 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 	}
 
 	if err := configWalk.Err(); err != nil {
-		return nil, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpPortConfigTable")
+		return nil, fatalWalk{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpPortConfigTable")}
 	}
 
 	locWalk := lldpmib.LldpLocPortTable.Walk(ctx, sess, locPortColumns...)
@@ -266,8 +294,9 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 		at(num).loc = row
 	}
 
+	var locErr error
 	if err := locWalk.Err(); err != nil {
-		return nil, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpLocPortTable")
+		locErr = errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpLocPortTable")
 	}
 
 	ports := make([]*lldpv1.PortSettings, 0, len(order))
@@ -308,7 +337,7 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 		ports = append(ports, port)
 	}
 
-	return ports, nil
+	return ports, locErr
 }
 
 // remKey identifies one lldpRemTable row by the arcs of its index, which
@@ -320,12 +349,11 @@ type remKey struct {
 }
 
 // lldpNeighbors maps lldpRemTable, joining each row to the management
-// addresses lldpRemManAddrTable carries under the same index prefix.
+// addresses lldpRemManAddrTable carries under the same index prefix. A
+// failed address walk costs the neighbors it did not reach their
+// addresses, not their existence, so it travels back beside them.
 func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]string) ([]*lldpv1.Neighbor, error) {
-	addrs, err := lldpRemManAddrs(ctx, sess)
-	if err != nil {
-		return nil, err
-	}
+	addrs, addrErr := lldpRemManAddrs(ctx, sess)
 
 	var (
 		neighbors []*lldpv1.Neighbor
@@ -350,16 +378,19 @@ func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]
 	}
 
 	if err := walk.Err(); err != nil {
-		return nil, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemTable")
+		fatal := fatalWalk{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemTable")}
+
+		return nil, errors.Join(fatal, addrErr)
 	}
 
-	return neighbors, errors.Join(rowErrs...)
+	return neighbors, errors.Join(addrErr, errors.Join(rowErrs...))
 }
 
 // lldpRemManAddrs walks the neighbors' management addresses and groups
 // them by the remote row they belong to. Both the address family and the
 // address octets are index arcs — the table's columns say only how the
-// neighbor reaches that address, not what it is.
+// neighbor reaches that address, not what it is. A walk that stops
+// partway returns the groups it did read beside its error.
 func lldpRemManAddrs(ctx context.Context, sess snmp.Session) (map[remKey][]*lldpv1.ManagementAddress, error) {
 	addrs := make(map[remKey][]*lldpv1.ManagementAddress)
 
@@ -379,7 +410,7 @@ func lldpRemManAddrs(ctx context.Context, sess snmp.Session) (map[remKey][]*lldp
 	}
 
 	if err := walk.Err(); err != nil {
-		return nil, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemManAddrTable")
+		return addrs, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemManAddrTable")
 	}
 
 	return addrs, nil
@@ -575,16 +606,21 @@ func capabilities(bits snmp.BitSet) []lldpv1.SystemCapability {
 	return caps
 }
 
-// transmittedTLVs translates the enablement bitmap into TLV types per
-// [tlvTypeOfBit].
+// transmittedTLVs translates the enablement bitmap into TLV types by
+// [tlvTypeOfBitOffset]. A position the schema does not name is kept as
+// its own value, for the reason [capabilities] keeps one: the device said
+// it transmits that TLV, and only the name is missing. A position past
+// [maxTLVTypeBit] names no type at all and is dropped.
 func transmittedTLVs(bits snmp.BitSet) []lldpv1.TlvType {
 	positions := bits.Positions()
 	tlvs := make([]lldpv1.TlvType, 0, len(positions))
 
 	for _, p := range positions {
-		if tlv, ok := tlvTypeOfBit[p]; ok {
-			tlvs = append(tlvs, tlv)
+		if p > maxTLVTypeBit {
+			continue
 		}
+
+		tlvs = append(tlvs, lldpv1.TlvType(p+tlvTypeOfBitOffset))
 	}
 
 	return tlvs

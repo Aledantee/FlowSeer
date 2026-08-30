@@ -172,3 +172,26 @@ func TestNewBitSet(t *testing.T) {
 		t.Errorf("empty String() = %q, want %q", NewBitSet().String(), "{}")
 	}
 }
+
+func TestDecodeBitSet_OversizedDeclines(t *testing.T) {
+	// An agent answering a two-octet BITS object with kilobytes of set
+	// bits would otherwise become one enum value per set position in
+	// every message built from it.
+	huge := make([]byte, MaxBitSetOctets+1)
+	for i := range huge {
+		huge[i] = 0xFF
+	}
+	if _, err := DecodeBitSet(bitsVarBind(huge...)); !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("DecodeBitSet(%d octets) error = %v, want ErrTypeMismatch", len(huge), err)
+	}
+
+	atLimit := make([]byte, MaxBitSetOctets)
+	atLimit[MaxBitSetOctets-1] = 0x01
+	got, err := DecodeBitSet(bitsVarBind(atLimit...))
+	if err != nil {
+		t.Fatalf("DecodeBitSet at the limit: %v", err)
+	}
+	if last := BitPos(MaxBitSetOctets*8 - 1); !got.Has(last) {
+		t.Errorf("Has(%d) = false, want true", last)
+	}
+}

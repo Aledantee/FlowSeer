@@ -21,8 +21,8 @@ const (
 )
 
 // An interface whose frames are encapsulated for transport across another
-// network. The arm names the kind; tunnel endpoints and encapsulation
-// attributes are not part of this version's contract.
+// network. The arm carries no fields; selecting it says only what the
+// interface is.
 type TunnelInterface struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
 	unknownFields protoimpl.UnknownFields

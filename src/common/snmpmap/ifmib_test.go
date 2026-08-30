@@ -10,6 +10,7 @@ import (
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/snmp"
 	"go.aledante.io/FlowSeer/src/common/snmpmap"
 )
 
@@ -23,6 +24,42 @@ func ifRow(idx uint32, descr string, ifType int32) []vbFixture {
 		integerVar(ifEntry, 4, idx, 1500),
 		integerVar(ifEntry, 7, idx, 1),
 		integerVar(ifEntry, 8, idx, 1),
+	}
+}
+
+// failingWalkSession answers every walk from its fixtures except the one
+// under root, which fails the way an agent that times out or returns an
+// undecodable varbind mid-table does. BulkWalkRaw is overridden as well
+// as BulkWalk because the embedded fake reaches its own BulkWalk
+// directly, without passing through this type.
+type failingWalkSession struct {
+	*fakeSession
+
+	root snmp.OID
+	err  error
+}
+
+func (s *failingWalkSession) BulkWalk(ctx context.Context, root snmp.OID, opts ...snmp.CallOption) *snmp.Walker {
+	if !root.HasPrefix(s.root) {
+		return s.fakeSession.BulkWalk(ctx, root, opts...)
+	}
+
+	w := snmp.NewWalker(ctx, 1)
+	w.Pump(func(context.Context) { w.Fail(s.err) })
+
+	return w
+}
+
+func (s *failingWalkSession) BulkWalkRaw(ctx context.Context, root snmp.OID, opts ...snmp.CallOption) *snmp.RawWalker {
+	return snmp.RawWalkerFromWalker(ctx, s.BulkWalk(ctx, root, opts...))
+}
+
+// walkFailure builds the session a degraded-walk test runs against.
+func walkFailure(vbs []vbFixture, root snmp.OID) *failingWalkSession {
+	return &failingWalkSession{
+		fakeSession: &fakeSession{vbs: vbs},
+		root:        root,
+		err:         errs.Msg("agent stopped answering"),
 	}
 }
 
@@ -371,6 +408,50 @@ func TestInterfaces_UnusableRowsReported(t *testing.T) {
 
 	if len(ifaces) != 1 || ifaces[0].GetName() != "eth2" {
 		t.Fatalf("got %d interfaces, want only the usable one", len(ifaces))
+	}
+}
+
+// TestInterfaces_FailedIfXWalkKeepsInterfaces holds the degraded path the
+// package promises: ifXTable only enriches rows ifTable already carried,
+// so a device whose ifXTable walk dies still yields its interfaces, with
+// the failure reported beside them.
+func TestInterfaces_FailedIfXWalkKeepsInterfaces(t *testing.T) {
+	vbs := append(ifRow(1, "eth0", 6), ifRow(2, "eth1", 6)...)
+
+	sess := walkFailure(vbs, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1))
+
+	ifaces, err := snmpmap.Interfaces(context.Background(), sess)
+	if err == nil {
+		t.Fatal("got no error, want the failed ifXTable walk reported")
+	}
+
+	walkErr := errs.New().Code(snmpmap.ErrCodeInterfaceWalk).Msg("walk")
+	if !errors.Is(err, walkErr) {
+		t.Errorf("got %v, want an interface-walk code", err)
+	}
+
+	if len(ifaces) != 2 {
+		t.Fatalf("got %d interfaces, want both ifTable rows", len(ifaces))
+	}
+
+	if ifaces[0].GetName() != "eth0" || ifaces[1].GetName() != "eth1" {
+		t.Errorf("got names %q and %q, want the ifDescr fallbacks", ifaces[0].GetName(), ifaces[1].GetName())
+	}
+}
+
+// TestInterfaces_FailedIfTableWalkYieldsNothing pins the other half of
+// that judgment: ifTable is what an interface is, so its failure leaves
+// nothing to return.
+func TestInterfaces_FailedIfTableWalkYieldsNothing(t *testing.T) {
+	sess := walkFailure(ifRow(1, "eth0", 6), snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2))
+
+	ifaces, err := snmpmap.Interfaces(context.Background(), sess)
+	if err == nil {
+		t.Fatal("got no error, want the failed ifTable walk reported")
+	}
+
+	if len(ifaces) != 0 {
+		t.Errorf("got %d interfaces, want none", len(ifaces))
 	}
 }
 

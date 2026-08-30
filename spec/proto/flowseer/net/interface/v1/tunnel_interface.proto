@@ -3,6 +3,6 @@ edition = "2024";
 package flowseer.net.interface.v1;
 
 // An interface whose frames are encapsulated for transport across another
-// network. The arm names the kind; tunnel endpoints and encapsulation
-// attributes are not part of this version's contract.
+// network. The arm carries no fields; selecting it says only what the
+// interface is.
 message TunnelInterface {}

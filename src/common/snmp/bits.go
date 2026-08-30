@@ -3,6 +3,8 @@ package snmp
 import (
 	"strconv"
 	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // BitPos is a zero-based bit position inside an SMIv2 BITS value.
@@ -51,16 +53,32 @@ func NewBitSet(positions ...BitPos) BitSet {
 	return BitSet{octets: trimTrailingZeros(octets)}
 }
 
+// MaxBitSetOctets bounds what [DecodeBitSet] will accept. No SMIv2 BITS
+// definition in practice names more than a few dozen positions, so a
+// larger answer is a broken or hostile agent rather than a wide
+// enumeration. The bound matters because each set position becomes a
+// value in the consuming message: an unbounded answer of set bits turns
+// one varbind into hundreds of thousands of entries.
+const MaxBitSetOctets = 32
+
 // DecodeBitSet decodes an SMIv2 BITS value from its OCTET STRING wire
 // form. Exception variants surface as a wrapped [ErrException] and
 // non-OctetString variants as a wrapped [ErrTypeMismatch]; a value
 // shorter than the MIB's named bits is legal SNMP, and its missing bits
-// simply read unset.
+// simply read unset. A value longer than [MaxBitSetOctets] declines with
+// a wrapped [ErrTypeMismatch] rather than materializing every position it
+// claims.
 func DecodeBitSet(vb VarBind) (BitSet, error) {
 	raw, err := DecodeBITS(vb)
 	if err != nil {
 		return BitSet{}, err
 	}
+
+	if len(raw) > MaxBitSetOctets {
+		return BitSet{}, errs.Wrapf(ErrTypeMismatch,
+			"BITS value of %d octets exceeds the %d-octet limit", len(raw), MaxBitSetOctets)
+	}
+
 	return BitSet{octets: trimTrailingZeros(raw)}, nil
 }
 
