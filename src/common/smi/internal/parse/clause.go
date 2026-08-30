@@ -142,31 +142,37 @@ func (s ClauseSet) String() string {
 	return out + "]"
 }
 
-// Satisfies reports whether the set holds every clause kind requires.
+// Satisfies reports whether the set holds every clause kind requires in
+// dialect d.
+//
 // This is the gate a resolution pass reads: a declaration that kept its
 // OID but lost a required clause fails here and so cannot be rendered as
-// if it were whole.
-//
-// An SMIv1 ACCESS clause counts as the access clause an OBJECT-TYPE
-// requires. The two are separate fields because their semantics are
-// inverted and a later pass grades which one belongs in which dialect;
-// demoting every SMIv1 object here would prejudge that.
-func (s ClauseSet) Satisfies(kind DeclKind) bool {
-	if s.Has(ClauseAccess) {
-		s = s.with(ClauseMaxAccess)
-	}
-	req := requiredClauses[kind]
+// if it were whole. It takes the dialect because what a macro requires
+// is not the same under both SMIs, and a caller that has a declaration
+// always has the module it came from.
+func (s ClauseSet) Satisfies(kind DeclKind, d Dialect) bool {
+	req := requiredIn(kind, d)
 
-	return s&req == req
+	return s.withAccess()&req == req
 }
 
-// Missing returns the clauses kind requires that the set lacks.
-func (s ClauseSet) Missing(kind DeclKind) ClauseSet {
+// Missing returns the clauses kind requires in dialect d that the set
+// lacks.
+func (s ClauseSet) Missing(kind DeclKind, d Dialect) ClauseSet {
+	return requiredIn(kind, d) &^ s.withAccess()
+}
+
+// withAccess counts an SMIv1 ACCESS clause as the access clause an
+// OBJECT-TYPE requires, whichever dialect is grading. The two are
+// separate fields because their semantics are inverted, and the dialect
+// pass grades which one belongs where; demoting every SMIv1 object over
+// the spelling would prejudge that.
+func (s ClauseSet) withAccess() ClauseSet {
 	if s.Has(ClauseAccess) {
-		s = s.with(ClauseMaxAccess)
+		return s.with(ClauseMaxAccess)
 	}
 
-	return requiredClauses[kind] &^ s
+	return s
 }
 
 // clauseOrder is each macro's fixed clause order, which is the order the

@@ -210,7 +210,7 @@ plain OBJECT-TYPE
 	if len(m.ObjectTypes) != 1 {
 		t.Fatalf("got %d object types, want 1", len(m.ObjectTypes))
 	}
-	if !m.ObjectTypes[0].Present.Satisfies(DeclObjectType) {
+	if !m.ObjectTypes[0].Present.Satisfies(DeclObjectType, DialectV2) {
 		t.Error("a declaration with every required clause reports its required set unsatisfied")
 	}
 }
@@ -231,7 +231,7 @@ noStatus OBJECT-TYPE
 	if len(m.Bad) != 1 {
 		t.Fatalf("got %d bad declarations, want 1", len(m.Bad))
 	}
-	if m.Bad[0].Present.Satisfies(DeclObjectType) {
+	if m.Bad[0].Present.Satisfies(DeclObjectType, DialectV2) {
 		t.Error("a declaration missing STATUS reports its required set satisfied")
 	}
 }

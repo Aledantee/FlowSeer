@@ -136,6 +136,14 @@ var entries = []Entry{
 	},
 	{
 		Severity:    3,
+		Code:        "smi/dialect-value-mismatch",
+		Tag:         "DialectValueMismatch",
+		Format:      "%s value %q belongs to %s, and this module is read as %s",
+		Arity:       4,
+		Description: "a clause value only one of the two SMI dialects defines, written in a module read as the other one, which is graded and kept because the value still says what its author meant",
+	},
+	{
+		Severity:    3,
 		Code:        "smi/odd-hex-string",
 		Tag:         "OddHexString",
 		Format:      "hexadecimal string has %d digits, an odd count that leaves a half byte",

@@ -53,6 +53,8 @@ type parser struct {
 	syncCount  int
 	depth      int
 
+	dialect Dialect
+
 	d pending
 }
 
@@ -85,6 +87,12 @@ func (p *parser) offset() int32 {
 	}
 
 	return p.toks[p.pos].Offset
+}
+
+// spanText materializes the source a span covers. It is for the short
+// clause values the dialect pass grades, never for a DESCRIPTION.
+func (p *parser) spanText(s Span) string {
+	return string(p.res.Bytes(s.Start, s.End))
 }
 
 func (p *parser) span() Span {

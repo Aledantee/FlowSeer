@@ -135,7 +135,15 @@ type BadDecl struct {
 // dialect pass needs.
 type ObjectType struct {
 	Decl
-	Syntax      Span
+	Syntax Span
+
+	// MappedSyntax is the SMIv2 type the SYNTAX clause's base type is
+	// equivalent to when that base type is one of SMIv1's, and empty
+	// otherwise. Syntax keeps the source spelling either way, so a
+	// consumer that wants the modern type reads this and a diagnostic
+	// that quotes the file still quotes the file.
+	MappedSyntax string
+
 	Units       Span
 	MaxAccess   Span
 	Access      Span
@@ -226,6 +234,10 @@ type TrapType struct {
 	Description Span
 	Reference   Span
 	Assignment  Span
+
+	// Notification is the notification OID this trap denotes, derived
+	// from the enterprise and the trap number by the dialect pass.
+	Notification NotificationOID
 }
 
 // ObjectGroup is an OBJECT-GROUP declaration (RFC 2580 §3).

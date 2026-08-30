@@ -34,6 +34,20 @@
 // grammar of its own and reading it loosely here would mean reading it
 // twice.
 //
+// # Two dialects, one AST
+//
+// SMIv1 and SMIv2 read into the same nodes. The dialect is settled per
+// module before any declaration is parsed, because it changes what a
+// declaration must carry — RFC 1212 leaves an OBJECT-TYPE's DESCRIPTION
+// optional and RFC 2578 requires it — and grading an SMIv1 module
+// against the SMIv2 rules would turn most of the pre-1996 corpus into
+// bad declarations. What differs between the dialects is then graded
+// rather than rewritten: ACCESS and MAX-ACCESS stay separate fields
+// because SMIv1 states a minimum and SMIv2 a maximum, a SYNTAX keeps its
+// source spelling next to the SMIv2 type it is equivalent to, and a
+// TRAP-TYPE carries the notification OID it denotes rather than being
+// converted into a NOTIFICATION-TYPE nobody wrote.
+//
 // # A bad declaration is never absent
 //
 // A declaration whose macro's required clauses are not all present
@@ -113,11 +127,18 @@ func Parse(f *frame.File) *Result {
 
 	for _, fm := range f.Modules {
 		m := newModule(fm)
+		m.Dialect = detectDialect(fm, f.Source)
+		p.dialect = m.Dialect
+
 		for _, fr := range fm.Frames {
 			p.declaration(&m, fr)
 			if p.fatal {
 				break
 			}
+		}
+
+		if !p.fatal {
+			p.grade(&m)
 		}
 
 		r.Modules = append(r.Modules, m)
@@ -192,7 +213,7 @@ func (p *parser) declaration(m *Module, fr frame.Frame) {
 func (p *parser) finish(m *Module, fr frame.Frame, kind DeclKind) {
 	decl := Decl{Name: fr.Name, Span: fr.Span, Present: p.d.present}
 
-	missing := p.d.present.Missing(kind)
+	missing := p.d.present.Missing(kind, p.dialect)
 	if kind == DeclBad || missing != 0 {
 		for c := ClauseNone + 1; c < numClauses; c++ {
 			if missing.Has(c) {

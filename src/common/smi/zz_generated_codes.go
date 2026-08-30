@@ -22,6 +22,12 @@ var (
 	// nothing about the modules already read.
 	ErrCodeContentAfterEnd = errs.NewCode("smi/content-after-end")
 
+	// ErrCodeDialectValueMismatch marks a clause value only one of the two
+	// SMI dialects defines, written in a module read as the other one,
+	// which is graded and kept because the value still says what its
+	// author meant.
+	ErrCodeDialectValueMismatch = errs.NewCode("smi/dialect-value-mismatch")
+
 	// ErrCodeDuplicateClause marks a clause repeated in a macro that
 	// allows it once, where keeping the first occurrence is the only
 	// choice a reader can predict.

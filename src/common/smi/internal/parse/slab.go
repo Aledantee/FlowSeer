@@ -16,8 +16,15 @@ import (
 // thousand declarations costs a dozen allocations rather than a growth
 // curve per kind.
 type Module struct {
-	Name  string
-	Span  Span
+	Name string
+	Span Span
+
+	// Dialect is which SMI this module was read as. It is a property of
+	// the module rather than of the file because one file may hold both,
+	// and it is settled before any declaration is parsed: which clauses
+	// an OBJECT-TYPE must carry depends on it.
+	Dialect Dialect
+
 	Decls []Ref
 
 	ObjectTypes        []ObjectType
