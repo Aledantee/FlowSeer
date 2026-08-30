@@ -118,11 +118,9 @@ message Attribute {
     }
   }];
   // The fewest values one assignment of this attribute may hold. Must be
-  // present: every definition declares its cardinality bounds explicitly.
+  // present.
   uint32 min_items = 6 [(buf.validate.field).required = true];
-  // The most values one assignment of this attribute may hold. Never less
-  // than min_items, which needs both fields and is checked by the inventory
-  // service. Must be present.
+  // The most values one assignment of this attribute may hold. Must be present.
   uint32 max_items = 7 [(buf.validate.field).required = true];
 
   // The type every value of this attribute must parse under. Exactly one
