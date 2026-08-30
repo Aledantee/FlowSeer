@@ -3,8 +3,8 @@
 # sub-identifiers. The list form is not in the grammar, and it says
 # plainly enough which node it means to be worth keeping.
 #
-# The braces are doubled because that is the spelling the parser grades.
-# A sub-identifier list written at one brace level — "DEFVAL { 1 3 6 1 }"
-# — is read as the integer default 1 and passes ungraded, which is a
-# second non-conforming form the catalog does not reach.
+# The braces are doubled here. The same list at one brace level is the
+# fixture next door, because that spelling collides with the integer
+# default and a reader that stops at the first number returns 1 for
+# 1.3.6.1.
 code smi/non-conforming-oid-default

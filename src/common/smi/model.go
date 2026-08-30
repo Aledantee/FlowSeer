@@ -386,6 +386,89 @@ type IndexPart struct {
 	Implied bool
 }
 
+// DefaultKind is which of RFC 2578 §7.9's value shapes a DEFVAL
+// resolved to, and therefore which field of a [Default] is filled in.
+//
+// [DefaultNone] is the zero value and means the declaration carries no
+// usable default: either it wrote no DEFVAL, or what it wrote read as
+// nothing the clause defines. The two are not told apart here, because
+// a renderer has the same nothing to render either way and the parser
+// has already reported the payload it could not read.
+type DefaultKind uint8
+
+// The default shapes, one per row of RFC 2578 §7.9.
+const (
+	DefaultNone DefaultKind = iota
+
+	// DefaultInteger is a signed decimal default.
+	DefaultInteger
+
+	// DefaultLabel is a descriptor: an enumeration's label, or the name
+	// of the node an OBJECT IDENTIFIER default points at.
+	DefaultLabel
+
+	// DefaultOctets is a string, hexadecimal or binary default. The three
+	// spellings share a shape because they denote the same thing — the
+	// octets an agent would return — and the model carries values rather
+	// than the way they were typed.
+	DefaultOctets
+
+	// DefaultOID is an object identifier written as sub-identifiers,
+	// which is the non-conforming spelling the RFC has no row for.
+	DefaultOID
+
+	// DefaultBits is a set of bit names, empty for the "{ { } }" RFC 2578
+	// §7.9 spells out for a value with no bit set.
+	DefaultBits
+)
+
+var defaultKindNames = [...]string{
+	DefaultNone:    "none",
+	DefaultInteger: "integer",
+	DefaultLabel:   "label",
+	DefaultOctets:  "octets",
+	DefaultOID:     "oid",
+	DefaultBits:    "bits",
+}
+
+// String returns the shape's name.
+func (k DefaultKind) String() string {
+	if int(k) >= len(defaultKindNames) {
+		return "default(" + strconv.Itoa(int(k)) + ")"
+	}
+
+	return defaultKindNames[k]
+}
+
+// Default is a DEFVAL clause resolved to the value it names.
+//
+// Only the field Kind names is filled in. Name is kept as the descriptor
+// the source wrote rather than resolved further: which enumeration
+// member or which registered node it stands for is a lookup the caller
+// can make against the type or the [ModuleSet], and doing it here would
+// have to invent an answer for a descriptor that resolves to neither.
+//
+// A Default is immutable once [Load] has returned it. Do not modify the
+// slices it carries.
+type Default struct {
+	Kind DefaultKind
+
+	// Number is the value of a [DefaultInteger].
+	Number int64
+
+	// Name is the descriptor of a [DefaultLabel].
+	Name string
+
+	// Octets are the bytes of a [DefaultOctets].
+	Octets []byte
+
+	// OID is the object identifier of a [DefaultOID].
+	OID OID
+
+	// Bits are the member names of a [DefaultBits], in source order.
+	Bits []string
+}
+
 // Node is one declaration placed in the OID tree.
 //
 // A Node is immutable once [Load] has returned it, and the whole tree it
@@ -410,6 +493,10 @@ type Node struct {
 	// Index and Augments are the INDEX and AUGMENTS clauses as written.
 	Index    []IndexPart
 	Augments string
+
+	// Default is the DEFVAL clause resolved per RFC 2578 §7.9, and is
+	// [DefaultNone] for a declaration that carries no usable one.
+	Default Default
 
 	// Unresolved reports that the declaration lost something a renderer
 	// reads: a required clause the parser could not find, an OID whose

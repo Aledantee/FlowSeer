@@ -678,6 +678,7 @@ func (r *resolver) fillNode(b *modBuild, ref parse.Ref, n *Node, report func(str
 		n.Reference = b.src.StringValue(o.Reference)
 		n.Units = b.src.StringValue(o.Units)
 		n.Augments = b.src.Text(o.Augments)
+		n.Default = resolveDefault(b, o.DefaultValue)
 
 		for _, part := range o.Index.Parts {
 			n.Index = append(n.Index, IndexPart{Name: b.src.Text(part.Name), Implied: part.Implied})
@@ -737,6 +738,61 @@ func (r *resolver) fillNode(b *modBuild, ref parse.Ref, n *Node, report func(str
 		n.Description = b.src.StringValue(o.Description)
 		n.Reference = b.src.StringValue(o.Reference)
 	}
+}
+
+// resolveDefault turns a parsed DEFVAL into the value the model
+// carries. A quoted string and a radix literal land in one shape,
+// because the parser has already decoded both to the octets the object
+// would take and the spelling stays in the source.
+func resolveDefault(b *modBuild, v parse.Value) Default {
+	switch v.Kind {
+	case parse.ValueInteger:
+		return Default{Kind: DefaultInteger, Number: v.Number}
+
+	case parse.ValueLabel:
+		return Default{Kind: DefaultLabel, Name: b.src.Text(v.Name)}
+
+	case parse.ValueString, parse.ValueOctets:
+		return Default{Kind: DefaultOctets, Octets: v.Octets}
+
+	case parse.ValueOID:
+		return oidDefault(v.Subs)
+
+	case parse.ValueBits:
+		bits := make([]string, 0, len(v.Bits))
+		for _, name := range v.Bits {
+			bits = append(bits, b.src.Text(name))
+		}
+
+		return Default{Kind: DefaultBits, Bits: bits}
+
+	default:
+		return Default{}
+	}
+}
+
+// oidDefault places a sub-identifier list in an OID, or reports no
+// default when an element is no sub-identifier.
+//
+// Reading nothing is safe here in a way it would not be elsewhere: the
+// list form is graded wherever it is parsed, so the clause already
+// carries a diagnostic and a caller that finds no default has been told
+// why. Rounding an out-of-range element into a uint32 would instead hand
+// back an OID nobody wrote.
+func oidDefault(subs []int64) Default {
+	out := make([]uint32, 0, len(subs))
+	for _, s := range subs {
+		if s < 0 || s > maxSubIdentifier {
+			return Default{}
+		}
+
+		out = append(out, uint32(s))
+	}
+	if len(out) == 0 || len(out) > MaxOIDLength {
+		return Default{}
+	}
+
+	return Default{Kind: DefaultOID, OID: OID{subs: out}}
 }
 
 // addNode appends a node in source order and makes it findable by name.

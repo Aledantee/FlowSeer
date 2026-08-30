@@ -145,11 +145,24 @@ func (t Type) describe() string {
 	return t.Base.String()
 }
 
-// limits returns the values the base type can take, and whether it has
-// bounds this pass knows. Counter64 has none here on purpose: RFC 2578
-// §7.1.10 forbids subtyping it at all, and its upper bound does not fit
-// in the int64 a bound is read into.
-func (b BaseType) limits() (low, high int64, known bool) {
+// limits returns the values the base type can take in d, and whether it
+// has bounds this pass knows. Counter64 has none here on purpose: RFC
+// 2578 §7.1.10 forbids subtyping it at all, and its upper bound does not
+// fit in the int64 a bound is read into.
+//
+// INTEGER is the one base type the two dialects bound differently. RFC
+// 2578 §7.1.1 narrows it to -2^31..2^31-1, but that is SMIv2's rule
+// about SMIv2 modules; RFC 1155 §3.2.2 builds SMIv1's application types
+// on ASN.1's own unconstrained INTEGER, which is why RFC 1155 §3.2.3.3
+// writes Counter as INTEGER (0..4294967295). Every other bound here —
+// the unsigned 32-bit types, and the OCTET STRING length below — says
+// the same thing in both dialects and is worth grading in both, so the
+// exception is INTEGER's alone rather than a blanket amnesty for SMIv1.
+func (b BaseType) limits(d Dialect) (low, high int64, known bool) {
+	if b == BaseInteger && d == DialectV1 {
+		return 0, 0, false
+	}
+
 	switch b {
 	case BaseInteger, BaseInteger32:
 		return math.MinInt32, math.MaxInt32, true
@@ -590,7 +603,7 @@ func (r *reader) gradeRange(t *Type, rg Range, prev *Range, size bool) {
 			diag.ArgInt(int(prev.Min)), diag.ArgInt(int(prev.Max)))
 	}
 
-	low, high, known := containment(t.Base, size)
+	low, high, known := containment(t.Base, size, r.p.dialect)
 	if !known || rg.Min == math.MinInt64 || rg.Max == math.MaxInt64 {
 		return
 	}
@@ -601,11 +614,11 @@ func (r *reader) gradeRange(t *Type, rg Range, prev *Range, size bool) {
 }
 
 // containment returns the values a constraint on this base type may
-// name. A SIZE names a length rather than a value, so it is bounded by
-// how long the base type's strings may be.
-func containment(b BaseType, size bool) (low, high int64, known bool) {
+// name in d. A SIZE names a length rather than a value, so it is bounded
+// by how long the base type's strings may be.
+func containment(b BaseType, size bool, d Dialect) (low, high int64, known bool) {
 	if !size {
-		return b.limits()
+		return b.limits(d)
 	}
 	if b == BaseOctetString {
 		return 0, maxOctetStringLength, true

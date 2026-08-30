@@ -75,6 +75,20 @@ oid            TEST-SCALARS-MIB.deviceState 1.3.6.1.4.1.47000.1.11
 syntax-base    TEST-SCALARS-MIB.deviceState INTEGER
 syntax-members TEST-SCALARS-MIB.deviceState up(1) down(2) testing(3)
 
+# RFC 2578 section 7.9 gives DEFVAL one form per kind of value, and each
+# of the five below is a different one of them. What the model carries is
+# the value, so a quoted string and a hexadecimal literal land in the
+# same shape and are asserted the same way: "none" is 6e6f6e65 and
+# 'c0a80001'H is the four octets of 192.168.0.1. A descriptor is kept as
+# the name it is, because which node or which enumeration label it stands
+# for is a lookup rather than part of the clause.
+default TEST-SCALARS-MIB.fillLevel integer 50
+default TEST-SCALARS-MIB.label octets 6e6f6e65
+default TEST-SCALARS-MIB.pointer label scalars
+default TEST-SCALARS-MIB.address octets c0a80001
+default TEST-SCALARS-MIB.deviceState label up
+default TEST-SCALARS-MIB.upTime (none)
+
 # RFC 2578 section 7.4: obsolete and deprecated are both SMIv2 status
 # values, and section 7.3 defines accessible-for-notify.
 oid    TEST-SCALARS-MIB.retiredValue 1.3.6.1.4.1.47000.1.12

@@ -177,18 +177,29 @@ func TestMalformedOverlappingRangeKeepsBothAlternativesThoughRFC2578ForbidsThem(
 }
 
 // RFC 2578 section 7.9 writes an OBJECT IDENTIFIER default as a
-// descriptor, and the sub-identifier list this fixture uses is not in
-// the grammar at all. It says plainly which node it means, so the
-// declaration is graded and kept.
+// descriptor, and the sub-identifier list these fixtures use is not in
+// the grammar at either brace depth. It says plainly which node it
+// means, so the declaration is graded and kept.
+//
+// The value is asserted as well as the grading. At one brace level the
+// list is the shape an integer default also takes, and reading only its
+// first number returns 1 where the source wrote 1.3.6.1 — a wrong value
+// with nothing said about it, which is worse than either dropping the
+// object or reading the list.
 func TestMalformedOIDDefaultAsSubIdentifiersKeepsItsDeclarationThoughRFC2578HasNoSuchForm(t *testing.T) {
-	set := malformedSet(t, "non-conforming-oid-default")
-
-	n := node(t, set, "BAD-MIB", "pointerDefault")
-	if n.Unresolved {
-		t.Fatal("an object was thrown away over the spelling of its default")
-	}
-	if n.Type == nil || n.Type.Base != smi.BaseObjectIdentifier {
-		t.Errorf("type = %+v, want OBJECT IDENTIFIER", n.Type)
+	for _, fixture := range []string{"non-conforming-oid-default", "non-conforming-oid-default-one-brace"} {
+		t.Run(fixture, func(t *testing.T) {
+			n := node(t, malformedSet(t, fixture), "BAD-MIB", "pointerDefault")
+			if n.Unresolved {
+				t.Fatal("an object was thrown away over the spelling of its default")
+			}
+			if n.Type == nil || n.Type.Base != smi.BaseObjectIdentifier {
+				t.Errorf("type = %+v, want OBJECT IDENTIFIER", n.Type)
+			}
+			if got := renderDefault(n.Default); got != "oid 1.3.6.1" {
+				t.Errorf("default = %q, want %q", got, "oid 1.3.6.1")
+			}
+		})
 	}
 }
 

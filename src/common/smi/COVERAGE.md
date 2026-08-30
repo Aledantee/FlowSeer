@@ -9,7 +9,7 @@ fixture asserts the exact set of codes its load produces. A code with no
 fixture, and a fixture naming a code the catalog does not carry, both fail
 the build.
 
-**33 codes, 33 fixtures.**
+**33 codes, 34 fixtures.**
 
 | code | severity | fixture | asserted by |
 |---|---|---|---|
@@ -32,7 +32,7 @@ the build.
 | `smi/missing-module-header` | 1 | `testdata/malformed/missing-module-header` | `TestMalformedFixtures/missing-module-header` |
 | `smi/module-not-found` | 2 | `testdata/malformed/module-not-found` | `TestMalformedFixtures/module-not-found` |
 | `smi/negative-size` | 2 | `testdata/malformed/negative-size` | `TestMalformedFixtures/negative-size` |
-| `smi/non-conforming-oid-default` | 3 | `testdata/malformed/non-conforming-oid-default` | `TestMalformedFixtures/non-conforming-oid-default` |
+| `smi/non-conforming-oid-default` | 3 | `testdata/malformed/non-conforming-oid-default`<br>`testdata/malformed/non-conforming-oid-default-one-brace` | `TestMalformedFixtures/non-conforming-oid-default`<br>`TestMalformedFixtures/non-conforming-oid-default-one-brace` |
 | `smi/odd-hex-string` | 3 | `testdata/malformed/odd-hex-string` | `TestMalformedFixtures/odd-hex-string` |
 | `smi/overlapping-range` | 3 | `testdata/malformed/overlapping-range` | `TestMalformedFixtures/overlapping-range` |
 | `smi/paired-comment-mode` | 6 | `testdata/malformed/paired-comment-mode`<br>`testdata/malformed/unterminated-comment` | `TestMalformedFixtures/paired-comment-mode`<br>`TestMalformedFixtures/unterminated-comment` |

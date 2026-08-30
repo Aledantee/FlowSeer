@@ -55,11 +55,15 @@ func requiredIn(kind DeclKind, d Dialect) ClauseSet {
 	return req
 }
 
-// dialectModules names the modules whose import says which SMI a file is
-// written against. These are the definitional modules — the ones that
-// export OBJECT-TYPE, the base types and the macros — rather than every
-// module of an era, because importing a MIB says nothing about the SMI
-// its importer is written in.
+// dialectModules names the definitional modules — the ones that export
+// OBJECT-TYPE, the base types and the macros — rather than every module
+// of an era, because importing a MIB says nothing about the SMI its
+// importer is written in.
+//
+// The table is read in both directions. A module that imports from one
+// of these is written against that SMI, and a module that *is* one of
+// these is that SMI: RFC 1155 is the SMIv1 standard, so the file
+// carrying its definitions cannot be anything else.
 var dialectModules = map[string]Dialect{
 	"RFC1155-SMI": DialectV1,
 	"RFC1065-SMI": DialectV1,
@@ -74,7 +78,13 @@ var dialectModules = map[string]Dialect{
 
 // detectDialect reads which SMI a module is written in.
 //
-// Imports decide it when they point one way, because an IMPORTS list is
+// A definitional module's own name settles it before anything else is
+// read, and it has to: those files are where the two signals below are
+// least informative. RFC1155-SMI imports nothing and declares no
+// OBJECT-TYPE, so a reading built on imports and clause forms alone
+// would drop the SMIv1 standard itself into the SMIv2 default.
+//
+// Otherwise imports decide it when they point one way, because an IMPORTS list is
 // a statement of intent: a module that says FROM SNMPv2-SMI is claiming
 // the SMIv2 grammar whatever it then writes. When the imports point both
 // ways — which the corpus does whenever a converted module still pulls
@@ -84,6 +94,10 @@ var dialectModules = map[string]Dialect{
 // tokens the framer already cut, so detection runs before parsing and
 // the required-clause gate knows the dialect before it grades anything.
 func detectDialect(fm frame.Module, res *lex.Result) Dialect {
+	if d, own := dialectModules[fm.Name]; own {
+		return d
+	}
+
 	var fromV1, fromV2 bool
 	for _, fr := range fm.Frames {
 		if fr.Kind != frame.KindImports {

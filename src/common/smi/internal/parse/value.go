@@ -228,10 +228,7 @@ func (r *reader) defaultValue(base BaseType) Value {
 		v.Kind = ValueOctets
 		v.Octets = r.binaryOctets()
 	case r.at(lex.KindNumber), r.at(lex.KindMinus):
-		if n, _, ok := r.integer(); ok {
-			v.Kind = ValueInteger
-			v.Number = n
-		}
+		r.numericDefault(&v, base)
 	case r.isName():
 		v.Kind = ValueLabel
 		v.Name = r.span()
@@ -239,6 +236,45 @@ func (r *reader) defaultValue(base BaseType) Value {
 	}
 
 	return v
+}
+
+// numericDefault reads a default whose payload begins with a number,
+// positioned at that number.
+//
+// One number is the integer default RFC 2578 §7.9 defines. Several are
+// the sub-identifier list some MIBs write an OBJECT IDENTIFIER default
+// as, here at DEFVAL's own brace level rather than nested inside a
+// second pair; the RFC defines the form at neither depth, so it is read
+// and reported exactly as the nested spelling is. Stopping at the first
+// number instead would answer 1 where the source wrote 1.3.6.1 and say
+// nothing about the difference, which is the one outcome this parser
+// exists to prevent.
+//
+// A declared OBJECT IDENTIFIER makes even a single number the list form,
+// since no OID default is an integer whatever it is spelled with.
+func (r *reader) numericDefault(v *Value, base BaseType) {
+	var subs []int64
+
+	for r.more() && !r.at(lex.KindRightBrace) {
+		n, _, ok := r.integer()
+		if !ok {
+			break
+		}
+
+		subs = append(subs, n)
+	}
+
+	switch {
+	case len(subs) == 0:
+		return
+	case len(subs) == 1 && base != BaseObjectIdentifier:
+		v.Kind = ValueInteger
+		v.Number = subs[0]
+	default:
+		v.Kind = ValueOID
+		v.Subs = subs
+		r.p.raise(v.Span.Start, diag.ErrCodeNonConformingOIDDefault)
+	}
 }
 
 // nestedDefault reads the "{ { ... } }" form, positioned at the inner

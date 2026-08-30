@@ -5,7 +5,7 @@ unresolved-declarations 27
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 47
+severity error 44
 severity minor 2
 severity change 0
 severity warning 0
@@ -15,6 +15,6 @@ diagnostic smi/display-hint-malformed error 2
 diagnostic smi/display-hint-not-permitted error 3
 diagnostic smi/missing-import minor 1
 diagnostic smi/module-not-found error 4
-diagnostic smi/range-outside-base-type error 9
+diagnostic smi/range-outside-base-type error 6
 diagnostic smi/unexpected-token error 2
 diagnostic smi/unresolved-declaration error 27

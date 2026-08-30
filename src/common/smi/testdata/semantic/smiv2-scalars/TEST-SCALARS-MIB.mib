@@ -36,6 +36,7 @@ fillLevel OBJECT-TYPE
     MAX-ACCESS  read-write
     STATUS      current
     DESCRIPTION "A latching non-negative value."
+    DEFVAL      { 50 }
     ::= { scalars 3 }
 
 upTime OBJECT-TYPE
@@ -65,6 +66,7 @@ label OBJECT-TYPE
     MAX-ACCESS  read-create
     STATUS      current
     DESCRIPTION "An octet string a SIZE clause constrains."
+    DEFVAL      { "none" }
     ::= { scalars 7 }
 
 pointer OBJECT-TYPE
@@ -72,6 +74,7 @@ pointer OBJECT-TYPE
     MAX-ACCESS  read-write
     STATUS      current
     DESCRIPTION "A pointer to another registration."
+    DEFVAL      { scalars }
     ::= { scalars 8 }
 
 address OBJECT-TYPE
@@ -79,6 +82,7 @@ address OBJECT-TYPE
     MAX-ACCESS  read-write
     STATUS      current
     DESCRIPTION "Four octets in network byte order."
+    DEFVAL      { 'c0a80001'H }
     ::= { scalars 9 }
 
 wrapped OBJECT-TYPE
@@ -93,6 +97,7 @@ deviceState OBJECT-TYPE
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "An enumerated INTEGER, which has no zero value here."
+    DEFVAL      { up }
     ::= { scalars 11 }
 
 retiredValue OBJECT-TYPE

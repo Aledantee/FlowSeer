@@ -53,6 +53,13 @@
 // downstream reads the structure, so computing it would buy a pass
 // nobody reads.
 //
+// [Node.Default] draws the same line one clause over. A DEFVAL comes
+// back as the value it names — a number, octets, an OID, a set of bit
+// names — and a descriptor comes back as the descriptor, because which
+// enumeration member or which registered node it stands for is a lookup
+// the caller can make and one this pass would have to invent an answer
+// for when it is neither.
+//
 // A declaration missing a clause any renderer reads comes back marked
 // [Node.Unresolved] with no type at all, rather than resolving with a
 // defaulted one, because a defaulted type renders exactly as if somebody

@@ -5,7 +5,7 @@ unresolved-declarations 7892
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 8025
+severity error 8019
 severity minor 2
 severity change 0
 severity warning 0
@@ -14,6 +14,6 @@ diagnostic smi/display-hint-malformed error 4
 diagnostic smi/display-hint-not-permitted error 2
 diagnostic smi/missing-clause error 4
 diagnostic smi/module-not-found error 113
-diagnostic smi/range-outside-base-type error 14
+diagnostic smi/range-outside-base-type error 8
 diagnostic smi/underscore-in-descriptor minor 2
 diagnostic smi/unresolved-declaration error 7888

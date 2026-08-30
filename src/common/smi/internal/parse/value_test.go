@@ -2,6 +2,7 @@ package parse
 
 import (
 	"bytes"
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -216,6 +217,35 @@ func TestNonConformingOIDDefault(t *testing.T) {
 		}
 	}
 	wantText(t, r, "DEFVAL", v.Span, "{ { 1 3 6 1 4 1 } }")
+}
+
+// The same list at one brace level, where DEFVAL's own braces are the
+// only ones there are. It has to be graded and read as an OID for the
+// same reason: taking the first number for an integer default would
+// answer 1 where the source said 1.3.6.1, silently.
+func TestNonConformingOIDDefaultAtOneBraceLevel(t *testing.T) {
+	_, v := defaultOf(t, "OBJECT IDENTIFIER", "{ 1 3 6 1 }", diag.ErrCodeNonConformingOIDDefault)
+
+	if v.Kind != ValueOID {
+		t.Fatalf("default reads as %v, want %v", v.Kind, ValueOID)
+	}
+	if want := []int64{1, 3, 6, 1}; !slices.Equal(v.Subs, want) {
+		t.Errorf("got sub-identifiers %v, want %v", v.Subs, want)
+	}
+}
+
+// A single number stays the integer default RFC 2578 §7.9 defines
+// wherever the declared type leaves room for one. Only a type that can
+// hold no integer at all, or a second number, makes the list form.
+func TestSingleNumberDefaultStaysAnInteger(t *testing.T) {
+	for _, syntax := range []string{"Integer32", "INTEGER { up(1), down(2) }", "DisplayString"} {
+		t.Run(syntax, func(t *testing.T) {
+			_, v := defaultOf(t, syntax, "{ 1 }")
+			if v.Kind != ValueInteger || v.Number != 1 {
+				t.Errorf("default reads as %v %d, want %v 1", v.Kind, v.Number, ValueInteger)
+			}
+		})
+	}
 }
 
 // RFC 2580's VARIATION writes its default with the same production

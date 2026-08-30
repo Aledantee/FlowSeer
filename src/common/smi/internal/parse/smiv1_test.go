@@ -54,6 +54,43 @@ sysUpTime OBJECT-TYPE
 	wantDialect(t, module(t, v2), DialectV2)
 }
 
+// A definitional module is the SMI it defines. RFC1155-SMI imports
+// nothing and writes no OBJECT-TYPE, so neither signal detection reads
+// from a body says anything about the one file whose dialect is least in
+// doubt; its name is what settles it, and the same name settles SMIv2's
+// definitional modules the same way.
+func TestDialectFollowsAModulesOwnName(t *testing.T) {
+	v1 := parseSource(t, "RFC1155-SMI DEFINITIONS ::= BEGIN\n"+
+		"Counter ::= [APPLICATION 1] IMPLICIT INTEGER (0..4294967295)\nEND\n")
+	wantCodes(t, v1)
+	wantDialect(t, module(t, v1), DialectV1)
+
+	v2 := parseSource(t, "SNMPv2-SMI DEFINITIONS ::= BEGIN\n"+
+		"Counter32 ::= [APPLICATION 1] IMPLICIT INTEGER (0..4294967295)\nEND\n")
+	wantDialect(t, module(t, v2), DialectV2)
+}
+
+// RFC 2578 §7.1.1 bounds INTEGER at -2^31..2^31-1, and that is SMIv2's
+// rule about SMIv2 modules. RFC 1155 §3.2.2 builds SMIv1's application
+// types on ASN.1's unconstrained INTEGER, which is how RFC 1155 §3.2.3.3
+// can write Counter as INTEGER (0..4294967295) — verbatim standards text
+// that the SMIv2 bound grades as an error.
+func TestUnsignedRangeOnIntegerIsGradedOnlyInSMIv2(t *testing.T) {
+	object := `
+counterLike OBJECT-TYPE
+    SYNTAX      INTEGER (0..4294967295)
+    ACCESS      read-only
+    STATUS      mandatory
+    ::= { system 3 }
+`
+
+	wantCodes(t, parseSource(t, wrapV1(object)))
+
+	v2 := strings.ReplaceAll(object, "ACCESS      read-only", "MAX-ACCESS  read-only")
+	v2 = strings.ReplaceAll(v2, "STATUS      mandatory", "STATUS      current\n    DESCRIPTION \"an object\"")
+	wantCodes(t, parseSource(t, wrapV2(v2)), diag.ErrCodeRangeOutsideBaseType)
+}
+
 // A module that imports from neither SMI is read as SMIv2 by the clauses
 // it writes, which is the only evidence left.
 func TestDialectFallsBackToClauseForms(t *testing.T) {

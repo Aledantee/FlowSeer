@@ -167,6 +167,7 @@ func semanticFacts(set *smi.ModuleSet) map[string]string {
 			put("unresolved", subject, strconv.FormatBool(n.Unresolved))
 			put("index", subject, renderIndex(n.Index))
 			put("augments", subject, n.Augments)
+			put("default", subject, renderDefault(n.Default))
 
 			put("syntax-name", subject, typeField(n.Type, func(t *smi.Type) string { return t.Name }))
 			put("syntax-base", subject, typeField(n.Type, func(t *smi.Type) string { return t.Base.String() }))
@@ -236,6 +237,29 @@ func renderIndex(parts []smi.IndexPart) string {
 	}
 
 	return strings.Join(out, " ")
+}
+
+// renderDefault writes a DEFVAL as its shape followed by its value.
+//
+// The shape leads because it is half of what an expectation asserts: an
+// empty bit set is a default of no bits and renders as "bits" with
+// nothing after it, which has to be distinguishable from the object that
+// wrote no DEFVAL at all.
+func renderDefault(d smi.Default) string {
+	switch d.Kind {
+	case smi.DefaultNone:
+		return ""
+	case smi.DefaultInteger:
+		return fmt.Sprintf("integer %d", d.Number)
+	case smi.DefaultLabel:
+		return "label " + d.Name
+	case smi.DefaultOctets:
+		return fmt.Sprintf("octets %x", d.Octets)
+	case smi.DefaultOID:
+		return "oid " + d.OID.String()
+	default:
+		return strings.TrimRight("bits "+strings.Join(d.Bits, " "), " ")
+	}
 }
 
 // renderMembers writes named numbers as the source writes them, so an

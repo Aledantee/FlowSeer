@@ -1,0 +1,13 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47101 }
+
+pointerDefault OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An object whose default names its node by counting."
+    DEFVAL      { 1 3 6 1 }
+    ::= { acme 1 }
+
+END

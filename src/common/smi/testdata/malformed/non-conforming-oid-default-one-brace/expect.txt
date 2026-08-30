@@ -1,0 +1,10 @@
+# RFC 2578 section 7.9 writes an OBJECT IDENTIFIER default as a single
+# descriptor naming an already-registered node. This fixture writes the
+# sub-identifier list at one brace level, where DEFVAL's own braces are
+# the only ones there are.
+#
+# The doubled-brace spelling next door is the same deviation nested one
+# level deeper. Both have to be graded, because a reader that takes the
+# first number for an integer default returns 1 where the source said
+# 1.3.6.1 and says nothing about the difference.
+code smi/non-conforming-oid-default
