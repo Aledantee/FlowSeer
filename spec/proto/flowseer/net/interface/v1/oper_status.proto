@@ -1,0 +1,26 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+// The reported operational state of an interface. Values cover the state set
+// of ifOperStatus in RFC 2863 (https://www.rfc-editor.org/rfc/rfc2863.html).
+// The taxonomy is FlowSeer-normalized with no registry behind it.
+enum OperStatus {
+  // The source explicitly reported an unknown operational state. Absence
+  // means unreported.
+  OPER_STATUS_UNSPECIFIED = 0;
+  // The interface passes traffic.
+  OPER_STATUS_UP = 1;
+  // The interface does not pass traffic and no lower layer is at fault.
+  OPER_STATUS_DOWN = 2;
+  // The interface is in a test mode and carries no operational traffic.
+  OPER_STATUS_TESTING = 3;
+  // The device cannot determine the operational state.
+  OPER_STATUS_UNKNOWN = 4;
+  // The interface waits for an external event, such as an incoming call.
+  OPER_STATUS_DORMANT = 5;
+  // A component the interface needs is missing from the device.
+  OPER_STATUS_NOT_PRESENT = 6;
+  // An interface this one runs over is down.
+  OPER_STATUS_LOWER_LAYER_DOWN = 7;
+}

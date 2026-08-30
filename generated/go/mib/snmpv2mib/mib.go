@@ -872,12 +872,36 @@ var SysORUpTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1,
 
 // SysORTableRow is one row of sysORTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// SysORTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type SysORTableRow struct {
 	Index       snmp.OID
 	SysORID     snmp.OID
 	SysORDescr  string
 	SysORUpTime uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r SysORTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case SysORID.Key():
+		return r.observed[0]&(1<<0) != 0
+	case SysORDescr.Key():
+		return r.observed[0]&(1<<1) != 0
+	case SysORUpTime.Key():
+		return r.observed[0]&(1<<2) != 0
+	}
+
+	return false
 }
 
 // SysORTableWalker is a table-aware walker over sysORTable.
@@ -903,7 +927,8 @@ type SysORTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -960,6 +985,7 @@ func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
 						derr = dErr
 					} else {
 						row.SysORID = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 3:
@@ -972,11 +998,13 @@ func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
 						derr = dErr
 					} else {
 						row.SysORDescr = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.SysORUpTime = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -987,6 +1015,7 @@ func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
 							derr = dErr
 						} else {
 							row.SysORUpTime = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
@@ -1032,17 +1061,24 @@ var SysORTable sysORTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of sysORTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (sysORTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *SysORTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &SysORTableWalker{rw: snmp.ForeignColumnWalk(ctx, "sysORTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9))
 
 	return &SysORTableWalker{
 		byCol: byCol,
@@ -1076,18 +1112,21 @@ func decodeSysORTableRow(idx snmp.OID, vbs []snmp.VarBind) (SysORTableRow, error
 				return row, derr
 			}
 			row.SysORID = dv
+			row.observed[0] |= 1 << 0
 		case 3:
 			dv, derr := SysORDescr.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.SysORDescr = dv
+			row.observed[0] |= 1 << 1
 		case 4:
 			dv, derr := SysORUpTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.SysORUpTime = dv
+			row.observed[0] |= 1 << 2
 		}
 	}
 
@@ -1125,16 +1164,19 @@ func mergeSysORTableRow(dst *SysORTableRow, vbs []snmp.VarBind) {
 			dv, derr := SysORID.Decode(vb)
 			if derr == nil {
 				dst.SysORID = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 3:
 			dv, derr := SysORDescr.Decode(vb)
 			if derr == nil {
 				dst.SysORDescr = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 4:
 			dv, derr := SysORUpTime.Decode(vb)
 			if derr == nil {
 				dst.SysORUpTime = dv
+				dst.observed[0] |= 1 << 2
 			}
 		}
 	}

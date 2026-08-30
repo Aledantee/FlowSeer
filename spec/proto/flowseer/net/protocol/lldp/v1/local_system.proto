@@ -1,0 +1,33 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/protocol/lldp/v1/chassis_id.proto";
+import "flowseer/net/protocol/lldp/v1/management_address.proto";
+import "flowseer/net/protocol/lldp/v1/system_capability.proto";
+import option "buf/validate/validate.proto";
+
+// What a device announces about itself through LLDP, device-wide. The same
+// values reach every neighbor of every port, so they sit here rather than on
+// a port.
+message LocalSystem {
+  // The chassis identifier the device announces. Absent means unreported.
+  ChassisId chassis_id = 1;
+  // The administratively assigned system name. Absent means unreported; an
+  // empty string means the device announces an empty name.
+  string system_name = 2;
+  // The textual system description. Absent means unreported; an empty string
+  // means the device announces an empty description.
+  string system_description = 3;
+  // The capabilities the system can perform. An empty list means none were
+  // reported. Values the schema does not name stay valid so a capability
+  // position this version does not know survives collection.
+  repeated SystemCapability capabilities_supported = 4 [(buf.validate.field).repeated.unique = true];
+  // The supported capabilities currently in use. An empty list means none
+  // were reported. Values the schema does not name stay valid so a
+  // capability position this version does not know survives collection.
+  repeated SystemCapability capabilities_enabled = 5 [(buf.validate.field).repeated.unique = true];
+  // The addresses at which the device announces it can be managed. An empty
+  // list means none were reported.
+  repeated ManagementAddress management_addresses = 6;
+}

@@ -14,3 +14,6 @@
 
 # Vendored upstream cisco-mibs clone (has own .git; restore/refresh per spec/mib/README.md)
 spec/mib/cisco/enterprise/
+
+# gnmitarget test server binary, built from the source beside it
+src/common/yang/integration/testenv/testdata/gnmitarget/gnmitarget

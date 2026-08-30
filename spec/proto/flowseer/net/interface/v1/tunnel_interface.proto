@@ -1,0 +1,8 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+// An interface whose frames are encapsulated for transport across another
+// network. The arm carries no fields; selecting it says only what the
+// interface is.
+message TunnelInterface {}

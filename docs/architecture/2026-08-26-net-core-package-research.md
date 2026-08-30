@@ -1,7 +1,7 @@
 ---
 title: FlowSeer Net Core Package Research
 date: 2026-08-26
-scope: flowseer.net.{phy,packet,l2,l3}.v1
+scope: flowseer.net.{phy,packet,switching,ip}.v1
 confidence: high
 ---
 
@@ -17,9 +17,9 @@ The minimum coherent boundaries are:
   deliberately shallow transceiver summary.
 - `net/packet/v1`: wire-header registries and small exact/match atoms reusable
   by future ACL, QoS, firewall, flow, and protocol packages.
-- `net/l2/v1`: VLANs, exact 802.1Q tag stacks, switchport membership,
+- `net/switching/v1`: VLANs, exact 802.1Q tag stacks, switchport membership,
   protocol-independent aggregation attributes, and unicast FDB rows.
-- `net/l3/v1`: per-interface IPv4/IPv6 facets, assigned-address rows, and the
+- `net/ip/v1`: per-interface IPv4/IPv6 facets, assigned-address rows, and the
   ARP/IPv6-ND neighbor cache.
 
 Routing tables, routes, and next hops are not L3 interface primitives. They
@@ -44,7 +44,8 @@ OSPF, BGP, IGMP, MLD, and PIM remain separate protocol packages.
    service messages, or collector status. Avoid primitive names ending in
    `Config`, `State`, or `Event`.
 7. Imports point upward from leaf values: `packet` imports only validation;
-   `l2` may import `packet` and `addr`; `l3` imports only `addr` and validation.
+   `switching` may import `packet` and `addr`; `ip` imports only `addr` and
+   validation.
 
 Protobuf Edition 2024 provides explicit singular-field presence and open enums
 by default, and exports top-level while keeping nested symbols local. These
@@ -98,7 +99,7 @@ matches, IPv6 flow labels, MPLS header matches, service-name sets, connection
 state, flow tuples, counters, direction, and timestamps should wait for their
 first real consumer.
 
-## L2 package
+## Switching package
 
 ### Implement now
 
@@ -124,7 +125,7 @@ counters, STP, LACP, and MVRP. Bridge-domain scoping must be settled before v1
 stability because VLAN IDs alone are not universal across independent learning
 domains.
 
-## L3 package
+## IP package
 
 ### Implement now
 
@@ -141,10 +142,11 @@ domains.
 ### Remove or defer
 
 The current routing table, route, next-hop, route-protocol, and route-type files
-should leave `net/l3/v1` before stability. Their present keys are not safe across
-VRFs or multiple instances of the same routing protocol, and selected RIB state
-must not be conflated with installed FIB state. Redesign them with a future
-network-instance-aware routing slice rather than relocating them mechanically.
+should leave `net/ip/v1` before stability. Their present keys are not safe
+across VRFs or multiple instances of the same routing protocol, and selected
+RIB state must not be conflated with installed FIB state. Redesign them with a
+future network-instance-aware routing slice rather than relocating them
+mechanically.
 
 Multicast forwarding, routing policy, policy routing, tunnels, and protocol
 state remain separate future domains.

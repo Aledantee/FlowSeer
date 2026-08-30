@@ -1,0 +1,43 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/protocol/lldp/v1/port_admin_status.proto";
+import "flowseer/net/protocol/lldp/v1/port_id.proto";
+import "flowseer/net/protocol/lldp/v1/tlv_type.proto";
+import option "buf/validate/validate.proto";
+
+// How one port runs LLDP, together with the identity that port announces.
+message PortSettings {
+  // The device-local name of the interface the agent runs on. Must be
+  // present and non-empty.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  // Which directions the agent runs. Absent means unreported. Unknown
+  // non-zero values stay valid so a state this version does not name passes
+  // validation.
+  PortAdminStatus admin_status = 2;
+  // Whether the device emits a notification when a neighbor of this port
+  // changes. Absent means unreported.
+  bool notifications_enabled = 3;
+  // The optional TLVs the port is configured to transmit. An empty list
+  // means the port transmits only the mandatory TLVs or the source reported
+  // no configuration; the end-of-LLDPDU marker is not a transmittable
+  // optional TLV and is rejected. Values the schema does not name stay valid
+  // so a TLV type this version does not know survives collection.
+  repeated TlvType transmitted_tlvs = 4 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {
+        not_in: [0]
+      }
+    }
+  }];
+  // The port identifier this port announces. Absent means unreported.
+  PortId port_id = 5;
+  // The port description this port announces. Absent means unreported; an
+  // empty string means the port announces an empty description.
+  string port_description = 6;
+}

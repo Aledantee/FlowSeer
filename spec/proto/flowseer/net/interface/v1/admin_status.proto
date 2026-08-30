@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+// The administratively requested state of an interface. Values cover the
+// desired states of ifAdminStatus in RFC 2863
+// (https://www.rfc-editor.org/rfc/rfc2863.html). The taxonomy is
+// FlowSeer-normalized with no registry behind it.
+enum AdminStatus {
+  // The source explicitly reported an unknown administrative state. Absence
+  // means unreported.
+  ADMIN_STATUS_UNSPECIFIED = 0;
+  // The interface is requested to be operational.
+  ADMIN_STATUS_UP = 1;
+  // The interface is requested to be shut down.
+  ADMIN_STATUS_DOWN = 2;
+  // The interface is requested to be in a test mode that carries no
+  // operational traffic.
+  ADMIN_STATUS_TESTING = 3;
+}

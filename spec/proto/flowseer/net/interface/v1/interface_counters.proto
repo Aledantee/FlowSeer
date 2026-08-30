@@ -1,0 +1,44 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+// Cumulative traffic counters for one interface, in the direction the field
+// name states. Each counter is the value the source last reported, and an
+// absent counter means the source does not report it — never a zero. Counters
+// are monotonic between device restarts; consumers difference successive
+// observations and treat a decrease as a reset. Values follow the interface
+// counter definitions in RFC 2863
+// (https://www.rfc-editor.org/rfc/rfc2863.html); a source with both 32-bit
+// and 64-bit columns reports the 64-bit value here.
+message InterfaceCounters {
+  // Octets received, including framing characters.
+  uint64 in_octets = 1;
+  // Octets transmitted, including framing characters.
+  uint64 out_octets = 2;
+  // Packets delivered to a higher layer that were not addressed to a
+  // multicast or broadcast address.
+  uint64 in_unicast_packets = 3;
+  // Packets from a higher layer addressed to a single address, including
+  // packets discarded before transmission.
+  uint64 out_unicast_packets = 4;
+  // Packets delivered to a higher layer that were addressed to a multicast
+  // address.
+  uint64 in_multicast_packets = 5;
+  // Packets from a higher layer addressed to a multicast address, including
+  // packets discarded before transmission.
+  uint64 out_multicast_packets = 6;
+  // Packets delivered to a higher layer that were addressed to the broadcast
+  // address.
+  uint64 in_broadcast_packets = 7;
+  // Packets from a higher layer addressed to the broadcast address,
+  // including packets discarded before transmission.
+  uint64 out_broadcast_packets = 8;
+  // Received packets discarded because of an error.
+  uint64 in_errors = 9;
+  // Outbound packets not transmitted because of an error.
+  uint64 out_errors = 10;
+  // Received packets discarded without an error, such as for buffer space.
+  uint64 in_discards = 11;
+  // Outbound packets discarded without an error, such as for buffer space.
+  uint64 out_discards = 12;
+}

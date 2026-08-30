@@ -2,7 +2,7 @@ FAKE-MIB DEFINITIONS ::= BEGIN
 IMPORTS
     OBJECT-TYPE, MODULE-IDENTITY, Integer32, Counter64, TimeTicks
         FROM SNMPv2-SMI
-    DisplayString, MacAddress
+    DisplayString, MacAddress, TEXTUAL-CONVENTION
         FROM SNMPv2-TC;
 
 fakeMIB MODULE-IDENTITY
@@ -30,6 +30,25 @@ fakeStatus OBJECT-TYPE
     DESCRIPTION "An enum-typed scalar."
     ::= { fakeMIB 2 }
 
+FakeCapabilities ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "A named BITS convention. Bit positions follow
+                 declaration order; the emitter names each one as an
+                 snmp.BitPos constant and decodes values of this type
+                 to an snmp.BitSet."
+    SYNTAX      BITS {
+        alpha(0),
+        beta(1),
+        gamma(2)
+    }
+
+fakeCaps OBJECT-TYPE
+    SYNTAX      FakeCapabilities
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A BITS-typed scalar."
+    ::= { fakeMIB 6 }
+
 fakeTable OBJECT-TYPE
     SYNTAX      SEQUENCE OF FakeEntry
     MAX-ACCESS  not-accessible
@@ -50,7 +69,8 @@ FakeEntry ::= SEQUENCE {
     fakeName        DisplayString,
     fakeMac         MacAddress,
     fakeOctets      Counter64,
-    fakeLastChange  TimeTicks
+    fakeLastChange  TimeTicks,
+    fakeFlags       FakeCapabilities
 }
 
 fakeIndex OBJECT-TYPE
@@ -89,6 +109,15 @@ fakeLastChange OBJECT-TYPE
                  classifies this column as TierIndicator at codegen
                  time and structural discovery binds it to fakeTable."
     ::= { fakeEntry 5 }
+
+fakeFlags OBJECT-TYPE
+    SYNTAX      FakeCapabilities
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A BITS-typed column. Covers the row-struct, watch-
+                 equality, and observation paths for set-valued
+                 columns."
+    ::= { fakeEntry 6 }
 
 -- fakeStackTable has no per-row indicator column, so structural
 -- per-row discovery cannot bind it. Its indicator is the module-level

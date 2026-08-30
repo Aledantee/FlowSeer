@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.ip.v1;
+
+import "flowseer/net/ip/v1/ipv4_facet.proto";
+import "flowseer/net/ip/v1/ipv6_facet.proto";
+
+// Per-family IP attributes embedded by a routed interface. Either family may
+// be absent because partial observations and single-stack interfaces are valid.
+message IpFacet {
+  // IPv4 attributes. Absent means no IPv4 information was supplied.
+  Ipv4Facet ipv4 = 1;
+  // IPv6 attributes. Absent means no IPv6 information was supplied.
+  Ipv6Facet ipv6 = 2;
+}
