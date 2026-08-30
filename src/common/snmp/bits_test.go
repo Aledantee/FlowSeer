@@ -173,21 +173,29 @@ func TestNewBitSet(t *testing.T) {
 	}
 }
 
-func TestDecodeBitSet_OversizedDeclines(t *testing.T) {
+func TestDecodeBitSet_OversizedTruncates(t *testing.T) {
 	// An agent answering a two-octet BITS object with kilobytes of set
 	// bits would otherwise become one enum value per set position in
-	// every message built from it.
-	huge := make([]byte, MaxBitSetOctets+1)
+	// every message built from it. Declining instead of truncating would
+	// cost the caller the whole varbind, and through it the whole row.
+	huge := make([]byte, MaxBitSetOctets+8)
 	for i := range huge {
 		huge[i] = 0xFF
 	}
-	if _, err := DecodeBitSet(bitsVarBind(huge...)); !errors.Is(err, ErrTypeMismatch) {
-		t.Fatalf("DecodeBitSet(%d octets) error = %v, want ErrTypeMismatch", len(huge), err)
+	got, err := DecodeBitSet(bitsVarBind(huge...))
+	if err != nil {
+		t.Fatalf("DecodeBitSet(%d octets) error = %v, want the value truncated", len(huge), err)
+	}
+	if want := MaxBitSetOctets * 8; got.Count() != want {
+		t.Errorf("Count() = %d, want %d", got.Count(), want)
+	}
+	if past := BitPos(MaxBitSetOctets * 8); got.Has(past) {
+		t.Errorf("Has(%d) = true, want the positions past the bound dropped", past)
 	}
 
 	atLimit := make([]byte, MaxBitSetOctets)
 	atLimit[MaxBitSetOctets-1] = 0x01
-	got, err := DecodeBitSet(bitsVarBind(atLimit...))
+	got, err = DecodeBitSet(bitsVarBind(atLimit...))
 	if err != nil {
 		t.Fatalf("DecodeBitSet at the limit: %v", err)
 	}

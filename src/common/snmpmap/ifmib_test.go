@@ -28,15 +28,17 @@ func ifRow(idx uint32, descr string, ifType int32) []vbFixture {
 }
 
 // failingWalkSession answers every walk from its fixtures except the one
-// under root, which fails the way an agent that times out or returns an
-// undecodable varbind mid-table does. BulkWalkRaw is overridden as well
-// as BulkWalk because the embedded fake reaches its own BulkWalk
-// directly, without passing through this type.
+// under root, which delivers its first prefix varbinds and then fails the
+// way an agent that times out or returns an undecodable varbind mid-table
+// does. A prefix of zero is the agent that answers nothing at all.
+// BulkWalkRaw is overridden as well as BulkWalk because the embedded fake
+// reaches its own BulkWalk directly, without passing through this type.
 type failingWalkSession struct {
 	*fakeSession
 
-	root snmp.OID
-	err  error
+	root   snmp.OID
+	prefix int
+	err    error
 }
 
 func (s *failingWalkSession) BulkWalk(ctx context.Context, root snmp.OID, opts ...snmp.CallOption) *snmp.Walker {
@@ -44,8 +46,21 @@ func (s *failingWalkSession) BulkWalk(ctx context.Context, root snmp.OID, opts .
 		return s.fakeSession.BulkWalk(ctx, root, opts...)
 	}
 
+	sent := s.subtree(root)
+	if s.prefix < len(sent) {
+		sent = sent[:s.prefix]
+	}
+
 	w := snmp.NewWalker(ctx, 1)
-	w.Pump(func(context.Context) { w.Fail(s.err) })
+	w.Pump(func(context.Context) {
+		for _, f := range sent {
+			if !w.Send(f.oid, f.vb) {
+				return
+			}
+		}
+
+		w.Fail(s.err)
+	})
 
 	return w
 }
@@ -54,11 +69,19 @@ func (s *failingWalkSession) BulkWalkRaw(ctx context.Context, root snmp.OID, opt
 	return snmp.RawWalkerFromWalker(ctx, s.BulkWalk(ctx, root, opts...))
 }
 
-// walkFailure builds the session a degraded-walk test runs against.
+// walkFailure builds the session a degraded-walk test runs against, whose
+// failing walk answers nothing before it dies.
 func walkFailure(vbs []vbFixture, root snmp.OID) *failingWalkSession {
+	return walkFailureAfter(vbs, root, 0)
+}
+
+// walkFailureAfter is [walkFailure] for the agent that dies partway: the
+// failing walk delivers prefix varbinds of its subtree first.
+func walkFailureAfter(vbs []vbFixture, root snmp.OID, prefix int) *failingWalkSession {
 	return &failingWalkSession{
 		fakeSession: &fakeSession{vbs: vbs},
 		root:        root,
+		prefix:      prefix,
 		err:         errs.Msg("agent stopped answering"),
 	}
 }
@@ -436,6 +459,72 @@ func TestInterfaces_FailedIfXWalkKeepsInterfaces(t *testing.T) {
 
 	if ifaces[0].GetName() != "eth0" || ifaces[1].GetName() != "eth1" {
 		t.Errorf("got names %q and %q, want the ifDescr fallbacks", ifaces[0].GetName(), ifaces[1].GetName())
+	}
+}
+
+// TestInterfaces_PartialIfXWalkKeepsItsOwnRows covers the half of the
+// degraded path a walk that answers nothing cannot reach: the rows the
+// dying walk did deliver must enrich their interfaces, while the ones it
+// never reached fall back as if the table were absent.
+func TestInterfaces_PartialIfXWalkKeepsItsOwnRows(t *testing.T) {
+	vbs := append(ifRow(1, "eth0", 6), ifRow(2, "eth1", 6)...)
+	vbs = append(vbs, ifRow(3, "eth2", 6)...)
+	vbs = append(vbs,
+		stringVar(ifXEntry, 1, 1, []byte("Gi0/1")),
+		stringVar(ifXEntry, 1, 2, []byte("Gi0/2")),
+		stringVar(ifXEntry, 1, 3, []byte("Gi0/3")),
+	)
+
+	// The fake answers a walk in OID order, so two varbinds are ifName for
+	// the first two rows and nothing for the third.
+	sess := walkFailureAfter(vbs, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1), 2)
+
+	ifaces, err := snmpmap.Interfaces(context.Background(), sess)
+	if err == nil {
+		t.Fatal("got no error, want the failed ifXTable walk reported")
+	}
+
+	if len(ifaces) != 3 {
+		t.Fatalf("got %d interfaces, want all three ifTable rows", len(ifaces))
+	}
+
+	if ifaces[0].GetName() != "Gi0/1" || ifaces[1].GetName() != "Gi0/2" {
+		t.Errorf("got names %q and %q, want the ifNames the walk delivered before failing",
+			ifaces[0].GetName(), ifaces[1].GetName())
+	}
+
+	if ifaces[2].GetName() != "eth2" {
+		t.Errorf("got name %q, want the ifDescr fallback: its ifName was never delivered", ifaces[2].GetName())
+	}
+}
+
+// TestInterfaces_PartialIfStackWalkKeepsItsOwnRows is the same check for
+// ifStackTable, whose rows are relationships rather than columns.
+func TestInterfaces_PartialIfStackWalkKeepsItsOwnRows(t *testing.T) {
+	vbs := ifRow(1, "GigabitEthernet0/1", 6)
+	vbs = append(vbs, ifRow(2, "GigabitEthernet0/1.100", 53)...) // propVirtual
+	vbs = append(vbs, ifRow(3, "Port-channel1", 161)...)
+	vbs = append(vbs, ifRow(4, "GigabitEthernet0/2", 6)...)
+	vbs = append(vbs, stackVar(2, 1), stackVar(3, 4))
+
+	sess := walkFailureAfter(vbs, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2), 1)
+
+	ifaces, err := snmpmap.Interfaces(context.Background(), sess)
+	if err == nil {
+		t.Fatal("got no error, want the failed ifStackTable walk reported")
+	}
+
+	if len(ifaces) != 4 {
+		t.Fatalf("got %d interfaces, want all four ifTable rows", len(ifaces))
+	}
+
+	if parent := ifaces[1].GetSub().GetParent(); parent != "GigabitEthernet0/1" {
+		t.Errorf("got parent %q, want the relationship the walk delivered before failing", parent)
+	}
+
+	if ifaces[3].GetPhysical().HasLagParent() {
+		t.Errorf("got lagParent %q, want absent: that relationship was never delivered",
+			ifaces[3].GetPhysical().GetLagParent())
 	}
 }
 

@@ -317,6 +317,24 @@ func TestLLDP_CapabilitiesKeepUnnamedPositions(t *testing.T) {
 	}
 }
 
+// TestLLDP_OversizedCapabilityBitmapKeepsFacts covers a neighbor
+// reporting an absurdly wide capability bitmap. A column decode error
+// ends the lldpRemTable walk, which is fatal, so declining the bitmap
+// would cost the device every fact it has over one malformed field.
+func TestLLDP_OversizedCapabilityBitmapKeepsFacts(t *testing.T) {
+	wide := make([]byte, snmp.MaxBitSetOctets+8)
+	wide[0] = 0x20 // bridge, inside the bound
+
+	vbs := append(macRemRow(), octetsAt(colOID(lldpRemEntry, 11, 1000, 3, 1), wide))
+
+	got := oneNeighbor(t, vbs, map[uint32]string{3: "eth0"})
+
+	want := []lldpv1.SystemCapability{lldpv1.SystemCapability_SYSTEM_CAPABILITY_BRIDGE}
+	if !slices.Equal(got.GetCapabilitiesSupported(), want) {
+		t.Errorf("got supported %v, want %v", got.GetCapabilitiesSupported(), want)
+	}
+}
+
 // TestLLDP_UnresolvedLocalPortKeepsNeighbor covers a device whose LLDP
 // port numbering the caller could not resolve: the announcement is real
 // and the port number identifies it, so the row is kept.
@@ -381,6 +399,7 @@ func TestLLDP_FailedEnrichingWalksKeepFacts(t *testing.T) {
 		root snmp.OID
 	}{
 		{"lldpLocPortTable", snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 7)},
+		{"lldpLocManAddrTable", snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8)},
 		{"lldpRemManAddrTable", snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 2)},
 	}
 
@@ -415,19 +434,61 @@ func TestLLDP_FailedEnrichingWalksKeepFacts(t *testing.T) {
 	}
 }
 
+// TestLLDP_PartialLocalManAddrWalkKeepsItsOwnRows covers what a walk that
+// answers nothing cannot show: the addresses lldpLocManAddrTable did
+// deliver reach the local system, and the announcement survives with them.
+func TestLLDP_PartialLocalManAddrWalkKeepsItsOwnRows(t *testing.T) {
+	vbs := append(macRemRow(),
+		octetsAt(lldpLocSysNameOID, []byte("core-sw-1")),
+		intAt(colOID(lldpLocManAddrEntry, 5, 1, 4, 198, 51, 100, 7), 1),
+		intAt(colOID(lldpLocManAddrEntry, 5, 1, 4, 198, 51, 100, 8), 1),
+	)
+
+	sess := walkFailureAfter(vbs, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8), 1)
+
+	facts, err := snmpmap.LLDP(context.Background(), sess, map[uint32]string{3: "eth0"})
+	if err == nil {
+		t.Fatal("got no error, want the failed lldpLocManAddrTable walk reported")
+	}
+
+	if len(facts.Neighbors) != 1 {
+		t.Errorf("got %d neighbors, want the lldpRemTable row", len(facts.Neighbors))
+	}
+
+	local := facts.LocalSystem
+	if local == nil {
+		t.Fatal("got no local system, want the scalars and the address read before the failure")
+	}
+
+	if len(local.GetManagementAddresses()) != 1 {
+		t.Fatalf("got %d management addresses, want only the one the walk delivered",
+			len(local.GetManagementAddresses()))
+	}
+
+	want := []byte{198, 51, 100, 7}
+	if got := local.GetManagementAddresses()[0].GetIp().GetV4().GetOctets(); !bytes.Equal(got, want) {
+		t.Errorf("got %x, want %x", got, want)
+	}
+
+	validateFacts(t, facts)
+}
+
 // TestLLDP_UnusableRowsSurviveLaterFailure keeps the neighbor rows that
 // could not be mapped visible when a later walk fails too: an operator
 // who is told only about the walk never learns the rows were unusable.
 func TestLLDP_UnusableRowsSurviveLaterFailure(t *testing.T) {
 	vbs := append(macRemRow(), intAt(colOID(lldpRemEntry, 4, 2000, 4, 1), 4)) // chassis subtype alone
 
-	// The local management addresses are read after the neighbors, and
-	// their table is one the local system is keyed on.
+	// The local management addresses are read after the neighbors.
 	sess := walkFailure(vbs, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8))
 
-	_, err := snmpmap.LLDP(context.Background(), sess, map[uint32]string{3: "eth0"})
+	facts, err := snmpmap.LLDP(context.Background(), sess, map[uint32]string{3: "eth0"})
 	if err == nil {
 		t.Fatal("got no error, want both failures reported")
+	}
+
+	if len(facts.Neighbors) != 1 {
+		t.Errorf("got %d neighbors, want the usable row kept across the later failure", len(facts.Neighbors))
 	}
 
 	incomplete := errs.New().Code(snmpmap.ErrCodeLLDPNeighborIncomplete).Msg("incomplete")
@@ -491,14 +552,14 @@ func TestLLDP_PortSettingsTlvBitmap(t *testing.T) {
 	}
 }
 
-// TestLLDP_TlvBitmapKeepsUnnamedPositions covers a bitmap position past
-// the four the MIB spells out: the bitmap and the type registry are one
-// arithmetic relation, so a position the schema does not name still says
-// which TLV the port transmits.
-func TestLLDP_TlvBitmapKeepsUnnamedPositions(t *testing.T) {
+// TestLLDP_TlvBitmapIgnoresReservedPositions covers a bitmap position
+// past the four LLDP-MIB names. The MIB reserves none of them — bit 4 is
+// explicitly not the management-address TLV — so a set position there
+// names no TLV and may not be extrapolated into one.
+func TestLLDP_TlvBitmapIgnoresReservedPositions(t *testing.T) {
 	vbs := []vbFixture{
 		intAt(colOID(lldpPortConfigEntry, 2, 3), 3), // txAndRx
-		octetsAt(colOID(lldpPortConfigEntry, 4, 3), bitsOctets(4, 20, 124)),
+		octetsAt(colOID(lldpPortConfigEntry, 4, 3), bitsOctets(2, 4, 20)),
 	}
 
 	facts := lldpFacts(t, vbs, nil)
@@ -506,16 +567,9 @@ func TestLLDP_TlvBitmapKeepsUnnamedPositions(t *testing.T) {
 		t.Fatalf("got %d ports, want 1", len(facts.Ports))
 	}
 
-	want := []lldpv1.TlvType{
-		lldpv1.TlvType_TLV_TYPE_MANAGEMENT_ADDRESS, // bit 4
-		lldpv1.TlvType(24),                         // bit 20, unnamed
-	}
+	want := []lldpv1.TlvType{lldpv1.TlvType_TLV_TYPE_SYSTEM_DESCRIPTION}
 	if got := facts.Ports[0].GetTransmittedTlvs(); !slices.Equal(got, want) {
-		t.Errorf("got TLVs %v, want %v: bit 124 names no type and is dropped", got, want)
-	}
-
-	if want[1].Enum().Descriptor().Values().ByNumber(24) != nil {
-		t.Error("type 24 is a named TLV; pick an unnamed one for this test")
+		t.Errorf("got TLVs %v, want %v: bits 4 and 20 name no TLV in this bitmap", got, want)
 	}
 }
 

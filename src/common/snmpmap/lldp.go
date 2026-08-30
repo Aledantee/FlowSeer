@@ -21,9 +21,9 @@ var (
 	ErrCodeLLDPNeighborIncomplete = errs.NewCode("snmpmap/lldp-neighbor-incomplete")
 	// ErrCodeLLDPWalk identifies a failure of one of the LLDP-MIB table
 	// walks. A failed walk of a table the facts are keyed on —
-	// lldpPortConfigTable, lldpRemTable, lldpLocManAddrTable — returns no
-	// LLDP facts; a failed walk of one that only enriches those rows
-	// returns them with fewer facts on them.
+	// lldpPortConfigTable, lldpRemTable — returns no LLDP facts; a failed
+	// walk of one that only enriches those rows returns them with fewer
+	// facts on them.
 	ErrCodeLLDPWalk = errs.NewCode("snmpmap/lldp-walk")
 )
 
@@ -108,19 +108,21 @@ const (
 	ipv6Family = 2
 )
 
-// tlvTypeOfBitOffset is the distance between the bit positions of
-// lldpPortConfigTLVsTxEnable and the TLV type numbers IEEE Std 802.1AB
-// assigns, which is what the schema speaks: the bitmap starts at the
-// first optional TLV, so position 0 enables the type-4 port description
-// and every position after it counts along the same registry.
-//
-// maxTLVTypeBit is the last position that lands on a type the protocol
-// has: types run to 127, and the offset keeps the mapping clear of type
-// 0, the end-of-LLDPDU marker the schema rejects.
-const (
-	tlvTypeOfBitOffset = 4
-	maxTLVTypeBit      = 127 - tlvTypeOfBitOffset
-)
+// tlvTypeOfBit is the whole of lldpPortConfigTLVsTxEnable: LLDP-MIB
+// defines the object as BITS { portDesc(0), sysName(1), sysDesc(2),
+// sysCap(3) } and nothing else. The bitmap is not a window onto the
+// 802.1AB type registry — the MIB says outright that no bit is reserved
+// for the management-address TLV, because lldpConfigManAddrTable controls
+// that one, and that organizationally-specific TLVs are excluded too. So
+// a set position outside this map names no TLV at all: continuing the
+// arithmetic past bit 3 would claim a transmission the device never
+// announced.
+var tlvTypeOfBit = map[snmp.BitPos]lldpv1.TlvType{
+	0: lldpv1.TlvType_TLV_TYPE_PORT_DESCRIPTION,
+	1: lldpv1.TlvType_TLV_TYPE_SYSTEM_NAME,
+	2: lldpv1.TlvType_TLV_TYPE_SYSTEM_DESCRIPTION,
+	3: lldpv1.TlvType_TLV_TYPE_SYSTEM_CAPABILITIES,
+}
 
 // LLDP walks LLDP-MIB on sess and returns the device's own announcement,
 // its per-port settings, and the neighbors it holds.
@@ -154,19 +156,22 @@ func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (
 		return LLDPFacts{}, errors.Join(neighborErr, portErr)
 	}
 
-	local, err := lldpLocalSystem(ctx, sess)
-	if err != nil {
-		return LLDPFacts{}, errors.Join(err, portErr, neighborErr)
-	}
+	// No table the local system reads is one the facts are keyed on, so
+	// its failure never ends the mapping: it costs the device's own
+	// announcement some addresses, not the ports and neighbors already in
+	// hand.
+	local, localErr := lldpLocalSystem(ctx, sess)
 
 	return LLDPFacts{LocalSystem: local, Ports: ports, Neighbors: neighbors},
-		errors.Join(portErr, neighborErr)
+		errors.Join(portErr, neighborErr, localErr)
 }
 
 // lldpLocalSystem reads the device's own announcement: the local-system
 // scalars plus the management addresses of lldpLocManAddrTable. A scalar
 // the agent does not implement leaves its field absent, so a device with
-// no LLDP local data at all yields nil rather than an empty message.
+// no LLDP local data at all yields nil rather than an empty message. A
+// failed address walk returns the announcement built from everything else
+// beside its error.
 func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSystem, error) {
 	local := &lldpv1.LocalSystem{}
 	reported := false
@@ -206,11 +211,7 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		reported = true
 	}
 
-	addrs, err := lldpLocManAddrs(ctx, sess)
-	if err != nil {
-		return nil, err
-	}
-
+	addrs, addrErr := lldpLocManAddrs(ctx, sess)
 	if len(addrs) > 0 {
 		local.SetManagementAddresses(addrs)
 
@@ -218,15 +219,16 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 	}
 
 	if !reported {
-		return nil, nil
+		return nil, addrErr
 	}
 
-	return local, nil
+	return local, addrErr
 }
 
 // lldpLocManAddrs walks the local management addresses. Each address is
 // the row's whole index — (address subtype, length, octets) — so a row
-// whose index is not that shape carries no address and is skipped.
+// whose index is not that shape carries no address and is skipped. A walk
+// that stops partway returns the addresses it did read beside its error.
 func lldpLocManAddrs(ctx context.Context, sess snmp.Session) ([]*lldpv1.ManagementAddress, error) {
 	var addrs []*lldpv1.ManagementAddress
 
@@ -238,7 +240,7 @@ func lldpLocManAddrs(ctx context.Context, sess snmp.Session) ([]*lldpv1.Manageme
 	}
 
 	if err := walk.Err(); err != nil {
-		return nil, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpLocManAddrTable")
+		return addrs, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpLocManAddrTable")
 	}
 
 	return addrs, nil
@@ -606,21 +608,19 @@ func capabilities(bits snmp.BitSet) []lldpv1.SystemCapability {
 	return caps
 }
 
-// transmittedTLVs translates the enablement bitmap into TLV types by
-// [tlvTypeOfBitOffset]. A position the schema does not name is kept as
-// its own value, for the reason [capabilities] keeps one: the device said
-// it transmits that TLV, and only the name is missing. A position past
-// [maxTLVTypeBit] names no type at all and is dropped.
+// transmittedTLVs translates the enablement bitmap into TLV types
+// through [tlvTypeOfBit]. Unlike [capabilities], which keeps a position
+// it cannot name, a position outside the map is dropped: the capability
+// bitmap is a registry that grows, while this one is closed by the MIB
+// that defines it.
 func transmittedTLVs(bits snmp.BitSet) []lldpv1.TlvType {
 	positions := bits.Positions()
 	tlvs := make([]lldpv1.TlvType, 0, len(positions))
 
 	for _, p := range positions {
-		if p > maxTLVTypeBit {
-			continue
+		if tlv, ok := tlvTypeOfBit[p]; ok {
+			tlvs = append(tlvs, tlv)
 		}
-
-		tlvs = append(tlvs, lldpv1.TlvType(p+tlvTypeOfBitOffset))
 	}
 
 	return tlvs

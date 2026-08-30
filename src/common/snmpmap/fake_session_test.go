@@ -76,15 +76,7 @@ func (s *fakeSession) BulkWalkRaw(ctx context.Context, root snmp.OID, opts ...sn
 // order a real agent answers a walk in and the one the generated walkers
 // rely on to detect the end of a subtree.
 func (s *fakeSession) pump(ctx context.Context, root snmp.OID) *snmp.Walker {
-	subtree := make([]vbFixture, 0, len(s.vbs))
-
-	for _, f := range s.vbs {
-		if f.oid.HasPrefix(root) {
-			subtree = append(subtree, f)
-		}
-	}
-
-	slices.SortFunc(subtree, func(a, b vbFixture) int { return a.oid.Compare(b.oid) })
+	subtree := s.subtree(root)
 
 	w := snmp.NewWalker(ctx, 64)
 	w.Pump(func(_ context.Context) {
@@ -96,6 +88,23 @@ func (s *fakeSession) pump(ctx context.Context, root snmp.OID) *snmp.Walker {
 	})
 
 	return w
+}
+
+// subtree is the fixtures under root in OID order, the order a real agent
+// answers a walk in and the one the generated walkers rely on to detect
+// the end of a subtree.
+func (s *fakeSession) subtree(root snmp.OID) []vbFixture {
+	out := make([]vbFixture, 0, len(s.vbs))
+
+	for _, f := range s.vbs {
+		if f.oid.HasPrefix(root) {
+			out = append(out, f)
+		}
+	}
+
+	slices.SortFunc(out, func(a, b vbFixture) int { return a.oid.Compare(b.oid) })
+
+	return out
 }
 
 var (
