@@ -1,0 +1,157 @@
+
+## interface — Interface (generic)
+  M:aruba-wireless <WLSX-IFEXT-MIB> :: wlsxIfExtPortTable[ifExtSlotNumber|ifExtPortNumber] wlsxIfExtVlanTable[ifExtVlanId] wlsxIfExtVlanMemberTable[ifExtVlanId|ifIndex] wlsxIfExtVlanInterfaceTable[ifExtVlanId]
+  M:cisco-smb <CISCOSB-IpRouter,CISCOSB-rlInterfaces> :: rlOspfIfExtTable[A:ospfIfEntry] rlospfVirtIfExtTable[A:ospfVirtIfEntry]
+  M:hp-comware <HH3C-EVI-MIB,HH3C-IF-EXT-MIB> :: hh3cEviIfExtendVlanTable[ifIndex|hh3cEviIfExtendVlanIndex] hh3cIfFlowStatTable[ifIndex] hh3cIfSpeedStatTable[ifIndex] hh3cIfHCFlowStatTable[ifIndex]
+  M:hp-procurve <HP-IF-EXT-MIB> :: hpifStatsTable[A:ifEntry]
+  M:huawei <HUAWEI-IF-EXT-MIB> :: hwIFExtTable[hwIFExtIndex] hwLinkModeChangeAutoCreateIfTable[hwAutoIfIndex] hwRemoteIfTable[hwRemoteIfIndex] hwIFExtDualFlowRateTable[hwIFExtDualFlowIndex]
+  M:ietf <IF-MIB,RFC1213-MIB> :: ifTable[ifIndex] ifXTable[A:ifEntry] ifTable[ifIndex]
+  M:lancom-sx <IF-MIB,RFC1213-MIB> :: ifTable[ifIndex] ifXTable[A:ifEntry] ifTable[ifIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-ospf-obsolete:distribute-list-grouping/distribute-list/accesslist-ifname(k=in-out) Cisco-IOS-XE-ospf-obsolete:distribute-list-grouping/distribute-list/accesslist-prefix-gateway-ifname(k=in-out) Cisco-IOS-XE-rip:distribute-list-grouping-obsolete/distribute-list/accesslist-ifname(k=in-out) Cisco-IOS-XE-rip:distribute-list-grouping-obsolete/distribute-list/accesslist-prefix-gateway-ifname(k=in-out)
+
+## if-counters — Interface counters
+  M:cisco-smb <CISCOSB-PORT-STATISTICS-MIB,CISCOSB-RMON> :: rlPortStatSampleTable[rlPortStatSampleIfIndex|rlPortStatSampleStatSubType|rlPortStatSampleCounterName|rlPortStatSampleStatID] rlPortStatLastSampleTable[rlPortStatLastSampleIfIndex|rlPortStatLastSampleStatSubType|rlPortStatLastSampleCounterName] rlPortStatLastEventTable[rlPortStatLastEventIfIndex|rlPortStatLastEventCounterName] rlEtherStatsTable[A:etherStatsEntry]
+  M:dlink <DLINKSW-IF-COUNTER-MIB> :: dIfCounterIfLinkChangeTable[ifIndex] dIfCounterIfUtilizationTable[ifIndex] dIfRxStatsTable[ifIndex] dIfCounterRxDropTable[ifIndex]
+  M:huawei <HUAWEI-DLDP-MIB,HUAWEI-ERPS-MIB,HUAWEI-XQoS-MIB> :: hwDldpPortStatisticsTable[hwDldpPortIndex] hwErpsPortStatisticsTable[hwConfigRingId|hwConfigPortType|hwConfigPortId1|hwConfigPortId2|hwConfigPortId3|hwConfigPortId4] hwXQoSPortStatisticsDropTable[hwXQoSPortStatisticsDropIfIndex]
+  M:ietf <EtherLike-MIB,HC-RMON-MIB,RFC1271-MIB,RFC1284-MIB,RMON-MIB,RMON2-MIB> :: dot3StatsTable[dot3StatsIndex] etherStatsHighCapacityTable[etherStatsIndex] etherStatsTable[etherStatsIndex] dot3StatsTable[dot3StatsIndex]
+  M:lancom-sx <EtherLike-MIB,HC-RMON-MIB,LANCOM-GS2310-FUNCTION-MIB,RMON-MIB,RMON2-MIB> :: gs2310STPPortStatisticsTable[gs2310STPStatisticsIndex] dot3StatsTable[dot3StatsIndex] etherStatsTable[etherStatsIndex] etherStats2Table[A:etherStatsEntry]
+  Y:cisco-iosxe :: Cisco-IOS-XE-flow-monitor-oper:flow-monitors/flow-export-statistics(k=name) EtherLike-MIB:EtherLike-MIB/dot3StatsTable EtherLike-MIB:EtherLike-MIB/dot3StatsTable/dot3StatsEntry(k=dot3StatsIndex) RMON-MIB:RMON-MIB/etherStatsTable
+
+## ethernet-phy — Ethernet PHY / MAU
+  M:cisco-smb <CISCOSB-PHY-MIB> :: rlPhyTestSetTable[ifIndex] rlPhyTestGetTable[ifIndex|rlPhyTestGetType]
+  M:hp-comware <HH3C-DOT11-CFG-MIB,HH3C-IF-EXT-MIB,HH3C-LswINF-MIB> :: hh3cDot11WLANEthernetIfTable[hh3cDot11WlanEthernetIfNumber] hh3cIfSpeedStatTable[ifIndex] hh3cIfHCSpeedStatTable[ifIndex] hh3cethernetTable[ifIndex]
+  M:huawei <HUAWEI-ACL-MIB,HUAWEI-ETHARP-MIB,HUAWEI-IF-EXT-MIB,HUAWEI-PORT-MIB,HUAWEI-VE-MIB,HUAWEI-WLAN-GLOBAL-MIB> :: hwAclEthernetFrameRuleTable[hwAclEthernetFrameAclNum|hwAclEthernetFrameSubitem] hwEthernetARPSpeedLimitTable[hwEthernetARPLimitSlot|hwEthernetARPLimitType|hwEthernetARPLimitIPType] hwEthernetARPStaticsTable[hwEthernetARPStaticsSlot] hwEthernetARPLearningStrictInterfaceTable[hwEthernetARPLearningStrictIfindex]
+  M:ietf <EtherLike-MIB,IANA-MAU-MIB,MAU-MIB,POWER-ETHERNET-MIB,SONET-MIB,TNMS-NBI-MIB> :: dot3StatsTable[dot3StatsIndex] dot3CollTable[ifIndex|dot3CollCount] dot3ControlTable[dot3StatsIndex] dot3PauseTable[dot3StatsIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusEthernetPortsPortsTable[lcsStatusEthernetPortsPortsEntryPort] lcsStatusEthernetPortsCableTestResultsTable[lcsStatusEthernetPortsCableTestResultsEntryIfc] lcsStatusEthernetPortsErrorsTable[lcsStatusEthernetPortsErrorsEntryIfc] lcsStatusEthernetPortsSfpPortsTable[lcsStatusEthernetPortsSfpPortsEntryPort]
+  M:lancom-lx <LCOS-LX-MIB> :: lcosLXStatusL2TPEthernet[lcosLXStatusL2TPEthernetEntryRemoteEnd|lcosLXStatusL2TPEthernetEntryL2TPEndpoint] lcosLXSetupL2TPEthernet[lcosLXSetupL2TPEthernetEntryL2TPEndpoint|lcosLXSetupL2TPEthernetEntryRemoteEnd] lcosLXSetupLANEthernetPorts[lcosLXSetupLANEthernetPortsEntryPort]
+  M:lancom-sx <EtherLike-MIB,IANA-MAU-MIB,LCOS-SX-MIB,POWER-ETHERNET-MIB> :: lcsEnergyEfficientEthernetConfigTable[lcsEnergyEfficientEthernetConfigPort] dot3StatsTable[dot3StatsIndex] dot3CollTable[ifIndex|dot3CollCount] dot3ControlTable[dot3StatsIndex]
+  M:ubnt-edgemax <EdgeSwitch-POWER-ETHERNET-MIB> :: agentPethPsePortTable[A:pethPsePortEntry] agentPethMainPseTable[A:pethMainPseEntry] agentPethPseTable[A:pethMainPseEntry]
+  Y:aruba-cx :: openconfig-if-ethernet-ext:ethernet-in-frames-size-dist/in-distribution openconfig-if-poe:/oc-if:interfaces/oc-if:interface/oc-eth:ethernet
+  Y:cisco-iosxe :: Cisco-IOS-XE-alarm-profile:/ios:native/ios:interface/ios:GigabitEthernet Cisco-IOS-XE-alarm-profile:/ios:native/ios:interface/ios:TenGigabitEthernet Cisco-IOS-XE-alarm-profile:/ios:native/ios:interface/ios:FastEthernet Cisco-IOS-XE-alarm-profile:/ios:native/ios:interface/ios:AppGigabitEthernet
+  Y:openconfig :: openconfig-aft-ethernet:aft-ethernet-structural/mac-entry(k=mac-address) openconfig-aft-ethernet:aft-ethernet-structural/mac-entry/state openconfig-aft:aft-top/afts/ethernet openconfig-if-ethernet:ethernet-interface-state/counters
+  Y:ruckus-icx :: icx-openconfig-if-ethernet-aug:/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:config icx-openconfig-if-ethernet-aug:/oc-if:interfaces/oc-if:interface/oc-eth:ethernet/oc-eth:state icx-openconfig-if-poe-aug:/oc-if:interfaces/oc-if:interface/oc-eth:ethernet openconfig-aft-ethernet:aft-ethernet-structural/mac-entry(k=mac-address)
+
+## eee — Energy Efficient Ethernet
+  M:cisco-smb <CISCOSB-EEE-MIB,CISCOSB-GREEN-MIB> :: rlEeePortTable[ifIndex] rlEeePortLldpTable[ifIndex] rlEeePortLldpLocalTable[ifIndex] rlEeePortLldpRemoteTable[ifIndex]
+  M:dlink <DLINK-POWER-SAVING-MIB,DLINKSW-POWER-SAVING-MIB,EQUIPMENT-MIB> :: dpsIfEeeTable[ifIndex] dpsPortShutdownScheduleTable[ifIndex] dpsIfEeeTable[ifIndex] dpsPortShutdownScheduleTable[ifIndex]
+  M:huawei <HUAWEI-ENERGYMNGT-MIB> :: hwBoardPowerMngtTable[hwBoardIndex] hwEnergySavingMethodTable[hwEnergySavingMethodIndex] hwEnergySavingParameterTable[hwEnergySavingMethodIndex|hwEnergySavingParameterIndex] hwEnergySavingCapabilityMngtTable[hwEnergySavingCapabilityDescIndex]
+  M:lancom-sx <LCOS-SX-MIB> :: lcsEnergyEfficientEthernetConfigTable[lcsEnergyEfficientEthernetConfigPort]
+  Y:cisco-iosxe :: Cisco-IOS-XE-interfaces-oper:interface-state/eee-status Cisco-IOS-XE-interfaces-oper:interface-state/eee-caps
+
+## fec — FEC / link tuning
+  Y:cisco-iosxe :: Cisco-IOS-XE-mpls-ldp-oper:ldp-state/mpls-ldp-binding-fec-lbl(k=fec) Cisco-IOS-XE-multicast:config-mpls-mldp-grouping/mldp-conf/mldp/fec(k=fecid)
+
+## poe — Power over Ethernet
+  M:aruba-cx <ARUBAWIRED-POE-MIB> :: arubaWiredPoePethPsePortTable[A:pethPsePortEntry] arubaWiredPoePethPseFourPairPortTable[A:pethPsePortEntry] arubaWiredPoePethMainPseTable[A:pethMainPseEntry] arubaWiredPoePethPseModuleTable[arubaWiredPoePethPseModuleGroupIndex|arubaWiredPoePethPseModuleSlotIndex]
+  M:cisco-smb <CISCOSB-POE-MIB,CISCOSB-Physicaldescription-MIB> :: rlPhdPoeTable[rlPhdPoeStackUnit] rlPethPsePortTable[rlPethPsePortGroupIndex|rlPethPsePortIndex] rlPethMainPseTable[rlPethMainPseGroupIndex] rlPethPdPortTable[rlPethPdPortIndex]
+  M:dlink <DLINK-DGS-1210-Fx-SERIES-MIB,DLINK-DGS-1210-Gx-SERIES-MIB,DLINKSW-POE-MIB> :: sysPoEPortSettingTable[poeportgroup|poeportid] sysPoEPortSettingTable[poeportgroup|poeportid] dPoeGroupCfgTable[pethMainPseGroupIndex] dPoeGroupInfoTable[pethMainPseGroupIndex]
+  M:hp-comware <HH3C-EPON-MIB,HH3C-EPON-UNI-MIB,HH3C-POWER-ETH-EXT-MIB,HH3C-PPPOE-SERVER-MIB> :: hh3cOnuPoeTable[ifIndex] hh3cUniPoeTable[ifIndex|hh3cEponUniIndex] hh3cUniPoeInfoTable[ifIndex|hh3cEponUniIndex] hh3cPsePortTable[pethPsePortGroupIndex|pethPsePortIndex]
+  M:hp-procurve <HP-ICF-POE-MIB> :: hpicfPoePethPsePortTable[A:pethPsePortEntry] hpicfPseFeaturesTable[entPhysicalIndex] hpicfPoePowerSupplyTable[entPhysicalIndex] hpicfPoePethPseOperStateTable[A:pethMainPseEntry]
+  M:huawei <HUAWEI-POE-MIB,HUAWEI-XPON-COMMON-MIB,HUAWEI-XQoS-MIB,NQA-MIB> :: hwPoeSlotTable[hwPoeSlotId] hwPoePortTable[hwPoePortIfIndex] hwPoePortJudgeTable[hwPoePortJudgeIfIndex] hwPoePowerInfoTable[hwPoePowerInfoDeviceIndex]
+  M:ieee <LLDP-EXT-MED-MIB> :: lldpXMedLocXPoEPSEPortTable[lldpLocPortNum] lldpXMedRemXPoETable[lldpRemTimeMark|lldpRemLocalPortNum|lldpRemIndex] lldpXMedRemXPoEPSETable[lldpRemTimeMark|lldpRemLocalPortNum|lldpRemIndex] lldpXMedRemXPoEPDTable[lldpRemTimeMark|lldpRemLocalPortNum|lldpRemIndex]
+  M:ietf <POWER-ETHERNET-MIB> :: pethPsePortTable[pethPsePortGroupIndex|pethPsePortIndex] pethMainPseTable[pethMainPseGroupIndex] pethNotificationControlTable[pethNotificationControlGroupIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusWlanClientPppoeIdTranslationTableTable[lcsStatusWlanClientPppoeIdTranslationTableEntrySessionId] lcsStatusWlanClientPppoeUniqTranslationTableTable[lcsStatusWlanClientPppoeUniqTranslationTableEntryHostUniqLen|lcsStatusWlanClientPppoeUniqTranslationTableEntryHostUniq] lcsStatusPppoeServerConnectionsTable[lcsStatusPppoeServerConnectionsEntryChannel|lcsStatusPppoeServerConnectionsEntryMacAddress] lcsStatusWlanMngmtApConfAutowdsTopoErrorsTable[lcsStatusWlanMngmtApConfAutowdsTopoErrorsEntryIndex|lcsStatusWlanMngmtApConfAutowdsTopoErrorsEntryPriority|lcsStatusWlanMngmtApConfAutowdsTopoErrorsEntrySlaveApName|lcsStatusWlanMngmtApConfAutowdsTopoErrorsEntrySlaveApWlanIfc]
+  M:lancom-sx <FASTPATH-SWITCHING-MIB,LCOS-SX-MIB,LLDP-EXT-MED-MIB,POWER-ETHERNET-MIB> :: lcsPoeStatusTable[lcsPoeStatusLocalPort] lcsPoeStatusTotalTable[lcsPoeStatusSwitchIndex] lcsPoePowerDelayTable[lcsPoePowerDelayPort] lcsPoeAutoCheckTable[lcsPoeAutoCheckPort]
+  M:mikrotik <MIKROTIK-MIB> :: mtxrPOETable[mtxrPOEInterfaceIndex]
+  M:ruckus-icx <FOUNDRY-POE-MIB> :: snAgentPoePortTable[snAgentPoePortNumber] snAgentPoeModuleTable[snAgentPoeModuleNumber] snAgentPoeUnitTable[snAgentPoeUnitIndex]
+  M:ubnt-edgemax <EdgeSwitch-POWER-ETHERNET-MIB> :: agentPethPsePortTable[A:pethPsePortEntry] agentPethMainPseTable[A:pethMainPseEntry] agentPethPseTable[A:pethMainPseEntry]
+  Y:aruba-cx :: openconfig-if-poe:poe-ethernet-top/poe openconfig-if-poe:poe-ethernet-top/poe/config openconfig-if-poe:poe-ethernet-top/poe/state openconfig-if-poe:/oc-if:interfaces/oc-if:interface/oc-eth:ethernet
+  Y:cisco-iosxe :: Cisco-IOS-XE-bba-group:config-bba-group-grouping/bba-group/pppoe(k=id) Cisco-IOS-XE-poe-health-oper:port-health/signal-pair-info Cisco-IOS-XE-poe-health-oper:port-health/spare-pair-info Cisco-IOS-XE-poe-health-oper:port-health/poe-meta-data
+  Y:ruckus-icx :: icx-openconfig-if-poe-aug:icx-poe-ethernet-top/poe icx-openconfig-if-poe-aug:icx-poe-ethernet-top/poe/config icx-openconfig-if-poe-aug:icx-poe-ethernet-top/poe/state icx-openconfig-if-poe-aug:/oc-if:interfaces/oc-if:interface/oc-eth:ethernet
+
+## subinterface — Subinterface
+  M:hp-comware <HH3C-IF-EXT-MIB,HH3C-VLANTERM-MIB> :: hh3cRTSubIfTable[hh3cRTSubIfParentIfIndex|hh3cRTSubIfOrdinal] hh3cVlanTermDot1qTable[hh3cVlanTermDot1qIfIndex|hh3cVlanTermDot1qVidStart] hh3cVlanTermQinqTable[hh3cVlanTermQinQIfIndex|hh3cVlanTermQinQFirstVlan|hh3cVlanTermQinQSecondVlanStart]
+  M:huawei <HUAWEI-IF-EXT-MIB,HUAWEI-L3VLAN-MIB,HUAWEI-QINQ-MIB> :: hwMasterBackupTrunkSubinterfaceTable[hwBackupTrunkIfIndex] hwSubIfVlanTable[hwSubIfIndex|hwSubIfVlanId] hwSubIfVlanPolicyTable[hwSubIfVlanPolicyIfIndex|hwSubIfVlanPolicyVlanId] hwQinQSubIfVlanStackingTable[hwQinQSubIfStackingIfIndex|hwQinQSubIfStackingCEVlanStart]
+  Y:aruba-cx :: openconfig-interfaces:subinterfaces-top/subinterfaces openconfig-interfaces:subinterfaces-top/subinterfaces/subinterface(k=index)
+  Y:cisco-iosxe :: Cisco-IOS-XE-eigrp-obsolete:interface-grouping-obsolete/interface-choice/ATM-subinterface Cisco-IOS-XE-eigrp-obsolete:interface-grouping-obsolete/interface-choice/ATM-ACRsubinterface Cisco-IOS-XE-eigrp-obsolete:interface-grouping-obsolete/interface-choice/LISP-subinterface Cisco-IOS-XE-eigrp-obsolete:interface-grouping-obsolete/interface-choice/Port-channel-subinterface
+  Y:ruckus-icx :: openconfig-interfaces:subinterfaces-top/subinterfaces openconfig-interfaces:subinterfaces-top/subinterfaces/subinterface(k=index)
+
+## lag — Link aggregation group
+  M:aruba-cx <ARUBAWIRED-MCLAG-MIB,ARUBAWIRED-VSX-MIB> :: arubaWiredMclagAggregatorTable[arubaWiredMclagAggregatorIndex] arubaWiredVsxAggregatorTable[arubaWiredVsxAggregatorIndex]
+  M:cisco-smb <CISCOSB-QOS-CLI-MIB,CISCOSB-TRUNK-MIB,DIFF-SERV-MIB> :: rlDot3adAggBalanceTable[dot3adAggIndex|rlDot3adAggBalanceForwardType] rlDot3adAggCreationTable[dot3adAggIndex] rlDot3adAggPortLacpTable[dot3adAggPortIndex] rlDot3adAggLacpMembershipRestrictionsTable[dot3adAggIndex]
+  M:dlink <DLINK-DGS-1210-Fx-SERIES-MIB,DLINK-DGS-1210-Gx-SERIES-MIB,DLINKSW-BGP-MIB> :: laPortChannelTable[laPortChannelIfIndex] laPortChannelTable[laPortChannelIfIndex] dBgpAggregateTable[--			dBgpIfIndex --]
+  M:hp-comware <HH3C-CBQOS2-MIB,HH3C-IFQOS2-MIB,HH3C-LAG-MIB,HH3C-LswINF-MIB> :: hh3cCBQoSAggregativeCarCfgInfoTable[hh3cCBQoSBehaviorIndex|hh3cCBQoSCarAggregativeCarIndex] hh3cIfQoSAggregativeCarConfigTable[hh3cIfQoSAggregativeCarIndex] hh3cIfQoSAggregativeCarApplyTable[ifIndex|hh3cIfQoSAggregativeCarApplyDirection|hh3cIfQoSAggregativeCarApplyRuleType|hh3cIfQoSAggregativeCarApplyRuleValue] hh3cIfQoSAggregativeCarRunInfoTable[hh3cIfQoSAggregativeCarIndex]
+  M:hp-procurve <HP-ICF-OSPF,HP-SN-BGP4-GROUP-MIB,HP-SN-SWITCH-GROUP-MIB> :: hpicfOspfAreaAggregateTable[A:ospfAreaAggregateEntry] snBgp4AggregateAddrTable[snBgp4AggregateAddrIp|snBgp4AggregateAddrMask|snBgp4AggregateAddrOption] snNetFlowAggregationTable[snNetFlowAggregationIndex]
+  M:huawei <HUAWEI-E-TRUNK-MIB,HUAWEI-M-LAG-MIB,HUAWEI-MC-TRUNK-MIB,HUAWEI-OSPFV3-MIB,HUAWEI-SMARTLINK-MIB,HUAWEI-XPON-COMMON-MIB> :: hwETrunkTable[hwETrunkId] hwETrunkMemberTable[hwETrunkMemberParentId|hwETrunkMemberType|hwETrunkMemberId] hwETrunkBackupPortTable[hwETrunkBackupETrunkId] hwmlagDfsPeerDownTable[hwdfsGroupId|hwsysMac|hwdfsType|hwdfsPeerAddress]
+  M:ieee <IEEE8023-LAG-MIB> :: dot3adAggTable[dot3adAggIndex] dot3adAggPortListTable[dot3adAggIndex] dot3adAggXTable[A:dot3adAggEntry] dot3adAggConversationAdminLinkTable[dot3adAggConversationAdminLinkId|dot3adAggIndex]
+  M:ietf <OSPF-MIB,OSPFV3-MIB> :: ospfAreaAggregateTable[ospfAreaAggregateAreaID|ospfAreaAggregateLsdbType|ospfAreaAggregateNet|ospfAreaAggregateMask] ospfv3AreaAggregateTable[ospfv3AreaAggregateAreaID|ospfv3AreaAggregateAreaLsdbType|ospfv3AreaAggregatePrefixType|ospfv3AreaAggregatePrefix|ospfv3AreaAggregatePrefixLength]
+  M:lancom-lcos <LCOS-MIB> :: lcsSetupRoutProtOspfAreaAddressAggregationTable[lcsSetupRoutProtOspfAreaAddressAggregationEntryOspfInstance|lcsSetupRoutProtOspfAreaAddressAggregationEntryAreaId|lcsSetupRoutProtOspfAreaAddressAggregationEntryIpAddress|lcsSetupRoutProtOspfAreaAddressAggregationEntryIpNetmask] lcsStatusWlanMngmtApConfLinkAggregationProfileErrorsTable[lcsStatusWlanMngmtApConfLinkAggregationProfileErrorsEntryIndex] lcsStatusWlanMngmtApConfLinkAggregationProfilesTable[lcsStatusWlanMngmtApConfLinkAggregationProfilesEntryName] lcsSetupWlanMngmtApConfLinkAggregationProfilesTable[lcsSetupWlanMngmtApConfLinkAggregationProfilesEntryName]
+  M:lancom-sx <FASTPATH-SWITCHING-MIB,LAG-MIB,LCOS-SX-MIB,OSPF-MIB,OSPFV3-MIB> :: lcsMSTIAggregatedPortsTable[lcsMSTIAggregatedPortsMSTIndex] dot3adAggTable[dot3adAggIndex] dot3adAggPortListTable[dot3adAggIndex] dot3adAggPortTable[dot3adAggPortIndex]
+  M:netgear <NETGEAR-SMART-SWITCHING-MIB,NETGEAR-SWITCHING-MIB> :: agentDot3adAggPortTable[agentDot3adAggPort] agentDot3adAggPortTable[agentDot3adAggPort]
+  M:ruckus-icx <FOUNDRY-LAG-MIB,FOUNDRY-SN-BGP4-GROUP-MIB,FOUNDRY-SN-SWITCH-GROUP-MIB> :: fdryLinkAggregationGroupTable[fdryLinkAggregationGroupName] fdryLinkAggregationGroupPortTable[fdryLinkAggregationGroupName|ifIndex] fdryLinkAggregationGroupLacpPortTable[fdryLinkAggregationGroupName|ifIndex] snBgp4AggregateAddrTable[snBgp4AggregateAddrIp|snBgp4AggregateAddrMask|snBgp4AggregateAddrOption]
+  M:ubnt-edgemax <EdgeSwitch-SWITCHING-MIB> :: agentDot3adAggPortTable[agentDot3adAggPort]
+  Y:aruba-cx :: openconfig-if-aggregate:aggregation-logical-top/aggregation openconfig-if-aggregate:aggregation-logical-top/aggregation/config openconfig-if-aggregate:aggregation-logical-top/aggregation/state openconfig-if-aggregate:/oc-if:interfaces/oc-if:interface
+  Y:cisco-iosxe :: Cisco-IOS-XE-bgp:bgp-aggregate-timer-grouping/aggregate-timer Cisco-IOS-XE-bgp:address-family-ipv4-aggregate-address-grouping/aggregate-address(k=ipv4-address) Cisco-IOS-XE-bgp:address-family-ipv6-aggregate-address-grouping/aggregate-address(k=ipv6-address) Cisco-IOS-XE-bgp:address-family-ipv6-aggregate-address-grouping-obsolete/aggregate-address(k=ipv6-address)
+  Y:openconfig :: openconfig-local-routing:local-aggregate-top/local-aggregates openconfig-local-routing:local-aggregate-top/local-aggregates/aggregate(k=prefix) openconfig-rib-bgp-attributes:bgp-aggregator-attr-top/aggregator openconfig-segment-routing:sr-mpls-top/segment-routing/aggregate-sid-counters
+  Y:ruckus-icx :: openconfig-if-aggregate:aggregation-logical-top/aggregation openconfig-if-aggregate:aggregation-logical-top/aggregation/config openconfig-if-aggregate:aggregation-logical-top/aggregation/state openconfig-if-aggregate:/oc-if:interfaces/oc-if:interface
+
+## lacp — LACP protocol state
+  M:cisco-smb <CISCOSB-TRUNK-MIB> :: rlDot3adAggPortLacpTable[dot3adAggPortIndex] rlDot3adAggLacpMembershipRestrictionsTable[dot3adAggIndex]
+  M:dlink <DLINKSW-LACP-EXT-MIB> :: dLacpExtGroupTable[dLacpExtGroupChannelNo]
+  M:hp-other <BLADETYPE2-PHYSICAL-MIB,BLADETYPE4-NETWORK-MIB,BLADETYPE5-NETWORK-MIB,BLADETYPE6-NETWORK-MIB> :: lacpCurPortCfgTable[lacpCurPortCfgTableId] lacpNewPortCfgTable[lacpNewPortCfgTableId] lacpStatsTable[lacpStatsIndex] lacpInfoPortTable[lacpInfoPortIndex]
+  M:ieee <IEEE8023-LAG-MIB> :: dot3adAggPortListTable[dot3adAggIndex] dot3adAggPortTable[dot3adAggPortIndex] dot3adAggPortStatsTable[dot3adAggPortIndex] dot3adAggPortDebugTable[dot3adAggPortIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusLanInterfaceBundlingLacpIfcsTable[lcsStatusLanInterfaceBundlingLacpIfcsEntryInterface] lcsStatusLanInterfaceBundlingLacpPortsTable[lcsStatusLanInterfaceBundlingLacpPortsEntryInterface|lcsStatusLanInterfaceBundlingLacpPortsEntryPort] lcsStatusLanInterfaceBundlingLacpAggrsTable[lcsStatusLanInterfaceBundlingLacpAggrsEntryInterface|lcsStatusLanInterfaceBundlingLacpAggrsEntryAggregator] lcsSetupLanIfcBundlLacpInterfacesTable[lcsSetupLanIfcBundlLacpInterfacesEntryInterface]
+  M:lancom-lx <LCOS-LX-MIB> :: lcosLXStatusLANLACP[lcosLXStatusLANLACPEntryBondName] lcosLXSetupLANLACP[lcosLXSetupLANLACPEntryName]
+  M:lancom-sx <FASTPATH-SWITCHING-MIB,LAG-MIB,LANCOM-GS2310-FUNCTION-MIB,LCOS-SX-MIB> :: gs2310LACPPortConfigurationTable[gs2310LACPPortConfigurationPort] gs2310LACPSystemStatusTable[gs2310LACPSystemStatusIndex] gs2310LACPStatusTable[gs2310LACPStatusPort] gs2310LACPStatisticsTable[gs2310LACPStatisticsPort]
+  M:netgear <NETGEAR-SMART-SWITCHING-MIB,NETGEAR-SWITCHING-MIB> :: agentDot3adAggPortTable[agentDot3adAggPort] agentDot3adAggPortTable[agentDot3adAggPort]
+  M:ruckus-icx <FOUNDRY-LAG-MIB> :: fdryLinkAggregationGroupLacpPortTable[fdryLinkAggregationGroupName|ifIndex]
+  M:ubnt-edgemax <EdgeSwitch-SWITCHING-MIB> :: agentDot3adAggPortTable[agentDot3adAggPort]
+  Y:cisco-iosxe :: Cisco-IOS-XE-ethernet:config-interface-ethernet-member-link-lacp-grouping/lacp Cisco-IOS-XE-ethernet:config-interface-port-channel-lacp-grouping/lacp Cisco-IOS-XE-ethernet:config-interface-port-channel-mlacp-grouping/mlacp Cisco-IOS-XE-lacp-oper:lacp-member-state/counters
+
+## tunnel-if — Tunnel interfaces
+  M:aruba-wireless <WLSX-HA-MIB,WLSX-TUNNELEDNODE-MIB> :: wlsxHighAvalabilityTunnelTable[haProfileName] wlsxTunneledNodeRequestTable[wlsxTunneledNodeMAC]
+  M:cisco-smb <CISCOSB-IPv6,CISCOSB-TUNNEL-MIB,CISCOSB-vlan-MIB> :: rlIpv6TunnelToIPv6DbTable[rlIpv6TunnelToIPv6IfIndex] rlTunnelIfTable[A:tunnelIfEntry] rlTunnelIsatapConfTable[ifIndex] rlTunnelIsatapPrlTable[rlTunnelIsatapPrlIfIndex|rlTunnelIsatapPrlPriority]
+  M:dlink <DLINKSW-L2PT-MIB,DLINKSW-VLAN-TUNNEL-MIB> :: dL2ptTunnelingMacTable[dL2ptProtocolType] dVlanTunnelEtherTypeTable[dVlanTunnelEtherTypeIfIndex] dVlanTunnelInterfaceTable[dVlanTunnelIfIndex] dVlanMappingTranslateTable[dVlanMappingTranslateIfIndex|dVlanMappingTranslateOriginalVlan|dVlanMappingTranslateOriginalInnerVlan]
+  M:hp-comware <HH3C-DOT11-ACMT-MIB,HH3C-DVPN-MIB,HH3C-GRE-MIB,HH3C-IKE-MONITOR-MIB,HH3C-IPSEC-MONITOR-MIB,HH3C-IPSEC-MONITOR-V2-MIB> :: hh3cDot11CAPWAPTunnelTable[hh3cDot11CurrTunnelAPID] hh3cDvpnPolicyTable[hh3cDvpnPolicyName] hh3cDvpnDomainInfoTable[hh3cDvpnDomainID] hh3cDvpnClassTable[hh3cDvpnClassName]
+  M:hp-procurve <HP-ICF-IPCONFIG,HP-SN-MPLS-TE-MIB> :: hpicfUdpTunnelTable[A:tunnelInetConfigEntry] mplsTunnelTable[mplsTunnelIndex|mplsTunnelInstance|mplsTunnelIngressLSRId|mplsTunnelEgressLSRId] mplsTunnelHopTable[mplsTunnelHopListIndex|mplsTunnelHopPathOptionIndex|mplsTunnelHopIndex] mplsTunnelResourceTable[mplsTunnelResourceIndex]
+  M:huawei <HUAWEI-AAA-MIB,HUAWEI-BGP-VPN-MIB,HUAWEI-BRAS-GRE-MIB,HUAWEI-BRAS-L2TP-MIB,HUAWEI-BRAS-SBC-MIB,HUAWEI-HQOS-MIB> :: hwAAAInboundVPNAccessUserStatTable[hwAAAInboundVPNUserType|hwAAAInboundVPNName] hwBgpVpnTunnelTable[hwBgpVpnTunnelVrfName|hwBgpVpnTunnelPublicNetNextHop|hwBgpVpnTunnelId] hwQueryGreGroupTable[hwQueryGreGroupName] hwL2tpGroupConfigTable[hwL2tpGroupindex]
+  M:ietf <MPLS-TE-MIB,MPLS-TE-STD-MIB,TUNNEL-MIB> :: mplsTunnelTable[mplsTunnelIndex|mplsTunnelInstance|mplsTunnelIngressLSRId|mplsTunnelEgressLSRId] mplsTunnelHopTable[mplsTunnelHopListIndex|mplsPathOptionIndex|mplsTunnelHopIndex] mplsTunnelResourceTable[mplsTunnelResourceIndex] mplsTunnelARHopTable[mplsTunnelARHopListIndex|mplsTunnelARHopIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusTcpIpHttpActiveTunnelsTable[lcsStatusTcpIpHttpActiveTunnelsEntryIndex] lcsStatusWlanMngmtWlcTunnelsWlcConnectionsTable[lcsStatusWlanMngmtWlcTunnelsWlcConnectionsEntryConnId] lcsStatusWlanMngmtWlcTunnelsWlcDiscoveryTable[lcsStatusWlanMngmtWlcTunnelsWlcDiscoveryEntryNetwork] lcsStatusIpv6Tunnel6in4Table[lcsStatusIpv6Tunnel6in4EntryPeerName]
+  M:lancom-lx <LCOS-LX-MIB> :: lcosLXStatusL2TPEndpoints[lcosLXStatusL2TPEndpointsEntryL2TPEndpoint] lcosLXStatusL2TPEthernet[lcosLXStatusL2TPEthernetEntryRemoteEnd|lcosLXStatusL2TPEthernetEntryL2TPEndpoint] lcosLXSetupL2TPEndpoints[lcosLXSetupL2TPEndpointsEntryTunnelID] lcosLXSetupL2TPEthernet[lcosLXSetupL2TPEthernetEntryL2TPEndpoint|lcosLXSetupL2TPEthernetEntryRemoteEnd]
+  M:lancom-sx <FASTPATH-IPV6-TUNNEL-MIB> :: agentTunnelIPV6Table[agentTunnelID] agentTunnelIPV6PrefixTable[agentTunnelID|agentTunnelIPV6PrefixPrefix|agentTunnelIPV6PrefixPrefixLen]
+  M:ubnt-edgemax <EdgeSwitch-IPV6-TUNNEL-MIB> :: agentTunnelIPV6Table[agentTunnelID] agentTunnelIPV6PrefixTable[agentTunnelID|agentTunnelIPV6PrefixPrefix|agentTunnelIPV6PrefixPrefixLen]
+  Y:cisco-iosxe :: Cisco-IOS-XE-bfd-oper:bfd-session-v2/bfd-tunnel-paths Cisco-IOS-XE-bfd-oper:bfd-session-v2/bfd-tunnel-paths/bfd-tunnel-path(k=interface) Cisco-IOS-XE-cdp:/ios:native/ios:interface/ios:Tunnel Cisco-IOS-XE-cef:config-af-cef-ldshr-alg-tun-grouping/tunnel-v2
+  Y:openconfig :: openconfig-aft-common:aft-nhop-structural/next-hops/next-hop/gre openconfig-evpn:evpn-evi-overlay-top/vxlan openconfig-mpls-te:te-tunnel-p2p-top/p2p-tunnel-attributes openconfig-mpls-te:te-tunnels-top/tunnels
+  Y:ruckus-icx :: openconfig-mpls-te:te-tunnel-p2p-top/p2p-tunnel-attributes openconfig-mpls-te:te-tunnels-top/tunnels openconfig-mpls-te:te-tunnels-top/tunnels/tunnel(k=name) openconfig-pf-forwarding-policies:pf-forwarding-policy-action-encapsulate-gre/encapsulate-gre
+
+## loopback-if — Loopback interface
+  M:hp-comware <HH3C-EFM-COMMON-MIB,HH3C-LSW-DEV-ADM-MIB> :: hh3cDot3OamLoopbackTable[ifIndex] hh3cLswPortLoopbackTable[A:hh3cLswPortEntry]
+  M:hp-procurve <HP-SN-IP-MIB> :: snLoopbackIntfConfigTable[snLoopbackIntfConfigPortIndex]
+  M:huawei <HUAWEI-ATM-MIB,HUAWEI-BRAS-L2TP-MIB,HUAWEI-ETHOAM-MIB,HUAWEI-XPON-MIB> :: hwAtmPvcOAMLoopbackTable[hwAtmVclIfIndex|hwAtmVclVpi|hwAtmVclVci] hwL2tpLnsGroupLoopbackTable[hwL2tpLnsGroupName|hwL2tpLnsGroupLoopbackIndex] hwDot3ahEfmLoopbackTable[ifIndex] hwGponDeviceGemLoopbackTable[ifIndex|hwGponDeviceOntIndex|hwGponDeviceGemIndexObjectIndex]
+  M:ietf <DOT3-OAM-MIB> :: dot3OamLoopbackTable[ifIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsSetupTcpIpLoopbackListTable[lcsSetupTcpIpLoopbackListEntryName] lcsSetupIpv6NetworkLoopbackTable[lcsSetupIpv6NetworkLoopbackEntryName] lcsSetupDnsLoopbackAddressesTable[lcsSetupDnsLoopbackAddressesEntryDestination]
+  M:lancom-sx <FASTPATH-IPV6-LOOPBACK-MIB,FASTPATH-LOOPBACK-MIB> :: agentLoopbackIpv6PrefixTable[agentLoopbackID|agentLoopbackIpv6PrefixPrefix|agentLoopbackIpv6PrefixPrefixLen] agentLoopbackTable[agentLoopbackID]
+  M:ruckus-icx <FOUNDRY-SN-IP-MIB> :: snLoopbackIntfConfigTable[snLoopbackIntfConfigPortIndex]
+  M:ubnt-edgemax <EdgeSwitch-IPV6-LOOPBACK-MIB,EdgeSwitch-LOOPBACK-MIB> :: agentLoopbackIpv6PrefixTable[agentLoopbackID|agentLoopbackIpv6PrefixPrefix|agentLoopbackIpv6PrefixPrefixLen] agentLoopbackTable[agentLoopbackID]
+  Y:cisco-iosxe :: Cisco-IOS-XE-crypto:/ios:native/ios:interface/ios:Loopback Cisco-IOS-XE-ethernet-oam:config-interface-ethernet-oam-grouping/ethernet/oam/remote-loopback Cisco-IOS-XE-ethernet-oam:config-interface-ethernet-oam-grouping/ethernet/loopback Cisco-IOS-XE-ethernet-rpc:eth-lat-loopback
+
+## mgmt-if — Management interface
+  M:cisco-smb <CISCOSB-MNGINF-MIB> :: rlMngInfListTable[rlMngInfListName|rlMngInfListPriority] rlMngInfListInetTable[rlMngInfListInetName|rlMngInfListInetPriority]
+  M:hp-procurve <HP-ICF-BRIDGE> :: hpicfBridgeManagementInterfaceConfigTable[ifIndex]
+
+## cable-diag — Cable diagnostics / TDR
+  M:dlink <AGENT-GENERAL-MIB,DLINKSW-CABLE-DIAG-MIB,DLINKSW-DOS-PREVENT-MIB,DLINKSW-LOOPBACK-TEST-MIB,DLINKSW-MPLS-MIB> :: agentDRAMutilizationTable[agentDRAMutilizationUnitID] dCableDiagIfTable[ifIndex] dCableDiagResultTable[ifIndex] dDosPrevCtrlTable[dDoSPrevCtrlAttackType]
+  M:hp-comware <HH3C-ATM-DXI-MIB,HH3C-EPON-MIB,HH3C-L2VPN-PWE3-MIB,HH3C-RPR-MIB> :: hh3cAtmDxiPvcTable[ifIndex|hh3cAtmDxiPvcVpi|hh3cAtmDxiPvcVci] hh3cOnuLinkTestTable[ifIndex] hh3cPwVcTable[hh3cPwVcIndex] hh3cRprPktDropCountTable[hh3cRprPktDropCntIfIndex|hh3cRprPktDropCntRingletID]
+  M:hp-procurve <HP-ICF-LINKTEST> :: hpicfLinkTestTable[hpicfLinkTestIndex]
+  M:huawei <HUAWEI-ATM-MIB,HUAWEI-BRAS-QOS-MIB,HUAWEI-BRAS-SRVCFGINTERFACE-MIB,HUAWEI-CCC-MIB,HUAWEI-ENTITY-EXTENT-MIB,HUAWEI-IF-EXT-MIB> :: hwAtmMapPvcTable[hwAtmMapPvcIfIndex|hwAtmMapPvcVclVpi|hwAtmMapPvcVclVci] hwBRASQoSIfVcTable[hwBRASQoSIfVcIfIndex|hwBRASQoSIfVcVlanId|hwBRASQoSIfVcQinqVlanId] hwBRASIfPvcTable[hwBRASIfPvcIfIndex|hwBRASIfPvcVpi|hwBRASIfPvcVci] hwCCCVcTable[hwCCCVcName]
+  M:ietf <ATM-FORUM-M4-MIB,ATM-FORUM-SNMP-M4-MIB,Stulz-WIB8000-MIB> :: atmfM4VcTestTable[ifIndex|atmVclVpi|atmVclVci|atmfM4VcTestObject] atmfM4VcTestTable[ifIndex|atmVclVpi|atmVclVci|atmfM4VcTestObject] infoStatDrycoolersTable[wibBusNumber|wibDeviceAddress|wibModuleNumber]
+  M:lancom-sx <LCOS-SX-MIB> :: lcsCableDiagnosticsTable[lcsCableDiagnosticsPort]
+  Y:cisco-iosxe :: Cisco-IOS-XE-cable-diag-oper:cable-diag-state/cable-diag-oper(k=pair-id) Cisco-IOS-XE-cable-diag-oper:cable-diag-oper-data Cisco-IOS-XE-cable-diag-oper:cable-diag-oper-data/cable-diag-state(k=local-interface-name) Cisco-IOS-XE-cable-diag-rpc:/ios-xe-rpc:test/ios-xe-rpc:input/ios-xe-rpc:test-feature
+
+## link-oam — Ethernet link OAM (802.3ah)
+  M:cisco-smb <CISCOSB-QOS-CLI-MIB> :: rlQosEfManageTable[rlQosEfQueueId]
+  M:hp-comware <HH3C-DOT3-EFM-EPON-MIB,HH3C-EFM-COMMON-MIB> :: hh3cDot3MpcpTable[ifIndex] hh3cDot3MpcpStatTable[ifIndex] hh3cDot3OmpEmulationTable[ifIndex] hh3cDot3OmpEmulationStatTable[ifIndex]
+  M:huawei <HUAWEI-ETHOAM-MIB,HUAWEI-PORT-MIB,HUAWEI-VRRP-EXT-MIB> :: hwDot1agCfmMdTable[hwDot1agCfmMdIndex] hwDot1agCfmMaTable[hwDot1agCfmMdIndex|hwDot1agCfmMaIndex] hwDot1agCfmMepTable[hwDot1agCfmMdIndex|hwDot1agCfmMaIndex|hwDot1agCfmMepIdentifier] hwDot1agCfmRMepTable[hwDot1agCfmMdIndex|hwDot1agCfmMaIndex|hwDot1agCfmRMepIdentifier]
+  M:ietf <DOT3-OAM-MIB> :: dot3OamTable[ifIndex] dot3OamPeerTable[ifIndex] dot3OamLoopbackTable[ifIndex] dot3OamStatsTable[ifIndex]
+  M:lancom-sx <LCOS-SX-MIB> :: lcsEthLinkOAMPortConfTable[lcsEthLinkOAMPortConfIndex] lcsEthLinkOAMPortDetailStatusTable[lcsEthLinkOAMPortDetailStatusIndex] lcsEthLinkOAMPortLinkEventConfTable[lcsPortLinkEventConfIndex] lcsEthLinkOAMPortDetailedStatisticsTable[lcsPortDetailedStatisticsIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-controller-shdsl-common:shdsl-link-information/efm-statistics Cisco-IOS-XE-controller-shdsl-events:shdsl-efmbond-link-rate-update Cisco-IOS-XE-controller-shdsl-events:shdsl-efmbond-config-mismatch-notification Cisco-IOS-XE-controller-shdsl-events:shdsl-efm-frame-size-internal-error-notification
+
+## udld — UDLD / DLDP
+  M:cisco-smb <CISCOSB-UDLD-MIB> :: rlUdldPortTable[rlUdldPortIfIndex] rlUdldNeighborTable[rlUdldNeighborPortIfIndex|rlUdldNeighborDeviceID|rlUdldNeighborPortID]
+  M:dlink <DLINKSW-DULD-MIB> :: dDuldTable[dDuldPort]
+  M:hp-comware <HH3C-DLDP-MIB,HH3C-DLDP2-MIB> :: hh3cDLDPPortStateTable[ifIndex] hh3cDLDPPortDLDPTable[ifIndex] hh3cDLDPNeighborTable[ifIndex|hh3cDLDPNeighborBridgeMac|hh3cDLDPNeighborPortIndex] hh3cDldp2PortConfigTable[ifIndex]
+  M:hp-procurve <HP-ICF-UDLD-MIB> :: hpicfUdldPortConfigTable[ifIndex] hpicfUdldPortStatsTable[ifIndex]
+  M:huawei <HUAWEI-DLDP-MIB> :: hwDldpPortTable[hwDldpPortIndex] hwDldpNeighbourTable[hwDldpPortIndex|hwDldpNeighbourMacAddr|hwDldpNeighbourPortIndex] hwDldpIfTable[hwDldpIfIndex] hwDldpIfNeighbourTable[hwDldpIfIndex|hwDldpIfNeighbourMacAddr|hwDldpIfNeighbourIfIndex]
+  M:lancom-sx <FASTPATH-UDLD-MIB,LCOS-SX-MIB> :: lcsUDLDPortConfigTable[lcsUDLDPort] lcsUDLDPortStatusTable[lcsUDLDPortStatusPort] lcsUDLDPortNeighbourStatusTable[lcsUDLDNeighbourPort] agentUdldInterfaceTable[ifIndex]
+  M:ubnt-edgemax <EdgeSwitch-UDLD-MIB> :: agentUdldInterfaceTable[ifIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-native:native/udld Cisco-IOS-XE-switch:l2pt-choice-grouping/point-to-point/udld Cisco-IOS-XE-switch:l2pt-choice-grouping-obsolete/point-to-point/udld Cisco-IOS-XE-template:template-grouping/udld

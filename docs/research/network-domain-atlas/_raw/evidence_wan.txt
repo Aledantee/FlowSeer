@@ -1,0 +1,43 @@
+
+## wan-serial — Serial / TDM / ATM / FR
+  M:hp-comware <HH3C-ATM-DXI-MIB,HH3C-E1-MIB,HH3C-FR-QOS-MIB,HH3C-ISDN-MIB,HH3C-POS-MIB,HH3C-POSA-MIB> :: hh3cAtmDxiPvcTable[ifIndex|hh3cAtmDxiPvcVpi|hh3cAtmDxiPvcVci] hh3cAtmDxiMapTable[ifIndex|hh3cAtmDxiMapPeerIpType|hh3cAtmDxiMapPeerIp|hh3cAtmDxiMapPvcVpi|hh3cAtmDxiMapPvcVci|hh3cAtmDxiMapType] hh3ce1InterfaceStatusTable[ifIndex] hh3ce1Table[ifIndex]
+  M:hp-procurve <HP-SN-POS-GROUP-MIB> :: snPOSInfoTable[snPOSInfoPortNum]
+  M:huawei <HUAWEI-ATM-MIB,HUAWEI-BRAS-PPPoX-MIB,HUAWEI-FR-QOS-MIB,HUAWEI-IMA-MIB,HUAWEI-PPP-MIB,HUAWEI-TDM-PSN-MIB> :: hwAtmTable[hwAtmIfIndex] hwAtmMapPvpTable[hwAtmMapPvpIfIndex|hwAtmMapPvpVplVpi] hwAtmMapPvcTable[hwAtmMapPvcIfIndex|hwAtmMapPvcVclVpi|hwAtmMapPvcVclVci] hwAtmServiceTable[hwAtmServiceName]
+  M:ietf <ATM-DXI-MIB,ATM-FORUM-ADDR-REG,ATM-FORUM-ILMI40-MIB,ATM-FORUM-M4-MIB,ATM-FORUM-MIB,ATM-FORUM-SNMP-M4-MIB> :: atmDxiConfTable[atmDxiConfIfIndex] atmDxiDFAConfTable[atmDxiDFAConfIfIndex|atmDxiDFAConfDfaIndex] atmfNetPrefixTable[atmfNetPrefixPort|atmfNetPrefixPrefix] atmfAddressTable[atmfAddressPort|atmfAddressAtmAddress]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusIsdnLineS0Table[lcsStatusIsdnLineS0EntryIfc] lcsStatusIsdnFramingS0Table[lcsStatusIsdnFramingS0EntryIfc] lcsStatusIsdnSignalingLayer2LapdTable[lcsStatusIsdnSignalingLayer2LapdEntryChannel] lcsStatusIsdnSignalingManagementDInfoTable[lcsStatusIsdnSignalingManagementDInfoEntryChannel]
+  M:ruckus-icx <FOUNDRY-SN-POS-GROUP-MIB> :: snPOSInfoTable[snPOSInfoPortNum] snPOSInfo2Table[ifIndex] snPOSPPPTable[ifIndex] snPOScHDLCTable[ifIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-aaa:config-aaa-grouping/authentication/ppp(k=id) Cisco-IOS-XE-alarm-profile:alarm-config-grouping/alarm-config/alarm/ds1 Cisco-IOS-XE-alarm-profile:alarm-config-grouping/alarm-config/alarm/ds3 Cisco-IOS-XE-alarm-profile:alarm-config-grouping/alarm-config/alarm/sonet-sdh
+  Y:openconfig :: openconfig-rib-bgp-tables:l2vpn-evpn-adj-rib-top/neighbors/neighbor/adj-rib-in-post openconfig-rib-bgp-tables:l2vpn-evpn-adj-rib-top/neighbors/neighbor/adj-rib-out-post openconfig-rib-bgp-tables:ipv4-adj-rib-top/neighbors/neighbor/adj-rib-in-post openconfig-rib-bgp-tables:ipv4-adj-rib-top/neighbors/neighbor/adj-rib-out-post
+
+## dsl — DSL (ADSL/VDSL/SHDSL)
+  M:ietf <ADSL-LINE-EXT-MIB,ADSL-LINE-MIB,ADSL-TC-MIB,ADSL2-LINE-TC-MIB,GBOND-MIB,HDSL2-SHDSL-LINE-MIB> :: adslLineExtTable[A:adslLineEntry] adslAtucPerfDataExtTable[A:adslAtucPerfDataEntry] adslAtucIntervalExtTable[A:adslAtucIntervalEntry] adslAturPerfDataExtTable[A:adslAturPerfDataEntry]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusAdslConnectionHistoryTable[lcsStatusAdslConnectionHistoryEntryIndex] lcsStatusAdslAdvancedDsBitLoadingTable[lcsStatusAdslAdvancedDsBitLoadingEntryBinNumber] lcsStatusAdslAdvancedUsBitLoadingTable[lcsStatusAdslAdvancedUsBitLoadingEntryBinNumber] lcsStatusVdslConnectionHistoryTable[lcsStatusVdslConnectionHistoryEntryIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-adsl:adsl-pvc-grouping/carrier-set Cisco-IOS-XE-adsl:adsl-pvc-grouping/capability Cisco-IOS-XE-adsl:adsl-pvc-grouping/adsl-pvc(k=vpi-vci) Cisco-IOS-XE-adsl:adsl-pvc-grouping/adsl-pvc/pvc-qos
+
+## pon — PON (EPON/GPON)
+  M:hp-comware <HH3C-DOT3-EFM-EPON-MIB,HH3C-EPON-DEVICE-MIB,HH3C-EPON-FB-MIB,HH3C-EPON-MIB,HH3C-EPON-UNI-MIB> :: hh3cDot3MpcpTable[ifIndex] hh3cDot3MpcpStatTable[ifIndex] hh3cDot3OmpEmulationTable[ifIndex] hh3cDot3OmpEmulationStatTable[ifIndex]
+  M:huawei <HUAWEI-EPON-MIB,HUAWEI-XPON-COMMON-MIB,HUAWEI-XPON-MIB,HWMUSA-DEV-MIB> :: hwEponOltControlTable[ifIndex] hwEponOnuConfigTable[ifIndex|hwEponOnuIndex] hwEponOnuVersionTable[ifIndex|hwEponOnuIndex] hwEponOnuControlTable[ifIndex|hwEponOnuIndex]
+  M:ubnt-airmax <UBNT-UFIBER-MIB> :: ubntPowerOutTable[ubntPowerOutIndex] ubntPsuTable[ubntPsuIndex] ubntThermsTable[ubntThermIndex] ubntFansTable[ubntFanIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-aaa:config-radius-grouping/server/backoff/exponential
+
+## docsis — Cable / DOCSIS
+  M:hp-comware <HH3C-CATV-TRANSCEIVER-MIB,HH3C-EOC-COMMON-MIB> :: hh3cEOCCommonCltManTable[ifIndex] hh3cEOCComCnuSysManTable[ifIndex] hh3cEOCComCnuMacTable[ifIndex] hh3cEOCComCnuInfoTable[ifIndex]
+  M:huawei <HUAWEI-XPON-MIB> :: hwGponDeviceOntCatvPortCfgTable[ifIndex|hwGponDeviceOntIndex|hwGponDeviceOntCatvPortId]
+  M:ietf <DOCS-CABLE-DEVICE-MIB,DOCS-IF-MIB> :: docsDevNmAccessTable[docsDevNmAccessIndex] docsDevEvControlTable[docsDevEvPriority] docsDevEventTable[docsDevEvIndex] docsDevFilterLLCTable[docsDevFilterLLCIndex]
+
+## cellular — Cellular / 3G/LTE
+  M:hp-comware <HH3C-3GMODEM-MIB,HH3C-LTE-MEC-MIB> :: hh3cWirelessCardTable[hh3cWirelessCardIndex] hh3cSmsOperationTable[hh3cWirelessCardIndex] hh3cWirelessCardOnlineTable[hh3cWirelessCardIndex|hh3cWirelessCardOnlineTime] hh3cUIMInfoTable[hh3cWirelessCardIndex|hh3cUIMIndex]
+  M:huawei <HUAWEI-WLAN-CONFIGURATION-MIB> :: hwCellularNetworkProfileTable[hwCellularNetworkProfileName]
+  M:lancom-lcos <LCOS-MIB> :: lcsSetupIeee80211uCellularNetworkInformationListTable[lcsSetupIeee80211uCellularNetworkInformationListEntryName]
+  Y:cisco-iosxe :: Cisco-IOS-XE-cellular-rpc:cellular Cisco-IOS-XE-cellular-rpc:cellular/lte Cisco-IOS-XE-cellular-rpc:cellular/lte/action/technology Cisco-IOS-XE-cellular-rpc:cellular/lte/action/profile
+
+## bras — BRAS / subscriber mgmt
+  M:hp-comware <HH3C-BRAS-ACCESS-MIB,HH3C-CUPM-CP-MIB,HH3C-CUPM-UP-MIB,HH3C-DOMAIN-MIB,HH3C-IPA-MIB,HH3C-NAT-MIB> :: hh3cBrasAccUPStatTable[hh3cBrasAccUPID] hh3cBrasAccUPSlotStatTable[hh3cBrasAccUPSlotUPID|hh3cBrasAccUPSlotID] hh3cBrasAccIfStatTable[hh3cBrasAccIfName] hh3cCupmUpListTable[hh3cCupmUpID]
+  M:huawei <HUAWEI-AAA-MIB,HUAWEI-ACL-MIB,HUAWEI-BRAS-COPS-MIB,HUAWEI-BRAS-DPI-MIB,HUAWEI-BRAS-GRE-MIB,HUAWEI-BRAS-IFNET-MIB> :: hwDomainIPPoolMoveToTable[hwDomainName|hwDomainIncludeIPPoolName] hwAAADomainIPPoolTable[hwDomainName|hwAAADomainIPPoolName] hwBRASLicenseTable[hwBrasLicenseResource] hwAclIPPoolTable[hwAclIPPoolIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusWlanClientPppoeIdTranslationTableTable[lcsStatusWlanClientPppoeIdTranslationTableEntrySessionId] lcsStatusWlanClientPppoeUniqTranslationTableTable[lcsStatusWlanClientPppoeUniqTranslationTableEntryHostUniqLen|lcsStatusWlanClientPppoeUniqTranslationTableEntryHostUniq] lcsStatusPppoeServerConnectionsTable[lcsStatusPppoeServerConnectionsEntryChannel|lcsStatusPppoeServerConnectionsEntryMacAddress] lcsSetupLanBridgePppoeSnoopingTable[lcsSetupLanBridgePppoeSnoopingEntryPort]
+  Y:cisco-iosxe :: Cisco-IOS-XE-bba-group:config-bba-group-grouping/bba-group/pppoe(k=id) Cisco-IOS-XE-policy:config-policy-map-grouping/policy-map/pppoe Cisco-IOS-XE-ppp-oper:pppoe/pppoe-session-list(k=ifname) Cisco-IOS-XE-ppp-oper:pppoe/pppoe-statistics
+
+## fibre-channel — Fibre Channel / FCoE
+  M:hp-comware <HH3C-FC-FLOGIN-MIB,HH3C-FC-NAME-SERVER-MIB,HH3C-FC-PING-MIB,HH3C-FC-PSM-MIB,HH3C-FC-TC-MIB,HH3C-FC-TRACE-ROUTE-MIB> :: hh3cFcFLoginTable[ifIndex|hh3cVsanIndex|hh3cFcFLoginIndex] hh3cFcPingTable[hh3cFcPingIndex] hh3cFcPingStatTable[hh3cFcPingIndex] hh3cFcPsmEnableTable[hh3cFcPsmEnableVsanIndex]
+  M:huawei <HUAWEI-FCOE-MIB,HUAWEI-STORAGE-HARDWARE-MIB> :: hwDcbPfcFrameStatisticsTable[hwDcbPfcIfIndex|hwDcbPfcQueueID] hwInfoPortFCoETable[hwInfoPortFCoEID]
+  M:ietf <FCMGMT-MIB> :: connUnitTable[connUnitId] connUnitRevsTable[connUnitRevsUnitId|connUnitRevsIndex] connUnitSensorTable[connUnitSensorUnitId|connUnitSensorIndex] connUnitPortTable[connUnitPortUnitId|connUnitPortIndex]
