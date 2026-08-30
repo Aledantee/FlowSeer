@@ -72,7 +72,6 @@ message Placement {
 }
 
 // One transition of a placement, carried as the record before and after.
-// Provenance and timing ride the event envelope, never this message.
 message PlacementEvent {
   option (buf.validate.message).cel = {
     id: "placement_event.before_matches_ref"
@@ -87,6 +86,25 @@ message PlacementEvent {
     expression:
       "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
       "this.after.ref.placement.id == this.ref.placement.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "placement_event.immutable_core"
+    message: "a placement transition may change only effective_until"
+    expression:
+      "!has(this.before) || !has(this.after) || "
+      "(this.before.device == this.after.device && "
+      "this.before.scope == this.after.scope && "
+      "this.before.source == this.after.source && "
+      "this.before.effective_from == this.after.effective_from)"
+  };
+  option (buf.validate.message).cel = {
+    id: "placement_event.close_is_final"
+    message: "a closed placement stays closed with the same end"
+    expression:
+      "!has(this.before) || !has(this.after) || "
+      "!has(this.before.effective_until) || "
+      "(has(this.after.effective_until) && "
+      "this.before.effective_until == this.after.effective_until)"
   };
 
   // The ref to the placement that changed. Must be present.

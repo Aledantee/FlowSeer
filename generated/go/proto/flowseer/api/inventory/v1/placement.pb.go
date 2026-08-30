@@ -439,7 +439,6 @@ func (b0 Placement_builder) Build() *Placement {
 }
 
 // One transition of a placement, carried as the record before and after.
-// Provenance and timing ride the event envelope, never this message.
 type PlacementEvent struct {
 	state             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref    *PlacementGlobalRef    `protobuf:"bytes,1,opt,name=ref"`
@@ -581,13 +580,15 @@ const file_flowseer_api_inventory_v1_placement_proto_rawDesc = "" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06source\x12I\n" +
 	"\x0eeffective_from\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\reffectiveFrom\x12C\n" +
 	"\x0feffective_until\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x0eeffectiveUntil:\xb9\x01\xbaH\xb5\x01\x1a\xb2\x01\n" +
-	"\x1bplacement.effective_ordered\x12,effective_until must be after effective_from\x1ae!has(this.effective_from) || !has(this.effective_until) || this.effective_until > this.effective_from\"\x8d\x05\n" +
+	"\x1bplacement.effective_ordered\x12,effective_until must be after effective_from\x1ae!has(this.effective_from) || !has(this.effective_until) || this.effective_until > this.effective_from\"\xd1\t\n" +
 	"\x0ePlacementEvent\x12G\n" +
 	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.PlacementGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12<\n" +
 	"\x06before\x18\x02 \x01(\v2$.flowseer.api.inventory.v1.PlacementR\x06before\x12B\n" +
-	"\x05after\x18\x03 \x01(\v2$.flowseer.api.inventory.v1.PlacementB\x06\xbaH\x03\xc8\x01\x01R\x05after:\xaf\x03\xbaH\xab\x03\x1a\xd5\x01\n" +
+	"\x05after\x18\x03 \x01(\v2$.flowseer.api.inventory.v1.PlacementB\x06\xbaH\x03\xc8\x01\x01R\x05after:\xf3\a\xbaH\xef\a\x1a\xd5\x01\n" +
 	"\"placement_event.before_matches_ref\x128the before side must describe the entity the event names\x1au!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.placement.id == this.ref.placement.id\x1a\xd0\x01\n" +
-	"!placement_event.after_matches_ref\x127the after side must describe the entity the event names\x1ar!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.placement.id == this.ref.placement.id*{\n" +
+	"!placement_event.after_matches_ref\x127the after side must describe the entity the event names\x1ar!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.placement.id == this.ref.placement.id\x1a\xbc\x02\n" +
+	"\x1eplacement_event.immutable_core\x126a placement transition may change only effective_until\x1a\xe1\x01!has(this.before) || !has(this.after) || (this.before.device == this.after.device && this.before.scope == this.after.scope && this.before.source == this.after.source && this.before.effective_from == this.after.effective_from)\x1a\x82\x02\n" +
+	"\x1eplacement_event.close_is_final\x121a closed placement stays closed with the same end\x1a\xac\x01!has(this.before) || !has(this.after) || !has(this.before.effective_until) || (has(this.after.effective_until) && this.before.effective_until == this.after.effective_until)*{\n" +
 	"\x0fPlacementSource\x12 \n" +
 	"\x1cPLACEMENT_SOURCE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PLACEMENT_SOURCE_OPERATOR\x10\x01\x12'\n" +

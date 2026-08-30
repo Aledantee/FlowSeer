@@ -39,8 +39,8 @@ message TagConfig {
   TagGlobalRef parent = 2;
   // Operator-assigned name, unique among the siblings under one parent.
   // Reads carry it localized per the RPC's language header when a
-  // translation exists, falling through to English; the translation mapping
-  // is server-side and never part of the payload. Must be present.
+  // translation exists; otherwise it comes back in English. The translation
+  // mapping is server-side and never part of the payload. Must be present.
   string name = 3 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
@@ -85,8 +85,7 @@ message TagState {
   }];
 }
 
-// One transition of a tag's intended definition. Provenance and timing ride
-// the event envelope, never this message.
+// One transition of a tag's intended definition.
 message TagEvent {
   option (buf.validate.message).cel = {
     id: "tag_event.has_side"

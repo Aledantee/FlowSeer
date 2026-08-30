@@ -76,6 +76,15 @@ message ThirdPartyConfig {
   // which needs data this message does not contain. Must be present; empty
   // is a config with every field unset.
   bytes value = 3 [(buf.validate.field).required = true];
+  // Opaque identifier of the descriptor-set revision the payload was
+  // serialized under, as the kind's announce reported it. A payload whose
+  // revision does not match the currently advertised set is rejected
+  // instead of being reinterpreted. Must be present.
+  string descriptor_revision = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
 }
 
 // The intended definition of one integration: what the operator entered
@@ -123,6 +132,12 @@ message IntegrationConfig {
 // The observed side of one integration: the identity the platform
 // reported at verification and the lifecycle FlowSeer holds for it.
 message IntegrationState {
+  option (buf.validate.message).cel = {
+    id: "integration_state.verified_names_platform"
+    message: "a verified integration names its platform id"
+    expression: "this.lifecycle != 2 || has(this.platform_id)"
+  };
+
   // The ref to this integration. Must be present.
   IntegrationGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The integration's lifecycle. Must be present; the zero value is
@@ -136,7 +151,7 @@ message IntegrationState {
   ];
   // The platform's own identifier for what this integration attaches to,
   // as the platform spells it. Unset means no identity read has yielded
-  // one yet.
+  // one yet; must be present while the lifecycle is verified.
   string platform_id = 3 [
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 256
@@ -155,8 +170,7 @@ message IntegrationState {
   ];
 }
 
-// One transition of an integration's lifecycle. Provenance and timing
-// ride the event envelope, never this message.
+// One transition of an integration's lifecycle.
 message IntegrationEvent {
   option (buf.validate.message).cel = {
     id: "integration_event.lifecycle_changes"

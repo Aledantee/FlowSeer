@@ -377,8 +377,8 @@ func (b0 DeviceConfig_builder) Build() *DeviceConfig {
 
 // The observed side of one device: the identity read off the box and the
 // lifecycle FlowSeer holds for it. Serial and base MAC are correlation
-// data the service merges sightings on, never the ref's key; addresses,
-// hostnames, and platform ids are binding data and never appear here.
+// data the service merges sightings on, never the ref's key; addresses
+// and platform ids are binding data and never appear here.
 type DeviceState struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
@@ -545,8 +545,7 @@ func (b0 DeviceState_builder) Build() *DeviceState {
 	return m0
 }
 
-// One transition of a device's lifecycle. Provenance and timing ride the
-// event envelope, never this message.
+// One transition of a device's lifecycle.
 type DeviceEvent struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`

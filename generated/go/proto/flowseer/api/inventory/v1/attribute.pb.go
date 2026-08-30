@@ -881,8 +881,7 @@ func (*attribute_EnumType) isAttribute_Type() {}
 
 func (*attribute_ReferenceType) isAttribute_Type() {}
 
-// One transition of an attribute definition. Provenance and timing ride the
-// event envelope, never this message.
+// One transition of an attribute definition.
 type AttributeEvent struct {
 	state             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref    *AttributeGlobalRef    `protobuf:"bytes,1,opt,name=ref"`
@@ -1759,10 +1758,9 @@ func (b0 AttributeValue_builder) Build() *AttributeValue {
 	return m0
 }
 
-// One transition of an assignment. Provenance and timing ride the event
-// envelope, never this message — a cascade removal, an operator delete,
-// and a drop during a definition retype all look like a deletion here, and
-// the envelope says which happened.
+// One transition of an assignment. A cascade removal, an operator
+// delete, and a drop during a definition retype all look like a deletion
+// here; the event envelope says which happened.
 type AttributeValueEvent struct {
 	state             protoimpl.MessageState   `protogen:"opaque.v1"`
 	xxx_hidden_Ref    *AttributeValueGlobalRef `protobuf:"bytes,1,opt,name=ref"`
@@ -1903,7 +1901,7 @@ const file_flowseer_api_inventory_v1_attribute_proto_rawDesc = "" +
 	"\x06values\x18\x01 \x03(\tB6\xbaH3\x92\x010\b\x01\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[a-z0-9]([a-z0-9-]*[a-z0-9])?$R\x06values\"Y\n" +
 	"\rReferenceType\x12H\n" +
 	"\x04kind\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\"\xa7\x06\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\"\xad\x06\n" +
 	"\tAttribute\x12G\n" +
 	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12!\n" +
 	"\x04name\x18\x03 \x01(\tB\r\xbaH\n" +
@@ -1923,7 +1921,7 @@ const file_flowseer_api_inventory_v1_attribute_proto_rawDesc = "" +
 	"\tenum_type\x18\f \x01(\v2#.flowseer.api.inventory.v1.EnumTypeH\x00R\benumType\x12Q\n" +
 	"\x0ereference_type\x18\r \x01(\v2(.flowseer.api.inventory.v1.ReferenceTypeH\x00R\rreferenceType:\x98\x01\xbaH\x94\x01\x1a\x91\x01\n" +
 	"\x18attribute.bounds_ordered\x12#min_items must not exceed max_items\x1aP!has(this.min_items) || !has(this.max_items) || this.min_items <= this.max_itemsB\r\n" +
-	"\x04type\x12\x05\xbaH\x02\b\x01\"\xfa\x05\n" +
+	"\x04type\x12\x05\xbaH\x02\b\x01J\x04\b\x02\x10\x03\"\xfa\x05\n" +
 	"\x0eAttributeEvent\x12G\n" +
 	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12<\n" +
 	"\x06before\x18\x02 \x01(\v2$.flowseer.api.inventory.v1.AttributeR\x06before\x12:\n" +
@@ -1950,14 +1948,15 @@ const file_flowseer_api_inventory_v1_attribute_proto_rawDesc = "" +
 	"\x03ref\x18\x01 \x01(\v22.flowseer.api.inventory.v1.AttributeValueGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12B\n" +
 	"\x05owner\x18\x02 \x01(\v2$.flowseer.api.inventory.v1.EntityRefB\x06\xbaH\x03\xc8\x01\x01R\x05owner\x12S\n" +
 	"\tattribute\x18\x03 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\tattribute\x12U\n" +
-	"\x06values\x18\x04 \x03(\v20.flowseer.api.inventory.v1.AttributeValuePayloadB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x01R\x06values\"\xbf\x06\n" +
+	"\x06values\x18\x04 \x03(\v20.flowseer.api.inventory.v1.AttributeValuePayloadB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x01R\x06values\"\xa1\b\n" +
 	"\x13AttributeValueEvent\x12L\n" +
 	"\x03ref\x18\x01 \x01(\v22.flowseer.api.inventory.v1.AttributeValueGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12A\n" +
 	"\x06before\x18\x02 \x01(\v2).flowseer.api.inventory.v1.AttributeValueR\x06before\x12?\n" +
-	"\x05after\x18\x03 \x01(\v2).flowseer.api.inventory.v1.AttributeValueR\x05after:\xd5\x04\xbaH\xd1\x04\x1a\x7f\n" +
+	"\x05after\x18\x03 \x01(\v2).flowseer.api.inventory.v1.AttributeValueR\x05after:\xb7\x06\xbaH\xb3\x06\x1a\x7f\n" +
 	"\x1eattribute_value_event.has_side\x128an attribute value event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xe8\x01\n" +
 	"(attribute_value_event.before_matches_ref\x128the before side must describe the entity the event names\x1a\x81\x01!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.attribute_value.id == this.ref.attribute_value.id\x1a\xe2\x01\n" +
-	"'attribute_value_event.after_matches_ref\x127the after side must describe the entity the event names\x1a~!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.attribute_value.id == this.ref.attribute_value.idB\x88\x02\n" +
+	"'attribute_value_event.after_matches_ref\x127the after side must describe the entity the event names\x1a~!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.attribute_value.id == this.ref.attribute_value.id\x1a\xdf\x01\n" +
+	"$attribute_value_event.immutable_core\x123an assignment transition may change only the values\x1a\x81\x01!has(this.before) || !has(this.after) || (this.before.owner == this.after.owner && this.before.attribute == this.after.attribute)B\x88\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\x0eAttributeProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_attribute_proto_msgTypes = make([]protoimpl.MessageInfo, 14)

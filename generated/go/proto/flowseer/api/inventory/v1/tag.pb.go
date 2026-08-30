@@ -319,8 +319,8 @@ type TagConfig_builder struct {
 	Parent *TagGlobalRef
 	// Operator-assigned name, unique among the siblings under one parent.
 	// Reads carry it localized per the RPC's language header when a
-	// translation exists, falling through to English; the translation mapping
-	// is server-side and never part of the payload. Must be present.
+	// translation exists; otherwise it comes back in English. The translation
+	// mapping is server-side and never part of the payload. Must be present.
 	Name *string
 	// Free-text description of what the tag groups. Unset means none was
 	// provided. When set, must not be empty.
@@ -454,8 +454,7 @@ func (b0 TagState_builder) Build() *TagState {
 	return m0
 }
 
-// One transition of a tag's intended definition. Provenance and timing ride
-// the event envelope, never this message.
+// One transition of a tag's intended definition.
 type TagEvent struct {
 	state             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref    *TagGlobalRef          `protobuf:"bytes,1,opt,name=ref"`

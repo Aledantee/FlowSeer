@@ -371,9 +371,8 @@ func (b0 IntegrationScopeState_builder) Build() *IntegrationScopeState {
 	return m0
 }
 
-// One transition of a scope, carried as the observed definition before and
-// after. Provenance and timing ride the event envelope, never this
-// message.
+// One transition of a scope, carried as the observed definition before
+// and after.
 type IntegrationScopeEvent struct {
 	state             protoimpl.MessageState     `protogen:"opaque.v1"`
 	xxx_hidden_Ref    *IntegrationScopeGlobalRef `protobuf:"bytes,1,opt,name=ref"`

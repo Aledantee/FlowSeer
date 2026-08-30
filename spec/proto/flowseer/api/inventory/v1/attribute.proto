@@ -95,6 +95,8 @@ message Attribute {
       "this.min_items <= this.max_items"
   };
 
+  reserved 2;
+
   // The ref to this definition. Must be present.
   AttributeGlobalRef ref = 1 [(buf.validate.field).required = true];
   // Operator-assigned display name. Reads carry it localized per the RPC's
@@ -158,8 +160,7 @@ message Attribute {
   }
 }
 
-// One transition of an attribute definition. Provenance and timing ride the
-// event envelope, never this message.
+// One transition of an attribute definition.
 message AttributeEvent {
   option (buf.validate.message).cel = {
     id: "attribute_event.has_side"
@@ -280,10 +281,9 @@ message AttributeValue {
   }];
 }
 
-// One transition of an assignment. Provenance and timing ride the event
-// envelope, never this message — a cascade removal, an operator delete,
-// and a drop during a definition retype all look like a deletion here, and
-// the envelope says which happened.
+// One transition of an assignment. A cascade removal, an operator
+// delete, and a drop during a definition retype all look like a deletion
+// here; the event envelope says which happened.
 message AttributeValueEvent {
   option (buf.validate.message).cel = {
     id: "attribute_value_event.has_side"
@@ -303,6 +303,14 @@ message AttributeValueEvent {
     expression:
       "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
       "this.after.ref.attribute_value.id == this.ref.attribute_value.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "attribute_value_event.immutable_core"
+    message: "an assignment transition may change only the values"
+    expression:
+      "!has(this.before) || !has(this.after) || "
+      "(this.before.owner == this.after.owner && "
+      "this.before.attribute == this.after.attribute)"
   };
 
   // The ref to the assignment that changed. Must be present.

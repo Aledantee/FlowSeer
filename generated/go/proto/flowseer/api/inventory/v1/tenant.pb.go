@@ -4,6 +4,11 @@
 // 	protoc        (unknown)
 // source: flowseer/api/inventory/v1/tenant.proto
 
+// The tenant family. Deliberately partial: the tenant has no id surface
+// yet, so there is no TenantLocalRef/TenantGlobalRef pair and no Config,
+// State, or Event; the missing members land with the tenant identity
+// design, and until then TenantRef carries no key.
+
 package inventoryv1
 
 import (
@@ -120,6 +125,7 @@ func (x *Tenant) ClearRef() {
 type Tenant_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The tenant's ref. Must be present.
 	Ref *TenantRef
 }
 
@@ -136,9 +142,9 @@ var File_flowseer_api_inventory_v1_tenant_proto protoreflect.FileDescriptor
 const file_flowseer_api_inventory_v1_tenant_proto_rawDesc = "" +
 	"\n" +
 	"&flowseer/api/inventory/v1/tenant.proto\x12\x19flowseer.api.inventory.v1\"\v\n" +
-	"\tTenantRef\"@\n" +
-	"\x06Tenant\x126\n" +
-	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.TenantRefR\x03refB\x85\x02\n" +
+	"\tTenantRef\"H\n" +
+	"\x06Tenant\x12>\n" +
+	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.TenantRefB\x06\xbaH\x03\xc8\x01\x01R\x03refB\x85\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\vTenantProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_tenant_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

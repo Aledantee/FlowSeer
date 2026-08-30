@@ -65,9 +65,8 @@ message IntegrationScopeState {
   ];
 }
 
-// One transition of a scope, carried as the observed definition before and
-// after. Provenance and timing ride the event envelope, never this
-// message.
+// One transition of a scope, carried as the observed definition before
+// and after.
 message IntegrationScopeEvent {
   option (buf.validate.message).cel = {
     id: "integration_scope_event.has_side"

@@ -61,8 +61,8 @@ message DeviceConfig {
 
 // The observed side of one device: the identity read off the box and the
 // lifecycle FlowSeer holds for it. Serial and base MAC are correlation
-// data the service merges sightings on, never the ref's key; addresses,
-// hostnames, and platform ids are binding data and never appear here.
+// data the service merges sightings on, never the ref's key; addresses
+// and platform ids are binding data and never appear here.
 message DeviceState {
   // The ref to this device. Must be present.
   DeviceGlobalRef ref = 1 [(buf.validate.field).required = true];
@@ -85,8 +85,7 @@ message DeviceState {
   ];
 }
 
-// One transition of a device's lifecycle. Provenance and timing ride the
-// event envelope, never this message.
+// One transition of a device's lifecycle.
 message DeviceEvent {
   option (buf.validate.message).cel = {
     id: "device_event.lifecycle_changes"

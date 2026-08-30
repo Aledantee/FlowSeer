@@ -132,7 +132,8 @@ type CapabilitySet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Supported capability areas. An empty list means the binding exposes
-	// none.
+	// none. Unknown non-zero values stay valid so a newer writer's
+	// capability passes an older reader.
 	Capabilities []Capability
 }
 

@@ -10,9 +10,10 @@ FlowSeer-assigned UUID.
 ## Tags
 
 A tag is an operator-curated grouping label. Tags are hierarchical: each tag
-may name one parent, and a tag with no parent is a root of the tag tree. The point of the hierarchy is rollup. A filter, report, or
-authorization grant scoped to `EMEA` also matches everything tagged
-`EMEA/Berlin/DC-1`, so nobody has to tag a switch three times.
+may name one parent, and a tag with no parent is a root of the tag tree.
+The point of the hierarchy is rollup. A filter scoped to `EMEA` also
+matches everything tagged `EMEA/Berlin/DC-1`, so nobody has to tag a
+switch three times.
 
 The family is a full triad, split along intended versus derived:
 
@@ -80,8 +81,8 @@ it. Its identity is the FlowSeer-assigned UUID in the ref; the vendor serial
 and chassis base MAC live on `DeviceState` as correlation data, because the
 service merges new sightings onto existing devices by serial, and a ref that
 carried vendor identity would make every consumer party to that decision.
-Addresses, hostnames, and platform ids move between boxes, so they are
-binding data and never device identity.
+Addresses and platform ids move between boxes, so they are binding data
+and never device identity.
 
 The family is a full triad. `DeviceConfig` is what the operator intends
 (name and description), `DeviceState` is what the platform holds (the
@@ -118,9 +119,11 @@ the one `third_party` arm, told apart by the announced `kind_name`. The
 payload is the serialized config message named by `type_name`; the service
 builds the type from the advertised descriptor and runs its protovalidate
 rules on the dynamic message, and the web renders the add-form from the
-same descriptor. Typed at runtime, never free-form: the oneof numbering
-keeps 10 through 18 for first-party arms so the escape hatch stays one
-arm, not a habit.
+same descriptor. `descriptor_revision` pins the payload to the descriptor
+revision it was written under, so a re-announced descriptor cannot
+silently reinterpret stored bytes. Typed at runtime, never free-form: the
+oneof numbering keeps 10 through 18 for first-party arms so the escape
+hatch stays one arm, not a habit.
 
 The credential never appears in inventory messages: `credential_ref` is a
 handle into the secret store, so a leaked inventory dump leaks no secrets

@@ -307,14 +307,15 @@ func (b0 LocalNetworkConfig_builder) Build() *LocalNetworkConfig {
 // kind advertises when it announces. One arm covers every third-party
 // kind; a first-party kind gets its own compiled arm instead.
 type ThirdPartyConfig struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_KindName    *string                `protobuf:"bytes,1,opt,name=kind_name,json=kindName"`
-	xxx_hidden_TypeName    *string                `protobuf:"bytes,2,opt,name=type_name,json=typeName"`
-	xxx_hidden_Value       []byte                 `protobuf:"bytes,3,opt,name=value"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_KindName           *string                `protobuf:"bytes,1,opt,name=kind_name,json=kindName"`
+	xxx_hidden_TypeName           *string                `protobuf:"bytes,2,opt,name=type_name,json=typeName"`
+	xxx_hidden_Value              []byte                 `protobuf:"bytes,3,opt,name=value"`
+	xxx_hidden_DescriptorRevision *string                `protobuf:"bytes,4,opt,name=descriptor_revision,json=descriptorRevision"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
 }
 
 func (x *ThirdPartyConfig) Reset() {
@@ -369,14 +370,24 @@ func (x *ThirdPartyConfig) GetValue() []byte {
 	return nil
 }
 
+func (x *ThirdPartyConfig) GetDescriptorRevision() string {
+	if x != nil {
+		if x.xxx_hidden_DescriptorRevision != nil {
+			return *x.xxx_hidden_DescriptorRevision
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *ThirdPartyConfig) SetKindName(v string) {
 	x.xxx_hidden_KindName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *ThirdPartyConfig) SetTypeName(v string) {
 	x.xxx_hidden_TypeName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
 func (x *ThirdPartyConfig) SetValue(v []byte) {
@@ -384,7 +395,12 @@ func (x *ThirdPartyConfig) SetValue(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Value = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *ThirdPartyConfig) SetDescriptorRevision(v string) {
+	x.xxx_hidden_DescriptorRevision = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *ThirdPartyConfig) HasKindName() bool {
@@ -408,6 +424,13 @@ func (x *ThirdPartyConfig) HasValue() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
+func (x *ThirdPartyConfig) HasDescriptorRevision() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
 func (x *ThirdPartyConfig) ClearKindName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_KindName = nil
@@ -421,6 +444,11 @@ func (x *ThirdPartyConfig) ClearTypeName() {
 func (x *ThirdPartyConfig) ClearValue() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_Value = nil
+}
+
+func (x *ThirdPartyConfig) ClearDescriptorRevision() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_DescriptorRevision = nil
 }
 
 type ThirdPartyConfig_builder struct {
@@ -438,6 +466,11 @@ type ThirdPartyConfig_builder struct {
 	// which needs data this message does not contain. Must be present; empty
 	// is a config with every field unset.
 	Value []byte
+	// Opaque identifier of the descriptor-set revision the payload was
+	// serialized under, as the kind's announce reported it. A payload whose
+	// revision does not match the currently advertised set is rejected
+	// instead of being reinterpreted. Must be present.
+	DescriptorRevision *string
 }
 
 func (b0 ThirdPartyConfig_builder) Build() *ThirdPartyConfig {
@@ -445,16 +478,20 @@ func (b0 ThirdPartyConfig_builder) Build() *ThirdPartyConfig {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.KindName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_KindName = b.KindName
 	}
 	if b.TypeName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_TypeName = b.TypeName
 	}
 	if b.Value != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
 		x.xxx_hidden_Value = b.Value
+	}
+	if b.DescriptorRevision != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_DescriptorRevision = b.DescriptorRevision
 	}
 	return m0
 }
@@ -983,7 +1020,7 @@ type IntegrationState_builder struct {
 	Lifecycle *IntegrationLifecycle
 	// The platform's own identifier for what this integration attaches to,
 	// as the platform spells it. Unset means no identity read has yielded
-	// one yet.
+	// one yet; must be present while the lifecycle is verified.
 	PlatformId *string
 	// The platform's own name for it. Unset means no identity read has
 	// yielded one yet.
@@ -1017,8 +1054,7 @@ func (b0 IntegrationState_builder) Build() *IntegrationState {
 	return m0
 }
 
-// One transition of an integration's lifecycle. Provenance and timing
-// ride the event envelope, never this message.
+// One transition of an integration's lifecycle.
 type IntegrationEvent struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref         *IntegrationGlobalRef  `protobuf:"bytes,1,opt,name=ref"`
@@ -1169,12 +1205,14 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\vintegration\x18\x01 \x01(\v2..flowseer.api.inventory.v1.IntegrationLocalRefB\x06\xbaH\x03\xc8\x01\x01R\vintegration\"U\n" +
 	"\x12LocalNetworkConfig\x12?\n" +
 	"\vseed_ranges\x18\x01 \x03(\v2\x1e.flowseer.net.addr.v1.IpPrefixR\n" +
-	"seedRanges\"\xbb\x01\n" +
+	"seedRanges\"\xfb\x01\n" +
 	"\x10ThirdPartyConfig\x12*\n" +
 	"\tkind_name\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\bkindName\x12]\n" +
 	"\ttype_name\x18\x02 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\btypeName\x12\x1c\n" +
-	"\x05value\x18\x03 \x01(\fB\x06\xbaH\x03\xc8\x01\x01R\x05value\"\xd0\x03\n" +
+	"\x05value\x18\x03 \x01(\fB\x06\xbaH\x03\xc8\x01\x01R\x05value\x12>\n" +
+	"\x13descriptor_revision\x18\x04 \x01(\tB\r\xbaH\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x12descriptorRevision\"\xd0\x03\n" +
 	"\x11IntegrationConfig\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -1188,7 +1226,7 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	" \x01(\v2-.flowseer.api.inventory.v1.LocalNetworkConfigH\x00R\flocalNetwork\x12N\n" +
 	"\vthird_party\x18\x13 \x01(\v2+.flowseer.api.inventory.v1.ThirdPartyConfigH\x00R\n" +
 	"thirdPartyB\r\n" +
-	"\x04kind\x12\x05\xbaH\x02\b\x01\"\xd0\x02\n" +
+	"\x04kind\x12\x05\xbaH\x02\b\x01\"\xe1\x03\n" +
 	"\x10IntegrationState\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\\\n" +
 	"\tlifecycle\x18\x02 \x01(\x0e2/.flowseer.api.inventory.v1.IntegrationLifecycleB\r\xbaH\n" +
@@ -1199,7 +1237,8 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\rplatform_name\x18\x04 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\fplatformName\x125\n" +
 	"\x10platform_version\x18\x05 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x0fplatformVersion\"\x85\x03\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x0fplatformVersion:\x8e\x01\xbaH\x8a\x01\x1a\x87\x01\n" +
+	")integration_state.verified_names_platform\x12,a verified integration names its platform id\x1a,this.lifecycle != 2 || has(this.platform_id)\"\x85\x03\n" +
 	"\x10IntegrationEvent\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12O\n" +
 	"\x04from\x18\x02 \x01(\x0e2/.flowseer.api.inventory.v1.IntegrationLifecycleB\n" +

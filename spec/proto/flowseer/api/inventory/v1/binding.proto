@@ -98,6 +98,19 @@ message ManagementEndpoint {
 // The observed side of one binding: which device it reaches through which
 // integration, at what address, and how the path is doing.
 message BindingState {
+  option (buf.validate.message).cel = {
+    id: "binding_state.unreachable_since_matches_status"
+    message: "unreachable_since is set exactly while the status is unreachable"
+    expression: "has(this.unreachable_since) == (this.status == 4)"
+  };
+  option (buf.validate.message).cel = {
+    id: "binding_state.failure_kind_matches_status"
+    message:
+      "failure_kind is set exactly while the status is degraded or "
+      "unreachable"
+    expression: "has(this.failure_kind) == (this.status == 3 || this.status == 4)"
+  };
+
   // The ref to this binding. Must be present.
   BindingGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The device this binding reaches. Must be present.
@@ -118,11 +131,12 @@ message BindingState {
   // When a request over this binding last succeeded. Unset means none has
   // succeeded yet.
   google.protobuf.Timestamp last_success = 6;
-  // When the binding became unreachable. Set only while the status is
+  // When the binding became unreachable. Set exactly while the status is
   // BINDING_STATUS_UNREACHABLE.
   google.protobuf.Timestamp unreachable_since = 7;
-  // The kind of failure the binding is currently seeing. Unset means it is
-  // not failing. The zero value is rejected.
+  // The kind of failure the binding is currently seeing. Set exactly while
+  // the status is degraded or unreachable; unset means it is not failing.
+  // The zero value is rejected.
   BindingFailureKind failure_kind = 8 [(buf.validate.field).enum = {
     defined_only: true
     not_in: [0]
@@ -144,8 +158,7 @@ message BindingState {
 }
 
 // One transition of a binding, carried as the observed side before and
-// after. Provenance and timing ride the event envelope, never this
-// message.
+// after.
 message BindingEvent {
   option (buf.validate.message).cel = {
     id: "binding_event.has_side"
@@ -165,6 +178,14 @@ message BindingEvent {
     expression:
       "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
       "this.after.ref.binding.id == this.ref.binding.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "binding_event.immutable_relations"
+    message: "a binding transition may not change its device or integration"
+    expression:
+      "!has(this.before) || !has(this.after) || "
+      "(this.before.device == this.after.device && "
+      "this.before.integration == this.after.integration)"
   };
 
   // The ref to the binding that changed. Must be present.

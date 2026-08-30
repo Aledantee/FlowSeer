@@ -822,11 +822,12 @@ type BindingState_builder struct {
 	// When a request over this binding last succeeded. Unset means none has
 	// succeeded yet.
 	LastSuccess *timestamppb.Timestamp
-	// When the binding became unreachable. Set only while the status is
+	// When the binding became unreachable. Set exactly while the status is
 	// BINDING_STATUS_UNREACHABLE.
 	UnreachableSince *timestamppb.Timestamp
-	// The kind of failure the binding is currently seeing. Unset means it is
-	// not failing. The zero value is rejected.
+	// The kind of failure the binding is currently seeing. Set exactly while
+	// the status is degraded or unreachable; unset means it is not failing.
+	// The zero value is rejected.
 	FailureKind *BindingFailureKind
 	// The integration-local address the device answers on.
 
@@ -896,8 +897,7 @@ func (*bindingState_PlatformId) isBindingState_Address() {}
 func (*bindingState_Endpoint) isBindingState_Address() {}
 
 // One transition of a binding, carried as the observed side before and
-// after. Provenance and timing ride the event envelope, never this
-// message.
+// after.
 type BindingEvent struct {
 	state             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref    *BindingGlobalRef      `protobuf:"bytes,1,opt,name=ref"`
@@ -1034,7 +1034,7 @@ const file_flowseer_api_inventory_v1_binding_proto_rawDesc = "" +
 	"\x02ip\x18\x01 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\x02ip\x12\"\n" +
 	"\x04port\x18\x02 \x01(\rB\x0e\xbaH\v\xc8\x01\x01*\x06\x18\xff\xff\x03(\x01R\x04port\x12X\n" +
 	"\bprotocol\x18\x03 \x01(\x0e2-.flowseer.api.inventory.v1.ManagementProtocolB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\"\x8f\x06\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\"\xf7\b\n" +
 	"\fBindingState\x12E\n" +
 	"\x03ref\x18\x01 \x01(\v2+.flowseer.api.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12J\n" +
 	"\x06device\x18\x02 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12Y\n" +
@@ -1050,15 +1050,18 @@ const file_flowseer_api_inventory_v1_binding_proto_rawDesc = "" +
 	" \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x02H\x00R\n" +
 	"platformId\x12K\n" +
-	"\bendpoint\x18\v \x01(\v2-.flowseer.api.inventory.v1.ManagementEndpointH\x00R\bendpointB\x10\n" +
-	"\aaddress\x12\x05\xbaH\x02\b\x01\"\xeb\x05\n" +
+	"\bendpoint\x18\v \x01(\v2-.flowseer.api.inventory.v1.ManagementEndpointH\x00R\bendpoint:\xe5\x02\xbaH\xe1\x02\x1a\xa5\x01\n" +
+	".binding_state.unreachable_since_matches_status\x12@unreachable_since is set exactly while the status is unreachable\x1a1has(this.unreachable_since) == (this.status == 4)\x1a\xb6\x01\n" +
+	")binding_state.failure_kind_matches_status\x12Gfailure_kind is set exactly while the status is degraded or unreachable\x1a@has(this.failure_kind) == (this.status == 3 || this.status == 4)B\x10\n" +
+	"\aaddress\x12\x05\xbaH\x02\b\x01\"\xda\a\n" +
 	"\fBindingEvent\x12E\n" +
 	"\x03ref\x18\x01 \x01(\v2+.flowseer.api.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
 	"\x06before\x18\x02 \x01(\v2'.flowseer.api.inventory.v1.BindingStateR\x06before\x12=\n" +
-	"\x05after\x18\x03 \x01(\v2'.flowseer.api.inventory.v1.BindingStateR\x05after:\x93\x04\xbaH\x8f\x04\x1an\n" +
+	"\x05after\x18\x03 \x01(\v2'.flowseer.api.inventory.v1.BindingStateR\x05after:\x82\x06\xbaH\xfe\x05\x1an\n" +
 	"\x16binding_event.has_side\x12/a binding event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xcf\x01\n" +
 	" binding_event.before_matches_ref\x128the before side must describe the entity the event names\x1aq!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.binding.id == this.ref.binding.id\x1a\xca\x01\n" +
-	"\x1fbinding_event.after_matches_ref\x127the after side must describe the entity the event names\x1an!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.binding.id == this.ref.binding.id*\xc3\x01\n" +
+	"\x1fbinding_event.after_matches_ref\x127the after side must describe the entity the event names\x1an!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.binding.id == this.ref.binding.id\x1a\xec\x01\n" +
+	"!binding_event.immutable_relations\x12=a binding transition may not change its device or integration\x1a\x87\x01!has(this.before) || !has(this.after) || (this.before.device == this.after.device && this.before.integration == this.after.integration)*\xc3\x01\n" +
 	"\rBindingStatus\x12\x1e\n" +
 	"\x1aBINDING_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18BINDING_STATUS_CANDIDATE\x10\x01\x12\x1b\n" +
