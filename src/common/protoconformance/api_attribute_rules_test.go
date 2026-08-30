@@ -99,6 +99,21 @@ func TestAttributeRules(t *testing.T) {
 	emptyDescription := validAttribute(attributeID)
 	emptyDescription.Description = proto.String("")
 
+	invertedBounds := validAttribute(attributeID)
+	invertedBounds.MinItems = proto.Uint32(3)
+	invertedBounds.MaxItems = proto.Uint32(2)
+
+	zeroLowerBound := validAttribute(attributeID)
+	zeroLowerBound.MinItems = proto.Uint32(0)
+
+	// 128 mirrors the AttributeValue.values max_items literal; these cases
+	// keep the two from drifting apart.
+	upperBoundAtValuesCap := validAttribute(attributeID)
+	upperBoundAtValuesCap.MaxItems = proto.Uint32(128)
+
+	upperBoundOverValuesCap := validAttribute(attributeID)
+	upperBoundOverValuesCap.MaxItems = proto.Uint32(129)
+
 	tests := []validationCase{
 		{
 			name:      "a full definition is valid",
@@ -113,6 +128,26 @@ func TestAttributeRules(t *testing.T) {
 		{
 			name:      "the upper cardinality bound must be declared",
 			message:   missingUpperBound.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "inverted cardinality bounds are rejected",
+			message:   invertedBounds.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "a zero lower bound is rejected",
+			message:   zeroLowerBound.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "an upper bound at the values cap is valid",
+			message:   upperBoundAtValuesCap.Build(),
+			wantValid: true,
+		},
+		{
+			name:      "an upper bound over the values cap is rejected",
+			message:   upperBoundOverValuesCap.Build(),
 			wantValid: false,
 		},
 		{

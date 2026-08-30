@@ -323,7 +323,7 @@ type TagConfig_builder struct {
 	// is server-side and never part of the payload. Must be present.
 	Name *string
 	// Free-text description of what the tag groups. Unset means none was
-	// provided.
+	// provided. When set, must not be empty.
 	Description *string
 }
 
@@ -587,13 +587,14 @@ const file_flowseer_api_inventory_v1_tag_proto_rawDesc = "" +
 	"\vTagLocalRef\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"P\n" +
 	"\fTagGlobalRef\x12@\n" +
-	"\x03tag\x18\x01 \x01(\v2&.flowseer.api.inventory.v1.TagLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x03tag\"\xf2\x02\n" +
+	"\x03tag\x18\x01 \x01(\v2&.flowseer.api.inventory.v1.TagLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x03tag\"\xf4\x02\n" +
 	"\tTagConfig\x12A\n" +
 	"\x03ref\x18\x01 \x01(\v2'.flowseer.api.inventory.v1.TagGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
 	"\x06parent\x18\x02 \x01(\v2'.flowseer.api.inventory.v1.TagGlobalRefR\x06parent\x12!\n" +
 	"\x04name\x18\x03 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x04name\x12*\n" +
-	"\vdescription\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10R\vdescription:\x91\x01\xbaH\x8d\x01\x1a\x8a\x01\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
+	"\vdescription\x18\x04 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription:\x91\x01\xbaH\x8d\x01\x1a\x8a\x01\n" +
 	"\x1atag_config.parent_not_self\x12\x1ea tag cannot be its own parent\x1aL!has(this.ref) || !has(this.parent) || this.parent.tag.id != this.ref.tag.id\"\xd1\x02\n" +
 	"\bTagState\x12A\n" +
 	"\x03ref\x18\x01 \x01(\v2'.flowseer.api.inventory.v1.TagGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12E\n" +

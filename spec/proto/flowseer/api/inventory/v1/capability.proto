@@ -24,8 +24,8 @@ enum Capability {
 
 // The capability areas supported by one inventory binding.
 message CapabilitySet {
-  // Supported capability areas. An empty list means the binding exposes none;
-  // unspecified entries and duplicates are invalid.
+  // Supported capability areas. An empty list means the binding exposes
+  // none.
   repeated Capability capabilities = 1 [(buf.validate.field).repeated = {
     unique: true
     items: {

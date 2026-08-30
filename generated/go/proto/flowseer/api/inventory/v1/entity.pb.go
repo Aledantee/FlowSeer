@@ -272,9 +272,10 @@ var File_flowseer_api_inventory_v1_entity_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_entity_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/api/inventory/v1/entity.proto\x12\x19flowseer.api.inventory.v1\"p\n" +
-	"\tEntityRef\x12F\n" +
-	"\x04type\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\v\xbaH\b\xc8\x01\x01\x82\x01\x02 \x00R\x04type\x12\x1b\n" +
+	"&flowseer/api/inventory/v1/entity.proto\x12\x19flowseer.api.inventory.v1\"r\n" +
+	"\tEntityRef\x12H\n" +
+	"\x04type\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04type\x12\x1b\n" +
 	"\x02id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"H\n" +
 	"\x06Entity\x12>\n" +
 	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.EntityRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref*\x89\x01\n" +

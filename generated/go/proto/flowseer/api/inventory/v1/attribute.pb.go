@@ -420,7 +420,7 @@ func (b0 ReferenceType_builder) Build() *ReferenceType {
 // values one assignment holds.
 //
 // Constraints that need more state than this message carries are enforced
-// by the inventory service: min_items never exceeds max_items, and every
+// by the inventory service: every
 // edit that can invalidate existing values — changing the type, removing
 // an enum key, removing a target kind, tightening the value-count bounds
 // below what an assignment already holds, or deleting the definition — is
@@ -781,11 +781,10 @@ type Attribute_builder struct {
 	// least one kind; a write against any other kind is rejected.
 	Targets []EntityType
 	// The fewest values one assignment of this attribute may hold. Must be
-	// present: every definition declares its cardinality bounds explicitly.
+	// present.
 	MinItems *uint32
-	// The most values one assignment of this attribute may hold. Never less
-	// than min_items, which needs both fields and is checked by the inventory
-	// service. Must be present.
+	// The most values one assignment of this attribute may hold. The cap
+	// mirrors the AttributeValue.values bound. Must be present.
 	MaxItems *uint32
 	// The type every value of this attribute must parse under. Exactly one
 	// arm is set; the arm is the type, so consumers switch on it instead of
@@ -1901,25 +1900,29 @@ const file_flowseer_api_inventory_v1_attribute_proto_rawDesc = "" +
 	"\n" +
 	"NumberType\"Z\n" +
 	"\bEnumType\x12N\n" +
-	"\x06values\x18\x01 \x03(\tB6\xbaH3\x92\x010\b\x01\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[a-z0-9]([a-z0-9-]*[a-z0-9])?$R\x06values\"W\n" +
-	"\rReferenceType\x12F\n" +
-	"\x04kind\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\v\xbaH\b\xc8\x01\x01\x82\x01\x02 \x00R\x04kind\"\xff\x04\n" +
+	"\x06values\x18\x01 \x03(\tB6\xbaH3\x92\x010\b\x01\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[a-z0-9]([a-z0-9-]*[a-z0-9])?$R\x06values\"Y\n" +
+	"\rReferenceType\x12H\n" +
+	"\x04kind\x18\x01 \x01(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\"\xa7\x06\n" +
 	"\tAttribute\x12G\n" +
 	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12!\n" +
 	"\x04name\x18\x03 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
 	"\vdescription\x18\x04 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12T\n" +
-	"\atargets\x18\x05 \x03(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\x13\xbaH\x10\x92\x01\r\b\x01\x10\x10\x18\x01\"\x05\x82\x01\x02 \x00R\atargets\x12#\n" +
-	"\tmin_items\x18\x06 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\bminItems\x12#\n" +
-	"\tmax_items\x18\a \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\bmaxItems\x12H\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12V\n" +
+	"\atargets\x18\x05 \x03(\x0e2%.flowseer.api.inventory.v1.EntityTypeB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x10\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\atargets\x12'\n" +
+	"\tmin_items\x18\x06 \x01(\rB\n" +
+	"\xbaH\a\xc8\x01\x01*\x02(\x01R\bminItems\x12*\n" +
+	"\tmax_items\x18\a \x01(\rB\r\xbaH\n" +
+	"\xc8\x01\x01*\x05\x18\x80\x01(\x01R\bmaxItems\x12H\n" +
 	"\vstring_type\x18\n" +
 	" \x01(\v2%.flowseer.api.inventory.v1.StringTypeH\x00R\n" +
 	"stringType\x12H\n" +
 	"\vnumber_type\x18\v \x01(\v2%.flowseer.api.inventory.v1.NumberTypeH\x00R\n" +
 	"numberType\x12B\n" +
 	"\tenum_type\x18\f \x01(\v2#.flowseer.api.inventory.v1.EnumTypeH\x00R\benumType\x12Q\n" +
-	"\x0ereference_type\x18\r \x01(\v2(.flowseer.api.inventory.v1.ReferenceTypeH\x00R\rreferenceTypeB\r\n" +
+	"\x0ereference_type\x18\r \x01(\v2(.flowseer.api.inventory.v1.ReferenceTypeH\x00R\rreferenceType:\x98\x01\xbaH\x94\x01\x1a\x91\x01\n" +
+	"\x18attribute.bounds_ordered\x12#min_items must not exceed max_items\x1aP!has(this.min_items) || !has(this.max_items) || this.min_items <= this.max_itemsB\r\n" +
 	"\x04type\x12\x05\xbaH\x02\b\x01\"\xfa\x05\n" +
 	"\x0eAttributeEvent\x12G\n" +
 	"\x03ref\x18\x01 \x01(\v2-.flowseer.api.inventory.v1.AttributeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12<\n" +

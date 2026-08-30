@@ -47,8 +47,11 @@ message TagConfig {
     (buf.validate.field).string.max_len = 128
   ];
   // Free-text description of what the tag groups. Unset means none was
-  // provided.
-  string description = 4 [(buf.validate.field).string.max_len = 2048];
+  // provided. When set, must not be empty.
+  string description = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
 }
 
 // The observed placement of one tag in the tag tree. Nothing on a

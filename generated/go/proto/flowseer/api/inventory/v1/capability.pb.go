@@ -131,8 +131,8 @@ func (x *CapabilitySet) SetCapabilities(v []Capability) {
 type CapabilitySet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Supported capability areas. An empty list means the binding exposes none;
-	// unspecified entries and duplicates are invalid.
+	// Supported capability areas. An empty list means the binding exposes
+	// none.
 	Capabilities []Capability
 }
 
