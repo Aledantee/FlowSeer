@@ -1,0 +1,144 @@
+
+## system-identity — System identity
+  M:aruba-cx <ARUBAWIRED-SYSTEMINFO-MIB> :: arubaWiredSystemInfoTable[arubaWiredSystemInfoModuleType|arubaWiredSystemInfoModuleName]
+  M:cisco-smb <CISCOSB-rndMng> :: rlSysNameTable[rlSysNameSource|rlSysNameIfIndex]
+  M:hp-comware <HH3C-PEX-MIB> :: hh3cPexDeviceInfoTable[entPhysicalIndex]
+  M:huawei <HUAWEI-STORAGE-HARDWARE-MIB,HUAWEI-STORAGE-NAS-MIB,HUAWEI-STORAGE-SPACE-MIB> :: hwInfoDiskTable[hwInfoDiskID] hwInfoControllerTable[hwInfoControllerID] hwInfoPowerTable[hwInfoPowerID] hwInfoFanTable[hwInfoFanID]
+  M:ietf <LSI-MegaRAID-SAS-MIB> :: commonDeviceInfoTable[adapterID] commonVirtualDeviceInfoTable[adapterID]
+  M:lancom-lcos <LCOS-MIB> :: lcsSetupHttpShowDeviceInformationTable[lcsSetupHttpShowDeviceInformationEntryDeviceInformation]
+  M:ruckus-wireless <RUCKUS-HWINFO-MIB,RUCKUS-SWINFO-MIB> :: ruckusSwRevTable[ruckusSwRevIndex]
+  Y:cisco-iosxe :: CISCO-LICENSE-MGMT-MIB:CISCO-LICENSE-MGMT-MIB/clmgmtLicenseDeviceInformation CISCO-LICENSE-MGMT-MIB:CISCO-LICENSE-MGMT-MIB/clmgmtLicenseDeviceInfoTable CISCO-LICENSE-MGMT-MIB:CISCO-LICENSE-MGMT-MIB/clmgmtLicenseDeviceInfoTable/clmgmtLicenseDeviceInfoEntry(k=entPhysicalIndex) CISCO-PTP-MIB:CISCO-PTP-MIB/ciscoPtpMIBSystemInfo
+
+## hw-component — Hardware component tree
+  M:aruba-wireless <WLSX-SYSTEMEXT-MIB> :: wlsxSysExtCardTable[sysExtCardSlot]
+  M:cisco-smb <CISCOSB-DEVICEPARAMS-MIB,CISCOSB-RLINVENTORYENT-MIB> :: rlComponentsInfoTable[rlComponentsInfoStackUnitNumber|rlComponentsInfoImageId|rlComponentsInfoComponent] rlInventoryEntTable[rlInventoryEntUnitOrIfindex|rlInventoryEntUnitIfindexID]
+  M:dlink <DLINKSW-ENTITY-EXT-MIB> :: dEntityExtEnvTempTable[dEntityExtEnvTempUnitId|dEntityExtEnvTempIndex] dEntityExtEnvFanTable[dEntityExtEnvFanUnitId|dEntityExtEnvFanIndex] dEntityExtEnvPowerTable[dEntityExtEnvPowerUnitId|dEntityExtEnvPowerIndex] dEntityExtEnvAirFlowTable[dEntityExtEnvAirFlowUnitId]
+  M:hp-comware <HH3C-3GMODEM-MIB,HH3C-AAA-MIB,HH3C-BRAS-ACCESS-MIB,HH3C-E1-MIB,HH3C-ENTITY-EXT-MIB,HH3C-EPON-MIB> :: hh3cWirelessCardTable[hh3cWirelessCardIndex] hh3cAAASlotStatTable[hh3cAAAChassisId|hh3cAAASlotId] hh3cBrasAccUPSlotStatTable[hh3cBrasAccUPSlotUPID|hh3cBrasAccUPSlotID] hh3ce1TimeSlotSetTable[ifIndex]
+  M:hp-other <CPQSINFO-MIB,CPQSTDEQ-MIB> :: cpqSiHotPlugSlotTable[cpqSiHotPlugSlotChassis|cpqSiHotPlugSlotIndex] cpqSeEisaSlotTable[cpqSeEisaSlotIndex] cpqSePciSlotTable[cpqSePciSlotBusNumberIndex|cpqSePciSlotDeviceNumberIndex] cpqSePCCardSlotTable[cpqSePCCardSlotIndex]
+  M:hp-procurve <HP-ENTITY-MIB,HP-ICF-CHASSIS,HP-ICF-PIM> :: hpEntPhysicalTable[hpEntPhysicalIndex] hpEntPhysicalContainsTable[hpEntPhysicalIndex|hpEntPhysicalChildIndex] hpicfSlotTable[hpicfSlotIndex] hpicfEntityTable[hpicfEntityIndex]
+  M:huawei <HUAWEI-AAA-MIB,HUAWEI-BFD-MIB,HUAWEI-BRAS-QOS-MIB,HUAWEI-BRAS-SBC-MIB,HUAWEI-BRAS-SRVCFG-EAP-MIB,HUAWEI-CBQOS-MIB> :: hwSlotConnectNumTable[hwSlotConnectNumSlot] hwSlotCardConnectNumTable[hwSlotCardConnectNumSlot|hwSlotCardConnectNumCard] hwAccessDelayPerSlotTable[hwAccessDelayPerSlotSlot] hwSlotAccessUserStatTable[hwUserType|hwSlotAccessUserStatSlot]
+  M:ieee <LLDP-EXT-MED-MIB> :: lldpXMedRemInventoryTable[lldpRemTimeMark|lldpRemLocalPortNum|lldpRemIndex]
+  M:ietf <ENTITY-MIB,HDSL2-SHDSL-LINE-MIB,LSI-MegaRAID-SAS-MIB,PIM-MIB,Stulz-WIB8000-MIB> :: entPhysicalTable[entPhysicalIndex] entPhysicalContainsTable[entPhysicalIndex|entPhysicalChildIndex] hdsl2ShdslInventoryTable[ifIndex|hdsl2ShdslInvIndex] enclosureSlotTable[slotID]
+  M:lancom-sx <ENTITY-MIB,FASTPATH-INVENTORY-MIB,LLDP-EXT-MED-MIB> :: entPhysicalTable[entPhysicalIndex] entPhysicalContainsTable[entPhysicalIndex|entPhysicalChildIndex] agentInventorySupportedUnitTable[agentInventorySupportedUnitIndex] agentInventoryUnitTable[agentInventoryUnitNumber]
+  M:ubnt-edgemax <EdgeSwitch-INVENTORY-MIB> :: agentInventorySupportedUnitTable[agentInventorySupportedUnitIndex] agentInventoryUnitTable[agentInventoryUnitNumber] agentInventorySlotTable[agentInventoryUnitNumber|agentInventorySlotNumber] agentInventoryCardTypeTable[agentInventoryCardIndex]
+  Y:aruba-cx :: openconfig-platform:platform-subcomponent-ref-top/subcomponents openconfig-platform:platform-subcomponent-ref-top/subcomponents/subcomponent(k=name) openconfig-platform:platform-anchors-top/chassis openconfig-platform:platform-component-top/components
+  Y:cisco-iosxe :: Cisco-IOS-XE-alarm-profile:alarm-profile-grouping/alarm-profile/alarm-profile-choice/chassis Cisco-IOS-XE-appqoe-oper:appqoe-libuinet-stats/slot Cisco-IOS-XE-call-home:profile-alert-group-grouping/subscribe-to-alert-group/inventory Cisco-IOS-XE-call-home:profile-alert-group-grouping/subscribe-to-alert-group/inventory-periodically
+  Y:openconfig :: openconfig-evpn:evpn-parameters-pbb-icomponent-config/i-components openconfig-evpn:evpn-parameters-pbb-icomponent-config/i-components/i-component(k=i-sid) openconfig-evpn:evpn-evi-pbb-config/b-component(k=b-component-name)
+  Y:ruckus-icx :: openconfig-platform:platform-subcomponent-ref-top/subcomponents openconfig-platform:platform-subcomponent-ref-top/subcomponents/subcomponent(k=name) openconfig-platform:platform-anchors-top/chassis openconfig-platform:platform-component-top/components
+
+## transceiver — Transceiver / optics DOM
+  M:aruba-cx <ARUBAWIRED-PM-MIB> :: arubaWiredPmXcvrTable[arubaWiredPmXcvrPortIfIndex] arubaWiredPmXcvrDomTable[arubaWiredPmXcvrPortIfIndex] arubaWiredPmXcvrLaneDomTable[arubaWiredPmXcvrPortIfIndex|arubaWiredPmXcvrLaneDomIndex]
+  M:dlink <DLINKSW-DDM-MIB,DLINKSW-SFPINFO-MIB> :: dDdmIfCfgTable[ifIndex] dDdmThresholdCfgTable[ifIndex|dDdmThresholdComponent|dDmThresholdAbnormalLevel] dDdmIfInfoTable[ifIndex] dPortSfpInfoTable[ifIndex]
+  M:hp-comware <HH3C-CATV-TRANSCEIVER-MIB,HH3C-EPON-MIB,HH3C-TRANSCEIVER-INFO-MIB> :: hh3cOltTransceiverTxPowerTable[ifIndex] hh3cTransceiverInfoTable[ifIndex] hh3cTransceiverChannelTable[ifIndex|hh3cTransceiverChannelIndex] hh3cTransceiverITUChanTable[ifIndex|hh3cTransceiverITUChanIdx]
+  M:hp-other <BLADETYPE4-NETWORK-MIB,BLADETYPE5-NETWORK-MIB,BLADETYPE6-NETWORK-MIB> :: sfpInfoTable[sfpInfoIndx] sfpInfoTable[sfpInfoIndx] sfpInfoTable[sfpInfoIndx]
+  M:hp-procurve <HP-ICF-TRANSCEIVER-MIB,HP-ICF-VG-RPTR> :: hpicfXcvrInfoTable[ifIndex] hpicfXcvrChannelInfoTable[ifIndex|hpicfXcvrChannel] hpVgXcvrTable[hpVgXcvrGroupIndex|hpVgXcvrIndex]
+  M:huawei <HUAWEI-ENTITY-EXTENT-MIB,HUAWEI-ENVIRONMENT-MIB,HUAWEI-XPON-COMMON-MIB,HUAWEI-XPON-MIB> :: hwOpticalModuleInfoTable[entPhysicalIndex] hwOpticalModuleTable[hwFrameIndex|hwOpticalModuleType|hwOpticalChnIndex] hwXponOpticsDdmInfoExTable[ifIndex] hwXponOpticalDdmProfileReferenceTable[hwXponOpticalUseType|hwXponOpticalGradeType|hwXponOpticalType|hwXponOpticalSubType]
+  M:ieee <IEEE8021-PSFP-MIB> :: ieee8021PSFPStreamFilterTable[ieee8021BridgeBaseComponentId|ieee8021PSFPStreamFilterInstance] ieee8021PSFPStreamGateTable[ieee8021BridgeBaseComponentId|ieee8021PSFPStreamGateInstance] ieee8021PSFPFlowMeterTable[ieee8021BridgeBaseComponentId|ieee8021PSFPFlowMeterInstance] ieee8021PSFPStreamParameterTable[ieee8021BridgeBaseComponentId]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusEthernetPortsSfpPortsTable[lcsStatusEthernetPortsSfpPortsEntryPort] lcsSetupInterfacesSfpPortsTable[lcsSetupInterfacesSfpPortsEntryPort]
+  M:lancom-sx <LANCOM-GS2310-FUNCTION-MIB,LCOS-SX-MIB> :: gs2310SFPInfoTable[gs2310SFPInfoIndex] lcsSFPInfoTable[lcsSFPInfoIndex]
+  M:ubnt-airmax <UBNT-UFIBER-MIB> :: ubntSfpsTable[ubntSfpIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-controller-vdsl-oper:controller-info/sfp-local-info Cisco-IOS-XE-ios-events-oper:sfp-state-change Cisco-IOS-XE-ios-events-oper:sfp-support-state Cisco-IOS-XE-native:native/transceiver
+
+## stacking — Stacking / virtual chassis
+  M:aruba-cx <ARUBAWIRED-MCLAG-MIB,ARUBAWIRED-VSF-MIB,ARUBAWIRED-VSFv2-MIB,ARUBAWIRED-VSX-MIB> :: arubaWiredMclagAggregatorTable[arubaWiredMclagAggregatorIndex] arubaWiredVsfMemberTable[arubaWiredVsfMemberIndex] arubaWiredVsfLinkTable[arubaWiredVsfLinkMemberId|arubaWiredVsfLinkId] arubaWiredVsfv2MemberTable[arubaWiredVsfv2MemberIndex]
+  M:cisco-smb <CISCOSB-Physicaldescription-MIB,CISCOSB-STACK-MIB> :: rlPhdStackTable[rlPhdStackUnit] rlPhdStackOrderTable[rlPhdStackOrderCurrentUnitPosition] rlPhdUnitStackPortTable[rlPhdModuleStackUnit|ifIndex] rlStackActiveUnitIdTable[rlStackCurrentUnitId]
+  M:dlink <DLINKSW-ENTITY-EXT-MIB,DLINKSW-MLAG-MIB,DLINKSW-STACK-MIB,EQUIPMENT-MIB,SINGLE-IP-MIB> :: dEntityExtEnvAirFlowTable[dEntityExtEnvAirFlowUnitId] dMlagGroupTable[dMlagGroupNo] dMlagAggPortTable[dMlagAggGroupNo|dMlagAggDeviceID|dMlagAggPortIndex] dStackUnitInfoTable[dStackInfoBoxId]
+  M:hp-comware <HH3C-DRNI-MIB,HH3C-HGMP-MIB,HH3C-LBV2-MIB,HH3C-MPLS-LSR-MIB,HH3C-STACK-MIB> :: hh3cDrniIppTable[hh3cDrniIppNumber] hh3cDrniDrPortTable[hh3cDrniDrPortDRGroupId] hh3cDrniPortTable[hh3cDrniPortIfIndex] hh3chgmpGrpMemberTable[hh3chgmpGrpMemberDeviceId]
+  M:hp-procurve <HP-ICF-STACK,HP-SN-AGENT-MIB,HP-SN-MPLS-LSR-MIB,HP-STACK-MIB,HP-SwitchStack-MIB> :: hpicfStackBoxTable[entPhysicalIndex] hpicfStackAgentTable[entPhysicalIndex] snStackSecSwitchTable[snStackSecSwitchIndex] mplsLabelStackTable[mplsLabelStackIndex|mplsLabelStackLabelIndex]
+  M:huawei <HUAWEI-EPON-MIB,HUAWEI-GTL-MIB,HUAWEI-HGMP-MIB,HUAWEI-IF-EXT-MIB,HUAWEI-L2VLAN-MIB,HUAWEI-M-LAG-MIB> :: hwEponVlanStackingAndMappingTable[ifIndex|hwEponOnuIndex|hwEponOnuExtSVlanId|hwEponOnuIntSStartVlanId|hwEponOnuIntSEndVlanId] hwGtlStackItemTable[hwGtlStackChassisId|hwGtlStackBoardId|hwGtlStackItemIndex] hgmpGrpMemberTable[hgmpGrpMemberDeviceId] hgmpMemberResetTable[hgmpMemberResetMAC]
+  M:ieee <IEEE8021-CFM-MIB,IEEE8021-CFM-V2-MIB,IEEE8021-CFMD8-MIB,IEEE8021-DDCFM-MIB,IEEE802171-CFM-MIB,IEEE8023-LAG-MIB> :: dot3adDrniTable[dot3adDrniIndex] dot3adDrniConvAdminGatewayTable[dot3adDrniGatewayConversationID|dot3adDrniIndex] dot3adDrniIPLEncapMapTable[dot3adDrniGatewayConversationID|dot3adDrniIndex] dot3adDrniNetEncapMapTable[dot3adDrniGatewayConversationID|dot3adDrniIndex]
+  M:ietf <IF-MIB,MPLS-LSR-MIB,MPLS-LSR-STD-MIB> :: ifStackTable[ifStackHigherLayer|ifStackLowerLayer] mplsLabelStackTable[mplsLabelStackIndex|mplsLabelStackLabelIndex] mplsLabelStackTable[mplsLabelStackIndex|mplsLabelStackLabelIndex]
+  M:lancom-sx <FASTPATH-INVENTORY-MIB,FASTPATH-VPC-MIB,IF-MIB> :: agentVpcConfigTable[agentVpcConfigId] agentPeerConfigTable[agentPeerConfigRowIndex] agentVpcDomainConfigTable[agentVpcDomainIndex] agentVpcSelfMemberStatusTable[agentVpcSelfMemberStatusVpcId|agentVpcSelfMemberStatusIntfId]
+  M:ruckus-icx <FOUNDRY-SN-AGENT-MIB,FOUNDRY-SN-STACKING-MIB> :: snStackSecSwitchTable[snStackSecSwitchIndex] snStackingConfigUnitTable[snStackingConfigUnitIndex] snStackingOperUnitTable[snStackingOperUnitIndex] snStackingConfigStackTrunkTable[snStackingConfigStackTrunkUnit|snStackingConfigStackTrunkPort1|snStackingConfigStackTrunkPort2]
+  M:ubnt-airmax <UBNT-AirFIBER-MIB> :: airFiberConfig[airFiberConfigIndex] airFiberStatus[airFiberStatusIndex] airFiberStatistics[airFiberStatisticsIndex]
+  M:ubnt-edgemax <EdgeSwitch-INVENTORY-MIB> :: agentInventoryStackPortTable[agentInventoryStackPortIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-crypto:monitor-event-trace-common/stacktrace Cisco-IOS-XE-interfaces:nve-vxlan-encap-grouping/encapsulation/encap-choice/dual-stack Cisco-IOS-XE-interfaces:interface-common-grouping/stackwise-virtual Cisco-IOS-XE-interfaces:obsolete-interface-common-grouping/stackwise-virtual
+
+## power-supply — Power supply & budget
+  M:aruba-cx <ARUBAWIRED-POWER-STAT-MIB,ARUBAWIRED-POWERSUPPLY-MIB> :: arubaWiredPowerStatTable[arubaWiredPowerStatGroupIndex|arubaWiredPowerStatTypeIndex|arubaWiredPowerStatSlotIndex] arubaWiredPowerSupplyTable[arubaWiredPSUGroupIndex|arubaWiredPSUSlotIndex]
+  M:aruba-wireless <WLSX-SYSTEMEXT-MIB> :: wlsxSysExtPowerSupplyTable[sysExtPowerSupplyIndex]
+  M:cisco-smb <CISCOSB-rndApplications> :: rsPowerSupplyRedundacyTable[rsPowerSupplyRedundacyReNumber]
+  M:hp-comware <HH3C-LswDEVM-MIB> :: hh3cdevMPowerStatusTable[hh3cDevMPowerNum]
+  M:hp-other <CPQHLTH-MIB,CPQRACK-MIB> :: cpqHeFltTolPowerSupplyTable[cpqHeFltTolPowerSupplyChassis|cpqHeFltTolPowerSupplyBay] cpqRackPowerSupplyTable[cpqRackPowerSupplyRack|cpqRackPowerSupplyChassis|cpqRackPowerSupplyIndex]
+  M:hp-procurve <HP-ICF-CHASSIS,HP-ICF-POE-MIB,HP-SN-SWITCH-GROUP-MIB,POWERSUPPLY-MIB> :: hpicfPowerSupplyTable[hpicfPowerSupplySlotNum] hpicfPoePowerSupplyTable[entPhysicalIndex] snVLanByIpSubnetTable[snVLanByIpSubnetVLanId|snVLanByIpSubnetIpAddress|snVLanByIpSubnetSubnetMask] hpicfPsTable[hpicfPsBayNum]
+  M:huawei <HUAWEI-IPPOOL-MIB,HUAWEI-L2VLAN-MIB,HUAWEI-SERVER-IBMC-MIB,HWMUSA-DEV-MIB> :: hwDapSubnetStatusTable[hwDapPoolIndex|hwDapSubnetStartIP] hwL2VlanIpSubnetVlanTable[hwL2VlanIpSubnetVlanVlanId|hwL2VlanIpSubnetVlanIpSubnetIndex] powerSupplyDescriptionTable[powerSupplyIndex] hwMusaFramePowerSupplyTable[hwFrameIndex|hwMusaPowerSupplyInputMode|hwMusaPowerSupplyID]
+  M:ietf <ISIS-MIB,LSI-MegaRAID-SAS-MIB,Stulz-WIB8000-MIB> :: isisLSPSummaryTable[isisLSPLevel|isisLSPID] enclosurePowerSupplyTable[powerSupplyID] opSuctionValveTable[wibBusNumber|wibDeviceAddress|wibModuleNumber]
+  M:lancom-lcos <LCOS-MIB> :: lcsSetupLanBridgeEncapsulationTableTable[lcsSetupLanBridgeEncapsulationTableEntryProtocol] lcsStatusWlanLepsUDeviceUserCacheTable[lcsStatusWlanLepsUDeviceUserCacheEntryMacAddress] lcsStatusWtpMngmtLepsUProfilesTable[lcsStatusWtpMngmtLepsUProfilesEntryName] lcsStatusWtpMngmtLepsUUsersTable[lcsStatusWtpMngmtLepsUUsersEntryName]
+  M:lancom-lx <LCOS-LX-MIB> :: lcosLXSetupWLANLEPSUsers[lcosLXSetupWLANLEPSUsersEntryName]
+  M:lancom-sx <LCOS-SX-GENERAL-MIB,LCOS-SX-MIB> :: lcsIPSubnetBasedVLANConfigTable[lcsIPSubnetBasedVLANConfigIndex] lcsMonitoringPSUTable[lcsMonitoringPSUUnitIndex|lcsMonitoringPSUIndex]
+  M:ruckus-icx <FOUNDRY-SN-SWITCH-GROUP-MIB> :: snVLanByIpSubnetTable[snVLanByIpSubnetVLanId|snVLanByIpSubnetIpAddress|snVLanByIpSubnetSubnetMask]
+  M:ubnt-airmax <UBNT-UFIBER-MIB> :: ubntPsuTable[ubntPsuIndex]
+  M:ubnt-edgemax <UBNT-EdgeMAX-MIB> :: ubntPsuTable[ubntPsuIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-atm:config-interface-atm-grouping/pvc/encapsulation-pvc Cisco-IOS-XE-atm:config-interface-atm-grouping/pvc/pvc-encapsulation Cisco-IOS-XE-atm:config-interface-atm-grouping/pvc/encapsulation Cisco-IOS-XE-bridge-domain:config-bdomain-mode-grouping/member/mem-ipv4/encapsulation
+  Y:openconfig :: openconfig-network-instance:network-instance-top/network-instances/network-instance/encapsulation openconfig-pf-forwarding-policies:pf-forwarding-policy-action-encapsulate-gre/encapsulate-gre openconfig-rib-bgp-attributes:bgp-tunnel-encapsulation-attr-top/tunnel-encapsulation
+  Y:ruckus-icx :: openconfig-network-instance:network-instance-top/network-instances/network-instance/encapsulation openconfig-pf-forwarding-policies:pf-forwarding-policy-action-encapsulate-gre/encapsulate-gre
+
+## environment — Environment sensors
+  M:aruba-cx <ARUBAWIRED-FAN-MIB,ARUBAWIRED-FANTRAY-MIB,ARUBAWIRED-TEMPSENSOR-MIB> :: arubaWiredFanTable[arubaWiredFanGroupIndex|arubaWiredFanTrayIndex|arubaWiredFanSlotIndex] arubaWiredFanTrayTable[arubaWiredFanTrayGroupIndex|arubaWiredFanTraySlotIndex] arubaWiredTempSensorTable[arubaWiredTempSensorGroupIndex|arubaWiredTempSensorSlotTypeIndex|arubaWiredTempSensorSlotIndex|arubaWiredTempSensorIndex]
+  M:aruba-wireless <WLSX-SYSTEMEXT-MIB> :: wlsxSysExtFanTable[sysExtFanIndex]
+  M:cisco-smb <CISCOSB-HWENVIROMENT,CISCOSB-SENSORENTMIB> :: rlEntPhySensorTable[A:entPhySensorEntry] rlEnvMonFanStatusTable[rlEnvMonFanStatusIndex] rlEnvMonSupplyStatusTable[rlEnvMonSupplyStatusIndex] rlEnvFanDataTable[rlEnvFanDataStackUnit]
+  M:dlink <DLINKSW-ENTITY-EXT-MIB,EQUIPMENT-MIB> :: dEntityExtEnvFanTable[dEntityExtEnvFanUnitId|dEntityExtEnvFanIndex] swFanTable[swFanUnitIndex|swFanID] swTemperatureTable[swTemperatureUnitIndex]
+  M:hp-comware <HH3C-DOT11-WIPS-MIB,HH3C-LswDEVM-MIB,HH3C-REDUNDANCY-POWER-MIB,HH3C-WIPS-MIB> :: hh3cDot11WIPSCtmSensorTable[hh3cDot11WIPSCtmSensorPolicyName] hh3cdevMFanStatusTable[hh3cDevMFanNum] hh3cdevMSlotEnvironmentTable[hh3cLswFrameIndex|hh3cLswSlotIndex|hh3cdevMSlotEnvironmentType] hh3credundancyFanTable[hh3credundancyFanID]
+  M:hp-other <CPQHLTH-MIB,CPQPOWER-MIB,CPQRACK-MIB> :: cpqHeThermalFanTable[cpqHeThermalFanIndex] cpqHeFltTolFanTable[cpqHeFltTolFanChassis|cpqHeFltTolFanIndex] cpqHeTemperatureTable[cpqHeTemperatureChassis|cpqHeTemperatureIndex] pdu2TemperatureTable[pdu2IdentIndex|pdu2TemperatureIndex]
+  M:hp-procurve <FAN-MIB,HP-ICF-BASIC,HP-ICF-CHASSIS,HP-SN-AGENT-MIB,HP-SYSTEM-MIB> :: hpicfFanTable[hpicfFanIndex] hpicfAnnounceTable[entLogicalIndex] hpicfAnnounceDiscoveryTable[ifIndex] hpicfSensorTable[hpicfSensorIndex]
+  M:huawei <HUAWEI-ENTITY-EXTENT-MIB,HUAWEI-ENVIRONMENT-MIB,HUAWEI-SECURITY-STAT-MIB,HUAWEI-SERVER-IBMC-MIB,HUAWEI-SITE-MONITOR-MIB,HUAWEI-STORAGE-HARDWARE-MIB> :: hwTemperatureThresholdTable[hwEntityTempSlotId|hwEntityTempI2CId|hwEntityTempAddr|hwEntityTempChannel] hwFanStatusTable[hwEntityFanSlot|hwEntityFanSn] hwEnvironmentInfoTable[hwEnvEmuIndex] hwAnaChannelTable[hwEnvEmuIndex|hwAnaChannelIndex]
+  M:ietf <ENTITY-SENSOR-MIB,FCMGMT-MIB,LM-SENSORS-MIB,LSI-MegaRAID-SAS-MIB,Stulz-WIB8000-MIB> :: entPhySensorTable[entPhysicalIndex] connUnitSensorTable[connUnitSensorUnitId|connUnitSensorIndex] lmTempSensorsTable[lmTempSensorsIndex] lmFanSensorsTable[lmFanSensorsIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusTemperatureMonitorExtremesTable[lcsStatusTemperatureMonitorExtremesEntryType] lcsStatusWlanEnvironmentScanResultsTable[lcsStatusWlanEnvironmentScanResultsEntryBssid|lcsStatusWlanEnvironmentScanResultsEntryInterface] lcsStatusWlanThermalMitigationTable[lcsStatusWlanThermalMitigationEntryIfc] lcsSetupInterfacesWlanEnvironmentScanTable[lcsSetupInterfacesWlanEnvironmentScanEntryIfc]
+  M:lancom-lx <LCOS-LX-MIB> :: lcosLXStatusWLANEnvironmentScanResults[lcosLXStatusWLANEnvironmentScanResultsEntryBSSID]
+  M:lancom-sx <FASTPATH-BOXSERVICES-PRIVATE-MIB,LCOS-SX-GENERAL-MIB> :: lcsMonitoringTempSensorsTable[lcsMonitoringTempSensorUnitIndex|lcsMonitoringTempSensorIndex] lcsMonitoringFansTable[lcsMonitoringFanUnitIndex|lcsMonitoringFanIndex] boxServicesFansTable[boxServicesFanUnitIndex|boxServicesFansIndex] boxServicesTempSensorsTable[boxServicesUnitIndex|boxServicesTempSensorIndex]
+  M:netgear <NETGEAR-BOXSERVICES-PRIVATE-MIB> :: boxServicesFansTable[boxServicesFanUnitIndex|boxServicesFansIndex] boxServicesTempSensorsTable[boxServicesUnitIndex|boxServicesTempSensorIndex]
+  M:ruckus-icx <FOUNDRY-SN-AGENT-MIB> :: snChasFanTable[snChasFanIndex] snChasFan2Table[snChasFan2Unit|snChasFan2Index]
+  M:ubnt-airmax <UBNT-UFIBER-MIB> :: ubntFansTable[ubntFanIndex]
+  M:ubnt-edgemax <EdgeSwitch-BOXSERVICES-PRIVATE-MIB,UBNT-EdgeMAX-MIB> :: boxServicesFansTable[boxServicesFanUnitIndex|boxServicesFansIndex] boxServicesTempSensorsTable[boxServicesUnitIndex|boxServicesTempSensorIndex] ubntFansTable[ubntFanIndex]
+  Y:aruba-cx :: openconfig-platform:platform-component-temp-state/temperature openconfig-platform:platform-anchors-top/fan
+  Y:cisco-iosxe :: Cisco-IOS-XE-alarm:alarm-grouping/alarm/facility/temperature Cisco-IOS-XE-call-home:profile-alert-group-grouping/subscribe-to-alert-group/environment Cisco-IOS-XE-call-home:cfg-call-home-profile-grouping/subscribe-to-alert-group/environment Cisco-IOS-XE-cts:config-cts-grouping/environment-data
+  Y:ruckus-icx :: openconfig-platform:platform-component-temp-state/temperature openconfig-platform:platform-anchors-top/fan
+
+## firmware-image — Firmware / image / boot
+  M:cisco-smb <CISCOSB-DEVICEPARAMS-MIB,CISCOSB-WBA-MIB> :: rndImageInfoTable[rndStackUnitNumber] rlWBAImageTable[rlWBAImageNumber|rlWBAImageIndex] rlWBAImageInfoTable[rlWBAImageInfoNumber]
+  M:dlink <AGENT-GENERAL-MIB,DLINKSW-SYSTEM-FILE-MIB> :: swMultiImageInfoTable[swMultiImageInfoID] swMultiImageCtrlTable[swMultiImageCtrlID] dsfBootImageTable[dsfBootImageUnitId|dsfBootImageIndex]
+  M:hp-comware <HH3C-EPON-MIB,HH3C-FLASH-MAN-MIB,HH3C-ISSU-MIB,HH3C-RPR-MIB,HH3C-SYS-MAN-MIB,HH3C-VBR-MIB> :: hh3cOnuFirmwareUpdateTable[ifIndex] hh3cOnuFirmwareUpdateByTypeTable[hh3cOnuUpdateByOnuTypeIndex] hh3cFlashTable[hh3cFlhIndex] hh3cFlhChipTable[hh3cFlhIndex|hh3cFlhChipSerialNo]
+  M:hp-other <CPQRACK-MIB,CPQSINFO-MIB> :: cpqRackHWFirmwareVersionTable[cpqRackHWFirmwareVersion] cpqSiFirmwareRevTable[cpqSiFirmwareRevIndex] cpqSiFirmwareCfgTable[cpqSiFirmwareCfgName]
+  M:hp-procurve <HP-ICF-DOWNLOAD> :: hpicfDownloadTable[hpicfDownloadIndex] hpicfDownloadLogTable[hpicfDlLogIndex] hpicfDownloadAutoTftpTable[hpicfDownloadAutoTftpIndex] hpicfDownloadInetTable[hpicfDownloadInetIndex]
+  M:huawei <HUAWEI-BRAS-VSM-MIB,HUAWEI-ENTITY-EXTENT-MIB,HUAWEI-FLASH-MAN-MIB,HUAWEI-HGMP-MIB,HUAWEI-SERVER-IBMC-MIB,HUAWEI-STACK-MIB> :: hwVsmEDSGDownloadServicePolicyTable[hwVsmEDSGDownloadServicePolicyName] hwDownloadDiagnosticsTable[hwDownloadDiagnosticsIndex] hwFlashTable[hwFlhIndex] hwFlhChipTable[hwFlhIndex|hwFlhChipSerialNo]
+  M:ieee <IEEE-802DOT17-RPR-MIB> :: rprTopoImageTable[rprTopoImageIfIndex|rprTopoImageMacAddress]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusConfigDownloadStatusLastOperationsTable[lcsStatusConfigDownloadStatusLastOperationsEntryIndex] lcsFirmwareVersionTableTable[lcsFirmwareVersionTableEntryIfc] lcsFirmwareTableFirmsafeTable[lcsFirmwareTableFirmsafeEntryPosition]
+  Y:cisco-iosxe :: Cisco-IOS-XE-aaa:config-aaa-grouping/authorization/credential-download Cisco-IOS-XE-aaa:config-aaa-grouping/route/download Cisco-IOS-XE-cef:config-cef-grouping/cef/table/download Cisco-IOS-XE-controller:config-controller-grouping/Cellular/lte/firmware
+
+## config-file — Config file & backup
+  M:cisco-smb <CISCOSB-COPY-MIB,CISCOSB-DHCPCL-MIB,CISCOSB-PNP> :: rlDhcpClInformationTftpServerListTable[rlDhcpClInformationTftpServerListIfIndex|rlDhcpClInformationTftpServerListPriority] rlCopyTable[rlCopyIndex] rlCopyHistoryTable[rlCopyHistoryHistoryIndex] rlCopyMessagesTable[rlCopyMessagesCopyIndex|rlCopyMessagesMessageIndex]
+  M:dlink <AGENT-GENERAL-MIB,DLINK-DGS-1210-Fx-SERIES-MIB,DLINK-DGS-1210-Gx-SERIES-MIB,DLINKSW-SDCARDMGMT-MIB,DLINKSW-VPWS-MIB,ZTP-MIB> :: agentFTPFileTable[agentFTPFileIndex] agentFTPFileSystemTable[agentFTPFileSystemIndex] dlinklldpConfigManAddrTable[dlinklldpLocManAddrSubtype|dlinklldpLocManAddr] dlinklldpConfigManAddrTable[dlinklldpLocManAddrSubtype|dlinklldpLocManAddr]
+  M:hp-comware <HH3C-CONFIG-MAN-MIB> :: hh3cCfgLogTable[hh3cCfgLogIndex] hh3cCfgOperateTable[hh3cCfgOperateIndex] hh3cCfgOperateResultTable[hh3cCfgOperateResultIndex] hh3cCfgExecuteResultTable[hh3cCfgExecuteResultIndex]
+  M:hp-procurve <HP-ICF-DOWNLOAD,HP-ICF-GENERIC-RPTR> :: hpicfDownloadAutoTftpTable[hpicfDownloadAutoTftpIndex] hpicfBackupLinkTable[hpicfBackupLinkIndex]
+  M:huawei <HUAWEI-BRAS-RUI-MIB,HUAWEI-BRAS-SBC-MIB,HUAWEI-CONFIG-MAN-MIB,HUAWEI-E-TRUNK-MIB,HUAWEI-IF-EXT-MIB,HUAWEI-LOAD-BACKUP-MIB> :: hwPeerBackupServerTable[hwPeerBackupServerPeerIp] hwRemoteBackupProfileTable[hwRemoteBackupProfileIndex] hwRemoteBackupProfileExtTable[hwRemoteBackupProfileIndex|hwRemoteBackupProfileIPPoolBindIndex] hwBrasSbcBackupGroupTable[hwBrasSbcBackupGroupID]
+  M:ieee <LLDP-EXT-DOT1-V2-MIB,LLDP-MIB> :: lldpV2Xdot1ConfigManVidTable[A:lldpV2Xdot1LocManVidEntry] lldpConfigManAddrTable[A:lldpLocManAddrEntry]
+  M:lancom-lcos <LCOS-MIB> :: lcsSetupWanBackupPeersTable[lcsSetupWanBackupPeersEntryPeer]
+  M:lancom-sx <LCOS-SX-MIB,LLDP-MIB> :: lcsConfigFileTable[lcsConfigFileIndex] lldpConfigManAddrTable[A:lldpLocManAddrEntry]
+  Y:cisco-iosxe :: Cisco-IOS-XE-bgp:bgp-additional-paths-grouping/additional-paths/select/best-external-backup Cisco-IOS-XE-bgp:bgp-additional-paths-with-obsolete-install-grouping/additional-paths/select/best-external-backup Cisco-IOS-XE-bgp:bgp-vrf-additional-paths-grouping/additional-paths/select/best-external-backup Cisco-IOS-XE-bgp:bgp-vrf-additional-paths-obsolete-grouping/additional-paths/select/best-external-backup
+
+## license — Licensing
+  M:aruba-wireless <WLSX-SWITCH-MIB,WLSX-SYSTEMEXT-MIB> :: wlsxSwitchLicenseTable[licenseIndex] wlsxSysExtSwitchLicenseTable[sysExtLicenseIndex]
+  M:dlink <DLINKSW-DLMS-MIB> :: dDlmsLicenseModelTable[dDlmsLicenseModelUnitId] dDlmsLicenseAcTable[dDlmsLicenseAcUnitId|dDlmsLicenseAcIndex]
+  M:hp-comware <HH3C-LICENSE-MIB> :: hh3cLicenseDevInfoTable[hh3cLicensePhysicalIndex] hh3cLicenseGeneralTable[hh3cLicensePhysicalIndex|hh3cLicenseIndex] hh3cLicenseFeatureTable[hh3cLicensePhysicalIndex|hh3cLicenseFeatureName] hh3cLicenseOpTable[hh3cLicenseOpIndex]
+  M:huawei <HUAWEI-AAA-MIB,HUAWEI-GTL-MIB,HUAWEI-SYS-MAN-MIB,HUAWEI-WLAN-CONFIGURATION-MIB,HUAWEI-WLAN-GLOBAL-MIB,HUAWEI-XPON-COMMON-MIB> :: hwBRASLicenseTable[hwBrasLicenseResource] hwGtlItemTable[hwGtlItemIndex] hwGtlStackItemTable[hwGtlStackChassisId|hwGtlStackBoardId|hwGtlStackItemIndex] hwSysLicenseFileTable[hwSysLicenseFileIndex]
+  M:lancom-lcos <LCOS-MIB> :: lcsStatusSoftwareInfoOptionsLicensesTable[lcsStatusSoftwareInfoOptionsLicensesEntryOption|lcsStatusSoftwareInfoOptionsLicensesEntryIndex] lcsStatusSoftwareInfoOptionsLicenseFilesTable[lcsStatusSoftwareInfoOptionsLicenseFilesEntryIndex]
+  M:ruckus-icx <FOUNDRY-SN-AGENT-MIB> :: fdryLicenseTable[fdryLicensePackageName|fdryLicenseLid|fdryLicenseHash] brcdPortLicenseTable[brcdPortLicenseIndex] snSAULicenseUnitTable[snSAULicenseUnitIndex]
+  Y:cisco-iosxe :: Cisco-IOS-XE-app-hosting-oper:package-information/licensing Cisco-IOS-XE-license:config-license-grouping/license Cisco-IOS-XE-license:config-license-grouping/license/udi Cisco-IOS-XE-license:config-license-grouping/license/feature
+  Y:openconfig :: openconfig-license:licenses-top/licenses openconfig-license:licenses-top/licenses/license(k=license-id) openconfig-license:licenses-top/licenses/license/config openconfig-license:licenses-top/licenses/license/state
+
+## cpu-memory — CPU / memory / storage
+  M:aruba-wireless <WLSX-SWITCH-MIB,WLSX-SYSTEMEXT-MIB> :: wlsxSysXStorageTable[sysXStorageIndex] wlsxSysXMemoryTable[sysXMemoryIndex] wlsxSysExtStorageTable[sysExtStorageIndex] wlsxSysExtMemoryTable[sysExtMemoryIndex]
+  M:cisco-smb <CISCOSB-CPU-COUNTERS-MIB> :: rlCpuCountersTable[rlCpuCountersTarget]
+  M:dlink <DLINKSW-ENTITY-EXT-MIB> :: dEntityExtMemoryUtilTable[dEntityExtMemUtilUnitId|dEntityExtMemUtilType] dEntityExtCpuUtilTable[dEntityExtCpuUtilUnitId|dEntityExtCpuUtilCpuID]
+  M:hp-comware <HH3C-CFCARD-MIB,HH3C-DISK-MIB,HH3C-LSW-DEV-ADM-MIB,HH3C-LswDEVM-MIB,HH3C-MDC-MIB,HH3C-MIRRORGROUP-MIB> :: hh3cCfCardInfoTable[hh3cCfCardIndex] hh3cDiskTable[hh3cDiskIndex] hh3cLswCpuTable[hh3cLswFrameIndex|hh3cLswSlotIndex|hh3cLswCpuIndex] hh3cCpuTable[hh3cCpuIndex]
+  M:hp-other <CPQHOST-MIB,CPQSTDEQ-MIB> :: cpqHoCpuUtilTable[cpqHoCpuUtilUnitIndex] cpqSeCpuTable[cpqSeCpuUnitIndex] cpqSeFloppyDiskTable[cpqSeFloppyDiskIndex] cpqSeFixedDiskTable[cpqSeFixedDiskIndex]
+  M:hp-procurve <HP-MEMPROC-MIB> :: hpmpCPUTable[hpmpCPUIndex] hpmpMemTable[hpmpMemIndex]
+  M:huawei <HUAWEI-DEVICE-MIB,HUAWEI-ENTITY-EXTENT-MIB,HUAWEI-FLASH-MAN-MIB,HUAWEI-MEMORY-MIB,HUAWEI-SERVER-IBMC-MIB,HUAWEI-STORAGE-HARDWARE-MIB> :: hwMemoryDevTable[hwFrameIndex|hwSlotIndex|hwMemoryDevModuleIndex] hwStorageEntTable[entPhysicalIndex] hwHardDiskStateTable[hwHardDiskIndex] hwStorageTable[hwStorageIndex]
+  M:ietf <HOST-RESOURCES-MIB,NetWare-Host-Ext-MIB,Printer-MIB,UCD-DISKIO-MIB> :: hrStorageTable[hrStorageIndex] hrDiskStorageTable[hrDeviceIndex] nwhrDiskStorageTable[hrDeviceIndex] prtStorageRefTable[hrStorageIndex|prtStorageRefSeqNumber]
+  M:lancom-sx <FASTPATH-BOXSERVICES-PRIVATE-MIB,FASTPATH-LOGGING-MIB> :: boxServicesDiskUtilizationTable[boxServicesDiskUtilizationUnitIndex] agentLogInMemoryTable[agentLogInMemoryMsgIndex]
+  M:ruckus-icx <FOUNDRY-SN-AGENT-MIB> :: snAgentCpuUtilTable[snAgentCpuUtilSlotNum|snAgentCpuUtilCpuId|snAgentCpuUtilInterval]
+  M:ubnt-edgemax <EdgeSwitch-LOGGING-MIB> :: agentLogInMemoryTable[agentLogInMemoryMsgIndex]
+  Y:aruba-cx :: openconfig-platform:platform-component-memory-state/memory openconfig-platform:platform-anchors-top/storage openconfig-system:system-memory-top/memory
+  Y:cisco-iosxe :: Cisco-IOS-XE-aaa:config-aaa-grouping/memory Cisco-IOS-XE-app-hosting-oper:utilization/cpu-util Cisco-IOS-XE-app-hosting-oper:utilization/memory-util Cisco-IOS-XE-app-hosting-oper:utilization/disk-util
+  Y:openconfig :: openconfig-procmon:procmon-processes-top/processes openconfig-procmon:procmon-processes-top/processes/process(k=pid) openconfig-procmon:procmon-processes-top/processes/process/state
+  Y:ruckus-icx :: openconfig-platform:platform-component-memory-state/memory openconfig-platform:platform-anchors-top/storage openconfig-procmon:procmon-processes-top/processes openconfig-procmon:procmon-processes-top/processes/process(k=pid)
