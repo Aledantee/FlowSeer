@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.switching.v1;
+
+// How a VLAN entry was registered in a bridge's VLAN database. The
+// other/permanent/dynamic vocabulary normalizes the dot1qVlanStatus object
+// of the RFC 4363 Q-BRIDGE-MIB
+// (https://www.rfc-editor.org/rfc/rfc4363.html); the integer numbering is
+// FlowSeer's own and does not mirror the MIB.
+enum VlanRegistration {
+  // The source explicitly reported an unknown registration mechanism.
+  // Absence means unreported.
+  VLAN_REGISTRATION_UNSPECIFIED = 0;
+  // A registration mechanism outside the normalized cases.
+  VLAN_REGISTRATION_OTHER = 1;
+  // A static entry that survives bridge restarts.
+  VLAN_REGISTRATION_PERMANENT = 2;
+  // A protocol-learned entry that may age out.
+  VLAN_REGISTRATION_DYNAMIC = 3;
+}

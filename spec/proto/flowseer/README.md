@@ -11,9 +11,9 @@ their versioned protobuf package names.
   and small reusable match atoms.
 - `flowseer.net.phy.v1` owns Ethernet settings, capabilities, active link facts,
   PoE, and shallow pluggable-transceiver observations.
-- `flowseer.net.l2.v1` owns VLANs, exact tag stacks, switchport membership,
-  aggregation attributes, and unicast forwarding-database rows.
-- `flowseer.net.l3.v1` owns per-interface IPv4/IPv6 facets, assigned-address
+- `flowseer.net.switching.v1` owns VLANs, exact tag stacks, switchport
+  membership, aggregation attributes, and unicast forwarding-database rows.
+- `flowseer.net.ip.v1` owns per-interface IPv4/IPv6 facets, assigned-address
   rows, and the ARP/IPv6-ND neighbor cache.
 
 Table rows deliberately carry device-local interface names instead of entity

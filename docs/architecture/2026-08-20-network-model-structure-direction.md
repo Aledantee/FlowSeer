@@ -21,8 +21,8 @@ products, observed-state platforms, automation layers, vendor cloud APIs, and
 the standard MIBs structure the same concepts (see Sources). Where this
 direction deviates from that prior art it says so and why.
 
-The focused protocol and Edition 2024 evidence behind the PHY, packet, L2, and
-L3 boundary is recorded in the
+The focused protocol and Edition 2024 evidence behind the phy, packet,
+switching, and ip boundary is recorded in the
 [net core package research](2026-08-26-net-core-package-research.md).
 
 ## Decision in one paragraph
@@ -47,10 +47,10 @@ spec/proto/flowseer/
     addr/v1/            MAC/OUI and IP address, prefix, range, scope, and lifetime values
     packet/v1/          EtherType, DSCP, ECN, IP protocol, ports, TCP flags, and ICMP match atoms
     phy/v1/             Ethernet settings, capabilities, active facts, PoE, and transceiver summary
-    l2/v1/              VLANs, tag stacks, SwitchportFacet, AggregationFacet, FdbEntry
-    l3/v1/              IpFacet, InterfaceAddress, NeighborEntry
+    switching/v1/       VLANs, tag stacks, SwitchportFacet, AggregationFacet, FdbEntry
+    ip/v1/              IpFacet, InterfaceAddress, NeighborEntry
     interface/v1/       Interface (oneof kind) and one message per kind arm
-    wlan/v1/            Radio, Bss, WirelessClient — a peer of l2, not a child
+    wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
   device/v1/            Device, Interface entity, device-level tables as State
   inventory/v1/         Integration, Binding, Placement, IntegrationScope
@@ -67,9 +67,9 @@ this tree assumes throughout.
 Import layering is acyclic. The foundational dependency graph is:
 
 ```
-net/addr ← {net/l2, net/l3}
-net/packet ← net/l2
-{net/addr, net/packet, net/phy, net/l2, net/l3} ← net/interface
+net/addr ← {net/switching, net/ip}
+net/packet ← net/switching
+{net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
 net/interface ← {net/protocol/*, net/wlan}
 {net/interface, net/protocol/*, net/wlan} ← device
 device ← inventory ← integration ← {service, event}
@@ -77,9 +77,11 @@ device ← inventory ← integration ← {service, event}
 
 `net/*` never imports `device/` or above. Layers never import a protocol.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
-packages; `net/l2` imports address and packet values, while `net/l3` imports
-address values. Service and event packages are sibling boundary consumers and
-never import one another.
+packages; `net/switching` imports address and packet values, while `net/ip`
+imports address values. Service and event packages are sibling boundary
+consumers and never import one another. The order's home for automated
+checking is `src/common/protoconformance/`; `spec/proto/` holds only `.proto`
+and `README.md` files, so no test can sit beside the schemas.
 
 ## Why this shape
 
@@ -107,11 +109,12 @@ types go in a separate module so they can be reused without coupling. A MAC is
 used as a key by L2 (FDB), L3 (neighbor cache), device identity (base MAC),
 wireless (client identity), and discovery; an IP prefix by routes, seeds,
 integration configs, and LLDP management addresses. Putting `MacAddress` in
-`l2` would make `l2` a de-facto base package imported by everything. VLAN-id
-types, by contrast, sit with VLAN models everywhere (`ieee802-dot1q-types`,
-`openconfig-vlan-types`), so the VLAN-id rule lives in `l2`, not `addr`.
+`switching` would make `switching` a de-facto base package imported by
+everything. VLAN-id types, by contrast, sit with VLAN models everywhere
+(`ieee802-dot1q-types`, `openconfig-vlan-types`), so the VLAN-id rule lives in
+`switching`, not `addr`.
 
-### `l2` / `l3` as package names, function names inside
+### `switching` / `ip` as package names
 
 The survey is clear that tree roots are named by function — OpenConfig's
 `interfaces`, `vlan`, `lldp`, `network-instance`; SuzieQ's `interfaces`,
@@ -123,12 +126,13 @@ content of these two packages: the *per-layer persona of an interface* is
 named by layer in Ansible (`interfaces` / `l2_interfaces` / `l3_interfaces`),
 Infrahub (`InterfaceLayer2` / `InterfaceLayer3` generics), SAI (`BRIDGE_PORT`
 vs `ROUTER_INTERFACE`), Junos (`family ethernet-switching` / `family inet`),
-and Meraki's WLC API (`interfaces/l2`, `interfaces/l3`). FlowSeer keeps
-`l2`/`l3` as packages because that is what they mostly hold and it keeps v1 at
-a handful of packages; messages inside are function-named (`Vlan`, `FdbEntry`,
-`IpFacet`, `NeighborEntry`), never `L2Thing`. Network instances, RIBs, routes,
-and forwarding entries form separate future functional packages rather than
-growing inside `net/l3`.
+and Meraki's WLC API (`interfaces/l2`, `interfaces/l3`). FlowSeer follows the
+majority anyway and names the two packages `switching` and `ip`: the layer word
+only ever qualified an interface persona, and these packages hold whole
+functional domains. Messages inside are function-named too (`Vlan`,
+`FdbEntry`, `IpFacet`, `NeighborEntry`), never `L2Thing`. Network instances,
+RIBs, routes, and forwarding entries form separate future functional packages —
+`net/routing` is reserved for them — rather than growing inside `net/ip`.
 
 ### Facets versus tables
 
@@ -180,9 +184,9 @@ layers because they reference layer types (LLDP-EXT-DOT1 carries a VLAN id,
 MSTP references VLANs, BGP references prefixes and VRFs); layers never
 reference a protocol — `AggregationFacet` holds static LAG membership, LACP
 partner state lives in `protocol/lacp` referencing the LAG interface by name.
-An earlier idea of splitting "normalized neighbor" (in `l2`) from "PDU decode"
-(in `protocol/lldp`) is rejected: it creates two packages that must be kept in
-sync for one protocol.
+An earlier idea of splitting "normalized neighbor" (in `switching`) from "PDU
+decode" (in `protocol/lldp`) is rejected: it creates two packages that must be
+kept in sync for one protocol.
 
 ### Wireless is a peer of L2
 
@@ -190,8 +194,8 @@ Radios are not interfaces: UniFi models `interfaces{ports[], radios[]}` as
 sibling arrays, Meraki exposes radios through `wireless/radio/settings` and
 BSS lists rather than the port resources, OpenConfig keeps `wifi/` as a
 separate tree that reuses `system` but not `interfaces`. `net/wlan` therefore
-holds `Radio`, `Bss`, `WirelessClient` as a peer of `l2` and imports `addr`
-and `l2` (a BSS maps to a VLAN id), never the reverse.
+holds `Radio`, `Bss`, `WirelessClient` as a peer of `switching` and imports
+`addr` and `switching` (a BSS maps to a VLAN id), never the reverse.
 
 ## The interface
 
@@ -241,7 +245,7 @@ message Interface {
 
   // The routed persona. Present ⇔ routed. One message for a routed port, a
   // routed LAG, an SVI, a loopback — not one per underlying kind.
-  flowseer.net.l3.v1.IpFacet ip = 20;
+  flowseer.net.ip.v1.IpFacet ip = 20;
 }
 ```
 
@@ -370,8 +374,8 @@ API_OPAQUE`.
    `string` ↔ `bytes` is a breaking change under every buf breaking category.
 4. **Small domain scalars use predefined rules, not wrapper messages.**
    protovalidate *predefined rules* extend a standard rule message with a
-   named CEL rule that any field of that type can switch on. `net/l2` defines
-   `extend buf.validate.UInt32Rules { bool vlan_id = 5xxxx
+   named CEL rule that any field of that type can switch on. `net/switching`
+   defines `extend buf.validate.UInt32Rules { bool vlan_id = 5xxxx
    [(buf.validate.predefined).cel = { … "!rule || (this >= 1u && this <=
    4094u)" }] }` once, and fields write `uint32 access_vlan = 1
    `[(buf.validate.field).uint32.(vlan_id) = true]`. Repeated-item aggregates
@@ -476,12 +480,13 @@ one commit with regenerated `generated/`:
 2. `net/phy` and `net/interface` with the `physical`, `lag`, `vlan`,
    `loopback`, `other` arms; `device/v1` Device identity and the Interface
    entity — proven by the hand-done R11 identity read via SNMP.
-3. `net/l2` (the `vlan_id` rule, `Vlan`, `SwitchportFacet`, `AggregationFacet`,
-   `FdbEntry`) and `net/protocol/lldp` — three of the five v1 capabilities
-   (interfaces, neighbors, VLANs) via `qbridgemib`/`bridgemib`/`lldpmib`.
+3. `net/switching` (the `vlan_id` rule, `Vlan`, `SwitchportFacet`,
+   `AggregationFacet`, `FdbEntry`) and `net/protocol/lldp` — three of the five
+   v1 capabilities (interfaces, neighbors, VLANs) via
+   `qbridgemib`/`bridgemib`/`lldpmib`.
 4. `inventory/v1`, `integration/v1`, `service/v1` — once there is something
    real to bind and route.
-5. `net/l3` (`IpFacet`, `InterfaceAddress`, `NeighborEntry`) via `ipmib`; needed
+5. `net/ip` (`IpFacet`, `InterfaceAddress`, `NeighborEntry`) via `ipmib`; needed
    by discovery's table-walk sources anyway.
 6. Network-instance and routing packages when a real RIB capability is ready;
    their keys must distinguish VRFs and multiple routing-protocol instances.
@@ -626,3 +631,29 @@ originally specified it, contradicted the record's own primitive/entity line.
 - **The import order is declared here.** Schema reviews compare new imports
   against this single order rather than maintaining a second copy in source
   fixtures.
+
+### 2026-08-30 — the layer packages are named for their function
+
+Landed with `docs/plans/2026-08-30-1420-feat-net-interface-lldp-plan.md`, which
+opened by moving the two packages this record named after OSI layers.
+
+- **`net/l2` is now `net/switching` and `net/l3` is now `net/ip`.** The section
+  above conceded that function-named roots are what the survey found almost
+  everywhere and then kept the layer names anyway, on the argument that a
+  layer word describes an interface's persona. That argument holds for a
+  persona; it does not hold for a package that owns a whole functional domain,
+  and it left FlowSeer as the outlier against OpenConfig, SuzieQ, IP Fabric,
+  and SONiC. Nothing consumed the generated `l2`/`l3` packages yet, so the move
+  cost a rename of directories, package statements, and imports and no message
+  shape at all. It would not have stayed that cheap.
+- **`net/routing` stays unclaimed.** The IP package is `ip`, not `routing`,
+  because network instances, RIBs, FIBs, and routes are a separate future
+  package and that is the name they will want.
+- **The unused `net/qos/v1` placeholder is gone.** It held a `.gitkeep` and no
+  document referenced it; an empty directory is not a decision.
+- **The import order is checked in Go, not beside the schemas.** The 2026-08-21
+  amendment above left the order to review alone, and a later plan specified a
+  layering test at `spec/proto/layering_test.go` that could never land —
+  `spec/proto/` accepts only `.proto` and `README.md` files. The order's home
+  for automated checking is `src/common/protoconformance/`, where the rest of
+  the schema gates already live.

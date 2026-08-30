@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.switching.v1;
+
+import "flowseer/net/switching/v1/vlan_tag.proto";
+import option "buf/validate/validate.proto";
+
+// One or more exact VLAN tags ordered from the outermost transmitted tag to
+// the innermost tag. The list is not capped at two, so it represents single
+// tagging, provider bridging (QinQ) per IEEE 802.1Q
+// (https://standards.ieee.org/ieee/802.1Q/10323/), and deeper provider
+// stacks without changing shape.
+message VlanTagStack {
+  // Exact tags, outermost first. A present stack with no tags is invalid.
+  repeated VlanTag tags = 1 [(buf.validate.field).repeated.min_items = 1];
+}
