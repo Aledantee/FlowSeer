@@ -4,9 +4,13 @@
 // 	protoc        (unknown)
 // source: flowseer/api/inventory/v1/device.proto
 
+// The device family — the physical box FlowSeer manages, independent of
+// every integration that reaches it.
+
 package inventoryv1
 
 import (
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -20,7 +24,67 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type DeviceRef struct {
+// Where a device stands in FlowSeer's knowledge of the estate. Lifecycle
+// and reachability are separate axes: reachability is per binding and heals
+// on its own, while a lifecycle change is an operator action or the
+// missing-threshold policy.
+type DeviceLifecycle int32
+
+const (
+	// No lifecycle named. State and events reject the zero value.
+	DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED DeviceLifecycle = 0
+	// Part of the managed estate.
+	DeviceLifecycle_DEVICE_LIFECYCLE_ACTIVE DeviceLifecycle = 1
+	// Every binding unreachable past the tenant's threshold. A system-set
+	// suspicion about FlowSeer's knowledge, not a claim about the box; it
+	// asks someone to look.
+	DeviceLifecycle_DEVICE_LIFECYCLE_MISSING DeviceLifecycle = 2
+	// Removed from service by a person or an explicit policy, never inferred
+	// from the wire going quiet. The device keeps its history and refs; a
+	// reappearing serial un-retires it instead of creating a duplicate.
+	DeviceLifecycle_DEVICE_LIFECYCLE_RETIRED DeviceLifecycle = 3
+)
+
+// Enum value maps for DeviceLifecycle.
+var (
+	DeviceLifecycle_name = map[int32]string{
+		0: "DEVICE_LIFECYCLE_UNSPECIFIED",
+		1: "DEVICE_LIFECYCLE_ACTIVE",
+		2: "DEVICE_LIFECYCLE_MISSING",
+		3: "DEVICE_LIFECYCLE_RETIRED",
+	}
+	DeviceLifecycle_value = map[string]int32{
+		"DEVICE_LIFECYCLE_UNSPECIFIED": 0,
+		"DEVICE_LIFECYCLE_ACTIVE":      1,
+		"DEVICE_LIFECYCLE_MISSING":     2,
+		"DEVICE_LIFECYCLE_RETIRED":     3,
+	}
+)
+
+func (x DeviceLifecycle) Enum() *DeviceLifecycle {
+	p := new(DeviceLifecycle)
+	*p = x
+	return p
+}
+
+func (x DeviceLifecycle) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeviceLifecycle) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_api_inventory_v1_device_proto_enumTypes[0].Descriptor()
+}
+
+func (DeviceLifecycle) Type() protoreflect.EnumType {
+	return &file_flowseer_api_inventory_v1_device_proto_enumTypes[0]
+}
+
+func (x DeviceLifecycle) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// The local reference to a device.
+type DeviceLocalRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
@@ -29,20 +93,20 @@ type DeviceRef struct {
 	sizeCache              protoimpl.SizeCache
 }
 
-func (x *DeviceRef) Reset() {
-	*x = DeviceRef{}
+func (x *DeviceLocalRef) Reset() {
+	*x = DeviceLocalRef{}
 	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DeviceRef) String() string {
+func (x *DeviceLocalRef) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DeviceRef) ProtoMessage() {}
+func (*DeviceLocalRef) ProtoMessage() {}
 
-func (x *DeviceRef) ProtoReflect() protoreflect.Message {
+func (x *DeviceLocalRef) ProtoReflect() protoreflect.Message {
 	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -54,7 +118,7 @@ func (x *DeviceRef) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *DeviceRef) GetId() string {
+func (x *DeviceLocalRef) GetId() string {
 	if x != nil {
 		if x.xxx_hidden_Id != nil {
 			return *x.xxx_hidden_Id
@@ -64,31 +128,32 @@ func (x *DeviceRef) GetId() string {
 	return ""
 }
 
-func (x *DeviceRef) SetId(v string) {
+func (x *DeviceLocalRef) SetId(v string) {
 	x.xxx_hidden_Id = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
 }
 
-func (x *DeviceRef) HasId() bool {
+func (x *DeviceLocalRef) HasId() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *DeviceRef) ClearId() {
+func (x *DeviceLocalRef) ClearId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Id = nil
 }
 
-type DeviceRef_builder struct {
+type DeviceLocalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// FlowSeer-assigned device identifier. Must be present.
 	Id *string
 }
 
-func (b0 DeviceRef_builder) Build() *DeviceRef {
-	m0 := &DeviceRef{}
+func (b0 DeviceLocalRef_builder) Build() *DeviceLocalRef {
+	m0 := &DeviceLocalRef{}
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Id != nil {
@@ -98,27 +163,28 @@ func (b0 DeviceRef_builder) Build() *DeviceRef {
 	return m0
 }
 
-type Device struct {
-	state          protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ref *DeviceRef             `protobuf:"bytes,1,opt,name=ref"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+// The global reference to a device.
+type DeviceGlobalRef struct {
+	state             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Device *DeviceLocalRef        `protobuf:"bytes,1,opt,name=device"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
-func (x *Device) Reset() {
-	*x = Device{}
+func (x *DeviceGlobalRef) Reset() {
+	*x = DeviceGlobalRef{}
 	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Device) String() string {
+func (x *DeviceGlobalRef) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Device) ProtoMessage() {}
+func (*DeviceGlobalRef) ProtoMessage() {}
 
-func (x *Device) ProtoReflect() protoreflect.Message {
+func (x *DeviceGlobalRef) ProtoReflect() protoreflect.Message {
 	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -130,39 +196,493 @@ func (x *Device) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Device) GetRef() *DeviceRef {
+func (x *DeviceGlobalRef) GetDevice() *DeviceLocalRef {
+	if x != nil {
+		return x.xxx_hidden_Device
+	}
+	return nil
+}
+
+func (x *DeviceGlobalRef) SetDevice(v *DeviceLocalRef) {
+	x.xxx_hidden_Device = v
+}
+
+func (x *DeviceGlobalRef) HasDevice() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Device != nil
+}
+
+func (x *DeviceGlobalRef) ClearDevice() {
+	x.xxx_hidden_Device = nil
+}
+
+type DeviceGlobalRef_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The device's own key. Must be present.
+	Device *DeviceLocalRef
+}
+
+func (b0 DeviceGlobalRef_builder) Build() *DeviceGlobalRef {
+	m0 := &DeviceGlobalRef{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Device = b.Device
+	return m0
+}
+
+// The intended definition of one device: what the operator calls it.
+type DeviceConfig struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Description *string                `protobuf:"bytes,3,opt,name=description"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *DeviceConfig) Reset() {
+	*x = DeviceConfig{}
+	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeviceConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeviceConfig) ProtoMessage() {}
+
+func (x *DeviceConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *DeviceConfig) GetRef() *DeviceGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Ref
 	}
 	return nil
 }
 
-func (x *Device) SetRef(v *DeviceRef) {
+func (x *DeviceConfig) GetName() string {
+	if x != nil {
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceConfig) GetDescription() string {
+	if x != nil {
+		if x.xxx_hidden_Description != nil {
+			return *x.xxx_hidden_Description
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceConfig) SetRef(v *DeviceGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
 
-func (x *Device) HasRef() bool {
+func (x *DeviceConfig) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *DeviceConfig) SetDescription(v string) {
+	x.xxx_hidden_Description = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *DeviceConfig) HasRef() bool {
 	if x == nil {
 		return false
 	}
 	return x.xxx_hidden_Ref != nil
 }
 
-func (x *Device) ClearRef() {
+func (x *DeviceConfig) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *DeviceConfig) HasDescription() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *DeviceConfig) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
 
-type Device_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	Ref *DeviceRef
+func (x *DeviceConfig) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Name = nil
 }
 
-func (b0 Device_builder) Build() *Device {
-	m0 := &Device{}
+func (x *DeviceConfig) ClearDescription() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Description = nil
+}
+
+type DeviceConfig_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ref to this device. Must be present.
+	Ref *DeviceGlobalRef
+	// Operator-assigned display name. Unset means none was assigned;
+	// consumers fall back to observed identity. When set, must not be empty.
+	Name *string
+	// Free-text description of the device. Unset means none was provided.
+	// When set, must not be empty.
+	Description *string
+}
+
+func (b0 DeviceConfig_builder) Build() *DeviceConfig {
+	m0 := &DeviceConfig{}
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Description != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Description = b.Description
+	}
+	return m0
+}
+
+// The observed side of one device: the identity read off the box and the
+// lifecycle FlowSeer holds for it. Serial and base MAC are correlation
+// data the service merges sightings on, never the ref's key; addresses,
+// hostnames, and platform ids are binding data and never appear here.
+type DeviceState struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Serial      *string                `protobuf:"bytes,2,opt,name=serial"`
+	xxx_hidden_BaseMac     *v1.Eui48Address       `protobuf:"bytes,3,opt,name=base_mac,json=baseMac"`
+	xxx_hidden_Lifecycle   DeviceLifecycle        `protobuf:"varint,4,opt,name=lifecycle,enum=flowseer.api.inventory.v1.DeviceLifecycle"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *DeviceState) Reset() {
+	*x = DeviceState{}
+	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeviceState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeviceState) ProtoMessage() {}
+
+func (x *DeviceState) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *DeviceState) GetRef() *DeviceGlobalRef {
+	if x != nil {
+		return x.xxx_hidden_Ref
+	}
+	return nil
+}
+
+func (x *DeviceState) GetSerial() string {
+	if x != nil {
+		if x.xxx_hidden_Serial != nil {
+			return *x.xxx_hidden_Serial
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceState) GetBaseMac() *v1.Eui48Address {
+	if x != nil {
+		return x.xxx_hidden_BaseMac
+	}
+	return nil
+}
+
+func (x *DeviceState) GetLifecycle() DeviceLifecycle {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
+			return x.xxx_hidden_Lifecycle
+		}
+	}
+	return DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
+}
+
+func (x *DeviceState) SetRef(v *DeviceGlobalRef) {
+	x.xxx_hidden_Ref = v
+}
+
+func (x *DeviceState) SetSerial(v string) {
+	x.xxx_hidden_Serial = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *DeviceState) SetBaseMac(v *v1.Eui48Address) {
+	x.xxx_hidden_BaseMac = v
+}
+
+func (x *DeviceState) SetLifecycle(v DeviceLifecycle) {
+	x.xxx_hidden_Lifecycle = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *DeviceState) HasRef() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Ref != nil
+}
+
+func (x *DeviceState) HasSerial() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *DeviceState) HasBaseMac() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_BaseMac != nil
+}
+
+func (x *DeviceState) HasLifecycle() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *DeviceState) ClearRef() {
+	x.xxx_hidden_Ref = nil
+}
+
+func (x *DeviceState) ClearSerial() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Serial = nil
+}
+
+func (x *DeviceState) ClearBaseMac() {
+	x.xxx_hidden_BaseMac = nil
+}
+
+func (x *DeviceState) ClearLifecycle() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Lifecycle = DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
+}
+
+type DeviceState_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ref to this device. Must be present.
+	Ref *DeviceGlobalRef
+	// Vendor serial number as the device reports it. Unset means no identity
+	// read has yielded one yet.
+	Serial *string
+	// Chassis base MAC as the device reports it. Unset means the device does
+	// not expose one.
+	BaseMac *v1.Eui48Address
+	// The device's lifecycle. Must be present; the zero value is rejected.
+	Lifecycle *DeviceLifecycle
+}
+
+func (b0 DeviceState_builder) Build() *DeviceState {
+	m0 := &DeviceState{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Ref = b.Ref
+	if b.Serial != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_Serial = b.Serial
+	}
+	x.xxx_hidden_BaseMac = b.BaseMac
+	if b.Lifecycle != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_Lifecycle = *b.Lifecycle
+	}
+	return m0
+}
+
+// One transition of a device's lifecycle. Provenance and timing ride the
+// event envelope, never this message.
+type DeviceEvent struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_From        DeviceLifecycle        `protobuf:"varint,2,opt,name=from,enum=flowseer.api.inventory.v1.DeviceLifecycle"`
+	xxx_hidden_To          DeviceLifecycle        `protobuf:"varint,3,opt,name=to,enum=flowseer.api.inventory.v1.DeviceLifecycle"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *DeviceEvent) Reset() {
+	*x = DeviceEvent{}
+	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeviceEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeviceEvent) ProtoMessage() {}
+
+func (x *DeviceEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_device_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *DeviceEvent) GetRef() *DeviceGlobalRef {
+	if x != nil {
+		return x.xxx_hidden_Ref
+	}
+	return nil
+}
+
+func (x *DeviceEvent) GetFrom() DeviceLifecycle {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
+			return x.xxx_hidden_From
+		}
+	}
+	return DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
+}
+
+func (x *DeviceEvent) GetTo() DeviceLifecycle {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+			return x.xxx_hidden_To
+		}
+	}
+	return DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
+}
+
+func (x *DeviceEvent) SetRef(v *DeviceGlobalRef) {
+	x.xxx_hidden_Ref = v
+}
+
+func (x *DeviceEvent) SetFrom(v DeviceLifecycle) {
+	x.xxx_hidden_From = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *DeviceEvent) SetTo(v DeviceLifecycle) {
+	x.xxx_hidden_To = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *DeviceEvent) HasRef() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Ref != nil
+}
+
+func (x *DeviceEvent) HasFrom() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *DeviceEvent) HasTo() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *DeviceEvent) ClearRef() {
+	x.xxx_hidden_Ref = nil
+}
+
+func (x *DeviceEvent) ClearFrom() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_From = DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
+}
+
+func (x *DeviceEvent) ClearTo() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_To = DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
+}
+
+type DeviceEvent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ref to the device that changed. Must be present.
+	Ref *DeviceGlobalRef
+	// The lifecycle before the transition. Unset means the device entered
+	// the inventory. The zero value is rejected.
+	From *DeviceLifecycle
+	// The lifecycle after the transition. Must be present; the zero value is
+	// rejected.
+	To *DeviceLifecycle
+}
+
+func (b0 DeviceEvent_builder) Build() *DeviceEvent {
+	m0 := &DeviceEvent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Ref = b.Ref
+	if b.From != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_From = *b.From
+	}
+	if b.To != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_To = *b.To
+	}
 	return m0
 }
 
@@ -170,25 +690,62 @@ var File_flowseer_api_inventory_v1_device_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\"\x1b\n" +
-	"\tDeviceRef\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
-	"\x06Device\x126\n" +
-	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.DeviceRefR\x03refB\x85\x02\n" +
+	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\"-\n" +
+	"\x0eDeviceLocalRef\x12\x1b\n" +
+	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\\\n" +
+	"\x0fDeviceGlobalRef\x12I\n" +
+	"\x06device\x18\x01 \x01(\v2).flowseer.api.inventory.v1.DeviceLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xa2\x01\n" +
+	"\fDeviceConfig\x12D\n" +
+	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
+	"\x04name\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
+	"\vdescription\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\"\x8e\x02\n" +
+	"\vDeviceState\x12D\n" +
+	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12!\n" +
+	"\x06serial\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x06serial\x12=\n" +
+	"\bbase_mac\x18\x03 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\abaseMac\x12W\n" +
+	"\tlifecycle\x18\x04 \x01(\x0e2*.flowseer.api.inventory.v1.DeviceLifecycleB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\tlifecycle\"\xe4\x02\n" +
+	"\vDeviceEvent\x12D\n" +
+	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12J\n" +
+	"\x04from\x18\x02 \x01(\x0e2*.flowseer.api.inventory.v1.DeviceLifecycleB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04from\x12I\n" +
+	"\x02to\x18\x03 \x01(\x0e2*.flowseer.api.inventory.v1.DeviceLifecycleB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x02to:x\xbaHu\x1as\n" +
+	"\x1edevice_event.lifecycle_changes\x12(a device event must change the lifecycle\x1a'!has(this.from) || this.from != this.to*\x8c\x01\n" +
+	"\x0fDeviceLifecycle\x12 \n" +
+	"\x1cDEVICE_LIFECYCLE_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17DEVICE_LIFECYCLE_ACTIVE\x10\x01\x12\x1c\n" +
+	"\x18DEVICE_LIFECYCLE_MISSING\x10\x02\x12\x1c\n" +
+	"\x18DEVICE_LIFECYCLE_RETIRED\x10\x03B\x85\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\vDeviceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_inventory_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_api_inventory_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_api_inventory_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_flowseer_api_inventory_v1_device_proto_goTypes = []any{
-	(*DeviceRef)(nil), // 0: flowseer.api.inventory.v1.DeviceRef
-	(*Device)(nil),    // 1: flowseer.api.inventory.v1.Device
+	(DeviceLifecycle)(0),    // 0: flowseer.api.inventory.v1.DeviceLifecycle
+	(*DeviceLocalRef)(nil),  // 1: flowseer.api.inventory.v1.DeviceLocalRef
+	(*DeviceGlobalRef)(nil), // 2: flowseer.api.inventory.v1.DeviceGlobalRef
+	(*DeviceConfig)(nil),    // 3: flowseer.api.inventory.v1.DeviceConfig
+	(*DeviceState)(nil),     // 4: flowseer.api.inventory.v1.DeviceState
+	(*DeviceEvent)(nil),     // 5: flowseer.api.inventory.v1.DeviceEvent
+	(*v1.Eui48Address)(nil), // 6: flowseer.net.addr.v1.Eui48Address
 }
 var file_flowseer_api_inventory_v1_device_proto_depIdxs = []int32{
-	0, // 0: flowseer.api.inventory.v1.Device.ref:type_name -> flowseer.api.inventory.v1.DeviceRef
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: flowseer.api.inventory.v1.DeviceGlobalRef.device:type_name -> flowseer.api.inventory.v1.DeviceLocalRef
+	2, // 1: flowseer.api.inventory.v1.DeviceConfig.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	2, // 2: flowseer.api.inventory.v1.DeviceState.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	6, // 3: flowseer.api.inventory.v1.DeviceState.base_mac:type_name -> flowseer.net.addr.v1.Eui48Address
+	0, // 4: flowseer.api.inventory.v1.DeviceState.lifecycle:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	2, // 5: flowseer.api.inventory.v1.DeviceEvent.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	0, // 6: flowseer.api.inventory.v1.DeviceEvent.from:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	0, // 7: flowseer.api.inventory.v1.DeviceEvent.to:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_device_proto_init() }
@@ -201,13 +758,14 @@ func file_flowseer_api_inventory_v1_device_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_inventory_v1_device_proto_rawDesc), len(file_flowseer_api_inventory_v1_device_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   2,
+			NumEnums:      1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_api_inventory_v1_device_proto_goTypes,
 		DependencyIndexes: file_flowseer_api_inventory_v1_device_proto_depIdxs,
+		EnumInfos:         file_flowseer_api_inventory_v1_device_proto_enumTypes,
 		MessageInfos:      file_flowseer_api_inventory_v1_device_proto_msgTypes,
 	}.Build()
 	File_flowseer_api_inventory_v1_device_proto = out.File

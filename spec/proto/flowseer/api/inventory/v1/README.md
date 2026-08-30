@@ -73,11 +73,38 @@ that need server state — target and cardinality checks, the drop-or-block
 gate on invalidating definition edits, and the silent cascade when a referenced entity is deleted — live in
 the message comments and are enforced by the inventory service.
 
+## Devices
+
+A device is the physical box, independent of every integration that reaches
+it. Its identity is the FlowSeer-assigned UUID in the ref; the vendor serial
+and chassis base MAC live on `DeviceState` as correlation data, because the
+service merges new sightings onto existing devices by serial, and a ref that
+carried vendor identity would make every consumer party to that decision.
+Addresses, hostnames, and platform ids move between boxes, so they are
+binding data and never device identity.
+
+The family is a full triad. `DeviceConfig` is what the operator intends
+(name and description), `DeviceState` is what the platform holds (the
+identity read plus the lifecycle), and `DeviceEvent` carries one lifecycle
+transition, with an unset `from` meaning the device entered the inventory.
+
+Lifecycle and reachability are two axes that never share a word.
+Reachability is per binding, machine-owned, and flaps and heals with nobody
+acting. The lifecycle is about FlowSeer's knowledge of the box: `MISSING` is
+the only system-set state — every binding unreachable past the tenant's
+threshold — and is a suspicion that asks someone to look, and `RETIRED` is
+the only state that means removed, set by a person or an explicit policy.
+Retired devices keep history and refs; a reappearing serial un-retires
+rather than duplicating. The threshold policy, the retire and un-retire
+flows, and the evidence that sharpens a suspicion need state beyond these
+messages and live in the inventory service, per the
+[device-service direction record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md).
+
 ## Other entities
 
-`Tenant`, `Device`, and the `Capability` enum with its `CapabilitySet` are
+`Tenant` and the `Capability` enum with its `CapabilitySet` are
 early sketches predating the conventions doc and are refined entity by
-entity; the tag and attribute families above are the package's fully-shaped
+entity; the tag, attribute, and device families above are the package's fully-shaped
 ones. How tags attach to taggable entities (tag refs on the entity versus a
 separate assignment entity) is still decided when the first taggable
 entity's triad lands — the attribute assignment family is the separate-entity
