@@ -18,6 +18,9 @@ enum EntityType {
   ENTITY_TYPE_TAG = 3;
   // The attribute definition, never a value assignment.
   ENTITY_TYPE_ATTRIBUTE = 4;
+  ENTITY_TYPE_INTEGRATION = 5;
+  ENTITY_TYPE_BINDING = 6;
+  ENTITY_TYPE_PLACEMENT = 7;
 }
 
 // A reference to one entity whose kind is decided at runtime. A

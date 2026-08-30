@@ -35,7 +35,10 @@ const (
 	EntityType_ENTITY_TYPE_DEVICE      EntityType = 2
 	EntityType_ENTITY_TYPE_TAG         EntityType = 3
 	// The attribute definition, never a value assignment.
-	EntityType_ENTITY_TYPE_ATTRIBUTE EntityType = 4
+	EntityType_ENTITY_TYPE_ATTRIBUTE   EntityType = 4
+	EntityType_ENTITY_TYPE_INTEGRATION EntityType = 5
+	EntityType_ENTITY_TYPE_BINDING     EntityType = 6
+	EntityType_ENTITY_TYPE_PLACEMENT   EntityType = 7
 )
 
 // Enum value maps for EntityType.
@@ -46,6 +49,9 @@ var (
 		2: "ENTITY_TYPE_DEVICE",
 		3: "ENTITY_TYPE_TAG",
 		4: "ENTITY_TYPE_ATTRIBUTE",
+		5: "ENTITY_TYPE_INTEGRATION",
+		6: "ENTITY_TYPE_BINDING",
+		7: "ENTITY_TYPE_PLACEMENT",
 	}
 	EntityType_value = map[string]int32{
 		"ENTITY_TYPE_UNSPECIFIED": 0,
@@ -53,6 +59,9 @@ var (
 		"ENTITY_TYPE_DEVICE":      2,
 		"ENTITY_TYPE_TAG":         3,
 		"ENTITY_TYPE_ATTRIBUTE":   4,
+		"ENTITY_TYPE_INTEGRATION": 5,
+		"ENTITY_TYPE_BINDING":     6,
+		"ENTITY_TYPE_PLACEMENT":   7,
 	}
 )
 
@@ -278,14 +287,17 @@ const file_flowseer_api_inventory_v1_entity_proto_rawDesc = "" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04type\x12\x1b\n" +
 	"\x02id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"H\n" +
 	"\x06Entity\x12>\n" +
-	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.EntityRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref*\x89\x01\n" +
+	"\x03ref\x18\x01 \x01(\v2$.flowseer.api.inventory.v1.EntityRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref*\xda\x01\n" +
 	"\n" +
 	"EntityType\x12\x1b\n" +
 	"\x17ENTITY_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12ENTITY_TYPE_TENANT\x10\x01\x12\x16\n" +
 	"\x12ENTITY_TYPE_DEVICE\x10\x02\x12\x13\n" +
 	"\x0fENTITY_TYPE_TAG\x10\x03\x12\x19\n" +
-	"\x15ENTITY_TYPE_ATTRIBUTE\x10\x04B\x85\x02\n" +
+	"\x15ENTITY_TYPE_ATTRIBUTE\x10\x04\x12\x1b\n" +
+	"\x17ENTITY_TYPE_INTEGRATION\x10\x05\x12\x17\n" +
+	"\x13ENTITY_TYPE_BINDING\x10\x06\x12\x19\n" +
+	"\x15ENTITY_TYPE_PLACEMENT\x10\aB\x85\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\vEntityProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_entity_proto_enumTypes = make([]protoimpl.EnumInfo, 1)

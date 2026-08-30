@@ -100,6 +100,74 @@ flows, and the evidence that sharpens a suspicion need state beyond these
 messages and live in the inventory service, per the
 [device-service direction record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md).
 
+## Integrations
+
+An integration is a configured adapter instance: the cloud tenant,
+controller, or edge agent through which FlowSeer reaches devices. Kinds are
+code, instances are data — `IntegrationConfig` carries the operator's
+intent (name, credential ref, request budget) plus a `kind` oneof whose arm
+both identifies the kind and holds its typed configuration. Only the
+local-network arm exists so far; each further first-party kind lands as a
+new arm with its adapter, per the
+[device-service direction record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md).
+Third-party descriptor-advertised kinds are that record's later step and
+have no schema surface yet.
+
+The credential never appears in inventory messages: `credential_ref` is a
+handle into the secret store, so a leaked inventory dump leaks no secrets
+and rotation touches nothing here. `IntegrationState` holds the identity
+the adapter read off the platform at verification (id, name, version) and
+the lifecycle. The lifecycle walks CANDIDATE → VERIFIED | FAILED, with
+DEGRADED as the system's mass-drop and health guard and RETIRED as the
+operator's exit; `IntegrationEvent` carries one transition like
+`DeviceEvent` does. Verification order, the mass-drop threshold, and what
+retiring cascades to bindings are service rules the messages cannot hold.
+
+## Bindings
+
+A binding is one path to a device through one integration: "device X is
+reachable via integration Y at address Z". A device can have many; routing
+reads only the binding, never the kind. The family has no `BindingConfig`
+because discovery and correlation create bindings — nothing about one is
+operator intent.
+
+`BindingState` carries the two related refs (a binding relates entities, so
+it is top-level and holds them as ordinary fields), the address as a oneof
+— the platform's device id for mediated kinds, an IP-port-protocol
+`ManagementEndpoint` for direct ones — the verified `CapabilitySet`, and
+the machine-owned status. The status folds first-sighting (CANDIDATE),
+reachability (VERIFIED / DEGRADED / UNREACHABLE), and RETIRED into one
+axis because they never overlap in time and every consumer asks the same
+question of them: can I route through this. Unreachability is "offline",
+flaps and heals by itself, and never retires anything; the failure kind
+distinguishes a timeout from a rejected credential from a host that
+answers ping but not management, because the last one must never count
+toward a device going `MISSING`.
+
+`Provenance` — which binding answered, and when it observed the payload —
+lives beside the binding family and is embedded by value in response and
+event envelopes, per the conventions doc.
+
+## Scopes and placements
+
+`IntegrationScope` mirrors the platform's own hierarchy — a Meraki
+network, a SmartZone zone, a site's subnet — generically: a name, a
+kind-specific type label, and a parent. Scopes are owned by their
+integration and keyed by the platform's own scope id, so the ref composes
+the integration's global ref with that platform id instead of minting a
+FlowSeer UUID for a row the platform can rename or drop on any sync. There
+is no `IntegrationScopeConfig`; the hierarchy is synced, never intended.
+
+A `Placement` is the dated record "device X belongs to scope Z": device
+ref, scope ref, who asserted it (an operator, or derivation from the scope
+the device appeared under — operator wins), and an effective span. The
+family is append-only by construction: a move is a new placement plus a
+close of the old one, `effective_until` unset marks the current placement,
+and `PlacementEvent.after` is required because a placement is never
+removed. Which placement currently answers "where is this device" when
+operator and derived rows coexist is the service's precedence rule, not
+the schema's.
+
 ## Other entities
 
 `Tenant` and the `Capability` enum with its `CapabilitySet` are

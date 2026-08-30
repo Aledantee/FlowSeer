@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.api.inventory.v1;
+
+import "flowseer/api/inventory/v1/binding.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// The origin of one live response or event. Embedded by value in response
+// and event envelopes.
+message Provenance {
+  // The binding that answered. Must be present.
+  BindingGlobalRef binding = 1 [(buf.validate.field).required = true];
+  // When the answering integration observed the payload. A cloud-mediated
+  // read is live as the platform saw it, and this is when the platform saw
+  // it. Must be present.
+  google.protobuf.Timestamp observed_at = 2 [(buf.validate.field).required = true];
+}
