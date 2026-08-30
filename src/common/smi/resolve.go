@@ -655,6 +655,14 @@ func (r *resolver) buildNode(b *modBuild, ref parse.Ref) {
 		report(fail)
 	}
 
+	// A name the declaration lost costs it resolved status without a
+	// diagnostic of its own: the parser already reported the token it
+	// could not read, at the offset it was written, which is more than
+	// this pass could say about it.
+	if d.NameLost {
+		n.Unresolved = true
+	}
+
 	r.fillNode(b, ref, n, report)
 	addNode(b.out, n)
 }
@@ -795,14 +803,16 @@ func (r *resolver) namedType(b *modBuild, name string) *Type {
 	}
 
 	var (
-		t  *Type
-		pt parse.Type
+		t        *Type
+		pt       parse.Type
+		nameLost bool
 	)
 
 	switch ref.Kind {
 	case parse.DeclTextualConvention:
 		tc := &b.pm.TextualConventions[ref.Index]
 		pt = tc.SyntaxType
+		nameLost = tc.NameLost
 		t = &Type{
 			Name:        name,
 			Module:      b.name,
@@ -814,6 +824,7 @@ func (r *resolver) namedType(b *modBuild, name string) *Type {
 	case parse.DeclTypeAssignment:
 		ta := &b.pm.TypeAssignments[ref.Index]
 		pt = ta.SyntaxType
+		nameLost = ta.NameLost
 		t = &Type{Name: name, Module: b.name}
 	default:
 		return nil
@@ -822,6 +833,13 @@ func (r *resolver) namedType(b *modBuild, name string) *Type {
 	r.busy[key] = true
 	r.applySyntax(b, t, pt)
 	delete(r.busy, key)
+
+	// A member name the parser dropped or cut short leaves the list
+	// either short or holding a fragment, and either way nothing may
+	// render this type as the definition its author wrote.
+	if nameLost {
+		t.Unresolved = true
+	}
 
 	r.types[key] = t
 

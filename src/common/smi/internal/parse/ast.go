@@ -87,10 +87,18 @@ type Ref struct {
 // declaration that kept its OID but lost a required clause apart from
 // one that is whole, so nothing downstream can render the first as if it
 // were the second.
+//
+// NameLost says a name inside the declaration was dropped or cut short.
+// A descriptor the lexer had to end early leaves fragments where one
+// name stood, and a fragment renders exactly like a name somebody
+// wrote, so the declaration must never come out resolved however much
+// of it parsed.
 type Decl struct {
 	Name    string
 	Span    Span
 	Present ClauseSet
+
+	NameLost bool
 }
 
 // ClauseText is one clause kept as the source it covers. A bad

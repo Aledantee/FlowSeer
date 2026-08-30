@@ -101,13 +101,7 @@ func (r *Result) Text(s Span) string {
 // ASCII and routinely is not, and rejecting a file over a Latin-1
 // contact address would cost far more than a replacement character does.
 func (r *Result) StringValue(s Span) string {
-	b := r.src.Bytes(s.Start, s.End)
-	if n := len(b); n >= 2 && b[0] == '"' {
-		b = b[1:]
-		if b[len(b)-1] == '"' {
-			b = b[:len(b)-1]
-		}
-	}
+	b := lex.Unquote(r.src.Bytes(s.Start, s.End))
 
 	return strings.ToValidUTF8(string(b), "�")
 }
@@ -218,7 +212,7 @@ func (p *parser) declaration(m *Module, fr frame.Frame) {
 func (p *parser) finish(m *Module, fr frame.Frame, kind DeclKind) {
 	p.gradeDeclaration()
 
-	decl := Decl{Name: fr.Name, Span: fr.Span, Present: p.d.present}
+	decl := Decl{Name: fr.Name, Span: fr.Span, Present: p.d.present, NameLost: p.d.nameLost}
 
 	missing := p.d.present.Missing(kind, p.dialect)
 	if kind == DeclBad || missing != 0 {

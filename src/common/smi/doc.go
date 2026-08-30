@@ -61,6 +61,13 @@
 // reference: twenty declarations waiting on one missing name cost twenty
 // diagnostics, not one per site the name appears at.
 //
+// A clause that is present but damaged costs the mark too. Where a parse
+// error dropped or cut short a name the declaration wrote, what is left
+// is either short one name or holding a fragment of one, and a fragment
+// renders exactly like a name somebody meant. The parser has already
+// reported the token at the offset it stands at, so the mark arrives
+// without a second diagnostic.
+//
 // Leniency continues here. An IMPORTS cycle is diagnosed and broken at
 // the back edge rather than failing the load, since both modules still
 // define everything they define. A symbol used without an IMPORTS clause

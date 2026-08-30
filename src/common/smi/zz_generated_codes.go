@@ -27,6 +27,11 @@ var (
 	// nothing about the modules already read.
 	ErrCodeContentAfterEnd = diag.ErrCodeContentAfterEnd
 
+	// ErrCodeCurlyQuotedString marks a string a word processor re-quoted
+	// into Windows-1252, read as a string because a file quoted that way
+	// throughout has no readable declaration left otherwise.
+	ErrCodeCurlyQuotedString = diag.ErrCodeCurlyQuotedString
+
 	// ErrCodeDefaultNotPermitted marks a default value on a type RFC 2578
 	// gives no default form for, such as a counter whose value only ever
 	// means a difference.
@@ -134,6 +139,12 @@ var (
 	// hyphen, which RFC 2578 forbids and which a stricter lexer reads as
 	// the start of a comment.
 	ErrCodeTrailingHyphenIdentifier = diag.ErrCodeTrailingHyphenIdentifier
+
+	// ErrCodeUnderscoreInDescriptor marks an underscore inside a
+	// descriptor, which the RFC leaves out of the character set and which
+	// the corpus writes anyway, read as one name because ending the name
+	// at the underscore costs the declaration every member after it.
+	ErrCodeUnderscoreInDescriptor = diag.ErrCodeUnderscoreInDescriptor
 
 	// ErrCodeUnexpectedToken marks a token the grammar has no place for,
 	// which the parser skips past to the next clause keyword inside the

@@ -370,17 +370,21 @@ func (r *reader) members() []Member {
 //
 // A name with no number after it is not a member. The number is the
 // whole point of the list, and taking the name's position for it is the
-// defect this parser exists to remove — so the name is reported and
+// defect this parser exists to remove, so the name is reported and
 // dropped instead. That also keeps a descriptor written with a character
-// RFC 2578 §3.1 does not allow in one, which the lexer reads as several
-// tokens, from contributing a member per fragment.
+// the lexer cannot carry, which it then reads as several tokens, from
+// contributing a member per fragment.
+//
+// Dropping the name marks the declaration, because what is left in the
+// list is either short one member or holding a fragment of the name
+// that was written. Neither is something a renderer may present as the
+// author's own words.
 func (r *reader) member() (Member, bool) {
 	m := Member{Span: r.span(), Name: r.span()}
 	r.next()
 
 	if !r.at(lex.KindLeftParen) {
-		r.p.raise(m.Span.Start, diag.ErrCodeUnexpectedToken,
-			diag.ArgString(r.p.spanText(m.Name)), diag.ArgString("a member number"))
+		r.loseName(m.Name)
 
 		return Member{}, false
 	}
@@ -388,8 +392,7 @@ func (r *reader) member() (Member, bool) {
 
 	n, span, ok := r.integer()
 	if !ok {
-		r.p.raise(m.Span.Start, diag.ErrCodeUnexpectedToken,
-			diag.ArgString(r.p.spanText(m.Name)), diag.ArgString("a member number"))
+		r.loseName(m.Name)
 
 		return Member{}, false
 	}
@@ -403,6 +406,14 @@ func (r *reader) member() (Member, bool) {
 	}
 
 	return m, true
+}
+
+// loseName reports a name the member list could not use and records
+// that the declaration lost it.
+func (r *reader) loseName(name Span) {
+	r.p.d.nameLost = true
+	r.p.raise(name.Start, diag.ErrCodeUnexpectedToken,
+		diag.ArgString(r.p.spanText(name)), diag.ArgString("a member number"))
 }
 
 // constraint reads one parenthesized subtype constraint, positioned at

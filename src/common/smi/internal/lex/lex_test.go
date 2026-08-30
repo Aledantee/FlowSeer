@@ -395,3 +395,126 @@ func TestUnsuffixedSingleQuoteStaysUnknown(t *testing.T) {
 	wantCodes(t, r)
 	wantShapes(t, r, []shape{{KindUnknown, "'1010'"}})
 }
+
+func TestUnderscoreInDescriptorLexesAsOneName(t *testing.T) {
+	r := lexString(t, "tls_ecdhe_rsa_with_aes_128_cbc_sha(0)", CommentEndOfLine)
+
+	wantCodes(t, r, diag.ErrCodeUnderscoreInDescriptor)
+	wantShapes(t, r, []shape{
+		{KindIdentifier, "tls_ecdhe_rsa_with_aes_128_cbc_sha"},
+		{KindLeftParen, "("},
+		{KindNumber, "0"},
+		{KindRightParen, ")"},
+	})
+
+	if got, want := r.Diagnostics[0].Message(),
+		`descriptor "tls_ecdhe_rsa_with_aes_128_cbc_sha" holds an underscore, which RFC 2578 does not permit`; got != want {
+		t.Errorf("message: got %q, want %q", got, want)
+	}
+	if got, want := r.Diagnostics[0].Severity(), diag.SeverityMinor; got != want {
+		t.Errorf("severity: got %v, want %v", got, want)
+	}
+}
+
+// RFC 2578 §3.1 leaves the underscore out of a descriptor and five
+// vendor MIBs write it anyway. Ending the name at the underscore is
+// what costs those files their enumeration members, so the looseness is
+// the behavior wanted here: a lexer tightened back to the RFC reads one
+// descriptor as a run of fragments again.
+func TestUnderscoreDescriptorKeepsItsMembersThoughRFC2578ForbidsIt(t *testing.T) {
+	r := lexString(t, "{ a_one(1), a_two(2) }", CommentEndOfLine)
+
+	names := 0
+	for _, tok := range r.Tokens {
+		switch tok.Kind {
+		case KindIdentifier:
+			names++
+		case KindUnknown:
+			t.Errorf("an underscore surfaced as an unknown token in %v", shapes(r))
+		}
+	}
+	if names != 2 {
+		t.Errorf("got %d identifiers in %v, want one per member", names, shapes(r))
+	}
+}
+
+func TestCurlyQuotesDelimitAString(t *testing.T) {
+	src := []byte("DESCRIPTION \x93A port\x92s state.\x94")
+
+	r := Lex(src, Options{File: "test.mib"})
+	wantTiling(t, src, r)
+	wantCodes(t, r, diag.ErrCodeCurlyQuotedString)
+
+	if len(r.Tokens) != 2 || r.Tokens[1].Kind != KindQuotedString {
+		t.Fatalf("got %v, want a keyword and a quoted string", shapes(r))
+	}
+	if got, want := r.Content(r.Tokens[1]), []byte("A port\x92s state."); !bytes.Equal(got, want) {
+		t.Errorf("content: got %q, want the source bytes %q", got, want)
+	}
+}
+
+// A word processor re-quotes a DESCRIPTION into Windows-1252 without
+// being asked, and one IEEE MIB in the corpus arrives that way
+// throughout. Reading those two bytes as delimiters is what keeps that
+// file's hundred declarations, so a lexer put back to ASCII-only quotes
+// loses all of them.
+func TestCurlyQuotedFileKeepsItsDeclarationsThoughSMIWritesASCIIQuotes(t *testing.T) {
+	src := []byte("STATUS current DESCRIPTION \x93first\x94 REFERENCE \x93second\x94 ::=")
+
+	r := Lex(src, Options{File: "test.mib"})
+	wantTiling(t, src, r)
+
+	quoted := 0
+	for _, tok := range r.Tokens {
+		if tok.Kind == KindQuotedString {
+			quoted++
+		}
+	}
+	if quoted != 2 {
+		t.Errorf("got %d strings in %v, want one per curly-quoted clause", quoted, shapes(r))
+	}
+	if last := r.Tokens[len(r.Tokens)-1]; last.Kind != KindAssign {
+		t.Errorf("the assignment after the last string was swallowed: %v", shapes(r))
+	}
+}
+
+func TestCurlyApostropheInsideAnASCIIStringIsOrdinaryText(t *testing.T) {
+	src := []byte("\"it\x92s a plain string\"")
+
+	r := Lex(src, Options{File: "test.mib"})
+	wantTiling(t, src, r)
+	wantCodes(t, r)
+
+	if len(r.Tokens) != 1 || r.Tokens[0].Kind != KindQuotedString {
+		t.Fatalf("got %v, want one quoted string", shapes(r))
+	}
+	if got, want := r.Content(r.Tokens[0]), []byte("it\x92s a plain string"); !bytes.Equal(got, want) {
+		t.Errorf("content: got %q, want %q", got, want)
+	}
+}
+
+func TestCurlyQuoteByteInsideAUTF8SequenceIsNotADelimiter(t *testing.T) {
+	// U+2013 EN DASH is 0xe2 0x80 0x93, and one Cisco MIB writes it
+	// between two identifiers outside any string.
+	src := []byte("first \xe2\x80\x93 second")
+
+	r := Lex(src, Options{File: "test.mib"})
+	wantTiling(t, src, r)
+	wantCodes(t, r)
+	wantShapes(t, r, []shape{{KindIdentifier, "first"}, {KindIdentifier, "second"}})
+}
+
+func TestUnterminatedCurlyQuotedStringIsFatal(t *testing.T) {
+	src := []byte("DESCRIPTION \x93runs off the end")
+
+	r := Lex(src, Options{File: "test.mib"})
+	wantTiling(t, src, r)
+	wantCodes(t, r, diag.ErrCodeCurlyQuotedString, diag.ErrCodeUnterminatedString)
+
+	if got, want := r.Diagnostics[1].Severity(), diag.SeverityFatal; got != want {
+		t.Errorf("severity: got %v, want %v", got, want)
+	}
+	if got, want := string(r.Content(r.Tokens[len(r.Tokens)-1])), "runs off the end"; got != want {
+		t.Errorf("content: got %q, want %q", got, want)
+	}
+}

@@ -6,7 +6,7 @@ files-with-fatal 1
 severity internal 0
 severity fatal 1
 severity error 307
-severity minor 25
+severity minor 27
 severity change 0
 severity warning 0
 severity info 0
@@ -15,4 +15,5 @@ diagnostic smi/display-hint-malformed error 2
 diagnostic smi/missing-import minor 2
 diagnostic smi/missing-module-header fatal 1
 diagnostic smi/module-not-found error 20
+diagnostic smi/underscore-in-descriptor minor 2
 diagnostic smi/unresolved-declaration error 285

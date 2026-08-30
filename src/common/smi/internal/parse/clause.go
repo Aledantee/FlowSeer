@@ -319,6 +319,7 @@ type pending struct {
 	present   ClauseSet
 	maxOrd    int8
 	maxClause Clause
+	nameLost  bool
 
 	clauses []ClauseText
 	text    [numClauses]Span

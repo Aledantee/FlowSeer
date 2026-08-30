@@ -160,6 +160,21 @@ var entries = []Entry{
 	},
 	{
 		Severity:    3,
+		Code:        "smi/underscore-in-descriptor",
+		Tag:         "UnderscoreInDescriptor",
+		Format:      "descriptor %q holds an underscore, which RFC 2578 does not permit",
+		Arity:       1,
+		Description: "an underscore inside a descriptor, which the RFC leaves out of the character set and which the corpus writes anyway, read as one name because ending the name at the underscore costs the declaration every member after it",
+	},
+	{
+		Severity:    3,
+		Code:        "smi/curly-quoted-string",
+		Tag:         "CurlyQuotedString",
+		Format:      "string is delimited by Windows-1252 curly quotes rather than quotation marks",
+		Description: "a string a word processor re-quoted into Windows-1252, read as a string because a file quoted that way throughout has no readable declaration left otherwise",
+	},
+	{
+		Severity:    3,
 		Code:        "smi/binary-string-not-octets",
 		Tag:         "BinaryStringNotOctets",
 		Format:      "binary string has %d digits, which is not a whole number of octets",

@@ -15,6 +15,15 @@
 // ending in a hyphen, and a hyphen separator line whose length makes it
 // pair off into comments and leave a stray minus behind.
 //
+// # Spellings the RFCs do not define
+//
+// Two of them are read anyway, because refusing them costs whole files
+// rather than the byte that was wrong. An underscore inside a descriptor
+// stays part of the name, and a string delimited by the Windows-1252
+// curly quotes is read as a string. Both are reported, and both are
+// pinned by a test named for the behavior, because each looks from the
+// outside like a rule somebody forgot.
+//
 // # Comment termination
 //
 // ASN.1 ends a comment at the next "--" or at the end of the line,
@@ -42,6 +51,7 @@ package lex
 import (
 	"bytes"
 	"strings"
+	"unicode/utf8"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
@@ -131,12 +141,7 @@ func (r *Result) Content(t Token) []byte {
 
 	switch t.Kind {
 	case KindQuotedString:
-		// The opening quote is always present; the closing one is missing
-		// when the string ran to the end of the file.
-		b = b[1:]
-		if n := len(b); n > 0 && b[n-1] == '"' {
-			b = b[:n-1]
-		}
+		b = Unquote(b)
 	case KindHexString, KindBinaryString:
 		// Both delimiters and the radix letter are guaranteed present,
 		// since the lexer gives these kinds to nothing else.
@@ -223,6 +228,10 @@ func (l *lexer) run() {
 		switch {
 		case b == '\n' || b == '\r':
 			l.consumeLineBreak()
+		case l.opensCurlyString(b):
+			if !l.scanToken() {
+				return
+			}
 		case isTrivia(b):
 			l.pos++
 		case b == '-' && l.pos+1 < len(l.src) && l.src[l.pos+1] == '-':
@@ -340,7 +349,11 @@ func (l *lexer) scanToken() bool {
 
 		return l.emit(start, Token{Kind: KindNumber})
 	case b == '"':
-		return l.scanQuoted(start)
+		return l.scanQuoted(start, '"')
+	case l.opensCurlyString(b):
+		l.raise(start, diag.ErrCodeCurlyQuotedString)
+
+		return l.scanQuoted(start, curlyCloseQuote)
 	case b == '\'':
 		return l.scanRadixString(start)
 	}
@@ -390,9 +403,25 @@ func (l *lexer) scanToken() bool {
 
 // scanName scans an identifier, a type reference or a reserved word.
 func (l *lexer) scanName(start int) Token {
+	underscore := false
+
 	for l.pos < len(l.src) {
 		b := l.src[l.pos]
 		if isLetter(b) || isDigit(b) {
+			l.pos++
+
+			continue
+		}
+		if b == '_' {
+			// RFC 2578 §3.1 leaves the underscore out of a descriptor's
+			// character set, and five vendor MIBs in the corpus write it
+			// anyway, mostly in TLS cipher-suite names. Ending the name
+			// here is what turns one descriptor into a run of fragments
+			// and costs the declaration its members, so the byte is taken
+			// as part of the name and the deviation is reported. A
+			// descriptor still may not begin with one, since that is the
+			// caller's dispatch rather than this loop.
+			underscore = true
 			l.pos++
 
 			continue
@@ -419,6 +448,9 @@ func (l *lexer) scanName(start int) Token {
 	}
 
 	text := l.src[start:l.pos]
+	if underscore {
+		l.raise(start, diag.ErrCodeUnderscoreInDescriptor, diag.ArgString(l.out.names.intern(text)))
+	}
 	if kw, ok := lookupKeyword(text); ok {
 		return Token{Kind: KindKeyword, Keyword: kw}
 	}
@@ -429,15 +461,15 @@ func (l *lexer) scanName(start int) Token {
 	return Token{Kind: KindIdentifier}
 }
 
-// scanQuoted scans a double-quoted string. SMI has no escape mechanism,
-// so the first closing quote ends the string and a "--" inside one is
-// ordinary text.
-func (l *lexer) scanQuoted(start int) bool {
+// scanQuoted scans a string opened at start and ended by closing. SMI
+// has no escape mechanism, so the first closing delimiter ends the
+// string and a "--" inside one is ordinary text.
+func (l *lexer) scanQuoted(start int, closing byte) bool {
 	l.pos++
 
 	for l.pos < len(l.src) {
 		switch b := l.src[l.pos]; b {
-		case '"':
+		case closing:
 			l.pos++
 
 			return l.emit(start, Token{Kind: KindQuotedString})
@@ -526,6 +558,79 @@ func (l *lexer) emit(start int, t Token) bool {
 func (l *lexer) raise(offset int, code errs.Code, args ...diag.Arg) {
 	pos := diag.Position{File: l.file, Offset: offset}
 	l.out.Diagnostics = append(l.out.Diagnostics, diag.Raise(pos, code, args...))
+}
+
+// The Windows-1252 curly quotation marks, which a word processor
+// substitutes for the ASCII pair without being asked.
+const (
+	curlyOpenQuote  = 0x93
+	curlyCloseQuote = 0x94
+)
+
+// Unquote returns the text a quoted string's source bytes delimit. The
+// opening delimiter says which closing one to look for, and the closing
+// one is absent when the string ran to the end of the file.
+//
+// It is exported because a later pass keeps spans rather than tokens
+// and still has to strip the same pair, the curly one included.
+func Unquote(b []byte) []byte {
+	if len(b) == 0 {
+		return b
+	}
+
+	closing := byte('"')
+	switch b[0] {
+	case '"':
+	case curlyOpenQuote:
+		closing = curlyCloseQuote
+	default:
+		return b
+	}
+
+	b = b[1:]
+	if n := len(b); n > 0 && b[n-1] == closing {
+		b = b[:n-1]
+	}
+
+	return b
+}
+
+// opensCurlyString reports whether b begins a Windows-1252 curly-quoted
+// string here.
+//
+// SMI delimits a string with the ASCII quotation mark and nothing else,
+// but one IEEE MIB in the corpus went through a word processor that
+// replaced every pair with curly quotes, and reading those as ordinary
+// bytes leaves that file without one parsable declaration. So the pair
+// is accepted as a delimiter and the substitution is reported. A
+// stricter lexer costs the file.
+//
+// The rune guard is what keeps well-formed UTF-8 out of it: U+2013 EN
+// DASH ends in 0x93, one Cisco MIB writes it between identifiers, and
+// treating that byte as an opening quote would swallow the rest of the
+// file into a string.
+func (l *lexer) opensCurlyString(b byte) bool {
+	return b == curlyOpenQuote && !continuesRune(l.src, l.pos)
+}
+
+// continuesRune reports whether the byte at pos is a continuation byte
+// of a well-formed multi-byte sequence that began earlier in src. A
+// sequence is at most four bytes, so at most three positions can start
+// one that reaches pos.
+func continuesRune(src []byte, pos int) bool {
+	for back := 1; back <= 3 && back <= pos; back++ {
+		start := pos - back
+		if src[start] < 0xc0 {
+			continue
+		}
+
+		r, size := utf8.DecodeRune(src[start:])
+		if r != utf8.RuneError && start+size > pos {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isTrivia reports whether b is a byte to skip between tokens. Every

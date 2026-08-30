@@ -353,9 +353,11 @@ type Type struct {
 	Status      Status
 
 	// Unresolved reports that some part of the type did not resolve: a
-	// SYNTAX naming a type nothing defines, or a chain of textual
-	// conventions that closes on itself. Base is then [BaseUnknown] and
-	// nothing may render the type as if a base had been chosen for it.
+	// SYNTAX naming a type nothing defines, a chain of textual
+	// conventions that closes on itself, or a member name a parse error
+	// dropped or cut short. Nothing may render the type as the
+	// definition its author wrote, and where a name failed to resolve
+	// Base is [BaseUnknown] as well.
 	Unresolved bool
 }
 
@@ -411,9 +413,10 @@ type Node struct {
 
 	// Unresolved reports that the declaration lost something a renderer
 	// reads: a required clause the parser could not find, an OID whose
-	// parent nothing defines, or a SYNTAX naming a type nothing defines.
-	// An unresolved node is present so a reader can see what fell, and
-	// must never be rendered as if it were whole.
+	// parent nothing defines, a SYNTAX naming a type nothing defines, or
+	// a name a parse error dropped or cut short. An unresolved node is
+	// present so a reader can see what fell, and must never be rendered
+	// as if it were whole.
 	Unresolved bool
 
 	Parent   *Node

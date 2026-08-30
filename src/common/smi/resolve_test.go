@@ -484,6 +484,44 @@ func TestTwoLoadsOfTheSameFilesAreEqual(t *testing.T) {
 	}
 }
 
+// A descriptor the lexer had to end early leaves a fragment where a
+// name stood, and a fragment renders exactly like a name somebody
+// meant: here two members would both come out called "ready". The
+// declaration keeps what parsed and is never resolved, so a renderer
+// reading only the model cannot emit the fragment as the real name.
+func TestATruncatedNameLeavesItsDeclarationUnresolved(t *testing.T) {
+	dir := t.TempDir()
+	writeMIB(t, dir, "TRUNC-MIB", "TRUNC-MIB DEFINITIONS ::= BEGIN\n\n"+
+		"acme OBJECT IDENTIFIER ::= { iso 3 6 1 4 1 101 }\n\n"+
+		"cipherState OBJECT-TYPE\n"+
+		"    SYNTAX      INTEGER { ready(1), not\xffready(2) }\n"+
+		"    MAX-ACCESS  read-only\n"+
+		"    STATUS      current\n"+
+		"    DESCRIPTION \"One state.\"\n"+
+		"    ::= { acme 1 }\n\n"+
+		"cipherCount OBJECT-TYPE\n"+
+		"    SYNTAX      Integer32\n"+
+		"    MAX-ACCESS  read-only\n"+
+		"    STATUS      current\n"+
+		"    DESCRIPTION \"How many.\"\n"+
+		"    ::= { acme 2 }\n\n"+
+		"END\n")
+
+	set := loadIn(t, dir, "TRUNC-MIB")
+
+	damaged := node(t, set, "TRUNC-MIB", "cipherState")
+	if !damaged.Unresolved {
+		t.Errorf("cipherState resolved with members %v, though a name in it was cut short", damaged.Type.Members)
+	}
+	if got := damaged.OID.String(); got != "1.3.6.1.4.1.101.1" {
+		t.Errorf("cipherState OID = %s, want it kept alongside the mark", got)
+	}
+
+	if whole := node(t, set, "TRUNC-MIB", "cipherCount"); whole.Unresolved {
+		t.Error("cipherCount fell with the declaration beside it")
+	}
+}
+
 // digest renders everything a consumer reads, so a comparison over it
 // catches an ordering difference as well as a content one.
 func digest(set *smi.ModuleSet) string {

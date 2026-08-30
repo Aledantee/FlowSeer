@@ -5,8 +5,8 @@ unresolved-declarations 20
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 37
-severity minor 299
+severity error 28
+severity minor 308
 severity change 0
 severity warning 0
 severity info 0
@@ -18,5 +18,5 @@ diagnostic smi/odd-hex-string minor 5
 diagnostic smi/overlapping-range minor 29
 diagnostic smi/range-outside-base-type error 5
 diagnostic smi/trailing-hyphen-identifier minor 9
-diagnostic smi/unexpected-token error 9
+diagnostic smi/underscore-in-descriptor minor 9
 diagnostic smi/unresolved-declaration error 18
