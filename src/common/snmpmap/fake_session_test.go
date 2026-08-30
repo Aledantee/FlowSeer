@@ -26,8 +26,24 @@ type fakeSession struct {
 	vbs []vbFixture
 }
 
-func (s *fakeSession) Get(context.Context, []snmp.OID, ...snmp.CallOption) ([]snmp.VarBind, error) {
-	return nil, nil
+// Get answers from the same fixtures the walks replay, matched on the
+// exact instance OID. A scalar with no fixture is simply left out of the
+// response, which is how an agent that does not implement it reads to
+// the generated getter.
+func (s *fakeSession) Get(_ context.Context, oids []snmp.OID, _ ...snmp.CallOption) ([]snmp.VarBind, error) {
+	out := make([]snmp.VarBind, 0, len(oids))
+
+	for _, o := range oids {
+		for _, f := range s.vbs {
+			if f.oid.Compare(o) == 0 {
+				out = append(out, f.vb)
+
+				break
+			}
+		}
+	}
+
+	return out, nil
 }
 
 func (s *fakeSession) GetNext(context.Context, []snmp.OID, ...snmp.CallOption) ([]snmp.VarBind, error) {
