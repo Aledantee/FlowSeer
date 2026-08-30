@@ -73,6 +73,7 @@ type watchColInfo struct {
 	GoName    string         // e.g. "IfDescr"
 	FieldName string         // row-struct field name, e.g. "IfDescr"
 	Sub       uint32         // last sub-id of the column OID
+	Bit       int            // this column's bit in the row's observed set
 	GoType    *jen.Statement // jen.Code for the Go type of this column's field
 	Variant   string         // e.g. "OctetStringVar" / "Counter64Var"
 }
@@ -127,6 +128,7 @@ func emitWatchDecodeFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName stri
 							jen.Return(jen.Id("row"), jen.Id("derr")),
 						)
 						cg.Id("row").Dot(c.FieldName).Op("=").Id("dv")
+						cg.Add(observedMark(jen.Id("row"), c.Bit))
 					})
 				}
 			})
@@ -175,6 +177,7 @@ func emitWatchMergeFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName strin
 						cg.List(jen.Id("dv"), jen.Id("derr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
 						cg.If(jen.Id("derr").Op("==").Nil()).Block(
 							jen.Id("dst").Dot(c.FieldName).Op("=").Id("dv"),
+							observedMark(jen.Id("dst"), c.Bit),
 						)
 					})
 				}
@@ -226,6 +229,10 @@ func equalExprForField(c watchColInfo) *jen.Statement {
 	case "[]byte":
 		return jen.Qual("bytes", "Equal").Call(left, right)
 	case "snmp.OID":
+		return jen.Add(left).Dot("Equal").Call(right)
+	case "snmp.BitSet":
+		// BitSet holds a slice, so == does not compile; Equal compares
+		// the sets regardless of how wide the agent padded them.
 		return jen.Add(left).Dot("Equal").Call(right)
 	case "net.HardwareAddr":
 		// HardwareAddr is a []byte under the hood; use bytes.Equal.

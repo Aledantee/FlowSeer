@@ -1616,7 +1616,9 @@ var IpAdEntReasmMaxSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4
 
 // IpAddrTableRow is one row of ipAddrTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpAddrTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpAddrTableRow struct {
 	Index               snmp.OID
 	IpAdEntAddr         net.IP
@@ -1624,6 +1626,32 @@ type IpAddrTableRow struct {
 	IpAdEntNetMask      net.IP
 	IpAdEntBcastAddr    uint32
 	IpAdEntReasmMaxSize int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpAddrTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpAdEntAddr.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpAdEntIfIndex.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IpAdEntNetMask.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IpAdEntBcastAddr.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IpAdEntReasmMaxSize.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // IpAddrTableWalker is a table-aware walker over ipAddrTable.
@@ -1649,7 +1677,8 @@ type IpAddrTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1706,11 +1735,13 @@ func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 						derr = dErr
 					} else {
 						row.IpAdEntAddr = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpAdEntIfIndex = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1721,6 +1752,7 @@ func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 							derr = dErr
 						} else {
 							row.IpAdEntIfIndex = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -1734,11 +1766,13 @@ func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 						derr = dErr
 					} else {
 						row.IpAdEntNetMask = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpAdEntBcastAddr = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1749,12 +1783,14 @@ func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 							derr = dErr
 						} else {
 							row.IpAdEntBcastAddr = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpAdEntReasmMaxSize = int32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1765,6 +1801,7 @@ func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 							derr = dErr
 						} else {
 							row.IpAdEntReasmMaxSize = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -1882,13 +1919,39 @@ var IpNetToMediaType = snmp.NewColumn[IpNetToMediaTypeValue](snmp.MustOID(1, 3, 
 
 // IpNetToMediaTableRow is one row of ipNetToMediaTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpNetToMediaTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpNetToMediaTableRow struct {
 	Index                   snmp.OID
 	IpNetToMediaIfIndex     uint32
 	IpNetToMediaPhysAddress []byte
 	IpNetToMediaNetAddress  net.IP
 	IpNetToMediaType        IpNetToMediaTypeValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpNetToMediaTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpNetToMediaIfIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpNetToMediaPhysAddress.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IpNetToMediaNetAddress.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IpNetToMediaType.Key():
+		return r.observed[0]&(1<<3) != 0
+	}
+
+	return false
 }
 
 // IpNetToMediaTableWalker is a table-aware walker over ipNetToMediaTable.
@@ -1914,7 +1977,8 @@ type IpNetToMediaTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1964,6 +2028,7 @@ func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableR
 			case 1:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpNetToMediaIfIndex = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1974,6 +2039,7 @@ func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableR
 							derr = dErr
 						} else {
 							row.IpNetToMediaIfIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -1987,6 +2053,7 @@ func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableR
 						derr = dErr
 					} else {
 						row.IpNetToMediaPhysAddress = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -1999,11 +2066,13 @@ func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableR
 						derr = dErr
 					} else {
 						row.IpNetToMediaNetAddress = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpNetToMediaType = IpNetToMediaTypeValue(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2014,6 +2083,7 @@ func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableR
 							derr = dErr
 						} else {
 							row.IpNetToMediaType = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
@@ -2107,12 +2177,36 @@ var Ipv4InterfaceRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 
 // Ipv4InterfaceTableRow is one row of ipv4InterfaceTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Ipv4InterfaceTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Ipv4InterfaceTableRow struct {
 	Index                       snmp.OID
 	Ipv4InterfaceReasmMaxSize   int32
 	Ipv4InterfaceEnableStatus   Ipv4InterfaceEnableStatusValue
 	Ipv4InterfaceRetransmitTime uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Ipv4InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Ipv4InterfaceReasmMaxSize.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Ipv4InterfaceEnableStatus.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Ipv4InterfaceRetransmitTime.Key():
+		return r.observed[0]&(1<<2) != 0
+	}
+
+	return false
 }
 
 // Ipv4InterfaceTableWalker is a table-aware walker over ipv4InterfaceTable.
@@ -2138,7 +2232,8 @@ type Ipv4InterfaceTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2188,6 +2283,7 @@ func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTabl
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Ipv4InterfaceReasmMaxSize = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2198,12 +2294,14 @@ func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv4InterfaceReasmMaxSize = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Ipv4InterfaceEnableStatus = Ipv4InterfaceEnableStatusValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2214,12 +2312,14 @@ func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv4InterfaceEnableStatus = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv4InterfaceRetransmitTime = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2230,6 +2330,7 @@ func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv4InterfaceRetransmitTime = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
@@ -2319,18 +2420,21 @@ func decodeIpv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv4Interfac
 				return row, derr
 			}
 			row.Ipv4InterfaceReasmMaxSize = dv
+			row.observed[0] |= 1 << 0
 		case 3:
 			dv, derr := Ipv4InterfaceEnableStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.Ipv4InterfaceEnableStatus = dv
+			row.observed[0] |= 1 << 1
 		case 4:
 			dv, derr := Ipv4InterfaceRetransmitTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.Ipv4InterfaceRetransmitTime = dv
+			row.observed[0] |= 1 << 2
 		}
 	}
 
@@ -2368,16 +2472,19 @@ func mergeIpv4InterfaceTableRow(dst *Ipv4InterfaceTableRow, vbs []snmp.VarBind) 
 			dv, derr := Ipv4InterfaceReasmMaxSize.Decode(vb)
 			if derr == nil {
 				dst.Ipv4InterfaceReasmMaxSize = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 3:
 			dv, derr := Ipv4InterfaceEnableStatus.Decode(vb)
 			if derr == nil {
 				dst.Ipv4InterfaceEnableStatus = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 4:
 			dv, derr := Ipv4InterfaceRetransmitTime.Decode(vb)
 			if derr == nil {
 				dst.Ipv4InterfaceRetransmitTime = dv
+				dst.observed[0] |= 1 << 2
 			}
 		}
 	}
@@ -2526,7 +2633,9 @@ var Ipv6InterfaceForwarding = snmp.NewColumn[Ipv6InterfaceForwardingValue](snmp.
 
 // Ipv6InterfaceTableRow is one row of ipv6InterfaceTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Ipv6InterfaceTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Ipv6InterfaceTableRow struct {
 	Index                       snmp.OID
 	Ipv6InterfaceReasmMaxSize   uint32
@@ -2535,6 +2644,34 @@ type Ipv6InterfaceTableRow struct {
 	Ipv6InterfaceReachableTime  uint32
 	Ipv6InterfaceRetransmitTime uint32
 	Ipv6InterfaceForwarding     Ipv6InterfaceForwardingValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Ipv6InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Ipv6InterfaceReasmMaxSize.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Ipv6InterfaceIdentifier.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Ipv6InterfaceEnableStatus.Key():
+		return r.observed[0]&(1<<2) != 0
+	case Ipv6InterfaceReachableTime.Key():
+		return r.observed[0]&(1<<3) != 0
+	case Ipv6InterfaceRetransmitTime.Key():
+		return r.observed[0]&(1<<4) != 0
+	case Ipv6InterfaceForwarding.Key():
+		return r.observed[0]&(1<<5) != 0
+	}
+
+	return false
 }
 
 // Ipv6InterfaceTableWalker is a table-aware walker over ipv6InterfaceTable.
@@ -2560,7 +2697,8 @@ type Ipv6InterfaceTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2610,6 +2748,7 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 			case 2:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6InterfaceReasmMaxSize = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2620,6 +2759,7 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv6InterfaceReasmMaxSize = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -2633,11 +2773,13 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 						derr = dErr
 					} else {
 						row.Ipv6InterfaceIdentifier = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Ipv6InterfaceEnableStatus = Ipv6InterfaceEnableStatusValue(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2648,12 +2790,14 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv6InterfaceEnableStatus = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6InterfaceReachableTime = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2664,12 +2808,14 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv6InterfaceReachableTime = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6InterfaceRetransmitTime = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2680,12 +2826,14 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv6InterfaceRetransmitTime = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Ipv6InterfaceForwarding = Ipv6InterfaceForwardingValue(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2696,6 +2844,7 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 							derr = dErr
 						} else {
 							row.Ipv6InterfaceForwarding = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
@@ -2785,36 +2934,42 @@ func decodeIpv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv6Interfac
 				return row, derr
 			}
 			row.Ipv6InterfaceReasmMaxSize = dv
+			row.observed[0] |= 1 << 0
 		case 3:
 			dv, derr := Ipv6InterfaceIdentifier.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.Ipv6InterfaceIdentifier = dv
+			row.observed[0] |= 1 << 1
 		case 5:
 			dv, derr := Ipv6InterfaceEnableStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.Ipv6InterfaceEnableStatus = dv
+			row.observed[0] |= 1 << 2
 		case 6:
 			dv, derr := Ipv6InterfaceReachableTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.Ipv6InterfaceReachableTime = dv
+			row.observed[0] |= 1 << 3
 		case 7:
 			dv, derr := Ipv6InterfaceRetransmitTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.Ipv6InterfaceRetransmitTime = dv
+			row.observed[0] |= 1 << 4
 		case 8:
 			dv, derr := Ipv6InterfaceForwarding.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.Ipv6InterfaceForwarding = dv
+			row.observed[0] |= 1 << 5
 		}
 	}
 
@@ -2852,31 +3007,37 @@ func mergeIpv6InterfaceTableRow(dst *Ipv6InterfaceTableRow, vbs []snmp.VarBind) 
 			dv, derr := Ipv6InterfaceReasmMaxSize.Decode(vb)
 			if derr == nil {
 				dst.Ipv6InterfaceReasmMaxSize = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 3:
 			dv, derr := Ipv6InterfaceIdentifier.Decode(vb)
 			if derr == nil {
 				dst.Ipv6InterfaceIdentifier = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 5:
 			dv, derr := Ipv6InterfaceEnableStatus.Decode(vb)
 			if derr == nil {
 				dst.Ipv6InterfaceEnableStatus = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 6:
 			dv, derr := Ipv6InterfaceReachableTime.Decode(vb)
 			if derr == nil {
 				dst.Ipv6InterfaceReachableTime = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 7:
 			dv, derr := Ipv6InterfaceRetransmitTime.Decode(vb)
 			if derr == nil {
 				dst.Ipv6InterfaceRetransmitTime = dv
+				dst.observed[0] |= 1 << 4
 			}
 		case 8:
 			dv, derr := Ipv6InterfaceForwarding.Decode(vb)
 			if derr == nil {
 				dst.Ipv6InterfaceForwarding = dv
+				dst.observed[0] |= 1 << 5
 			}
 		}
 	}
@@ -3452,7 +3613,9 @@ var IpSystemStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2
 
 // IpSystemStatsTableRow is one row of ipSystemStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpSystemStatsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpSystemStatsTableRow struct {
 	Index                           snmp.OID
 	IpSystemStatsInReceives         uint32
@@ -3500,6 +3663,112 @@ type IpSystemStatsTableRow struct {
 	IpSystemStatsHCOutBcastPkts     uint64
 	IpSystemStatsDiscontinuityTime  uint32
 	IpSystemStatsRefreshRate        uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpSystemStatsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpSystemStatsInReceives.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpSystemStatsHCInReceives.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IpSystemStatsInOctets.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IpSystemStatsHCInOctets.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IpSystemStatsInHdrErrors.Key():
+		return r.observed[0]&(1<<4) != 0
+	case IpSystemStatsInNoRoutes.Key():
+		return r.observed[0]&(1<<5) != 0
+	case IpSystemStatsInAddrErrors.Key():
+		return r.observed[0]&(1<<6) != 0
+	case IpSystemStatsInUnknownProtos.Key():
+		return r.observed[0]&(1<<7) != 0
+	case IpSystemStatsInTruncatedPkts.Key():
+		return r.observed[0]&(1<<8) != 0
+	case IpSystemStatsInForwDatagrams.Key():
+		return r.observed[0]&(1<<9) != 0
+	case IpSystemStatsHCInForwDatagrams.Key():
+		return r.observed[0]&(1<<10) != 0
+	case IpSystemStatsReasmReqds.Key():
+		return r.observed[0]&(1<<11) != 0
+	case IpSystemStatsReasmOKs.Key():
+		return r.observed[0]&(1<<12) != 0
+	case IpSystemStatsReasmFails.Key():
+		return r.observed[0]&(1<<13) != 0
+	case IpSystemStatsInDiscards.Key():
+		return r.observed[0]&(1<<14) != 0
+	case IpSystemStatsInDelivers.Key():
+		return r.observed[0]&(1<<15) != 0
+	case IpSystemStatsHCInDelivers.Key():
+		return r.observed[0]&(1<<16) != 0
+	case IpSystemStatsOutRequests.Key():
+		return r.observed[0]&(1<<17) != 0
+	case IpSystemStatsHCOutRequests.Key():
+		return r.observed[0]&(1<<18) != 0
+	case IpSystemStatsOutNoRoutes.Key():
+		return r.observed[0]&(1<<19) != 0
+	case IpSystemStatsOutForwDatagrams.Key():
+		return r.observed[0]&(1<<20) != 0
+	case IpSystemStatsHCOutForwDatagrams.Key():
+		return r.observed[0]&(1<<21) != 0
+	case IpSystemStatsOutDiscards.Key():
+		return r.observed[0]&(1<<22) != 0
+	case IpSystemStatsOutFragReqds.Key():
+		return r.observed[0]&(1<<23) != 0
+	case IpSystemStatsOutFragOKs.Key():
+		return r.observed[0]&(1<<24) != 0
+	case IpSystemStatsOutFragFails.Key():
+		return r.observed[0]&(1<<25) != 0
+	case IpSystemStatsOutFragCreates.Key():
+		return r.observed[0]&(1<<26) != 0
+	case IpSystemStatsOutTransmits.Key():
+		return r.observed[0]&(1<<27) != 0
+	case IpSystemStatsHCOutTransmits.Key():
+		return r.observed[0]&(1<<28) != 0
+	case IpSystemStatsOutOctets.Key():
+		return r.observed[0]&(1<<29) != 0
+	case IpSystemStatsHCOutOctets.Key():
+		return r.observed[0]&(1<<30) != 0
+	case IpSystemStatsInMcastPkts.Key():
+		return r.observed[0]&(1<<31) != 0
+	case IpSystemStatsHCInMcastPkts.Key():
+		return r.observed[0]&(1<<32) != 0
+	case IpSystemStatsInMcastOctets.Key():
+		return r.observed[0]&(1<<33) != 0
+	case IpSystemStatsHCInMcastOctets.Key():
+		return r.observed[0]&(1<<34) != 0
+	case IpSystemStatsOutMcastPkts.Key():
+		return r.observed[0]&(1<<35) != 0
+	case IpSystemStatsHCOutMcastPkts.Key():
+		return r.observed[0]&(1<<36) != 0
+	case IpSystemStatsOutMcastOctets.Key():
+		return r.observed[0]&(1<<37) != 0
+	case IpSystemStatsHCOutMcastOctets.Key():
+		return r.observed[0]&(1<<38) != 0
+	case IpSystemStatsInBcastPkts.Key():
+		return r.observed[0]&(1<<39) != 0
+	case IpSystemStatsHCInBcastPkts.Key():
+		return r.observed[0]&(1<<40) != 0
+	case IpSystemStatsOutBcastPkts.Key():
+		return r.observed[0]&(1<<41) != 0
+	case IpSystemStatsHCOutBcastPkts.Key():
+		return r.observed[0]&(1<<42) != 0
+	case IpSystemStatsDiscontinuityTime.Key():
+		return r.observed[0]&(1<<43) != 0
+	case IpSystemStatsRefreshRate.Key():
+		return r.observed[0]&(1<<44) != 0
+	}
+
+	return false
 }
 
 // IpSystemStatsTableWalker is a table-aware walker over ipSystemStatsTable.
@@ -3525,7 +3794,8 @@ type IpSystemStatsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -3575,6 +3845,7 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 			case 3:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInReceives = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3585,12 +3856,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInReceives = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCInReceives = uint64(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3601,12 +3874,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCInReceives = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInOctets = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3617,12 +3892,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInOctets = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCInOctets = uint64(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3633,12 +3910,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCInOctets = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInHdrErrors = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3649,12 +3928,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInHdrErrors = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInNoRoutes = uint32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3665,12 +3946,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInNoRoutes = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInAddrErrors = uint32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3681,12 +3964,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInAddrErrors = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
 			case 10:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInUnknownProtos = uint32(v)
+					row.observed[0] |= 1 << 7
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3697,12 +3982,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInUnknownProtos = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
 				}
 			case 11:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInTruncatedPkts = uint32(v)
+					row.observed[0] |= 1 << 8
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3713,12 +4000,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInTruncatedPkts = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
 			case 12:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInForwDatagrams = uint32(v)
+					row.observed[0] |= 1 << 9
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3729,12 +4018,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInForwDatagrams = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
 				}
 			case 13:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCInForwDatagrams = uint64(v)
+					row.observed[0] |= 1 << 10
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3745,12 +4036,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCInForwDatagrams = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
 				}
 			case 14:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsReasmReqds = uint32(v)
+					row.observed[0] |= 1 << 11
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3761,12 +4054,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsReasmReqds = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
 				}
 			case 15:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsReasmOKs = uint32(v)
+					row.observed[0] |= 1 << 12
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3777,12 +4072,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsReasmOKs = dv
+							row.observed[0] |= 1 << 12
 						}
 					}
 				}
 			case 16:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsReasmFails = uint32(v)
+					row.observed[0] |= 1 << 13
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3793,12 +4090,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsReasmFails = dv
+							row.observed[0] |= 1 << 13
 						}
 					}
 				}
 			case 17:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInDiscards = uint32(v)
+					row.observed[0] |= 1 << 14
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3809,12 +4108,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInDiscards = dv
+							row.observed[0] |= 1 << 14
 						}
 					}
 				}
 			case 18:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInDelivers = uint32(v)
+					row.observed[0] |= 1 << 15
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3825,12 +4126,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInDelivers = dv
+							row.observed[0] |= 1 << 15
 						}
 					}
 				}
 			case 19:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCInDelivers = uint64(v)
+					row.observed[0] |= 1 << 16
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3841,12 +4144,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCInDelivers = dv
+							row.observed[0] |= 1 << 16
 						}
 					}
 				}
 			case 20:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutRequests = uint32(v)
+					row.observed[0] |= 1 << 17
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3857,12 +4162,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutRequests = dv
+							row.observed[0] |= 1 << 17
 						}
 					}
 				}
 			case 21:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCOutRequests = uint64(v)
+					row.observed[0] |= 1 << 18
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3873,12 +4180,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCOutRequests = dv
+							row.observed[0] |= 1 << 18
 						}
 					}
 				}
 			case 22:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutNoRoutes = uint32(v)
+					row.observed[0] |= 1 << 19
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3889,12 +4198,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutNoRoutes = dv
+							row.observed[0] |= 1 << 19
 						}
 					}
 				}
 			case 23:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutForwDatagrams = uint32(v)
+					row.observed[0] |= 1 << 20
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3905,12 +4216,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutForwDatagrams = dv
+							row.observed[0] |= 1 << 20
 						}
 					}
 				}
 			case 24:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCOutForwDatagrams = uint64(v)
+					row.observed[0] |= 1 << 21
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3921,12 +4234,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCOutForwDatagrams = dv
+							row.observed[0] |= 1 << 21
 						}
 					}
 				}
 			case 25:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutDiscards = uint32(v)
+					row.observed[0] |= 1 << 22
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3937,12 +4252,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutDiscards = dv
+							row.observed[0] |= 1 << 22
 						}
 					}
 				}
 			case 26:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutFragReqds = uint32(v)
+					row.observed[0] |= 1 << 23
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3953,12 +4270,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutFragReqds = dv
+							row.observed[0] |= 1 << 23
 						}
 					}
 				}
 			case 27:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutFragOKs = uint32(v)
+					row.observed[0] |= 1 << 24
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3969,12 +4288,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutFragOKs = dv
+							row.observed[0] |= 1 << 24
 						}
 					}
 				}
 			case 28:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutFragFails = uint32(v)
+					row.observed[0] |= 1 << 25
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3985,12 +4306,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutFragFails = dv
+							row.observed[0] |= 1 << 25
 						}
 					}
 				}
 			case 29:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutFragCreates = uint32(v)
+					row.observed[0] |= 1 << 26
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4001,12 +4324,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutFragCreates = dv
+							row.observed[0] |= 1 << 26
 						}
 					}
 				}
 			case 30:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutTransmits = uint32(v)
+					row.observed[0] |= 1 << 27
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4017,12 +4342,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutTransmits = dv
+							row.observed[0] |= 1 << 27
 						}
 					}
 				}
 			case 31:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCOutTransmits = uint64(v)
+					row.observed[0] |= 1 << 28
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4033,12 +4360,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCOutTransmits = dv
+							row.observed[0] |= 1 << 28
 						}
 					}
 				}
 			case 32:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutOctets = uint32(v)
+					row.observed[0] |= 1 << 29
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4049,12 +4378,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutOctets = dv
+							row.observed[0] |= 1 << 29
 						}
 					}
 				}
 			case 33:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCOutOctets = uint64(v)
+					row.observed[0] |= 1 << 30
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4065,12 +4396,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCOutOctets = dv
+							row.observed[0] |= 1 << 30
 						}
 					}
 				}
 			case 34:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInMcastPkts = uint32(v)
+					row.observed[0] |= 1 << 31
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4081,12 +4414,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInMcastPkts = dv
+							row.observed[0] |= 1 << 31
 						}
 					}
 				}
 			case 35:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCInMcastPkts = uint64(v)
+					row.observed[0] |= 1 << 32
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4097,12 +4432,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCInMcastPkts = dv
+							row.observed[0] |= 1 << 32
 						}
 					}
 				}
 			case 36:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInMcastOctets = uint32(v)
+					row.observed[0] |= 1 << 33
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4113,12 +4450,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInMcastOctets = dv
+							row.observed[0] |= 1 << 33
 						}
 					}
 				}
 			case 37:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCInMcastOctets = uint64(v)
+					row.observed[0] |= 1 << 34
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4129,12 +4468,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCInMcastOctets = dv
+							row.observed[0] |= 1 << 34
 						}
 					}
 				}
 			case 38:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutMcastPkts = uint32(v)
+					row.observed[0] |= 1 << 35
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4145,12 +4486,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutMcastPkts = dv
+							row.observed[0] |= 1 << 35
 						}
 					}
 				}
 			case 39:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCOutMcastPkts = uint64(v)
+					row.observed[0] |= 1 << 36
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4161,12 +4504,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCOutMcastPkts = dv
+							row.observed[0] |= 1 << 36
 						}
 					}
 				}
 			case 40:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutMcastOctets = uint32(v)
+					row.observed[0] |= 1 << 37
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4177,12 +4522,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutMcastOctets = dv
+							row.observed[0] |= 1 << 37
 						}
 					}
 				}
 			case 41:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCOutMcastOctets = uint64(v)
+					row.observed[0] |= 1 << 38
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4193,12 +4540,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCOutMcastOctets = dv
+							row.observed[0] |= 1 << 38
 						}
 					}
 				}
 			case 42:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsInBcastPkts = uint32(v)
+					row.observed[0] |= 1 << 39
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4209,12 +4558,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsInBcastPkts = dv
+							row.observed[0] |= 1 << 39
 						}
 					}
 				}
 			case 43:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCInBcastPkts = uint64(v)
+					row.observed[0] |= 1 << 40
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4225,12 +4576,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCInBcastPkts = dv
+							row.observed[0] |= 1 << 40
 						}
 					}
 				}
 			case 44:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpSystemStatsOutBcastPkts = uint32(v)
+					row.observed[0] |= 1 << 41
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4241,12 +4594,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsOutBcastPkts = dv
+							row.observed[0] |= 1 << 41
 						}
 					}
 				}
 			case 45:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpSystemStatsHCOutBcastPkts = uint64(v)
+					row.observed[0] |= 1 << 42
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4257,12 +4612,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsHCOutBcastPkts = dv
+							row.observed[0] |= 1 << 42
 						}
 					}
 				}
 			case 46:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpSystemStatsDiscontinuityTime = uint32(v)
+					row.observed[0] |= 1 << 43
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4273,12 +4630,14 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsDiscontinuityTime = dv
+							row.observed[0] |= 1 << 43
 						}
 					}
 				}
 			case 47:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpSystemStatsRefreshRate = uint32(v)
+					row.observed[0] |= 1 << 44
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4289,6 +4648,7 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 							derr = dErr
 						} else {
 							row.IpSystemStatsRefreshRate = dv
+							row.observed[0] |= 1 << 44
 						}
 					}
 				}
@@ -4839,7 +5199,9 @@ var IpIfStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 
 // IpIfStatsTableRow is one row of ipIfStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpIfStatsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpIfStatsTableRow struct {
 	Index                       snmp.OID
 	IpIfStatsInReceives         uint32
@@ -4886,6 +5248,110 @@ type IpIfStatsTableRow struct {
 	IpIfStatsHCOutBcastPkts     uint64
 	IpIfStatsDiscontinuityTime  uint32
 	IpIfStatsRefreshRate        uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpIfStatsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpIfStatsInReceives.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpIfStatsHCInReceives.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IpIfStatsInOctets.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IpIfStatsHCInOctets.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IpIfStatsInHdrErrors.Key():
+		return r.observed[0]&(1<<4) != 0
+	case IpIfStatsInNoRoutes.Key():
+		return r.observed[0]&(1<<5) != 0
+	case IpIfStatsInAddrErrors.Key():
+		return r.observed[0]&(1<<6) != 0
+	case IpIfStatsInUnknownProtos.Key():
+		return r.observed[0]&(1<<7) != 0
+	case IpIfStatsInTruncatedPkts.Key():
+		return r.observed[0]&(1<<8) != 0
+	case IpIfStatsInForwDatagrams.Key():
+		return r.observed[0]&(1<<9) != 0
+	case IpIfStatsHCInForwDatagrams.Key():
+		return r.observed[0]&(1<<10) != 0
+	case IpIfStatsReasmReqds.Key():
+		return r.observed[0]&(1<<11) != 0
+	case IpIfStatsReasmOKs.Key():
+		return r.observed[0]&(1<<12) != 0
+	case IpIfStatsReasmFails.Key():
+		return r.observed[0]&(1<<13) != 0
+	case IpIfStatsInDiscards.Key():
+		return r.observed[0]&(1<<14) != 0
+	case IpIfStatsInDelivers.Key():
+		return r.observed[0]&(1<<15) != 0
+	case IpIfStatsHCInDelivers.Key():
+		return r.observed[0]&(1<<16) != 0
+	case IpIfStatsOutRequests.Key():
+		return r.observed[0]&(1<<17) != 0
+	case IpIfStatsHCOutRequests.Key():
+		return r.observed[0]&(1<<18) != 0
+	case IpIfStatsOutForwDatagrams.Key():
+		return r.observed[0]&(1<<19) != 0
+	case IpIfStatsHCOutForwDatagrams.Key():
+		return r.observed[0]&(1<<20) != 0
+	case IpIfStatsOutDiscards.Key():
+		return r.observed[0]&(1<<21) != 0
+	case IpIfStatsOutFragReqds.Key():
+		return r.observed[0]&(1<<22) != 0
+	case IpIfStatsOutFragOKs.Key():
+		return r.observed[0]&(1<<23) != 0
+	case IpIfStatsOutFragFails.Key():
+		return r.observed[0]&(1<<24) != 0
+	case IpIfStatsOutFragCreates.Key():
+		return r.observed[0]&(1<<25) != 0
+	case IpIfStatsOutTransmits.Key():
+		return r.observed[0]&(1<<26) != 0
+	case IpIfStatsHCOutTransmits.Key():
+		return r.observed[0]&(1<<27) != 0
+	case IpIfStatsOutOctets.Key():
+		return r.observed[0]&(1<<28) != 0
+	case IpIfStatsHCOutOctets.Key():
+		return r.observed[0]&(1<<29) != 0
+	case IpIfStatsInMcastPkts.Key():
+		return r.observed[0]&(1<<30) != 0
+	case IpIfStatsHCInMcastPkts.Key():
+		return r.observed[0]&(1<<31) != 0
+	case IpIfStatsInMcastOctets.Key():
+		return r.observed[0]&(1<<32) != 0
+	case IpIfStatsHCInMcastOctets.Key():
+		return r.observed[0]&(1<<33) != 0
+	case IpIfStatsOutMcastPkts.Key():
+		return r.observed[0]&(1<<34) != 0
+	case IpIfStatsHCOutMcastPkts.Key():
+		return r.observed[0]&(1<<35) != 0
+	case IpIfStatsOutMcastOctets.Key():
+		return r.observed[0]&(1<<36) != 0
+	case IpIfStatsHCOutMcastOctets.Key():
+		return r.observed[0]&(1<<37) != 0
+	case IpIfStatsInBcastPkts.Key():
+		return r.observed[0]&(1<<38) != 0
+	case IpIfStatsHCInBcastPkts.Key():
+		return r.observed[0]&(1<<39) != 0
+	case IpIfStatsOutBcastPkts.Key():
+		return r.observed[0]&(1<<40) != 0
+	case IpIfStatsHCOutBcastPkts.Key():
+		return r.observed[0]&(1<<41) != 0
+	case IpIfStatsDiscontinuityTime.Key():
+		return r.observed[0]&(1<<42) != 0
+	case IpIfStatsRefreshRate.Key():
+		return r.observed[0]&(1<<43) != 0
+	}
+
+	return false
 }
 
 // IpIfStatsTableWalker is a table-aware walker over ipIfStatsTable.
@@ -4911,7 +5377,8 @@ type IpIfStatsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -4961,6 +5428,7 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 			case 3:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInReceives = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4971,12 +5439,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInReceives = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCInReceives = uint64(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -4987,12 +5457,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCInReceives = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInOctets = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5003,12 +5475,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInOctets = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCInOctets = uint64(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5019,12 +5493,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCInOctets = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInHdrErrors = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5035,12 +5511,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInHdrErrors = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInNoRoutes = uint32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5051,12 +5529,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInNoRoutes = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInAddrErrors = uint32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5067,12 +5547,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInAddrErrors = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
 			case 10:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInUnknownProtos = uint32(v)
+					row.observed[0] |= 1 << 7
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5083,12 +5565,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInUnknownProtos = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
 				}
 			case 11:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInTruncatedPkts = uint32(v)
+					row.observed[0] |= 1 << 8
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5099,12 +5583,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInTruncatedPkts = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
 			case 12:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInForwDatagrams = uint32(v)
+					row.observed[0] |= 1 << 9
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5115,12 +5601,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInForwDatagrams = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
 				}
 			case 13:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCInForwDatagrams = uint64(v)
+					row.observed[0] |= 1 << 10
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5131,12 +5619,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCInForwDatagrams = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
 				}
 			case 14:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsReasmReqds = uint32(v)
+					row.observed[0] |= 1 << 11
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5147,12 +5637,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsReasmReqds = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
 				}
 			case 15:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsReasmOKs = uint32(v)
+					row.observed[0] |= 1 << 12
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5163,12 +5655,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsReasmOKs = dv
+							row.observed[0] |= 1 << 12
 						}
 					}
 				}
 			case 16:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsReasmFails = uint32(v)
+					row.observed[0] |= 1 << 13
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5179,12 +5673,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsReasmFails = dv
+							row.observed[0] |= 1 << 13
 						}
 					}
 				}
 			case 17:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInDiscards = uint32(v)
+					row.observed[0] |= 1 << 14
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5195,12 +5691,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInDiscards = dv
+							row.observed[0] |= 1 << 14
 						}
 					}
 				}
 			case 18:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInDelivers = uint32(v)
+					row.observed[0] |= 1 << 15
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5211,12 +5709,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInDelivers = dv
+							row.observed[0] |= 1 << 15
 						}
 					}
 				}
 			case 19:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCInDelivers = uint64(v)
+					row.observed[0] |= 1 << 16
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5227,12 +5727,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCInDelivers = dv
+							row.observed[0] |= 1 << 16
 						}
 					}
 				}
 			case 20:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutRequests = uint32(v)
+					row.observed[0] |= 1 << 17
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5243,12 +5745,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutRequests = dv
+							row.observed[0] |= 1 << 17
 						}
 					}
 				}
 			case 21:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCOutRequests = uint64(v)
+					row.observed[0] |= 1 << 18
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5259,12 +5763,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCOutRequests = dv
+							row.observed[0] |= 1 << 18
 						}
 					}
 				}
 			case 23:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutForwDatagrams = uint32(v)
+					row.observed[0] |= 1 << 19
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5275,12 +5781,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutForwDatagrams = dv
+							row.observed[0] |= 1 << 19
 						}
 					}
 				}
 			case 24:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCOutForwDatagrams = uint64(v)
+					row.observed[0] |= 1 << 20
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5291,12 +5799,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCOutForwDatagrams = dv
+							row.observed[0] |= 1 << 20
 						}
 					}
 				}
 			case 25:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutDiscards = uint32(v)
+					row.observed[0] |= 1 << 21
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5307,12 +5817,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutDiscards = dv
+							row.observed[0] |= 1 << 21
 						}
 					}
 				}
 			case 26:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutFragReqds = uint32(v)
+					row.observed[0] |= 1 << 22
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5323,12 +5835,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutFragReqds = dv
+							row.observed[0] |= 1 << 22
 						}
 					}
 				}
 			case 27:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutFragOKs = uint32(v)
+					row.observed[0] |= 1 << 23
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5339,12 +5853,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutFragOKs = dv
+							row.observed[0] |= 1 << 23
 						}
 					}
 				}
 			case 28:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutFragFails = uint32(v)
+					row.observed[0] |= 1 << 24
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5355,12 +5871,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutFragFails = dv
+							row.observed[0] |= 1 << 24
 						}
 					}
 				}
 			case 29:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutFragCreates = uint32(v)
+					row.observed[0] |= 1 << 25
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5371,12 +5889,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutFragCreates = dv
+							row.observed[0] |= 1 << 25
 						}
 					}
 				}
 			case 30:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutTransmits = uint32(v)
+					row.observed[0] |= 1 << 26
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5387,12 +5907,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutTransmits = dv
+							row.observed[0] |= 1 << 26
 						}
 					}
 				}
 			case 31:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCOutTransmits = uint64(v)
+					row.observed[0] |= 1 << 27
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5403,12 +5925,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCOutTransmits = dv
+							row.observed[0] |= 1 << 27
 						}
 					}
 				}
 			case 32:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutOctets = uint32(v)
+					row.observed[0] |= 1 << 28
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5419,12 +5943,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutOctets = dv
+							row.observed[0] |= 1 << 28
 						}
 					}
 				}
 			case 33:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCOutOctets = uint64(v)
+					row.observed[0] |= 1 << 29
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5435,12 +5961,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCOutOctets = dv
+							row.observed[0] |= 1 << 29
 						}
 					}
 				}
 			case 34:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInMcastPkts = uint32(v)
+					row.observed[0] |= 1 << 30
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5451,12 +5979,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInMcastPkts = dv
+							row.observed[0] |= 1 << 30
 						}
 					}
 				}
 			case 35:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCInMcastPkts = uint64(v)
+					row.observed[0] |= 1 << 31
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5467,12 +5997,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCInMcastPkts = dv
+							row.observed[0] |= 1 << 31
 						}
 					}
 				}
 			case 36:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInMcastOctets = uint32(v)
+					row.observed[0] |= 1 << 32
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5483,12 +6015,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInMcastOctets = dv
+							row.observed[0] |= 1 << 32
 						}
 					}
 				}
 			case 37:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCInMcastOctets = uint64(v)
+					row.observed[0] |= 1 << 33
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5499,12 +6033,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCInMcastOctets = dv
+							row.observed[0] |= 1 << 33
 						}
 					}
 				}
 			case 38:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutMcastPkts = uint32(v)
+					row.observed[0] |= 1 << 34
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5515,12 +6051,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutMcastPkts = dv
+							row.observed[0] |= 1 << 34
 						}
 					}
 				}
 			case 39:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCOutMcastPkts = uint64(v)
+					row.observed[0] |= 1 << 35
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5531,12 +6069,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCOutMcastPkts = dv
+							row.observed[0] |= 1 << 35
 						}
 					}
 				}
 			case 40:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutMcastOctets = uint32(v)
+					row.observed[0] |= 1 << 36
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5547,12 +6087,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutMcastOctets = dv
+							row.observed[0] |= 1 << 36
 						}
 					}
 				}
 			case 41:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCOutMcastOctets = uint64(v)
+					row.observed[0] |= 1 << 37
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5563,12 +6105,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCOutMcastOctets = dv
+							row.observed[0] |= 1 << 37
 						}
 					}
 				}
 			case 42:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsInBcastPkts = uint32(v)
+					row.observed[0] |= 1 << 38
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5579,12 +6123,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsInBcastPkts = dv
+							row.observed[0] |= 1 << 38
 						}
 					}
 				}
 			case 43:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCInBcastPkts = uint64(v)
+					row.observed[0] |= 1 << 39
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5595,12 +6141,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCInBcastPkts = dv
+							row.observed[0] |= 1 << 39
 						}
 					}
 				}
 			case 44:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IpIfStatsOutBcastPkts = uint32(v)
+					row.observed[0] |= 1 << 40
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5611,12 +6159,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsOutBcastPkts = dv
+							row.observed[0] |= 1 << 40
 						}
 					}
 				}
 			case 45:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IpIfStatsHCOutBcastPkts = uint64(v)
+					row.observed[0] |= 1 << 41
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5627,12 +6177,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsHCOutBcastPkts = dv
+							row.observed[0] |= 1 << 41
 						}
 					}
 				}
 			case 46:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpIfStatsDiscontinuityTime = uint32(v)
+					row.observed[0] |= 1 << 42
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5643,12 +6195,14 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsDiscontinuityTime = dv
+							row.observed[0] |= 1 << 42
 						}
 					}
 				}
 			case 47:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpIfStatsRefreshRate = uint32(v)
+					row.observed[0] |= 1 << 43
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -5659,6 +6213,7 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IpIfStatsRefreshRate = dv
+							row.observed[0] |= 1 << 43
 						}
 					}
 				}
@@ -5748,264 +6303,308 @@ func decodeIpIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpIfStatsTableRo
 				return row, derr
 			}
 			row.IpIfStatsInReceives = dv
+			row.observed[0] |= 1 << 0
 		case 4:
 			dv, derr := IpIfStatsHCInReceives.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCInReceives = dv
+			row.observed[0] |= 1 << 1
 		case 5:
 			dv, derr := IpIfStatsInOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInOctets = dv
+			row.observed[0] |= 1 << 2
 		case 6:
 			dv, derr := IpIfStatsHCInOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCInOctets = dv
+			row.observed[0] |= 1 << 3
 		case 7:
 			dv, derr := IpIfStatsInHdrErrors.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInHdrErrors = dv
+			row.observed[0] |= 1 << 4
 		case 8:
 			dv, derr := IpIfStatsInNoRoutes.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInNoRoutes = dv
+			row.observed[0] |= 1 << 5
 		case 9:
 			dv, derr := IpIfStatsInAddrErrors.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInAddrErrors = dv
+			row.observed[0] |= 1 << 6
 		case 10:
 			dv, derr := IpIfStatsInUnknownProtos.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInUnknownProtos = dv
+			row.observed[0] |= 1 << 7
 		case 11:
 			dv, derr := IpIfStatsInTruncatedPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInTruncatedPkts = dv
+			row.observed[0] |= 1 << 8
 		case 12:
 			dv, derr := IpIfStatsInForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInForwDatagrams = dv
+			row.observed[0] |= 1 << 9
 		case 13:
 			dv, derr := IpIfStatsHCInForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCInForwDatagrams = dv
+			row.observed[0] |= 1 << 10
 		case 14:
 			dv, derr := IpIfStatsReasmReqds.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsReasmReqds = dv
+			row.observed[0] |= 1 << 11
 		case 15:
 			dv, derr := IpIfStatsReasmOKs.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsReasmOKs = dv
+			row.observed[0] |= 1 << 12
 		case 16:
 			dv, derr := IpIfStatsReasmFails.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsReasmFails = dv
+			row.observed[0] |= 1 << 13
 		case 17:
 			dv, derr := IpIfStatsInDiscards.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInDiscards = dv
+			row.observed[0] |= 1 << 14
 		case 18:
 			dv, derr := IpIfStatsInDelivers.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInDelivers = dv
+			row.observed[0] |= 1 << 15
 		case 19:
 			dv, derr := IpIfStatsHCInDelivers.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCInDelivers = dv
+			row.observed[0] |= 1 << 16
 		case 20:
 			dv, derr := IpIfStatsOutRequests.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutRequests = dv
+			row.observed[0] |= 1 << 17
 		case 21:
 			dv, derr := IpIfStatsHCOutRequests.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCOutRequests = dv
+			row.observed[0] |= 1 << 18
 		case 23:
 			dv, derr := IpIfStatsOutForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutForwDatagrams = dv
+			row.observed[0] |= 1 << 19
 		case 24:
 			dv, derr := IpIfStatsHCOutForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCOutForwDatagrams = dv
+			row.observed[0] |= 1 << 20
 		case 25:
 			dv, derr := IpIfStatsOutDiscards.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutDiscards = dv
+			row.observed[0] |= 1 << 21
 		case 26:
 			dv, derr := IpIfStatsOutFragReqds.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutFragReqds = dv
+			row.observed[0] |= 1 << 22
 		case 27:
 			dv, derr := IpIfStatsOutFragOKs.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutFragOKs = dv
+			row.observed[0] |= 1 << 23
 		case 28:
 			dv, derr := IpIfStatsOutFragFails.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutFragFails = dv
+			row.observed[0] |= 1 << 24
 		case 29:
 			dv, derr := IpIfStatsOutFragCreates.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutFragCreates = dv
+			row.observed[0] |= 1 << 25
 		case 30:
 			dv, derr := IpIfStatsOutTransmits.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutTransmits = dv
+			row.observed[0] |= 1 << 26
 		case 31:
 			dv, derr := IpIfStatsHCOutTransmits.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCOutTransmits = dv
+			row.observed[0] |= 1 << 27
 		case 32:
 			dv, derr := IpIfStatsOutOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutOctets = dv
+			row.observed[0] |= 1 << 28
 		case 33:
 			dv, derr := IpIfStatsHCOutOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCOutOctets = dv
+			row.observed[0] |= 1 << 29
 		case 34:
 			dv, derr := IpIfStatsInMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInMcastPkts = dv
+			row.observed[0] |= 1 << 30
 		case 35:
 			dv, derr := IpIfStatsHCInMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCInMcastPkts = dv
+			row.observed[0] |= 1 << 31
 		case 36:
 			dv, derr := IpIfStatsInMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInMcastOctets = dv
+			row.observed[0] |= 1 << 32
 		case 37:
 			dv, derr := IpIfStatsHCInMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCInMcastOctets = dv
+			row.observed[0] |= 1 << 33
 		case 38:
 			dv, derr := IpIfStatsOutMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutMcastPkts = dv
+			row.observed[0] |= 1 << 34
 		case 39:
 			dv, derr := IpIfStatsHCOutMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCOutMcastPkts = dv
+			row.observed[0] |= 1 << 35
 		case 40:
 			dv, derr := IpIfStatsOutMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutMcastOctets = dv
+			row.observed[0] |= 1 << 36
 		case 41:
 			dv, derr := IpIfStatsHCOutMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCOutMcastOctets = dv
+			row.observed[0] |= 1 << 37
 		case 42:
 			dv, derr := IpIfStatsInBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsInBcastPkts = dv
+			row.observed[0] |= 1 << 38
 		case 43:
 			dv, derr := IpIfStatsHCInBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCInBcastPkts = dv
+			row.observed[0] |= 1 << 39
 		case 44:
 			dv, derr := IpIfStatsOutBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsOutBcastPkts = dv
+			row.observed[0] |= 1 << 40
 		case 45:
 			dv, derr := IpIfStatsHCOutBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsHCOutBcastPkts = dv
+			row.observed[0] |= 1 << 41
 		case 46:
 			dv, derr := IpIfStatsDiscontinuityTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsDiscontinuityTime = dv
+			row.observed[0] |= 1 << 42
 		case 47:
 			dv, derr := IpIfStatsRefreshRate.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpIfStatsRefreshRate = dv
+			row.observed[0] |= 1 << 43
 		}
 	}
 
@@ -6043,221 +6642,265 @@ func mergeIpIfStatsTableRow(dst *IpIfStatsTableRow, vbs []snmp.VarBind) {
 			dv, derr := IpIfStatsInReceives.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInReceives = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 4:
 			dv, derr := IpIfStatsHCInReceives.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCInReceives = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 5:
 			dv, derr := IpIfStatsInOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInOctets = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 6:
 			dv, derr := IpIfStatsHCInOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCInOctets = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 7:
 			dv, derr := IpIfStatsInHdrErrors.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInHdrErrors = dv
+				dst.observed[0] |= 1 << 4
 			}
 		case 8:
 			dv, derr := IpIfStatsInNoRoutes.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInNoRoutes = dv
+				dst.observed[0] |= 1 << 5
 			}
 		case 9:
 			dv, derr := IpIfStatsInAddrErrors.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInAddrErrors = dv
+				dst.observed[0] |= 1 << 6
 			}
 		case 10:
 			dv, derr := IpIfStatsInUnknownProtos.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInUnknownProtos = dv
+				dst.observed[0] |= 1 << 7
 			}
 		case 11:
 			dv, derr := IpIfStatsInTruncatedPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInTruncatedPkts = dv
+				dst.observed[0] |= 1 << 8
 			}
 		case 12:
 			dv, derr := IpIfStatsInForwDatagrams.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInForwDatagrams = dv
+				dst.observed[0] |= 1 << 9
 			}
 		case 13:
 			dv, derr := IpIfStatsHCInForwDatagrams.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCInForwDatagrams = dv
+				dst.observed[0] |= 1 << 10
 			}
 		case 14:
 			dv, derr := IpIfStatsReasmReqds.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsReasmReqds = dv
+				dst.observed[0] |= 1 << 11
 			}
 		case 15:
 			dv, derr := IpIfStatsReasmOKs.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsReasmOKs = dv
+				dst.observed[0] |= 1 << 12
 			}
 		case 16:
 			dv, derr := IpIfStatsReasmFails.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsReasmFails = dv
+				dst.observed[0] |= 1 << 13
 			}
 		case 17:
 			dv, derr := IpIfStatsInDiscards.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInDiscards = dv
+				dst.observed[0] |= 1 << 14
 			}
 		case 18:
 			dv, derr := IpIfStatsInDelivers.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInDelivers = dv
+				dst.observed[0] |= 1 << 15
 			}
 		case 19:
 			dv, derr := IpIfStatsHCInDelivers.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCInDelivers = dv
+				dst.observed[0] |= 1 << 16
 			}
 		case 20:
 			dv, derr := IpIfStatsOutRequests.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutRequests = dv
+				dst.observed[0] |= 1 << 17
 			}
 		case 21:
 			dv, derr := IpIfStatsHCOutRequests.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCOutRequests = dv
+				dst.observed[0] |= 1 << 18
 			}
 		case 23:
 			dv, derr := IpIfStatsOutForwDatagrams.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutForwDatagrams = dv
+				dst.observed[0] |= 1 << 19
 			}
 		case 24:
 			dv, derr := IpIfStatsHCOutForwDatagrams.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCOutForwDatagrams = dv
+				dst.observed[0] |= 1 << 20
 			}
 		case 25:
 			dv, derr := IpIfStatsOutDiscards.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutDiscards = dv
+				dst.observed[0] |= 1 << 21
 			}
 		case 26:
 			dv, derr := IpIfStatsOutFragReqds.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutFragReqds = dv
+				dst.observed[0] |= 1 << 22
 			}
 		case 27:
 			dv, derr := IpIfStatsOutFragOKs.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutFragOKs = dv
+				dst.observed[0] |= 1 << 23
 			}
 		case 28:
 			dv, derr := IpIfStatsOutFragFails.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutFragFails = dv
+				dst.observed[0] |= 1 << 24
 			}
 		case 29:
 			dv, derr := IpIfStatsOutFragCreates.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutFragCreates = dv
+				dst.observed[0] |= 1 << 25
 			}
 		case 30:
 			dv, derr := IpIfStatsOutTransmits.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutTransmits = dv
+				dst.observed[0] |= 1 << 26
 			}
 		case 31:
 			dv, derr := IpIfStatsHCOutTransmits.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCOutTransmits = dv
+				dst.observed[0] |= 1 << 27
 			}
 		case 32:
 			dv, derr := IpIfStatsOutOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutOctets = dv
+				dst.observed[0] |= 1 << 28
 			}
 		case 33:
 			dv, derr := IpIfStatsHCOutOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCOutOctets = dv
+				dst.observed[0] |= 1 << 29
 			}
 		case 34:
 			dv, derr := IpIfStatsInMcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInMcastPkts = dv
+				dst.observed[0] |= 1 << 30
 			}
 		case 35:
 			dv, derr := IpIfStatsHCInMcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCInMcastPkts = dv
+				dst.observed[0] |= 1 << 31
 			}
 		case 36:
 			dv, derr := IpIfStatsInMcastOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInMcastOctets = dv
+				dst.observed[0] |= 1 << 32
 			}
 		case 37:
 			dv, derr := IpIfStatsHCInMcastOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCInMcastOctets = dv
+				dst.observed[0] |= 1 << 33
 			}
 		case 38:
 			dv, derr := IpIfStatsOutMcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutMcastPkts = dv
+				dst.observed[0] |= 1 << 34
 			}
 		case 39:
 			dv, derr := IpIfStatsHCOutMcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCOutMcastPkts = dv
+				dst.observed[0] |= 1 << 35
 			}
 		case 40:
 			dv, derr := IpIfStatsOutMcastOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutMcastOctets = dv
+				dst.observed[0] |= 1 << 36
 			}
 		case 41:
 			dv, derr := IpIfStatsHCOutMcastOctets.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCOutMcastOctets = dv
+				dst.observed[0] |= 1 << 37
 			}
 		case 42:
 			dv, derr := IpIfStatsInBcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsInBcastPkts = dv
+				dst.observed[0] |= 1 << 38
 			}
 		case 43:
 			dv, derr := IpIfStatsHCInBcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCInBcastPkts = dv
+				dst.observed[0] |= 1 << 39
 			}
 		case 44:
 			dv, derr := IpIfStatsOutBcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsOutBcastPkts = dv
+				dst.observed[0] |= 1 << 40
 			}
 		case 45:
 			dv, derr := IpIfStatsHCOutBcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsHCOutBcastPkts = dv
+				dst.observed[0] |= 1 << 41
 			}
 		case 46:
 			dv, derr := IpIfStatsDiscontinuityTime.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsDiscontinuityTime = dv
+				dst.observed[0] |= 1 << 42
 			}
 		case 47:
 			dv, derr := IpIfStatsRefreshRate.Decode(vb)
 			if derr == nil {
 				dst.IpIfStatsRefreshRate = dv
+				dst.observed[0] |= 1 << 43
 			}
 		}
 	}
@@ -6387,7 +7030,9 @@ var IpAddressPrefixAdvValidLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 
 
 // IpAddressPrefixTableRow is one row of ipAddressPrefixTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpAddressPrefixTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpAddressPrefixTableRow struct {
 	Index                               snmp.OID
 	IpAddressPrefixOrigin               IpAddressPrefixOriginTC
@@ -6395,6 +7040,32 @@ type IpAddressPrefixTableRow struct {
 	IpAddressPrefixAutonomousFlag       bool
 	IpAddressPrefixAdvPreferredLifetime uint32
 	IpAddressPrefixAdvValidLifetime     uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpAddressPrefixTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpAddressPrefixOrigin.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpAddressPrefixOnLinkFlag.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IpAddressPrefixAutonomousFlag.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IpAddressPrefixAdvPreferredLifetime.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IpAddressPrefixAdvValidLifetime.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // IpAddressPrefixTableWalker is a table-aware walker over ipAddressPrefixTable.
@@ -6420,7 +7091,8 @@ type IpAddressPrefixTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -6470,6 +7142,7 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpAddressPrefixOrigin = IpAddressPrefixOriginTC(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6480,6 +7153,7 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 							derr = dErr
 						} else {
 							row.IpAddressPrefixOrigin = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -6493,6 +7167,7 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 						derr = dErr
 					} else {
 						row.IpAddressPrefixOnLinkFlag = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 7:
@@ -6505,11 +7180,13 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 						derr = dErr
 					} else {
 						row.IpAddressPrefixAutonomousFlag = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpAddressPrefixAdvPreferredLifetime = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6520,12 +7197,14 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 							derr = dErr
 						} else {
 							row.IpAddressPrefixAdvPreferredLifetime = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpAddressPrefixAdvValidLifetime = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6536,6 +7215,7 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 							derr = dErr
 						} else {
 							row.IpAddressPrefixAdvValidLifetime = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -6690,7 +7370,9 @@ var IpAddressStorageType = snmp.NewColumn[snmpv2tc.StorageType](snmp.MustOID(1, 
 
 // IpAddressTableRow is one row of ipAddressTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpAddressTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpAddressTableRow struct {
 	Index                snmp.OID
 	IpAddressIfIndex     int32
@@ -6702,6 +7384,40 @@ type IpAddressTableRow struct {
 	IpAddressLastChanged uint32
 	IpAddressRowStatus   snmp.RowStatus
 	IpAddressStorageType snmpv2tc.StorageType
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpAddressTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpAddressIfIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpAddressType.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IpAddressPrefix.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IpAddressOrigin.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IpAddressStatus.Key():
+		return r.observed[0]&(1<<4) != 0
+	case IpAddressCreated.Key():
+		return r.observed[0]&(1<<5) != 0
+	case IpAddressLastChanged.Key():
+		return r.observed[0]&(1<<6) != 0
+	case IpAddressRowStatus.Key():
+		return r.observed[0]&(1<<7) != 0
+	case IpAddressStorageType.Key():
+		return r.observed[0]&(1<<8) != 0
+	}
+
+	return false
 }
 
 // IpAddressTableWalker is a table-aware walker over ipAddressTable.
@@ -6727,7 +7443,8 @@ type IpAddressTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -6777,6 +7494,7 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpAddressIfIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6787,12 +7505,14 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 							derr = dErr
 						} else {
 							row.IpAddressIfIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpAddressType = IpAddressTypeValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6803,6 +7523,7 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 							derr = dErr
 						} else {
 							row.IpAddressType = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -6816,11 +7537,13 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 						derr = dErr
 					} else {
 						row.IpAddressPrefix = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpAddressOrigin = IpAddressOriginTC(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6831,12 +7554,14 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 							derr = dErr
 						} else {
 							row.IpAddressOrigin = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpAddressStatus = IpAddressStatusTC(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6847,12 +7572,14 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 							derr = dErr
 						} else {
 							row.IpAddressStatus = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpAddressCreated = uint32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6863,12 +7590,14 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 							derr = dErr
 						} else {
 							row.IpAddressCreated = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpAddressLastChanged = uint32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6879,6 +7608,7 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 							derr = dErr
 						} else {
 							row.IpAddressLastChanged = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
@@ -6892,11 +7622,13 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 						derr = dErr
 					} else {
 						row.IpAddressRowStatus = dv
+						row.observed[0] |= 1 << 7
 					}
 				}
 			case 11:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpAddressStorageType = snmpv2tc.StorageType(v)
+					row.observed[0] |= 1 << 8
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -6907,6 +7639,7 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 							derr = dErr
 						} else {
 							row.IpAddressStorageType = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
@@ -6996,54 +7729,63 @@ func decodeIpAddressTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpAddressTableRo
 				return row, derr
 			}
 			row.IpAddressIfIndex = dv
+			row.observed[0] |= 1 << 0
 		case 4:
 			dv, derr := IpAddressType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressType = dv
+			row.observed[0] |= 1 << 1
 		case 5:
 			dv, derr := IpAddressPrefix.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressPrefix = dv
+			row.observed[0] |= 1 << 2
 		case 6:
 			dv, derr := IpAddressOrigin.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressOrigin = dv
+			row.observed[0] |= 1 << 3
 		case 7:
 			dv, derr := IpAddressStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressStatus = dv
+			row.observed[0] |= 1 << 4
 		case 8:
 			dv, derr := IpAddressCreated.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressCreated = dv
+			row.observed[0] |= 1 << 5
 		case 9:
 			dv, derr := IpAddressLastChanged.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressLastChanged = dv
+			row.observed[0] |= 1 << 6
 		case 10:
 			dv, derr := IpAddressRowStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressRowStatus = dv
+			row.observed[0] |= 1 << 7
 		case 11:
 			dv, derr := IpAddressStorageType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpAddressStorageType = dv
+			row.observed[0] |= 1 << 8
 		}
 	}
 
@@ -7081,46 +7823,55 @@ func mergeIpAddressTableRow(dst *IpAddressTableRow, vbs []snmp.VarBind) {
 			dv, derr := IpAddressIfIndex.Decode(vb)
 			if derr == nil {
 				dst.IpAddressIfIndex = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 4:
 			dv, derr := IpAddressType.Decode(vb)
 			if derr == nil {
 				dst.IpAddressType = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 5:
 			dv, derr := IpAddressPrefix.Decode(vb)
 			if derr == nil {
 				dst.IpAddressPrefix = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 6:
 			dv, derr := IpAddressOrigin.Decode(vb)
 			if derr == nil {
 				dst.IpAddressOrigin = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 7:
 			dv, derr := IpAddressStatus.Decode(vb)
 			if derr == nil {
 				dst.IpAddressStatus = dv
+				dst.observed[0] |= 1 << 4
 			}
 		case 8:
 			dv, derr := IpAddressCreated.Decode(vb)
 			if derr == nil {
 				dst.IpAddressCreated = dv
+				dst.observed[0] |= 1 << 5
 			}
 		case 9:
 			dv, derr := IpAddressLastChanged.Decode(vb)
 			if derr == nil {
 				dst.IpAddressLastChanged = dv
+				dst.observed[0] |= 1 << 6
 			}
 		case 10:
 			dv, derr := IpAddressRowStatus.Decode(vb)
 			if derr == nil {
 				dst.IpAddressRowStatus = dv
+				dst.observed[0] |= 1 << 7
 			}
 		case 11:
 			dv, derr := IpAddressStorageType.Decode(vb)
 			if derr == nil {
 				dst.IpAddressStorageType = dv
+				dst.observed[0] |= 1 << 8
 			}
 		}
 	}
@@ -7270,7 +8021,9 @@ var IpNetToPhysicalRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3,
 
 // IpNetToPhysicalTableRow is one row of ipNetToPhysicalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpNetToPhysicalTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpNetToPhysicalTableRow struct {
 	Index                      snmp.OID
 	IpNetToPhysicalPhysAddress []byte
@@ -7278,6 +8031,32 @@ type IpNetToPhysicalTableRow struct {
 	IpNetToPhysicalType        IpNetToPhysicalTypeValue
 	IpNetToPhysicalState       IpNetToPhysicalStateValue
 	IpNetToPhysicalRowStatus   snmp.RowStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpNetToPhysicalTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpNetToPhysicalPhysAddress.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpNetToPhysicalLastUpdated.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IpNetToPhysicalType.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IpNetToPhysicalState.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IpNetToPhysicalRowStatus.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // IpNetToPhysicalTableWalker is a table-aware walker over ipNetToPhysicalTable.
@@ -7303,7 +8082,8 @@ type IpNetToPhysicalTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -7360,11 +8140,13 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 						derr = dErr
 					} else {
 						row.IpNetToPhysicalPhysAddress = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpNetToPhysicalLastUpdated = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7375,12 +8157,14 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 							derr = dErr
 						} else {
 							row.IpNetToPhysicalLastUpdated = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpNetToPhysicalType = IpNetToPhysicalTypeValue(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7391,12 +8175,14 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 							derr = dErr
 						} else {
 							row.IpNetToPhysicalType = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpNetToPhysicalState = IpNetToPhysicalStateValue(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7407,6 +8193,7 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 							derr = dErr
 						} else {
 							row.IpNetToPhysicalState = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
@@ -7420,6 +8207,7 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 						derr = dErr
 					} else {
 						row.IpNetToPhysicalRowStatus = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			}
@@ -7508,30 +8296,35 @@ func decodeIpNetToPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpNetToPhy
 				return row, derr
 			}
 			row.IpNetToPhysicalPhysAddress = dv
+			row.observed[0] |= 1 << 0
 		case 5:
 			dv, derr := IpNetToPhysicalLastUpdated.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpNetToPhysicalLastUpdated = dv
+			row.observed[0] |= 1 << 1
 		case 6:
 			dv, derr := IpNetToPhysicalType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpNetToPhysicalType = dv
+			row.observed[0] |= 1 << 2
 		case 7:
 			dv, derr := IpNetToPhysicalState.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpNetToPhysicalState = dv
+			row.observed[0] |= 1 << 3
 		case 8:
 			dv, derr := IpNetToPhysicalRowStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IpNetToPhysicalRowStatus = dv
+			row.observed[0] |= 1 << 4
 		}
 	}
 
@@ -7569,26 +8362,31 @@ func mergeIpNetToPhysicalTableRow(dst *IpNetToPhysicalTableRow, vbs []snmp.VarBi
 			dv, derr := IpNetToPhysicalPhysAddress.Decode(vb)
 			if derr == nil {
 				dst.IpNetToPhysicalPhysAddress = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 5:
 			dv, derr := IpNetToPhysicalLastUpdated.Decode(vb)
 			if derr == nil {
 				dst.IpNetToPhysicalLastUpdated = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 6:
 			dv, derr := IpNetToPhysicalType.Decode(vb)
 			if derr == nil {
 				dst.IpNetToPhysicalType = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 7:
 			dv, derr := IpNetToPhysicalState.Decode(vb)
 			if derr == nil {
 				dst.IpNetToPhysicalState = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 8:
 			dv, derr := IpNetToPhysicalRowStatus.Decode(vb)
 			if derr == nil {
 				dst.IpNetToPhysicalRowStatus = dv
+				dst.observed[0] |= 1 << 4
 			}
 		}
 	}
@@ -7741,7 +8539,9 @@ var Ipv6ScopeZoneIndexD = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 
 // Ipv6ScopeZoneIndexTableRow is one row of ipv6ScopeZoneIndexTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Ipv6ScopeZoneIndexTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Ipv6ScopeZoneIndexTableRow struct {
 	Index                               snmp.OID
 	Ipv6ScopeZoneIndexLinkLocal         uint32
@@ -7756,6 +8556,46 @@ type Ipv6ScopeZoneIndexTableRow struct {
 	Ipv6ScopeZoneIndexB                 uint32
 	Ipv6ScopeZoneIndexC                 uint32
 	Ipv6ScopeZoneIndexD                 uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Ipv6ScopeZoneIndexTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Ipv6ScopeZoneIndexLinkLocal.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Ipv6ScopeZoneIndex3.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Ipv6ScopeZoneIndexAdminLocal.Key():
+		return r.observed[0]&(1<<2) != 0
+	case Ipv6ScopeZoneIndexSiteLocal.Key():
+		return r.observed[0]&(1<<3) != 0
+	case Ipv6ScopeZoneIndex6.Key():
+		return r.observed[0]&(1<<4) != 0
+	case Ipv6ScopeZoneIndex7.Key():
+		return r.observed[0]&(1<<5) != 0
+	case Ipv6ScopeZoneIndexOrganizationLocal.Key():
+		return r.observed[0]&(1<<6) != 0
+	case Ipv6ScopeZoneIndex9.Key():
+		return r.observed[0]&(1<<7) != 0
+	case Ipv6ScopeZoneIndexA.Key():
+		return r.observed[0]&(1<<8) != 0
+	case Ipv6ScopeZoneIndexB.Key():
+		return r.observed[0]&(1<<9) != 0
+	case Ipv6ScopeZoneIndexC.Key():
+		return r.observed[0]&(1<<10) != 0
+	case Ipv6ScopeZoneIndexD.Key():
+		return r.observed[0]&(1<<11) != 0
+	}
+
+	return false
 }
 
 // Ipv6ScopeZoneIndexTableWalker is a table-aware walker over ipv6ScopeZoneIndexTable.
@@ -7781,7 +8621,8 @@ type Ipv6ScopeZoneIndexTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -7831,6 +8672,7 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 			case 2:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexLinkLocal = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7841,12 +8683,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexLinkLocal = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndex3 = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7857,12 +8701,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndex3 = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexAdminLocal = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7873,12 +8719,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexAdminLocal = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexSiteLocal = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7889,12 +8737,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexSiteLocal = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndex6 = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7905,12 +8755,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndex6 = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndex7 = uint32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7921,12 +8773,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndex7 = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexOrganizationLocal = uint32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7937,12 +8791,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexOrganizationLocal = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndex9 = uint32(v)
+					row.observed[0] |= 1 << 7
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7953,12 +8809,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndex9 = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
 				}
 			case 10:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexA = uint32(v)
+					row.observed[0] |= 1 << 8
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7969,12 +8827,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexA = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
 			case 11:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexB = uint32(v)
+					row.observed[0] |= 1 << 9
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -7985,12 +8845,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexB = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
 				}
 			case 12:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexC = uint32(v)
+					row.observed[0] |= 1 << 10
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8001,12 +8863,14 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexC = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
 				}
 			case 13:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6ScopeZoneIndexD = uint32(v)
+					row.observed[0] |= 1 << 11
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8017,6 +8881,7 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 							derr = dErr
 						} else {
 							row.Ipv6ScopeZoneIndexD = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
 				}
@@ -8108,11 +8973,33 @@ var IpDefaultRouterPreference = snmp.NewColumn[IpDefaultRouterPreferenceValue](s
 
 // IpDefaultRouterTableRow is one row of ipDefaultRouterTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IpDefaultRouterTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IpDefaultRouterTableRow struct {
 	Index                     snmp.OID
 	IpDefaultRouterLifetime   uint32
 	IpDefaultRouterPreference IpDefaultRouterPreferenceValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IpDefaultRouterTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IpDefaultRouterLifetime.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IpDefaultRouterPreference.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // IpDefaultRouterTableWalker is a table-aware walker over ipDefaultRouterTable.
@@ -8138,7 +9025,8 @@ type IpDefaultRouterTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -8188,6 +9076,7 @@ func (tw *IpDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IpDefaultRouter
 			case 4:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IpDefaultRouterLifetime = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8198,12 +9087,14 @@ func (tw *IpDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IpDefaultRouter
 							derr = dErr
 						} else {
 							row.IpDefaultRouterLifetime = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IpDefaultRouterPreference = IpDefaultRouterPreferenceValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8214,6 +9105,7 @@ func (tw *IpDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IpDefaultRouter
 							derr = dErr
 						} else {
 							row.IpDefaultRouterPreference = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -8377,7 +9269,9 @@ var Ipv6RouterAdvertRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3
 
 // Ipv6RouterAdvertTableRow is one row of ipv6RouterAdvertTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Ipv6RouterAdvertTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Ipv6RouterAdvertTableRow struct {
 	Index                           snmp.OID
 	Ipv6RouterAdvertSendAdverts     bool
@@ -8391,6 +9285,44 @@ type Ipv6RouterAdvertTableRow struct {
 	Ipv6RouterAdvertCurHopLimit     uint32
 	Ipv6RouterAdvertDefaultLifetime uint32
 	Ipv6RouterAdvertRowStatus       snmp.RowStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Ipv6RouterAdvertTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Ipv6RouterAdvertSendAdverts.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Ipv6RouterAdvertMaxInterval.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Ipv6RouterAdvertMinInterval.Key():
+		return r.observed[0]&(1<<2) != 0
+	case Ipv6RouterAdvertManagedFlag.Key():
+		return r.observed[0]&(1<<3) != 0
+	case Ipv6RouterAdvertOtherConfigFlag.Key():
+		return r.observed[0]&(1<<4) != 0
+	case Ipv6RouterAdvertLinkMTU.Key():
+		return r.observed[0]&(1<<5) != 0
+	case Ipv6RouterAdvertReachableTime.Key():
+		return r.observed[0]&(1<<6) != 0
+	case Ipv6RouterAdvertRetransmitTime.Key():
+		return r.observed[0]&(1<<7) != 0
+	case Ipv6RouterAdvertCurHopLimit.Key():
+		return r.observed[0]&(1<<8) != 0
+	case Ipv6RouterAdvertDefaultLifetime.Key():
+		return r.observed[0]&(1<<9) != 0
+	case Ipv6RouterAdvertRowStatus.Key():
+		return r.observed[0]&(1<<10) != 0
+	}
+
+	return false
 }
 
 // Ipv6RouterAdvertTableWalker is a table-aware walker over ipv6RouterAdvertTable.
@@ -8416,7 +9348,8 @@ type Ipv6RouterAdvertTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -8473,11 +9406,13 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 						derr = dErr
 					} else {
 						row.Ipv6RouterAdvertSendAdverts = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6RouterAdvertMaxInterval = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8488,12 +9423,14 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 							derr = dErr
 						} else {
 							row.Ipv6RouterAdvertMaxInterval = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6RouterAdvertMinInterval = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8504,6 +9441,7 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 							derr = dErr
 						} else {
 							row.Ipv6RouterAdvertMinInterval = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
@@ -8517,6 +9455,7 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 						derr = dErr
 					} else {
 						row.Ipv6RouterAdvertManagedFlag = dv
+						row.observed[0] |= 1 << 3
 					}
 				}
 			case 6:
@@ -8529,11 +9468,13 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 						derr = dErr
 					} else {
 						row.Ipv6RouterAdvertOtherConfigFlag = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6RouterAdvertLinkMTU = uint32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8544,12 +9485,14 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 							derr = dErr
 						} else {
 							row.Ipv6RouterAdvertLinkMTU = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6RouterAdvertReachableTime = uint32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8560,12 +9503,14 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 							derr = dErr
 						} else {
 							row.Ipv6RouterAdvertReachableTime = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6RouterAdvertRetransmitTime = uint32(v)
+					row.observed[0] |= 1 << 7
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8576,12 +9521,14 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 							derr = dErr
 						} else {
 							row.Ipv6RouterAdvertRetransmitTime = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
 				}
 			case 10:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6RouterAdvertCurHopLimit = uint32(v)
+					row.observed[0] |= 1 << 8
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8592,12 +9539,14 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 							derr = dErr
 						} else {
 							row.Ipv6RouterAdvertCurHopLimit = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
 			case 11:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Ipv6RouterAdvertDefaultLifetime = uint32(v)
+					row.observed[0] |= 1 << 9
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8608,6 +9557,7 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 							derr = dErr
 						} else {
 							row.Ipv6RouterAdvertDefaultLifetime = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
 				}
@@ -8621,6 +9571,7 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 						derr = dErr
 					} else {
 						row.Ipv6RouterAdvertRowStatus = dv
+						row.observed[0] |= 1 << 10
 					}
 				}
 			}
@@ -8718,13 +9669,39 @@ var IcmpStatsOutErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 5
 
 // IcmpStatsTableRow is one row of icmpStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IcmpStatsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IcmpStatsTableRow struct {
 	Index              snmp.OID
 	IcmpStatsInMsgs    uint32
 	IcmpStatsInErrors  uint32
 	IcmpStatsOutMsgs   uint32
 	IcmpStatsOutErrors uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IcmpStatsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IcmpStatsInMsgs.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IcmpStatsInErrors.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IcmpStatsOutMsgs.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IcmpStatsOutErrors.Key():
+		return r.observed[0]&(1<<3) != 0
+	}
+
+	return false
 }
 
 // IcmpStatsTableWalker is a table-aware walker over icmpStatsTable.
@@ -8750,7 +9727,8 @@ type IcmpStatsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -8800,6 +9778,7 @@ func (tw *IcmpStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpStatsTableRow] {
 			case 2:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IcmpStatsInMsgs = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8810,12 +9789,14 @@ func (tw *IcmpStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IcmpStatsInMsgs = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IcmpStatsInErrors = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8826,12 +9807,14 @@ func (tw *IcmpStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IcmpStatsInErrors = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IcmpStatsOutMsgs = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8842,12 +9825,14 @@ func (tw *IcmpStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IcmpStatsOutMsgs = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IcmpStatsOutErrors = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -8858,6 +9843,7 @@ func (tw *IcmpStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpStatsTableRow] {
 							derr = dErr
 						} else {
 							row.IcmpStatsOutErrors = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
@@ -8936,11 +9922,33 @@ var IcmpMsgStatsOutPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 
 // IcmpMsgStatsTableRow is one row of icmpMsgStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IcmpMsgStatsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IcmpMsgStatsTableRow struct {
 	Index               snmp.OID
 	IcmpMsgStatsInPkts  uint32
 	IcmpMsgStatsOutPkts uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IcmpMsgStatsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IcmpMsgStatsInPkts.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IcmpMsgStatsOutPkts.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // IcmpMsgStatsTableWalker is a table-aware walker over icmpMsgStatsTable.
@@ -8966,7 +9974,8 @@ type IcmpMsgStatsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -9016,6 +10025,7 @@ func (tw *IcmpMsgStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpMsgStatsTableR
 			case 3:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IcmpMsgStatsInPkts = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -9026,12 +10036,14 @@ func (tw *IcmpMsgStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpMsgStatsTableR
 							derr = dErr
 						} else {
 							row.IcmpMsgStatsInPkts = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IcmpMsgStatsOutPkts = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -9042,6 +10054,7 @@ func (tw *IcmpMsgStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpMsgStatsTableR
 							derr = dErr
 						} else {
 							row.IcmpMsgStatsOutPkts = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}

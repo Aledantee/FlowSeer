@@ -57,6 +57,7 @@ func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
 		FieldName string
 		ColumnOID string
 		Sub       uint32 // last sub-id of the column OID
+		Bit       int    // this column's bit in the row's observed set
 		Res       resolved
 	}
 	cols := make([]colInfo, 0, len(t.ColumnOrder))
@@ -75,6 +76,7 @@ func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
 			FieldName: camelCase(cn.Name),
 			ColumnOID: oidString(cn.Oid),
 			Sub:       uint32(cn.Oid[len(cn.Oid)-1]),
+			Bit:       len(cols),
 			Res:       resolveType(ec, cn),
 		})
 	}
@@ -108,16 +110,49 @@ func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
 		})
 	}
 
-	// 2) Row struct.
+	// 2) Row struct plus its per-column observation set. A field left
+	// at zero is ambiguous on its own — the agent may have reported a
+	// genuine zero or may not have reported the column at all — so the
+	// row carries one bit per column recording which ones actually
+	// landed, read back through the Observed method.
+	observedWords := (len(cols) + 63) / 64
 	f.Comment(rowTypeName + " is one row of " + table.Name + ". Index carries the OID")
 	f.Comment("suffix beyond the table-entry prefix; the remaining fields are")
-	f.Comment("populated only for columns the caller passed to Walk().")
+	f.Comment("populated only for columns the caller passed to Walk(). Use")
+	f.Comment(rowTypeName + ".Observed to tell a reported zero from a column the")
+	f.Comment("agent never answered.")
 	f.Type().Id(rowTypeName).StructFunc(func(g *jen.Group) {
 		g.Id("Index").Qual(snmpImport, "OID")
 		for _, c := range cols {
 			g.Id(c.FieldName).Add(c.Res.GoType.Clone())
 		}
+		g.Line()
+		g.Comment("observed carries one bit per column of this table, in")
+		g.Comment("column-OID order, set when the walk decoded a value for")
+		g.Comment("that column on this row.")
+		g.Id("observed").Index(jen.Lit(observedWords)).Uint64()
 	})
+
+	f.Comment("Observed reports whether col returned a value for this row. A column")
+	f.Comment("the agent answered reads true even when the answer was zero or empty;")
+	f.Comment("a column that was requested but never landed, one that was not passed")
+	f.Comment("to Walk, and any column of another table all read false.")
+	f.Func().Params(jen.Id("r").Id(rowTypeName)).Id("Observed").Params(
+		jen.Id("col").Qual(snmpImport, "AnyColumn"),
+	).Bool().Block(
+		// Keyed on the column's OID wire key rather than its last
+		// sub-id: sub-ids collide across tables constantly, and a
+		// caller passing another table's column must read false.
+		jen.Switch(jen.Id("col").Dot("Key").Call()).BlockFunc(func(sg *jen.Group) {
+			for _, c := range cols {
+				sg.Case(jen.Id(c.GoName).Dot("Key").Call()).Block(
+					jen.Return(observedTest(jen.Id("r"), c.Bit)),
+				)
+			}
+		}),
+		jen.Line(),
+		jen.Return(jen.False()),
+	)
 
 	// 3) Walker wrapper. We embed an indexed map column-id → AnyColumn so
 	// the hot path can look up the decoder by the last sub-id of each
@@ -137,7 +172,7 @@ func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
 	// 4) Iter method. The bulk of the work lives here.
 	iterCols := make([]colInfoLike, len(cols))
 	for i, c := range cols {
-		iterCols[i] = colInfoLike{GoName: c.GoName, FieldName: c.FieldName, Sub: c.Sub, RawFuse: c.Res.RawFuse, GoType: c.Res.GoType}
+		iterCols[i] = colInfoLike{GoName: c.GoName, FieldName: c.FieldName, Sub: c.Sub, Bit: c.Bit, RawFuse: c.Res.RawFuse, GoType: c.Res.GoType}
 	}
 	emitTableIter(f, walkerTypeName, rowTypeName, entryPrefix, iterCols)
 
@@ -196,6 +231,7 @@ func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
 			GoName:    c.GoName,
 			FieldName: c.FieldName,
 			Sub:       c.Sub,
+			Bit:       c.Bit,
 			GoType:    c.Res.GoType,
 			Variant:   c.Res.Variant,
 		})
@@ -266,7 +302,8 @@ func emitTableIter(f *jen.File, walkerTypeName, rowTypeName, entryPrefix string,
 	f.Comment("")
 	f.Comment("  2. Row presence: every index observed under the entry prefix")
 	f.Comment("     yields a row, even when only unrequested columns landed on")
-	f.Comment("     that index. The row's requested-column fields stay at zero.")
+	f.Comment("     that index. The row's requested-column fields stay at zero")
+	f.Comment("     and Observed reports every column of that row as unobserved.")
 	f.Comment("")
 	f.Comment("  3. Decode error: rows for indexes strictly before the failing")
 	f.Comment("     index in appearance order flush before Walker.Fail is set,")
@@ -353,12 +390,14 @@ func emitTableIter(f *jen.File, walkerTypeName, rowTypeName, entryPrefix string,
 										jen.Id("derr").Op("=").Id("dErr"),
 									).Else().Block(
 										jen.Id("row").Dot(c.FieldName).Op("=").Id("dv"),
+										observedMark(jen.Id("row"), c.Bit),
 									)
 								})
 							}
 							if c.RawFuse != "" {
 								cg.If(jen.List(jen.Id("v"), jen.Id("okRaw")).Op(":=").Qual(snmpImport, c.RawFuse).Call(jen.Id("rv")), jen.Id("okRaw")).Block(
 									jen.Id("row").Dot(c.FieldName).Op("=").Add(c.GoType.Clone()).Call(jen.Id("v")),
+									observedMark(jen.Id("row"), c.Bit),
 								).Else().BlockFunc(genericArm)
 							} else {
 								genericArm(cg)
@@ -399,6 +438,20 @@ func emitTableIter(f *jen.File, walkerTypeName, rowTypeName, entryPrefix string,
 	)
 }
 
+// observedTest renders the expression that reads column bit from a
+// row value's observation set, e.g. `r.observed[0]&(1<<3) != 0`.
+func observedTest(rowExpr *jen.Statement, bit int) *jen.Statement {
+	return rowExpr.Clone().Dot("observed").Index(jen.Lit(bit / 64)).
+		Op("&").Parens(jen.Lit(1).Op("<<").Lit(bit % 64)).Op("!=").Lit(0)
+}
+
+// observedMark renders the statement that records column bit as
+// observed on a row, e.g. `row.observed[0] |= 1 << 3`.
+func observedMark(rowExpr *jen.Statement, bit int) *jen.Statement {
+	return rowExpr.Clone().Dot("observed").Index(jen.Lit(bit / 64)).
+		Op("|=").Lit(1).Op("<<").Lit(bit % 64)
+}
+
 // colInfoLike is the table-emitter's interface for column-info; the
 // helper exists so emit_table.go can pass either the local colInfo
 // struct or any equivalent to emitTableIter. Concrete type for cols
@@ -407,6 +460,8 @@ type colInfoLike struct {
 	GoName    string
 	FieldName string
 	Sub       uint32
+	// Bit is the column's position in the row's observed set.
+	Bit int
 	// RawFuse names the snmp.Raw* fused decoder for the column's Kind
 	// (empty → generic decode only); GoType is the row field's type,
 	// used to cast the fused primitive's numeric result.

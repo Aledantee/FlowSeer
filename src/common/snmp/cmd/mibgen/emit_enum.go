@@ -60,6 +60,11 @@ func emitEnums(f *jen.File, ec *emitCtx, mod *gosmi.SmiModule, nodes []gosmi.Smi
 		if t.Enum == nil || len(t.Enum.Values) == 0 {
 			continue
 		}
+		if isBitsType(&t.Type) {
+			// BITS arrives here wearing BaseTypeEnum; emitBitsConsts
+			// owns it.
+			continue
+		}
 		key := "type:" + t.Name
 		if _, ok := enums[key]; ok {
 			continue
@@ -98,6 +103,9 @@ func emitEnums(f *jen.File, ec *emitCtx, mod *gosmi.SmiModule, nodes []gosmi.Smi
 			continue
 		}
 		if n.Type.Enum == nil || len(n.Type.Enum.Values) == 0 {
+			continue
+		}
+		if isBitsType(n.Type) {
 			continue
 		}
 		key := "node:" + n.Name

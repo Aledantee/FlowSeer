@@ -49,55 +49,6 @@ func (v EntityAdminState) String() string {
 	return fmt.Sprintf("EntityAdminState(%d)", v)
 }
 
-// EntityAlarmStatus is the SMI enum EntityAlarmStatus.
-// Represents the possible values of alarm status. An Alarm [RFC 3877] is a
-// persistent indication of an error or warning condition. When no bits of
-// this attribute are set, then no active alarms are known against this
-// entity and it is not under repair. When the 'value of underRepair' is
-// set, the resource is currently being repaired, which, depending on the
-// implementation, may make the other values in this bit string not
-// meaningful. When the value of 'critical' is set, one or more critical
-// alarms are active against the resource. When the value of 'major' is
-// set, one or more major alarms are active against the resource. When the
-// value of 'minor' is set, one or more minor alarms are active against the
-// resource. When the value of 'warning' is set, one or more warning alarms
-// are active against the resource. When the value of 'indeterminate' is
-// set, one or more alarms of whose perceived severity cannot be determined
-// are active against this resource. A value of 'unknown' means that this
-// resource is unable to report alarm state.
-type EntityAlarmStatus int32
-
-const (
-	EntityAlarmStatusUnknown       EntityAlarmStatus = 0
-	EntityAlarmStatusUnderRepair   EntityAlarmStatus = 1
-	EntityAlarmStatusCritical      EntityAlarmStatus = 2
-	EntityAlarmStatusMajor         EntityAlarmStatus = 3
-	EntityAlarmStatusMinor         EntityAlarmStatus = 4
-	EntityAlarmStatusWarning       EntityAlarmStatus = 5
-	EntityAlarmStatusIndeterminate EntityAlarmStatus = 6
-)
-
-func (v EntityAlarmStatus) String() string {
-	switch v {
-	case EntityAlarmStatusUnknown:
-		return "unknown"
-	case EntityAlarmStatusUnderRepair:
-		return "underRepair"
-	case EntityAlarmStatusCritical:
-		return "critical"
-	case EntityAlarmStatusMajor:
-		return "major"
-	case EntityAlarmStatusMinor:
-		return "minor"
-	case EntityAlarmStatusWarning:
-		return "warning"
-	case EntityAlarmStatusIndeterminate:
-		return "indeterminate"
-	}
-
-	return fmt.Sprintf("EntityAlarmStatus(%d)", v)
-}
-
 // EntityOperState is the SMI enum EntityOperState.
 // Represents the possible values of operational states. A value of
 // 'disabled' means the resource is totally inoperable. A value of
@@ -196,6 +147,33 @@ func (v EntityUsageState) String() string {
 	return fmt.Sprintf("EntityUsageState(%d)", v)
 }
 
+// EntityAlarmStatus names the bit positions of the SMI BITS type EntityAlarmStatus.
+// Pass one to [snmp.BitSet.Has] on a value of this type.
+// Represents the possible values of alarm status. An Alarm [RFC 3877] is a
+// persistent indication of an error or warning condition. When no bits of
+// this attribute are set, then no active alarms are known against this
+// entity and it is not under repair. When the 'value of underRepair' is
+// set, the resource is currently being repaired, which, depending on the
+// implementation, may make the other values in this bit string not
+// meaningful. When the value of 'critical' is set, one or more critical
+// alarms are active against the resource. When the value of 'major' is
+// set, one or more major alarms are active against the resource. When the
+// value of 'minor' is set, one or more minor alarms are active against the
+// resource. When the value of 'warning' is set, one or more warning alarms
+// are active against the resource. When the value of 'indeterminate' is
+// set, one or more alarms of whose perceived severity cannot be determined
+// are active against this resource. A value of 'unknown' means that this
+// resource is unable to report alarm state.
+const (
+	EntityAlarmStatusUnknown       snmp.BitPos = 0
+	EntityAlarmStatusUnderRepair   snmp.BitPos = 1
+	EntityAlarmStatusCritical      snmp.BitPos = 2
+	EntityAlarmStatusMajor         snmp.BitPos = 3
+	EntityAlarmStatusMinor         snmp.BitPos = 4
+	EntityAlarmStatusWarning       snmp.BitPos = 5
+	EntityAlarmStatusIndeterminate snmp.BitPos = 6
+)
+
 // EntStateLastChanged is the column entStateLastChanged of table entStateTable.
 // The value of this object is the date and time when the value of any of
 // entStateAdmin, entStateOper, entStateUsage, entStateAlarm, or
@@ -285,12 +263,8 @@ var EntStateUsage = snmp.NewColumn[EntityUsageState](snmp.MustOID(1, 3, 6, 1, 2,
 // some of the alarms is not known. If no bits are set, then this entity
 // supports reporting of alarms, but there are currently no active alarms
 // against this entity.
-var EntStateAlarm = snmp.NewColumn[EntityAlarmStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (EntityAlarmStatus, error) {
-	v, err := snmp.DecodeInt32(vb)
-	if err != nil {
-		return EntityAlarmStatus(0), err
-	}
-	return EntityAlarmStatus(v), nil
+var EntStateAlarm = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
+	return snmp.DecodeBitSet(vb)
 })
 
 // EntStateStandby is the column entStateStandby of table entStateTable.
@@ -308,15 +282,45 @@ var EntStateStandby = snmp.NewColumn[EntityStandbyStatus](snmp.MustOID(1, 3, 6, 
 
 // EntStateTableRow is one row of entStateTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// EntStateTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type EntStateTableRow struct {
 	Index               snmp.OID
 	EntStateLastChanged time.Time
 	EntStateAdmin       EntityAdminState
 	EntStateOper        EntityOperState
 	EntStateUsage       EntityUsageState
-	EntStateAlarm       EntityAlarmStatus
+	EntStateAlarm       snmp.BitSet
 	EntStateStandby     EntityStandbyStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r EntStateTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case EntStateLastChanged.Key():
+		return r.observed[0]&(1<<0) != 0
+	case EntStateAdmin.Key():
+		return r.observed[0]&(1<<1) != 0
+	case EntStateOper.Key():
+		return r.observed[0]&(1<<2) != 0
+	case EntStateUsage.Key():
+		return r.observed[0]&(1<<3) != 0
+	case EntStateAlarm.Key():
+		return r.observed[0]&(1<<4) != 0
+	case EntStateStandby.Key():
+		return r.observed[0]&(1<<5) != 0
+	}
+
+	return false
 }
 
 // EntStateTableWalker is a table-aware walker over entStateTable.
@@ -342,7 +346,8 @@ type EntStateTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -399,11 +404,13 @@ func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 						derr = dErr
 					} else {
 						row.EntStateLastChanged = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntStateAdmin = EntityAdminState(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -414,12 +421,14 @@ func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 							derr = dErr
 						} else {
 							row.EntStateAdmin = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntStateOper = EntityOperState(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -430,12 +439,14 @@ func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 							derr = dErr
 						} else {
 							row.EntStateOper = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntStateUsage = EntityUsageState(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -446,28 +457,27 @@ func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 							derr = dErr
 						} else {
 							row.EntStateUsage = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntStateAlarm = EntityAlarmStatus(v)
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
 				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+					dv, dErr := EntStateAlarm.Decode(vb)
+					if dErr != nil {
+						derr = dErr
 					} else {
-						dv, dErr := EntStateAlarm.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntStateAlarm = dv
-						}
+						row.EntStateAlarm = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntStateStandby = EntityStandbyStatus(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -478,6 +488,7 @@ func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 							derr = dErr
 						} else {
 							row.EntStateStandby = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
@@ -567,36 +578,42 @@ func decodeEntStateTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntStateTableRow,
 				return row, derr
 			}
 			row.EntStateLastChanged = dv
+			row.observed[0] |= 1 << 0
 		case 2:
 			dv, derr := EntStateAdmin.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntStateAdmin = dv
+			row.observed[0] |= 1 << 1
 		case 3:
 			dv, derr := EntStateOper.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntStateOper = dv
+			row.observed[0] |= 1 << 2
 		case 4:
 			dv, derr := EntStateUsage.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntStateUsage = dv
+			row.observed[0] |= 1 << 3
 		case 5:
 			dv, derr := EntStateAlarm.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntStateAlarm = dv
+			row.observed[0] |= 1 << 4
 		case 6:
 			dv, derr := EntStateStandby.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntStateStandby = dv
+			row.observed[0] |= 1 << 5
 		}
 	}
 
@@ -608,7 +625,7 @@ func decodeEntStateTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntStateTableRow,
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntStateTableRow(a EntStateTableRow, b EntStateTableRow) bool {
-	return a.Index.Equal(b.Index) && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm == b.EntStateAlarm && a.EntStateStandby == b.EntStateStandby
+	return a.Index.Equal(b.Index) && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm.Equal(b.EntStateAlarm) && a.EntStateStandby == b.EntStateStandby
 }
 
 // mergeEntStateTableRow merges the values decoded from vbs into dst, leaving fields
@@ -634,31 +651,37 @@ func mergeEntStateTableRow(dst *EntStateTableRow, vbs []snmp.VarBind) {
 			dv, derr := EntStateLastChanged.Decode(vb)
 			if derr == nil {
 				dst.EntStateLastChanged = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 2:
 			dv, derr := EntStateAdmin.Decode(vb)
 			if derr == nil {
 				dst.EntStateAdmin = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 3:
 			dv, derr := EntStateOper.Decode(vb)
 			if derr == nil {
 				dst.EntStateOper = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 4:
 			dv, derr := EntStateUsage.Decode(vb)
 			if derr == nil {
 				dst.EntStateUsage = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 5:
 			dv, derr := EntStateAlarm.Decode(vb)
 			if derr == nil {
 				dst.EntStateAlarm = dv
+				dst.observed[0] |= 1 << 4
 			}
 		case 6:
 			dv, derr := EntStateStandby.Decode(vb)
 			if derr == nil {
 				dst.EntStateStandby = dv
+				dst.observed[0] |= 1 << 5
 			}
 		}
 	}

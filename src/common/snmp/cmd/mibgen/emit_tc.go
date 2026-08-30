@@ -163,6 +163,15 @@ func resolveType(ec *emitCtx, n gosmi.SmiNode) resolved {
 		return dec
 	}
 
+	// BITS before enums: libsmi reports a BITS type with BaseTypeEnum
+	// and named members, so the enum path would otherwise claim it and
+	// emit a single int32 constant per bit — a shape that neither
+	// decodes the agent's OCTET STRING nor represents the two-bits-set
+	// answers BITS exists for.
+	if isBitsType(t) {
+		return resolvedBitSet()
+	}
+
 	// Inline-INTEGER enums on an OBJECT-TYPE leave the node's Type.Name
 	// empty (libsmi flattens them); a generated enum is keyed off the
 	// node name and registered in enumNames during the enum pass.
@@ -398,8 +407,10 @@ func resolveBase(bt gosmitypes.BaseType) resolved {
 			ZeroExpr:   zero,
 			RawFuse:    "RawGauge32",
 		}
-	case gosmitypes.BaseTypeOctetString, gosmitypes.BaseTypeBits:
+	case gosmitypes.BaseTypeOctetString:
 		return resolvedBytes()
+	case gosmitypes.BaseTypeBits:
+		return resolvedBitSet()
 	case gosmitypes.BaseTypeObjectIdentifier:
 		zero := func() *jen.Statement { return jen.Qual(snmpImport, "OID").Values() }
 		return resolved{
@@ -433,6 +444,35 @@ func resolvedBytes() resolved {
 	}
 }
 
+// isBitsType reports whether t is an SMIv2 BITS type. libsmi loses the
+// distinction at the top level — a `BITS { other(0), bridge(2) }`
+// declaration arrives as BaseTypeEnum — but keeps it on the member list
+// it hangs off the type, so that is where the check looks. A type
+// carrying BaseTypeBits directly (an inline `SYNTAX BITS {…}`) is the
+// other spelling of the same thing.
+func isBitsType(t *gosmimodels.Type) bool {
+	if t == nil {
+		return false
+	}
+	if t.BaseType == gosmitypes.BaseTypeBits {
+		return true
+	}
+	return t.Enum != nil && t.Enum.BaseType == gosmitypes.BaseTypeBits
+}
+
+// resolvedBitSet is the canonical resolution for BITS-valued objects:
+// the wire OCTET STRING decodes to an [snmp.BitSet], which carries every
+// set position including the ones this MIB has no name for.
+func resolvedBitSet() resolved {
+	return tcDelegate(
+		jen.Qual(snmpImport, "BitSet"),
+		"DecodeBitSet",
+		"OctetStringVar",
+		"KindOctetString",
+		func() *jen.Statement { return jen.Qual(snmpImport, "BitSet").Values() },
+	)
+}
+
 // wellKnownTC implements the well-known textual-convention dispatch.
 func wellKnownTC(name string) (resolved, bool) {
 	switch name {
@@ -449,7 +489,7 @@ func wellKnownTC(name string) (resolved, bool) {
 	case "DisplayString":
 		return tcDelegate(jen.String(), "DecodeDisplayString", "OctetStringVar", "KindOctetString", func() *jen.Statement { return jen.Lit("") }), true
 	case "BITS":
-		return tcDelegate(jen.Index().Byte(), "DecodeBITS", "OctetStringVar", "KindOctetString", jen.Nil), true
+		return resolvedBitSet(), true
 	}
 	return resolved{}, false
 }

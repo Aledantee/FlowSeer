@@ -262,7 +262,9 @@ var EntPhySensorValueUpdateRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 
 // EntPhySensorTableRow is one row of entPhySensorTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// EntPhySensorTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type EntPhySensorTableRow struct {
 	Index                       snmp.OID
 	EntPhySensorType            EntitySensorDataType
@@ -273,6 +275,38 @@ type EntPhySensorTableRow struct {
 	EntPhySensorUnitsDisplay    []byte
 	EntPhySensorValueTimeStamp  uint32
 	EntPhySensorValueUpdateRate uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r EntPhySensorTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case EntPhySensorType.Key():
+		return r.observed[0]&(1<<0) != 0
+	case EntPhySensorScale.Key():
+		return r.observed[0]&(1<<1) != 0
+	case EntPhySensorPrecision.Key():
+		return r.observed[0]&(1<<2) != 0
+	case EntPhySensorValue.Key():
+		return r.observed[0]&(1<<3) != 0
+	case EntPhySensorOperStatus.Key():
+		return r.observed[0]&(1<<4) != 0
+	case EntPhySensorUnitsDisplay.Key():
+		return r.observed[0]&(1<<5) != 0
+	case EntPhySensorValueTimeStamp.Key():
+		return r.observed[0]&(1<<6) != 0
+	case EntPhySensorValueUpdateRate.Key():
+		return r.observed[0]&(1<<7) != 0
+	}
+
+	return false
 }
 
 // EntPhySensorTableWalker is a table-aware walker over entPhySensorTable.
@@ -298,7 +332,8 @@ type EntPhySensorTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -348,6 +383,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhySensorType = EntitySensorDataType(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -358,12 +394,14 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 							derr = dErr
 						} else {
 							row.EntPhySensorType = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhySensorScale = EntitySensorDataScale(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -374,12 +412,14 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 							derr = dErr
 						} else {
 							row.EntPhySensorScale = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhySensorPrecision = int32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -390,12 +430,14 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 							derr = dErr
 						} else {
 							row.EntPhySensorPrecision = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhySensorValue = int32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -406,12 +448,14 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 							derr = dErr
 						} else {
 							row.EntPhySensorValue = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhySensorOperStatus = EntitySensorStatus(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -422,6 +466,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 							derr = dErr
 						} else {
 							row.EntPhySensorOperStatus = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -435,11 +480,13 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 						derr = dErr
 					} else {
 						row.EntPhySensorUnitsDisplay = dv
+						row.observed[0] |= 1 << 5
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.EntPhySensorValueTimeStamp = uint32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -450,12 +497,14 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 							derr = dErr
 						} else {
 							row.EntPhySensorValueTimeStamp = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.EntPhySensorValueUpdateRate = uint32(v)
+					row.observed[0] |= 1 << 7
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -466,6 +515,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 							derr = dErr
 						} else {
 							row.EntPhySensorValueUpdateRate = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
 				}
