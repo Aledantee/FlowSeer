@@ -2,9 +2,9 @@ edition = "2024";
 
 // The integration family — a configured adapter instance: the cloud
 // tenant, controller, or edge agent through which FlowSeer reaches
-// devices. Kind-specific configurations such as LocalNetworkConfig are
-// arms of IntegrationConfig's kind oneof, not entity families; no State
-// or Event exists for them.
+// devices. Kind-configuration messages such as LocalNetworkConfig and
+// ThirdPartyConfig are arms of IntegrationConfig's kind oneof, not entity
+// families; no State or Event exists for them.
 package flowseer.api.inventory.v1;
 
 import "flowseer/net/addr/v1/ip.proto";
@@ -52,6 +52,32 @@ message LocalNetworkConfig {
   repeated flowseer.net.addr.v1.IpPrefix seed_ranges = 1;
 }
 
+// Configuration of a third-party kind, typed by the descriptor set the
+// kind advertises when it announces. One arm covers every third-party
+// kind; a first-party kind gets its own compiled arm instead.
+message ThirdPartyConfig {
+  // The kind's announced name; matches the announce and selects the
+  // advertised descriptor set the payload is checked against. Must be
+  // present.
+  string kind_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Fully-qualified protobuf name of the config message within that
+  // descriptor set. Must be present.
+  string type_name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 256,
+    (buf.validate.field).string.pattern = "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$"
+  ];
+  // The serialized config message of that type. The service builds the
+  // type from the advertised descriptor and runs its protovalidate rules,
+  // which needs data this message does not contain. Must be present; empty
+  // is a config with every field unset.
+  bytes value = 3 [(buf.validate.field).required = true];
+}
+
 // The intended definition of one integration: what the operator entered
 // to attach it.
 message IntegrationConfig {
@@ -84,10 +110,13 @@ message IntegrationConfig {
   uint32 requests_per_second = 5 [(buf.validate.field).uint32.gt = 0];
 
   // The kind-specific configuration; the arm identifies the kind.
+  // First-party kinds occupy 10 through 18; every third-party kind shares
+  // the third_party arm and is told apart by its kind_name.
   oneof kind {
     option (buf.validate.oneof).required = true;
 
     LocalNetworkConfig local_network = 10;
+    ThirdPartyConfig third_party = 19;
   }
 }
 

@@ -6,9 +6,9 @@
 
 // The integration family — a configured adapter instance: the cloud
 // tenant, controller, or edge agent through which FlowSeer reaches
-// devices. Kind-specific configurations such as LocalNetworkConfig are
-// arms of IntegrationConfig's kind oneof, not entity families; no State
-// or Event exists for them.
+// devices. Kind-configuration messages such as LocalNetworkConfig and
+// ThirdPartyConfig are arms of IntegrationConfig's kind oneof, not entity
+// families; no State or Event exists for them.
 
 package inventoryv1
 
@@ -303,6 +303,162 @@ func (b0 LocalNetworkConfig_builder) Build() *LocalNetworkConfig {
 	return m0
 }
 
+// Configuration of a third-party kind, typed by the descriptor set the
+// kind advertises when it announces. One arm covers every third-party
+// kind; a first-party kind gets its own compiled arm instead.
+type ThirdPartyConfig struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_KindName    *string                `protobuf:"bytes,1,opt,name=kind_name,json=kindName"`
+	xxx_hidden_TypeName    *string                `protobuf:"bytes,2,opt,name=type_name,json=typeName"`
+	xxx_hidden_Value       []byte                 `protobuf:"bytes,3,opt,name=value"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ThirdPartyConfig) Reset() {
+	*x = ThirdPartyConfig{}
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ThirdPartyConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ThirdPartyConfig) ProtoMessage() {}
+
+func (x *ThirdPartyConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ThirdPartyConfig) GetKindName() string {
+	if x != nil {
+		if x.xxx_hidden_KindName != nil {
+			return *x.xxx_hidden_KindName
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ThirdPartyConfig) GetTypeName() string {
+	if x != nil {
+		if x.xxx_hidden_TypeName != nil {
+			return *x.xxx_hidden_TypeName
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ThirdPartyConfig) GetValue() []byte {
+	if x != nil {
+		return x.xxx_hidden_Value
+	}
+	return nil
+}
+
+func (x *ThirdPartyConfig) SetKindName(v string) {
+	x.xxx_hidden_KindName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *ThirdPartyConfig) SetTypeName(v string) {
+	x.xxx_hidden_TypeName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *ThirdPartyConfig) SetValue(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_Value = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *ThirdPartyConfig) HasKindName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ThirdPartyConfig) HasTypeName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ThirdPartyConfig) HasValue() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ThirdPartyConfig) ClearKindName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_KindName = nil
+}
+
+func (x *ThirdPartyConfig) ClearTypeName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_TypeName = nil
+}
+
+func (x *ThirdPartyConfig) ClearValue() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Value = nil
+}
+
+type ThirdPartyConfig_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The kind's announced name; matches the announce and selects the
+	// advertised descriptor set the payload is checked against. Must be
+	// present.
+	KindName *string
+	// Fully-qualified protobuf name of the config message within that
+	// descriptor set. Must be present.
+	TypeName *string
+	// The serialized config message of that type. The service builds the
+	// type from the advertised descriptor and runs its protovalidate rules,
+	// which needs data this message does not contain. Must be present; empty
+	// is a config with every field unset.
+	Value []byte
+}
+
+func (b0 ThirdPartyConfig_builder) Build() *ThirdPartyConfig {
+	m0 := &ThirdPartyConfig{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.KindName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_KindName = b.KindName
+	}
+	if b.TypeName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_TypeName = b.TypeName
+	}
+	if b.Value != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Value = b.Value
+	}
+	return m0
+}
+
 // The intended definition of one integration: what the operator entered
 // to attach it.
 type IntegrationConfig struct {
@@ -321,7 +477,7 @@ type IntegrationConfig struct {
 
 func (x *IntegrationConfig) Reset() {
 	*x = IntegrationConfig{}
-	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[3]
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -333,7 +489,7 @@ func (x *IntegrationConfig) String() string {
 func (*IntegrationConfig) ProtoMessage() {}
 
 func (x *IntegrationConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[3]
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -397,6 +553,15 @@ func (x *IntegrationConfig) GetLocalNetwork() *LocalNetworkConfig {
 	return nil
 }
 
+func (x *IntegrationConfig) GetThirdParty() *ThirdPartyConfig {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Kind.(*integrationConfig_ThirdParty); ok {
+			return x.ThirdParty
+		}
+	}
+	return nil
+}
+
 func (x *IntegrationConfig) SetRef(v *IntegrationGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
@@ -427,6 +592,14 @@ func (x *IntegrationConfig) SetLocalNetwork(v *LocalNetworkConfig) {
 		return
 	}
 	x.xxx_hidden_Kind = &integrationConfig_LocalNetwork{v}
+}
+
+func (x *IntegrationConfig) SetThirdParty(v *ThirdPartyConfig) {
+	if v == nil {
+		x.xxx_hidden_Kind = nil
+		return
+	}
+	x.xxx_hidden_Kind = &integrationConfig_ThirdParty{v}
 }
 
 func (x *IntegrationConfig) HasRef() bool {
@@ -479,6 +652,14 @@ func (x *IntegrationConfig) HasLocalNetwork() bool {
 	return ok
 }
 
+func (x *IntegrationConfig) HasThirdParty() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Kind.(*integrationConfig_ThirdParty)
+	return ok
+}
+
 func (x *IntegrationConfig) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
@@ -513,8 +694,15 @@ func (x *IntegrationConfig) ClearLocalNetwork() {
 	}
 }
 
+func (x *IntegrationConfig) ClearThirdParty() {
+	if _, ok := x.xxx_hidden_Kind.(*integrationConfig_ThirdParty); ok {
+		x.xxx_hidden_Kind = nil
+	}
+}
+
 const IntegrationConfig_Kind_not_set_case case_IntegrationConfig_Kind = 0
 const IntegrationConfig_LocalNetwork_case case_IntegrationConfig_Kind = 10
+const IntegrationConfig_ThirdParty_case case_IntegrationConfig_Kind = 19
 
 func (x *IntegrationConfig) WhichKind() case_IntegrationConfig_Kind {
 	if x == nil {
@@ -523,6 +711,8 @@ func (x *IntegrationConfig) WhichKind() case_IntegrationConfig_Kind {
 	switch x.xxx_hidden_Kind.(type) {
 	case *integrationConfig_LocalNetwork:
 		return IntegrationConfig_LocalNetwork_case
+	case *integrationConfig_ThirdParty:
+		return IntegrationConfig_ThirdParty_case
 	default:
 		return IntegrationConfig_Kind_not_set_case
 	}
@@ -549,9 +739,12 @@ type IntegrationConfig_builder struct {
 	// applies.
 	RequestsPerSecond *uint32
 	// The kind-specific configuration; the arm identifies the kind.
+	// First-party kinds occupy 10 through 18; every third-party kind shares
+	// the third_party arm and is told apart by its kind_name.
 
 	// Fields of oneof xxx_hidden_Kind:
 	LocalNetwork *LocalNetworkConfig
+	ThirdParty   *ThirdPartyConfig
 	// -- end of xxx_hidden_Kind
 }
 
@@ -579,13 +772,16 @@ func (b0 IntegrationConfig_builder) Build() *IntegrationConfig {
 	if b.LocalNetwork != nil {
 		x.xxx_hidden_Kind = &integrationConfig_LocalNetwork{b.LocalNetwork}
 	}
+	if b.ThirdParty != nil {
+		x.xxx_hidden_Kind = &integrationConfig_ThirdParty{b.ThirdParty}
+	}
 	return m0
 }
 
 type case_IntegrationConfig_Kind protoreflect.FieldNumber
 
 func (x case_IntegrationConfig_Kind) String() string {
-	md := file_flowseer_api_inventory_v1_integration_proto_msgTypes[3].Descriptor()
+	md := file_flowseer_api_inventory_v1_integration_proto_msgTypes[4].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -600,7 +796,13 @@ type integrationConfig_LocalNetwork struct {
 	LocalNetwork *LocalNetworkConfig `protobuf:"bytes,10,opt,name=local_network,json=localNetwork,oneof"`
 }
 
+type integrationConfig_ThirdParty struct {
+	ThirdParty *ThirdPartyConfig `protobuf:"bytes,19,opt,name=third_party,json=thirdParty,oneof"`
+}
+
 func (*integrationConfig_LocalNetwork) isIntegrationConfig_Kind() {}
+
+func (*integrationConfig_ThirdParty) isIntegrationConfig_Kind() {}
 
 // The observed side of one integration: the identity the platform
 // reported at verification and the lifecycle FlowSeer holds for it.
@@ -619,7 +821,7 @@ type IntegrationState struct {
 
 func (x *IntegrationState) Reset() {
 	*x = IntegrationState{}
-	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[4]
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -631,7 +833,7 @@ func (x *IntegrationState) String() string {
 func (*IntegrationState) ProtoMessage() {}
 
 func (x *IntegrationState) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[4]
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -830,7 +1032,7 @@ type IntegrationEvent struct {
 
 func (x *IntegrationEvent) Reset() {
 	*x = IntegrationEvent{}
-	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[5]
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -842,7 +1044,7 @@ func (x *IntegrationEvent) String() string {
 func (*IntegrationEvent) ProtoMessage() {}
 
 func (x *IntegrationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[5]
+	mi := &file_flowseer_api_inventory_v1_integration_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -967,7 +1169,12 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\vintegration\x18\x01 \x01(\v2..flowseer.api.inventory.v1.IntegrationLocalRefB\x06\xbaH\x03\xc8\x01\x01R\vintegration\"U\n" +
 	"\x12LocalNetworkConfig\x12?\n" +
 	"\vseed_ranges\x18\x01 \x03(\v2\x1e.flowseer.net.addr.v1.IpPrefixR\n" +
-	"seedRanges\"\x80\x03\n" +
+	"seedRanges\"\xbb\x01\n" +
+	"\x10ThirdPartyConfig\x12*\n" +
+	"\tkind_name\x18\x01 \x01(\tB\r\xbaH\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\bkindName\x12]\n" +
+	"\ttype_name\x18\x02 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\btypeName\x12\x1c\n" +
+	"\x05value\x18\x03 \x01(\fB\x06\xbaH\x03\xc8\x01\x01R\x05value\"\xd0\x03\n" +
 	"\x11IntegrationConfig\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -978,7 +1185,9 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\rcredentialRef\x127\n" +
 	"\x13requests_per_second\x18\x05 \x01(\rB\a\xbaH\x04*\x02 \x00R\x11requestsPerSecond\x12T\n" +
 	"\rlocal_network\x18\n" +
-	" \x01(\v2-.flowseer.api.inventory.v1.LocalNetworkConfigH\x00R\flocalNetworkB\r\n" +
+	" \x01(\v2-.flowseer.api.inventory.v1.LocalNetworkConfigH\x00R\flocalNetwork\x12N\n" +
+	"\vthird_party\x18\x13 \x01(\v2+.flowseer.api.inventory.v1.ThirdPartyConfigH\x00R\n" +
+	"thirdPartyB\r\n" +
 	"\x04kind\x12\x05\xbaH\x02\b\x01\"\xd0\x02\n" +
 	"\x10IntegrationState\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\\\n" +
@@ -1008,32 +1217,34 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\x1dcom.flowseer.api.inventory.v1B\x10IntegrationProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_integration_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_api_inventory_v1_integration_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_flowseer_api_inventory_v1_integration_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_flowseer_api_inventory_v1_integration_proto_goTypes = []any{
 	(IntegrationLifecycle)(0),    // 0: flowseer.api.inventory.v1.IntegrationLifecycle
 	(*IntegrationLocalRef)(nil),  // 1: flowseer.api.inventory.v1.IntegrationLocalRef
 	(*IntegrationGlobalRef)(nil), // 2: flowseer.api.inventory.v1.IntegrationGlobalRef
 	(*LocalNetworkConfig)(nil),   // 3: flowseer.api.inventory.v1.LocalNetworkConfig
-	(*IntegrationConfig)(nil),    // 4: flowseer.api.inventory.v1.IntegrationConfig
-	(*IntegrationState)(nil),     // 5: flowseer.api.inventory.v1.IntegrationState
-	(*IntegrationEvent)(nil),     // 6: flowseer.api.inventory.v1.IntegrationEvent
-	(*v1.IpPrefix)(nil),          // 7: flowseer.net.addr.v1.IpPrefix
+	(*ThirdPartyConfig)(nil),     // 4: flowseer.api.inventory.v1.ThirdPartyConfig
+	(*IntegrationConfig)(nil),    // 5: flowseer.api.inventory.v1.IntegrationConfig
+	(*IntegrationState)(nil),     // 6: flowseer.api.inventory.v1.IntegrationState
+	(*IntegrationEvent)(nil),     // 7: flowseer.api.inventory.v1.IntegrationEvent
+	(*v1.IpPrefix)(nil),          // 8: flowseer.net.addr.v1.IpPrefix
 }
 var file_flowseer_api_inventory_v1_integration_proto_depIdxs = []int32{
-	1, // 0: flowseer.api.inventory.v1.IntegrationGlobalRef.integration:type_name -> flowseer.api.inventory.v1.IntegrationLocalRef
-	7, // 1: flowseer.api.inventory.v1.LocalNetworkConfig.seed_ranges:type_name -> flowseer.net.addr.v1.IpPrefix
-	2, // 2: flowseer.api.inventory.v1.IntegrationConfig.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
-	3, // 3: flowseer.api.inventory.v1.IntegrationConfig.local_network:type_name -> flowseer.api.inventory.v1.LocalNetworkConfig
-	2, // 4: flowseer.api.inventory.v1.IntegrationState.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
-	0, // 5: flowseer.api.inventory.v1.IntegrationState.lifecycle:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
-	2, // 6: flowseer.api.inventory.v1.IntegrationEvent.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
-	0, // 7: flowseer.api.inventory.v1.IntegrationEvent.from:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
-	0, // 8: flowseer.api.inventory.v1.IntegrationEvent.to:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	1,  // 0: flowseer.api.inventory.v1.IntegrationGlobalRef.integration:type_name -> flowseer.api.inventory.v1.IntegrationLocalRef
+	8,  // 1: flowseer.api.inventory.v1.LocalNetworkConfig.seed_ranges:type_name -> flowseer.net.addr.v1.IpPrefix
+	2,  // 2: flowseer.api.inventory.v1.IntegrationConfig.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
+	3,  // 3: flowseer.api.inventory.v1.IntegrationConfig.local_network:type_name -> flowseer.api.inventory.v1.LocalNetworkConfig
+	4,  // 4: flowseer.api.inventory.v1.IntegrationConfig.third_party:type_name -> flowseer.api.inventory.v1.ThirdPartyConfig
+	2,  // 5: flowseer.api.inventory.v1.IntegrationState.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
+	0,  // 6: flowseer.api.inventory.v1.IntegrationState.lifecycle:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
+	2,  // 7: flowseer.api.inventory.v1.IntegrationEvent.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
+	0,  // 8: flowseer.api.inventory.v1.IntegrationEvent.from:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
+	0,  // 9: flowseer.api.inventory.v1.IntegrationEvent.to:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_integration_proto_init() }
@@ -1041,8 +1252,9 @@ func file_flowseer_api_inventory_v1_integration_proto_init() {
 	if File_flowseer_api_inventory_v1_integration_proto != nil {
 		return
 	}
-	file_flowseer_api_inventory_v1_integration_proto_msgTypes[3].OneofWrappers = []any{
+	file_flowseer_api_inventory_v1_integration_proto_msgTypes[4].OneofWrappers = []any{
 		(*integrationConfig_LocalNetwork)(nil),
+		(*integrationConfig_ThirdParty)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1050,7 +1262,7 @@ func file_flowseer_api_inventory_v1_integration_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_inventory_v1_integration_proto_rawDesc), len(file_flowseer_api_inventory_v1_integration_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -110,8 +110,17 @@ both identifies the kind and holds its typed configuration. Only the
 local-network arm exists so far; each further first-party kind lands as a
 new arm with its adapter, per the
 [device-service direction record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md).
-Third-party descriptor-advertised kinds are that record's later step and
-have no schema surface yet.
+
+Third-party kinds do not get arms. A third-party adapter advertises the
+`FileDescriptorSet` of its config message when it announces, so its
+configuration cannot be compiled into this schema — all such kinds share
+the one `third_party` arm, told apart by the announced `kind_name`. The
+payload is the serialized config message named by `type_name`; the service
+builds the type from the advertised descriptor and runs its protovalidate
+rules on the dynamic message, and the web renders the add-form from the
+same descriptor. Typed at runtime, never free-form: the oneof numbering
+keeps 10 through 18 for first-party arms so the escape hatch stays one
+arm, not a habit.
 
 The credential never appears in inventory messages: `credential_ref` is a
 handle into the secret store, so a leaked inventory dump leaks no secrets
