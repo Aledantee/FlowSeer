@@ -821,17 +821,24 @@ var LldpPortConfigTable lldpPortConfigTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpPortConfigTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpPortConfigTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpPortConfigTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 6))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 6, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpPortConfigTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpPortConfigTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 6))
 
 	return &LldpPortConfigTableWalker{
 		byCol: byCol,
@@ -1006,17 +1013,24 @@ var LldpConfigManAddrTable lldpConfigManAddrTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpConfigManAddrTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpConfigManAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpConfigManAddrTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 7))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 7, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpConfigManAddrTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpConfigManAddrTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 7))
 
 	return &LldpConfigManAddrTableWalker{
 		byCol: byCol,
@@ -1191,17 +1205,24 @@ var LldpStatsTxPortTable lldpStatsTxPortTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpStatsTxPortTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpStatsTxPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpStatsTxPortTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 6))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 6, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpStatsTxPortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpStatsTxPortTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 6))
 
 	return &LldpStatsTxPortTableWalker{
 		byCol: byCol,
@@ -1539,17 +1560,24 @@ var LldpStatsRxPortTable lldpStatsRxPortTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpStatsRxPortTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpStatsRxPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpStatsRxPortTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 7))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 7, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpStatsRxPortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpStatsRxPortTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 7))
 
 	return &LldpStatsRxPortTableWalker{
 		byCol: byCol,
@@ -1776,17 +1804,24 @@ var LldpLocPortTable lldpLocPortTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpLocPortTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpLocPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpLocPortTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 7))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 7, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpLocPortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpLocPortTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 7))
 
 	return &LldpLocPortTableWalker{
 		byCol: byCol,
@@ -2050,17 +2085,24 @@ var LldpLocManAddrTable lldpLocManAddrTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpLocManAddrTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpLocManAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpLocManAddrTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpLocManAddrTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpLocManAddrTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8))
 
 	return &LldpLocManAddrTableWalker{
 		byCol: byCol,
@@ -2431,17 +2473,24 @@ var LldpRemTable lldpRemTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpRemTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpRemTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpRemTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 1))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpRemTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpRemTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 1))
 
 	return &LldpRemTableWalker{
 		byCol: byCol,
@@ -2673,17 +2722,24 @@ var LldpRemManAddrTable lldpRemManAddrTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpRemManAddrTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpRemManAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpRemManAddrTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 2))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpRemManAddrTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpRemManAddrTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 2))
 
 	return &LldpRemManAddrTableWalker{
 		byCol: byCol,
@@ -2853,17 +2909,24 @@ var LldpRemUnknownTLVTable lldpRemUnknownTLVTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpRemUnknownTLVTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpRemUnknownTLVTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpRemUnknownTLVTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 3))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpRemUnknownTLVTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpRemUnknownTLVTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 3))
 
 	return &LldpRemUnknownTLVTableWalker{
 		byCol: byCol,
@@ -3034,17 +3097,24 @@ var LldpRemOrgDefInfoTable lldpRemOrgDefInfoTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of lldpRemOrgDefInfoTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (lldpRemOrgDefInfoTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpRemOrgDefInfoTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 4))
+	entry := snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &LldpRemOrgDefInfoTableWalker{rw: snmp.ForeignColumnWalk(ctx, "lldpRemOrgDefInfoTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 4))
 
 	return &LldpRemOrgDefInfoTableWalker{
 		byCol: byCol,

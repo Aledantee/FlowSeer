@@ -195,19 +195,35 @@ func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
 	f.Comment("rides the raw fast path (BulkWalkRaw); sessions or responses")
 	f.Comment("that cannot deliver raw bytes degrade transparently to the")
 	f.Comment("generic per-varbind decode.")
+	f.Comment("")
+	f.Comment("Every column in cols must be a column of " + table.Name + ". A column")
+	f.Comment("of any other table is a caller bug, not a device quirk: no request")
+	f.Comment("is sent, the iterator yields nothing, and Err reports")
+	f.Comment("snmp.ErrForeignColumn.")
 	f.Func().Params(jen.Id(descriptorTypeName)).Id("Walk").Params(
 		jen.Id("ctx").Qual("context", "Context"),
 		jen.Id("sess").Qual(snmpImport, "Session"),
 		jen.Id("cols").Op("...").Qual(snmpImport, "AnyColumn"),
 	).Op("*").Id(walkerTypeName).Block(
-		jen.Id("w").Op(":=").Id("sess").Dot("BulkWalkRaw").Call(jen.Id("ctx"), newOIDCall(tablePrefix)),
+		jen.Id("entry").Op(":=").Add(newOIDCall(entryPrefix)),
 		jen.Id("byCol").Op(":=").Make(jen.Map(jen.Uint32()).Qual(snmpImport, "AnyColumn"), jen.Len(jen.Id("cols"))),
 		jen.Line(),
 		jen.For(jen.List(jen.Id("_"), jen.Id("c")).Op(":=").Range().Id("cols")).Block(
 			jen.Id("o").Op(":=").Id("c").Dot("OID").Call(),
-			jen.If(jen.Id("o").Dot("Len").Call().Op("==").Lit(0)).Block(jen.Continue()),
+			// Sub-ids repeat across tables, so keying byCol on a
+			// foreign column's last sub-id would enable whichever
+			// local column shares that arc. Refuse the walk instead
+			// of guessing.
+			jen.If(jen.Id("o").Dot("Len").Call().Op("!=").Id("entry").Dot("Len").Call().Op("+").Lit(1).Op("||").
+				Op("!").Id("o").Dot("HasPrefix").Call(jen.Id("entry"))).Block(
+				jen.Return(jen.Op("&").Id(walkerTypeName).Values(jen.Dict{
+					jen.Id("rw"): jen.Qual(snmpImport, "ForeignColumnWalk").Call(jen.Id("ctx"), jen.Lit(table.Name), jen.Id("c")),
+				})),
+			),
 			jen.Id("byCol").Index(jen.Id("o").Dot("At").Call(jen.Id("o").Dot("Len").Call().Op("-").Lit(1))).Op("=").Id("c"),
 		),
+		jen.Line(),
+		jen.Id("w").Op(":=").Id("sess").Dot("BulkWalkRaw").Call(jen.Id("ctx"), newOIDCall(tablePrefix)),
 		jen.Line(),
 		jen.Return(jen.Op("&").Id(walkerTypeName).Values(jen.Dict{
 			jen.Id("rw"):    jen.Id("w"),

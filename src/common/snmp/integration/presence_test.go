@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.aledante.io/FlowSeer/generated/go/mib/ifmib"
@@ -127,6 +128,44 @@ func TestIfTableRow_ObservedRejectsForeignColumn(t *testing.T) {
 	}
 	if err := tw.Err(); err != nil {
 		t.Fatalf("walk: %v", err)
+	}
+}
+
+// TestIfTableWalk_RejectsForeignColumnWithCollidingSubID is the
+// collision case: ifInMulticastPkts lives in ifXTable at
+// …31.1.1.1.2, and its last sub-id 2 is ifDescr's sub-id in ifTable.
+// Keying the walk's column lookup on that bare sub-id would decode
+// every ifDescr answer into the row and report it observed, handing the
+// caller data for a column it never asked for.
+func TestIfTableWalk_RejectsForeignColumnWithCollidingSubID(t *testing.T) {
+	sess := fakeIfTableSession()
+
+	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfInMulticastPkts)
+	for _, row := range tw.Iter() {
+		if row.Observed(ifmib.IfDescr) {
+			t.Error("a foreign column enabled the local column sharing its sub-id")
+		}
+		t.Error("walk over a foreign column yielded a row, want none")
+	}
+	if err := tw.Err(); err == nil {
+		t.Fatal("walk over a foreign column succeeded, want an error")
+	} else if !errors.Is(err, snmp.ErrForeignColumn) {
+		t.Errorf("walk error = %v, want ErrForeignColumn", err)
+	}
+}
+
+// TestIfTableWalk_RejectsForeignColumnWithoutCollision covers the other
+// half: a foreign column whose sub-id matches nothing local must not
+// leave the caller with a silently empty, all-unobserved table.
+func TestIfTableWalk_RejectsForeignColumnWithoutCollision(t *testing.T) {
+	sess := fakeIfTableSession()
+
+	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr, lldpmib.LldpRemPortId)
+	for range tw.Iter() { //nolint:revive // draining the iterator is the point
+		t.Error("walk over a foreign column yielded a row, want none")
+	}
+	if err := tw.Err(); !errors.Is(err, snmp.ErrForeignColumn) {
+		t.Fatalf("walk error = %v, want ErrForeignColumn", err)
 	}
 }
 

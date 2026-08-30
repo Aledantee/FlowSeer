@@ -850,17 +850,24 @@ var EntPhysicalTable entPhysicalTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entPhysicalTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhysicalTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntPhysicalTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entPhysicalTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1))
 
 	return &EntPhysicalTableWalker{
 		byCol: byCol,
@@ -1583,17 +1590,24 @@ var EntLogicalTable entLogicalTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entLogicalTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entLogicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntLogicalTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntLogicalTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entLogicalTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1))
 
 	return &EntLogicalTableWalker{
 		byCol: byCol,
@@ -1988,17 +2002,24 @@ var EntLPMappingTable entLPMappingTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entLPMappingTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entLPMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntLPMappingTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntLPMappingTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entLPMappingTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1))
 
 	return &EntLPMappingTableWalker{
 		byCol: byCol,
@@ -2324,17 +2345,24 @@ var EntAliasMappingTable entAliasMappingTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entAliasMappingTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entAliasMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntAliasMappingTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntAliasMappingTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entAliasMappingTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2))
 
 	return &EntAliasMappingTableWalker{
 		byCol: byCol,
@@ -2650,17 +2678,24 @@ var EntPhysicalContainsTable entPhysicalContainsTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entPhysicalContainsTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entPhysicalContainsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhysicalContainsTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntPhysicalContainsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entPhysicalContainsTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3))
 
 	return &EntPhysicalContainsTableWalker{
 		byCol: byCol,

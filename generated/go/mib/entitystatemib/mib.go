@@ -534,17 +534,24 @@ var EntStateTable entStateTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entStateTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entStateTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntStateTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntStateTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entStateTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1))
 
 	return &EntStateTableWalker{
 		byCol: byCol,

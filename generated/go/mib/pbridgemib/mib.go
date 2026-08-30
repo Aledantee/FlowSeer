@@ -348,17 +348,24 @@ var Dot1dTpHCPortTable dot1dTpHCPortTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dTpHCPortTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dTpHCPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpHCPortTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 5))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dTpHCPortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dTpHCPortTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 5))
 
 	return &Dot1dTpHCPortTableWalker{
 		byCol: byCol,
@@ -589,17 +596,24 @@ var Dot1dTpPortOverflowTable dot1dTpPortOverflowTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dTpPortOverflowTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dTpPortOverflowTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpPortOverflowTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 6))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 6, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dTpPortOverflowTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dTpPortOverflowTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 6))
 
 	return &Dot1dTpPortOverflowTableWalker{
 		byCol: byCol,
@@ -775,17 +789,24 @@ var Dot1dPortCapabilitiesTable dot1dPortCapabilitiesTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dPortCapabilitiesTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dPortCapabilitiesTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortCapabilitiesTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 1, 4))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 1, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dPortCapabilitiesTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dPortCapabilitiesTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 1, 4))
 
 	return &Dot1dPortCapabilitiesTableWalker{
 		byCol: byCol,
@@ -991,17 +1012,24 @@ var Dot1dPortPriorityTable dot1dPortPriorityTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dPortPriorityTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dPortPriorityTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortPriorityTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dPortPriorityTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dPortPriorityTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 1))
 
 	return &Dot1dPortPriorityTableWalker{
 		byCol: byCol,
@@ -1177,17 +1205,24 @@ var Dot1dUserPriorityRegenTable dot1dUserPriorityRegenTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dUserPriorityRegenTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dUserPriorityRegenTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dUserPriorityRegenTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dUserPriorityRegenTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dUserPriorityRegenTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 2))
 
 	return &Dot1dUserPriorityRegenTableWalker{
 		byCol: byCol,
@@ -1363,17 +1398,24 @@ var Dot1dTrafficClassTable dot1dTrafficClassTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dTrafficClassTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dTrafficClassTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTrafficClassTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dTrafficClassTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dTrafficClassTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 3))
 
 	return &Dot1dTrafficClassTableWalker{
 		byCol: byCol,
@@ -1547,17 +1589,24 @@ var Dot1dPortOutboundAccessPriorityTable dot1dPortOutboundAccessPriorityTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dPortOutboundAccessPriorityTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dPortOutboundAccessPriorityTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortOutboundAccessPriorityTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 4))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dPortOutboundAccessPriorityTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dPortOutboundAccessPriorityTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 4))
 
 	return &Dot1dPortOutboundAccessPriorityTableWalker{
 		byCol: byCol,
@@ -1788,17 +1837,24 @@ var Dot1dPortGarpTable dot1dPortGarpTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dPortGarpTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dPortGarpTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortGarpTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 3, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 3, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dPortGarpTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dPortGarpTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 3, 1))
 
 	return &Dot1dPortGarpTableWalker{
 		byCol: byCol,
@@ -2065,17 +2121,24 @@ var Dot1dPortGmrpTable dot1dPortGmrpTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1dPortGmrpTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1dPortGmrpTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortGmrpTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 4, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 4, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1dPortGmrpTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dPortGmrpTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 4, 1))
 
 	return &Dot1dPortGmrpTableWalker{
 		byCol: byCol,

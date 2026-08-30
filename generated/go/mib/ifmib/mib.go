@@ -1102,17 +1102,24 @@ var IfTable ifTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2))
 
 	return &IfTableWalker{
 		byCol: byCol,
@@ -2284,17 +2291,24 @@ var IfXTable ifXTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifXTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifXTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfXTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfXTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifXTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1))
 
 	return &IfXTableWalker{
 		byCol: byCol,
@@ -2468,17 +2482,24 @@ var IfStackTable ifStackTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifStackTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfStackTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfStackTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifStackTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2))
 
 	return &IfStackTableWalker{
 		byCol: byCol,
@@ -2949,17 +2970,24 @@ var IfTestTable ifTestTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifTestTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifTestTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfTestTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfTestTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifTestTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3))
 
 	return &IfTestTableWalker{
 		byCol: byCol,
@@ -3165,17 +3193,24 @@ var IfRcvAddressTable ifRcvAddressTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifRcvAddressTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifRcvAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfRcvAddressTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 4))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfRcvAddressTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifRcvAddressTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 4))
 
 	return &IfRcvAddressTableWalker{
 		byCol: byCol,
