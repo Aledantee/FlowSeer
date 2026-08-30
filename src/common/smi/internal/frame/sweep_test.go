@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
 
@@ -247,7 +247,7 @@ func frameOne(cf corpusFile) (*stats, error) {
 	}
 
 	for _, d := range f.Diagnostics {
-		if d.Severity() == smi.SeverityFatal {
+		if d.Severity() == diag.SeverityFatal {
 			s.fatal[d.Code()]++
 		}
 	}

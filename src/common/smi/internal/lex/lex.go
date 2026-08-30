@@ -44,7 +44,7 @@ import (
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // CommentMode selects how a comment ends. See the package overview for
@@ -89,10 +89,10 @@ type Result struct {
 	// Diagnostics are the conditions found while scanning, in the order
 	// they were found. A non-empty list does not mean the token stream is
 	// unusable; a fatal one means the scan stopped early.
-	Diagnostics []smi.Diagnostic
+	Diagnostics []diag.Diagnostic
 
 	// Lines maps an offset in this file onto a line and column.
-	Lines *smi.LineTable
+	Lines *diag.LineTable
 
 	src   []byte
 	names interner
@@ -178,7 +178,7 @@ func (r *Result) StringValue(t Token) string {
 // The Result aliases src, which the caller must not modify afterwards.
 func Lex(src []byte, opts Options) *Result {
 	r := &Result{
-		Lines: &smi.LineTable{},
+		Lines: &diag.LineTable{},
 		src:   src,
 	}
 	l := lexer{
@@ -267,7 +267,7 @@ func (l *lexer) skipComment() bool {
 	// reported and swallowed whole under both rules rather than left to
 	// surface as a syntax error somewhere else.
 	if run := l.hyphenRun(); run >= 5 && run%4 == 1 {
-		l.raise(start, smi.ErrCodeHyphenSeparator, smi.ArgInt(run))
+		l.raise(start, diag.ErrCodeHyphenSeparator, diag.ArgInt(run))
 		l.skipToLineBreak()
 
 		return true
@@ -295,7 +295,7 @@ func (l *lexer) skipComment() bool {
 		}
 	}
 
-	l.raise(start, smi.ErrCodeUnterminatedComment)
+	l.raise(start, diag.ErrCodeUnterminatedComment)
 
 	return false
 }
@@ -413,7 +413,7 @@ func (l *lexer) scanName(start int) Token {
 		}
 
 		l.pos++
-		l.raise(start, smi.ErrCodeTrailingHyphenIdentifier, smi.ArgString(l.out.names.intern(l.src[start:l.pos])))
+		l.raise(start, diag.ErrCodeTrailingHyphenIdentifier, diag.ArgString(l.out.names.intern(l.src[start:l.pos])))
 
 		break
 	}
@@ -448,7 +448,7 @@ func (l *lexer) scanQuoted(start int) bool {
 		}
 	}
 
-	l.raise(start, smi.ErrCodeUnterminatedString)
+	l.raise(start, diag.ErrCodeUnterminatedString)
 	l.emit(start, Token{Kind: KindQuotedString})
 
 	return false
@@ -485,7 +485,7 @@ func (l *lexer) scanRadixString(start int) bool {
 	}
 
 	if !closed {
-		l.raise(start, smi.ErrCodeUnterminatedString)
+		l.raise(start, diag.ErrCodeUnterminatedString)
 		l.emit(start, Token{Kind: KindUnknown})
 
 		return false
@@ -504,7 +504,7 @@ func (l *lexer) scanRadixString(start int) bool {
 	}
 
 	if kind == KindHexString && digits%2 == 1 {
-		l.raise(start, smi.ErrCodeOddHexString, smi.ArgInt(digits))
+		l.raise(start, diag.ErrCodeOddHexString, diag.ArgInt(digits))
 	}
 
 	return l.emit(start, Token{Kind: kind})
@@ -523,9 +523,9 @@ func (l *lexer) emit(start int, t Token) bool {
 	return true
 }
 
-func (l *lexer) raise(offset int, code errs.Code, args ...smi.Arg) {
-	pos := smi.Position{File: l.file, Offset: offset}
-	l.out.Diagnostics = append(l.out.Diagnostics, smi.Raise(pos, code, args...))
+func (l *lexer) raise(offset int, code errs.Code, args ...diag.Arg) {
+	pos := diag.Position{File: l.file, Offset: offset}
+	l.out.Diagnostics = append(l.out.Diagnostics, diag.Raise(pos, code, args...))
 }
 
 // isTrivia reports whether b is a byte to skip between tokens. Every

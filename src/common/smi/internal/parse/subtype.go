@@ -4,7 +4,7 @@ import (
 	"math"
 	"strconv"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
 
@@ -379,8 +379,8 @@ func (r *reader) member() (Member, bool) {
 	r.next()
 
 	if !r.at(lex.KindLeftParen) {
-		r.p.raise(m.Span.Start, smi.ErrCodeUnexpectedToken,
-			smi.ArgString(r.p.spanText(m.Name)), smi.ArgString("a member number"))
+		r.p.raise(m.Span.Start, diag.ErrCodeUnexpectedToken,
+			diag.ArgString(r.p.spanText(m.Name)), diag.ArgString("a member number"))
 
 		return Member{}, false
 	}
@@ -388,8 +388,8 @@ func (r *reader) member() (Member, bool) {
 
 	n, span, ok := r.integer()
 	if !ok {
-		r.p.raise(m.Span.Start, smi.ErrCodeUnexpectedToken,
-			smi.ArgString(r.p.spanText(m.Name)), smi.ArgString("a member number"))
+		r.p.raise(m.Span.Start, diag.ErrCodeUnexpectedToken,
+			diag.ArgString(r.p.spanText(m.Name)), diag.ArgString("a member number"))
 
 		return Member{}, false
 	}
@@ -566,17 +566,17 @@ func (r *reader) gradeRange(t *Type, rg Range, prev *Range, size bool) {
 		if negative >= 0 {
 			negative = rg.Max
 		}
-		r.p.raise(rg.Span.Start, smi.ErrCodeNegativeSize, smi.ArgInt(int(negative)))
+		r.p.raise(rg.Span.Start, diag.ErrCodeNegativeSize, diag.ArgInt(int(negative)))
 	}
 
 	if rg.Min > rg.Max {
-		r.p.raise(rg.Span.Start, smi.ErrCodeRangeNotAscending, smi.ArgInt(int(rg.Min)), smi.ArgInt(int(rg.Max)))
+		r.p.raise(rg.Span.Start, diag.ErrCodeRangeNotAscending, diag.ArgInt(int(rg.Min)), diag.ArgInt(int(rg.Max)))
 	}
 
 	if prev != nil && rg.Min <= prev.Max {
-		r.p.raise(rg.Span.Start, smi.ErrCodeOverlappingRange,
-			smi.ArgInt(int(rg.Min)), smi.ArgInt(int(rg.Max)),
-			smi.ArgInt(int(prev.Min)), smi.ArgInt(int(prev.Max)))
+		r.p.raise(rg.Span.Start, diag.ErrCodeOverlappingRange,
+			diag.ArgInt(int(rg.Min)), diag.ArgInt(int(rg.Max)),
+			diag.ArgInt(int(prev.Min)), diag.ArgInt(int(prev.Max)))
 	}
 
 	low, high, known := containment(t.Base, size)
@@ -584,8 +584,8 @@ func (r *reader) gradeRange(t *Type, rg Range, prev *Range, size bool) {
 		return
 	}
 	if rg.Min < low || rg.Max > high {
-		r.p.raise(rg.Span.Start, smi.ErrCodeRangeOutsideBaseType,
-			smi.ArgString(squeezeSpaces(r.p.spanText(rg.Span))), smi.ArgString(t.Base.String()))
+		r.p.raise(rg.Span.Start, diag.ErrCodeRangeOutsideBaseType,
+			diag.ArgString(squeezeSpaces(r.p.spanText(rg.Span))), diag.ArgString(t.Base.String()))
 	}
 }
 

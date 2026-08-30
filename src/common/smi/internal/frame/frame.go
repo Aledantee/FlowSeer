@@ -36,7 +36,7 @@ package frame
 
 import (
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
 
@@ -109,7 +109,7 @@ type Module struct {
 type File struct {
 	Name        string
 	Modules     []Module
-	Diagnostics []smi.Diagnostic
+	Diagnostics []diag.Diagnostic
 	Comments    lex.CommentMode
 
 	// Source is the token stream the frames index into. A later pass
@@ -147,7 +147,7 @@ type Options struct {
 // It reads the file with end-of-line comment termination first. If that
 // yields conditions the paired "--" rule resolves, the file is read again
 // in the paired mode and the result carries
-// [smi.ErrCodePairedCommentMode] to record it. That happens at most once
+// [diag.ErrCodePairedCommentMode] to record it. That happens at most once
 // and is decided for the whole file: a source that frames badly under
 // both rules keeps the end-of-line reading, which is the rule that cannot
 // silently swallow a declaration.
@@ -157,10 +157,10 @@ type Options struct {
 func Cut(src []byte, opts Options) *File {
 	if len(src) > MaxSourceBytes {
 		f := &File{Name: opts.File, src: src, Source: lex.Lex(nil, lex.Options{File: opts.File})}
-		f.Diagnostics = append(f.Diagnostics, smi.Raise(
-			smi.Position{File: opts.File},
-			smi.ErrCodeLimitExceeded,
-			smi.ArgString("source bytes"), smi.ArgInt(MaxSourceBytes),
+		f.Diagnostics = append(f.Diagnostics, diag.Raise(
+			diag.Position{File: opts.File},
+			diag.ErrCodeLimitExceeded,
+			diag.ArgString("source bytes"), diag.ArgInt(MaxSourceBytes),
 		))
 
 		return f
@@ -185,10 +185,10 @@ func Cut(src []byte, opts Options) *File {
 	}
 
 	if resolved := broken - countSevere(paired); resolved > 0 {
-		paired.Diagnostics = append(paired.Diagnostics, smi.Raise(
-			smi.Position{File: opts.File},
-			smi.ErrCodePairedCommentMode,
-			smi.ArgInt(resolved),
+		paired.Diagnostics = append(paired.Diagnostics, diag.Raise(
+			diag.Position{File: opts.File},
+			diag.ErrCodePairedCommentMode,
+			diag.ArgInt(resolved),
 		))
 
 		return paired
@@ -216,7 +216,7 @@ func countSevere(f *File) int {
 // declaration.
 func fatal(f *File) bool {
 	for _, d := range f.Diagnostics {
-		if d.Severity() == smi.SeverityFatal {
+		if d.Severity() == diag.SeverityFatal {
 			return true
 		}
 	}
@@ -236,7 +236,7 @@ func cutIn(src []byte, opts Options, mode lex.CommentMode) *File {
 
 	c := cutter{res: res, toks: res.Tokens, file: opts.File, out: f}
 	for _, d := range res.Diagnostics {
-		if d.Severity() == smi.SeverityFatal {
+		if d.Severity() == diag.SeverityFatal {
 			c.stopped = true
 		}
 	}
@@ -291,10 +291,10 @@ func (c *cutter) run() {
 func (c *cutter) reportTrailing(i int) {
 	switch {
 	case len(c.out.Modules) == 0:
-		c.raise(0, smi.ErrCodeMissingModuleHeader)
+		c.raise(0, diag.ErrCodeMissingModuleHeader)
 		c.stopped = true
 	case i < len(c.toks):
-		c.raise(int(c.toks[i].Offset), smi.ErrCodeContentAfterEnd)
+		c.raise(int(c.toks[i].Offset), diag.ErrCodeContentAfterEnd)
 	}
 }
 
@@ -378,7 +378,7 @@ func (c *cutter) cutFrame(h head, start int) (Frame, int) {
 // run ends where the next head begins, so an unclassifiable declaration
 // costs itself and nothing after it.
 func (c *cutter) cutUnrecognized(start int) (Frame, int) {
-	c.raise(int(c.toks[start].Offset), smi.ErrCodeUnrecognizedDeclaration, smi.ArgString(c.res.Text(c.toks[start])))
+	c.raise(int(c.toks[start].Offset), diag.ErrCodeUnrecognizedDeclaration, diag.ArgString(c.res.Text(c.toks[start])))
 
 	end := c.scanNextHead(start + 1)
 	fr := Frame{
@@ -628,22 +628,22 @@ func (c *cutter) step(depth, i int) int {
 }
 
 func (c *cutter) limit(what string, bound, offset int) {
-	c.out.Diagnostics = append(c.out.Diagnostics, smi.Raise(
-		smi.Position{File: c.file, Offset: offset},
-		smi.ErrCodeLimitExceeded,
-		smi.ArgString(what), smi.ArgInt(bound),
+	c.out.Diagnostics = append(c.out.Diagnostics, diag.Raise(
+		diag.Position{File: c.file, Offset: offset},
+		diag.ErrCodeLimitExceeded,
+		diag.ArgString(what), diag.ArgInt(bound),
 	))
 	c.stopped = true
 }
 
-func (c *cutter) raise(offset int, code errs.Code, args ...smi.Arg) {
+func (c *cutter) raise(offset int, code errs.Code, args ...diag.Arg) {
 	if len(c.out.Diagnostics) >= MaxDiagnostics {
 		c.limit("diagnostics", MaxDiagnostics, offset)
 
 		return
 	}
 
-	c.out.Diagnostics = append(c.out.Diagnostics, smi.Raise(smi.Position{File: c.file, Offset: offset}, code, args...))
+	c.out.Diagnostics = append(c.out.Diagnostics, diag.Raise(diag.Position{File: c.file, Offset: offset}, code, args...))
 }
 
 // MaxObservedDepth returns the deepest bracket nesting the last cut of

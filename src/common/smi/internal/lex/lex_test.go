@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // shape is a token reduced to what a test cares about. Offsets are
@@ -193,7 +193,7 @@ func TestHyphenSeparatorLine(t *testing.T) {
 		t.Run(map[CommentMode]string{CommentEndOfLine: "eol", CommentPaired: "paired"}[mode], func(t *testing.T) {
 			r := lexString(t, "a\n---------\nb\n", mode)
 
-			wantCodes(t, r, smi.ErrCodeHyphenSeparator)
+			wantCodes(t, r, diag.ErrCodeHyphenSeparator)
 			wantShapes(t, r, []shape{{KindIdentifier, "a"}, {KindIdentifier, "b"}})
 
 			if got, want := r.Diagnostics[0].Message(), "separator line of 9 hyphens is not a well-formed comment"; got != want {
@@ -224,7 +224,7 @@ func TestRadixStrings(t *testing.T) {
 	}
 
 	odd := lexString(t, "'0F0'H", CommentEndOfLine)
-	wantCodes(t, odd, smi.ErrCodeOddHexString)
+	wantCodes(t, odd, diag.ErrCodeOddHexString)
 	if got, want := odd.Diagnostics[0].Message(), "hexadecimal string has 3 digits, an odd count that leaves a half byte"; got != want {
 		t.Errorf("message: got %q, want %q", got, want)
 	}
@@ -253,8 +253,8 @@ func TestDotDisambiguation(t *testing.T) {
 func TestUnterminatedStringIsFatal(t *testing.T) {
 	r := lexString(t, "DESCRIPTION \"runs off the end", CommentEndOfLine)
 
-	wantCodes(t, r, smi.ErrCodeUnterminatedString)
-	if got, want := r.Diagnostics[0].Severity(), smi.SeverityFatal; got != want {
+	wantCodes(t, r, diag.ErrCodeUnterminatedString)
+	if got, want := r.Diagnostics[0].Severity(), diag.SeverityFatal; got != want {
 		t.Errorf("severity: got %v, want %v", got, want)
 	}
 
@@ -270,14 +270,14 @@ func TestUnterminatedStringIsFatal(t *testing.T) {
 func TestUnterminatedPairedCommentIsFatal(t *testing.T) {
 	r := lexString(t, "a -- opens and never closes\nb\n", CommentPaired)
 
-	wantCodes(t, r, smi.ErrCodeUnterminatedComment)
+	wantCodes(t, r, diag.ErrCodeUnterminatedComment)
 	wantShapes(t, r, []shape{{KindIdentifier, "a"}})
 }
 
 func TestTrailingHyphenIdentifier(t *testing.T) {
 	r := lexString(t, "foo- ", CommentEndOfLine)
 
-	wantCodes(t, r, smi.ErrCodeTrailingHyphenIdentifier)
+	wantCodes(t, r, diag.ErrCodeTrailingHyphenIdentifier)
 	wantShapes(t, r, []shape{{KindIdentifier, "foo-"}})
 	if got, want := r.Diagnostics[0].Message(), `identifier "foo-" ends in a hyphen`; got != want {
 		t.Errorf("message: got %q, want %q", got, want)

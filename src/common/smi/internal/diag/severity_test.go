@@ -1,13 +1,13 @@
-package smi_test
+package diag_test
 
 import (
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 func TestSeverityRoundTrips(t *testing.T) {
-	levels := smi.Severities()
+	levels := diag.Severities()
 	if len(levels) != 7 {
 		t.Fatalf("Severities() returned %d levels, want 7", len(levels))
 	}
@@ -20,7 +20,7 @@ func TestSeverityRoundTrips(t *testing.T) {
 			t.Errorf("%v is not Valid", s)
 		}
 
-		got, err := smi.ParseSeverity(s.String())
+		got, err := diag.ParseSeverity(s.String())
 		if err != nil {
 			t.Errorf("ParseSeverity(%q): %v", s.String(), err)
 
@@ -33,14 +33,14 @@ func TestSeverityRoundTrips(t *testing.T) {
 }
 
 func TestSeverityTagsAreStable(t *testing.T) {
-	want := map[smi.Severity]string{
-		smi.SeverityInternal: "internal",
-		smi.SeverityFatal:    "fatal",
-		smi.SeverityError:    "error",
-		smi.SeverityMinor:    "minor",
-		smi.SeverityChange:   "change",
-		smi.SeverityWarning:  "warning",
-		smi.SeverityInfo:     "info",
+	want := map[diag.Severity]string{
+		diag.SeverityInternal: "internal",
+		diag.SeverityFatal:    "fatal",
+		diag.SeverityError:    "error",
+		diag.SeverityMinor:    "minor",
+		diag.SeverityChange:   "change",
+		diag.SeverityWarning:  "warning",
+		diag.SeverityInfo:     "info",
 	}
 
 	for s, tag := range want {
@@ -51,7 +51,7 @@ func TestSeverityTagsAreStable(t *testing.T) {
 }
 
 func TestSeverityOffTheScale(t *testing.T) {
-	off := smi.Severity(9)
+	off := diag.Severity(9)
 
 	if off.Valid() {
 		t.Error("severity 9 reports Valid")
@@ -59,7 +59,7 @@ func TestSeverityOffTheScale(t *testing.T) {
 	if got := off.String(); got != "severity(9)" {
 		t.Errorf("String() = %q, want %q", got, "severity(9)")
 	}
-	if _, err := smi.ParseSeverity("nonsense"); err == nil {
+	if _, err := diag.ParseSeverity("nonsense"); err == nil {
 		t.Error("ParseSeverity accepted a tag that is not on the scale")
 	}
 }
@@ -68,14 +68,14 @@ func TestSeverityOffTheScale(t *testing.T) {
 // or a definition was lost have to be justified in writing and the noisy
 // ones must not be.
 func TestNeedsBaselineReason(t *testing.T) {
-	needs := map[smi.Severity]bool{
-		smi.SeverityInternal: true,
-		smi.SeverityFatal:    true,
-		smi.SeverityError:    true,
-		smi.SeverityMinor:    false,
-		smi.SeverityChange:   false,
-		smi.SeverityWarning:  false,
-		smi.SeverityInfo:     false,
+	needs := map[diag.Severity]bool{
+		diag.SeverityInternal: true,
+		diag.SeverityFatal:    true,
+		diag.SeverityError:    true,
+		diag.SeverityMinor:    false,
+		diag.SeverityChange:   false,
+		diag.SeverityWarning:  false,
+		diag.SeverityInfo:     false,
 	}
 
 	for s, want := range needs {

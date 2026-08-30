@@ -1,16 +1,16 @@
-package smi_test
+package diag_test
 
 import (
 	"strings"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 func TestLineColumn(t *testing.T) {
 	// Offsets 0-5 are "alpha\n", so 6 is the first byte of line 2.
 	src := []byte("alpha\nbeta\n\ngamma")
-	table := smi.NewLineTable(src)
+	table := diag.NewLineTable(src)
 
 	tests := []struct {
 		name      string
@@ -44,7 +44,7 @@ func TestLineColumn(t *testing.T) {
 }
 
 func TestLineTableZeroValueIsOneLine(t *testing.T) {
-	var table smi.LineTable
+	var table diag.LineTable
 
 	line, col := table.LineColumn(7)
 	if line != 1 || col != 8 {
@@ -55,7 +55,7 @@ func TestLineTableZeroValueIsOneLine(t *testing.T) {
 // Rendering must survive a caller that has no table for the file, since
 // a diagnostic nobody can print is worse than one printed on line 1.
 func TestRenderWithoutATable(t *testing.T) {
-	d := smi.Raise(smi.Position{File: "X.mib", Offset: 40}, smi.ErrCodeUnterminatedString)
+	d := diag.Raise(diag.Position{File: "X.mib", Offset: 40}, diag.ErrCodeUnterminatedString)
 
 	got := d.Render(nil)
 	if got.Line != 1 || got.Column != 41 {
@@ -66,7 +66,7 @@ func TestRenderWithoutATable(t *testing.T) {
 // AddLine takes offsets in increasing order. A lexer that double-counts a
 // CRLF should cost a column, not corrupt the table.
 func TestAddLineIgnoresOutOfOrderOffsets(t *testing.T) {
-	var table smi.LineTable
+	var table diag.LineTable
 	table.AddLine(10)
 	table.AddLine(10)
 	table.AddLine(4)
@@ -83,22 +83,22 @@ func TestAddLineIgnoresOutOfOrderOffsets(t *testing.T) {
 
 func TestRender(t *testing.T) {
 	src := []byte("FOO-MIB DEFINITIONS ::= BEGIN\nfoo OBJECT-TYPE\n")
-	table := smi.NewLineTable(src)
+	table := diag.NewLineTable(src)
 
-	d := smi.Raise(
-		smi.Position{File: "FOO-MIB.mib", Offset: 30},
-		smi.ErrCodeUnrecognizedDeclaration,
-		smi.ArgString("foo"),
+	d := diag.Raise(
+		diag.Position{File: "FOO-MIB.mib", Offset: 30},
+		diag.ErrCodeUnrecognizedDeclaration,
+		diag.ArgString("foo"),
 	)
 
 	got := d.Render(table)
 
-	want := smi.Rendered{
+	want := diag.Rendered{
 		File:     "FOO-MIB.mib",
 		Line:     2,
 		Column:   1,
-		Code:     smi.ErrCodeUnrecognizedDeclaration,
-		Severity: smi.SeverityError,
+		Code:     diag.ErrCodeUnrecognizedDeclaration,
+		Severity: diag.SeverityError,
 		Message:  `declaration beginning with "foo" is not a recognized declaration head`,
 	}
 	if got != want {
@@ -112,11 +112,11 @@ func TestRender(t *testing.T) {
 }
 
 func TestRenderMultipleArguments(t *testing.T) {
-	d := smi.Raise(
-		smi.Position{File: "BIG-MIB.mib", Offset: 0},
-		smi.ErrCodeLimitExceeded,
-		smi.ArgString("declarations per file"),
-		smi.ArgInt(65536),
+	d := diag.Raise(
+		diag.Position{File: "BIG-MIB.mib", Offset: 0},
+		diag.ErrCodeLimitExceeded,
+		diag.ArgString("declarations per file"),
+		diag.ArgInt(65536),
 	)
 
 	want := "declarations per file limit of 65536 exceeded"
@@ -126,13 +126,13 @@ func TestRenderMultipleArguments(t *testing.T) {
 }
 
 func TestRaiseCarriesTheCatalogedSeverity(t *testing.T) {
-	d := smi.Raise(smi.Position{File: "X.mib"}, smi.ErrCodeHyphenSeparator, smi.ArgInt(5))
+	d := diag.Raise(diag.Position{File: "X.mib"}, diag.ErrCodeHyphenSeparator, diag.ArgInt(5))
 
-	if got := d.Severity(); got != smi.SeverityWarning {
-		t.Errorf("Severity() = %v, want %v", got, smi.SeverityWarning)
+	if got := d.Severity(); got != diag.SeverityWarning {
+		t.Errorf("Severity() = %v, want %v", got, diag.SeverityWarning)
 	}
-	if got := d.Code(); got != smi.ErrCodeHyphenSeparator {
-		t.Errorf("Code() = %v, want %v", got, smi.ErrCodeHyphenSeparator)
+	if got := d.Code(); got != diag.ErrCodeHyphenSeparator {
+		t.Errorf("Code() = %v, want %v", got, diag.ErrCodeHyphenSeparator)
 	}
 	if got := d.Position().File; got != "X.mib" {
 		t.Errorf("Position().File = %q, want %q", got, "X.mib")
@@ -149,18 +149,18 @@ func TestRaisePanics(t *testing.T) {
 	}{
 		{
 			name: "uncataloged code",
-			call: func() { smi.Raise(smi.Position{}, "smi/no-such-thing") },
+			call: func() { diag.Raise(diag.Position{}, "smi/no-such-thing") },
 			want: "not a cataloged diagnostic code",
 		},
 		{
 			name: "too few arguments",
-			call: func() { smi.Raise(smi.Position{}, smi.ErrCodeLimitExceeded, smi.ArgInt(1)) },
+			call: func() { diag.Raise(diag.Position{}, diag.ErrCodeLimitExceeded, diag.ArgInt(1)) },
 			want: "takes 2 arguments, given 1",
 		},
 		{
 			name: "too many arguments",
 			call: func() {
-				smi.Raise(smi.Position{}, smi.ErrCodeUnterminatedString, smi.ArgInt(1))
+				diag.Raise(diag.Position{}, diag.ErrCodeUnterminatedString, diag.ArgInt(1))
 			},
 			want: "takes 0 arguments, given 1",
 		},
@@ -186,11 +186,11 @@ func TestRaisePanics(t *testing.T) {
 // A vendor corpus raises far more diagnostics than it renders, so the
 // raise path is required to cost nothing beyond the returned value.
 func TestRaiseAllocatesNothing(t *testing.T) {
-	pos := smi.Position{File: "BIG-MIB.mib", Offset: 4096}
+	pos := diag.Position{File: "BIG-MIB.mib", Offset: 4096}
 	limit := "declarations per file"
 
 	allocs := testing.AllocsPerRun(200, func() {
-		sink = smi.Raise(pos, smi.ErrCodeLimitExceeded, smi.ArgString(limit), smi.ArgInt(65536))
+		sink = diag.Raise(pos, diag.ErrCodeLimitExceeded, diag.ArgString(limit), diag.ArgInt(65536))
 	})
 	if allocs != 0 {
 		t.Errorf("Raise allocated %.1f times per call, want 0", allocs)
@@ -199,4 +199,4 @@ func TestRaiseAllocatesNothing(t *testing.T) {
 
 // sink keeps the compiler from optimizing the raise away, and is written
 // rather than read for the same reason.
-var sink smi.Diagnostic
+var sink diag.Diagnostic

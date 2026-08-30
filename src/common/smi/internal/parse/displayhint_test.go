@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // hintOf parses one textual convention and returns the hint it read.
@@ -101,7 +101,7 @@ func TestIntegerHints(t *testing.T) {
 	})
 
 	t.Run("no such base", func(t *testing.T) {
-		h := hintOf(t, "Integer32", "z", smi.ErrCodeDisplayHintMalformed)
+		h := hintOf(t, "Integer32", "z", diag.ErrCodeDisplayHintMalformed)
 		if h.Kind != HintNone {
 			t.Errorf("hint reads as %v, want %v", h.Kind, HintNone)
 		}
@@ -113,12 +113,12 @@ func TestIntegerHints(t *testing.T) {
 // digit and "*" from the position.
 func TestSeparatorMustNotBeADigitOrRepeatIndicator(t *testing.T) {
 	t.Run("digit", func(t *testing.T) {
-		h := hintOf(t, "OCTET STRING", "1d5", smi.ErrCodeDisplayHintSeparator)
+		h := hintOf(t, "OCTET STRING", "1d5", diag.ErrCodeDisplayHintSeparator)
 		wantSpecs(t, h.Specs, HintSpec{Length: 1, Format: 'd'})
 	})
 
 	t.Run("repeat indicator", func(t *testing.T) {
-		h := hintOf(t, "OCTET STRING", "1d*", smi.ErrCodeDisplayHintSeparator)
+		h := hintOf(t, "OCTET STRING", "1d*", diag.ErrCodeDisplayHintSeparator)
 		wantSpecs(t, h.Specs, HintSpec{Length: 1, Format: 'd'})
 	})
 }
@@ -128,11 +128,11 @@ func TestSeparatorMustNotBeADigitOrRepeatIndicator(t *testing.T) {
 // there is nothing for the hint to act on.
 func TestDisplayHintNotPermitted(t *testing.T) {
 	t.Run("enumerated", func(t *testing.T) {
-		hintOf(t, "INTEGER { up(1), down(2) }", "d", smi.ErrCodeDisplayHintNotPermitted)
+		hintOf(t, "INTEGER { up(1), down(2) }", "d", diag.ErrCodeDisplayHintNotPermitted)
 	})
 
 	t.Run("counter", func(t *testing.T) {
-		hintOf(t, "Counter32", "d", smi.ErrCodeDisplayHintNotPermitted)
+		hintOf(t, "Counter32", "d", diag.ErrCodeDisplayHintNotPermitted)
 	})
 }
 

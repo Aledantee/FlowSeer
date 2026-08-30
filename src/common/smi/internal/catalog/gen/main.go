@@ -1,8 +1,9 @@
-// Command gen writes package smi's diagnostic code variables from the
-// catalog table.
+// Command gen writes the diagnostic code variables from the catalog
+// table: the declarations in internal/diag, where the lexer, framer and
+// parser read them, and package smi's re-export of the same names.
 //
 // It is run by the go:generate directive in src/common/smi/generate.go
-// and takes its output path relative to that package directory:
+// and takes its output paths relative to that package directory:
 //
 //	go generate ./src/common/smi/...
 //
@@ -20,21 +21,29 @@ import (
 	"go.aledante.io/FlowSeer/src/common/smi/internal/catalog"
 )
 
-const outPath = "zz_generated_codes.go"
+const (
+	codesPath   = "internal/diag/zz_generated_codes.go"
+	aliasesPath = "zz_generated_codes.go"
+)
 
 func main() {
 	rows := catalog.Entries()
 
-	src, err := catalog.RenderCodes(rows)
+	write(codesPath, rows, catalog.RenderCodes)
+	write(aliasesPath, rows, catalog.RenderAliases)
+
+	fmt.Printf("gen: wrote %s and %s (%d codes)\n", codesPath, aliasesPath, len(rows))
+}
+
+func write(path string, rows []catalog.Entry, render func([]catalog.Entry) ([]byte, error)) {
+	src, err := render(rows)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gen: %v\n", err)
 		os.Exit(1)
 	}
 
-	if err := os.WriteFile(outPath, src, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "gen: writing %s: %v\n", outPath, err)
+	if err := os.WriteFile(path, src, 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "gen: writing %s: %v\n", path, err)
 		os.Exit(1)
 	}
-
-	fmt.Printf("gen: wrote %s (%d codes)\n", outPath, len(rows))
 }

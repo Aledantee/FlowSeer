@@ -3,7 +3,7 @@ package parse
 import (
 	"strconv"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // HintKind tells RFC 2579 §3.1's two display-hint grammars apart. They
@@ -87,7 +87,7 @@ const integerHintFormats = "bdox"
 func (p *parser) parseDisplayHint(span Span, text string) DisplayHint {
 	h := DisplayHint{Span: span}
 	if text == "" {
-		p.raise(span.Start, smi.ErrCodeDisplayHintMalformed, smi.ArgString(text))
+		p.raise(span.Start, diag.ErrCodeDisplayHintMalformed, diag.ArgString(text))
 
 		return h
 	}
@@ -102,7 +102,7 @@ func (p *parser) parseDisplayHint(span Span, text string) DisplayHint {
 // integerHint reads the "d", "d-2", "x", "o" and "b" forms.
 func (p *parser) integerHint(h DisplayHint, text string) DisplayHint {
 	if !containsByte(integerHintFormats, text[0]) {
-		p.raise(h.Span.Start, smi.ErrCodeDisplayHintMalformed, smi.ArgString(text))
+		p.raise(h.Span.Start, diag.ErrCodeDisplayHintMalformed, diag.ArgString(text))
 
 		return h
 	}
@@ -118,14 +118,14 @@ func (p *parser) integerHint(h DisplayHint, text string) DisplayHint {
 	// Only the decimal form carries implied decimal places, and it
 	// writes them as a hyphen and a count.
 	if text[0] != 'd' || rest[0] != '-' || !allDigits(rest[1:]) {
-		p.raise(h.Span.Start, smi.ErrCodeDisplayHintMalformed, smi.ArgString(text))
+		p.raise(h.Span.Start, diag.ErrCodeDisplayHintMalformed, diag.ArgString(text))
 
 		return h
 	}
 
 	places, err := strconv.Atoi(rest[1:])
 	if err != nil {
-		p.raise(h.Span.Start, smi.ErrCodeDisplayHintMalformed, smi.ArgString(text))
+		p.raise(h.Span.Start, diag.ErrCodeDisplayHintMalformed, diag.ArgString(text))
 
 		return h
 	}
@@ -152,7 +152,7 @@ func (p *parser) octetHint(h DisplayHint, text string) DisplayHint {
 	for rest != "" {
 		spec, after, ok := readHintSpec(rest)
 		if !ok {
-			p.raise(h.Span.Start, smi.ErrCodeDisplayHintMalformed, smi.ArgString(text))
+			p.raise(h.Span.Start, diag.ErrCodeDisplayHintMalformed, diag.ArgString(text))
 
 			return DisplayHint{Span: h.Span}
 		}
@@ -182,7 +182,7 @@ func (p *parser) hintSeparator(span Span, rest string) (byte, string) {
 
 	c := rest[0]
 	if isHintDigit(c) || c == '*' {
-		p.raise(span.Start, smi.ErrCodeDisplayHintSeparator, smi.ArgString(string(c)))
+		p.raise(span.Start, diag.ErrCodeDisplayHintSeparator, diag.ArgString(string(c)))
 
 		return 0, rest[1:]
 	}

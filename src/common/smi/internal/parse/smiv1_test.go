@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // wrapV1 and wrapV2 put body inside a module whose IMPORTS say which
@@ -112,7 +112,7 @@ linkDown TRAP-TYPE
     DESCRIPTION "a link went down"
     ::= { cisco 2 }
 `))
-	wantCodes(t, r, smi.ErrCodeUnexpectedToken)
+	wantCodes(t, r, diag.ErrCodeUnexpectedToken)
 	m := module(t, r)
 
 	if len(m.TrapTypes) != 1 {
@@ -144,7 +144,7 @@ ifAdminStatus OBJECT-TYPE
     DESCRIPTION "an administrative state"
     ::= { ifEntry 7 }
 `))
-	wantCodes(t, v2, smi.ErrCodeDialectValueMismatch)
+	wantCodes(t, v2, diag.ErrCodeDialectValueMismatch)
 }
 
 // read-create is the mirror: an SMIv2 access value has no meaning in a
@@ -157,7 +157,7 @@ ifRowStatus OBJECT-TYPE
     STATUS      mandatory
     ::= { ifEntry 8 }
 `))
-	wantCodes(t, r, smi.ErrCodeDialectValueMismatch)
+	wantCodes(t, r, diag.ErrCodeDialectValueMismatch)
 }
 
 func TestStatusValueGradedByDialect(t *testing.T) {
@@ -177,7 +177,7 @@ ifIndex OBJECT-TYPE
     STATUS      current
     ::= { ifEntry 1 }
 `))
-	wantCodes(t, v1Current, smi.ErrCodeDialectValueMismatch)
+	wantCodes(t, v1Current, diag.ErrCodeDialectValueMismatch)
 
 	v2Current := parseSource(t, wrapV2(`
 ifIndex OBJECT-TYPE
@@ -197,7 +197,7 @@ ifIndex OBJECT-TYPE
     DESCRIPTION "an interface index"
     ::= { ifEntry 1 }
 `))
-	wantCodes(t, v2Mandatory, smi.ErrCodeDialectValueMismatch)
+	wantCodes(t, v2Mandatory, diag.ErrCodeDialectValueMismatch)
 }
 
 // RFC 1212 leaves DESCRIPTION optional and RFC 2578 requires it, so the
@@ -227,7 +227,7 @@ ifIndex OBJECT-TYPE
     STATUS      current
     ::= { ifEntry 1 }
 `))
-	wantCodes(t, v2, smi.ErrCodeMissingClause)
+	wantCodes(t, v2, diag.ErrCodeMissingClause)
 	if got := len(module(t, v2).Bad); got != 1 {
 		t.Errorf("got %d bad declarations, want 1", got)
 	}
@@ -282,7 +282,7 @@ ifInOctets OBJECT-TYPE
     DESCRIPTION "octets in"
     ::= { ifEntry 10 }
 `))
-	wantCodes(t, r, smi.ErrCodeDialectValueMismatch)
+	wantCodes(t, r, diag.ErrCodeDialectValueMismatch)
 
 	if got := module(t, r).ObjectTypes[0].MappedSyntax; got != "Counter32" {
 		t.Errorf("the object maps to %q, want %q", got, "Counter32")

@@ -1,4 +1,4 @@
-package smi
+package diag
 
 import (
 	"fmt"

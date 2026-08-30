@@ -71,7 +71,7 @@ import (
 	"slices"
 	"strings"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/frame"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
@@ -85,8 +85,8 @@ import (
 type Result struct {
 	Name        string
 	Modules     []Module
-	Diagnostics []smi.Diagnostic
-	Lines       *smi.LineTable
+	Diagnostics []diag.Diagnostic
+	Lines       *diag.LineTable
 
 	src *lex.Result
 }
@@ -224,8 +224,8 @@ func (p *parser) finish(m *Module, fr frame.Frame, kind DeclKind) {
 	if kind == DeclBad || missing != 0 {
 		for c := ClauseNone + 1; c < numClauses; c++ {
 			if missing.Has(c) {
-				p.raise(fr.Span.Start, smi.ErrCodeMissingClause,
-					smi.ArgString(kind.String()), smi.ArgString(c.String()))
+				p.raise(fr.Span.Start, diag.ErrCodeMissingClause,
+					diag.ArgString(kind.String()), diag.ArgString(c.String()))
 			}
 		}
 

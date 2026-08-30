@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // syntaxOf parses one object with the given SYNTAX clause and returns
@@ -49,7 +49,7 @@ func wantRanges(t *testing.T, got []Range, want ...[2]int64) {
 // pair the rule bites on and the pair a MIB writes routinely are only
 // one value apart.
 func TestOverlappingRangesAreReported(t *testing.T) {
-	overlapping := syntaxOf(t, "Integer32 (1..4 | 4..9)", smi.ErrCodeOverlappingRange)
+	overlapping := syntaxOf(t, "Integer32 (1..4 | 4..9)", diag.ErrCodeOverlappingRange)
 	wantRanges(t, overlapping.Ranges, [2]int64{1, 4}, [2]int64{4, 9})
 
 	touching := syntaxOf(t, "Integer32 (1..4 | 5..9)")
@@ -57,11 +57,11 @@ func TestOverlappingRangesAreReported(t *testing.T) {
 }
 
 func TestDescendingRangeIsReported(t *testing.T) {
-	syntaxOf(t, "Integer32 (9..1)", smi.ErrCodeRangeNotAscending)
+	syntaxOf(t, "Integer32 (9..1)", diag.ErrCodeRangeNotAscending)
 }
 
 func TestNegativeSizeIsReported(t *testing.T) {
-	syn := syntaxOf(t, "OCTET STRING (SIZE (-1..4))", smi.ErrCodeNegativeSize)
+	syn := syntaxOf(t, "OCTET STRING (SIZE (-1..4))", diag.ErrCodeNegativeSize)
 	wantRanges(t, syn.Sizes, [2]int64{-1, 4})
 }
 
@@ -69,10 +69,10 @@ func TestNegativeSizeIsReported(t *testing.T) {
 // describing values the object cannot carry, whether it is a range on an
 // integer or a length on a string.
 func TestRangeOutsideTheBaseTypeIsReported(t *testing.T) {
-	value := syntaxOf(t, "Integer32 (0..5000000000)", smi.ErrCodeRangeOutsideBaseType)
+	value := syntaxOf(t, "Integer32 (0..5000000000)", diag.ErrCodeRangeOutsideBaseType)
 	wantRanges(t, value.Ranges, [2]int64{0, 5000000000})
 
-	length := syntaxOf(t, "OCTET STRING (SIZE (0..70000))", smi.ErrCodeRangeOutsideBaseType)
+	length := syntaxOf(t, "OCTET STRING (SIZE (0..70000))", diag.ErrCodeRangeOutsideBaseType)
 	wantRanges(t, length.Sizes, [2]int64{0, 70000})
 }
 
@@ -95,7 +95,7 @@ func TestNamedTypeIsNotGradedForContainment(t *testing.T) {
 // follows would be a member, and every fragment before it would
 // otherwise contribute one member too many at the wrong number.
 func TestMemberWithoutANumberIsDropped(t *testing.T) {
-	syn := syntaxOf(t, "BITS { alpha, gamma(4) }", smi.ErrCodeUnexpectedToken)
+	syn := syntaxOf(t, "BITS { alpha, gamma(4) }", diag.ErrCodeUnexpectedToken)
 
 	if len(syn.Members) != 1 {
 		t.Fatalf("got %d members, want 1", len(syn.Members))
@@ -151,7 +151,7 @@ testObject OBJECT-TYPE
     DESCRIPTION "too many"
     ::= { testMIB 1 }
 `))
-	wantCodes(t, r, smi.ErrCodeLimitExceeded)
+	wantCodes(t, r, diag.ErrCodeLimitExceeded)
 
 	if len(r.Modules) != 0 {
 		t.Errorf("got %d modules, want none", len(r.Modules))

@@ -3,7 +3,7 @@ package parse
 import (
 	"strconv"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
 
@@ -351,9 +351,9 @@ func (p *parser) record(c Clause, span Span) {
 
 	switch {
 	case p.d.present.Has(c) && !repeats:
-		p.raise(span.Start, smi.ErrCodeDuplicateClause, smi.ArgString(c.String()))
+		p.raise(span.Start, diag.ErrCodeDuplicateClause, diag.ArgString(c.String()))
 	case ord > 0 && ord < p.d.maxOrd:
-		p.raise(span.Start, smi.ErrCodeClauseOutOfOrder, smi.ArgString(c.String()), smi.ArgString(p.d.maxClause.String()))
+		p.raise(span.Start, diag.ErrCodeClauseOutOfOrder, diag.ArgString(c.String()), diag.ArgString(p.d.maxClause.String()))
 	}
 
 	if ord > p.d.maxOrd {
@@ -390,12 +390,12 @@ func (p *parser) clauses(kind DeclKind) {
 
 func (p *parser) unexpectedClause(kind DeclKind, c Clause) {
 	if c != ClauseNone {
-		p.raise(p.offset(), smi.ErrCodeUnknownClause, smi.ArgString(c.String()), smi.ArgString(kind.String()))
+		p.raise(p.offset(), diag.ErrCodeUnknownClause, diag.ArgString(c.String()), diag.ArgString(kind.String()))
 
 		return
 	}
 
-	p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("a clause keyword"))
+	p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("a clause keyword"))
 }
 
 // readClause reads one clause's payload, the keyword already consumed.
@@ -498,7 +498,7 @@ func (p *parser) recordIf(c Clause, span Span) {
 // quoted reads a quoted string payload.
 func (p *parser) quoted() Span {
 	if !p.at(lex.KindQuotedString) {
-		p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("a quoted string"))
+		p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("a quoted string"))
 
 		return Span{}
 	}
@@ -512,7 +512,7 @@ func (p *parser) quoted() Span {
 // word reads a one-token payload such as a STATUS or an access value.
 func (p *parser) word() Span {
 	if !p.isName() && p.keyword() == lex.KeywordNone {
-		p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("a name"))
+		p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("a name"))
 
 		return Span{}
 	}
@@ -553,7 +553,7 @@ func (p *parser) typeSpan(sync ClauseSet) Span {
 // braced construct in the grammar comes through here.
 func (p *parser) group() Span {
 	if !p.opener() {
-		p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("an opening bracket"))
+		p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("an opening bracket"))
 
 		return Span{}
 	}
@@ -597,7 +597,7 @@ func (p *parser) group() Span {
 // each descriptor's.
 func (p *parser) nameList() (Span, []Span) {
 	if !p.at(lex.KindLeftBrace) {
-		p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("{"))
+		p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("{"))
 
 		return Span{}, nil
 	}
@@ -620,7 +620,7 @@ func (p *parser) nameList() (Span, []Span) {
 		case p.opener():
 			end = p.group().End
 		default:
-			p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("a descriptor"))
+			p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("a descriptor"))
 			p.next()
 		}
 	}
@@ -649,7 +649,7 @@ func (p *parser) singleName() Span {
 // IMPLIED preceded it. Nothing about the columns is resolved.
 func (p *parser) readIndex() {
 	if !p.at(lex.KindLeftBrace) {
-		p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("{"))
+		p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("{"))
 
 		return
 	}
@@ -673,7 +673,7 @@ func (p *parser) readIndex() {
 		case p.at(lex.KindComma):
 			p.next()
 		default:
-			p.raise(p.offset(), smi.ErrCodeUnexpectedToken, smi.ArgString(p.text()), smi.ArgString("a descriptor"))
+			p.raise(p.offset(), diag.ErrCodeUnexpectedToken, diag.ArgString(p.text()), diag.ArgString("a descriptor"))
 			p.next()
 		}
 	}
@@ -699,7 +699,7 @@ func (p *parser) readRevision() {
 		rev.Description = p.quoted()
 		extend(&rev.Span, rev.Description.End)
 	} else {
-		p.raise(p.offset(), smi.ErrCodeMissingClause, smi.ArgString(ClauseRevision.String()), smi.ArgString(ClauseDescription.String()))
+		p.raise(p.offset(), diag.ErrCodeMissingClause, diag.ArgString(ClauseRevision.String()), diag.ArgString(ClauseDescription.String()))
 	}
 
 	p.d.revisions = append(p.d.revisions, rev)

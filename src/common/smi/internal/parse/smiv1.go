@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // maxSubIdentifier is the largest value an OID sub-identifier may take,
@@ -166,9 +166,9 @@ func (p *parser) gradeValue(c Clause, span Span, table map[string]dialects, d Di
 		return
 	}
 
-	p.raise(span.Start, smi.ErrCodeDialectValueMismatch,
-		smi.ArgString(c.String()), smi.ArgString(value),
-		smi.ArgString(d.other().String()), smi.ArgString(d.String()))
+	p.raise(span.Start, diag.ErrCodeDialectValueMismatch,
+		diag.ArgString(c.String()), diag.ArgString(value),
+		diag.ArgString(d.other().String()), diag.ArgString(d.String()))
 }
 
 // mapSyntax returns the SMIv2 type the SYNTAX clause's base type is
@@ -188,9 +188,9 @@ func (p *parser) mapSyntax(syntax Span, d Dialect) string {
 	}
 
 	if d != DialectV1 {
-		p.raise(syntax.Start, smi.ErrCodeDialectValueMismatch,
-			smi.ArgString(ClauseSyntax.String()), smi.ArgString(base),
-			smi.ArgString(DialectV1.String()), smi.ArgString(d.String()))
+		p.raise(syntax.Start, diag.ErrCodeDialectValueMismatch,
+			diag.ArgString(ClauseSyntax.String()), diag.ArgString(base),
+			diag.ArgString(DialectV1.String()), diag.ArgString(d.String()))
 	}
 
 	return v2
@@ -231,8 +231,8 @@ func (p *parser) notificationOID(t *TrapType) NotificationOID {
 
 	number, ok := trapNumber(assigned)
 	if !ok {
-		p.raise(t.Assignment.Start, smi.ErrCodeUnexpectedToken,
-			smi.ArgString(assigned), smi.ArgString("a trap number"))
+		p.raise(t.Assignment.Start, diag.ErrCodeUnexpectedToken,
+			diag.ArgString(assigned), diag.ArgString("a trap number"))
 
 		return oid
 	}

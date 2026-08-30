@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/frame"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
@@ -37,8 +37,8 @@ func module(t *testing.T, r *Result) *Module {
 	return &r.Modules[0]
 }
 
-func rendered(r *Result) []smi.Rendered {
-	out := make([]smi.Rendered, 0, len(r.Diagnostics))
+func rendered(r *Result) []diag.Rendered {
+	out := make([]diag.Rendered, 0, len(r.Diagnostics))
 	for _, d := range r.Diagnostics {
 		out = append(out, d.Render(r.Lines))
 	}
@@ -73,7 +73,7 @@ func at(t *testing.T, src, needle string) (int, int) {
 		t.Fatalf("fixture has no %q", needle)
 	}
 
-	return smi.NewLineTable([]byte(src)).LineColumn(i)
+	return diag.NewLineTable([]byte(src)).LineColumn(i)
 }
 
 func declNamed(m *Module, name string) (Ref, bool) {
@@ -137,8 +137,8 @@ after OBJECT-TYPE
 	if len(ds) != 1 {
 		t.Fatalf("got %v, want one diagnostic", ds)
 	}
-	if ds[0].Code != smi.ErrCodeMissingClause {
-		t.Errorf("got %v, want %v", ds[0].Code, smi.ErrCodeMissingClause)
+	if ds[0].Code != diag.ErrCodeMissingClause {
+		t.Errorf("got %v, want %v", ds[0].Code, diag.ErrCodeMissingClause)
 	}
 
 	line, col := at(t, src, "broken OBJECT-TYPE")
@@ -185,7 +185,7 @@ scrambled OBJECT-TYPE
 	if len(m.ObjectTypes) != 1 {
 		t.Fatalf("got %d object types, want 1", len(m.ObjectTypes))
 	}
-	wantCodes(t, r, smi.ErrCodeClauseOutOfOrder)
+	wantCodes(t, r, diag.ErrCodeClauseOutOfOrder)
 
 	got := r.StringValue(m.ObjectTypes[0].Description)
 	if got != "scrambled" {
@@ -225,7 +225,7 @@ noStatus OBJECT-TYPE
 `)
 
 	r := parseSource(t, src)
-	wantCodes(t, r, smi.ErrCodeMissingClause)
+	wantCodes(t, r, diag.ErrCodeMissingClause)
 
 	m := module(t, r)
 	if len(m.Bad) != 1 {
@@ -256,7 +256,7 @@ func TestOneDiagnosticPerSourceLine(t *testing.T) {
 		t.Errorf("got %q, want %q", m.ObjectTypes[0].Name, "good")
 	}
 
-	seen := map[int]smi.Rendered{}
+	seen := map[int]diag.Rendered{}
 	for _, d := range rendered(r) {
 		if prev, dup := seen[d.Line]; dup {
 			t.Errorf("line %d carries two diagnostics:\n %v\n %v", d.Line, prev, d)
@@ -321,7 +321,7 @@ func TestNestingBeyondCapIsFatal(t *testing.T) {
 	if !p.fatal {
 		t.Error("nesting past the cap did not stop the file")
 	}
-	if len(p.diags) == 0 || p.diags[len(p.diags)-1].Code() != smi.ErrCodeLimitExceeded {
+	if len(p.diags) == 0 || p.diags[len(p.diags)-1].Code() != diag.ErrCodeLimitExceeded {
 		t.Fatalf("got %v, want a limit diagnostic", p.diags)
 	}
 }
@@ -339,8 +339,8 @@ func TestDiagnosticLimitStopsTheFile(t *testing.T) {
 	}
 
 	last := r.Diagnostics[len(r.Diagnostics)-1]
-	if last.Code() != smi.ErrCodeLimitExceeded {
-		t.Errorf("got %v, want %v", last.Code(), smi.ErrCodeLimitExceeded)
+	if last.Code() != diag.ErrCodeLimitExceeded {
+		t.Errorf("got %v, want %v", last.Code(), diag.ErrCodeLimitExceeded)
 	}
 	if len(r.Modules) != 0 {
 		t.Errorf("got %d modules, want none: a limit costs the file", len(r.Modules))
@@ -360,7 +360,7 @@ func TestEnumerationMemberLimit(t *testing.T) {
 
 	r := parseSource(t, wrap(b.String()))
 
-	if len(r.Diagnostics) == 0 || r.Diagnostics[len(r.Diagnostics)-1].Code() != smi.ErrCodeLimitExceeded {
+	if len(r.Diagnostics) == 0 || r.Diagnostics[len(r.Diagnostics)-1].Code() != diag.ErrCodeLimitExceeded {
 		t.Fatalf("got %d diagnostics, want a limit diagnostic last", len(r.Diagnostics))
 	}
 }

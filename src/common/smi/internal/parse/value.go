@@ -3,7 +3,7 @@ package parse
 import (
 	"strconv"
 
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
 
@@ -279,7 +279,7 @@ func (r *reader) nestedDefault(v *Value, base BaseType) {
 	if writesSubIdentifiers(base, names, subs) {
 		v.Kind = ValueOID
 		v.Subs = subs
-		r.p.raise(v.Span.Start, smi.ErrCodeNonConformingOIDDefault)
+		r.p.raise(v.Span.Start, diag.ErrCodeNonConformingOIDDefault)
 
 		return
 	}
@@ -328,7 +328,7 @@ func (r *reader) hexOctets() []byte {
 func (r *reader) binaryOctets() []byte {
 	digits := radixDigits(r.p.res.Content(r.tok()), false)
 	if len(digits)%8 != 0 {
-		r.p.raise(r.tok().Offset, smi.ErrCodeBinaryStringNotOctets, smi.ArgInt(len(digits)))
+		r.p.raise(r.tok().Offset, diag.ErrCodeBinaryStringNotOctets, diag.ArgInt(len(digits)))
 	}
 	r.next()
 
@@ -378,14 +378,14 @@ func (p *parser) gradeDeclaration() {
 	syntax := p.d.syntax
 
 	if p.d.present.Has(ClauseDefval) && !syntax.Base.permitsDefault() {
-		p.raise(p.d.text[ClauseDefval].Start, smi.ErrCodeDefaultNotPermitted,
-			smi.ArgString(syntax.Base.String()))
+		p.raise(p.d.text[ClauseDefval].Start, diag.ErrCodeDefaultNotPermitted,
+			diag.ArgString(syntax.Base.String()))
 	}
 
 	if p.d.present.Has(ClauseDisplayHint) {
 		if allowed, known := displayHintAllowed(syntax); known && !allowed {
-			p.raise(p.d.text[ClauseDisplayHint].Start, smi.ErrCodeDisplayHintNotPermitted,
-				smi.ArgString(syntax.describe()))
+			p.raise(p.d.text[ClauseDisplayHint].Start, diag.ErrCodeDisplayHintNotPermitted,
+				diag.ArgString(syntax.describe()))
 		}
 	}
 }

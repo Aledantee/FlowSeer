@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
 
@@ -404,7 +404,7 @@ func TestContentAfterFinalEndIsDiagnosed(t *testing.T) {
 
 	f := cut(t, src)
 
-	wantCodes(t, f, smi.ErrCodeContentAfterEnd)
+	wantCodes(t, f, diag.ErrCodeContentAfterEnd)
 	if len(f.Modules) != 1 {
 		t.Fatalf("got %d modules, want 1", len(f.Modules))
 	}
@@ -447,7 +447,7 @@ Counter32 ::= [APPLICATION 1] IMPLICIT INTEGER (0..4294967295)`)
 func TestMissingModuleHeaderIsFatal(t *testing.T) {
 	f := cut(t, "This is a plain text file about MIBs.\nIt has no module in it.\n")
 
-	wantCodes(t, f, smi.ErrCodeMissingModuleHeader)
+	wantCodes(t, f, diag.ErrCodeMissingModuleHeader)
 	if len(f.Modules) != 0 {
 		t.Errorf("got %d modules, want none", len(f.Modules))
 	}
@@ -459,7 +459,7 @@ sysUpTime OBJECT-TYPE ::= { system 3 }`)
 
 	f := cut(t, src)
 
-	wantCodes(t, f, smi.ErrCodeUnrecognizedDeclaration)
+	wantCodes(t, f, diag.ErrCodeUnrecognizedDeclaration)
 	got := shapes(t, f, 0)
 	if len(got) != 2 {
 		t.Fatalf("got %d frames %v, want 2", len(got), got)
@@ -519,7 +519,7 @@ func TestLimitsAreFatal(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := cut(t, tc.src())
 
-			wantCodes(t, f, smi.ErrCodeLimitExceeded)
+			wantCodes(t, f, diag.ErrCodeLimitExceeded)
 			if len(f.Modules) != 0 {
 				t.Errorf("got %d modules, want none: a fatal file yields nothing usable", len(f.Modules))
 			}
@@ -542,7 +542,7 @@ func TestPairedCommentModeReparse(t *testing.T) {
 	if f.Comments != lex.CommentPaired {
 		t.Fatalf("file read in mode %v, want the paired rule", f.Comments)
 	}
-	wantCodes(t, f, smi.ErrCodePairedCommentMode)
+	wantCodes(t, f, diag.ErrCodePairedCommentMode)
 	// The span covers raw source, so the comment the paired rule folded
 	// away is still inside the frame's bytes.
 	wantShapes(t, f, 0, shape{KindValueAssignment, "bar", "bar OBJECT IDENTIFIER -- opens here -- ::= { iso 3 }"})
@@ -557,7 +557,7 @@ func TestNoReparseWhenPairedIsNoBetter(t *testing.T) {
 	if f.Comments != lex.CommentEndOfLine {
 		t.Fatalf("file read in mode %v, want the end-of-line rule", f.Comments)
 	}
-	wantCodes(t, f, smi.ErrCodeUnrecognizedDeclaration)
+	wantCodes(t, f, diag.ErrCodeUnrecognizedDeclaration)
 }
 
 // Reading a file written for the end-of-line rule under the paired rule
@@ -576,7 +576,7 @@ x OBJECT IDENTIFIER ::= { iso 1 }
 	if f.Comments != lex.CommentEndOfLine {
 		t.Fatalf("file read in mode %v, want the end-of-line rule", f.Comments)
 	}
-	wantCodes(t, f, smi.ErrCodeUnrecognizedDeclaration, smi.ErrCodeUnrecognizedDeclaration)
+	wantCodes(t, f, diag.ErrCodeUnrecognizedDeclaration, diag.ErrCodeUnrecognizedDeclaration)
 	if len(f.Modules) != 1 {
 		t.Fatalf("got %d modules, want the one the end-of-line reading found", len(f.Modules))
 	}

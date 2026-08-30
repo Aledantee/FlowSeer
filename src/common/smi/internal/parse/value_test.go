@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 )
 
 // object wraps one OBJECT-TYPE with the given SYNTAX and DEFVAL, which
@@ -172,7 +172,7 @@ func TestHexDefault(t *testing.T) {
 // so the default keeps the octets that were whole and the condition is
 // reported once rather than twice.
 func TestOddHexDefaultIsReported(t *testing.T) {
-	_, v := defaultOf(t, "OCTET STRING", "{ 'fff'H }", smi.ErrCodeOddHexString)
+	_, v := defaultOf(t, "OCTET STRING", "{ 'fff'H }", diag.ErrCodeOddHexString)
 
 	if !bytes.Equal(v.Octets, []byte{0xff}) {
 		t.Errorf("got octets % x, want ff", v.Octets)
@@ -180,7 +180,7 @@ func TestOddHexDefaultIsReported(t *testing.T) {
 }
 
 func TestBinaryDefaultShortOfAWholeOctet(t *testing.T) {
-	_, v := defaultOf(t, "OCTET STRING", "{ '10101'B }", smi.ErrCodeBinaryStringNotOctets)
+	_, v := defaultOf(t, "OCTET STRING", "{ '10101'B }", diag.ErrCodeBinaryStringNotOctets)
 
 	if !bytes.Equal(v.Octets, []byte{0xa8}) {
 		t.Errorf("got octets % x, want a8", v.Octets)
@@ -190,7 +190,7 @@ func TestBinaryDefaultShortOfAWholeOctet(t *testing.T) {
 // A counter's value only ever means the difference between two
 // readings, so RFC 2578 §7.9 gives it no default form.
 func TestDefaultNotPermittedOnACounter(t *testing.T) {
-	r, _ := defaultOf(t, "Counter32", "{ 0 }", smi.ErrCodeDefaultNotPermitted)
+	r, _ := defaultOf(t, "Counter32", "{ 0 }", diag.ErrCodeDefaultNotPermitted)
 
 	if got := rendered(r)[0].Message; got != "DEFVAL is not permitted on a Counter32 object" {
 		t.Errorf("got message %q", got)
@@ -201,7 +201,7 @@ func TestDefaultNotPermittedOnACounter(t *testing.T) {
 // not define the form, but what it means is plain, so it is read and
 // reported rather than refused.
 func TestNonConformingOIDDefault(t *testing.T) {
-	r, v := defaultOf(t, "OBJECT IDENTIFIER", "{ { 1 3 6 1 4 1 } }", smi.ErrCodeNonConformingOIDDefault)
+	r, v := defaultOf(t, "OBJECT IDENTIFIER", "{ { 1 3 6 1 4 1 } }", diag.ErrCodeNonConformingOIDDefault)
 
 	if v.Kind != ValueOID {
 		t.Fatalf("default reads as %v, want %v", v.Kind, ValueOID)

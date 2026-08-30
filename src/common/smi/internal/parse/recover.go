@@ -2,7 +2,7 @@ package parse
 
 import (
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/smi"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/frame"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
@@ -45,7 +45,7 @@ type parser struct {
 	pos  int
 	end  int32
 
-	diags    []smi.Diagnostic
+	diags    []diag.Diagnostic
 	lastLine int
 	fatal    bool
 
@@ -146,7 +146,7 @@ func (p *parser) text() string {
 // the rest would drown the ones that matter. What the parser knows is
 // not lost by the throttle — a declaration's missing clauses are on the
 // node whether or not each one drew a diagnostic.
-func (p *parser) raise(offset int32, code errs.Code, args ...smi.Arg) {
+func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
 	line, _ := p.res.Lines.LineColumn(int(offset))
 	if line == p.lastLine {
 		return
@@ -159,17 +159,17 @@ func (p *parser) raise(offset int32, code errs.Code, args ...smi.Arg) {
 		return
 	}
 
-	p.diags = append(p.diags, smi.Raise(smi.Position{File: p.file, Offset: int(offset)}, code, args...))
+	p.diags = append(p.diags, diag.Raise(diag.Position{File: p.file, Offset: int(offset)}, code, args...))
 }
 
 // limit reports a resource bound being reached and unwinds. It bypasses
 // the per-line throttle because a limit is the one diagnostic that
 // explains why everything after it is missing.
 func (p *parser) limit(what string, bound int, offset int32) {
-	p.diags = append(p.diags, smi.Raise(
-		smi.Position{File: p.file, Offset: int(offset)},
-		smi.ErrCodeLimitExceeded,
-		smi.ArgString(what), smi.ArgInt(bound),
+	p.diags = append(p.diags, diag.Raise(
+		diag.Position{File: p.file, Offset: int(offset)},
+		diag.ErrCodeLimitExceeded,
+		diag.ArgString(what), diag.ArgInt(bound),
 	))
 	p.fatal = true
 
