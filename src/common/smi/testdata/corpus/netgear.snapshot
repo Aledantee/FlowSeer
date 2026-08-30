@@ -1,0 +1,14 @@
+files 4
+modules 4
+declarations 1780
+unresolved-declarations 1
+files-with-fatal 0
+severity internal 0
+severity fatal 0
+severity error 2
+severity minor 0
+severity change 0
+severity warning 0
+severity info 0
+diagnostic smi/module-not-found error 1
+diagnostic smi/unresolved-declaration error 1

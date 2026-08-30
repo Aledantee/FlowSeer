@@ -1,0 +1,18 @@
+files 213
+modules 213
+declarations 19906
+unresolved-declarations 2776
+files-with-fatal 0
+severity internal 0
+severity fatal 0
+severity error 3005
+severity minor 1
+severity change 0
+severity warning 0
+severity info 0
+diagnostic smi/default-not-permitted error 5
+diagnostic smi/missing-clause error 102
+diagnostic smi/missing-import minor 1
+diagnostic smi/module-not-found error 27
+diagnostic smi/unexpected-token error 197
+diagnostic smi/unresolved-declaration error 2674

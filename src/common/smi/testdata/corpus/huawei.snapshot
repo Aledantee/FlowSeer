@@ -1,0 +1,22 @@
+files 240
+modules 240
+declarations 49015
+unresolved-declarations 20
+files-with-fatal 0
+severity internal 0
+severity fatal 0
+severity error 37
+severity minor 299
+severity change 0
+severity warning 0
+severity info 0
+diagnostic smi/binary-string-not-octets minor 39
+diagnostic smi/dialect-value-mismatch minor 217
+diagnostic smi/missing-clause error 2
+diagnostic smi/module-not-found error 3
+diagnostic smi/odd-hex-string minor 5
+diagnostic smi/overlapping-range minor 29
+diagnostic smi/range-outside-base-type error 5
+diagnostic smi/trailing-hyphen-identifier minor 9
+diagnostic smi/unexpected-token error 9
+diagnostic smi/unresolved-declaration error 18

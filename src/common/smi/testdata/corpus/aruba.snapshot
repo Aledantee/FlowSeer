@@ -1,0 +1,15 @@
+files 60
+modules 60
+declarations 5043
+unresolved-declarations 0
+files-with-fatal 0
+severity internal 0
+severity fatal 0
+severity error 8
+severity minor 18
+severity change 0
+severity warning 0
+severity info 0
+diagnostic smi/default-not-permitted error 8
+diagnostic smi/dialect-value-mismatch minor 15
+diagnostic smi/missing-import minor 3

@@ -1,0 +1,18 @@
+files 143
+modules 143
+declarations 9124
+unresolved-declarations 5
+files-with-fatal 0
+severity internal 0
+severity fatal 0
+severity error 53
+severity minor 1
+severity change 0
+severity warning 3
+severity info 0
+diagnostic smi/dialect-value-mismatch minor 1
+diagnostic smi/display-hint-malformed error 2
+diagnostic smi/hyphen-separator warning 3
+diagnostic smi/module-not-found error 2
+diagnostic smi/unexpected-token error 44
+diagnostic smi/unresolved-declaration error 5

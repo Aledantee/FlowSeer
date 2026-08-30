@@ -1,0 +1,13 @@
+files 1
+modules 1
+declarations 544
+unresolved-declarations 0
+files-with-fatal 0
+severity internal 0
+severity fatal 0
+severity error 2
+severity minor 0
+severity change 0
+severity warning 0
+severity info 0
+diagnostic smi/display-hint-not-permitted error 2
