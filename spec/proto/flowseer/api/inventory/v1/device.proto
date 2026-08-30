@@ -1,11 +1,114 @@
 edition = "2024";
 
+// The device family — the physical box FlowSeer manages, independent of
+// every integration that reaches it.
 package flowseer.api.inventory.v1;
 
-message DeviceRef {
-  string id = 1;
+import "flowseer/net/addr/v1/eui.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a device.
+message DeviceLocalRef {
+  // FlowSeer-assigned device identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
 }
 
-message Device {
-  DeviceRef ref = 1;
+// The global reference to a device.
+message DeviceGlobalRef {
+  // The device's own key. Must be present.
+  DeviceLocalRef device = 1 [(buf.validate.field).required = true];
+}
+
+// Where a device stands in FlowSeer's knowledge of the estate. Lifecycle
+// and reachability are separate axes: reachability is per binding and heals
+// on its own, while a lifecycle change is an operator action or the
+// missing-threshold policy.
+enum DeviceLifecycle {
+  // No lifecycle named. State and events reject the zero value.
+  DEVICE_LIFECYCLE_UNSPECIFIED = 0;
+  // Part of the managed estate.
+  DEVICE_LIFECYCLE_ACTIVE = 1;
+  // Every binding unreachable past the tenant's threshold. A system-set
+  // suspicion about FlowSeer's knowledge, not a claim about the box; it
+  // asks someone to look.
+  DEVICE_LIFECYCLE_MISSING = 2;
+  // Removed from service by a person or an explicit policy, never inferred
+  // from the wire going quiet. The device keeps its history and refs; a
+  // reappearing serial un-retires it instead of creating a duplicate.
+  DEVICE_LIFECYCLE_RETIRED = 3;
+}
+
+// The intended definition of one device: what the operator calls it.
+message DeviceConfig {
+  // The ref to this device. Must be present.
+  DeviceGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Operator-assigned display name. Unset means none was assigned;
+  // consumers fall back to observed identity. When set, must not be empty.
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description of the device. Unset means none was provided.
+  // When set, must not be empty.
+  string description = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+}
+
+// The observed side of one device: the identity read off the box and the
+// lifecycle FlowSeer holds for it. Serial and base MAC are correlation
+// data the service merges sightings on, never the ref's key; addresses,
+// hostnames, and platform ids are binding data and never appear here.
+message DeviceState {
+  // The ref to this device. Must be present.
+  DeviceGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Vendor serial number as the device reports it. Unset means no identity
+  // read has yielded one yet.
+  string serial = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Chassis base MAC as the device reports it. Unset means the device does
+  // not expose one.
+  flowseer.net.addr.v1.Eui48Address base_mac = 3;
+  // The device's lifecycle. Must be present; the zero value is rejected.
+  DeviceLifecycle lifecycle = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// One transition of a device's lifecycle. Provenance and timing ride the
+// event envelope, never this message.
+message DeviceEvent {
+  option (buf.validate.message).cel = {
+    id: "device_event.lifecycle_changes"
+    message: "a device event must change the lifecycle"
+    expression: "!has(this.from) || this.from != this.to"
+  };
+
+  // The ref to the device that changed. Must be present.
+  DeviceGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The lifecycle before the transition. Unset means the device entered
+  // the inventory. The zero value is rejected.
+  DeviceLifecycle from = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The lifecycle after the transition. Must be present; the zero value is
+  // rejected.
+  DeviceLifecycle to = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
 }
