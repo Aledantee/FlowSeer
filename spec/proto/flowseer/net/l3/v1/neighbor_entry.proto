@@ -10,7 +10,7 @@ import option "buf/validate/validate.proto";
 
 // A device neighbor-cache row keyed by interface name and IP address. It
 // represents both IPv4 ARP and IPv6 Neighbor Discovery without carrying a
-// device ref, tenant, or observation provenance.
+// device ref or observation provenance.
 message NeighborEntry {
   option (buf.validate.message).cel = {
     id: "neighbor_entry.router_flag_is_ipv6_only"

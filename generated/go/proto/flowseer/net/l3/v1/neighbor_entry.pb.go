@@ -23,7 +23,7 @@ const (
 
 // A device neighbor-cache row keyed by interface name and IP address. It
 // represents both IPv4 ARP and IPv6 Neighbor Discovery without carrying a
-// device ref, tenant, or observation provenance.
+// device ref or observation provenance.
 type NeighborEntry struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_InterfaceName *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`

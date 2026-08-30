@@ -28,14 +28,14 @@ func assignmentRef(id string) *inventoryv1.AttributeValueGlobalRef {
 	}.Build()
 }
 
-func validAttributeConfig(id string) *inventoryv1.AttributeConfig_builder {
-	return &inventoryv1.AttributeConfig_builder{
-		Ref:         attributeRef(id),
-		Key:         proto.String("rack-position"),
-		Name:        proto.String("Rack position"),
-		Targets:     []inventoryv1.EntityType{inventoryv1.EntityType_ENTITY_TYPE_DEVICE},
-		MultiValued: proto.Bool(false),
-		StringType:  &inventoryv1.StringType{},
+func validAttribute(id string) *inventoryv1.Attribute_builder {
+	return &inventoryv1.Attribute_builder{
+		Ref:        attributeRef(id),
+		Name:       proto.String("Rack position"),
+		Targets:    []inventoryv1.EntityType{inventoryv1.EntityType_ENTITY_TYPE_DEVICE},
+		MinItems:   proto.Uint32(1),
+		MaxItems:   proto.Uint32(1),
+		StringType: &inventoryv1.StringType{},
 	}
 }
 
@@ -77,34 +77,42 @@ func TestEntityRefRules(t *testing.T) {
 	runValidationCases(t, tests)
 }
 
-func TestAttributeConfigRules(t *testing.T) {
-	missingCardinality := validAttributeConfig(attributeID)
-	missingCardinality.MultiValued = nil
+func TestAttributeRules(t *testing.T) {
+	missingLowerBound := validAttribute(attributeID)
+	missingLowerBound.MinItems = nil
 
-	emptyTargets := validAttributeConfig(attributeID)
+	missingUpperBound := validAttribute(attributeID)
+	missingUpperBound.MaxItems = nil
+
+	emptyTargets := validAttribute(attributeID)
 	emptyTargets.Targets = nil
 
-	duplicateTargets := validAttributeConfig(attributeID)
+	duplicateTargets := validAttribute(attributeID)
 	duplicateTargets.Targets = []inventoryv1.EntityType{
 		inventoryv1.EntityType_ENTITY_TYPE_DEVICE,
 		inventoryv1.EntityType_ENTITY_TYPE_DEVICE,
 	}
 
-	noTypeArm := validAttributeConfig(attributeID)
+	noTypeArm := validAttribute(attributeID)
 	noTypeArm.StringType = nil
 
-	uppercaseKey := validAttributeConfig(attributeID)
-	uppercaseKey.Key = proto.String("Rack-Position")
+	emptyDescription := validAttribute(attributeID)
+	emptyDescription.Description = proto.String("")
 
 	tests := []validationCase{
 		{
 			name:      "a full definition is valid",
-			message:   validAttributeConfig(attributeID).Build(),
+			message:   validAttribute(attributeID).Build(),
 			wantValid: true,
 		},
 		{
-			name:      "cardinality must be declared",
-			message:   missingCardinality.Build(),
+			name:      "the lower cardinality bound must be declared",
+			message:   missingLowerBound.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "the upper cardinality bound must be declared",
+			message:   missingUpperBound.Build(),
 			wantValid: false,
 		},
 		{
@@ -123,8 +131,8 @@ func TestAttributeConfigRules(t *testing.T) {
 			wantValid: false,
 		},
 		{
-			name:      "keys are lowercase kebab",
-			message:   uppercaseKey.Build(),
+			name:      "an empty description is rejected",
+			message:   emptyDescription.Build(),
 			wantValid: false,
 		},
 		{
@@ -241,12 +249,15 @@ func TestAttributeValuePayloadRules(t *testing.T) {
 }
 
 func TestAttributeEventRules(t *testing.T) {
+	sideWithoutRef := validAttribute(attributeID)
+	sideWithoutRef.Ref = nil
+
 	tests := []validationCase{
 		{
 			name: "a create event with matching refs is valid",
 			message: inventoryv1.AttributeEvent_builder{
 				Ref:   attributeRef(attributeID),
-				After: validAttributeConfig(attributeID).Build(),
+				After: validAttribute(attributeID).Build(),
 			}.Build(),
 			wantValid: true,
 		},
@@ -261,21 +272,15 @@ func TestAttributeEventRules(t *testing.T) {
 			name: "a side describing a different definition is rejected",
 			message: inventoryv1.AttributeEvent_builder{
 				Ref:   attributeRef(attributeID),
-				After: validAttributeConfig(attributeID2).Build(),
+				After: validAttribute(attributeID2).Build(),
 			}.Build(),
 			wantValid: false,
 		},
 		{
 			name: "a side without its own ref is rejected by recursion",
 			message: inventoryv1.AttributeEvent_builder{
-				Ref: attributeRef(attributeID),
-				After: (&inventoryv1.AttributeConfig_builder{
-					Key:         proto.String("rack-position"),
-					Name:        proto.String("Rack position"),
-					Targets:     []inventoryv1.EntityType{inventoryv1.EntityType_ENTITY_TYPE_DEVICE},
-					MultiValued: proto.Bool(false),
-					StringType:  &inventoryv1.StringType{},
-				}).Build(),
+				Ref:   attributeRef(attributeID),
+				After: sideWithoutRef.Build(),
 			}.Build(),
 			wantValid: false,
 		},
@@ -292,8 +297,8 @@ func TestAttributeValueRules(t *testing.T) {
 	payload := inventoryv1.AttributeValuePayload_builder{
 		Text: proto.String("u42"),
 	}.Build()
-	assignment := func(id string) *inventoryv1.AttributeValueConfig {
-		return inventoryv1.AttributeValueConfig_builder{
+	assignment := func(id string) *inventoryv1.AttributeValue {
+		return inventoryv1.AttributeValue_builder{
 			Ref:       assignmentRef(id),
 			Owner:     owner,
 			Attribute: attributeRef(attributeID),
@@ -309,7 +314,7 @@ func TestAttributeValueRules(t *testing.T) {
 		},
 		{
 			name: "an assignment without values is rejected",
-			message: inventoryv1.AttributeValueConfig_builder{
+			message: inventoryv1.AttributeValue_builder{
 				Ref:       assignmentRef(ownerID),
 				Owner:     owner,
 				Attribute: attributeRef(attributeID),
@@ -318,7 +323,7 @@ func TestAttributeValueRules(t *testing.T) {
 		},
 		{
 			name: "an assignment without an owner is rejected",
-			message: inventoryv1.AttributeValueConfig_builder{
+			message: inventoryv1.AttributeValue_builder{
 				Ref:       assignmentRef(ownerID),
 				Attribute: attributeRef(attributeID),
 				Values:    []*inventoryv1.AttributeValuePayload{payload},

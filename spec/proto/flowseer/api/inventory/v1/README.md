@@ -10,8 +10,7 @@ FlowSeer-assigned UUID.
 ## Tags
 
 A tag is an operator-curated grouping label. Tags are hierarchical: each tag
-may name one parent, and a tag with no parent is a root of its tenant's tag
-tree. The point of the hierarchy is rollup. A filter, report, or
+may name one parent, and a tag with no parent is a root of the tag tree. The point of the hierarchy is rollup. A filter, report, or
 authorization grant scoped to `EMEA` also matches everything tagged
 `EMEA/Berlin/DC-1`, so nobody has to tag a switch three times.
 
@@ -57,21 +56,22 @@ a shared foundation:
   entity, and nothing points at an assignment. Tenant is in the enum ahead
   of the tenant entity gaining an id surface; a ref to a tenant is content
   on the pointing entity, never the request's tenancy scope.
-- The definition family (`attribute.proto`) names the attribute: a stable
-  machine key consumers address it by, a display name, one value type
-  (string, number, closed enum with the vocabulary as data on the
-  definition, or entity reference), the entity kinds it targets, and its
-  cardinality.
-- The assignment family (`attribute_value.proto`) carries the values: one
-  assignment per owner and definition, owned by exactly that owner, holding
-  one payload or a list when the definition allows it.
+- The definition family names the attribute: a display name, one value
+  type (string, number, closed enum with the vocabulary as data on the
+  definition, or entity reference), the entity kinds it targets, and the
+  bounds on how many values one assignment holds.
+- The assignment family carries the values: one assignment per owner and
+  definition, owned by exactly that owner, holding as many payloads as the
+  definition's bounds allow.
 
-Both families are Config-and-Event only; their file comments record the
-deliberately absent `State`. The lifecycle rules that need server state —
-key uniqueness and immutability, target and cardinality checks, the
-drop-or-block gate on invalidating definition edits, and the silent cascade
-when a referenced entity is deleted — live in the message comments and are
-enforced by the inventory service.
+Both families live in `attribute.proto`, and neither splits intent from
+state: a definition and an assignment are pure operator intent with nothing
+observed, so each family is its entity message (`Attribute`,
+`AttributeValue`) plus its `Event`, and the file comment records the
+deliberately absent members. The lifecycle rules
+that need server state — target and cardinality checks, the drop-or-block
+gate on invalidating definition edits, and the silent cascade when a referenced entity is deleted — live in
+the message comments and are enforced by the inventory service.
 
 ## Other entities
 

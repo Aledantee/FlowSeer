@@ -1,13 +1,22 @@
 edition = "2024";
 
+// The attribute definition family — what an attribute is called, what type
+// its values carry, how many values an assignment holds, and where it may
+// attach — and the assignment family that carries the values themselves.
+//
+// Both families are deliberately partial: a definition and an assignment
+// are pure operator intent with nothing observed or derived, so neither
+// splits intent from state. Each family is its entity message plus its
+// Event; there is no AttributeConfig, AttributeState, AttributeValueConfig,
+// or AttributeValueState.
 package flowseer.api.inventory.v1;
 
 import "flowseer/api/inventory/v1/entity.proto";
 import option "buf/validate/validate.proto";
 
-// The key of an attribute definition within its tenant. The definition is a
-// top-level entity, so the local ref carries the FlowSeer-assigned
-// identifier and nothing else.
+// The key of an attribute definition. The definition is a top-level
+// entity, so the local ref carries the FlowSeer-assigned identifier and
+// nothing else.
 message AttributeLocalRef {
   // FlowSeer-assigned definition identifier. Must be present; omit the
   // containing field instead.
@@ -18,7 +27,6 @@ message AttributeLocalRef {
 }
 
 // The definition is top-level, so its global ref wraps only the local ref.
-// Tenancy is ambient and never part of the ref.
 message AttributeGlobalRef {
   // The definition's own key. Must be present; omit the containing field
   // instead.
@@ -26,11 +34,11 @@ message AttributeGlobalRef {
 }
 
 // A free-text value type. Values parse as text of 1 to 2048 characters,
-// enforced on the payload arm in attribute_value.proto.
+// enforced on the payload arm of AttributeValuePayload.
 message StringType {}
 
-// A numeric value type. Values carry the Number variant from
-// attribute_value.proto: an exact int64 integer or a finite double.
+// A numeric value type. Values carry the Number variant: an exact int64
+// integer or a finite double.
 message NumberType {}
 
 // A closed-vocabulary value type: the operator defines the vocabulary as
@@ -68,28 +76,22 @@ message ReferenceType {
   ];
 }
 
-// The intended definition of one attribute: its machine key, its display
-// name, its value type, the entity kinds it may attach to, and whether an
-// assignment holds one value or a list.
+// The intended definition of one attribute: its display name, its value
+// type, the entity kinds it may attach to, and the bounds on how many
+// values one assignment holds.
 //
 // Constraints that need more state than this message carries are enforced
-// by the inventory service: the key is unique within the tenant and
-// immutable after creation, and every edit that can invalidate existing
-// values — changing the type, removing an enum key, removing a target
-// kind, switching multi-valued to single, or deleting the definition — is
+// by the inventory service: min_items never exceeds max_items, and every
+// edit that can invalidate existing values — changing the type, removing
+// an enum key, removing a target kind, tightening the value-count bounds
+// below what an assignment already holds, or deleting the definition — is
 // gated by an explicit operator decision to drop the invalidated values or
 // abandon the edit. Survival under a type change is deterministic: only
 // the enum-key-to-string conversion preserves values; every other type
 // pair invalidates.
-message AttributeConfig {
+message Attribute {
   // The ref to this definition. Must be present.
   AttributeGlobalRef ref = 1 [(buf.validate.field).required = true];
-  // Stable machine key consumers address the attribute by. Unique within
-  // the tenant, never localized, immutable after creation. Must be present.
-  string id = 2 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
-  ];
   // Operator-assigned display name. Reads carry it localized per the RPC's
   // language header when a translation exists; otherwise it comes back in
   // English. The translation mapping is server-side and never part of the
@@ -119,8 +121,12 @@ message AttributeConfig {
       }
     }
   }];
-
+  // The fewest values one assignment of this attribute may hold. Must be
+  // present: every definition declares its cardinality bounds explicitly.
   uint32 min_items = 6 [(buf.validate.field).required = true];
+  // The most values one assignment of this attribute may hold. Never less
+  // than min_items, which needs both fields and is checked by the inventory
+  // service. Must be present.
   uint32 max_items = 7 [(buf.validate.field).required = true];
 
   // The type every value of this attribute must parse under. Exactly one
@@ -163,13 +169,13 @@ message AttributeEvent {
   AttributeGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The intended definition before the transition. Unset means the
   // definition was created.
-  AttributeConfig before = 2;
+  Attribute before = 2;
   // The intended definition after the transition. Unset means the
   // definition was deleted.
-  AttributeConfig after = 3;
+  Attribute after = 3;
 }
 
-// The key of an assignment within its tenant. The assignment is a top-level
+// The key of an assignment. The assignment is a top-level
 // relationship entity, so the local ref carries the FlowSeer-assigned
 // identifier and nothing else; the owner and definition it joins are
 // content on the assignment, not part of its identity.
@@ -183,7 +189,6 @@ message AttributeValueLocalRef {
 }
 
 // The assignment is top-level, so its global ref wraps only the local ref.
-// Tenancy is ambient and never part of the ref.
 message AttributeValueGlobalRef {
   // The assignment's own key. Must be present; omit the containing field
   // instead.
@@ -221,14 +226,12 @@ message AttributeValuePayload {
       min_len: 1
       max_len: 2048
     }];
-    // An integer.
-    int64 integer = 2;
-    // A floating point number.
-    double decimal = 3;
+    // A number.
+    Number number = 2;
     // One key from the definition's closed vocabulary, in the same shape
     // EnumType constrains its keys to. Membership in the vocabulary is
     // checked by the service.
-    string enum_key = 4 [(buf.validate.field).string = {
+    string enum_key = 3 [(buf.validate.field).string = {
       min_len: 1
       max_len: 64
       pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
@@ -237,7 +240,7 @@ message AttributeValuePayload {
     // Existence and kind are checked by the service at write time; deleting
     // the referenced entity later removes this value from its owner without
     // prompting.
-    EntityRef reference = 5;
+    EntityRef reference = 4;
   }
 }
 
@@ -248,11 +251,12 @@ message AttributeValuePayload {
 // Rules that need more state than this message carries are enforced by the
 // inventory service: at most one assignment exists per owner and
 // definition, the owner's kind must be among the definition's targets,
-// every payload must parse under the definition's type, and more than one
-// value is allowed only when the definition is multi-valued. An assignment
+// every payload must parse under the definition's type, and the payload
+// count must fall within the definition's declared min_items and
+// max_items. An assignment
 // shares its owner's lifecycle and disappears with it, and disappears when
 // a cascade removes its last value.
-message AttributeValueConfig {
+message AttributeValue {
   // The ref to this assignment. Must be present.
   AttributeValueGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The entity carrying the values. Must be present. The kind is dynamic,
@@ -298,8 +302,8 @@ message AttributeValueEvent {
   AttributeValueGlobalRef ref = 1 [(buf.validate.field).required = true];
   // The intended assignment before the transition. Unset means it was
   // created.
-  AttributeValueConfig before = 2;
+  AttributeValue before = 2;
   // The intended assignment after the transition. Unset means it was
   // deleted.
-  AttributeValueConfig after = 3;
+  AttributeValue after = 3;
 }

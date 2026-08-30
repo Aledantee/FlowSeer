@@ -23,7 +23,8 @@ direction](../architecture/2026-08-20-network-model-structure-direction.md).
 
 ## The triad
 
-Every Entity has three messages, named for the same base:
+An Entity with both an intended and an observed side has three messages,
+named for the same base:
 
 | Message | Holds |
 | --- | --- |
@@ -44,14 +45,20 @@ datastore axis, and neither is a subset of the other by construction — a devic
 reports things nobody configured (link speed, uptime) and accepts things it
 never reports back.
 
-A family may be **deliberately partial**. A machine-observed entity nobody
-configures has no `Config`; a pure-intent entity nobody observes has no
-`State`; a projection nobody stores has no `Event`. When a member is
-deliberately absent, say so in the family file's file-level doc comment,
-naming what is missing and why — the attribute families are the worked
-example. The hook reports every missing member and cannot tell deliberate
-from forgotten, so the comment is what lets the next reader tell, and putting
-it in a predictable place is what lets them find it.
+The triad is shaped for entities where intended and observed genuinely
+diverge — device-level configuration a human asks for and a device reports
+on. Do not apply it reflexively. A family may be **deliberately partial**: a
+machine-observed entity nobody configures has no `Config`; a projection
+nobody stores has no `Event`; and a pure-intent entity nobody observes has
+no `State` — and no `Config` suffix either, because with no observed side to
+separate from, the intent message *is* the entity and is named plain
+`<Entity>`. Such a family is `<Entity>` plus `<Entity>Event`, whose before
+and after carry `<Entity>` — the attribute families are the worked example.
+When a member is deliberately absent, say so in the family file's file-level
+doc comment, naming what is missing and why. The hook reports every missing
+member and cannot tell deliberate from forgotten, so the comment is what
+lets the next reader tell, and putting it in a predictable place is what
+lets them find it.
 
 ## The ref pair
 

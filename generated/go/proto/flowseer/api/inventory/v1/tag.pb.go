@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The key of a tag within its tenant. A tag is a top-level entity: its
+// The key of a tag. A tag is a top-level entity: its
 // position in the tag tree is content on the tag, not part of its identity,
 // so the local ref carries the FlowSeer-assigned identifier and nothing else.
 type TagLocalRef struct {
@@ -106,7 +106,7 @@ func (b0 TagLocalRef_builder) Build() *TagLocalRef {
 // A tag is top-level, so its global ref wraps only the local ref. The
 // degenerate wrapper is kept anyway: every entity carries the LocalRef/
 // GlobalRef pair so refs compose uniformly and the sync hook can check them
-// mechanically. Tenancy is ambient and never part of the ref.
+// mechanically.
 type TagGlobalRef struct {
 	state          protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Tag *TagLocalRef           `protobuf:"bytes,1,opt,name=tag"`
@@ -177,7 +177,7 @@ func (b0 TagGlobalRef_builder) Build() *TagGlobalRef {
 }
 
 // The intended definition of one tag: its name, its description, and its
-// place in the tenant's tag tree. Sibling-name uniqueness and cycle-freedom
+// place in the tag tree. Sibling-name uniqueness and cycle-freedom
 // of the parent chain need state the message does not contain and are
 // enforced by the inventory service.
 type TagConfig struct {
@@ -321,7 +321,7 @@ type TagConfig_builder struct {
 	// The ref to this tag. Must be present.
 	Ref *TagGlobalRef
 	// The ref to the parent tag. Unset means this tag is a root of the
-	// tenant's tag tree.
+	// tag tree.
 	Parent *TagGlobalRef
 	// Operator-assigned name, unique among the siblings under one parent.
 	// Reads carry it localized per the RPC's language header when a
@@ -350,7 +350,7 @@ func (b0 TagConfig_builder) Build() *TagConfig {
 	return m0
 }
 
-// The observed placement of one tag in the tenant's tag tree. Nothing on a
+// The observed placement of one tag in the tag tree. Nothing on a
 // device reports tags; this state is derived by the inventory service from
 // the configured parent chain and rewritten on every rename or reparent
 // below or above the tag. It is denormalized so that consumers resolve a
