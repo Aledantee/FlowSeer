@@ -20,9 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The key of a tag. A tag is a top-level entity: its
-// position in the tag tree is content on the tag, not part of its identity,
-// so the local ref carries the FlowSeer-assigned identifier and nothing else.
+// The local reference to a tag.
 type TagLocalRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
@@ -87,8 +85,7 @@ func (x *TagLocalRef) ClearId() {
 type TagLocalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// FlowSeer-assigned tag identifier. Must be present; omit the containing
-	// field instead.
+	// FlowSeer-assigned tag identifier. Must be present.
 	Id *string
 }
 
@@ -103,10 +100,7 @@ func (b0 TagLocalRef_builder) Build() *TagLocalRef {
 	return m0
 }
 
-// A tag is top-level, so its global ref wraps only the local ref. The
-// degenerate wrapper is kept anyway: every entity carries the LocalRef/
-// GlobalRef pair so refs compose uniformly and the sync hook can check them
-// mechanically.
+// The global reference to a tag.
 type TagGlobalRef struct {
 	state          protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Tag *TagLocalRef           `protobuf:"bytes,1,opt,name=tag"`
@@ -164,7 +158,7 @@ func (x *TagGlobalRef) ClearTag() {
 type TagGlobalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The tag's own key. Must be present; omit the containing field instead.
+	// The tag's own key. Must be present.
 	Tag *TagLocalRef
 }
 

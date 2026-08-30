@@ -11,7 +11,7 @@ import option "buf/validate/validate.proto";
 // prefilter and vendor lookups hold an OUI with no address behind it.
 message Oui {
   // The 3 prefix octets in canonical wire order, most significant first.
-  // Must be present; omit the containing field instead.
+  // Must be present.
   bytes octets = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).bytes.len = 3

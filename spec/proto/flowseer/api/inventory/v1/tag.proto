@@ -4,24 +4,18 @@ package flowseer.api.inventory.v1;
 
 import option "buf/validate/validate.proto";
 
-// The key of a tag. A tag is a top-level entity: its
-// position in the tag tree is content on the tag, not part of its identity,
-// so the local ref carries the FlowSeer-assigned identifier and nothing else.
+// The local reference to a tag.
 message TagLocalRef {
-  // FlowSeer-assigned tag identifier. Must be present; omit the containing
-  // field instead.
+  // FlowSeer-assigned tag identifier. Must be present.
   string id = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.uuid = true
   ];
 }
 
-// A tag is top-level, so its global ref wraps only the local ref. The
-// degenerate wrapper is kept anyway: every entity carries the LocalRef/
-// GlobalRef pair so refs compose uniformly and the sync hook can check them
-// mechanically.
+// The global reference to a tag.
 message TagGlobalRef {
-  // The tag's own key. Must be present; omit the containing field instead.
+  // The tag's own key. Must be present.
   TagLocalRef tag = 1 [(buf.validate.field).required = true];
 }
 

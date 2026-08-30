@@ -935,11 +935,9 @@ func (x *Ipv4Range) ClearEnd() {
 type Ipv4Range_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The inclusive lower bound. Must be present; omit the containing field
-	// instead.
+	// The inclusive lower bound. Must be present.
 	Start *Ipv4Address
-	// The inclusive upper bound. Must be present; omit the containing field
-	// instead.
+	// The inclusive upper bound. Must be present.
 	End *Ipv4Address
 }
 
@@ -1033,11 +1031,9 @@ func (x *Ipv6Range) ClearEnd() {
 type Ipv6Range_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The inclusive lower bound. Must be present; omit the containing field
-	// instead.
+	// The inclusive lower bound. Must be present.
 	Start *Ipv6Address
-	// The inclusive upper bound. Must be present; omit the containing field
-	// instead.
+	// The inclusive upper bound. Must be present.
 	End *Ipv6Address
 }
 

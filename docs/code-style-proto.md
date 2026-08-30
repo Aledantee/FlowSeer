@@ -218,6 +218,16 @@ never in the schema. A comment that would survive the decision being made
 differently is not documenting the contract. When a declaration's meaning is
 fully carried by its name, no comment at all beats one that restates it.
 
+Write dense. Repo-wide structural facts — the ref pair's shape, ambient
+tenancy, why a degenerate wrapper exists, that an identifier equals the one
+in the ref — are stated once in the conventions doc and never repeated per
+message; a copy in every family is noise that drifts. Ref messages get
+exactly one line (`// The local reference to a tag.`, `// The global
+reference to a tag.`) and their fields at most the presence contract
+(`// Must be present.`). Drop boilerplate that adds nothing to the contract:
+"omit the containing field instead" says nothing "Must be present." does
+not.
+
 **Message field spacing**
 
 Inside any message under `spec/proto/`, place adjacent fields directly next to

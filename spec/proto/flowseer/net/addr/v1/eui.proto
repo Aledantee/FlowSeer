@@ -9,7 +9,7 @@ import option "buf/validate/validate.proto";
 // https://standards.ieee.org/products-programs/regauth/.
 message Eui48Address {
   // The 6 address octets in canonical wire order, most significant first.
-  // Must be present; omit the containing field instead.
+  // Must be present.
   bytes octets = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).bytes.len = 6
@@ -21,7 +21,7 @@ message Eui48Address {
 // https://standards.ieee.org/products-programs/regauth/.
 message Eui64Address {
   // The 8 address octets in canonical wire order, most significant first.
-  // Must be present; omit the containing field instead.
+  // Must be present.
   bytes octets = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).bytes.len = 8

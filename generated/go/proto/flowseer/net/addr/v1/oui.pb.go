@@ -90,7 +90,7 @@ type Oui_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The 3 prefix octets in canonical wire order, most significant first.
-	// Must be present; omit the containing field instead.
+	// Must be present.
 	Octets []byte
 }
 

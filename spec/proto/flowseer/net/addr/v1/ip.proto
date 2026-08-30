@@ -152,11 +152,9 @@ message Ipv4Range {
     expression: "!has(this.start) || !has(this.end) || this.start.octets <= this.end.octets"
   };
 
-  // The inclusive lower bound. Must be present; omit the containing field
-  // instead.
+  // The inclusive lower bound. Must be present.
   Ipv4Address start = 1 [(buf.validate.field).required = true];
-  // The inclusive upper bound. Must be present; omit the containing field
-  // instead.
+  // The inclusive upper bound. Must be present.
   Ipv4Address end = 2 [(buf.validate.field).required = true];
 }
 
@@ -168,11 +166,9 @@ message Ipv6Range {
     expression: "!has(this.start) || !has(this.end) || this.start.octets <= this.end.octets"
   };
 
-  // The inclusive lower bound. Must be present; omit the containing field
-  // instead.
+  // The inclusive lower bound. Must be present.
   Ipv6Address start = 1 [(buf.validate.field).required = true];
-  // The inclusive upper bound. Must be present; omit the containing field
-  // instead.
+  // The inclusive upper bound. Must be present.
   Ipv6Address end = 2 [(buf.validate.field).required = true];
 }
 

@@ -30,9 +30,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The key of an attribute definition. The definition is a top-level
-// entity, so the local ref carries the FlowSeer-assigned identifier and
-// nothing else.
+// The local reference to an attribute definition.
 type AttributeLocalRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
@@ -97,8 +95,7 @@ func (x *AttributeLocalRef) ClearId() {
 type AttributeLocalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// FlowSeer-assigned definition identifier. Must be present; omit the
-	// containing field instead.
+	// FlowSeer-assigned definition identifier. Must be present.
 	Id *string
 }
 
@@ -113,7 +110,7 @@ func (b0 AttributeLocalRef_builder) Build() *AttributeLocalRef {
 	return m0
 }
 
-// The definition is top-level, so its global ref wraps only the local ref.
+// The global reference to an attribute definition.
 type AttributeGlobalRef struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Attribute *AttributeLocalRef     `protobuf:"bytes,1,opt,name=attribute"`
@@ -171,8 +168,7 @@ func (x *AttributeGlobalRef) ClearAttribute() {
 type AttributeGlobalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The definition's own key. Must be present; omit the containing field
-	// instead.
+	// The definition's own key. Must be present.
 	Attribute *AttributeLocalRef
 }
 
@@ -1011,10 +1007,7 @@ func (b0 AttributeEvent_builder) Build() *AttributeEvent {
 	return m0
 }
 
-// The key of an assignment. The assignment is a top-level
-// relationship entity, so the local ref carries the FlowSeer-assigned
-// identifier and nothing else; the owner and definition it joins are
-// content on the assignment, not part of its identity.
+// The local reference to an attribute value assignment.
 type AttributeValueLocalRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
@@ -1079,8 +1072,7 @@ func (x *AttributeValueLocalRef) ClearId() {
 type AttributeValueLocalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// FlowSeer-assigned assignment identifier. Must be present; omit the
-	// containing field instead.
+	// FlowSeer-assigned assignment identifier. Must be present.
 	Id *string
 }
 
@@ -1095,7 +1087,7 @@ func (b0 AttributeValueLocalRef_builder) Build() *AttributeValueLocalRef {
 	return m0
 }
 
-// The assignment is top-level, so its global ref wraps only the local ref.
+// The global reference to an attribute value assignment.
 type AttributeValueGlobalRef struct {
 	state                     protoimpl.MessageState  `protogen:"opaque.v1"`
 	xxx_hidden_AttributeValue *AttributeValueLocalRef `protobuf:"bytes,1,opt,name=attribute_value,json=attributeValue"`
@@ -1153,8 +1145,7 @@ func (x *AttributeValueGlobalRef) ClearAttributeValue() {
 type AttributeValueGlobalRef_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The assignment's own key. Must be present; omit the containing field
-	// instead.
+	// The assignment's own key. Must be present.
 	AttributeValue *AttributeValueLocalRef
 }
 
