@@ -1,0 +1,30 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/protocol/lldp/v1/port_id_subtype.proto";
+import option "buf/validate/validate.proto";
+
+// The identifier a device gives one of its ports, as subtype plus octets.
+// The octets stay exactly as the protocol carries them: rendering them as
+// text depends on the subtype and belongs to the consumer.
+message PortId {
+  // How to read the octets. Must be present; the reserved subtype 0 is
+  // rejected. Unknown non-zero values stay valid so a subtype this version
+  // does not name passes validation.
+  PortIdSubtype subtype = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      not_in: [0]
+    }
+  ];
+  // The identifier octets as reported, 1 to 255 of them per IEEE Std
+  // 802.1AB. Must be present; omit the containing field instead.
+  bytes value = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes = {
+      min_len: 1
+      max_len: 255
+    }
+  ];
+}

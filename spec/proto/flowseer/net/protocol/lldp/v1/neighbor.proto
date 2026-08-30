@@ -1,0 +1,47 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/protocol/lldp/v1/chassis_id.proto";
+import "flowseer/net/protocol/lldp/v1/management_address.proto";
+import "flowseer/net/protocol/lldp/v1/port_id.proto";
+import "flowseer/net/protocol/lldp/v1/system_capability.proto";
+import option "buf/validate/validate.proto";
+
+// One announcement a device holds from a neighboring system, as seen on one
+// of the device's own interfaces. Every field other than the local interface
+// name is what the neighbor announced, not what the observing device knows.
+message Neighbor {
+  // The device-local name of the interface the announcement arrived on. Must
+  // be present and non-empty.
+  string local_interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  // The chassis identifier the neighbor announced. Must be present; the
+  // announcement carries it in a mandatory TLV.
+  ChassisId chassis_id = 2 [(buf.validate.field).required = true];
+  // The identifier of the neighbor's own port. Must be present; the
+  // announcement carries it in a mandatory TLV.
+  PortId port_id = 3 [(buf.validate.field).required = true];
+  // The description of the neighbor's own port. Absent means the
+  // announcement carried no port description.
+  string port_description = 4;
+  // The neighbor's administratively assigned system name. Absent means the
+  // announcement carried no system name.
+  string system_name = 5;
+  // The neighbor's textual system description. Absent means the announcement
+  // carried no system description.
+  string system_description = 6;
+  // The capabilities the neighbor announced it can perform. An empty list
+  // means none were announced. Values the schema does not name stay valid so
+  // a capability position this version does not know survives collection.
+  repeated SystemCapability capabilities_supported = 7 [(buf.validate.field).repeated.unique = true];
+  // The announced capabilities the neighbor has in use. An empty list means
+  // none were announced. Values the schema does not name stay valid so a
+  // capability position this version does not know survives collection.
+  repeated SystemCapability capabilities_enabled = 8 [(buf.validate.field).repeated.unique = true];
+  // The addresses at which the neighbor announced it can be managed. An
+  // empty list means none were announced.
+  repeated ManagementAddress management_addresses = 9;
+}

@@ -1,0 +1,30 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+// How the octets of a chassis identifier are encoded. Integers map directly
+// to the chassis identifier subtypes assigned by IEEE Std 802.1AB
+// (https://standards.ieee.org/ieee/802.1AB/7268/) and mirrored by the
+// LLDP-MIB textual convention LldpChassisIdSubtype. Unnamed values remain
+// valid subtypes.
+enum ChassisIdSubtype {
+  // Subtype 0 is reserved and never appears on the wire. Absence of the
+  // containing chassis identifier, not this value, means unobserved.
+  CHASSIS_ID_SUBTYPE_RESERVED = 0;
+  // The alias of a chassis component, an ENTITY-MIB entPhysicalAlias.
+  CHASSIS_ID_SUBTYPE_CHASSIS_COMPONENT = 1;
+  // The alias of an interface, an IF-MIB ifAlias.
+  CHASSIS_ID_SUBTYPE_INTERFACE_ALIAS = 2;
+  // The alias of a port or backplane component, an ENTITY-MIB
+  // entPhysicalAlias.
+  CHASSIS_ID_SUBTYPE_PORT_COMPONENT = 3;
+  // An IEEE 802 EUI-48 address in its six-octet binary form.
+  CHASSIS_ID_SUBTYPE_MAC_ADDRESS = 4;
+  // A network address: one octet of IANA address family number followed by
+  // the address of that family.
+  CHASSIS_ID_SUBTYPE_NETWORK_ADDRESS = 5;
+  // The name of an interface, an IF-MIB ifName.
+  CHASSIS_ID_SUBTYPE_INTERFACE_NAME = 6;
+  // An identifier assigned locally by the reporting device.
+  CHASSIS_ID_SUBTYPE_LOCAL = 7;
+}
