@@ -50,6 +50,10 @@ A device-functionality area a Binding advertises as reachable. Capability sets s
 
 The origin of one live response or event — which Binding answered and when the answering integration observed the payload. Provenance rides response and event envelopes, never the entity messages themselves.
 
+### Entity Reference
+
+A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic — a statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
+
 ## Network model
 
 ### Facet
@@ -60,6 +64,12 @@ A bundle of per-layer attributes for one interface — switchport membership, IP
 
 Device-scoped state whose rows reference interfaces by name — the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
 
-### Entity Reference
+## Collection
 
-A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic — a statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
+### Declining
+
+A decoder answering "this value is not mine to read" rather than failing. What a decline costs depends on where it happens: on the fused fast path it falls through to the general decoder and costs nothing, inside a generated table walk it ends the walk, and on the change-watch merge path it is dropped silently and leaves the field stale. A decoder that coerces a recoverable value is usually preferable to one that declines.
+
+### Fatal walk
+
+A collection walk whose failure voids the whole answer, as against one that degrades and returns what it gathered. Only the table a set of facts is keyed on is fatal; a walk that merely enriches those facts reports its failure alongside the rows already collected rather than in place of them. A caller therefore cannot read an error as "no data" — it must inspect the result too.
