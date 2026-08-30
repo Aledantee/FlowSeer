@@ -1,0 +1,4 @@
+# RFC 2579 section 3.1 bars a decimal digit and "*" from a separator's
+# place, because neither can be told apart from the octet count or the
+# repeat indicator of the specification that would follow it.
+code smi/display-hint-separator

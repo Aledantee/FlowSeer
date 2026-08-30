@@ -1,0 +1,5 @@
+# RFC 2578 section 7 writes the OBJECT-TYPE clauses in a fixed order:
+# SYNTAX, UNITS, MAX-ACCESS, STATUS, DESCRIPTION, REFERENCE, INDEX or
+# AUGMENTS, DEFVAL. STATUS after DESCRIPTION is out of that order, and
+# what the declaration means is not in any doubt, so it is kept.
+code smi/clause-out-of-order

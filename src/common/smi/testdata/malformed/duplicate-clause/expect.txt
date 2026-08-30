@@ -1,0 +1,4 @@
+# RFC 2578 section 7 gives OBJECT-TYPE one DESCRIPTION. Two of them
+# leave a reader to guess which the author meant, and keeping the first
+# is the only answer a reader can predict.
+code smi/duplicate-clause

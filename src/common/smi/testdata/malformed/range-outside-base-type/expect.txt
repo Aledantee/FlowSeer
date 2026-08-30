@@ -1,0 +1,4 @@
+# RFC 2578 section 7.1.1 fixes Integer32 at -2^31 through 2^31-1, and
+# section 11.1 has a subtype refine the base type rather than widen it.
+# The upper bound here is 2^32-1, a value the object can never carry.
+code smi/range-outside-base-type

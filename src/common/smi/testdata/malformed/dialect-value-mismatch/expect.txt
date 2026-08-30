@@ -1,0 +1,5 @@
+# RFC 1212 section 4 gives STATUS the value mandatory; RFC 2578 section
+# 7.4 gives it current, deprecated and obsolete and no mandatory. This
+# module writes MAX-ACCESS, so it is read as SMIv2 and its STATUS comes
+# from the other dialect's vocabulary.
+code smi/dialect-value-mismatch

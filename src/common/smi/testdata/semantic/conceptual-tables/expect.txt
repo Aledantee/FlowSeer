@@ -1,0 +1,61 @@
+# RFC 2578 section 7.7 fixes the shape of a conceptual table: the table
+# object's SYNTAX is SEQUENCE OF a row type, the row is its only child,
+# and every column is a child of the row. That is why the shape below is
+# read off the OID tree rather than off the SEQUENCE type's spelling.
+#
+# The same section says the row's INDEX names the objects that identify a
+# row, that IMPLIED may qualify only the last of them, and that AUGMENTS
+# stands in place of an INDEX for a row that extends another one
+# one-for-one.
+
+dialect TEST-TABLE-MIB SMIv2
+
+oid  TEST-TABLE-MIB.portTable 1.3.6.1.4.1.47003.1
+kind TEST-TABLE-MIB.portTable table
+oid  TEST-TABLE-MIB.portEntry 1.3.6.1.4.1.47003.1.1
+kind TEST-TABLE-MIB.portEntry row
+
+table-row     TEST-TABLE-MIB.portTable portEntry
+table-columns TEST-TABLE-MIB.portTable portIndex portName portStatus
+table-index   TEST-TABLE-MIB.portTable portIndex
+
+# A column carries the access its own declaration gave it, and an index
+# column that is not-accessible stays in the column list: it is part of
+# the row whether or not an agent will return it.
+oid    TEST-TABLE-MIB.portIndex 1.3.6.1.4.1.47003.1.1.1
+kind   TEST-TABLE-MIB.portIndex column
+access TEST-TABLE-MIB.portIndex not-accessible
+syntax-ranges TEST-TABLE-MIB.portIndex 1..2147483647
+
+oid          TEST-TABLE-MIB.portName 1.3.6.1.4.1.47003.1.1.2
+kind         TEST-TABLE-MIB.portName column
+access       TEST-TABLE-MIB.portName read-only
+syntax-sizes TEST-TABLE-MIB.portName 0..64
+
+oid            TEST-TABLE-MIB.portStatus 1.3.6.1.4.1.47003.1.1.3
+syntax-members TEST-TABLE-MIB.portStatus up(1) down(2)
+
+# An augmenting row has no INDEX of its own: its index is the base row's,
+# which is what AUGMENTS says and what leaves the index list empty here.
+oid             TEST-TABLE-MIB.portXTable 1.3.6.1.4.1.47003.2
+oid             TEST-TABLE-MIB.portXEntry 1.3.6.1.4.1.47003.2.1
+augments        TEST-TABLE-MIB.portXEntry portEntry
+index           TEST-TABLE-MIB.portXEntry (none)
+table-row       TEST-TABLE-MIB.portXTable portXEntry
+table-columns   TEST-TABLE-MIB.portXTable portXAlias
+table-augments  TEST-TABLE-MIB.portXTable portEntry
+oid             TEST-TABLE-MIB.portXAlias 1.3.6.1.4.1.47003.2.1.1
+
+# IMPLIED is kept where the source wrote it, on the last index part, and
+# is not folded into the name.
+oid           TEST-TABLE-MIB.sessionTable 1.3.6.1.4.1.47003.3
+oid           TEST-TABLE-MIB.sessionEntry 1.3.6.1.4.1.47003.3.1
+index         TEST-TABLE-MIB.sessionEntry sessionAddr IMPLIED sessionName
+table-index   TEST-TABLE-MIB.sessionTable sessionAddr IMPLIED sessionName
+table-columns TEST-TABLE-MIB.sessionTable sessionAddr sessionName sessionState
+oid           TEST-TABLE-MIB.sessionAddr 1.3.6.1.4.1.47003.3.1.1
+syntax-base   TEST-TABLE-MIB.sessionAddr IpAddress
+oid           TEST-TABLE-MIB.sessionName 1.3.6.1.4.1.47003.3.1.2
+syntax-sizes  TEST-TABLE-MIB.sessionName 1..32
+oid           TEST-TABLE-MIB.sessionState 1.3.6.1.4.1.47003.3.1.3
+access        TEST-TABLE-MIB.sessionState read-only

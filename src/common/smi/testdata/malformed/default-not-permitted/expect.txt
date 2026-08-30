@@ -1,0 +1,4 @@
+# RFC 2578 section 7.9 lists a default form for every base type except
+# the counters. A counter's value only ever means the difference between
+# two readings, so there is nothing a default could say.
+code smi/default-not-permitted

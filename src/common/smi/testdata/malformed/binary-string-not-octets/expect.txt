@@ -1,0 +1,4 @@
+# RFC 2578 section 7.9 gives an OCTET STRING default as a bstring, and a
+# bstring denotes octets: five binary digits are not a whole number of
+# them, so the last octet is short of three bits.
+code smi/binary-string-not-octets

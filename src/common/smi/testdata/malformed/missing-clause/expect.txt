@@ -1,0 +1,5 @@
+# RFC 2578 section 8 makes DESCRIPTION mandatory on an SMIv2
+# OBJECT-TYPE. The declaration keeps the clauses it does have and is
+# never resolved, because a type defaulted in for the missing clause
+# would render exactly as if somebody had written it.
+code smi/missing-clause

@@ -1,0 +1,9 @@
+B-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    aRoot
+        FROM A-MIB;
+
+bRoot OBJECT IDENTIFIER ::= { aRoot 2 }
+
+END

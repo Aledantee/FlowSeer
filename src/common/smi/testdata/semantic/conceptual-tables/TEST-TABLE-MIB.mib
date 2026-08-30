@@ -1,0 +1,123 @@
+TEST-TABLE-MIB DEFINITIONS ::= BEGIN
+
+testTables MODULE-IDENTITY
+    LAST-UPDATED "202608300000Z"
+    ORGANIZATION "FlowSeer"
+    CONTACT-INFO "FlowSeer <mib@example.org>"
+    DESCRIPTION  "Conceptual tables: a plain one, one that augments it,
+                  and one with a two-part index whose last part is
+                  IMPLIED."
+    ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47003 }
+
+portTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One row per port."
+    ::= { testTables 1 }
+
+portEntry OBJECT-TYPE
+    SYNTAX      PortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One port."
+    INDEX       { portIndex }
+    ::= { portTable 1 }
+
+PortEntry ::= SEQUENCE {
+    portIndex  Integer32,
+    portName   OCTET STRING,
+    portStatus INTEGER
+}
+
+portIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The port's index, which is not itself readable."
+    ::= { portEntry 1 }
+
+portName OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..64))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The port's name."
+    ::= { portEntry 2 }
+
+portStatus OBJECT-TYPE
+    SYNTAX      INTEGER { up(1), down(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The port's state."
+    ::= { portEntry 3 }
+
+portXTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PortXEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Later additions to the port table."
+    ::= { testTables 2 }
+
+portXEntry OBJECT-TYPE
+    SYNTAX      PortXEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One row for each row of portTable."
+    AUGMENTS    { portEntry }
+    ::= { portXTable 1 }
+
+PortXEntry ::= SEQUENCE {
+    portXAlias OCTET STRING
+}
+
+portXAlias OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..64))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "An operator-assigned name for the port."
+    ::= { portXEntry 1 }
+
+sessionTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SessionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One row per session."
+    ::= { testTables 3 }
+
+sessionEntry OBJECT-TYPE
+    SYNTAX      SessionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One session, indexed by peer address and then by a name
+                 whose length the encoding does not have to carry."
+    INDEX       { sessionAddr, IMPLIED sessionName }
+    ::= { sessionTable 1 }
+
+SessionEntry ::= SEQUENCE {
+    sessionAddr  IpAddress,
+    sessionName  OCTET STRING,
+    sessionState INTEGER
+}
+
+sessionAddr OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The peer's address."
+    ::= { sessionEntry 1 }
+
+sessionName OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (1..32))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The session's name."
+    ::= { sessionEntry 2 }
+
+sessionState OBJECT-TYPE
+    SYNTAX      INTEGER { opening(1), open(2), closing(3) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Where the session has got to."
+    ::= { sessionEntry 3 }
+
+END

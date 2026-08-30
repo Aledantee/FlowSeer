@@ -1,0 +1,10 @@
+# RFC 2578 section 7.9 writes an OBJECT IDENTIFIER default as a single
+# descriptor naming an already-registered node, not as a list of
+# sub-identifiers. The list form is not in the grammar, and it says
+# plainly enough which node it means to be worth keeping.
+#
+# The braces are doubled because that is the spelling the parser grades.
+# A sub-identifier list written at one brace level — "DEFVAL { 1 3 6 1 }"
+# — is read as the integer default 1 and passes ungraded, which is a
+# second non-conforming form the catalog does not reach.
+code smi/non-conforming-oid-default

@@ -1,0 +1,11 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+PointerHint ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "255a"
+    STATUS       current
+    DESCRIPTION  "A hint on a syntax that has no hint forms."
+    SYNTAX       OBJECT IDENTIFIER
+
+END

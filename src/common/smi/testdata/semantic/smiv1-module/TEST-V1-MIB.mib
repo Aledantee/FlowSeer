@@ -1,0 +1,40 @@
+TEST-V1-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    enterprises, OBJECT-TYPE, Counter, Gauge, IpAddress, NetworkAddress
+        FROM RFC1155-SMI
+    TRAP-TYPE
+        FROM RFC-1215;
+
+acme OBJECT IDENTIFIER ::= { enterprises 47004 }
+
+acmeCounter OBJECT-TYPE
+    SYNTAX  Counter
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+        "A counter written in the SMIv1 spelling."
+    ::= { acme 1 }
+
+acmeGauge OBJECT-TYPE
+    SYNTAX  Gauge
+    ACCESS  read-write
+    STATUS  optional
+    ::= { acme 2 }
+
+acmeAddress OBJECT-TYPE
+    SYNTAX  NetworkAddress
+    ACCESS  write-only
+    STATUS  mandatory
+    DESCRIPTION
+        "An address in the SMIv1 CHOICE spelling."
+    ::= { acme 3 }
+
+acmeAlarm TRAP-TYPE
+    ENTERPRISE acme
+    VARIABLES { acmeCounter }
+    DESCRIPTION
+        "The alarm this enterprise raises."
+    ::= 3
+
+END

@@ -1,0 +1,4 @@
+# RFC 2578 section 11.1 constrains an OCTET STRING by its length, and a
+# length is a count of octets. A negative bound describes no string this
+# or any other implementation could hold.
+code smi/negative-size

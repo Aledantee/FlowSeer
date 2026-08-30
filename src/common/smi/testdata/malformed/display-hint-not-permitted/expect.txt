@@ -1,0 +1,4 @@
+# RFC 2579 section 3.1 defines DISPLAY-HINT for the integer types and
+# for OCTET STRING, and for nothing else. An OBJECT IDENTIFIER has no
+# hint form, so there is nothing here for a renderer to act on.
+code smi/display-hint-not-permitted

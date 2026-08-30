@@ -1,0 +1,23 @@
+# RFC 2578 section 3.7 ends a comment at a second pair of hyphens or at
+# the end of the line. A comment that runs to the end of the file leaves
+# no declaration boundary after it that can be trusted, which is why it
+# costs the file.
+#
+# This fixture is contrived, and the contrivance is the finding. A
+# comment can only run to the end of a file under the paired rule, and a
+# file is only ever read under the paired rule when that reading loses
+# less than the end-of-line one. Losing less means resolving more
+# conditions of severity error or worse, and the only such conditions the
+# lexer raises are the two unterminated ones — either of which stops the
+# framer before it can raise a second. So the end-of-line reading has to
+# reach severity-error conditions from the framer instead, and then still
+# be fatal.
+#
+# That is what the body does: read under the end-of-line rule, the
+# comment's continuation lines are live text — a declaration beginning
+# with a number, which nothing can classify, and a brace nest past the
+# depth bound, which costs the file. Read under the paired rule, all of
+# it is one comment, and what is left is the last comment, which nothing
+# closes.
+code smi/paired-comment-mode
+code smi/unterminated-comment

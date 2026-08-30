@@ -1,0 +1,9 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+-- a note that
+   123 456 789 ::= { iso 1 }
+   deep OBJECT IDENTIFIER ::= { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { { iso } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } }
+   --
+
+-- and a last comment that nothing ever closes
+END

@@ -1,0 +1,112 @@
+TEST-SCALARS-MIB DEFINITIONS ::= BEGIN
+
+testScalars MODULE-IDENTITY
+    LAST-UPDATED "202608300000Z"
+    ORGANIZATION "FlowSeer"
+    CONTACT-INFO "FlowSeer <mib@example.org>"
+    DESCRIPTION  "One scalar per base type RFC 2578 section 7.1 defines."
+    REVISION     "202608300000Z"
+    DESCRIPTION  "The initial revision."
+    ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47000 }
+
+scalars OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION "The subtree every scalar below is registered under."
+    ::= { testScalars 1 }
+
+packetCount OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "packets"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A non-negative counter that wraps at 2^32-1."
+    ::= { scalars 1 }
+
+octetCount OBJECT-TYPE
+    SYNTAX      Counter64
+    UNITS       "octets"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A non-negative counter that wraps at 2^64-1."
+    ::= { scalars 2 }
+
+fillLevel OBJECT-TYPE
+    SYNTAX      Gauge32 (0..100)
+    UNITS       "percent"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "A latching non-negative value."
+    ::= { scalars 3 }
+
+upTime OBJECT-TYPE
+    SYNTAX      TimeTicks
+    UNITS       "centi-seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Hundredths of a second since the epoch this MIB names."
+    ::= { scalars 4 }
+
+signedValue OBJECT-TYPE
+    SYNTAX      Integer32 (-2147483648..2147483647)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The whole of the Integer32 value space, written out."
+    ::= { scalars 5 }
+
+unsignedValue OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..4294967295)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The whole of the Unsigned32 value space, written out."
+    ::= { scalars 6 }
+
+label OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "An octet string a SIZE clause constrains."
+    ::= { scalars 7 }
+
+pointer OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "A pointer to another registration."
+    ::= { scalars 8 }
+
+address OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Four octets in network byte order."
+    ::= { scalars 9 }
+
+wrapped OBJECT-TYPE
+    SYNTAX      Opaque
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An opaque wrapper around another encoding."
+    ::= { scalars 10 }
+
+deviceState OBJECT-TYPE
+    SYNTAX      INTEGER { up(1), down(2), testing(3) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An enumerated INTEGER, which has no zero value here."
+    ::= { scalars 11 }
+
+retiredValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      obsolete
+    DESCRIPTION "An object nobody should implement any more."
+    ::= { scalars 12 }
+
+fadingValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      deprecated
+    DESCRIPTION "An object on its way out, readable only in a notification."
+    ::= { scalars 13 }
+
+END

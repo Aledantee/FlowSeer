@@ -1,0 +1,12 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+quoted OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION “A word processor re-quoted this.”
+    ::= { acme 1 }
+
+END

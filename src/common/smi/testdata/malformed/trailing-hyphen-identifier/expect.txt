@@ -1,0 +1,4 @@
+# RFC 2578 section 3.1 lets a descriptor hold hyphens but not end in
+# one. A reader that took the trailing hyphen for the start of a comment
+# would lose the rest of the declaration.
+code smi/trailing-hyphen-identifier

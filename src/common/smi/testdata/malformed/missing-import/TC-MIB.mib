@@ -1,0 +1,9 @@
+TC-MIB DEFINITIONS ::= BEGIN
+
+DisplayString ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "255a"
+    STATUS       current
+    DESCRIPTION  "An ASCII string."
+    SYNTAX       OCTET STRING (SIZE (0..255))
+
+END

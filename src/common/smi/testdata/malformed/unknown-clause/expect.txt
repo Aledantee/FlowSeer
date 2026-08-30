@@ -1,0 +1,5 @@
+# UNITS is an OBJECT-TYPE clause (RFC 2578 section 7.2). OBJECT-IDENTITY
+# carries STATUS, DESCRIPTION and REFERENCE and nothing else, so the
+# clause belongs to another macro and costs the clause rather than the
+# declaration.
+code smi/unknown-clause

@@ -1,0 +1,70 @@
+TEST-CONF-MIB DEFINITIONS ::= BEGIN
+
+testConf MODULE-IDENTITY
+    LAST-UPDATED "202608300000Z"
+    ORGANIZATION "FlowSeer"
+    CONTACT-INFO "FlowSeer <mib@example.org>"
+    DESCRIPTION  "The conformance macros RFC 2580 defines, each with the
+                  clauses that macro requires."
+    ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47005 }
+
+testNotifications OBJECT IDENTIFIER ::= { testConf 0 }
+
+sysUp OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "How long the system has been up."
+    ::= { testConf 1 }
+
+sysName OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..255))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The system's administratively assigned name."
+    ::= { testConf 2 }
+
+linkFailure NOTIFICATION-TYPE
+    OBJECTS     { sysName }
+    STATUS      current
+    DESCRIPTION "A link went down."
+    ::= { testNotifications 1 }
+
+testGroups OBJECT IDENTIFIER ::= { testConf 3 }
+
+sysGroup OBJECT-GROUP
+    OBJECTS     { sysUp, sysName }
+    STATUS      current
+    DESCRIPTION "The objects an implementation has to carry."
+    ::= { testGroups 1 }
+
+alarmGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { linkFailure }
+    STATUS        current
+    DESCRIPTION   "The notifications an implementation has to raise."
+    ::= { testGroups 2 }
+
+testCompliances OBJECT IDENTIFIER ::= { testConf 4 }
+
+basicCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "What an implementation of this module has to do."
+    MODULE
+        MANDATORY-GROUPS { sysGroup, alarmGroup }
+        OBJECT      sysName
+        MIN-ACCESS  read-only
+        DESCRIPTION "Writing the name is not required."
+    ::= { testCompliances 1 }
+
+acmeAgent AGENT-CAPABILITIES
+    PRODUCT-RELEASE "Release 1.0"
+    STATUS          current
+    DESCRIPTION     "What this agent actually implements."
+    SUPPORTS    TEST-CONF-MIB
+        INCLUDES    { sysGroup }
+        VARIATION   sysName
+        ACCESS      read-only
+        DESCRIPTION "This agent will not let the name be written."
+    ::= { testConf 5 }
+
+END

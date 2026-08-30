@@ -1,0 +1,4 @@
+# RFC 2579 section 3.1 gives an octet-string specification the shape
+# "<count><format>", where format is one of a, b, d, o, t or x. There is
+# no z, so nothing could render a value with this hint.
+code smi/display-hint-malformed

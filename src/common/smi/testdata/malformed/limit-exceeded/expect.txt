@@ -1,0 +1,5 @@
+# No RFC bounds how deeply a construct may nest, because no RFC has to
+# read a hostile file. Seventy levels of braces is past the declared
+# nesting bound, and a bound reached costs the file so that pathological
+# input costs bounded work rather than unbounded work.
+code smi/limit-exceeded

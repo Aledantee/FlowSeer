@@ -1,0 +1,4 @@
+# RFC 2578 section 11.1 writes a range as a lower bound and an upper
+# bound in that order. Written backwards it names no value at all, and
+# which of the two the author meant cannot be recovered from the bounds.
+code smi/range-not-ascending

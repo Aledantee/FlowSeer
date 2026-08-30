@@ -1,0 +1,10 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+runaway OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "this description has no closing quote
+    ::= { iso 3 6 1 4 1 47100 1 }
+
+END

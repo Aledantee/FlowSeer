@@ -1,0 +1,6 @@
+# RFC 2578 section 3.2 has a module name in IMPORTS every descriptor it
+# uses from elsewhere. USER-MIB uses DisplayString and imports nothing.
+# The symbol still resolves against the loaded modules, because the
+# corpus writes this by the thousand and refusing it would drop far more
+# definitions than it would report.
+code smi/missing-import

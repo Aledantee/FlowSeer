@@ -1,0 +1,12 @@
+# RFC 2578 section 3.7 ends a comment at a second pair of hyphens or at
+# the end of the line, whichever comes first. The two comments here run
+# on past their first line, which their author could only have meant
+# under the paired rule: read under the end-of-line rule, each one's
+# continuation is live text that frames into a declaration nothing can
+# classify.
+#
+# So the file is read twice, and the reading that loses less wins. The
+# diagnostic records which rule produced the result, because a reader
+# comparing this module against its source needs to know which way the
+# hyphens were taken.
+code smi/paired-comment-mode

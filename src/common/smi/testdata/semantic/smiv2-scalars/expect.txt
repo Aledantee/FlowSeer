@@ -1,0 +1,84 @@
+# Every OID here is worked out by hand from the arcs the source writes:
+# iso(1) org(3) dod(6) internet(1) private(4) enterprises(1) is 1.3.6.1.4.1,
+# and 47000 is this module's own arc under it.
+#
+# The base types and their spellings are RFC 2578 section 7.1; the access
+# values are section 7.3 and the status values section 7.4.
+
+dialect  TEST-SCALARS-MIB SMIv2
+identity TEST-SCALARS-MIB testScalars
+
+oid  TEST-SCALARS-MIB.testScalars 1.3.6.1.4.1.47000
+kind TEST-SCALARS-MIB.testScalars node
+oid  TEST-SCALARS-MIB.scalars 1.3.6.1.4.1.47000.1
+kind TEST-SCALARS-MIB.scalars node
+
+# RFC 2578 section 7.1.6: Counter32 is a non-negative integer that wraps.
+oid         TEST-SCALARS-MIB.packetCount 1.3.6.1.4.1.47000.1.1
+kind        TEST-SCALARS-MIB.packetCount scalar
+syntax-base TEST-SCALARS-MIB.packetCount Counter32
+access      TEST-SCALARS-MIB.packetCount read-only
+status      TEST-SCALARS-MIB.packetCount current
+units       TEST-SCALARS-MIB.packetCount packets
+
+# RFC 2578 section 7.1.10: Counter64 is the 64-bit counter, and is a base
+# type of its own rather than a Counter32 with a wider range.
+oid         TEST-SCALARS-MIB.octetCount 1.3.6.1.4.1.47000.1.2
+syntax-base TEST-SCALARS-MIB.octetCount Counter64
+units       TEST-SCALARS-MIB.octetCount octets
+
+# RFC 2578 section 7.1.7 for Gauge32, section 11.1 for the range that
+# subtypes it: the constraint is the object's, not the base type's.
+oid           TEST-SCALARS-MIB.fillLevel 1.3.6.1.4.1.47000.1.3
+syntax-base   TEST-SCALARS-MIB.fillLevel Gauge32
+syntax-ranges TEST-SCALARS-MIB.fillLevel 0..100
+access        TEST-SCALARS-MIB.fillLevel read-write
+
+# RFC 2578 section 7.1.8.
+oid         TEST-SCALARS-MIB.upTime 1.3.6.1.4.1.47000.1.4
+syntax-base TEST-SCALARS-MIB.upTime TimeTicks
+
+# RFC 2578 section 7.1.1 fixes Integer32 at -2^31 through 2^31-1, which
+# is what this object writes out in full.
+oid           TEST-SCALARS-MIB.signedValue 1.3.6.1.4.1.47000.1.5
+syntax-base   TEST-SCALARS-MIB.signedValue Integer32
+syntax-ranges TEST-SCALARS-MIB.signedValue -2147483648..2147483647
+
+# RFC 2578 section 7.1.11 fixes Unsigned32 at 0 through 2^32-1.
+oid           TEST-SCALARS-MIB.unsignedValue 1.3.6.1.4.1.47000.1.6
+syntax-base   TEST-SCALARS-MIB.unsignedValue Unsigned32
+syntax-ranges TEST-SCALARS-MIB.unsignedValue 0..4294967295
+
+# RFC 2578 section 7.1.2: a SIZE constraint bounds the length, so it is
+# held apart from a value range.
+oid           TEST-SCALARS-MIB.label 1.3.6.1.4.1.47000.1.7
+syntax-base   TEST-SCALARS-MIB.label OCTET STRING
+syntax-sizes  TEST-SCALARS-MIB.label 0..255
+syntax-ranges TEST-SCALARS-MIB.label (none)
+access        TEST-SCALARS-MIB.label read-create
+
+# RFC 2578 section 7.1.3.
+oid         TEST-SCALARS-MIB.pointer 1.3.6.1.4.1.47000.1.8
+syntax-base TEST-SCALARS-MIB.pointer OBJECT IDENTIFIER
+
+# RFC 2578 section 7.1.5.
+oid         TEST-SCALARS-MIB.address 1.3.6.1.4.1.47000.1.9
+syntax-base TEST-SCALARS-MIB.address IpAddress
+
+# RFC 2578 section 7.1.9.
+oid         TEST-SCALARS-MIB.wrapped 1.3.6.1.4.1.47000.1.10
+syntax-base TEST-SCALARS-MIB.wrapped Opaque
+
+# RFC 2578 section 7.1.1: an enumerated INTEGER keeps the numbers its
+# labels were given, and none of them may be zero.
+oid            TEST-SCALARS-MIB.deviceState 1.3.6.1.4.1.47000.1.11
+syntax-base    TEST-SCALARS-MIB.deviceState INTEGER
+syntax-members TEST-SCALARS-MIB.deviceState up(1) down(2) testing(3)
+
+# RFC 2578 section 7.4: obsolete and deprecated are both SMIv2 status
+# values, and section 7.3 defines accessible-for-notify.
+oid    TEST-SCALARS-MIB.retiredValue 1.3.6.1.4.1.47000.1.12
+status TEST-SCALARS-MIB.retiredValue obsolete
+oid    TEST-SCALARS-MIB.fadingValue 1.3.6.1.4.1.47000.1.13
+status TEST-SCALARS-MIB.fadingValue deprecated
+access TEST-SCALARS-MIB.fadingValue accessible-for-notify

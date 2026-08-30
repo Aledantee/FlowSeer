@@ -1,0 +1,6 @@
+# RFC 2578 section 3.2 names the module a symbol comes from. Nothing on
+# the search path holds ABSENT-MIB, so the symbols it was to supply fall
+# through to the lenient lookup or to nothing at all — which is a
+# diagnostic rather than a refusal, since a vendor tree is full of
+# imports nobody shipped.
+code smi/module-not-found

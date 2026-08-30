@@ -1,0 +1,13 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+countWithDefault OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An object."
+    DEFVAL      { 0 }
+    ::= { acme 1 }
+
+END

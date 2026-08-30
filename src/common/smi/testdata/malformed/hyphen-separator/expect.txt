@@ -1,0 +1,5 @@
+# RFC 2578 section 3.7 starts a comment with a pair of hyphens and ends
+# it with a pair or with the end of the line. A hand-drawn separator of
+# 4n+1 hyphens pairs off and leaves one hyphen over, which a stricter
+# reader surfaces as a stray minus token in the middle of a module.
+code smi/hyphen-separator

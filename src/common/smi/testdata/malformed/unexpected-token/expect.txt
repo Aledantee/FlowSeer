@@ -1,0 +1,5 @@
+# RFC 2578 section 7.7 writes an INDEX clause as a braced list of
+# descriptors. A number where the opening brace belongs is a token the
+# grammar has no place for, and the parser skips to the next clause
+# keyword inside the same declaration rather than losing it.
+code smi/unexpected-token

@@ -1,0 +1,42 @@
+TEST-BITS-MIB DEFINITIONS ::= BEGIN
+
+testBits MODULE-IDENTITY
+    LAST-UPDATED "202608300000Z"
+    ORGANIZATION "FlowSeer"
+    CONTACT-INFO "FlowSeer <mib@example.org>"
+    DESCRIPTION  "BITS types whose members are numbered with gaps."
+    ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47001 }
+
+FeatureBits ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "A gapped bit list held as a textual convention, so that a
+                 renderer reading the convention sees the same numbers as
+                 one reading the object below."
+    SYNTAX      BITS { alpha(0), gamma(4), delta(7) }
+
+features OBJECT-TYPE
+    SYNTAX      BITS { alpha(0), gamma(4), delta(7) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The gap is the point: a device reporting bit 4 means
+                 gamma, and nothing else."
+    DEFVAL      { { } }
+    ::= { testBits 1 }
+
+namedFeatures OBJECT-TYPE
+    SYNTAX      FeatureBits
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The same bit list reached through its textual convention."
+    DEFVAL      { { gamma } }
+    ::= { testBits 2 }
+
+contiguousFeatures OBJECT-TYPE
+    SYNTAX      BITS { first(0), second(1), third(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A bit list with no gap, whose declared numbers and
+                 declaration order happen to agree."
+    ::= { testBits 3 }
+
+END

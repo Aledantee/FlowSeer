@@ -1,0 +1,74 @@
+# RFC 2579 section 3.1 gives DISPLAY-HINT two grammars: an octet-string
+# hint, which is a run of "<count><format>" specifications with optional
+# separators, and an integer hint, which is a single base letter with an
+# optional "-<places>" for an implied decimal point.
+#
+# What a textual convention buys is exactly the split RFC 2579 section 3
+# describes: the convention's name says what a value means and the base
+# type says how it is encoded. TimeStamp and TimeTicks below are the pair
+# that makes the split load-bearing — same encoding, different meaning —
+# so a resolved object has to carry both.
+
+dialect TEST-TC-MIB SMIv2
+
+type-base   TEST-TC-MIB.DisplayString OCTET STRING
+type-hint   TEST-TC-MIB.DisplayString 255a
+type-sizes  TEST-TC-MIB.DisplayString 0..255
+type-status TEST-TC-MIB.DisplayString current
+
+type-base   TEST-TC-MIB.PhysAddress OCTET STRING
+type-hint   TEST-TC-MIB.PhysAddress 1x:
+
+# The DateAndTime hint is the case that decides whether a hint reader can
+# tell a separator from the octet count of the specification after it:
+# the "1a1d" run has no separator between its two specifications.
+type-base   TEST-TC-MIB.DateAndTime OCTET STRING
+type-hint   TEST-TC-MIB.DateAndTime 2d-1d-1d,1d:1d:1d.1d,1a1d:1d
+type-sizes  TEST-TC-MIB.DateAndTime 8..8 11..11
+
+type-base   TEST-TC-MIB.TimeStamp TimeTicks
+type-hint   TEST-TC-MIB.TimeStamp (none)
+
+type-base    TEST-TC-MIB.TruthValue INTEGER
+type-members TEST-TC-MIB.TruthValue true(1) false(2)
+
+type-base   TEST-TC-MIB.Percent Integer32
+type-hint   TEST-TC-MIB.Percent d-2
+type-ranges TEST-TC-MIB.Percent 0..10000
+
+type-base  TEST-TC-MIB.ShortString OCTET STRING
+type-sizes TEST-TC-MIB.ShortString 0..32
+
+# An object standing on a convention keeps the convention's name and
+# reaches its base through it, and takes the hint and the constraint the
+# convention wrote rather than restating them.
+oid          TEST-TC-MIB.sysDescription 1.3.6.1.4.1.47002.1
+syntax-name  TEST-TC-MIB.sysDescription DisplayString
+syntax-base  TEST-TC-MIB.sysDescription OCTET STRING
+syntax-hint  TEST-TC-MIB.sysDescription 255a
+syntax-sizes TEST-TC-MIB.sysDescription 0..255
+
+oid         TEST-TC-MIB.sysAddress 1.3.6.1.4.1.47002.2
+syntax-name TEST-TC-MIB.sysAddress PhysAddress
+syntax-base TEST-TC-MIB.sysAddress OCTET STRING
+syntax-hint TEST-TC-MIB.sysAddress 1x:
+
+oid         TEST-TC-MIB.sysChanged 1.3.6.1.4.1.47002.3
+syntax-name TEST-TC-MIB.sysChanged TimeStamp
+syntax-base TEST-TC-MIB.sysChanged TimeTicks
+
+oid            TEST-TC-MIB.sysEnabled 1.3.6.1.4.1.47002.4
+syntax-name    TEST-TC-MIB.sysEnabled TruthValue
+syntax-base    TEST-TC-MIB.sysEnabled INTEGER
+syntax-members TEST-TC-MIB.sysEnabled true(1) false(2)
+
+oid           TEST-TC-MIB.sysLoad 1.3.6.1.4.1.47002.5
+syntax-name   TEST-TC-MIB.sysLoad Percent
+syntax-base   TEST-TC-MIB.sysLoad Integer32
+syntax-hint   TEST-TC-MIB.sysLoad d-2
+syntax-ranges TEST-TC-MIB.sysLoad 0..10000
+
+oid          TEST-TC-MIB.sysTag 1.3.6.1.4.1.47002.6
+syntax-name  TEST-TC-MIB.sysTag ShortString
+syntax-base  TEST-TC-MIB.sysTag OCTET STRING
+syntax-sizes TEST-TC-MIB.sysTag 0..32

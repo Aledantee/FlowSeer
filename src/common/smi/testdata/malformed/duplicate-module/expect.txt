@@ -1,0 +1,5 @@
+# RFC 2578 section 3.1 makes a module name unique: a descriptor names
+# one information module and one only. Two files claiming the same name
+# leave the imports of either pointing at one definition, so the file
+# read first in canonical order keeps the name.
+code smi/duplicate-module

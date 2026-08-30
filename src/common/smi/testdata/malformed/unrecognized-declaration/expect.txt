@@ -1,0 +1,4 @@
+# Every declaration RFC 2578 defines begins with a descriptor or with a
+# type name. A declaration beginning with a number is none of them, so
+# the framer cannot classify it and drops it on its own.
+code smi/unrecognized-declaration

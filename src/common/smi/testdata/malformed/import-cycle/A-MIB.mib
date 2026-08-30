@@ -1,0 +1,11 @@
+A-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    bRoot
+        FROM B-MIB;
+
+aRoot OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+aLeaf OBJECT IDENTIFIER ::= { bRoot 1 }
+
+END

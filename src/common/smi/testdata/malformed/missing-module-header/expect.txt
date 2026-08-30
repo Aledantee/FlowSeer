@@ -1,0 +1,5 @@
+# RFC 2578 section 3.7 opens an information module with
+# "<name> DEFINITIONS ::= BEGIN". Without it there is no module to
+# attribute a declaration to, which is one of the few conditions that
+# costs the whole file.
+code smi/missing-module-header

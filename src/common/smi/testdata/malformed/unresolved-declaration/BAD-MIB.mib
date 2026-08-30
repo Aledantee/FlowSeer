@@ -1,0 +1,5 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+orphan OBJECT IDENTIFIER ::= { nowhere 1 }
+
+END

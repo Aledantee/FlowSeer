@@ -1,0 +1,4 @@
+# RFC 2578 section 3.7 writes an hstring as pairs of hexadecimal digits,
+# one pair per octet. Three digits leave a nibble with no octet to sit
+# in.
+code smi/odd-hex-string

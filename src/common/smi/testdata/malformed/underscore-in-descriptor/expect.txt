@@ -1,0 +1,5 @@
+# RFC 2578 section 3.1 builds a descriptor from letters, digits and
+# hyphens, and leaves the underscore out. Ending the name at the
+# underscore would cost the declaration every member after it, so the
+# name is read whole and the deviation graded.
+code smi/underscore-in-descriptor

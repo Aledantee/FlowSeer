@@ -1,0 +1,4 @@
+# RFC 2578 section 11.1 has the alternatives of a range constraint name
+# disjoint sets of values, and these two both name 5 through 10. Their
+# union is still the set the author described, so the constraint is kept.
+code smi/overlapping-range

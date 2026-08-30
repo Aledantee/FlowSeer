@@ -1,0 +1,4 @@
+# RFC 2578 section 3.7 ends a module at END. Text after the last END is
+# in no module, so there is nothing to attribute it to and it is dropped
+# rather than costing the modules already read.
+code smi/content-after-end

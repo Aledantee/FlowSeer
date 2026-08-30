@@ -1,0 +1,5 @@
+# RFC 2578 section 3.6 registers a node under a parent that is itself
+# registered. Nothing anywhere defines "nowhere", so the declaration has
+# no place in the tree; it stays visible and marked so that a reader can
+# see what fell, and nothing may render it.
+code smi/unresolved-declaration

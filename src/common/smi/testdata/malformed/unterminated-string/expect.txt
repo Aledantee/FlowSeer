@@ -1,0 +1,5 @@
+# RFC 2578 section 3.7 delimits a text value with quotation marks. One
+# that never closes swallows the rest of the file, so nothing after the
+# opening quote can be framed and the file is one of the few things that
+# costs everything.
+code smi/unterminated-string

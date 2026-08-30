@@ -1,0 +1,92 @@
+TEST-TC-MIB DEFINITIONS ::= BEGIN
+
+testTC MODULE-IDENTITY
+    LAST-UPDATED "202608300000Z"
+    ORGANIZATION "FlowSeer"
+    CONTACT-INFO "FlowSeer <mib@example.org>"
+    DESCRIPTION  "Textual conventions in every DISPLAY-HINT form RFC 2579
+                  defines, and the objects that stand on them."
+    ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47002 }
+
+DisplayString ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "255a"
+    STATUS       current
+    DESCRIPTION  "Up to 255 octets rendered as ASCII text."
+    SYNTAX       OCTET STRING (SIZE (0..255))
+
+PhysAddress ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "1x:"
+    STATUS       current
+    DESCRIPTION  "One octet at a time in hexadecimal, colon separated."
+    SYNTAX       OCTET STRING
+
+DateAndTime ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "2d-1d-1d,1d:1d:1d.1d,1a1d:1d"
+    STATUS       current
+    DESCRIPTION  "A date and time, with or without the offset from UTC."
+    SYNTAX       OCTET STRING (SIZE (8 | 11))
+
+TimeStamp ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "A sysUpTime reading, which shares TimeTicks' encoding and
+                 means something else."
+    SYNTAX      TimeTicks
+
+TruthValue ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "A boolean, spelled the way SMIv2 spells one."
+    SYNTAX      INTEGER { true(1), false(2) }
+
+Percent ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d-2"
+    STATUS       current
+    DESCRIPTION  "Hundredths of a percent, rendered with the decimal point
+                  the hint implies."
+    SYNTAX       Integer32 (0..10000)
+
+ShortString ::= OCTET STRING (SIZE (0..32))
+
+sysDescription OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An object whose type is a textual convention."
+    ::= { testTC 1 }
+
+sysAddress OBJECT-TYPE
+    SYNTAX      PhysAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A hardware address."
+    ::= { testTC 2 }
+
+sysChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "When this system last changed."
+    ::= { testTC 3 }
+
+sysEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Whether the feature is on."
+    ::= { testTC 4 }
+
+sysLoad OBJECT-TYPE
+    SYNTAX      Percent
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The current load."
+    ::= { testTC 5 }
+
+sysTag OBJECT-TYPE
+    SYNTAX      ShortString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "An object whose type is a plain type assignment rather
+                 than a textual convention."
+    ::= { testTC 6 }
+
+END

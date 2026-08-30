@@ -1,0 +1,11 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+DigitSeparator ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "2d1"
+    STATUS       current
+    DESCRIPTION  "A separator that reads as an octet count."
+    SYNTAX       OCTET STRING
+
+END

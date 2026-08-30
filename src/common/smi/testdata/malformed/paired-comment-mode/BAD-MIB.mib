@@ -1,0 +1,13 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+-- a note about this module that
+   runs on past the end of its first line --
+
+widget OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+-- a second note that
+   also runs on past the end of its first line --
+
+gadget OBJECT IDENTIFIER ::= { widget 1 }
+
+END

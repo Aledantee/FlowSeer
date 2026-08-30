@@ -1,0 +1,12 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+tooWide OBJECT-TYPE
+    SYNTAX      Integer32 (0..4294967295)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An object."
+    ::= { acme 1 }
+
+END

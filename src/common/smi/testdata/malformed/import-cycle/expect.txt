@@ -1,0 +1,6 @@
+# RFC 2578 section 3.2 has a module import what it uses from the module
+# that defines it, and says nothing that makes two modules importing from
+# each other illegal. It does leave the load with no acyclic order, so
+# the back edge is dropped from that order alone: both modules still
+# define everything they define.
+code smi/import-cycle

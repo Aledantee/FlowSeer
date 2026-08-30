@@ -1,0 +1,4 @@
+# RFC 2578 section 3.7 writes a text value between ASCII quotation
+# marks. The two bytes here are Windows-1252 curly quotes, which is what
+# a word processor leaves behind when it re-quotes a DESCRIPTION.
+code smi/curly-quoted-string
