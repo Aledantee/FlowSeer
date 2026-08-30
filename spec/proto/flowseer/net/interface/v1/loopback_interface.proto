@@ -1,0 +1,7 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+// A device-local loopback interface. Its addresses ride the interface's ip
+// facet, so the arm carries no fields of its own.
+message LoopbackInterface {}

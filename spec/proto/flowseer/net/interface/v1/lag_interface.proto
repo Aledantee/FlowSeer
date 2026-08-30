@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+import "flowseer/net/switching/v1/aggregation_facet.proto";
+import "flowseer/net/switching/v1/switchport_facet.proto";
+
+// An interface representing a link aggregation. Member ports name this
+// interface through their own lag_parent field.
+message LagInterface {
+  // Protocol-independent aggregation attributes. Absent means the source
+  // reported none.
+  flowseer.net.switching.v1.AggregationFacet aggregation = 1;
+  // Ethernet switching attributes of the aggregate. Absent means the
+  // aggregate forwards no bridged traffic or the source reported no
+  // switching configuration.
+  flowseer.net.switching.v1.SwitchportFacet switchport = 2;
+}

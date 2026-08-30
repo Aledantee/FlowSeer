@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+import option "buf/validate/validate.proto";
+
+// An interface whose type has no dedicated arm, so that no observed
+// interface is dropped.
+message OtherInterface {
+  // The interface type as an IANAifType value
+  // (https://www.iana.org/assignments/ianaiftype-mib/ianaiftype-mib). Must be
+  // present; the registry assigns no zero value. Values outside the registry
+  // are preserved as reported.
+  uint32 if_type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 1
+  ];
+}

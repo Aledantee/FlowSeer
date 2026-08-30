@@ -1,0 +1,7 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+// An out-of-band management interface. The arm names the kind; management
+// reachability attributes are not part of this version's contract.
+message ManagementInterface {}
