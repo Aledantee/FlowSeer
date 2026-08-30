@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("A DEFINITIONS ::= BEGIN\nt TRAP-TYPE ENTERPRISE e ::= 2\no OBJECT IDENTIFIER ::= { iso 3 }\nEND\n")

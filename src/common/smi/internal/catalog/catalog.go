@@ -88,6 +88,13 @@ var entries = []Entry{
 		Description: "a declaration the framer could not classify, which costs that declaration and nothing around it",
 	},
 	{
+		Severity:    2,
+		Code:        "smi/content-after-end",
+		Tag:         "ContentAfterEnd",
+		Format:      "content after the final END belongs to no module",
+		Description: "text following the last module's END, which is dropped rather than costing the file because a trailer says nothing about the modules already read",
+	},
+	{
 		Severity:    3,
 		Code:        "smi/odd-hex-string",
 		Tag:         "OddHexString",
@@ -110,6 +117,14 @@ var entries = []Entry{
 		Format:      "separator line of %d hyphens is not a well-formed comment",
 		Arity:       1,
 		Description: "a hyphen run whose length is 1 mod 4, which pairs off into comments and leaves one stray minus token behind",
+	},
+	{
+		Severity:    6,
+		Code:        "smi/paired-comment-mode",
+		Tag:         "PairedCommentMode",
+		Format:      "file re-read with paired -- comment termination, which resolved %d condition(s) the end-of-line rule reported",
+		Arity:       1,
+		Description: "a file that only reads cleanly under paired -- comment termination, recording which rule produced the result",
 	},
 }
 

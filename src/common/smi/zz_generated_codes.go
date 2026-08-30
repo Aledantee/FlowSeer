@@ -12,6 +12,11 @@ import "go.aledante.io/FlowSeer/src/common/errs"
 // condition. Severity is not part of a code's identity and may be
 // regraded; the code may not.
 var (
+	// ErrCodeContentAfterEnd marks text following the last module's END,
+	// which is dropped rather than costing the file because a trailer says
+	// nothing about the modules already read.
+	ErrCodeContentAfterEnd = errs.NewCode("smi/content-after-end")
+
 	// ErrCodeHyphenSeparator marks a hyphen run whose length is 1 mod 4,
 	// which pairs off into comments and leaves one stray minus token
 	// behind.
@@ -30,6 +35,11 @@ var (
 	// ErrCodeOddHexString marks a hexadecimal string literal with an odd
 	// digit count, whose trailing nibble has no byte to land in.
 	ErrCodeOddHexString = errs.NewCode("smi/odd-hex-string")
+
+	// ErrCodePairedCommentMode marks a file that only reads cleanly under
+	// paired -- comment termination, recording which rule produced the
+	// result.
+	ErrCodePairedCommentMode = errs.NewCode("smi/paired-comment-mode")
 
 	// ErrCodeTrailingHyphenIdentifier marks an identifier ending in a
 	// hyphen, which RFC 2578 forbids and which a stricter lexer reads as

@@ -1,0 +1,15 @@
+files 117
+modules 116
+frames 7927
+max-depth 3
+paired-comment-files 0
+kind unrecognized 0
+kind imports 116
+kind exports 0
+kind macro-definition 0
+kind choice 0
+kind macro-invocation 6664
+kind trap-type 1
+kind value-assignment 319
+kind type-assignment 827
+fatal smi/missing-module-header 1

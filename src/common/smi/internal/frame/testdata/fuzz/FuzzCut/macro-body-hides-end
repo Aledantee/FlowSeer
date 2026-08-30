@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("A DEFINITIONS ::= BEGIN\nB MACRO ::= BEGIN \"END\" -- END\nEND\nx OBJECT-TYPE ::= { y 1 }\nEND\n")

@@ -1,0 +1,14 @@
+files 261
+modules 261
+frames 279308
+max-depth 3
+paired-comment-files 0
+kind unrecognized 0
+kind imports 255
+kind exports 2
+kind macro-definition 12
+kind choice 16
+kind macro-invocation 247707
+kind trap-type 4
+kind value-assignment 13044
+kind type-assignment 18268
