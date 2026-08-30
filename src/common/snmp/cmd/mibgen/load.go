@@ -4,9 +4,9 @@ import (
 	"sort"
 	"strings"
 
-	"go.aledante.io/ae"
-
 	"github.com/sleepinggenius2/gosmi"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // CycleError reports a dependency cycle discovered during topological
@@ -123,7 +123,7 @@ func topoSort(mods []Module) ([]string, error) {
 // LoadModules never returns a non-nil slice with a non-nil error.
 func LoadModules(cfg *Config) ([]*gosmi.SmiModule, error) {
 	if cfg == nil {
-		return nil, ae.Msg("LoadModules called with nil config")
+		return nil, errs.Msg("LoadModules called with nil config")
 	}
 
 	order, err := topoSort(cfg.Modules)
@@ -146,11 +146,11 @@ func LoadModules(cfg *Config) ([]*gosmi.SmiModule, error) {
 	out := make([]*gosmi.SmiModule, 0, len(order))
 	for _, name := range order {
 		if _, err := gosmi.LoadModule(name); err != nil {
-			return nil, ae.Wrapf("load module %q from search paths %v", err, name, cfg.SearchPaths)
+			return nil, errs.Wrapf(err, "load module %q from search paths %v", name, cfg.SearchPaths)
 		}
 		mod, err := gosmi.GetModule(name)
 		if err != nil {
-			return nil, ae.Wrapf("retrieve module %q after load", err, name)
+			return nil, errs.Wrapf(err, "retrieve module %q after load", name)
 		}
 		// Copy onto the heap so the slice element survives independent
 		// of the loop variable.

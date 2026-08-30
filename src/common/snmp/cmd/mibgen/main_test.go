@@ -181,3 +181,17 @@ func TestRun_HelpFlag(t *testing.T) {
 		t.Errorf("stderr = %q; want usage banner", stderr.String())
 	}
 }
+
+// TestRun_LoadCycle: a config whose depends_on edges form a cycle
+// passes validateConfig and fails in topoSort, so run prints the cycle
+// diagnostic and exits 1 like any other load failure.
+func TestRun_LoadCycle(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"-config", filepath.Join("testdata", "configs", "cycle.yaml"), "-verify"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d; want 1\nstderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "dependency cycle in modules") {
+		t.Errorf("stderr = %q; want the cycle diagnostic", stderr.String())
+	}
+}

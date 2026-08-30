@@ -245,6 +245,47 @@ func TestLoadConfig_FileNotFound(t *testing.T) {
 	}
 }
 
+// TestLoadConfig_FileNotFoundMessage pins the wrapped diagnostic's
+// exact text: the "config <abs path>" prefix stays in front of the
+// operating system's own error rather than behind it.
+func TestLoadConfig_FileNotFoundMessage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "no-such-file.yaml")
+	_, readErr := os.ReadFile(path)
+	if readErr == nil {
+		t.Fatal("fixture path is unexpectedly readable")
+	}
+
+	_, err := LoadConfig(path)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	want := "config " + path + ": " + readErr.Error()
+	if err.Error() != want {
+		t.Errorf("err.Error() = %q; want %q", err.Error(), want)
+	}
+}
+
+// TestLoadConfig_ParseErrorUnwraps: a YAML syntax failure comes back as
+// a *ConfigError that still carries the decoder's error as its cause,
+// so errors.Is reaches it.
+func TestLoadConfig_ParseErrorUnwraps(t *testing.T) {
+	_, err := LoadConfigBytes([]byte("search_paths: [oops\n"), "broken.yaml")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var ce *ConfigError
+	if !errors.As(err, &ce) {
+		t.Fatalf("err is %T (%v); want *ConfigError", err, err)
+	}
+	cause := ce.Unwrap()
+	if cause == nil {
+		t.Fatal("ConfigError.Unwrap() = nil; want the decoder's error")
+	}
+	if !errors.Is(err, cause) {
+		t.Error("errors.Is(err, cause) = false; ConfigError should stay matchable through its cause")
+	}
+}
+
 // TestLoadConfig_RelativeSearchPathResolution checks that relative
 // search_paths in the YAML resolve against the YAML directory, not the
 // caller's CWD. (We change CWD before calling LoadConfig to make the

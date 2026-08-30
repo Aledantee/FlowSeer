@@ -11,13 +11,14 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aledante.io/ae"
 	"golang.org/x/tools/imports"
 	"mvdan.cc/gofumpt/format"
 
 	"github.com/dave/jennifer/jen"
 	"github.com/sleepinggenius2/gosmi"
 	gosmitypes "github.com/sleepinggenius2/gosmi/types"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // snmpImport is the import path for the FlowSeer SNMP runtime that
@@ -49,10 +50,10 @@ const generatedGoVersion = "go1.26"
 // caller is responsible for deciding whether to roll those back.
 func Emit(cfg *Config, outDir, pkgPrefix string) error {
 	if cfg == nil {
-		return ae.Msg("Emit called with nil config")
+		return errs.Msg("Emit called with nil config")
 	}
 	if outDir == "" {
-		return ae.Msg("Emit called with empty outDir")
+		return errs.Msg("Emit called with empty outDir")
 	}
 
 	// Build a name → Module map so EmitModule can look up overrides
@@ -65,10 +66,10 @@ func Emit(cfg *Config, outDir, pkgPrefix string) error {
 	for _, cm := range cfg.Modules {
 		mod, err := gosmi.GetModule(cm.Name)
 		if err != nil {
-			return ae.Wrapf("emit: module %q", err, cm.Name)
+			return errs.Wrapf(err, "emit: module %q", cm.Name)
 		}
 		if err := EmitModule(&mod, cm, cfgByName, outDir, pkgPrefix); err != nil {
-			return ae.Wrapf("emit: module %q", err, cm.Name)
+			return errs.Wrapf(err, "emit: module %q", cm.Name)
 		}
 	}
 	return nil
@@ -86,7 +87,7 @@ func Emit(cfg *Config, outDir, pkgPrefix string) error {
 func EmitModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, outDir, pkgPrefix string) error {
 	pkgDir := filepath.Join(outDir, cm.Package)
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
-		return ae.Wrapf("create package dir %s", err, pkgDir)
+		return errs.Wrapf(err, "create package dir %s", pkgDir)
 	}
 
 	out, err := renderModule(mod, cm, cfgByName, pkgPrefix)
@@ -96,7 +97,7 @@ func EmitModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, ou
 
 	target := filepath.Join(pkgDir, "mib.go")
 	if err := os.WriteFile(target, out, 0o644); err != nil {
-		return ae.Wrapf("write %s", err, target)
+		return errs.Wrapf(err, "write %s", target)
 	}
 	return nil
 }
@@ -164,7 +165,7 @@ func renderModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, 
 	// repository's stricter source normalization.
 	var buf bytes.Buffer
 	if err := f.Render(&buf); err != nil {
-		return nil, ae.Wrap("render", err)
+		return nil, errs.Wrap(err, "render")
 	}
 	withImports, err := imports.Process(cm.Package+"/mib.go", buf.Bytes(), &imports.Options{
 		Comments:   true,
@@ -173,14 +174,14 @@ func renderModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, 
 		FormatOnly: true,
 	})
 	if err != nil {
-		return nil, ae.Wrap("format imports", err)
+		return nil, errs.Wrap(err, "format imports")
 	}
 	formatted, err := format.Source(withImports, format.Options{
 		LangVersion: generatedGoVersion,
 		ModulePath:  "go.aledante.io/FlowSeer",
 	})
 	if err != nil {
-		return nil, ae.Wrap("format source", err)
+		return nil, errs.Wrap(err, "format source")
 	}
 	return formatted, nil
 }
@@ -272,7 +273,7 @@ func newOIDCall(oidStr string) *jen.Statement {
 func runCheck(cfg *Config, outDir, pkgPrefix string) error {
 	tmp, err := os.MkdirTemp("", "mibgen-check-*")
 	if err != nil {
-		return ae.Wrap("create tmpdir", err)
+		return errs.Wrap(err, "create tmpdir")
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
@@ -284,7 +285,7 @@ func runCheck(cfg *Config, outDir, pkgPrefix string) error {
 	for _, m := range cfg.Modules {
 		got, err := os.ReadFile(filepath.Join(tmp, m.Package, "mib.go"))
 		if err != nil {
-			return ae.Wrapf("read regenerated module %q", err, m.Name)
+			return errs.Wrapf(err, "read regenerated module %q", m.Name)
 		}
 		want, err := os.ReadFile(filepath.Join(outDir, m.Package, "mib.go"))
 		if err != nil {
@@ -296,7 +297,7 @@ func runCheck(cfg *Config, outDir, pkgPrefix string) error {
 		}
 	}
 	if len(drift) > 0 {
-		return ae.Msgf("check: drift in %d module(s):\n  %s", len(drift), strings.Join(drift, "\n  "))
+		return errs.Msgf("check: drift in %d module(s):\n  %s", len(drift), strings.Join(drift, "\n  "))
 	}
 	return nil
 }

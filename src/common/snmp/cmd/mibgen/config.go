@@ -2,15 +2,15 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
-	"go.aledante.io/ae"
-	aeerrors "go.aledante.io/ae/errors"
 	"gopkg.in/yaml.v3"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
@@ -146,12 +146,12 @@ func (e *ConfigError) Unwrap() error { return e.wrapped }
 func LoadConfig(path string) (*Config, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return nil, ae.Wrapf("config %s: resolve absolute path", err, path)
+		return nil, errs.Wrapf(err, "config %s: resolve absolute path", path)
 	}
 	b, err := os.ReadFile(abs)
 	if err != nil {
 		// Preserve os.ErrNotExist so callers can errors.Is it.
-		return nil, ae.Wrapf("config %s", err, abs)
+		return nil, errs.Wrapf(err, "config %s", abs)
 	}
 	return LoadConfigBytes(b, abs)
 }
@@ -170,7 +170,7 @@ func LoadConfigBytes(b []byte, basePath string) (*Config, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
 	if err := dec.Decode(&cfg); err != nil {
-		if aeerrors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) {
 			// Empty input — treat as a syntactically empty Config and
 			// fall through to validation, which rejects an empty
 			// search_paths list with a clear message.
