@@ -146,6 +146,21 @@ func (r *Result) Content(t Token) []byte {
 	return b
 }
 
+// Bytes returns the source in [start, end). It is what lets a later pass
+// keep byte offsets in its nodes and still render text: the node carries
+// two integers and asks for the bytes when somebody reads it. A range
+// outside the file yields nil rather than panicking, since an offset in
+// a node is only as trustworthy as the pass that put it there.
+//
+// The result aliases the source, which the caller must not modify.
+func (r *Result) Bytes(start, end int32) []byte {
+	if start < 0 || start > end || int(end) > len(r.src) {
+		return nil
+	}
+
+	return r.src[start:end]
+}
+
 // StringValue returns [Result.Content] as a Go string with invalid UTF-8
 // replaced by U+FFFD. MIB text is nominally ASCII and routinely is not:
 // registered vendor names and contact addresses arrive in Latin-1 and

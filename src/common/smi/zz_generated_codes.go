@@ -12,10 +12,20 @@ import "go.aledante.io/FlowSeer/src/common/errs"
 // condition. Severity is not part of a code's identity and may be
 // regraded; the code may not.
 var (
+	// ErrCodeClauseOutOfOrder marks a clause written out of its macro's
+	// fixed order, whose meaning is unambiguous and which is therefore
+	// kept.
+	ErrCodeClauseOutOfOrder = errs.NewCode("smi/clause-out-of-order")
+
 	// ErrCodeContentAfterEnd marks text following the last module's END,
 	// which is dropped rather than costing the file because a trailer says
 	// nothing about the modules already read.
 	ErrCodeContentAfterEnd = errs.NewCode("smi/content-after-end")
+
+	// ErrCodeDuplicateClause marks a clause repeated in a macro that
+	// allows it once, where keeping the first occurrence is the only
+	// choice a reader can predict.
+	ErrCodeDuplicateClause = errs.NewCode("smi/duplicate-clause")
 
 	// ErrCodeHyphenSeparator marks a hyphen run whose length is 1 mod 4,
 	// which pairs off into comments and leaves one stray minus token
@@ -26,6 +36,11 @@ var (
 	// which costs the whole file so that pathological input costs bounded
 	// work.
 	ErrCodeLimitExceeded = errs.NewCode("smi/limit-exceeded")
+
+	// ErrCodeMissingClause marks a declaration without a clause its macro
+	// requires, which leaves the declaration unresolved and visible rather
+	// than dropping it.
+	ErrCodeMissingClause = errs.NewCode("smi/missing-clause")
 
 	// ErrCodeMissingModuleHeader marks a file with no module header, which
 	// costs the whole file because there is no module to attribute a
@@ -45,6 +60,16 @@ var (
 	// hyphen, which RFC 2578 forbids and which a stricter lexer reads as
 	// the start of a comment.
 	ErrCodeTrailingHyphenIdentifier = errs.NewCode("smi/trailing-hyphen-identifier")
+
+	// ErrCodeUnexpectedToken marks a token the grammar has no place for,
+	// which the parser skips past to the next clause keyword inside the
+	// same declaration.
+	ErrCodeUnexpectedToken = errs.NewCode("smi/unexpected-token")
+
+	// ErrCodeUnknownClause marks a clause keyword belonging to some other
+	// macro, which costs the clause and leaves the rest of the declaration
+	// readable.
+	ErrCodeUnknownClause = errs.NewCode("smi/unknown-clause")
 
 	// ErrCodeUnrecognizedDeclaration marks a declaration the framer could
 	// not classify, which costs that declaration and nothing around it.
