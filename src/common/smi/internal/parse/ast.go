@@ -124,10 +124,9 @@ type BadDecl struct {
 
 // ObjectType is an OBJECT-TYPE declaration (RFC 2578 §8, RFC 1212 §4).
 //
-// Syntax, Defval and the constraint text inside Syntax are kept as the
-// source they cover rather than as parsed values: the value grammar is a
-// separate concern from the clause grammar, and reading a DEFVAL wrongly
-// is worse than reading it later.
+// Syntax and Defval hold the source each clause covers, and SyntaxType
+// and DefaultValue hold what that source says. Both are here because a
+// consumer wants the value and a diagnostic wants the file's own words.
 //
 // Access holds an SMIv1 ACCESS clause and MaxAccess an SMIv2 MAX-ACCESS
 // one. They are separate fields because the two spell inverted
@@ -136,6 +135,11 @@ type BadDecl struct {
 type ObjectType struct {
 	Decl
 	Syntax Span
+
+	// SyntaxType is the same clause read as a type: its base type, its
+	// enumeration or BITS members with the numbers the source declared,
+	// and its range and SIZE constraints.
+	SyntaxType Type
 
 	// MappedSyntax is the SMIv2 type the SYNTAX clause's base type is
 	// equivalent to when that base type is one of SMIv1's, and empty
@@ -153,7 +157,11 @@ type ObjectType struct {
 	Index       Index
 	Augments    Span
 	Defval      Span
-	Assignment  Span
+
+	// DefaultValue is the DEFVAL clause read per RFC 2578 §7.9.
+	DefaultValue Value
+
+	Assignment Span
 }
 
 // Index is an INDEX clause held exactly as written.
@@ -201,15 +209,22 @@ type Revision struct {
 }
 
 // TextualConvention is a TEXTUAL-CONVENTION type assignment (RFC 2579
-// §3). Its DISPLAY-HINT is kept as the quoted source; what a hint means
-// for rendering is the value grammar's concern.
+// §3).
 type TextualConvention struct {
 	Decl
 	DisplayHint Span
+
+	// Hint is the DISPLAY-HINT clause read per RFC 2579 §3.1.
+	Hint DisplayHint
+
 	Status      Span
 	Description Span
 	Reference   Span
 	Syntax      Span
+
+	// SyntaxType is the SYNTAX clause read as a type, carrying the
+	// numbers a BITS or enumerated type declared for its members.
+	SyntaxType Type
 }
 
 // NotificationType is a NOTIFICATION-TYPE declaration (RFC 2578 §11).
@@ -332,11 +347,17 @@ type Variation struct {
 	Span             Span
 	Name             Span
 	Syntax           Span
+	SyntaxType       Type
 	WriteSyntax      Span
 	Access           Span
 	CreationRequires []Span
 	Defval           Span
-	Description      Span
+
+	// DefaultValue is the VARIATION default, which RFC 2580 §6 writes
+	// with the same production DEFVAL uses.
+	DefaultValue Value
+
+	Description Span
 }
 
 // ValueAssignment is a "<descriptor> OBJECT IDENTIFIER ::= { parent n }"
@@ -354,4 +375,7 @@ type ValueAssignment struct {
 type TypeAssignment struct {
 	Decl
 	Syntax Span
+
+	// SyntaxType is the same right-hand side read as a type.
+	SyntaxType Type
 }

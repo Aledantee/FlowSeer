@@ -327,6 +327,9 @@ type pending struct {
 	notifications []Span
 	variables     []Span
 	index         Index
+	syntax        Type
+	defval        Value
+	hint          DisplayHint
 	revisions     []Revision
 	modules       []ComplianceModule
 	supports      []Supported
@@ -398,18 +401,34 @@ func (p *parser) unexpectedClause(kind DeclKind, c Clause) {
 // readClause reads one clause's payload, the keyword already consumed.
 func (p *parser) readClause(kind DeclKind, c Clause) {
 	switch c {
-	case ClauseDescription, ClauseReference, ClauseUnits, ClauseDisplayHint,
+	case ClauseDescription, ClauseReference, ClauseUnits,
 		ClauseOrganization, ClauseContactInfo, ClauseLastUpdated, ClauseProductRelease:
 		p.recordIf(c, p.quoted())
+
+	case ClauseDisplayHint:
+		quote := p.tok()
+		span := p.quoted()
+		if span.End > span.Start {
+			p.d.hint = p.parseDisplayHint(span, p.res.StringValue(quote))
+		}
+		p.recordIf(c, span)
 
 	case ClauseStatus, ClauseMaxAccess, ClauseAccess:
 		p.recordIf(c, p.word())
 
 	case ClauseSyntax, ClauseWriteSyntax:
-		p.recordIf(c, p.typeSpan(allowedClauses[kind]))
+		from := p.pos
+		span := p.typeSpan(allowedClauses[kind])
+		if c == ClauseSyntax {
+			p.d.syntax = p.parseType(p.toks[from:p.pos])
+		}
+		p.recordIf(c, span)
 
 	case ClauseDefval:
-		p.recordIf(c, p.group())
+		from := p.pos
+		span := p.group()
+		p.d.defval = p.parseDefault(p.toks[from:p.pos], p.d.syntax.Base)
+		p.recordIf(c, span)
 
 	case ClauseIndex:
 		p.readIndex()
@@ -507,10 +526,10 @@ func (p *parser) word() Span {
 // typeSpan reads a type as the source it covers, stopping at the next
 // clause of the enclosing macro.
 //
-// The type is kept rather than parsed because subtyping, ranges, SIZE
-// and DISPLAY-HINT are a grammar of their own. Reading them here would
-// mean reading them twice: once loosely to find the clause boundary and
-// once properly to get the values.
+// Finding the boundary and reading the type are two jobs, and this is
+// the first. What the tokens inside the span say is read by [Type] from
+// the exact token range this consumed, so the clause boundary is settled
+// once and the value grammar never has to guess at one.
 func (p *parser) typeSpan(sync ClauseSet) Span {
 	start := p.offset()
 	end := start
@@ -798,7 +817,9 @@ func (p *parser) readVariation() {
 		switch clauseOf(p.keyword()) {
 		case ClauseSyntax:
 			p.next()
+			from := p.pos
 			v.Syntax = p.typeSpan(sync)
+			v.SyntaxType = p.parseType(p.toks[from:p.pos])
 			extend(&v.Span, v.Syntax.End)
 		case ClauseWriteSyntax:
 			p.next()
@@ -815,7 +836,9 @@ func (p *parser) readVariation() {
 			extend(&v.Span, span.End)
 		case ClauseDefval:
 			p.next()
+			from := p.pos
 			v.Defval = p.group()
+			v.DefaultValue = p.parseDefault(p.toks[from:p.pos], v.SyntaxType.Base)
 			extend(&v.Span, v.Defval.End)
 		case ClauseDescription:
 			p.next()

@@ -12,6 +12,11 @@ import "go.aledante.io/FlowSeer/src/common/errs"
 // condition. Severity is not part of a code's identity and may be
 // regraded; the code may not.
 var (
+	// ErrCodeBinaryStringNotOctets marks a binary string literal whose
+	// digit count is not a multiple of eight, so its last octet is short
+	// of bits.
+	ErrCodeBinaryStringNotOctets = errs.NewCode("smi/binary-string-not-octets")
+
 	// ErrCodeClauseOutOfOrder marks a clause written out of its macro's
 	// fixed order, whose meaning is unambiguous and which is therefore
 	// kept.
@@ -22,11 +27,30 @@ var (
 	// nothing about the modules already read.
 	ErrCodeContentAfterEnd = errs.NewCode("smi/content-after-end")
 
+	// ErrCodeDefaultNotPermitted marks a default value on a type RFC 2578
+	// gives no default form for, such as a counter whose value only ever
+	// means a difference.
+	ErrCodeDefaultNotPermitted = errs.NewCode("smi/default-not-permitted")
+
 	// ErrCodeDialectValueMismatch marks a clause value only one of the two
 	// SMI dialects defines, written in a module read as the other one,
 	// which is graded and kept because the value still says what its
 	// author meant.
 	ErrCodeDialectValueMismatch = errs.NewCode("smi/dialect-value-mismatch")
+
+	// ErrCodeDisplayHintMalformed marks a display hint that does not read
+	// as either of RFC 2579's two forms, which leaves nothing to render a
+	// value with.
+	ErrCodeDisplayHintMalformed = errs.NewCode("smi/display-hint-malformed")
+
+	// ErrCodeDisplayHintNotPermitted marks a display hint on a syntax RFC
+	// 2579 gives no hint forms for, where nothing could act on the hint.
+	ErrCodeDisplayHintNotPermitted = errs.NewCode("smi/display-hint-not-permitted")
+
+	// ErrCodeDisplayHintSeparator marks a display-hint separator that
+	// cannot be told apart from the octet count or repeat indicator of the
+	// specification after it.
+	ErrCodeDisplayHintSeparator = errs.NewCode("smi/display-hint-separator")
 
 	// ErrCodeDuplicateClause marks a clause repeated in a macro that
 	// allows it once, where keeping the first occurrence is the only
@@ -53,14 +77,38 @@ var (
 	// declaration to.
 	ErrCodeMissingModuleHeader = errs.NewCode("smi/missing-module-header")
 
+	// ErrCodeNegativeSize marks a negative bound in a SIZE constraint,
+	// which describes no string this or any other implementation can hold.
+	ErrCodeNegativeSize = errs.NewCode("smi/negative-size")
+
+	// ErrCodeNonConformingOIDDefault marks an OID default spelled as bare
+	// sub-identifiers, a form the RFC does not define but whose meaning is
+	// plain enough to keep.
+	ErrCodeNonConformingOIDDefault = errs.NewCode("smi/non-conforming-oid-default")
+
 	// ErrCodeOddHexString marks a hexadecimal string literal with an odd
 	// digit count, whose trailing nibble has no byte to land in.
 	ErrCodeOddHexString = errs.NewCode("smi/odd-hex-string")
+
+	// ErrCodeOverlappingRange marks two range alternatives covering a
+	// value twice, which RFC 2578 forbids and whose union is still the set
+	// the author described.
+	ErrCodeOverlappingRange = errs.NewCode("smi/overlapping-range")
 
 	// ErrCodePairedCommentMode marks a file that only reads cleanly under
 	// paired -- comment termination, recording which rule produced the
 	// result.
 	ErrCodePairedCommentMode = errs.NewCode("smi/paired-comment-mode")
+
+	// ErrCodeRangeNotAscending marks a range written backwards, which
+	// names no value and whose author's intent cannot be recovered from
+	// the two bounds alone.
+	ErrCodeRangeNotAscending = errs.NewCode("smi/range-not-ascending")
+
+	// ErrCodeRangeOutsideBaseType marks a subtype bound the base type
+	// could never take, which leaves the constraint describing values the
+	// object cannot carry.
+	ErrCodeRangeOutsideBaseType = errs.NewCode("smi/range-outside-base-type")
 
 	// ErrCodeTrailingHyphenIdentifier marks an identifier ending in a
 	// hyphen, which RFC 2578 forbids and which a stricter lexer reads as

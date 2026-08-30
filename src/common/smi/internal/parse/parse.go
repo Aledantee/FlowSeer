@@ -30,9 +30,11 @@
 // kept exactly as written and are deliberately left unresolved: the code
 // generator never reads index structure and index decoding is generic at
 // runtime. Types, DEFVALs, ranges, SIZE constraints and DISPLAY-HINTs
-// are kept as the source they cover, because the value grammar is a
-// grammar of its own and reading it loosely here would mean reading it
-// twice.
+// are read for what they say and kept beside the source they cover, so a
+// consumer gets the value and a diagnostic still quotes the file. What
+// none of them do is look outside the declaration: a type name this pass
+// does not define stays a name, and every rule that would need to know
+// what it stands on stays quiet until resolution answers that.
 //
 // # Two dialects, one AST
 //
@@ -193,7 +195,10 @@ func (p *parser) declaration(m *Module, fr frame.Frame) {
 		p.assignment()
 	case DeclTypeAssignment:
 		p.pos = 2
-		p.recordIf(ClauseSyntax, p.typeSpan(0))
+		from := p.pos
+		span := p.typeSpan(0)
+		p.d.syntax = p.parseType(p.toks[from:p.pos])
+		p.recordIf(ClauseSyntax, span)
 	case DeclTextualConvention:
 		p.pos = 3
 		p.clauses(kind)
@@ -211,6 +216,8 @@ func (p *parser) declaration(m *Module, fr frame.Frame) {
 // that did parse, so a consumer sees it as unresolved rather than whole
 // and a resolution pass can name what fell with it.
 func (p *parser) finish(m *Module, fr frame.Frame, kind DeclKind) {
+	p.gradeDeclaration()
+
 	decl := Decl{Name: fr.Name, Span: fr.Span, Present: p.d.present}
 
 	missing := p.d.present.Missing(kind, p.dialect)
@@ -245,6 +252,7 @@ func (p *parser) project(m *Module, decl Decl, kind DeclKind) int32 {
 		m.ObjectTypes = append(m.ObjectTypes, ObjectType{
 			Decl:        decl,
 			Syntax:      d.text[ClauseSyntax],
+			SyntaxType:  d.syntax,
 			Units:       d.text[ClauseUnits],
 			MaxAccess:   d.text[ClauseMaxAccess],
 			Access:      d.text[ClauseAccess],
@@ -254,7 +262,9 @@ func (p *parser) project(m *Module, decl Decl, kind DeclKind) int32 {
 			Index:       d.index,
 			Augments:    d.text[ClauseAugments],
 			Defval:      d.text[ClauseDefval],
-			Assignment:  d.text[ClauseAssignment],
+
+			DefaultValue: d.defval,
+			Assignment:   d.text[ClauseAssignment],
 		})
 
 		return int32(len(m.ObjectTypes) - 1)
@@ -287,10 +297,12 @@ func (p *parser) project(m *Module, decl Decl, kind DeclKind) int32 {
 		m.TextualConventions = append(m.TextualConventions, TextualConvention{
 			Decl:        decl,
 			DisplayHint: d.text[ClauseDisplayHint],
+			Hint:        d.hint,
 			Status:      d.text[ClauseStatus],
 			Description: d.text[ClauseDescription],
 			Reference:   d.text[ClauseReference],
 			Syntax:      d.text[ClauseSyntax],
+			SyntaxType:  d.syntax,
 		})
 
 		return int32(len(m.TextualConventions) - 1)
@@ -378,8 +390,9 @@ func (p *parser) project(m *Module, decl Decl, kind DeclKind) int32 {
 
 	default:
 		m.TypeAssignments = append(m.TypeAssignments, TypeAssignment{
-			Decl:   decl,
-			Syntax: d.text[ClauseSyntax],
+			Decl:       decl,
+			Syntax:     d.text[ClauseSyntax],
+			SyntaxType: d.syntax,
 		})
 
 		return int32(len(m.TypeAssignments) - 1)
