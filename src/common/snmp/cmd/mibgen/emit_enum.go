@@ -4,9 +4,8 @@ import (
 	"sort"
 
 	"github.com/dave/jennifer/jen"
-	"github.com/sleepinggenius2/gosmi"
-	gosmimodels "github.com/sleepinggenius2/gosmi/models"
-	gosmitypes "github.com/sleepinggenius2/gosmi/types"
+
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // emitEnums writes one Go enum declaration per distinct SMI enum
@@ -26,38 +25,29 @@ import (
 // The function records each emitted enum's Go identifier in
 // [emitCtx.enumNames] so the second pass (resolveType) can reference
 // the enum type by name.
-func emitEnums(f *jen.File, ec *emitCtx, mod *gosmi.SmiModule, nodes []gosmi.SmiNode) {
+func emitEnums(f *jen.File, ec *emitCtx, mod *smi.Module, nodes []*smi.Node) {
 	type enumDecl struct {
-		Key      string // dedup key (enumKey)
-		GoName   string
-		MIBName  string // diagnostic-only
-		Comment  string
-		BaseKind gosmitypes.BaseType
-		Values   []enumMember
+		Key     string // dedup key (enumKey)
+		GoName  string
+		MIBName string // diagnostic-only
+		Comment string
+		Values  []enumMember
 	}
 
 	enums := make(map[string]*enumDecl)
 	var order []string
 
-	// Named TC enums first — those are the reusable types listed by
-	// SmiModule.GetTypes(). We exclude well-known TCs that have a
-	// dedicated TC decoder path.
-	for _, t := range mod.GetTypes() {
-		if t.BaseType != gosmitypes.BaseTypeEnum {
+	// Named types first — the textual conventions and type assignments
+	// the module declares. Well-known TCs are excluded because they
+	// have a dedicated decoder path that decides their Go shape.
+	for _, t := range mod.Types {
+		if !t.Enumerated() && !namedBits(t) {
 			continue
 		}
 		if _, wellKnown := wellKnownTC(t.Name); wellKnown {
-			// e.g. an extension MIB might re-import RowStatus; the
-			// TC handler decides the Go shape.
 			continue
 		}
-		if t.Name == "" || t.Name == "Enumeration" {
-			// Inline INTEGER {...} declarations show up in the
-			// module's type list with libsmi's "Enumeration"
-			// placeholder name; those are handled below per node.
-			continue
-		}
-		if t.Enum == nil || len(t.Enum.Values) == 0 {
+		if t.Name == "" || len(t.Members) == 0 {
 			continue
 		}
 		key := "type:" + t.Name
@@ -65,39 +55,30 @@ func emitEnums(f *jen.File, ec *emitCtx, mod *gosmi.SmiModule, nodes []gosmi.Smi
 			continue
 		}
 		decl := &enumDecl{
-			Key:      key,
-			GoName:   camelCase(t.Name),
-			MIBName:  t.Name,
-			Comment:  t.Description,
-			BaseKind: t.BaseType,
-			Values:   collectEnumMembers(t.Enum.Values, camelCase(t.Name)),
+			Key:     key,
+			GoName:  camelCase(t.Name),
+			MIBName: t.Name,
+			Comment: t.Description,
+			Values:  collectEnumMembers(t.Members, camelCase(t.Name)),
 		}
 		enums[key] = decl
 		order = append(order, key)
 		ec.enumNames[key] = decl.GoName
 	}
 
-	// Inline enums declared directly on a node (the node's Type has no
-	// Name). Use the node name as the de-dup key and the enum's Go
-	// type name.
+	// Enumerations written inline in an object's SYNTAX clause. The MIB
+	// gave them no name, so the declaring object supplies one and each
+	// object owns its own Go type. A named type an object merely refers
+	// to was picked up by the pass above, or is resolved cross-module by
+	// resolveType.
 	for _, n := range nodes {
-		if n.Kind != gosmitypes.NodeScalar && n.Kind != gosmitypes.NodeColumn {
+		if n.Kind != smi.NodeScalar && n.Kind != smi.NodeColumn {
 			continue
 		}
-		if n.Type == nil || n.Type.BaseType != gosmitypes.BaseTypeEnum {
+		if n.Type == nil || n.Type.Name != "" || !n.Type.Enumerated() {
 			continue
 		}
-		// libsmi flattens inline INTEGER {...} enums by giving them the
-		// synthetic type name "Enumeration"; treat that as anonymous
-		// so we generate one enum per declaring node rather than
-		// trying to share a single Go type for every inline enum in
-		// the MIB. Genuinely-named TC enums are picked up by the
-		// types pass above (when the type's home module is this
-		// module) or resolved cross-module via resolveType.
-		if n.Type.Name != "" && n.Type.Name != "Enumeration" {
-			continue
-		}
-		if n.Type.Enum == nil || len(n.Type.Enum.Values) == 0 {
+		if len(n.Type.Members) == 0 {
 			continue
 		}
 		key := "node:" + n.Name
@@ -105,12 +86,11 @@ func emitEnums(f *jen.File, ec *emitCtx, mod *gosmi.SmiModule, nodes []gosmi.Smi
 			continue
 		}
 		decl := &enumDecl{
-			Key:      key,
-			GoName:   camelCase(n.Name) + "Value",
-			MIBName:  n.Name + " (inline)",
-			Comment:  n.Description,
-			BaseKind: n.Type.BaseType,
-			Values:   collectEnumMembers(n.Type.Enum.Values, camelCase(n.Name)+"Value"),
+			Key:     key,
+			GoName:  camelCase(n.Name) + "Value",
+			MIBName: n.Name + " (inline)",
+			Comment: n.Description,
+			Values:  collectEnumMembers(n.Type.Members, camelCase(n.Name)+"Value"),
 		}
 		enums[key] = decl
 		order = append(order, key)
@@ -138,38 +118,26 @@ type enumMember struct {
 	Value   int64
 }
 
-// collectEnumMembers builds enumMember slice from a gosmi Enum, sorted
-// by value so the constant block is in numeric order regardless of
-// libsmi's parse order.
+// collectEnumMembers builds the enumMember slice for one type, sorted
+// by value so the constant block reads in numeric order whatever order
+// the MIB declared the members in.
 //
-// libsmi exposes BITS members as SmiValues with no underlying int
-// payload (its internal/type.go GetValue switch covers Integer/Unsigned
-// only); gosmi's convertValue then returns 0 for every member. We
-// detect that "all-zero" shape and assign sequential 0..N bit
-// positions by declaration order so the generated constants don't
-// collide. The fallback is harmless for genuinely-numeric enums
-// because they exit the all-zero check immediately.
-func collectEnumMembers(in []gosmimodels.NamedNumber, prefix string) []enumMember {
-	allZero := true
-	for _, v := range in {
-		if v.Value != 0 {
-			allZero = false
-			break
-		}
-	}
+// The numbers are the ones the MIB wrote. That matters most for a BITS
+// type: a device reporting bit 5 of a gapped BITS means the member
+// declared as 5, and inferring a member's number from its position in
+// the declaration would decode that as whichever member happens to sit
+// fifth.
+func collectEnumMembers(in []smi.Member, prefix string) []enumMember {
 	out := make([]enumMember, 0, len(in))
-	for i, v := range in {
-		val := v.Value
-		if allZero && len(in) > 1 {
-			val = int64(i)
-		}
+	for _, v := range in {
 		out = append(out, enumMember{
 			GoName:  prefix + camelCase(v.Name),
 			MIBName: v.Name,
-			Value:   val,
+			Value:   v.Number,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
+
 	return out
 }
 

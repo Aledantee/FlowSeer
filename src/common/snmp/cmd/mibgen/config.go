@@ -20,9 +20,9 @@ import (
 // at load time via [LoadConfig]/[LoadConfigBytes]; unknown keys are an
 // error, not a warning, so typos in checked-in config surface immediately.
 type Config struct {
-	// SearchPaths is the ordered list of directories handed to the gosmi
-	// loader (via AppendPath, in order). Relative paths are resolved
-	// against the directory that contained the YAML file.
+	// SearchPaths is the ordered list of directories a module name is
+	// looked for in. Relative paths are resolved against the directory
+	// that contained the YAML file.
 	SearchPaths []string `yaml:"search_paths"`
 
 	// Modules is the ordered list of MIB modules to load and emit Go
@@ -43,8 +43,10 @@ type Module struct {
 	Package string `yaml:"package"`
 
 	// DependsOn lists other module names this module depends on across
-	// search-path / authority boundaries. Same-search-path transitive
-	// IMPORTS are resolved by gosmi and need not appear here.
+	// search-path / authority boundaries. It is a statement about the
+	// config rather than about the load: every IMPORTS clause is
+	// followed across all search paths regardless, and what this buys
+	// is a refusal when the declared edges close a cycle.
 	DependsOn []string `yaml:"depends_on,omitempty"`
 
 	// Overrides is the per-OID Go-type override table for this module.
@@ -332,7 +334,7 @@ func validateConfig(cfg *Config, displayPath string) error {
 
 	// Verify each resolved search path exists on disk. A typo or stale
 	// vendored-spec layout would otherwise surface later as a confusing
-	// gosmi "module not found"; fail fast with the exact offending path.
+	// "module not found"; fail fast with the exact offending path.
 	// This check runs after the structural validation above so structural
 	// errors keep their existing diagnostics.
 	for i, p := range cfg.SearchPaths {

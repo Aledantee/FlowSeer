@@ -1,13 +1,13 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/dave/jennifer/jen"
-	"github.com/sleepinggenius2/gosmi"
-	gosmimodels "github.com/sleepinggenius2/gosmi/models"
-	gosmitypes "github.com/sleepinggenius2/gosmi/types"
+
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // emitCtx threads per-module state through the emission passes: which
@@ -18,8 +18,22 @@ import (
 // emitCtx values are not reusable across modules; construct one per
 // EmitModule call via [newEmitCtx].
 type emitCtx struct {
-	// mod is the gosmi module currently being emitted.
-	mod *gosmi.SmiModule
+	// mod is the resolved module currently being emitted.
+	mod *smi.Module
+	// set is the whole resolved model the module came from. It is what
+	// a cross-module type reference is looked up in, so the enum a
+	// column names resolves to the definition its author imported
+	// rather than to whichever same-named type this module happens to
+	// carry.
+	set *smi.ModuleSet
+	// tables indexes the module's conceptual tables by the dotted OID
+	// of the table node, so the table emitter can find a table's row
+	// and columns without rescanning.
+	tables map[string]*smi.Table
+	// visible holds every type name the module may write: the ones it
+	// declares and the ones its IMPORTS clause names. See
+	// [emitCtx.typeAvailable].
+	visible map[string]bool
 	// cm is the configured Module entry for [emitCtx.mod].
 	cm Module
 	// cfgByName maps every loaded module's MIB name to its Module entry
@@ -36,8 +50,8 @@ type emitCtx struct {
 	dispatch []dispatchEntry
 	// enumNames remembers the Go type names emitted by emitEnums so
 	// scalars/columns can refer to them by name and the second-pass
-	// "is this an enum?" check is cheap.
-	enumNames map[string]string // SmiType.Name -> Go identifier
+	// "is this an enum?" check is cheap. The key is [enumKey].
+	enumNames map[string]string
 
 	// tiers records per-column tier classifications observed during
 	// the table-emission pass. emitTierMap renders these as the
@@ -72,13 +86,36 @@ type dispatchEntry struct {
 // newEmitCtx builds an emitCtx with overrides indexed and enumNames
 // pre-allocated. The caller fills [emitCtx.enumNames] during the enum
 // pass.
-func newEmitCtx(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, pkgPrefix string) *emitCtx {
+func newEmitCtx(
+	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, pkgPrefix string,
+) *emitCtx {
 	ovs := make(map[string]Override, len(cm.Overrides))
 	for _, o := range cm.Overrides {
 		ovs[o.OID] = o
 	}
+
+	tables := make(map[string]*smi.Table, len(mod.Tables))
+	for _, t := range mod.Tables {
+		if t.Node != nil {
+			tables[t.Node.OID.String()] = t
+		}
+	}
+
+	visible := make(map[string]bool, len(mod.Types))
+	for _, t := range mod.Types {
+		visible[t.Name] = true
+	}
+	for _, imp := range mod.Imports {
+		for _, sym := range imp.Symbols {
+			visible[sym] = true
+		}
+	}
+
 	return &emitCtx{
 		mod:       mod,
+		set:       set,
+		tables:    tables,
+		visible:   visible,
 		cm:        cm,
 		cfgByName: cfgByName,
 		pkgPrefix: pkgPrefix,
@@ -86,6 +123,10 @@ func newEmitCtx(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, pk
 		enumNames: make(map[string]string),
 	}
 }
+
+// table returns the conceptual table rooted at the node with the given
+// dotted OID.
+func (ec *emitCtx) table(oid string) *smi.Table { return ec.tables[oid] }
 
 // resolved describes how a node's value should be represented in
 // generated Go: the Go-type code to render, the wire [snmp.Kind] of the
@@ -120,10 +161,10 @@ type resolved struct {
 	RawFuse string
 }
 
-// resolveType maps a gosmi node's [SmiType] to a [resolved] descriptor
-// that the scalar/column emitters consume. Overrides for the node's
-// OID short-circuit the natural resolution and force a caller-supplied
-// Go type with a fall-through decoder.
+// resolveType maps a resolved node's [smi.Type] to a [resolved]
+// descriptor that the scalar/column emitters consume. Overrides for the
+// node's OID short-circuit the natural resolution and force a
+// caller-supplied Go type with a fall-through decoder.
 //
 // The well-known textual conventions (MacAddress, DateAndTime,
 // TruthValue, RowStatus, DisplayString, PhysAddress, BITS) route
@@ -132,18 +173,23 @@ type resolved struct {
 //
 // Enum types defined by `INTEGER { name(value), ... }` resolve to the
 // generated Go enum type registered in [emitCtx.enumNames].
-func resolveType(ec *emitCtx, n gosmi.SmiNode) resolved {
-	oid := oidString(n.Oid)
+func resolveType(ec *emitCtx, n *smi.Node) resolved {
+	oid := n.OID.String()
 	if ov, ok := ec.overrides[oid]; ok {
 		return resolveOverride(ec, n, ov)
 	}
 
-	t := n.Type
-	if t == nil {
-		// No type info — fall back to OctetString-ish bytes. Real
-		// MIB nodes always have a type; emitting bytes here makes
-		// the generator robust against ill-formed input rather
-		// than panicking.
+	return naturalResolved(ec, n.Name, n.Type)
+}
+
+// naturalResolved is resolveType with the override table already
+// consulted. It is separate because an override still needs the
+// natural resolution: the override changes the Go type, not the wire
+// form the agent emits.
+func naturalResolved(ec *emitCtx, nodeName string, t *smi.Type) resolved {
+	if t == nil || !ec.typeAvailable(t) {
+		// Nothing usable to render from — fall back to
+		// OctetString-ish bytes rather than guessing a numeric width.
 		return resolvedBytes()
 	}
 
@@ -153,44 +199,97 @@ func resolveType(ec *emitCtx, n gosmi.SmiNode) resolved {
 		return dec
 	}
 
-	// SMI base-type aliases. libsmi normalises Counter32 / Counter64 /
-	// Gauge32 / TimeTicks / IpAddress / Opaque to their integer base
-	// types but loses the wire-Kind distinction. We pick the right
-	// snmp.Kind here so generated callers see the right exception
-	// variant in diagnostics and the dispatch table records the right
-	// VarBind variant for downstream decoders.
-	if dec, ok := smiBaseAlias(t.Name); ok {
-		return dec
+	// An application type written straight into a SYNTAX clause is
+	// anonymous — RFC 2578 §7.1 defines Counter32 and friends as types,
+	// not as conventions somebody named — so the base is what says
+	// which one it is. That is also the only place the distinction
+	// survives: a convention layered on top of one (TimeStamp over
+	// TimeTicks, ZeroBasedCounter32 over Gauge32) is rendered from its
+	// integer width instead, because its name is what carries its
+	// meaning and the column emitter has no arm for it.
+	if t.Name == "" {
+		if dec, ok := applicationType(t.Base); ok {
+			return dec
+		}
 	}
 
-	// Inline-INTEGER enums on an OBJECT-TYPE leave the node's Type.Name
-	// empty (libsmi flattens them); a generated enum is keyed off the
-	// node name and registered in enumNames during the enum pass.
-	if t.BaseType == gosmitypes.BaseTypeEnum {
-		if id, ok := ec.enumNames[enumKey(n, t)]; ok {
-			return enumResolved(jen.Id(id), id)
+	if t.Enumerated() || namedBits(t) {
+		if id, ok := ec.enumNames[enumKey(nodeName, t)]; ok {
+			return enumResolved(jen.Id(id))
 		}
-		// Cross-module enum: the type lives in another loaded MIB
-		// module. We look up the owning module on the underlying
-		// SmiType and emit a Qual reference into its generated Go
-		// package.
-		if t.Name != "" && t.Name != "Enumeration" {
-			if qual := ec.crossModuleQual(n, t.Name); qual != nil {
-				return enumResolved(qual, camelCase(t.Name))
+		// Cross-module enum: the type lives in another module of the
+		// loaded set. Look up its home module and emit a Qual
+		// reference into that module's generated Go package.
+		if t.Name != "" {
+			if qual := ec.crossModuleQual(t.Name); qual != nil {
+				return enumResolved(qual)
 			}
 		}
 		// Enum wasn't registered (unlikely): degrade to int32 so the
 		// emitted file still compiles.
-		return resolveBase(gosmitypes.BaseTypeInteger32)
+		return resolveBase(baseSigned32)
 	}
 
-	return resolveBase(t.BaseType)
+	return resolveBase(dispatchBase(t))
+}
+
+// namedBits reports whether t is a textual convention or type
+// assignment whose SYNTAX is BITS.
+//
+// Such a type is emitted as a Go enum rather than as raw octets, so
+// that a caller naming a bit writes the member's constant instead of a
+// magic number. The bits themselves still travel as an OCTET STRING;
+// what the enum names is the member numbering, which is why an inline
+// `BITS { … }` on one object — with no name to hang a Go type on —
+// stays bytes.
+func namedBits(t *smi.Type) bool {
+	return t != nil && t.Name != "" && t.Base == smi.BaseBits && len(t.Members) > 0
+}
+
+// applicationTypeNames spells the SMI application types the way
+// SNMPv2-SMI declares them, which is the spelling an IMPORTS clause has
+// to name before a module may write one.
+var applicationTypeNames = map[smi.BaseType]string{
+	smi.BaseInteger32:  "Integer32",
+	smi.BaseUnsigned32: "Unsigned32",
+	smi.BaseGauge32:    "Gauge32",
+	smi.BaseCounter32:  "Counter32",
+	smi.BaseCounter64:  "Counter64",
+	smi.BaseTimeTicks:  "TimeTicks",
+	smi.BaseIPAddress:  "IpAddress",
+	smi.BaseOpaque:     "Opaque",
+}
+
+// typeAvailable reports whether the module being emitted may write t.
+//
+// RFC 2578 §3.2 makes IMPORTS the statement of where every external
+// symbol comes from, and the generator holds the module to it: a type
+// the module neither declares nor imports is not one it may use, and a
+// declaration reaching for one renders from the untyped fallback rather
+// than from a definition the author never claimed. The resolver is
+// deliberately more forgiving — it will resolve such a name against
+// whatever is loaded, because a corpus is full of modules that forgot
+// an import and their declarations are still worth seeing — so the
+// judgment lives here, where the binding is written.
+//
+// The types with no name are the ASN.1 built-ins and BITS, which are
+// keywords rather than imported symbols.
+func (ec *emitCtx) typeAvailable(t *smi.Type) bool {
+	if t.Name != "" {
+		return ec.visible[t.Name]
+	}
+	name, needsImport := applicationTypeNames[t.Base]
+	if !needsImport {
+		return true
+	}
+
+	return ec.visible[name]
 }
 
 // enumResolved is the canonical resolved descriptor for any enum-like
 // type — the type's Integer32 wire kind, a decoder that casts the
 // inner value to the enum, and a zero expression of `T(0)`.
-func enumResolved(goType *jen.Statement, _ string) resolved {
+func enumResolved(goType *jen.Statement) resolved {
 	return resolved{
 		GoType:     goType.Clone(),
 		Kind:       jen.Qual(snmpImport, "KindInteger32"),
@@ -202,42 +301,48 @@ func enumResolved(goType *jen.Statement, _ string) resolved {
 }
 
 // crossModuleQual builds a jen.Qual referring to a type defined in
-// another loaded MIB module. Returns nil when the type cannot be
-// resolved (no module found, type's home module is not in our config)
-// so the caller can fall back to a less-precise resolution.
+// another module of the loaded set. Returns nil when the type cannot be
+// resolved (no module found, or the type's home module is not in our
+// config) so the caller can fall back to a less-precise resolution.
 //
-// Cross-module enum references are only emitted when the home module
-// is explicitly listed in mibgen.yaml. Modules that gosmi auto-loaded
-// via transitive IMPORTS but that the config doesn't name (e.g. an
-// IANA-* registry MIB) are out of scope for binding emission, so the
-// referring scalar/column falls back to its natural base type plus a
-// generator comment.
-func (ec *emitCtx) crossModuleQual(_ gosmi.SmiNode, typeName string) *jen.Statement {
-	t, err := gosmi.GetType(typeName)
-	if err != nil {
+// The lookup goes through [smi.ModuleSet.Type], which searches without
+// a module qualifier in an order its own contract fixes: the SMI base
+// types first, then module-declared types in ascending module-name
+// order. The generator relies on that order rather than restating one,
+// because which definition wins decides what gets emitted.
+//
+// Cross-module enum references are only emitted when the home module is
+// explicitly listed in mibgen.yaml. Modules pulled in transitively by
+// IMPORTS but that the config does not name (an IANA-* registry MIB,
+// say) are out of scope for binding emission, so the referring
+// scalar/column falls back to its natural base type.
+func (ec *emitCtx) crossModuleQual(typeName string) *jen.Statement {
+	t, ok := ec.set.Type(typeName)
+	if !ok {
 		return nil
 	}
-	mod := t.GetModule()
-	if mod.Name == "" || mod.Name == ec.mod.Name {
+	if t.Module == "" || t.Module == ec.mod.Name {
 		return nil
 	}
 	if ec.cfgByName == nil {
 		return nil
 	}
-	cm, ok := ec.cfgByName[mod.Name]
+	cm, ok := ec.cfgByName[t.Module]
 	if !ok || cm.Package == "" {
 		return nil
 	}
 	importPath := ec.pkgPrefix + "/" + cm.Package
+
 	return jen.Qual(importPath, camelCase(typeName))
 }
 
-// smiBaseAlias maps SMIv2 base-type names that share an underlying
-// libsmi BaseType but carry distinct wire kinds (and therefore distinct
-// VarBind variants) to their generated Go type + decoder.
-func smiBaseAlias(name string) (resolved, bool) {
-	switch name {
-	case "Counter32":
+// applicationType maps the SMI application types onto their generated
+// Go type and decoder. They share integer widths with each other and
+// with Integer32, and each one carries a distinct wire Kind, so the
+// dispatch is on the base rather than on the width.
+func applicationType(base smi.BaseType) (resolved, bool) {
+	switch base {
+	case smi.BaseCounter32:
 		zero := func() *jen.Statement { return jen.Lit(0) }
 		return resolved{
 			GoType:     jen.Uint32(),
@@ -247,7 +352,7 @@ func smiBaseAlias(name string) (resolved, bool) {
 			ZeroExpr:   zero,
 			RawFuse:    "RawCounter32",
 		}, true
-	case "Counter64":
+	case smi.BaseCounter64:
 		zero := func() *jen.Statement { return jen.Lit(0) }
 		return resolved{
 			GoType:     jen.Uint64(),
@@ -257,7 +362,7 @@ func smiBaseAlias(name string) (resolved, bool) {
 			ZeroExpr:   zero,
 			RawFuse:    "RawCounter64",
 		}, true
-	case "Gauge32":
+	case smi.BaseGauge32:
 		zero := func() *jen.Statement { return jen.Lit(0) }
 		return resolved{
 			GoType:     jen.Uint32(),
@@ -267,7 +372,7 @@ func smiBaseAlias(name string) (resolved, bool) {
 			ZeroExpr:   zero,
 			RawFuse:    "RawGauge32",
 		}, true
-	case "TimeTicks":
+	case smi.BaseTimeTicks:
 		zero := func() *jen.Statement { return jen.Lit(0) }
 		return resolved{
 			GoType:     jen.Uint32(),
@@ -277,7 +382,7 @@ func smiBaseAlias(name string) (resolved, bool) {
 			ZeroExpr:   zero,
 			RawFuse:    "RawTimeTicks",
 		}, true
-	case "IpAddress":
+	case smi.BaseIPAddress:
 		zero := jen.Nil
 		return resolved{
 			GoType:     jen.Qual("net", "IP"),
@@ -286,7 +391,7 @@ func smiBaseAlias(name string) (resolved, bool) {
 			DecodeFunc: func() *jen.Statement { return decodeNatural("IPAddressVar", jen.Qual("net", "IP")) },
 			ZeroExpr:   zero,
 		}, true
-	case "Opaque":
+	case smi.BaseOpaque:
 		zero := jen.Nil
 		return resolved{
 			GoType:     jen.Index().Byte(),
@@ -303,24 +408,12 @@ func smiBaseAlias(name string) (resolved, bool) {
 // config. The override's Go type is used verbatim; the wire decoding
 // stays based on the natural base type so the closure can still type-
 // assert the right VarBind variant.
-func resolveOverride(_ *emitCtx, n gosmi.SmiNode, ov Override) resolved {
-	// Natural variant resolution mirrors resolveType: smiBaseAlias
-	// (Counter32/64, Gauge32, TimeTicks, IpAddress, Opaque — names
-	// libsmi normalises to a shared integer BaseType) takes precedence
-	// over the bare BaseType dispatch. Without this chain, an override
-	// on a Counter64 / Gauge32 / TimeTicks / IpAddress / Opaque column
-	// would fall through to BaseTypeInteger32 and emit DecodeInt32 —
-	// silently rejecting the agent's natural emission.
-	var nat resolved
-	if n.Type != nil {
-		if alias, ok := smiBaseAlias(n.Type.Name); ok {
-			nat = alias
-		} else {
-			nat = resolveBase(n.Type.BaseType)
-		}
-	} else {
-		nat = resolveBase(gosmitypes.BaseTypeUnknown)
-	}
+func resolveOverride(ec *emitCtx, n *smi.Node, ov Override) resolved {
+	// The natural resolution still decides the wire side. Without it an
+	// override on a Counter64 / Gauge32 / TimeTicks column would fall
+	// through to Integer32 and emit DecodeInt32, silently rejecting the
+	// agent's natural emission.
+	nat := naturalResolved(ec, n.Name, n.Type)
 
 	// Overrides currently only support integer-castable target types:
 	// the emitted decoder is `return Target(v), nil` where v is the
@@ -375,10 +468,96 @@ func isIntegerLikeVariant(variant string) bool {
 	return false
 }
 
-// resolveBase covers the plain SMIv2 base types (no TC, no enum).
-func resolveBase(bt gosmitypes.BaseType) resolved {
+// baseKind is the coarse wire shape the scalar and column emitters
+// dispatch on once textual conventions, application types and enums
+// have had their turn. It is deliberately smaller than [smi.BaseType]:
+// what is left at this point is a choice between four Go
+// representations, and naming them that way keeps the dispatch from
+// pretending to more precision than it has.
+type baseKind uint8
+
+const (
+	// baseOther is anything the emitter has no arm for. It renders as
+	// baseSigned32 — see [resolveBase].
+	baseOther baseKind = iota
+	baseSigned32
+	baseUnsigned32
+	baseBytes
+	baseOID
+)
+
+// dispatchBase reduces a resolved type to the shape [resolveBase]
+// renders.
+//
+// The application types fold into their integer widths here, which is
+// the right answer at this point: a type reaching dispatchBase is a
+// convention layered over one (TimeStamp over TimeTicks), and its
+// meaning lives in its name, which the emitter has already had its
+// chance at.
+func dispatchBase(t *smi.Type) baseKind {
+	switch t.Base {
+	case smi.BaseInteger:
+		return integerSubtypeBase(t)
+	case smi.BaseInteger32:
+		return baseSigned32
+	case smi.BaseUnsigned32, smi.BaseGauge32, smi.BaseCounter32, smi.BaseTimeTicks:
+		return baseUnsigned32
+	case smi.BaseOctetString, smi.BaseBits, smi.BaseIPAddress, smi.BaseOpaque:
+		return baseBytes
+	case smi.BaseObjectIdentifier:
+		return baseOID
+	default:
+		return baseOther
+	}
+}
+
+// unsignedRangeCeiling is the largest maximum an INTEGER subtype may
+// declare and still be rendered unsigned. It is spelled as a decimal
+// string because the comparison below is a string comparison — see
+// [integerSubtypeBase].
+const unsignedRangeCeiling = "4294967295"
+
+// integerSubtypeBase decides how a plain INTEGER carrying a range
+// constraint is rendered.
+//
+// RFC 2578 §7.1.1 fixes INTEGER at the signed 32-bit range and §9 makes
+// a subtype a restriction of the value set rather than a change of
+// type, so the honest rendering is always int32. This is not that: a
+// range whose bounds are non-negative and whose decimal maximum sorts
+// at or below 4294967295 renders as uint32 instead.
+//
+// The reason is the committed bindings. Every non-negative INTEGER
+// subtype in the generated packages ships today as a uint32 column —
+// ipAdEntIfIndex, sysServices, the TestAndIncr and TimeInterval
+// conventions — and callers hold those values. Changing a shipped
+// column's Go type is a source-breaking change for every consumer, and
+// it belongs in a step that says so and fixes them, not in one whose
+// whole point is that the output does not move. The comparison is on
+// the decimal spelling rather than on the number because that is the
+// comparison the shipped bindings were generated under: it reads 65535
+// as wider than 4294967295, so ipAdEntReasmMaxSize is one of the
+// non-negative columns that came out signed.
+func integerSubtypeBase(t *smi.Type) baseKind {
+	if len(t.Ranges) == 0 {
+		return baseSigned32
+	}
+	if t.Ranges[0].Min < 0 {
+		return baseSigned32
+	}
+
+	upper := strconv.FormatInt(t.Ranges[len(t.Ranges)-1].Max, 10)
+	if len(upper) > len(unsignedRangeCeiling) || upper > unsignedRangeCeiling {
+		return baseSigned32
+	}
+
+	return baseUnsigned32
+}
+
+// resolveBase covers the plain base types (no TC, no application type,
+// no enum).
+func resolveBase(bt baseKind) resolved {
 	switch bt {
-	case gosmitypes.BaseTypeInteger32:
+	case baseSigned32:
 		zero := func() *jen.Statement { return jen.Lit(0) }
 		return resolved{
 			GoType:     jen.Int32(),
@@ -388,7 +567,7 @@ func resolveBase(bt gosmitypes.BaseType) resolved {
 			ZeroExpr:   zero,
 			RawFuse:    "RawInteger32",
 		}
-	case gosmitypes.BaseTypeUnsigned32:
+	case baseUnsigned32:
 		zero := func() *jen.Statement { return jen.Lit(0) }
 		return resolved{
 			GoType:     jen.Uint32(),
@@ -398,9 +577,9 @@ func resolveBase(bt gosmitypes.BaseType) resolved {
 			ZeroExpr:   zero,
 			RawFuse:    "RawGauge32",
 		}
-	case gosmitypes.BaseTypeOctetString, gosmitypes.BaseTypeBits:
+	case baseBytes:
 		return resolvedBytes()
-	case gosmitypes.BaseTypeObjectIdentifier:
+	case baseOID:
 		zero := func() *jen.Statement { return jen.Qual(snmpImport, "OID").Values() }
 		return resolved{
 			GoType:     jen.Qual(snmpImport, "OID"),
@@ -414,7 +593,7 @@ func resolveBase(bt gosmitypes.BaseType) resolved {
 	// fallback is documented behavior, not silent loss: the generator
 	// emits the natural Integer32Var decoder which will surface a
 	// mismatched-kind error at runtime if the wire type differs.
-	return resolveBase(gosmitypes.BaseTypeInteger32)
+	return resolveBase(baseSigned32)
 }
 
 // resolvedBytes returns the canonical resolution for OCTET STRING-ish
@@ -584,14 +763,19 @@ func camelCase(name string) string {
 	return string(out)
 }
 
-// enumKey is the de-duplication key used by [emitCtx.enumNames]. Named
-// SMI types share their declaration across modules; inline anonymous
-// enums on a node are unique per node. libsmi gives inline enums the
-// synthetic name "Enumeration"; treat that the same as anonymous so
-// each declaring node owns its own Go type.
-func enumKey(n gosmi.SmiNode, t *gosmimodels.Type) string {
-	if t != nil && t.Name != "" && t.Name != "Enumeration" {
+// enumKey is the de-duplication key used by [emitCtx.enumNames].
+//
+// A named type is one declaration however many objects name it, so it
+// keys by the type's name and yields one Go type. An enumeration
+// written inline in a SYNTAX clause has no name in the MIB and no
+// relation to the next object's inline enumeration, so it keys by the
+// declaring object — two objects that happen to spell the same members
+// still get a Go type each, because nothing says they mean the same
+// thing.
+func enumKey(nodeName string, t *smi.Type) string {
+	if t != nil && t.Name != "" {
 		return "type:" + t.Name
 	}
-	return "node:" + n.Name
+
+	return "node:" + nodeName
 }

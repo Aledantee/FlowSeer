@@ -1,0 +1,40 @@
+ESCAPE-MIB DEFINITIONS ::= BEGIN
+
+-- A fixture whose text carries every character that would break the
+-- emitted Go source if it reached it unescaped: a double quote (written
+-- the way RFC 2578 spells one inside a quoted clause, as two quotes), a
+-- backslash, and a line break. The enum member names reach the emitted
+-- source as string literals as well as as identifiers, so one of them
+-- carries a hyphen.
+
+IMPORTS
+    OBJECT-TYPE, MODULE-IDENTITY, Integer32
+        FROM SNMPv2-SMI;
+
+escapeMIB MODULE-IDENTITY
+    LAST-UPDATED "202608310000Z"
+    ORGANIZATION "FlowSeer Test"
+    CONTACT-INFO "test"
+    DESCRIPTION  "Hand-crafted MIB for the emitter's escaping tests."
+    ::= { 1 3 6 1 4 1 99998 1 }
+
+escapeScalar OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A path such as C:\temp\x is written ""as is"" here, and
+                 this sentence continues on a second line."
+    ::= { escapeMIB 1 }
+
+escapeStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+        plain(1),
+        with-hyphen(2)
+    }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "An enum whose member names reach the emitted String()
+                 method as ""string literals""."
+    ::= { escapeMIB 2 }
+
+END

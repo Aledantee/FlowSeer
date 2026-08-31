@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/dave/jennifer/jen"
-	"github.com/sleepinggenius2/gosmi"
 )
 
 // emitIndicators writes one `var <Table>Indicator = snmp.MustChange
@@ -53,7 +52,7 @@ func emitOneIndicator(f *jen.File, ec *emitCtx, ti tableIndicator) {
 // the table); we reference it by its package-local Go identifier.
 func emitPerRowIndicator(f *jen.File, _ *emitCtx, ti tableIndicator, varName, _ string) {
 	colName := camelCase(ti.IndicatorNode.Name)
-	tableRoot := oidString(ti.Table.Oid)
+	tableRoot := ti.Table.OID.String()
 
 	f.Comment(varName + " is the per-row change indicator for " + ti.Table.Name + ".")
 	f.Comment("The Watcher probes the indicator column on each tick and only")
@@ -70,10 +69,10 @@ func emitPerRowIndicator(f *jen.File, _ *emitCtx, ti tableIndicator, varName, _ 
 }
 
 // emitScalarIndicator emits the scalar form. The scalar's wire Kind
-// is resolved via [resolveType] over the scalar's gosmi node.
+// is resolved via [resolveType] over the scalar's node.
 func emitScalarIndicator(f *jen.File, ec *emitCtx, ti tableIndicator, varName, _ string) {
-	scalarOID := oidString(ti.IndicatorNode.Oid)
-	tableRoot := oidString(ti.Table.Oid)
+	scalarOID := ti.IndicatorNode.OID.String()
+	tableRoot := ti.Table.OID.String()
 
 	res := resolveType(ec, ti.IndicatorNode)
 
@@ -104,7 +103,3 @@ func emitIndicatorSourceComment(f *jen.File, src indicatorSource) {
 		f.Comment("// Declared in mibgen.yaml under modules.<name>.indicators.")
 	}
 }
-
-// _ pins gosmi as an import even though emit_indicator.go only uses
-// it transitively via tableIndicator's IndicatorNode field.
-var _ gosmi.SmiNode

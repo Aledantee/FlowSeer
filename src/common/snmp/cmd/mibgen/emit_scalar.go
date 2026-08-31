@@ -4,7 +4,8 @@ import (
 	"strings"
 
 	"github.com/dave/jennifer/jen"
-	"github.com/sleepinggenius2/gosmi"
+
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // emitScalar writes the Get-accessor for a single read-accessible
@@ -19,11 +20,11 @@ import (
 //
 // The trailing ".0" is the SMIv2 instance suffix for a scalar — the
 // generator emits it eagerly so callers don't have to remember.
-func emitScalar(f *jen.File, ec *emitCtx, n gosmi.SmiNode) {
+func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) {
 	r := resolveType(ec, n)
 
 	goName := camelCase(n.Name)
-	oidStr := oidString(n.Oid) + ".0"
+	oidStr := n.OID.String() + ".0"
 
 	// Doc comment block: short headline + the MIB DESCRIPTION
 	// reflown to 76-col-ish lines so the rendered file stays

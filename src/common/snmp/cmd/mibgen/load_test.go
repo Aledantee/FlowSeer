@@ -145,8 +145,8 @@ func TestTopoSort_SelfLoop(t *testing.T) {
 
 // TestLoadModules_Real is an integration test against spec/mib/ietf/.
 // Skipped if the directory is missing (e.g. detached worktree). Loads
-// SNMPv2-SMI alone — gosmi resolves transitive imports from the search
-// path automatically.
+// SNMPv2-SMI alone — every IMPORTS clause is followed from the search
+// path, so the set comes back holding more than the module named.
 func TestLoadModules_Real(t *testing.T) {
 	mibDir, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "..", "spec", "mib", "ietf"))
 	if err != nil {
@@ -162,19 +162,16 @@ func TestLoadModules_Real(t *testing.T) {
 			{Name: "SNMPv2-SMI", Package: "snmpv2smi"},
 		},
 	}
-	mods, err := LoadModules(cfg)
+	set, err := LoadModules(cfg)
 	if err != nil {
 		t.Fatalf("LoadModules: %v", err)
 	}
-	if len(mods) != 1 {
-		t.Fatalf("got %d modules; want 1", len(mods))
+	mod, ok := set.Module("SNMPv2-SMI")
+	if !ok {
+		t.Fatal("SNMPv2-SMI missing from the resolved set")
 	}
-	if mods[0] == nil {
-		t.Fatal("module[0] is nil")
-	}
-	// The module name on the SmiModule should match what we requested.
-	if mods[0].Name != "SNMPv2-SMI" {
-		t.Errorf("loaded module name = %q; want SNMPv2-SMI", mods[0].Name)
+	if mod.File == "" {
+		t.Error("SNMPv2-SMI resolved to no file")
 	}
 }
 

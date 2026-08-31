@@ -4,25 +4,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sleepinggenius2/gosmi"
-	gosmimodels "github.com/sleepinggenius2/gosmi/models"
-	gosmitypes "github.com/sleepinggenius2/gosmi/types"
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
-// nodeFor builds an in-memory gosmi.SmiNode with the supplied object
-// name and optional TC type name. Used by unit tests that exercise
+// nodeFor builds an in-memory node with the supplied object name and
+// optional textual-convention name. Used by unit tests that exercise
 // classifyTier without loading a real MIB file.
-func nodeFor(name string, tcName string) gosmi.SmiNode {
-	var t *gosmimodels.Type
+func nodeFor(name string, tcName string) *smi.Node {
+	var t *smi.Type
 	if tcName != "" {
-		t = &gosmimodels.Type{Name: tcName}
+		t = &smi.Type{Name: tcName}
 	}
-	return gosmi.SmiNode{
-		Node: gosmimodels.Node{
-			Name: name,
-			Type: t,
-		},
-	}
+
+	return &smi.Node{Name: name, Type: t}
 }
 
 // --- classifyTier ----------------------------------------------------
@@ -142,7 +136,7 @@ func TestMatchesIndicatorNameSuffix_Cases(t *testing.T) {
 func TestDiscoverNamePrefixScalar_BaseForm(t *testing.T) {
 	// ifStackLastChange = "ifStack" (table name minus "Table") + suffix.
 	table := nodeFor("ifStackTable", "")
-	scalars := []gosmi.SmiNode{nodeFor("ifStackLastChange", "")}
+	scalars := []*smi.Node{nodeFor("ifStackLastChange", "")}
 	ind, ok := discoverNamePrefixScalarIndicator(table, scalars)
 	if !ok {
 		t.Fatal("ifStackLastChange should bind ifStackTable")
@@ -158,7 +152,7 @@ func TestDiscoverNamePrefixScalar_BaseForm(t *testing.T) {
 func TestDiscoverNamePrefixScalar_FullNameForm(t *testing.T) {
 	// ifTableLastChange keeps "Table" in the scalar name.
 	table := nodeFor("ifTable", "")
-	scalars := []gosmi.SmiNode{nodeFor("ifTableLastChange", "")}
+	scalars := []*smi.Node{nodeFor("ifTableLastChange", "")}
 	if _, ok := discoverNamePrefixScalarIndicator(table, scalars); !ok {
 		t.Error("ifTableLastChange should bind ifTable")
 	}
@@ -166,7 +160,7 @@ func TestDiscoverNamePrefixScalar_FullNameForm(t *testing.T) {
 
 func TestDiscoverNamePrefixScalar_FullNamePreferred(t *testing.T) {
 	table := nodeFor("fooTable", "")
-	scalars := []gosmi.SmiNode{
+	scalars := []*smi.Node{
 		nodeFor("fooLastChange", ""),
 		nodeFor("fooTableLastChange", ""),
 	}
@@ -184,22 +178,22 @@ func TestDiscoverNamePrefixScalar_SkipsNotAccessible(t *testing.T) {
 	// the Watcher probing a dead OID forever, silently.
 	table := nodeFor("fooTable", "")
 	sc := nodeFor("fooLastChange", "")
-	sc.Access = gosmitypes.AccessNotAccessible
-	if _, ok := discoverNamePrefixScalarIndicator(table, []gosmi.SmiNode{sc}); ok {
+	sc.Access = smi.AccessNotAccessible
+	if _, ok := discoverNamePrefixScalarIndicator(table, []*smi.Node{sc}); ok {
 		t.Error("a not-accessible scalar must not bind as an indicator")
 	}
 
 	// Same name, readable: binds. Confirms the guard is what rejected
 	// the case above, not the name.
-	sc.Access = gosmitypes.AccessReadOnly
-	if _, ok := discoverNamePrefixScalarIndicator(table, []gosmi.SmiNode{sc}); !ok {
+	sc.Access = smi.AccessReadOnly
+	if _, ok := discoverNamePrefixScalarIndicator(table, []*smi.Node{sc}); !ok {
 		t.Error("a read-only scalar with a matching name should bind")
 	}
 }
 
 func TestDiscoverNamePrefixScalar_NoMatch(t *testing.T) {
 	table := nodeFor("fooTable", "")
-	scalars := []gosmi.SmiNode{
+	scalars := []*smi.Node{
 		nodeFor("barLastChange", ""),      // different base
 		nodeFor("fooLastChangeExtra", ""), // suffix not terminal
 		nodeFor("fooTable", ""),           // no suffix at all
@@ -212,18 +206,17 @@ func TestDiscoverNamePrefixScalar_NoMatch(t *testing.T) {
 // --- Discovery integration ------------------------------------------
 
 // TestDiscoverIndicators_FakeMIB exercises both structural discovery
-// rules end-to-end against a real gosmi-parsed module: fakeTable binds
+// rules end-to-end against a real resolved module: fakeTable binds
 // its per-row fakeLastChange column, and fakeStackTable binds the
 // module-level fakeStackLastChange scalar through the name-prefix rule.
 //
 // The synthetic-node unit tests above pin the matching logic; this one
-// is the guard that the rules still fire after gosmi parsing, which is
+// is the guard that the rules still fire against a parsed module, which is
 // what the emitted bindings actually depend on.
 func TestDiscoverIndicators_FakeMIB(t *testing.T) {
-	mod, cleanup := loadFakeMIB(t)
-	defer cleanup()
+	mod, set := loadFakeMIB(t)
 
-	ec := &emitCtx{}
+	ec := newEmitCtx(mod, set, Module{Name: "FAKE-MIB", Package: "fakemib"}, nil, "")
 	indicators := discoverIndicators(ec, mod)
 	if len(indicators) != 2 {
 		t.Fatalf("indicators = %v, want 2", indicators)
@@ -269,19 +262,18 @@ func TestDiscoverIndicators_FakeMIB(t *testing.T) {
 // scalar that would otherwise match. Without this ordering a wrong
 // structural guess could not be corrected from config.
 func TestDiscoverIndicators_ConfigOutranksNamePrefix(t *testing.T) {
-	mod, cleanup := loadFakeMIB(t)
-	defer cleanup()
+	mod, set := loadFakeMIB(t)
 
 	// fakeScalar (fakeMIB 1) is not an indicator by name, so only the
 	// config declaration can bind it to fakeStackTable.
-	ec := &emitCtx{cm: Module{
+	ec := newEmitCtx(mod, set, Module{
 		Name:    "FAKE-MIB",
 		Package: "fakemib",
 		Indicators: []IndicatorDecl{{
 			ScalarOID:    "1.3.6.1.4.1.99999.1.1",
 			CoversTables: []string{"1.3.6.1.4.1.99999.1.4"},
 		}},
-	}}
+	}, nil, "")
 
 	for _, ind := range discoverIndicators(ec, mod) {
 		if ind.Table.Name != "fakeStackTable" {
@@ -302,11 +294,10 @@ func TestDiscoverIndicators_ConfigOutranksNamePrefix(t *testing.T) {
 // map only when ec.hasIndicator is true. With FAKE-MIB's added
 // fakeLastChange the gate is open.
 func TestTierMap_GatedOnIndicator(t *testing.T) {
-	mod, cleanup := loadFakeMIB(t)
-	defer cleanup()
+	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	got, err := renderModule(mod, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
+	got, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}

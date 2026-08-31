@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,10 +16,9 @@ import (
 	"mvdan.cc/gofumpt/format"
 
 	"github.com/dave/jennifer/jen"
-	"github.com/sleepinggenius2/gosmi"
-	gosmitypes "github.com/sleepinggenius2/gosmi/types"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // snmpImport is the import path for the FlowSeer SNMP runtime that
@@ -37,8 +37,8 @@ const generatedGoVersion = "go1.26"
 // `mib.go` per module under outDir/<package>/. pkgPrefix is the Go
 // import-path prefix used for cross-package qualified references (e.g.
 // when one MIB's emitted enum is referenced from another generated
-// package). cfg must have been validated; modules must already be
-// loaded into the gosmi global state via [LoadModules].
+// package). cfg must have been validated and set must be the resolved
+// model [LoadModules] returned for it.
 //
 // Emit is reentrant in the sense that subsequent calls overwrite the
 // per-module mib.go in-place. Existing files outside of mib.go are
@@ -48,9 +48,12 @@ const generatedGoVersion = "go1.26"
 // On any module-level failure Emit returns a wrapped error and stops
 // — output files written before the failure remain on disk; the
 // caller is responsible for deciding whether to roll those back.
-func Emit(cfg *Config, outDir, pkgPrefix string) error {
+func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 	if cfg == nil {
 		return errs.Msg("Emit called with nil config")
+	}
+	if set == nil {
+		return errs.Msg("Emit called with nil module set")
 	}
 	if outDir == "" {
 		return errs.Msg("Emit called with empty outDir")
@@ -64,18 +67,18 @@ func Emit(cfg *Config, outDir, pkgPrefix string) error {
 	}
 
 	for _, cm := range cfg.Modules {
-		mod, err := gosmi.GetModule(cm.Name)
-		if err != nil {
-			return errs.Wrapf(err, "emit: module %q", cm.Name)
+		mod, ok := set.Module(cm.Name)
+		if !ok {
+			return errs.Msgf("emit: module %q is not in the resolved set", cm.Name)
 		}
-		if err := EmitModule(&mod, cm, cfgByName, outDir, pkgPrefix); err != nil {
+		if err := EmitModule(mod, set, cm, cfgByName, outDir, pkgPrefix); err != nil {
 			return errs.Wrapf(err, "emit: module %q", cm.Name)
 		}
 	}
 	return nil
 }
 
-// EmitModule generates the mib.go for a single SmiModule and writes it
+// EmitModule generates the mib.go for a single resolved module and writes it
 // under outDir/<package>/mib.go. It is exposed so tests can drive a
 // single fixture module without round-tripping through the full config.
 //
@@ -84,13 +87,15 @@ func Emit(cfg *Config, outDir, pkgPrefix string) error {
 // the correct Go package name. The argument may be nil for the single-
 // module case; cross-MIB references fall back to the source MIB's
 // lowercased name.
-func EmitModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, outDir, pkgPrefix string) error {
+func EmitModule(
+	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, outDir, pkgPrefix string,
+) error {
 	pkgDir := filepath.Join(outDir, cm.Package)
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 		return errs.Wrapf(err, "create package dir %s", pkgDir)
 	}
 
-	out, err := renderModule(mod, cm, cfgByName, pkgPrefix)
+	out, err := renderModule(mod, set, cm, cfgByName, pkgPrefix)
 	if err != nil {
 		return err
 	}
@@ -105,8 +110,14 @@ func EmitModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, ou
 // renderModule produces repository-format-clean source for a single module.
 // It does not touch the filesystem; callers compose write or diff behavior
 // on top.
-func renderModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, pkgPrefix string) ([]byte, error) {
-	ec := newEmitCtx(mod, cm, cfgByName, pkgPrefix)
+func renderModule(
+	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, pkgPrefix string,
+) ([]byte, error) {
+	if err := checkSourceNames(mod); err != nil {
+		return nil, err
+	}
+
+	ec := newEmitCtx(mod, set, cm, cfgByName, pkgPrefix)
 
 	// Pre-pass: discover the module's change indicators (structural
 	// rules plus config-declared overrides). The result feeds the
@@ -115,17 +126,18 @@ func renderModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, 
 	ec.hasIndicator = len(ec.tableIndicators) > 0
 	ec.tableIndicatorsByOID = make(map[string]struct{}, len(ec.tableIndicators))
 	for _, ti := range ec.tableIndicators {
-		ec.tableIndicatorsByOID[oidString(ti.Table.Oid)] = struct{}{}
+		ec.tableIndicatorsByOID[ti.Table.OID.String()] = struct{}{}
 	}
 
 	f := jen.NewFilePathName(pkgPrefix+"/"+cm.Package, cm.Package)
 	writeHeader(f, mod, cm)
 
-	// Sort nodes by OID for deterministic output regardless of gosmi's
-	// internal iteration order. We then partition by NodeKind so the
-	// emitted file groups enums, scalars, columns, and tables together.
-	nodes := mod.GetNodes()
-	sort.SliceStable(nodes, func(i, j int) bool { return oidLess(nodes[i].Oid, nodes[j].Oid) })
+	// Sort nodes by OID so the emitted file reads in walk order rather
+	// than in the order the MIB happens to declare things. We then
+	// partition by NodeKind so the file groups enums, scalars, columns
+	// and tables together.
+	nodes := slices.Clone(mod.Nodes)
+	sort.SliceStable(nodes, func(i, j int) bool { return nodes[i].OID.Compare(nodes[j].OID) < 0 })
 
 	// Pass 1: collect typed enums (named INTEGER {…} types) from the
 	// module's reusable type list and from individual nodes that
@@ -136,7 +148,7 @@ func renderModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, 
 
 	// Pass 2: scalars (read-accessible OBJECT-TYPEs with NodeScalar).
 	for _, n := range nodes {
-		if n.Kind != gosmitypes.NodeScalar {
+		if n.Kind != smi.NodeScalar {
 			continue
 		}
 		emitScalar(f, ec, n)
@@ -147,7 +159,7 @@ func renderModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, 
 	// the dispatch map. emitTable also records per-column tier
 	// classifications for the ColumnTiers map.
 	for _, n := range nodes {
-		if n.Kind != gosmitypes.NodeTable {
+		if n.Kind != smi.NodeTable {
 			continue
 		}
 		emitTable(f, ec, n)
@@ -193,8 +205,8 @@ func renderModule(mod *gosmi.SmiModule, cm Module, cfgByName map[string]Module, 
 // The header uses the single-line `//`-comment form matching the proto
 // pipeline precedent (`generated/go/proto/.../*.pb.go`) — `jen.HeaderComment`
 // renders each newline-separated line as its own `//` comment.
-func writeHeader(f *jen.File, mod *gosmi.SmiModule, cm Module) {
-	sourcePath := mod.Path
+func writeHeader(f *jen.File, mod *smi.Module, cm Module) {
+	sourcePath := mod.File
 	relPath := sourcePath
 	if cwd, err := os.Getwd(); err == nil {
 		if r, err := filepath.Rel(cwd, sourcePath); err == nil && !strings.HasPrefix(r, "..") {
@@ -247,8 +259,8 @@ func newOIDCall(oidStr string) *jen.Statement {
 		v, err := strconv.ParseUint(p, 10, 32)
 		if err != nil {
 			// The OID strings reaching this helper come from
-			// oidString(gosmi.SmiNode.Oid), which is already a sequence
-			// of uint32 values. A parse failure here would be a
+			// smi.OID.String(), which is already a sequence of uint32
+			// values. A parse failure here would be a
 			// generator bug; emit a clearly-broken literal so the
 			// generator output trips compilation instead of silently
 			// rendering bad code.
@@ -270,14 +282,14 @@ func newOIDCall(oidStr string) *jen.Statement {
 // `mib.go` byte-for-byte to the committed file under outDir. Returns
 // a non-nil error on any drift. The caller is expected to map that
 // error to a non-zero exit code.
-func runCheck(cfg *Config, outDir, pkgPrefix string) error {
+func runCheck(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 	tmp, err := os.MkdirTemp("", "mibgen-check-*")
 	if err != nil {
 		return errs.Wrap(err, "create tmpdir")
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	if err := Emit(cfg, tmp, pkgPrefix); err != nil {
+	if err := Emit(cfg, set, tmp, pkgPrefix); err != nil {
 		return err
 	}
 
@@ -302,33 +314,65 @@ func runCheck(cfg *Config, outDir, pkgPrefix string) error {
 	return nil
 }
 
-// oidLess orders two gosmi Oid slices lexicographically by sub-id.
-func oidLess(a, b gosmitypes.Oid) bool {
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
+// sourceNameRunes is the character set a MIB descriptor may draw on.
+//
+// RFC 2578 §3.1 allows letters, digits and hyphens; underscore is here
+// because vendor MIBs write it and the corpus is what this generator
+// reads. Everything else is refused rather than silently dropped by
+// [camelCase], because a name that loses a character is a Go identifier
+// that no longer says which object it came from — and two names that
+// differ only in the dropped character would collide.
+func sourceNameOK(name string) bool {
+	if name == "" {
+		return false
 	}
-	for i := 0; i < n; i++ {
-		if a[i] != b[i] {
-			return a[i] < b[i]
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '-' || r == '_':
+		default:
+			return false
 		}
 	}
-	return len(a) < len(b)
+
+	return true
 }
 
-// oidString renders a gosmi Oid as the dotted-decimal string expected
-// by [snmp.ParseOID]. Returns "" for an empty OID, which the generator
-// treats as a generator bug at the callsite.
-func oidString(o gosmitypes.Oid) string {
-	if len(o) == 0 {
-		return ""
-	}
-	var sb strings.Builder
-	for i, v := range o {
-		if i > 0 {
-			sb.WriteByte('.')
+// checkSourceNames refuses a module holding a name that cannot become a
+// Go identifier without losing information. It runs before any
+// emission, so the refusal costs a build rather than a file that
+// compiles and misnames what it binds.
+func checkSourceNames(mod *smi.Module) error {
+	var bad []string
+	report := func(kind, name string) {
+		if !sourceNameOK(name) {
+			bad = append(bad, kind+" "+strconv.Quote(name))
 		}
-		fmt.Fprintf(&sb, "%d", v)
 	}
-	return sb.String()
+
+	report("module", mod.Name)
+	for _, n := range mod.Nodes {
+		report("object", n.Name)
+	}
+	for _, t := range mod.Types {
+		report("type", t.Name)
+		for _, m := range t.Members {
+			report("member", m.Name)
+		}
+	}
+	for _, n := range mod.Nodes {
+		if n.Type == nil || n.Type.Name != "" {
+			continue
+		}
+		for _, m := range n.Type.Members {
+			report("member", m.Name)
+		}
+	}
+
+	if len(bad) == 0 {
+		return nil
+	}
+
+	return errs.Msgf("module %q: %d source name(s) outside the descriptor character set: %s",
+		mod.Name, len(bad), strings.Join(bad, ", "))
 }

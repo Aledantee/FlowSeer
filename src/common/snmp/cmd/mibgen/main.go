@@ -70,7 +70,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	modules, err := LoadModules(cfg)
+	set, err := LoadModules(cfg)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -78,28 +78,28 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	switch {
 	case *verify:
-		fmt.Fprintf(stdout, "OK: loaded %d modules\n", len(modules))
+		fmt.Fprintf(stdout, "OK: loaded %d modules\n", len(cfg.Modules))
 		return 0
 	case *check:
-		if err := runCheck(cfg, *outDir, *pkgPrefix); err != nil {
+		if err := runCheck(cfg, set, *outDir, *pkgPrefix); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "OK: %d module(s) match committed output\n", len(modules))
+		fmt.Fprintf(stdout, "OK: %d module(s) match committed output\n", len(cfg.Modules))
 		return 0
 	case *update:
-		if err := Emit(cfg, *outDir, *pkgPrefix); err != nil {
+		if err := Emit(cfg, set, *outDir, *pkgPrefix); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "OK: %d module(s) regenerated under %s\n", len(modules), *outDir)
+		fmt.Fprintf(stdout, "OK: %d module(s) regenerated under %s\n", len(cfg.Modules), *outDir)
 		return 0
 	default:
-		if err := Emit(cfg, *outDir, *pkgPrefix); err != nil {
+		if err := Emit(cfg, set, *outDir, *pkgPrefix); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "OK: emitted %d module(s) to %s\n", len(modules), *outDir)
+		fmt.Fprintf(stdout, "OK: emitted %d module(s) to %s\n", len(cfg.Modules), *outDir)
 		return 0
 	}
 }

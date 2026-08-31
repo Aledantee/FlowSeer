@@ -3,8 +3,7 @@ package main
 import (
 	"strings"
 
-	"github.com/sleepinggenius2/gosmi"
-	gosmitypes "github.com/sleepinggenius2/gosmi/types"
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // tableIndicator binds one table to the column or scalar that drives
@@ -14,9 +13,9 @@ import (
 // indicator-metadata emitter (which materializes one
 // snmp.ChangeIndicator value per entry).
 type tableIndicator struct {
-	// Table is the gosmi node for the table that this indicator
+	// Table is the resolved node for the table this indicator
 	// describes.
-	Table gosmi.SmiNode
+	Table *smi.Node
 
 	// Kind distinguishes the indicator's shape: indicatorPerRow means
 	// the indicator lives as a column inside the table's row;
@@ -26,7 +25,7 @@ type tableIndicator struct {
 
 	// IndicatorNode is the column (PerRow) or scalar (Scalar) node
 	// that supplies the indicator's OID.
-	IndicatorNode gosmi.SmiNode
+	IndicatorNode *smi.Node
 
 	// Source records how the indicator was bound to the table — useful
 	// for diagnostic comments emitted next to the generated var.
@@ -91,15 +90,14 @@ func matchesIndicatorNameSuffix(name string) bool {
 // The result is the source of truth for whether a package contains
 // any Watch-eligible tables — emit_tier.go's emission gate consults
 // it, and emit_indicator.go renders one ChangeIndicator var per entry.
-func discoverIndicators(ec *emitCtx, mod *gosmi.SmiModule) []tableIndicator {
-	nodes := mod.GetNodes()
-	tables := make([]gosmi.SmiNode, 0)
-	scalars := make([]gosmi.SmiNode, 0)
-	for _, n := range nodes {
+func discoverIndicators(ec *emitCtx, mod *smi.Module) []tableIndicator {
+	tables := make([]*smi.Node, 0)
+	scalars := make([]*smi.Node, 0)
+	for _, n := range mod.Nodes {
 		switch n.Kind {
-		case gosmitypes.NodeTable:
+		case smi.NodeTable:
 			tables = append(tables, n)
-		case gosmitypes.NodeScalar:
+		case smi.NodeScalar:
 			scalars = append(scalars, n)
 		}
 	}
@@ -108,12 +106,12 @@ func discoverIndicators(ec *emitCtx, mod *gosmi.SmiModule) []tableIndicator {
 
 	for _, tbl := range tables {
 		// 1) Structural per-row (most precise).
-		if ind, ok := discoverPerRowIndicator(tbl); ok {
+		if ind, ok := discoverPerRowIndicator(ec, tbl); ok {
 			out = append(out, ind)
 			continue
 		}
 		// 2) Config-declared.
-		if ind, ok := discoverConfigIndicator(ec.cm, tbl, scalars); ok {
+		if ind, ok := discoverConfigIndicator(ec, ec.cm, tbl, scalars); ok {
 			out = append(out, ind)
 			continue
 		}
@@ -132,11 +130,13 @@ func discoverIndicators(ec *emitCtx, mod *gosmi.SmiModule) []tableIndicator {
 // considered.
 //
 // scalars is the module's list of scalar nodes — required so the
-// scalar declaration's OID can be resolved to a gosmi node and the
+// scalar declaration's OID can be resolved to a node and the
 // scalar's wire Kind read for the emitted snmp.NewScalarIndicator
 // call.
-func discoverConfigIndicator(cm Module, tbl gosmi.SmiNode, scalars []gosmi.SmiNode) (tableIndicator, bool) {
-	tblOID := oidString(tbl.Oid)
+func discoverConfigIndicator(
+	ec *emitCtx, cm Module, tbl *smi.Node, scalars []*smi.Node,
+) (tableIndicator, bool) {
+	tblOID := tbl.OID.String()
 	for _, decl := range cm.Indicators {
 		switch {
 		case decl.ScalarOID != "":
@@ -171,14 +171,14 @@ func discoverConfigIndicator(cm Module, tbl gosmi.SmiNode, scalars []gosmi.SmiNo
 			if decl.TableOID != tblOID {
 				continue
 			}
-			col := findColumnByOID(tbl, decl.ColumnOID)
+			col := findColumnByOID(ec, tbl, decl.ColumnOID)
 			if col == nil {
 				continue
 			}
 			return tableIndicator{
 				Table:         tbl,
 				Kind:          indicatorPerRow,
-				IndicatorNode: *col,
+				IndicatorNode: col,
 				Source:        indicatorFromConfig,
 			}, true
 		}
@@ -186,39 +186,44 @@ func discoverConfigIndicator(cm Module, tbl gosmi.SmiNode, scalars []gosmi.SmiNo
 	return tableIndicator{}, false
 }
 
-// findNodeByOID locates a gosmi node by dotted-decimal OID within a
-// slice. Returns (node, true) on hit, (zero, false) on miss.
-func findNodeByOID(nodes []gosmi.SmiNode, dotted string) (gosmi.SmiNode, bool) {
+// findNodeByOID locates a node by dotted-decimal OID within a slice.
+// Returns (node, true) on hit, (nil, false) on miss.
+func findNodeByOID(nodes []*smi.Node, dotted string) (*smi.Node, bool) {
 	for _, n := range nodes {
-		if oidString(n.Oid) == dotted {
+		if n.OID.String() == dotted {
 			return n, true
 		}
 	}
-	return gosmi.SmiNode{}, false
+
+	return nil, false
 }
 
-// findColumnByOID locates a column gosmi node within the supplied
+// findColumnByOID locates a column node within the supplied
 // table by dotted-decimal OID. Returns nil on miss.
-func findColumnByOID(tbl gosmi.SmiNode, dotted string) *gosmi.SmiNode {
-	t := tbl.AsTable()
-	for _, name := range t.ColumnOrder {
-		col := t.Columns[name]
-		if oidString(col.Oid) == dotted {
-			cp := col
-			return &cp
+func findColumnByOID(ec *emitCtx, tbl *smi.Node, dotted string) *smi.Node {
+	t := ec.table(tbl.OID.String())
+	if t == nil {
+		return nil
+	}
+	for _, col := range t.Columns {
+		if col.OID.String() == dotted {
+			return col
 		}
 	}
+
 	return nil
 }
 
 // discoverPerRowIndicator looks for a column inside table's row whose
 // object name matches the indicator-suffix heuristic. Returns
 // (entry, true) when found, ({} , false) otherwise.
-func discoverPerRowIndicator(table gosmi.SmiNode) (tableIndicator, bool) {
-	t := table.AsTable()
-	for _, name := range t.ColumnOrder {
-		col := t.Columns[name]
-		if col.Access == gosmitypes.AccessNotAccessible {
+func discoverPerRowIndicator(ec *emitCtx, table *smi.Node) (tableIndicator, bool) {
+	t := ec.table(table.OID.String())
+	if t == nil {
+		return tableIndicator{}, false
+	}
+	for _, col := range t.Columns {
+		if col.Access == smi.AccessNotAccessible {
 			continue
 		}
 		if !matchesIndicatorNameSuffix(col.Name) {
@@ -250,8 +255,8 @@ func discoverPerRowIndicator(table gosmi.SmiNode) (tableIndicator, bool) {
 // a false binding would require two unrelated objects sharing an exact
 // `<table><suffix>` spelling within one module.
 func discoverNamePrefixScalarIndicator(
-	table gosmi.SmiNode,
-	scalars []gosmi.SmiNode,
+	table *smi.Node,
+	scalars []*smi.Node,
 ) (tableIndicator, bool) {
 	tblLower := strings.ToLower(table.Name)
 	base := strings.TrimSuffix(tblLower, "table")
@@ -264,7 +269,7 @@ func discoverNamePrefixScalarIndicator(
 			// A not-accessible scalar cannot be polled, so binding it
 			// would leave the Watcher probing a dead OID forever. Same
 			// guard discoverPerRowIndicator applies to columns.
-			if sc.Access == gosmitypes.AccessNotAccessible {
+			if sc.Access == smi.AccessNotAccessible {
 				continue
 			}
 			scLower := strings.ToLower(sc.Name)

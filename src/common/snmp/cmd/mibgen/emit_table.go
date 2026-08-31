@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/dave/jennifer/jen"
-	"github.com/sleepinggenius2/gosmi"
-	gosmitypes "github.com/sleepinggenius2/gosmi/types"
+
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // emitTable expands one MIB table node into a suite of declarations:
@@ -26,22 +26,20 @@ import (
 //
 // emitTable assumes [emitEnums] has already run so [emitCtx.enumNames]
 // is populated.
-func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
-	t := table.AsTable()
-	if len(t.ColumnOrder) == 0 {
-		// Table with no defined columns is a generator anomaly (no
-		// SEQUENCE body). Skip silently rather than emit invalid
-		// code; libsmi would normally have already complained.
+func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
+	t := ec.table(table.OID.String())
+	if t == nil || t.Row == nil || len(t.Columns) == 0 {
+		// A table with no row or no columns has nothing to bind. Skip
+		// it rather than emit a walker over nothing; the resolver has
+		// already diagnosed whatever went missing.
 		return
 	}
 
-	// Row OID is the table OID with .1 appended (the entry node's
-	// last sub-id is conventionally 1; we read it from the gosmi row
-	// node directly so vendor MIBs with non-standard entry indices
-	// still work).
-	row := t.GetRow()
-	tablePrefix := oidString(table.Oid)
-	entryPrefix := oidString(row.Oid) // the table-entry OID
+	// The entry node's last sub-id is conventionally 1, but it is read
+	// off the resolved row rather than assumed, so a vendor MIB with a
+	// non-standard entry arc still binds.
+	tablePrefix := table.OID.String()
+	entryPrefix := t.Row.OID.String()
 
 	tableName := camelCase(table.Name)
 	rowTypeName := tableName + "Row"
@@ -52,29 +50,28 @@ func emitTable(f *jen.File, ec *emitCtx, table gosmi.SmiNode) {
 	// the column-var pass and the row-struct pass agree on every
 	// column's Go name and type.
 	type colInfo struct {
-		Node      gosmi.SmiNode
+		Node      *smi.Node
 		GoName    string
 		FieldName string
 		ColumnOID string
 		Sub       uint32 // last sub-id of the column OID
 		Res       resolved
 	}
-	cols := make([]colInfo, 0, len(t.ColumnOrder))
-	for _, name := range t.ColumnOrder {
-		cn := t.Columns[name]
-		// not-accessible index columns still appear in ColumnOrder
-		// because they are real OBJECT-TYPEs; we skip them on the
-		// generated row struct since they are encoded in the index
-		// suffix, not in a VarBind value.
-		if cn.Access == gosmitypes.AccessNotAccessible {
+	cols := make([]colInfo, 0, len(t.Columns))
+	for _, cn := range t.Columns {
+		// Not-accessible index columns are real OBJECT-TYPEs and so are
+		// listed here; they are left off the generated row struct
+		// because they travel in the index suffix rather than in a
+		// VarBind value.
+		if cn.Access == smi.AccessNotAccessible {
 			continue
 		}
 		cols = append(cols, colInfo{
 			Node:      cn,
 			GoName:    camelCase(cn.Name),
 			FieldName: camelCase(cn.Name),
-			ColumnOID: oidString(cn.Oid),
-			Sub:       uint32(cn.Oid[len(cn.Oid)-1]),
+			ColumnOID: cn.OID.String(),
+			Sub:       cn.OID.At(cn.OID.Len() - 1),
 			Res:       resolveType(ec, cn),
 		})
 	}

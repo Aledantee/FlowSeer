@@ -4,7 +4,8 @@ import (
 	"sort"
 
 	"github.com/dave/jennifer/jen"
-	"github.com/sleepinggenius2/gosmi"
+
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // tierEntry binds one column's OID string to its emitted tier
@@ -27,16 +28,21 @@ type tierEntry struct {
 //     object is, by SMIv2 semantics, a change indicator).
 //  3. Object name matches the indicator-suffix heuristic
 //     ([matchesIndicatorNameSuffix]) → TierIndicator. This is the
-//     load-bearing rule for IF-MIB's raw-TimeTicks-typed ifLastChange,
-//     whose Type.Name is "" (no TC).
+//     load-bearing rule for IF-MIB's ifLastChange, which is a raw
+//     TimeTicks and so carries no convention name for rule 2 to read.
 //  4. Otherwise → TierState. TierStatic is never auto-classified;
 //     callers opt in via [snmp.WithColumnTier].
+//
+// Rules 2 and 3 are why the classifier reads a type's name and its base
+// separately: TimeStamp and TimeTicks stand on the same base and mean
+// different things, and only one of them says that the value marks when
+// something changed.
 //
 // variant is the concrete snmp.VarBind variant name from [resolved]
 // (e.g. "Counter32", "TimeTicks", "OctetString"). The function returns
 // the rendered tier identifier (e.g., "snmp.TierIndicator") for use in
 // the emitted map.
-func classifyTier(node gosmi.SmiNode, variant string) string {
+func classifyTier(node *smi.Node, variant string) string {
 	switch variant {
 	case "Counter32Var", "Counter64Var":
 		return "snmp.TierCounter"

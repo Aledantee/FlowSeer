@@ -4,9 +4,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sleepinggenius2/gosmi"
-
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // CycleError reports a dependency cycle discovered during topological
@@ -109,55 +108,83 @@ func topoSort(mods []Module) ([]string, error) {
 	return result, nil
 }
 
-// LoadModules initializes gosmi, applies the config's search paths, and
-// loads every module in the config in topologically-sorted dependency
-// order. The returned slice mirrors the load order.
+// LoadModules resolves every module named in cfg, following each one's
+// IMPORTS across the configured search paths, and returns the whole
+// resolved set.
 //
-// The caller owns no gosmi cleanup: this function pairs Init with Exit
-// internally via a deferred call only on its error paths. On success
-// the gosmi global state remains live so callers can inspect modules
-// (LoadModules returns SmiModule pointers, which dereference into that
-// global state). Callers that want to release it must call
-// gosmi.Exit() themselves.
+// The set holds far more than the configured modules — everything the
+// IMPORTS reached is in it — because a cross-module type reference has
+// to resolve against the definition its author meant, not against the
+// subset somebody chose to generate bindings for.
 //
-// LoadModules never returns a non-nil slice with a non-nil error.
-func LoadModules(cfg *Config) ([]*gosmi.SmiModule, error) {
+// Loading carries no process-wide state, so a caller may hold two sets
+// at once and neither can observe the other.
+func LoadModules(cfg *Config) (*smi.ModuleSet, error) {
 	if cfg == nil {
 		return nil, errs.Msg("LoadModules called with nil config")
 	}
 
+	// The resolved model needs no load order — it reads every file and
+	// then resolves — but a config that declares a dependency cycle
+	// contradicts itself, and saying so here is cheaper than leaving the
+	// author to wonder why depends_on had no effect.
 	order, err := topoSort(cfg.Modules)
 	if err != nil {
 		return nil, err
 	}
 
-	gosmi.Init()
-	success := false
-	defer func() {
-		if !success {
-			gosmi.Exit()
-		}
-	}()
-
-	for _, p := range cfg.SearchPaths {
-		gosmi.AppendPath(p)
+	set, err := smi.Load(order, smi.Options{SearchPaths: cfg.SearchPaths})
+	if err != nil {
+		return nil, errs.Wrapf(err, "load modules from search paths %v", cfg.SearchPaths)
 	}
 
-	out := make([]*gosmi.SmiModule, 0, len(order))
 	for _, name := range order {
-		if _, err := gosmi.LoadModule(name); err != nil {
-			return nil, errs.Wrapf(err, "load module %q from search paths %v", name, cfg.SearchPaths)
+		mod, ok := set.Module(name)
+		if !ok {
+			return nil, errs.Msgf("module %q resolved to nothing on search paths %v", name, cfg.SearchPaths)
 		}
-		mod, err := gosmi.GetModule(name)
-		if err != nil {
-			return nil, errs.Wrapf(err, "retrieve module %q after load", name)
+		if err := refuseUnresolved(mod); err != nil {
+			return nil, err
 		}
-		// Copy onto the heap so the slice element survives independent
-		// of the loop variable.
-		modCopy := mod
-		out = append(out, &modCopy)
 	}
 
-	success = true
-	return out, nil
+	return set, nil
+}
+
+// maxReportedUnresolved bounds how many names a refusal lists. A module
+// that lost one declaration is worth reading in full; one that lost two
+// hundred is a broken file, and the first few names say so just as well.
+const maxReportedUnresolved = 10
+
+// refuseUnresolved rejects a module carrying a declaration or type the
+// resolver could not complete.
+//
+// Rendering one anyway is the failure mode worth avoiding: a
+// declaration missing its SYNTAX still has an OID and a name, so it
+// emits an accessor that compiles, ships, and decodes the wrong thing.
+// Refusing costs a build; emitting costs a wrong value on a wire nobody
+// is watching.
+func refuseUnresolved(mod *smi.Module) error {
+	var lost []string
+	for _, n := range mod.Nodes {
+		if n.Unresolved {
+			lost = append(lost, n.Name)
+		}
+	}
+	for _, t := range mod.Types {
+		if t.Unresolved {
+			lost = append(lost, t.Name)
+		}
+	}
+	if len(lost) == 0 {
+		return nil
+	}
+
+	shown := lost
+	if len(shown) > maxReportedUnresolved {
+		shown = shown[:maxReportedUnresolved]
+	}
+
+	return errs.Msgf("module %q: %d unresolved declaration(s), refusing to emit a partial package: %s",
+		mod.Name, len(lost), strings.Join(shown, ", "))
 }

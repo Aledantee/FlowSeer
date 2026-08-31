@@ -10,9 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sleepinggenius2/gosmi"
 	"golang.org/x/tools/imports"
 	"mvdan.cc/gofumpt/format"
+
+	"go.aledante.io/FlowSeer/src/common/smi"
 )
 
 // updateGolden refreshes the committed golden file under
@@ -24,18 +25,18 @@ import (
 // the test asserts equality against the committed file.
 var updateGolden = flag.Bool("update-golden", false, "rewrite testdata/golden/* with the current emitter output")
 
-// loadFakeMIB initializes gosmi against the testdata mibs directory and
-// loads FAKE-MIB. The returned cleanup deferred-call resets gosmi so
-// the next test starts from a clean slate; libsmi keeps module state
-// in a global so leaking it would corrupt unrelated test runs.
-func loadFakeMIB(t *testing.T) (*gosmi.SmiModule, func()) {
+// loadFakeMIB resolves FAKE-MIB from the testdata mibs directory.
+//
+// There is nothing to clean up: a load holds no process-wide state, so
+// two tests may hold their own sets and neither can observe the other.
+func loadFakeMIB(t *testing.T) (*smi.Module, *smi.ModuleSet) {
 	t.Helper()
 	mibDir, err := filepath.Abs("testdata/mibs")
 	if err != nil {
 		t.Fatalf("abs: %v", err)
 	}
-	// SNMPv2-TC / SNMPv2-SMI live under spec/mib/ietf in the repo;
-	// add that search path too so libsmi can resolve the IMPORTS.
+	// SNMPv2-TC / SNMPv2-SMI live under spec/mib/ietf in the repo; add
+	// that search path too so the IMPORTS resolve.
 	ietfDir, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "..", "spec", "mib", "ietf"))
 	if err != nil {
 		t.Fatalf("abs ietf: %v", err)
@@ -44,34 +45,28 @@ func loadFakeMIB(t *testing.T) (*gosmi.SmiModule, func()) {
 		t.Skipf("spec/mib/ietf not available: %v", err)
 	}
 
-	gosmi.Init()
-	gosmi.AppendPath(mibDir)
-	gosmi.AppendPath(ietfDir)
-	cleanup := func() { gosmi.Exit() }
-
-	if _, err := gosmi.LoadModule("FAKE-MIB"); err != nil {
-		cleanup()
+	set, err := smi.Load([]string{"FAKE-MIB"}, smi.Options{SearchPaths: []string{mibDir, ietfDir}})
+	if err != nil {
 		t.Fatalf("load FAKE-MIB: %v", err)
 	}
-	mod, err := gosmi.GetModule("FAKE-MIB")
-	if err != nil {
-		cleanup()
-		t.Fatalf("get FAKE-MIB: %v", err)
+	mod, ok := set.Module("FAKE-MIB")
+	if !ok {
+		t.Fatal("FAKE-MIB missing from the resolved set")
 	}
-	return &mod, cleanup
+
+	return mod, set
 }
 
 // TestEmit_FakeMIB_Golden renders FAKE-MIB through the emitter and
 // compares against the committed golden under testdata/golden/fakemib/.
 // Use -update-golden after any intentional emitter change.
 func TestEmit_FakeMIB_Golden(t *testing.T) {
-	mod, cleanup := loadFakeMIB(t)
-	defer cleanup()
+	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
 	cfgByName := map[string]Module{cm.Name: cm}
 
-	got, err := renderModule(mod, cm, cfgByName, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
+	got, err := renderModule(mod, set, cm, cfgByName, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}
@@ -107,11 +102,10 @@ func TestEmit_FakeMIB_Golden(t *testing.T) {
 // package (that would require building common/snmp from a tmp module
 // — too heavy for the unit suite).
 func TestEmit_GeneratedParses(t *testing.T) {
-	mod, cleanup := loadFakeMIB(t)
-	defer cleanup()
+	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	out, err := renderModule(mod, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
+	out, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}
@@ -125,11 +119,10 @@ func TestEmit_GeneratedParses(t *testing.T) {
 // satisfies the repository's gofumpt and goimports gates. Generated files must
 // not require a caller-side formatting pass after renderModule returns.
 func TestEmit_GeneratedFormatting(t *testing.T) {
-	mod, cleanup := loadFakeMIB(t)
-	defer cleanup()
+	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	out, err := renderModule(mod, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
+	out, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}
@@ -159,11 +152,10 @@ func TestEmit_GeneratedFormatting(t *testing.T) {
 // shape. The golden test handles byte-exactness; this test protects
 // against accidental removal of a public identifier.
 func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
-	mod, cleanup := loadFakeMIB(t)
-	defer cleanup()
+	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	out, err := renderModule(mod, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
+	out, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/common/snmp/cmd/mibgen/testdata/golden")
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}
