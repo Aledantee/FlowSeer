@@ -128,6 +128,13 @@ type BadDecl struct {
 
 	// Clauses is every clause that did parse, in source order.
 	Clauses []ClauseText
+
+	// Syntax is the SYNTAX clause read as a type, when one parsed. The
+	// span in Clauses covers the source and does not say what it means,
+	// and what a withheld OBJECT-TYPE's SYNTAX means is what tells a
+	// conceptual table from a scalar — which is what everything
+	// registered under it is classified against.
+	Syntax Type
 }
 
 // ObjectType is an OBJECT-TYPE declaration (RFC 2578 §8, RFC 1212 §4).

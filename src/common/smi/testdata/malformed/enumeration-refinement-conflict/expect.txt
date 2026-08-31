@@ -1,0 +1,7 @@
+# RFC 2579 section 3.5 lets a SYNTAX clause restrict the enumeration of
+# the textual convention it names, and RFC 2578 section 9 makes that a
+# narrowing of the set of values: the names and the numbers stay the
+# convention's. So "narrowed" is silent and only "renumbered" is
+# reported, for the off(0) the convention numbers 2. Its on(1) agrees
+# with the convention and is not a second diagnostic.
+code smi/enumeration-refinement-conflict

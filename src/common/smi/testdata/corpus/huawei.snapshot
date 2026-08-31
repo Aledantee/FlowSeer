@@ -1,17 +1,19 @@
 files 240
 modules 240
 declarations 49015
-unresolved-declarations 20
+unresolved-declarations 25
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 28
+severity error 124
 severity minor 308
 severity change 0
 severity warning 0
 severity info 0
 diagnostic smi/binary-string-not-octets minor 39
 diagnostic smi/dialect-value-mismatch minor 217
+diagnostic smi/duplicate-oid error 86
+diagnostic smi/enumeration-refinement-conflict error 10
 diagnostic smi/missing-clause error 2
 diagnostic smi/module-not-found error 3
 diagnostic smi/odd-hex-string minor 5

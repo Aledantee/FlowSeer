@@ -5,13 +5,14 @@ unresolved-declarations 7
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 128
+severity error 220
 severity minor 4
 severity change 0
 severity warning 0
 severity info 0
 diagnostic smi/default-not-permitted error 112
 diagnostic smi/dialect-value-mismatch minor 2
+diagnostic smi/duplicate-oid error 92
 diagnostic smi/missing-import minor 2
 diagnostic smi/module-not-found error 7
 diagnostic smi/range-outside-base-type error 2

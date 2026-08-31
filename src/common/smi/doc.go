@@ -68,6 +68,30 @@
 // reference: twenty declarations waiting on one missing name cost twenty
 // diagnostics, not one per site the name appears at.
 //
+// The mark is the whole of the withholding. Such a declaration keeps the
+// OID it was assigned and the clause values that did parse, and so does
+// everything registered beneath it, because a subtree reached through an
+// arc one clause short would otherwise leave the tree entirely and a
+// reader could not tell it from a subtree the MIB never wrote. What the
+// descendants keep is the mark and a diagnostic of their own; what they
+// do not keep is any claim to be whole.
+//
+// Two descriptors at one OBJECT IDENTIFIER value is the one place the
+// tree cannot hold both readings, since a walk arrives at one node. The
+// registration goes to the declaration a subtree is read through — a
+// conceptual table over a bare naming node — and the other is diagnosed
+// by name, keeps its own OID and clauses, and is classified as though it
+// had won, so a table declared twice across two modules does not come
+// back as a set of scalars.
+//
+// A SYNTAX clause may restrict the enumeration of the textual convention
+// it names, and what the object wrote is what it reports. What it may
+// not do is renumber or rename: RFC 2579 §3.5 allows a sub-type and
+// RFC 2578 §9 makes a sub-type a narrowing of the value set. A member
+// the convention does not carry is diagnosed and leaves the type
+// unresolved, with the members as written, because the two definitions
+// decode the same wire value differently and neither is the author's.
+//
 // A clause that is present but damaged costs the mark too. Where a parse
 // error dropped or cut short a name the declaration wrote, what is left
 // is either short one name or holding a fragment of one, and a fragment

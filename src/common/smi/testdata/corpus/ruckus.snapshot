@@ -1,16 +1,18 @@
 files 51
 modules 51
 declarations 6683
-unresolved-declarations 9
+unresolved-declarations 13
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 9
+severity error 17
 severity minor 4
 severity change 0
 severity warning 0
 severity info 0
 diagnostic smi/dialect-value-mismatch minor 2
+diagnostic smi/duplicate-oid error 3
+diagnostic smi/enumeration-refinement-conflict error 5
 diagnostic smi/missing-import minor 1
 diagnostic smi/overlapping-range minor 1
 diagnostic smi/unresolved-declaration error 9

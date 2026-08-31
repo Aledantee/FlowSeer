@@ -229,6 +229,7 @@ func (p *parser) finish(m *Module, fr frame.Frame, kind DeclKind) {
 			Intended: kind,
 			Missing:  missing,
 			Clauses:  slices.Clone(p.d.clauses),
+			Syntax:   p.d.syntax,
 		})
 
 		return

@@ -500,10 +500,12 @@ type Node struct {
 
 	// Unresolved reports that the declaration lost something a renderer
 	// reads: a required clause the parser could not find, an OID whose
-	// parent nothing defines, a SYNTAX naming a type nothing defines, or
-	// a name a parse error dropped or cut short. An unresolved node is
-	// present so a reader can see what fell, and must never be rendered
-	// as if it were whole.
+	// parent nothing defines, a SYNTAX naming a type nothing defines or
+	// contradicting the one it refines, or a name a parse error dropped
+	// or cut short. An unresolved node is present so a reader can see
+	// what fell — it keeps the OID and the clause values it did resolve,
+	// and so its subtree is still placed — and must never be rendered as
+	// if it were whole.
 	Unresolved bool
 
 	Parent   *Node

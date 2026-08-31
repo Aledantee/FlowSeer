@@ -301,6 +301,22 @@ var entries = []Entry{
 		Description: "a declaration one of whose references did not resolve, reported once on the declaration so that a single missing name costs one diagnostic per dependent rather than one per site",
 	},
 	{
+		Severity:    2,
+		Code:        "smi/enumeration-refinement-conflict",
+		Tag:         "EnumerationRefinementConflict",
+		Format:      "%s(%d) is not a named number of %s, which this SYNTAX may only restrict",
+		Arity:       3,
+		Description: "a SYNTAX clause that renames or renumbers the enumeration it refines instead of narrowing it, which leaves two contradictory readings of the same wire value",
+	},
+	{
+		Severity:    2,
+		Code:        "smi/duplicate-oid",
+		Tag:         "DuplicateOID",
+		Format:      "%s has no place in the tree: %s is already registered at %s",
+		Arity:       3,
+		Description: "two descriptors registered at one OBJECT IDENTIFIER value, where only one of them can be the node a walk arrives at",
+	},
+	{
 		Severity:    5,
 		Code:        "smi/duplicate-module",
 		Tag:         "DuplicateModule",

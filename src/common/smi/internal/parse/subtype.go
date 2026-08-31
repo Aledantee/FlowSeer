@@ -197,7 +197,7 @@ func (r *reader) typeDescription() Type {
 	t.Base, t.Name = r.baseType()
 
 	if r.at(lex.KindLeftBrace) {
-		if namesMembers(t.Base) {
+		if namesMembers(t) {
 			t.Members = r.members()
 		} else {
 			r.skipGroup()
@@ -211,13 +211,23 @@ func (r *reader) typeDescription() Type {
 	return t
 }
 
-// namesMembers reports whether a brace group after this base type is a
-// named-number list. A SEQUENCE's brace group holds column definitions
-// and reading those as members would invent a member per column.
-func namesMembers(b BaseType) bool {
-	switch b {
+// namesMembers reports whether a brace group after this type is a
+// named-number list.
+//
+// A SEQUENCE's brace group holds column definitions and reading those as
+// members would invent a member per column. A named type's is the
+// enumeration RFC 2579 §3.5 lets a declaration restrict when its SYNTAX
+// names a textual convention, so the numbers written there belong to
+// this declaration rather than to the convention it refines, and
+// skipping the group would report the convention's whole set in their
+// place. The name has to have been read for that to hold: a clause whose
+// type this pass could not name at all is left alone.
+func namesMembers(t Type) bool {
+	switch t.Base {
 	case BaseInteger, BaseInteger32, BaseUnsigned32, BaseBits:
 		return true
+	case BaseNamed:
+		return t.Name.End > t.Name.Start
 	default:
 		return false
 	}

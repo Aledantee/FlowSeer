@@ -124,10 +124,11 @@ type Divergence struct {
 	Gosmi string
 
 	// OursUnresolved reports that the parser marked the declaration
-	// unresolved, which is what it does with a declaration missing a
-	// clause its kind requires. Every field of such a declaration is
-	// empty by design rather than by accident, and the rule that
-	// accounts for it needs to be able to tell the two apart.
+	// unresolved: a clause its kind requires never arrived, or a name it
+	// needed did not resolve. Such a declaration still carries what did
+	// parse, so the mark is not a claim that any given field is empty —
+	// it is what tells a rule that the declaration never reached the OID
+	// tree from one that is placed and merely disagrees.
 	OursUnresolved bool
 }
 
@@ -191,10 +192,13 @@ type ExpectedDivergence struct {
 // no access at all, and an inline enumeration and an application type
 // both arrive under a name the MIB did not write.
 //
-// Three are the parser's own. They are recorded rather than fixed
-// because a differential test that bent the model to agree with its
-// comparand would be measuring nothing, and because fixing a parser
-// defect is a change to the parser, not to the harness that found it.
+// One is the parser's own, and it is a documented trade rather than an
+// oversight: the shape of a conceptual table is read off the OID tree,
+// so a subtree nothing in the loaded set anchors has no shape to read.
+// It is recorded rather than fixed because a differential test that bent
+// the model to agree with its comparand would be measuring nothing, and
+// because changing what the parser classifies from is a change to the
+// parser, not to the harness that found it.
 func ExpectedDivergences() []ExpectedDivergence {
 	return []ExpectedDivergence{
 		{
@@ -317,6 +321,37 @@ func ExpectedDivergences() []ExpectedDivergence {
 			},
 		},
 		{
+			Name:  "shape-unread-where-nothing-anchors-the-subtree",
+			Fault: FaultParser,
+			Reason: "the parser reads a conceptual table's shape off the OID tree rather than off " +
+				"the row type's SEQUENCE spelling, which is what lets a MIB whose SEQUENCE type " +
+				"assignment failed to parse still yield its columns. The cost is here: where the " +
+				"module anchoring a subtree is not on the search path — LANCOM-REF-MIB ships as " +
+				"lancomref.mib and no corpus file declares CISCOSB-DHCPv6 at all — nothing under it " +
+				"resolves to an OID, so there is no tree to classify against and every object in it " +
+				"comes back a scalar. gosmi classifies from the row type and reports rows and " +
+				"columns for declarations it has no OID for either, so neither side placed the " +
+				"subtree; only the parser lost its shape",
+			Match: func(d Divergence) bool {
+				return d.Field == FieldKind && d.OursUnresolved && d.Ours == "scalar" &&
+					(d.Gosmi == "row" || d.Gosmi == "column")
+			},
+		},
+		{
+			Name:  "descriptor-beginning-with-a-digit-read-as-an-arc-of-its-own",
+			Fault: FaultGosmi,
+			Reason: "RFC 2578 §3.1 starts a descriptor with a lowercase letter, and the IEEE 802.3 " +
+				"modules anchor themselves at { iso(1) member-body(2) us(840) 802dot3(10006) " +
+				"snmpmibs(300) 43 }. gosmi reads the leading digits of 802dot3 as a sub-identifier " +
+				"of their own and the rest as a label, which registers the module one arc deeper " +
+				"than IEEE 802.3 has it — the same MIB spelled ieee802dot3(10006) elsewhere in the " +
+				"corpus resolves to 1.2.840.10006.300.43. The parser reads the whole word as the " +
+				"label it is and takes the number from the parentheses",
+			Match: func(d Divergence) bool {
+				return d.Field == FieldOID && oneExtraArc(d.Ours, d.Gosmi)
+			},
+		},
+		{
 			Name:  "column-omitted-from-the-row-SEQUENCE",
 			Fault: FaultSource,
 			Reason: "where a MIB declares an object under a conceptual row but leaves it out of " +
@@ -361,55 +396,6 @@ func ExpectedDivergences() []ExpectedDivergence {
 				"on gosmi's side to compare against",
 			Match: func(d Divergence) bool {
 				return (d.Field == FieldAccess || d.Field == FieldStatus) && d.Gosmi == "unknown"
-			},
-		},
-		{
-			Name:  "declaration-refused-for-a-clause-RFC-2578-requires",
-			Fault: FaultParser,
-			Reason: "the parser marks a declaration unresolved when a clause its kind requires is " +
-				"absent, and an unresolved declaration carries no OID and no clause values, so " +
-				"every field of it diverges at once. HUAWEI-BRAS-DPI-MIB is the shape: an SMIv2 " +
-				"module whose OBJECT-TYPEs carry no DESCRIPTION, which RFC 2578 §7 makes " +
-				"mandatory, and whose whole table subtree the parser therefore withholds while " +
-				"gosmi resolves it anyway. Withholding is deliberate — a declaration missing a " +
-				"clause a renderer reads must not render as if it were whole — but it is the " +
-				"parser's reading that costs the subtree, so the fault is recorded here rather " +
-				"than against gosmi",
-			Match: func(d Divergence) bool {
-				return d.OursUnresolved
-			},
-		},
-		{
-			Name:  "table-shape-lost-where-two-modules-claim-one-OID",
-			Fault: FaultParser,
-			Reason: "the parser registers the first declaration to claim an OID and silently drops " +
-				"the rest, so a table node that loses the race is never linked into the tree and " +
-				"its row and columns are classified as scalars. CISCOSB-MIB's rlInventoryEnt and " +
-				"CISCOSB-RLINVENTORYENT-MIB's rlInventoryEntTable both claim " +
-				"1.3.6.1.4.1.9.6.1.101.217, which RFC 2578 §3.6 forbids, so the MIB is at fault " +
-				"for the collision — but losing the whole subtree's shape, and raising no " +
-				"diagnostic while doing it, is the parser's",
-			Match: func(d Divergence) bool {
-				return d.Field == FieldKind && d.Ours == "scalar" &&
-					(d.Gosmi == "row" || d.Gosmi == "column")
-			},
-		},
-		{
-			Name:  "enumeration-refinement-on-a-named-type-ignored",
-			Fault: FaultParser,
-			Reason: "an object may restrict the enumeration of the textual convention its SYNTAX " +
-				"names — SYNTAX EnabledStatus {enable(1), disable(2)}, or Dot1agCfmMhfCreation " +
-				"with three of its four values, which RFC 2579 §3.5 allows as a sub-typing of the " +
-				"convention. The parser reports the convention's members instead of the object's, " +
-				"because it inherits the parent's members when the declaration wrote none and " +
-				"never reads the ones it did write. The same site swallows a MIB that renumbers " +
-				"rather than restricts — RUCKUS-ZD-SYSTEM-MIB writes TruthValue {false(0), " +
-				"true(1)} against a convention that numbers them 2 and 1 — which the RFC does not " +
-				"allow and which the parser therefore reports as the convention wrote it. In both " +
-				"shapes gosmi reports what the object wrote and the parser does not, so the " +
-				"reading the source asked for is the one that is lost",
-			Match: func(d Divergence) bool {
-				return d.Field == FieldMembers && countMembers(d.Gosmi) <= countMembers(d.Ours)
 			},
 		},
 		{
@@ -490,14 +476,26 @@ var applicationBases = map[string]string{
 	"Opaque":    "OctetString",
 }
 
-// countMembers returns how many named numbers a rendered member set
-// holds, and zero for the empty set.
-func countMembers(members string) int {
-	if members == "" {
-		return 0
+// oneExtraArc reports whether theirs is ours with exactly one
+// sub-identifier inserted, which is the shape a label read as two arcs
+// leaves behind.
+func oneExtraArc(ours, theirs string) bool {
+	if ours == "" || theirs == "" {
+		return false
 	}
 
-	return len(strings.Split(members, " "))
+	a := strings.Split(ours, ".")
+	b := strings.Split(theirs, ".")
+	if len(b) != len(a)+1 {
+		return false
+	}
+
+	i := 0
+	for i < len(a) && a[i] == b[i] {
+		i++
+	}
+
+	return slices.Equal(a[i:], b[i+1:])
 }
 
 // allNumbersZero reports whether a rendered member set gives every
@@ -538,9 +536,10 @@ type Subject struct {
 	DisplayHint string
 	HasDesc     bool
 
-	// Unresolved is what the parser marks a declaration missing a clause
-	// its kind requires. It is always false on gosmi's side, which has
-	// nothing equivalent.
+	// Unresolved is what the parser marks a declaration that lost
+	// something a renderer reads: a clause its kind requires, or a name
+	// it needed. It is always false on gosmi's side, which has nothing
+	// equivalent.
 	Unresolved bool
 }
 

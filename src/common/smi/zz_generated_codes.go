@@ -67,6 +67,16 @@ var (
 	// mean one thing.
 	ErrCodeDuplicateModule = diag.ErrCodeDuplicateModule
 
+	// ErrCodeDuplicateOID marks two descriptors registered at one OBJECT
+	// IDENTIFIER value, where only one of them can be the node a walk
+	// arrives at.
+	ErrCodeDuplicateOID = diag.ErrCodeDuplicateOID
+
+	// ErrCodeEnumerationRefinementConflict marks a SYNTAX clause that
+	// renames or renumbers the enumeration it refines instead of narrowing
+	// it, which leaves two contradictory readings of the same wire value.
+	ErrCodeEnumerationRefinementConflict = diag.ErrCodeEnumerationRefinementConflict
+
 	// ErrCodeHyphenSeparator marks a hyphen run whose length is 1 mod 4,
 	// which pairs off into comments and leaves one stray minus token
 	// behind.

@@ -1,0 +1,7 @@
+# RFC 2578 section 3.6 gives every descriptor its own OBJECT IDENTIFIER
+# value, so two descriptors at { acme 1 } is the MIB contradicting
+# itself and one of them cannot be the node a walk arrives at. The
+# conceptual table wins the arc because its row and its columns are
+# classified against it, and acmeSlot — which only names the arc — is
+# reported as the one with no place in the tree.
+code smi/duplicate-oid

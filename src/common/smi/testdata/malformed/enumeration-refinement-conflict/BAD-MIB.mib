@@ -1,0 +1,24 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+Switch ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "Whether a thing is on, off, or between the two."
+    SYNTAX      INTEGER { on(1), off(2), unknown(3) }
+
+narrowed OBJECT-TYPE
+    SYNTAX      Switch { on(1), off(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Restricts the convention to two of its three values."
+    ::= { acme 1 }
+
+renumbered OBJECT-TYPE
+    SYNTAX      Switch { off(0), on(1) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Gives off a number the convention does not give it."
+    ::= { acme 2 }
+
+END

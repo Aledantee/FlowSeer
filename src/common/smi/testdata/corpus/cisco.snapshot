@@ -5,13 +5,14 @@ unresolved-declarations 285
 files-with-fatal 1
 severity internal 0
 severity fatal 1
-severity error 307
+severity error 362
 severity minor 27
 severity change 0
 severity warning 0
 severity info 0
 diagnostic smi/dialect-value-mismatch minor 23
 diagnostic smi/display-hint-malformed error 2
+diagnostic smi/duplicate-oid error 55
 diagnostic smi/missing-import minor 2
 diagnostic smi/missing-module-header fatal 1
 diagnostic smi/module-not-found error 20

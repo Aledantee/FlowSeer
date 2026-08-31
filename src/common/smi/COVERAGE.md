@@ -9,7 +9,7 @@ fixture asserts the exact set of codes its load produces. A code with no
 fixture, and a fixture naming a code the catalog does not carry, both fail
 the build.
 
-**33 codes, 34 fixtures.**
+**35 codes, 36 fixtures.**
 
 | code | severity | fixture | asserted by |
 |---|---|---|---|
@@ -24,6 +24,8 @@ the build.
 | `smi/display-hint-separator` | 2 | `testdata/malformed/display-hint-separator` | `TestMalformedFixtures/display-hint-separator` |
 | `smi/duplicate-clause` | 3 | `testdata/malformed/duplicate-clause` | `TestMalformedFixtures/duplicate-clause` |
 | `smi/duplicate-module` | 5 | `testdata/malformed/duplicate-module` | `TestMalformedFixtures/duplicate-module` |
+| `smi/duplicate-oid` | 2 | `testdata/malformed/duplicate-oid` | `TestMalformedFixtures/duplicate-oid` |
+| `smi/enumeration-refinement-conflict` | 2 | `testdata/malformed/enumeration-refinement-conflict` | `TestMalformedFixtures/enumeration-refinement-conflict` |
 | `smi/hyphen-separator` | 5 | `testdata/malformed/hyphen-separator` | `TestMalformedFixtures/hyphen-separator` |
 | `smi/import-cycle` | 3 | `testdata/malformed/import-cycle` | `TestMalformedFixtures/import-cycle` |
 | `smi/limit-exceeded` | 1 | `testdata/malformed/limit-exceeded` | `TestMalformedFixtures/limit-exceeded` |

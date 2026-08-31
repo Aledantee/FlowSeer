@@ -286,6 +286,13 @@ END
 
 // One name nothing defines costs one diagnostic per declaration that
 // wanted it, never one per place the name is written.
+//
+// The dependents are marked and reported, and they are also placed: the
+// declaration they hang off wrote the value it was assigned, so what
+// they are waiting on is the clause it lost and not the arc they were
+// registered at. Withholding the arc as well would take a whole subtree
+// out of the tree over a DESCRIPTION one arc up, and a consumer walking
+// the tree could not then tell it from a subtree the MIB never wrote.
 func TestUnresolvedReferenceDoesNotCascade(t *testing.T) {
 	const dependents = 20
 
@@ -311,14 +318,23 @@ func TestUnresolvedReferenceDoesNotCascade(t *testing.T) {
 		t.Error("the declaration that failed to parse is not marked unresolved")
 	}
 
+	if broken.OID.String() != "1.3.6.1.4.1.300" {
+		t.Errorf("the withheld declaration is registered at %q, want its ::= value", broken.OID)
+	}
+
 	for i := 1; i <= dependents; i++ {
 		name := fmt.Sprintf("dep%d", i)
 		n := node(t, set, "DEP-MIB", name)
 		if !n.Unresolved {
 			t.Errorf("%s resolved against a declaration that did not", name)
 		}
-		if n.OID.Len() != 0 {
-			t.Errorf("%s took OID %s from an unresolved parent", name, n.OID)
+
+		want := fmt.Sprintf("1.3.6.1.4.1.300.%d", i)
+		if n.OID.String() != want {
+			t.Errorf("%s is registered at %q, want %q", name, n.OID, want)
+		}
+		if _, placed := set.Node(n.OID); !placed {
+			t.Errorf("%s is not in the tree, so nothing walking it can see what fell", name)
 		}
 	}
 }
@@ -404,6 +420,134 @@ func TestTableAssemblesWithoutComputingIndexStructure(t *testing.T) {
 	}
 	if got := node(t, set, "TABLE-MIB", "ifDescr").OID.String(); got != "1.3.6.1.2.1.2.2.1.2" {
 		t.Errorf("ifDescr = %s, want 1.3.6.1.2.1.2.2.1.2", got)
+	}
+}
+
+const refinementMIB = `REFINE-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso 3 6 1 4 1 47100 }
+
+Switch ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "Whether a thing is on, off, or between the two."
+    SYNTAX      INTEGER { on(1), off(2), unknown(3) }
+
+narrowed OBJECT-TYPE
+    SYNTAX      Switch { on(1), off(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Restricts the convention to two of its three values."
+    ::= { acme 1 }
+
+renumbered OBJECT-TYPE
+    SYNTAX      Switch { off(0), on(1) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Gives off a number the convention does not give it."
+    ::= { acme 2 }
+
+END
+`
+
+// RFC 2579 section 3.5 lets a SYNTAX clause restrict the enumeration of
+// the textual convention it names, so the object's own members are what
+// it reports. Reporting the convention's whole set would hand a renderer
+// values the object was written to exclude.
+func TestEnumerationRefinementReportsWhatTheObjectWrote(t *testing.T) {
+	dir := t.TempDir()
+	writeMIB(t, dir, "REFINE-MIB", refinementMIB)
+
+	set := loadIn(t, dir, "REFINE-MIB")
+
+	n := node(t, set, "REFINE-MIB", "narrowed")
+	if n.Unresolved {
+		t.Error("a narrowing the RFC allows left the declaration unresolved")
+	}
+	if n.Type == nil {
+		t.Fatal("the refining declaration has no type")
+	}
+	if got := members(n.Type); got != "on=1 off=2" {
+		t.Errorf("members = %q, want %q", got, "on=1 off=2")
+	}
+	if n.Type.Name != "Switch" {
+		t.Errorf("type name = %q, want the convention it refines", n.Type.Name)
+	}
+
+	if tc, ok := set.Type("Switch"); !ok || members(tc) != "on=1 off=2 unknown=3" {
+		t.Error("refining an enumeration changed the convention it refines")
+	}
+}
+
+// A refinement may narrow the set of values and may not renumber it: the
+// two readings decode the same wire value differently, and neither can
+// be preferred. The members stay as the source wrote them so a reader
+// can see which two definitions disagree, and the declaration is left
+// unresolved so nothing renders either reading as the author's.
+func TestEnumerationRenumberingLeavesTheDeclarationUnresolved(t *testing.T) {
+	dir := t.TempDir()
+	writeMIB(t, dir, "REFINE-MIB", refinementMIB)
+
+	set := loadIn(t, dir, "REFINE-MIB")
+
+	n := node(t, set, "REFINE-MIB", "renumbered")
+	if !n.Unresolved {
+		t.Error("a declaration that renumbers the convention it names resolved")
+	}
+	if n.Type == nil || !n.Type.Unresolved {
+		t.Fatalf("type = %+v, want one marked unresolved", n.Type)
+	}
+	if got := members(n.Type); got != "off=0 on=1" {
+		t.Errorf("members = %q, want what the source wrote", got)
+	}
+
+	if got := codeCount(set, smi.ErrCodeEnumerationRefinementConflict); got != 1 {
+		t.Errorf("refinement-conflict diagnostics = %d, want 1 (off, not on)", got)
+	}
+}
+
+// members renders a type's named numbers in source order.
+func members(t *smi.Type) string {
+	out := make([]string, 0, len(t.Members))
+	for _, m := range t.Members {
+		out = append(out, fmt.Sprintf("%s=%d", m.Name, m.Number))
+	}
+
+	return strings.Join(out, " ")
+}
+
+// Two descriptors at one OBJECT IDENTIFIER value is RFC 2578 section
+// 3.6's own prohibition, and the parser has to keep one of them. It
+// keeps the one a subtree is read through: dropping the conceptual table
+// here would leave its row and its columns classified as scalars, which
+// costs a whole subtree over a collision one arc up.
+func TestDuplicateOIDKeepsTheClaimantThatCarriesTheShape(t *testing.T) {
+	set := malformedSet(t, "duplicate-oid")
+
+	tbl := node(t, set, "BAD-MIB", "acmeSlotTable")
+	got, ok := set.Node(tbl.OID)
+	if !ok || got != tbl {
+		t.Fatalf("1.3.6.1.4.1.47100.1 resolves to %v, want the conceptual table", got)
+	}
+
+	if row := node(t, set, "BAD-MIB", "acmeSlotEntry"); row.Kind != smi.NodeRow {
+		t.Errorf("acmeSlotEntry is a %s, want row", row.Kind)
+	}
+	if col := node(t, set, "BAD-MIB", "acmeSlotIndex"); col.Kind != smi.NodeColumn {
+		t.Errorf("acmeSlotIndex is a %s, want column", col.Kind)
+	}
+
+	// The loser is reported, not damaged: it wrote everything its own
+	// macro asks for, and what it lost is a registration the RFC never
+	// let two declarations share.
+	loser := node(t, set, "BAD-MIB", "acmeSlot")
+	if loser.Unresolved {
+		t.Error("the losing claimant is marked unresolved though nothing about it failed to resolve")
+	}
+	if loser.OID.String() != tbl.OID.String() {
+		t.Errorf("the losing claimant lost its OID as well: %q", loser.OID)
+	}
+	if !hasCode(set, smi.ErrCodeDuplicateOID) {
+		t.Error("two claimants of one OID raised no diagnostic")
 	}
 }
 

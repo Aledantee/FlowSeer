@@ -351,7 +351,7 @@ func (r *resolver) oidOf(b *modBuild, name string) (OID, string, bool) {
 
 func (r *resolver) computeOID(b *modBuild, name string) (OID, string, bool) {
 	ref, ok := b.decls[name]
-	if !ok || ref.Kind == parse.DeclBad {
+	if !ok {
 		return OID{}, name, false
 	}
 
@@ -370,7 +370,7 @@ func (r *resolver) computeOID(b *modBuild, name string) (OID, string, bool) {
 	}
 
 	base, fail, ok := r.arcBase(b, arcs[0])
-	if !ok {
+	if base.Len() == 0 {
 		return OID{}, fail, false
 	}
 
@@ -386,11 +386,25 @@ func (r *resolver) computeOID(b *modBuild, name string) (OID, string, bool) {
 		return OID{}, "its ::= value", false
 	}
 
-	return OID{subs: subs}, "", true
+	// A declaration the parser withheld still wrote the value it was
+	// assigned, and everything registered under it is reached through
+	// that value. So the OID comes back and the declaration does not
+	// count as resolved: a dependent takes its place in the tree and is
+	// still marked, and still told which declaration it is waiting on.
+	if ref.Kind == parse.DeclBad {
+		return OID{subs: subs}, name, false
+	}
+
+	return OID{subs: subs}, fail, ok
 }
 
 // arcBase resolves the first arc of an assignment, which is the only one
 // that may name something instead of counting.
+//
+// An OID and an unresolved verdict travel together here rather than
+// exclusively: a chain running through a declaration the parser withheld
+// still knows where it is registered, and losing the arc would take the
+// whole subtree out of the tree over one clause one arc up.
 func (r *resolver) arcBase(b *modBuild, a arc) (OID, string, bool) {
 	if a.name == "" {
 		if !a.hasNum {
@@ -410,11 +424,11 @@ func (r *resolver) arcBase(b *modBuild, a arc) (OID, string, bool) {
 	}
 
 	oid, fail, ok := r.oidOf(target, a.name)
-	if !ok {
+	if oid.Len() == 0 {
 		return OID{}, fail, false
 	}
 
-	return oid, "", true
+	return oid, fail, ok
 }
 
 // trapOID places an SMIv1 trap. The enterprise names the prefix and the
@@ -485,13 +499,15 @@ func parseArcs(text string) ([]arc, bool) {
 		}
 		word := text[start:i]
 
-		a, ok := arcWord(word)
-		if !ok {
-			return nil, false
-		}
+		a := arcWord(word)
 
-		// "name(3)" binds the descriptor to its number in one arc.
-		if i < len(text) && text[i] == '(' {
+		// "name(3)" binds the descriptor to its number in one arc, and
+		// ASN.1 lets white space sit between the two. The IEEE 802.1
+		// modules write "iso (1) iso-identified-organization (3) …" and
+		// reading the space as the end of the value would leave every
+		// one of them anchored nowhere.
+		if open := skipArcSpace(text, i); open < len(text) && text[open] == '(' {
+			i = open
 			j := i + 1
 			for j < len(text) && text[j] >= '0' && text[j] <= '9' {
 				j++
@@ -514,17 +530,32 @@ func parseArcs(text string) ([]arc, bool) {
 	return out, true
 }
 
-func arcWord(word string) (arc, bool) {
-	if word[0] >= '0' && word[0] <= '9' {
-		n, err := strconv.ParseUint(word, 10, 32)
-		if err != nil {
-			return arc{}, false
-		}
-
-		return arc{num: uint32(n), hasNum: true}, true
+// arcWord reads one word of an assignment as either a sub-identifier or
+// a label.
+//
+// A leading digit is not proof of a number. RFC 2578 §3.1 starts a
+// descriptor with a lowercase letter, and the corpus writes labels that
+// do not — IEEE8023-LAG-MIB anchors itself at
+// "{ iso(1) member-body(2) us(840) 802dot3(10006) snmpmibs(300) 43 }" —
+// where what the arc is worth is the number in parentheses and the label
+// is only a label. So a word that does not read as a sub-identifier is
+// one, rather than costing the whole value.
+func arcWord(word string) arc {
+	if n, err := strconv.ParseUint(word, 10, 32); err == nil {
+		return arc{num: uint32(n), hasNum: true}
 	}
 
-	return arc{name: word}, true
+	return arc{name: word}
+}
+
+// skipArcSpace returns the first index at or after i that is not white
+// space.
+func skipArcSpace(text string, i int) int {
+	for i < len(text) && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n') {
+		i++
+	}
+
+	return i
 }
 
 func isArcByte(c byte) bool {
@@ -562,20 +593,12 @@ func (r *resolver) raise(file string, offset int32, code errs.Code, args ...Arg)
 // build turns one module's declarations into nodes and types, in the
 // order the source writes them.
 func (r *resolver) build(b *modBuild) {
-	m := b.out
-
 	for _, ref := range b.pm.Decls {
 		switch ref.Kind {
 		case parse.DeclTextualConvention, parse.DeclTypeAssignment:
 			r.addType(b, b.pm.Decl(ref).Name)
 		case parse.DeclBad:
-			bd := &b.pm.Bad[ref.Index]
-			addNode(m, &Node{
-				Name:       bd.Name,
-				Module:     b.name,
-				Dialect:    m.Dialect,
-				Unresolved: true,
-			})
+			r.buildBadNode(b, ref)
 		default:
 			r.buildNode(b, ref)
 		}
@@ -649,9 +672,9 @@ func (r *resolver) buildNode(b *modBuild, ref parse.Ref) {
 			ArgString(d.Name), ArgString(what))
 	}
 
-	if oid, fail, ok := r.oidOf(b, d.Name); ok {
-		n.OID = oid
-	} else {
+	oid, fail, ok := r.oidOf(b, d.Name)
+	n.OID = oid
+	if !ok {
 		report(fail)
 	}
 
@@ -664,6 +687,74 @@ func (r *resolver) buildNode(b *modBuild, ref parse.Ref) {
 	}
 
 	r.fillNode(b, ref, n, report)
+
+	// A type that did not resolve leaves the object it types unrenderable
+	// too. Most such types arrive with a name that failed to resolve and
+	// report above has already run; one whose SYNTAX contradicts the
+	// definition it refines carries its own diagnostic and only needs the
+	// mark.
+	if n.Type != nil && n.Type.Unresolved {
+		n.Unresolved = true
+	}
+
+	addNode(b.out, n)
+}
+
+// buildBadNode resolves a declaration the parser withheld because a
+// clause its macro requires never arrived.
+//
+// The node is marked unresolved and carries no type at all, which is the
+// point of withholding it: a type defaulted in for a SYNTAX that never
+// arrived renders exactly as if somebody had written it.
+//
+// What the node is not is absent. It keeps the OID it was assigned, the
+// kind its macro gave it, and the clause values that did parse, because
+// everything registered under it is reached through that OID and read
+// through that kind. HUAWEI-BRAS-DPI-MIB is the shape: an SMIv2 module
+// whose OBJECT-TYPEs wrote no DESCRIPTION, where a withheld table with
+// no place in the tree takes its row and its columns down with it and
+// leaves a reader unable to tell a declaration the parser refused from
+// one the MIB never wrote.
+//
+// Nothing here raises a diagnostic. The parser already named every
+// clause that was missing, at the declaration it was missing from.
+func (r *resolver) buildBadNode(b *modBuild, ref parse.Ref) {
+	bd := &b.pm.Bad[ref.Index]
+
+	kind := NodeUnknown
+	if bd.Intended != parse.DeclBad {
+		kind = nodeKindOf(bd.Intended)
+	}
+	if isTableSyntax(bd.Syntax, b.src.Text(bd.Syntax.Span)) {
+		kind = NodeTable
+	}
+
+	n := &Node{
+		Name:       bd.Name,
+		Module:     b.name,
+		Dialect:    b.out.Dialect,
+		Kind:       kind,
+		Unresolved: true,
+	}
+	n.OID, _, _ = r.oidOf(b, bd.Name)
+
+	for _, c := range bd.Clauses {
+		switch c.Clause {
+		case parse.ClauseMaxAccess, parse.ClauseAccess:
+			n.Access = parseAccess(b.src.Text(c.Span))
+		case parse.ClauseStatus:
+			n.Status = parseStatus(b.src.Text(c.Span))
+		case parse.ClauseDescription:
+			n.Description = b.src.StringValue(c.Span)
+		case parse.ClauseReference:
+			n.Reference = b.src.StringValue(c.Span)
+		case parse.ClauseUnits:
+			n.Units = b.src.StringValue(c.Span)
+		case parse.ClauseAugments:
+			n.Augments = b.src.Text(c.Span)
+		}
+	}
+
 	addNode(b.out, n)
 }
 
@@ -989,6 +1080,8 @@ func (r *resolver) applySyntax(b *modBuild, t *Type, pt parse.Type) string {
 	t.Base = parent.Base
 	if len(t.Members) == 0 {
 		t.Members = parent.Members
+	} else if len(parent.Members) > 0 {
+		r.gradeRefinement(b, t, parent, pt.Members)
 	}
 	if len(t.Ranges) == 0 {
 		t.Ranges = parent.Ranges
@@ -1001,6 +1094,40 @@ func (r *resolver) applySyntax(b *modBuild, t *Type, pt parse.Type) string {
 	}
 
 	return ""
+}
+
+// gradeRefinement reads the named numbers a declaration wrote against
+// the ones the type it names already carries.
+//
+// RFC 2579 §3.5 lets a SYNTAX clause restrict the enumeration of the
+// textual convention it names, and RFC 2578 §9 makes that a narrowing of
+// the set of values rather than a redefinition: the names and the
+// numbers stay the convention's. A narrowing is what the author asked
+// for and is kept silently.
+//
+// A member the convention does not carry under that number is a
+// different claim about the same wire value — RUCKUS-ZD-SYSTEM-MIB
+// writes TruthValue { false(0), true(1) } where RFC 2579 §2 numbers them
+// 2 and 1 — and there is no reading that satisfies both. The members
+// stay as the source wrote them, because that is what a reader has to
+// see to know which two definitions disagree, and the type is left
+// unresolved so nothing renders a mapping the MIB contradicts.
+func (r *resolver) gradeRefinement(b *modBuild, t, parent *Type, members []parse.Member) {
+	numbers := make(map[string]int64, len(parent.Members))
+	for _, m := range parent.Members {
+		numbers[m.Name] = m.Number
+	}
+
+	for _, m := range members {
+		name := b.src.Text(m.Name)
+		if n, declared := numbers[name]; declared && n == m.Number {
+			continue
+		}
+
+		t.Unresolved = true
+		r.raise(b.path, m.Span.Start, ErrCodeEnumerationRefinementConflict,
+			ArgString(name), ArgInt(int(m.Number)), ArgString(t.Parent))
+	}
 }
 
 // mapBase turns the parser's base type into the model's. The two sets
@@ -1079,8 +1206,17 @@ func parseStatus(s string) Status {
 }
 
 // assignmentOf returns the "::=" value a declaration was given.
+//
+// A withheld declaration is read out of the clauses that did parse,
+// which is what lets everything registered beneath its OID still be
+// placed. A withheld TRAP-TYPE is the exception: the macro assigns a
+// trap number rather than an OID, and only the dialect pass turns one
+// into a notification OID — for a declaration that kept its ENTERPRISE
+// clause, which a withheld one by definition did not.
 func assignmentOf(m *parse.Module, ref parse.Ref) (parse.Span, bool) {
 	switch ref.Kind {
+	case parse.DeclBad:
+		return badAssignment(&m.Bad[ref.Index])
 	case parse.DeclObjectType:
 		return m.ObjectTypes[ref.Index].Assignment, true
 	case parse.DeclObjectIdentity:
@@ -1104,46 +1240,146 @@ func assignmentOf(m *parse.Module, ref parse.Ref) (parse.Span, bool) {
 	}
 }
 
+func badAssignment(bd *parse.BadDecl) (parse.Span, bool) {
+	if bd.Intended == parse.DeclTrapType {
+		return parse.Span{}, false
+	}
+
+	for _, c := range bd.Clauses {
+		if c.Clause == parse.ClauseAssignment {
+			return c.Span, true
+		}
+	}
+
+	return parse.Span{}, false
+}
+
 // placeNodes registers every resolved node by OID and links the tree.
 //
 // A node's parent is its nearest declared ancestor rather than the arc
 // directly above it, because a vendor MIB routinely hangs a subtree off
 // an arc nothing in the loaded set names.
+//
+// One OID is one node in the tree, so where two declarations claim one
+// the registration goes to one of them. The other still gets its parent
+// pointer, because that is what its kind is read against — two modules
+// declaring the same conceptual table is the corpus's own spelling of a
+// split MIB, and leaving the second one's row and columns unclassified
+// would report a table as a set of scalars. What it does not get is a
+// place in its parent's Children, so a consumer walking the tree still
+// sees one node per arc.
 func (r *resolver) placeNodes(set *ModuleSet) {
-	var placed []*Node
+	var claimants []*Node
 
 	for _, m := range set.modules {
 		for _, n := range m.Nodes {
 			if n.OID.Len() == 0 {
 				continue
 			}
+			claimants = append(claimants, n)
+
 			key := n.OID.String()
-			if _, dup := set.byOID[key]; dup {
+			kept, dup := set.byOID[key]
+			if !dup {
+				set.byOID[key] = n
+
 				continue
 			}
-			set.byOID[key] = n
-			placed = append(placed, n)
+
+			set.byOID[key] = r.settleOIDCollision(kept, n, key)
 		}
 	}
 
-	slices.SortStableFunc(placed, func(a, b *Node) int { return a.OID.Compare(b.OID) })
+	slices.SortStableFunc(claimants, func(a, b *Node) int { return a.OID.Compare(b.OID) })
 
-	for _, n := range placed {
+	for _, n := range claimants {
+		registered := set.byOID[n.OID.String()] == n
+
 		parent := n.OID.Parent()
 		for parent.Len() > 0 {
 			if p, ok := set.byOID[parent.String()]; ok && p != n {
 				n.Parent = p
-				p.Children = append(p.Children, n)
+				if registered {
+					p.Children = append(p.Children, n)
+				}
 
 				break
 			}
 			parent = parent.Parent()
 		}
 
-		if n.Parent == nil {
+		if n.Parent == nil && registered {
 			set.roots = append(set.roots, n)
 		}
 	}
+}
+
+// settleOIDCollision decides which of two declarations claiming one OID
+// the tree is built from, and reports the loser.
+//
+// RFC 2578 §3.6 gives every descriptor its own OBJECT IDENTIFIER value,
+// so two claimants are the MIB contradicting itself and neither reading
+// is the author's. What the choice costs is not symmetric, though. An
+// OBJECT IDENTIFIER value only names an arc, while a macro declares an
+// object whose kind everything beneath it is read through: drop a
+// conceptual table and its row and columns come back as scalars, which
+// is a whole subtree misread over a collision one arc up. So a
+// declaration that carries a shape wins, and two of a kind are settled
+// by the order the modules were gathered in, which is the one a reader
+// can predict.
+//
+// The loser keeps its OID and its clauses and is not marked unresolved:
+// nothing about it failed to resolve, and what it lost is a registration
+// the RFC never let two declarations share. The diagnostic names both,
+// which is what lets a caller decide.
+func (r *resolver) settleOIDCollision(kept, other *Node, oid string) *Node {
+	winner, loser := kept, other
+	if oidClaimStrength(other.Kind) > oidClaimStrength(kept.Kind) {
+		winner, loser = other, kept
+	}
+
+	file, offset := r.declPosition(loser)
+	r.raise(file, offset, ErrCodeDuplicateOID,
+		ArgString(qualify(loser)), ArgString(qualify(winner)), ArgString(oid))
+
+	return winner
+}
+
+// oidClaimStrength ranks a claimant of a contested OID by how much of
+// the tree is read through it. A declaration nothing classified says
+// least; a naming node says the arc has a name; a macro says what the
+// node is, which is what its subordinates are classified against.
+func oidClaimStrength(k NodeKind) int {
+	switch k {
+	case NodeUnknown:
+		return 0
+	case NodeNode:
+		return 1
+	default:
+		return 2
+	}
+}
+
+// qualify names a node the way a diagnostic about two modules has to,
+// since the point of the message is that the two are not the same
+// declaration.
+func qualify(n *Node) string { return n.Module + "." + n.Name }
+
+// declPosition returns the file and offset a node was declared at. A
+// node whose module or declaration cannot be found back points at the
+// start of the file, which is still the file that wrote it.
+func (r *resolver) declPosition(n *Node) (string, int32) {
+	b, ok := r.byName[n.Module]
+	if !ok {
+		return "", 0
+	}
+
+	ref, ok := b.decls[n.Name]
+	if !ok {
+		return b.path, 0
+	}
+
+	return b.path, b.pm.Decl(ref).Span.Start
 }
 
 // classify settles the table shape and assembles the tables.

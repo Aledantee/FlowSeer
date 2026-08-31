@@ -1,0 +1,33 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+acmeSlot OBJECT IDENTIFIER ::= { acme 1 }
+
+acmeSlotTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF AcmeSlotEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Claims the arc acmeSlot has already registered."
+    ::= { acme 1 }
+
+acmeSlotEntry OBJECT-TYPE
+    SYNTAX      AcmeSlotEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row of the table."
+    INDEX       { acmeSlotIndex }
+    ::= { acmeSlotTable 1 }
+
+AcmeSlotEntry ::= SEQUENCE {
+    acmeSlotIndex   Integer32
+}
+
+acmeSlotIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The row's index."
+    ::= { acmeSlotEntry 1 }
+
+END
