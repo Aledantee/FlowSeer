@@ -647,11 +647,7 @@ lldpPortConfigTLVsTxEnable OBJECT-TYPE
         The value of this object must be restored from non-volatile
         storage after a re-initialization of the management system."
     REFERENCE       "IEEE 802.1AB-2005 10.2.1.1"
--- FlowSeer local patch: gosmi v0.4.4 panics (does not error) parsing the
--- empty-BITS DEFVAL below, which aborts `go generate`. The clause is
--- commented out; it carries no information mibgen consumes. Re-apply this
--- patch after any upstream LLDP-MIB re-sync.
---    DEFVAL          { {  } }
+    DEFVAL          { {  } } 
     ::= { lldpPortConfigEntry 4 }
  
 

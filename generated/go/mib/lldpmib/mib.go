@@ -2,7 +2,7 @@
 //
 // Source MIB:    LLDP-MIB
 // Source path:   spec/mib/ieee/LLDP-MIB
-// Source SHA-256: 7e8dcb98f124fb05a91160b134e73ac46ae5a16400fe6733a2e48773b75d5e4f
+// Source SHA-256: f0dac7bac08b6d632d2f2363aba8acf106ee7cf83c15f14823489390c31d6769
 //
 // Regenerate with `go generate .` at the repository root.
 

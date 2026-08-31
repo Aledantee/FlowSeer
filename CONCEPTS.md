@@ -53,3 +53,29 @@ The origin of one live response or event — which Binding answered and when the
 ### Entity Reference
 
 A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic — a statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
+
+## MIB Parsing
+
+### MIB Module
+
+One named SMIv1 or SMIv2 definition block, and the unit everything else is attributed to. A module is not a file: several can share one file, one module can be shipped under many filenames across vendor trees, and a load follows a module's IMPORTS wherever the search paths find them. A resolved module records which dialect it was read as, because SMIv1 and SMIv2 disagree on access and status values that carry the same spelling.
+
+### Declaration
+
+One macro invocation or value assignment inside a module — an `OBJECT-TYPE`, a textual convention, a plain OID assignment. It is the blast radius of a parse error, which is the point: a source is cut into declarations before any grammar runs, so a vendor MIB that is malformed in one place costs that declaration rather than the file.
+
+### Node
+
+A declaration placed in the OID tree, with the clauses that survived resolution. A node that lost something a renderer needs — a required clause, a parent nothing defines, a contradictory syntax — stays in the tree marked unresolved rather than disappearing, so a reader can see what fell and its subtree stays placed. Unresolved nodes are never rendered as if they were whole.
+
+### Diagnostic
+
+One graded finding about a source, carrying a stable code, a position, and a severity. The parser grades and never decides: it has no abort threshold, so severity is a fact about the MIB rather than a policy about the build. What to do about a finding belongs to the consumer.
+
+### Baseline
+
+The committed record of the diagnostics a configured module is already known to raise. Generation fails on a diagnostic the baseline does not hold and never on one it does, which is what lets a build gate on vendor breakage nobody can fix. An entry is keyed on the code and the declaration it landed in, deliberately not on file or line, so an upstream MIB re-sync does not invalidate it.
+
+### Corpus
+
+The vendored MIB tree under `spec/mib/`, read as a leniency stress bar rather than an adoption target. Only a handful of its modules are configured for generation; the rest is there to exercise deviations no hand-written fixture would think of, and what it produces is committed per vendor so a leniency change surfaces as a reviewable diff.

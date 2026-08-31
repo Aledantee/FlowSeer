@@ -218,12 +218,6 @@ dispatch map, `snmp.Decode*` for textual conventions
   where the name carries no correlation — ENTITY-MIB's single
   `entLastChangeTime` fans out across five tables in three sibling subtrees and
   fits no structural rule.
-- **gosmi v0.4.4 panics — it does not return an error — on `DEFVAL { { } }`**
-  (an empty BITS default), aborting `go generate` with a parser stack trace. The
-  repo's workaround is to comment the clause out in the vendored MIB behind a
-  `-- FlowSeer local patch:` marker (`spec/mib/ieee/LLDP-MIB`,
-  `spec/mib/ieee/LLDP-EXT-DOT3-MIB`); mibgen consumes no DEFVAL, so nothing is
-  lost. Re-apply after any upstream MIB re-sync.
 - Tier classification is codegen-time and rule-based — Counter32/64 →
   `TierCounter`; TC `TimeStamp` → `TierIndicator`; indicator name-suffix →
   `TierIndicator`; else `TierState`; `TierStatic` is never auto-assigned
