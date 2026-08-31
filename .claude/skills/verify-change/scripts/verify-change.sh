@@ -180,7 +180,7 @@ else
     # generator, its config, or a MIB source can silently drift the
     # committed bindings under generated/go/mib.
     case "$path" in
-      mibgen.yaml|spec/mib/*|src/common/snmp/cmd/mibgen/*) mib=true ;;
+      mibgen.yaml|spec/mib/*|src/common/snmp/cmd/mibgen/*|src/common/smi/*) mib=true ;;
     esac
   done
 fi
@@ -276,6 +276,12 @@ if [[ $mib == true ]]; then
   # exits non-zero on drift. Pairs with the buf-generate diff above so
   # both code generators are gated the same way.
   run go run ./src/common/snmp/cmd/mibgen -check
+  if [[ $full == true ]]; then
+    # The parser's default corpus tier reads a deduplicated corpus so the
+    # developer loop stays cheap. The whole corpus sits behind a build tag
+    # and is only worth its cost here, where nothing else is in a hurry.
+    run go test -tags=smi_corpus_full -run TestCorpus ./src/common/smi/
+  fi
 fi
 
 if [[ $claude == true ]]; then
