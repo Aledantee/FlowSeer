@@ -1,0 +1,13 @@
+vendor aruba loaded 60 failed 0 panicked 0
+vendor cisco loaded 115 failed 1 panicked 1
+vendor dlink loaded 142 failed 1 panicked 0
+vendor hp loaded 367 failed 0 panicked 3
+vendor huawei loaded 238 failed 1 panicked 1
+vendor ieee loaded 165 failed 26 panicked 22
+vendor ietf loaded 179 failed 0 panicked 8
+vendor lancom loaded 234 failed 4 panicked 8
+vendor mikrotik loaded 1 failed 0 panicked 0
+vendor netgear loaded 4 failed 0 panicked 0
+vendor ruckus loaded 50 failed 1 panicked 0
+vendor ubiquiti loaded 47 failed 1 panicked 0
+total loaded 1602 failed 35 panicked 43
