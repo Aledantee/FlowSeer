@@ -1,0 +1,21 @@
+modules:
+  - module: BASELINE-MIB
+    diagnostics:
+      - code: smi/display-hint-not-permitted
+        status: accepted-risk
+        reason: >-
+          Tolerated for as long as the fixture writes the hint.
+        declarations:
+          - HintedGauge
+          - SecondHintedGauge
+      - code: smi/duplicate-clause
+        status: recorded
+        declarations:
+          - RepeatedStatus
+      - code: smi/range-outside-base-type
+        status: recorded
+        reason: >-
+          The fixture writes the over-wide range on purpose.
+        declarations:
+          - WideRange
+accepted_risk_allowlist: []

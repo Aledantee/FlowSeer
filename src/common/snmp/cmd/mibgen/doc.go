@@ -14,12 +14,23 @@
 //	go run ./src/common/snmp/cmd/mibgen -verify   # load-only; no codegen
 //	go run ./src/common/snmp/cmd/mibgen -check    # exit non-zero if regenerated output drifts
 //	go run ./src/common/snmp/cmd/mibgen -update   # regenerate committed bindings
+//	go run ./src/common/snmp/cmd/mibgen -refresh-baseline  # rewrite the diagnostic baseline
 //
 // The configuration file (default mibgen.yaml, at the repository root)
 // declares MIB search paths, the module list with optional cross-authority
 // depends_on edges, and per-OID Go-type overrides. The repository-root
 // generate.go carries the go:generate directive, so `go generate .` at
 // the root regenerates the committed bindings.
+//
+// # The diagnostic baseline
+//
+// The parser grades what a MIB is wrong about and carries on, so every
+// configured module renders with a tail of diagnostics behind it.
+// mibgen-baseline.yaml, beside the config, records that tail: generation
+// fails on a diagnostic the file does not hold, and never on one it
+// does. An entry is keyed on the diagnostic code and the declaration it
+// landed in, so an upstream re-sync that moves a line leaves the record
+// intact. See baseline.go for the file's shape and the two-tier gate.
 //
 // The emitter lives in emit.go (and per-shape companions emit_scalar.go,
 // emit_table.go, emit_enum.go, emit_tc.go, emit_dispatch.go); the CLI

@@ -1,0 +1,111 @@
+# mibgen diagnostic baseline.
+#
+# Every diagnostic the configured MIB modules raise is recorded here.
+# Generation fails on anything absent from this file, and never on
+# anything present in it.
+#
+# An entry is keyed on the diagnostic code and the declaration it landed
+# in, and on nothing else, so an upstream re-sync that moves a line does
+# not invalidate the record.
+#
+# Refresh with:
+#
+#	go run ./src/common/snmp/cmd/mibgen -refresh-baseline
+#
+# A refreshed group arrives as "pending". Read it, write down why the
+# condition is acceptable, and set the status to "recorded"; a group
+# graded fatal or error cannot be recorded without a reason. Tolerating
+# one indefinitely is "accepted-risk", which needs the reason and an
+# accepted_risk_allowlist entry as well.
+modules:
+  - module: SNMPv2-SMI
+    diagnostics:
+      - code: smi/duplicate-oid
+        status: recorded
+        reason: >-
+          SNMPv2-SMI re-registers the arcs RFC1155-SMI and RFC1213-MIB already
+          put at the same OIDs, and both of those files sit in the corpus, so the
+          one read first keeps the registration. The two spellings name the same
+          arcs, so which declaration wins changes no OID and no emitted binding.
+        declarations:
+          - directory
+          - enterprises
+          - experimental
+          - internet
+          - mgmt
+          - mib-2
+          - private
+          - transmission
+      - code: smi/range-outside-base-type
+        status: recorded
+        reason: >-
+          RFC 2578 section 7.1.6 defines Counter32, Gauge32, Unsigned32 and
+          TimeTicks as APPLICATION-tagged INTEGERs ranged 0..4294967295, which is
+          wider than the signed INTEGER the syntax names. The file is the RFC's
+          own text; the wire type comes from the application tag rather than the
+          range, so the generated accessors are unaffected.
+        declarations:
+          - Counter32
+          - Gauge32
+          - TimeTicks
+          - Unsigned32
+  - module: SNMPv2-MIB
+    diagnostics:
+      - code: smi/duplicate-oid
+        status: recorded
+        reason: >-
+          SNMPv2-MIB restates the system and snmp groups RFC1213-MIB defines in
+          SMIv1 at the same OIDs. The corpus carries both files, the first read
+          keeps the registration, and the two definitions agree on every OID, so
+          the generated bindings are the same either way.
+        declarations:
+          - snmp
+          - snmpEnableAuthenTraps
+          - snmpInASNParseErrs
+          - snmpInBadCommunityNames
+          - snmpInBadCommunityUses
+          - snmpInBadValues
+          - snmpInBadVersions
+          - snmpInGenErrs
+          - snmpInGetNexts
+          - snmpInGetRequests
+          - snmpInGetResponses
+          - snmpInNoSuchNames
+          - snmpInPkts
+          - snmpInReadOnlys
+          - snmpInSetRequests
+          - snmpInTooBigs
+          - snmpInTotalReqVars
+          - snmpInTotalSetVars
+          - snmpInTraps
+          - snmpOutBadValues
+          - snmpOutGenErrs
+          - snmpOutGetNexts
+          - snmpOutGetRequests
+          - snmpOutGetResponses
+          - snmpOutNoSuchNames
+          - snmpOutPkts
+          - snmpOutSetRequests
+          - snmpOutTooBigs
+          - snmpOutTraps
+          - sysContact
+          - sysDescr
+          - sysLocation
+          - sysName
+          - sysObjectID
+          - sysServices
+          - sysUpTime
+          - system
+  - module: MIKROTIK-MIB
+    diagnostics:
+      - code: smi/display-hint-not-permitted
+        status: recorded
+        reason: >-
+          MikroTik hangs a DISPLAY-HINT on two Gauge32-based textual conventions,
+          which RFC 2579 section 3.1 allows only for integer and octet-string
+          syntaxes. Nothing downstream reads a display hint, so the clause is
+          dropped and the accessors return the raw Gauge32.
+        declarations:
+          - GDiv100
+          - GDiv1000
+accepted_risk_allowlist: []

@@ -294,7 +294,7 @@ func TestRefuseUnresolved_FailsRatherThanEmittingPartially(t *testing.T) {
 		Name:  "TEST-MIB",
 		Nodes: []*smi.Node{{Name: "fine"}, {Name: "broken", Unresolved: true}},
 	}
-	err := refuseUnresolved(mod)
+	err := refuseUnresolved(mod, nil)
 	if err == nil {
 		t.Fatal("expected a refusal for an unresolved declaration")
 	}
@@ -302,7 +302,7 @@ func TestRefuseUnresolved_FailsRatherThanEmittingPartially(t *testing.T) {
 		t.Errorf("refusal does not name the unresolved declaration: %v", err)
 	}
 
-	if err := refuseUnresolved(&smi.Module{Name: "TEST-MIB", Nodes: []*smi.Node{{Name: "fine"}}}); err != nil {
+	if err := refuseUnresolved(&smi.Module{Name: "TEST-MIB", Nodes: []*smi.Node{{Name: "fine"}}}, nil); err != nil {
 		t.Errorf("whole module refused: %v", err)
 	}
 }

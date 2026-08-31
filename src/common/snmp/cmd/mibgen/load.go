@@ -139,52 +139,10 @@ func LoadModules(cfg *Config) (*smi.ModuleSet, error) {
 	}
 
 	for _, name := range order {
-		mod, ok := set.Module(name)
-		if !ok {
+		if _, ok := set.Module(name); !ok {
 			return nil, errs.Msgf("module %q resolved to nothing on search paths %v", name, cfg.SearchPaths)
-		}
-		if err := refuseUnresolved(mod); err != nil {
-			return nil, err
 		}
 	}
 
 	return set, nil
-}
-
-// maxReportedUnresolved bounds how many names a refusal lists. A module
-// that lost one declaration is worth reading in full; one that lost two
-// hundred is a broken file, and the first few names say so just as well.
-const maxReportedUnresolved = 10
-
-// refuseUnresolved rejects a module carrying a declaration or type the
-// resolver could not complete.
-//
-// Rendering one anyway is the failure mode worth avoiding: a
-// declaration missing its SYNTAX still has an OID and a name, so it
-// emits an accessor that compiles, ships, and decodes the wrong thing.
-// Refusing costs a build; emitting costs a wrong value on a wire nobody
-// is watching.
-func refuseUnresolved(mod *smi.Module) error {
-	var lost []string
-	for _, n := range mod.Nodes {
-		if n.Unresolved {
-			lost = append(lost, n.Name)
-		}
-	}
-	for _, t := range mod.Types {
-		if t.Unresolved {
-			lost = append(lost, t.Name)
-		}
-	}
-	if len(lost) == 0 {
-		return nil
-	}
-
-	shown := lost
-	if len(shown) > maxReportedUnresolved {
-		shown = shown[:maxReportedUnresolved]
-	}
-
-	return errs.Msgf("module %q: %d unresolved declaration(s), refusing to emit a partial package: %s",
-		mod.Name, len(lost), strings.Join(shown, ", "))
 }

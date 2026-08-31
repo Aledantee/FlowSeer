@@ -22,6 +22,18 @@ func writeTempConfig(t *testing.T, body string) string {
 	return path
 }
 
+// seedBaseline runs -refresh-baseline so a temporary config has the
+// record the generation paths now insist on. A refreshed group arrives
+// pending, which the always-on gate permits — that is the state a branch
+// mid-triage is in, and it is the state these CLI tests want.
+func seedBaseline(t *testing.T, cfgPath string) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-config", cfgPath, "-refresh-baseline"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("seed baseline: exit %d, stderr=%q", code, stderr.String())
+	}
+}
+
 // TestRun_Verify_HappyPath: writes a tiny config that points at the
 // real spec/mib/ietf and runs -verify; expects exit 0 and the load
 // summary on stdout.
@@ -69,6 +81,7 @@ func TestRun_DefaultEmit(t *testing.T) {
 		"modules:\n" +
 		"  - { name: SNMPv2-SMI, package: snmpv2smi }\n"
 	cfgPath := writeTempConfig(t, yaml)
+	seedBaseline(t, cfgPath)
 	out := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
@@ -101,6 +114,7 @@ func TestRun_CheckMatches(t *testing.T) {
 		"modules:\n" +
 		"  - { name: SNMPv2-SMI, package: snmpv2smi }\n"
 	cfgPath := writeTempConfig(t, yaml)
+	seedBaseline(t, cfgPath)
 	out := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
@@ -135,6 +149,7 @@ func TestRun_UpdateWrites(t *testing.T) {
 		"modules:\n" +
 		"  - { name: SNMPv2-SMI, package: snmpv2smi }\n"
 	cfgPath := writeTempConfig(t, yaml)
+	seedBaseline(t, cfgPath)
 	out := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
@@ -193,5 +208,68 @@ func TestRun_LoadCycle(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "dependency cycle in modules") {
 		t.Errorf("stderr = %q; want the cycle diagnostic", stderr.String())
+	}
+}
+
+// TestRun_MissingBaselineRefusesToEmit keeps a deleted or mistyped
+// baseline path from rendering with the gate silently doing nothing.
+func TestRun_MissingBaselineRefusesToEmit(t *testing.T) {
+	mibDir, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "..", "spec", "mib", "ietf"))
+	if err != nil {
+		t.Fatalf("abs: %v", err)
+	}
+	if _, statErr := os.Stat(mibDir); statErr != nil {
+		t.Skipf("spec/mib/ietf not available: %v", statErr)
+	}
+
+	yaml := "" +
+		"search_paths:\n" +
+		"  - " + mibDir + "\n" +
+		"modules:\n" +
+		"  - { name: SNMPv2-SMI, package: snmpv2smi }\n"
+	cfgPath := writeTempConfig(t, yaml)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"-config", cfgPath, "-out", t.TempDir()}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d; want 1\nstderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "-refresh-baseline") {
+		t.Errorf("stderr = %q; want it to say how to create the baseline", stderr.String())
+	}
+}
+
+// TestRun_RefreshBaselineWritesAReviewableFile covers the refresh flag
+// end to end: it writes the file the gate then reads, and the file names
+// what the module actually raised.
+func TestRun_RefreshBaselineWritesAReviewableFile(t *testing.T) {
+	mibDir, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "..", "spec", "mib", "ietf"))
+	if err != nil {
+		t.Fatalf("abs: %v", err)
+	}
+	if _, statErr := os.Stat(mibDir); statErr != nil {
+		t.Skipf("spec/mib/ietf not available: %v", statErr)
+	}
+
+	yaml := "" +
+		"search_paths:\n" +
+		"  - " + mibDir + "\n" +
+		"modules:\n" +
+		"  - { name: SNMPv2-SMI, package: snmpv2smi }\n"
+	cfgPath := writeTempConfig(t, yaml)
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-config", cfgPath, "-refresh-baseline"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d; want 0\nstderr=%q", code, stderr.String())
+	}
+
+	body, err := os.ReadFile(filepath.Join(filepath.Dir(cfgPath), defaultBaselineName))
+	if err != nil {
+		t.Fatalf("read refreshed baseline: %v", err)
+	}
+	for _, want := range []string{"module: SNMPv2-SMI", "smi/range-outside-base-type", "Counter32", "status: pending"} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("refreshed baseline is missing %q:\n%s", want, body)
+		}
 	}
 }

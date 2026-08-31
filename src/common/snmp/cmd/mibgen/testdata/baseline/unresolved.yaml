@@ -1,0 +1,29 @@
+modules:
+  - module: BASELINE-MIB
+    diagnostics:
+      - code: smi/display-hint-not-permitted
+        status: recorded
+        reason: >-
+          The fixture writes the hint on purpose so the gate has an
+          error-graded diagnostic to sit on.
+        declarations:
+          - HintedGauge
+          - SecondHintedGauge
+      - code: smi/duplicate-clause
+        status: recorded
+        declarations:
+          - RepeatedStatus
+      - code: smi/range-outside-base-type
+        status: recorded
+        reason: >-
+          The fixture writes the over-wide range on purpose.
+        declarations:
+          - WideRange
+      - code: smi/unresolved-declaration
+        status: recorded
+        reason: >-
+          The fixture names a syntax nothing defines so the refusal has
+          something to refuse.
+        declarations:
+          - baselineBroken
+accepted_risk_allowlist: []
