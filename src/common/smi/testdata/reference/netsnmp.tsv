@@ -1,0 +1,101 @@
+# Cross-check mapping: this parser's diagnostic codes against net-snmp's
+# MIB parser, as read by reference_test.go.
+#
+# Tab-separated. Two record kinds:
+#
+#   map<TAB>fixture<TAB>code<TAB>fragment
+#       In testdata/malformed/<fixture>, this parser's <code> and any
+#       net-snmp message whose text holds <fragment> are a claim about the
+#       same construct. The test requires both sides to name the same
+#       declaration, not merely to have said something.
+#
+#   differ<TAB>fixture<TAB>code<TAB>fragment<TAB>ours<TAB>theirs
+#       Both parsers grade the condition and each puts its finger on a
+#       different declaration. The row pins both constructs, so a
+#       disagreement is asserted rather than excused: if either side
+#       moves, the row fails and the adjudication is redone. The comment
+#       above each row is that adjudication.
+#
+#   none<TAB>code<TAB>reason
+#       net-snmp has no counterpart for <code>. Every catalog code must
+#       appear in one half or the other, so a code with no counterpart is
+#       a written-down fact rather than a silent gap.
+#
+# Fragments are net-snmp message text and will move between releases.
+# Written against NET-SNMP 5.6.2.1; a fragment that stops matching fails
+# loudly rather than passing, which is the point.
+#
+# net-snmp is run without -Pu on purpose. Allowing underscores in
+# descriptors is one of the tolerances under comparison here, so asking
+# the reference to tolerate it too would delete the only row that grades
+# it.
+
+map	clause-out-of-order	smi/clause-out-of-order	Should be STATUS
+map	content-after-end	smi/content-after-end	Bad operator (trailing)
+map	curly-quoted-string	smi/curly-quoted-string	Bad DESCRIPTION
+map	limit-exceeded	smi/limit-exceeded	Bad object identifier
+map	module-not-found	smi/module-not-found	Cannot find module (ABSENT-MIB)
+map	paired-comment-mode	smi/paired-comment-mode	Bad operator (on)
+map	underscore-in-descriptor	smi/underscore-in-descriptor	Expected "(" (_)
+map	unexpected-token	smi/unexpected-token	Bad INDEX list
+map	unknown-clause	smi/unknown-clause	Expected STATUS (UNITS)
+map	unrecognized-declaration	smi/unrecognized-declaration	is a reserved word
+map	unresolved-declaration	smi/unresolved-declaration	Undefined identifier: nowhere
+map	unterminated-comment	smi/unterminated-comment	is a reserved word
+
+# The four rows below are disagreements about where the fault lives, not
+# about whether there is one. Each names the RFC clause it was decided
+# against.
+
+# The separator is five hyphens: ASN.1 pairs them off into an empty
+# comment and leaves one minus behind (RFC 2578 section 3.7 ends a
+# comment at a second pair of hyphens or at end of line). The construct
+# at fault is the separator line. net-snmp reports the stray minus only
+# where its parser reaches it, which by then is the next declaration, so
+# it names plain. This parser is right on position.
+differ	hyphen-separator	smi/hyphen-separator	is a reserved word	BAD-MIB.mib:acme	BAD-MIB.mib:plain
+
+# RFC 2578 states no acyclicity requirement on IMPORTS; a cycle only
+# leaves the load with no acyclic order. This parser grades the IMPORTS
+# statement that closes the cycle and keeps both modules. net-snmp has no
+# message about the cycle at all — it loads A-MIB first, cannot resolve
+# bRoot, and reports the consequence on aLeaf, which it then drops. This
+# parser is right: the construct at fault is the back edge, and losing a
+# declaration over it is not something the RFC asks for.
+differ	import-cycle	smi/import-cycle	Undefined identifier: bRoot	B-MIB.mib:B-MIB	A-MIB.mib:aLeaf
+
+# RFC 2578 section 3.2 requires every external descriptor to be reached
+# through IMPORTS, and the construct that breaks the rule is the use:
+# sysName's SYNTAX names DisplayString on line 6. net-snmp reports it
+# there. This parser raises the diagnostic during resolution, where the
+# only position it has is the module, so it points at line 1 and names
+# the symbol in the message text instead. net-snmp is right on position;
+# a reader fixing this wants the line that uses the type.
+differ	missing-import	smi/missing-import	No known translation for type (DisplayString)	USER-MIB.mib:USER-MIB	USER-MIB.mib:sysName
+
+# RFC 2578 section 3.7 delimits a text value with quotation marks, so the
+# construct at fault is runaway's DESCRIPTION, where the opening quote
+# is. net-snmp reports at line 11, one past the last line of the file:
+# that is where it noticed, not where the fault is. This parser is right
+# on position.
+differ	unterminated-string	smi/unterminated-string	Bad DESCRIPTION (EOF)	BAD-MIB.mib:runaway	BAD-MIB.mib:END
+
+none	smi/binary-string-not-octets	net-snmp accepts a binary literal of any bit count without comment
+none	smi/default-not-permitted	net-snmp does not check DEFVAL against the syntax it is written on
+none	smi/dialect-value-mismatch	net-snmp reads the SMIv1 and SMIv2 status words as one vocabulary and grades neither against the module's dialect
+none	smi/display-hint-malformed	net-snmp stores DISPLAY-HINT as text and never parses it, so no shape of hint is wrong to it
+none	smi/display-hint-not-permitted	net-snmp does not check DISPLAY-HINT against the syntax it is written on
+none	smi/display-hint-separator	net-snmp does not parse the hint, so its separator byte is never examined
+none	smi/duplicate-clause	net-snmp keeps one occurrence and reports nothing
+none	smi/duplicate-module	net-snmp warns which file won, with no line in either, and a message with no position cannot corroborate a construct
+none	smi/duplicate-oid	net-snmp warns that one arc is two descriptors, with no line, and a message with no position cannot corroborate a construct
+none	smi/enumeration-refinement-conflict	net-snmp does not compare a refining SYNTAX against the enumeration of the type it refines
+none	smi/missing-clause	net-snmp treats DESCRIPTION as optional on OBJECT-TYPE and accepts the declaration whole
+none	smi/missing-module-header	net-snmp reads a file with no DEFINITIONS header as empty and reports nothing
+none	smi/negative-size	net-snmp accepts a negative SIZE bound without comment
+none	smi/non-conforming-oid-default	net-snmp accepts a DEFVAL written as a sub-identifier list at either brace depth
+none	smi/odd-hex-string	net-snmp accepts a hexadecimal literal of any digit count without comment
+none	smi/overlapping-range	net-snmp does not compare range alternatives against each other
+none	smi/range-not-ascending	net-snmp does not compare a range's two bounds
+none	smi/range-outside-base-type	net-snmp does not compare a subtype's range against the base type's
+none	smi/trailing-hyphen-identifier	net-snmp reads a descriptor ending in one hyphen as the name, the same way this parser does, and grades nothing
