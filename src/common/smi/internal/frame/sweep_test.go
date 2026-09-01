@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -267,19 +268,12 @@ func corpusFiles(t *testing.T) []corpusFile {
 	}
 
 	var files []corpusFile
-	err := filepath.WalkDir(corpusRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || strings.HasSuffix(path, ".md") {
-			return err
-		}
+	for _, rel := range trackedCorpusPaths(t) {
+		path := filepath.Join(corpusRoot, rel)
 
-		info, err := d.Info()
+		info, err := os.Stat(path)
 		if err != nil {
-			return err
-		}
-
-		rel, err := filepath.Rel(corpusRoot, path)
-		if err != nil {
-			return err
+			t.Fatalf("stat %s: %v", path, err)
 		}
 
 		files = append(files, corpusFile{
@@ -287,11 +281,6 @@ func corpusFiles(t *testing.T) []corpusFile {
 			vendor: strings.Split(filepath.ToSlash(rel), "/")[0],
 			size:   info.Size(),
 		})
-
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walking %s: %v", corpusRoot, err)
 	}
 	if len(files) == 0 {
 		t.Skipf("no MIB sources under %s", corpusRoot)
@@ -306,6 +295,35 @@ func corpusFiles(t *testing.T) []corpusFile {
 	})
 
 	return files
+}
+
+// trackedCorpusPaths returns the corpus files git tracks, relative to
+// corpusRoot and without the corpus README.
+//
+// The corpus is the vendored tree, and vendored means committed. Reading
+// the directory instead would fold in whatever a developer happens to
+// have left under spec/mib -- a scratch copy of one vendor's whole MIB
+// archive is the case that prompted this -- and the histograms committed
+// beside this test would then describe that developer's disk. A golden
+// that moves with untracked files is not a golden.
+func trackedCorpusPaths(t *testing.T) []string {
+	t.Helper()
+
+	out, err := exec.Command("git", "-C", corpusRoot, "ls-files", "-z", ".").Output()
+	if err != nil {
+		t.Skipf("listing tracked files under %s: %v", corpusRoot, err)
+	}
+
+	var paths []string
+	for _, rel := range strings.Split(string(out), "\x00") {
+		if rel == "" || strings.HasSuffix(rel, ".md") {
+			continue
+		}
+
+		paths = append(paths, rel)
+	}
+
+	return paths
 }
 
 func totalSize(files []corpusFile) int64 {
