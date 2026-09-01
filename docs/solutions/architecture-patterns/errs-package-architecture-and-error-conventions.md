@@ -445,12 +445,14 @@ new field also needs a decision about whether it crosses the wire, and a
 **Adding a code.** Codes are a wire contract: append-only, never renamed, never
 reused for a different meaning (`src/common/errs/code.go:15`,
 `src/common/errs/doc.go:56-58`). Declare at package level with a string literal
-argument, or the repo-wide scan gate cannot see it. Note that as of the current
-tree, *no production code declares a `Code` yet* — a grep for `NewCode(` outside
-the `errs` package finds only the `doc.go` example and the `src/common/errs/testdata/scan/`
-fixtures. The mechanism shipped ahead of its first user, which is consistent with
-the "wire concerns shape the core API" decision, but it means the first real code
-declaration is also the first end-to-end exercise of the gate.
+argument, or the repo-wide scan gate cannot see it. The first real users are the
+MIB parser's diagnostics: `src/common/smi/internal/diag/zz_generated_codes.go`
+declares every `smi/...` code, generated from the table in
+`src/common/smi/internal/catalog/catalog.go` precisely so the literal the scan
+gate needs exists in ordinary source and lives in exactly one place. That set
+also learned something the rule above does not say: append-only is a claim
+nothing enforces on its own, so the catalog carries a committed golden of
+shipped codes that fails when one disappears.
 
 **Crossing a process boundary.** Read `# Wire design`
 (`src/common/errs/doc.go:145-178`) before designing anything. The rules it fixes:
@@ -470,10 +472,9 @@ authorization decisions.
 
 **Migrating the remaining `ae` call sites.** `go.aledante.io/ae v0.3.0` is still a
 direct requirement in the root `go.mod:9`, and in `src/common/snmp/bench/go.mod:45`
-it has dropped to `// indirect`. The remaining hand-written imports are confined
-to the generator: `src/common/snmp/cmd/mibgen/config.go:10-11`,
-`src/common/snmp/cmd/mibgen/load.go:7`, `src/common/snmp/cmd/mibgen/emit.go:14`,
-plus the `aeImport` constant the emitter writes into generated code
+it has dropped to `// indirect`. The generator's own three imports
+(`config.go`, `load.go`, `emit.go`) have since migrated. What remains is the
+`aeImport` constant the emitter writes into generated code
 (`src/common/snmp/cmd/mibgen/emit.go:29`) and the golden fixture that embeds it
 (`src/common/snmp/cmd/mibgen/testdata/golden/fakemib/mib.go:16`). This interacts
 with the standing rule that generated code consumes only the host library's public

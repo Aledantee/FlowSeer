@@ -7,10 +7,9 @@ problem_type: tooling_decision
 component: code_generation
 severity: medium
 applies_when:
-  - "adding a MIB whose BITS type numbers its members non-consecutively or with gaps"
-  - "a decoded BITS value names the wrong capability, or a capability the device never reported"
-  - "deciding whether to fork or patch gosmi"
-  - "reading the bit-position comment in emit_bits.go, which misattributes the cause"
+  - "weighing whether to replace a parsing dependency, where error recovery is the property in question"
+  - "reading a verdict in this store that a later change overturned"
+  - "tracing why src/common/smi exists rather than a gosmi fork"
 related_components:
   - snmp_library
   - code_generation
@@ -19,6 +18,42 @@ tags: [gosmi, snmp, mibgen, bits, code-generation, third-party, known-limitation
 ---
 
 # gosmi Drops BITS Member Numbers, So Generated Bit Positions Are a Guess
+
+## Superseded: the replacement landed
+
+`gosmi` is gone. `src/common/smi` is a hand-written SMIv1/SMIv2 parser and
+`mibgen` renders from it, so a `BITS` member now carries the number the MIB
+wrote and the emitted positions are read rather than inferred. The two
+`-- FlowSeer local patch:` edits in the vendored IEEE MIBs are reverted, the
+`DEFVAL { { } }` panic is gone, and a numbering-gap fixture exists.
+
+The diagnosis below is correct and worth keeping: the loss really is in
+`gosmi`'s conversion layer, there really is no override seam, and the
+consequence really is a silent mis-decode. What did not survive is the verdict
+in **Why nothing was changed** — that writing a replacement parser is the wrong
+move regardless, because the grammar is only ~700 declarative lines against a
+bulk of resolution code that would be rebuilt for no benefit.
+
+That reasoning holds against a like-for-like replacement, and the work that
+landed is not one. The verdict weighed this defect alone. The property actually
+bought was error recovery: a participle grammar has no error recovery and
+cannot gain it by patching, forking, or fixing individual defects, because the
+first syntax error ends the file. That is a different kind of component, not a
+cheaper version of the same one — and the resolution code the verdict counted
+as wasted rebuild is what makes recovery mean anything, since a declaration
+that survives its neighbour's failure still has to resolve.
+
+The corpus settled the size of it. 4,994 of 5,650 `BITS` types under
+`spec/mib/` are not numbered consecutively from zero, so the coincidence this
+document rests on holds for today's configured modules and almost nothing else.
+And with the two vendored patches reverted, `gosmi` panics on 78 of 1,680
+files — a panic takes the process, not the module.
+
+Read the rest as the record of how the dependency behaved and why the decision
+looked right at the time. Two of its **Traps** are closed: the `emit_bits.go`
+comment that misattributed the cause to libsmi is corrected, and a
+numbering-gap fixture now exists. **Prevention** is obsolete; adding a MIB with
+gapped `BITS` members needs no check.
 
 ## Context
 
