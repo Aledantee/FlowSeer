@@ -780,16 +780,18 @@ func trackedCorpusPaths(t *testing.T) []string {
 func corpusSearchPaths(t *testing.T) []string {
 	t.Helper()
 
-	var dirs []string
-	err := filepath.WalkDir(corpusRoot, func(path string, d fs.DirEntry, err error) error {
-		if err == nil && d.IsDir() {
-			dirs = append(dirs, path)
+	// Derived from the tracked files rather than read off the directory,
+	// for the reason trackedCorpusPaths gives: a scratch tree under
+	// spec/mib would otherwise join the search path, and an import that
+	// resolves against an untracked copy resolves differently for every
+	// checkout. That moves the snapshot without any code changing.
+	seen := map[string]bool{corpusRoot: true}
+	dirs := []string{corpusRoot}
+	for _, rel := range trackedCorpusPaths(t) {
+		for dir := filepath.Dir(filepath.Join(corpusRoot, rel)); !seen[dir]; dir = filepath.Dir(dir) {
+			seen[dir] = true
+			dirs = append(dirs, dir)
 		}
-
-		return err
-	})
-	if err != nil {
-		t.Fatalf("walking %s: %v", corpusRoot, err)
 	}
 	slices.Sort(dirs)
 
