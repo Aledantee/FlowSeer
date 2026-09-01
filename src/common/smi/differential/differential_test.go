@@ -425,6 +425,10 @@ var corpusOnce = sync.OnceValues(runPass)
 func corpusPass(t *testing.T) *pass {
 	t.Helper()
 
+	if raceEnabled {
+		t.Skip("the corpus pass is single-goroutine, so the race detector finds nothing here and only pushes the walk past the default test timeout; run without -race")
+	}
+
 	p, err := corpusOnce()
 	if err != nil {
 		t.Skipf("%v", err)
