@@ -1035,14 +1035,23 @@ func (r *resolver) sharedType(b *modBuild, name string) (*Type, bool) {
 // through to the base it stands on. It returns the name that did not
 // resolve, or the empty string.
 func (r *resolver) applySyntax(b *modBuild, t *Type, pt parse.Type) string {
-	for _, m := range pt.Members {
-		t.Members = append(t.Members, Member{Name: b.src.Text(m.Name), Number: m.Number})
+	if len(pt.Members) > 0 {
+		t.Members = make([]Member, 0, len(pt.Members))
+		for _, m := range pt.Members {
+			t.Members = append(t.Members, Member{Name: b.src.Text(m.Name), Number: m.Number})
+		}
 	}
-	for _, rg := range pt.Ranges {
-		t.Ranges = append(t.Ranges, Range{Min: rg.Min, Max: rg.Max})
+	if len(pt.Ranges) > 0 {
+		t.Ranges = make([]Range, 0, len(pt.Ranges))
+		for _, rg := range pt.Ranges {
+			t.Ranges = append(t.Ranges, Range{Min: rg.Min, Max: rg.Max})
+		}
 	}
-	for _, sz := range pt.Sizes {
-		t.Sizes = append(t.Sizes, Range{Min: sz.Min, Max: sz.Max})
+	if len(pt.Sizes) > 0 {
+		t.Sizes = make([]Range, 0, len(pt.Sizes))
+		for _, sz := range pt.Sizes {
+			t.Sizes = append(t.Sizes, Range{Min: sz.Min, Max: sz.Max})
+		}
 	}
 
 	if pt.Base != parse.BaseNamed {

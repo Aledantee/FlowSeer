@@ -555,7 +555,26 @@ func (l *lexer) emit(start int, t Token) bool {
 	return true
 }
 
+// raise records a condition at offset, up to the diagnostic cap.
+//
+// The lexer cannot stop scanning the way the framer and the parser stop
+// at their limits — its contract is that every byte slice yields a token
+// stream — so the cap only closes the diagnostic list. A file that
+// reaches it gets one [diag.ErrCodeLimitExceeded] saying so and nothing
+// after, which is the same shape the other two passes produce.
 func (l *lexer) raise(offset int, code errs.Code, args ...diag.Arg) {
+	if len(l.out.Diagnostics) >= diag.MaxDiagnostics {
+		if len(l.out.Diagnostics) == diag.MaxDiagnostics {
+			l.out.Diagnostics = append(l.out.Diagnostics, diag.Raise(
+				diag.Position{File: l.file, Offset: offset},
+				diag.ErrCodeLimitExceeded,
+				diag.ArgString("diagnostics"), diag.ArgInt(diag.MaxDiagnostics),
+			))
+		}
+
+		return
+	}
+
 	pos := diag.Position{File: l.file, Offset: offset}
 	l.out.Diagnostics = append(l.out.Diagnostics, diag.Raise(pos, code, args...))
 }

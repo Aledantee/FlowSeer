@@ -1,7 +1,9 @@
 package smi
 
 import (
+	"bytes"
 	"cmp"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -20,6 +22,13 @@ import (
 var moduleFileExtensions = []string{"", ".mib", ".txt", ".MIB", ".my"}
 
 // findModule returns the path a module's source is at.
+//
+// A module name is text lifted out of a vendor MIB nobody here wrote,
+// and adopting vendor MIBs unedited is the whole point of this loader,
+// so the name is treated as hostile input. filepath.Join cleans ".."
+// away rather than refusing it, which would let a name like
+// "../../etc/passwd" resolve outside the search path it was joined to;
+// the containment check below is what actually holds the search root.
 func findModule(name string, searchPaths []string) (string, bool) {
 	if name == "" {
 		return "", false
@@ -28,6 +37,9 @@ func findModule(name string, searchPaths []string) (string, bool) {
 	for _, dir := range searchPaths {
 		for _, ext := range moduleFileExtensions {
 			path := filepath.Join(dir, name+ext)
+			if !within(dir, path) {
+				continue
+			}
 			if info, err := os.Stat(path); err == nil && !info.IsDir() {
 				return path, true
 			}
@@ -35,6 +47,18 @@ func findModule(name string, searchPaths []string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// within reports whether path stays under dir. A path that cannot be
+// expressed relative to dir, or that has to climb out of it to get
+// there, is not under it.
+func within(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // source is one file read, framed and parsed.
@@ -78,6 +102,15 @@ func imports(fm frame.Module, src *lex.Result) []rawImport {
 			case t.Kind == lex.KindKeyword && t.Keyword == lex.KeywordFrom:
 				i++
 				if i >= len(fr.Tokens) {
+					break
+				}
+				// Only a name can be a module name. What follows FROM in
+				// a malformed IMPORTS list can be a quoted string or
+				// punctuation, and that text goes on to be joined with a
+				// search path, so it must not be taken on trust.
+				if k := fr.Tokens[i].Kind; k != lex.KindIdentifier && k != lex.KindTypeReference {
+					pending = nil
+
 					break
 				}
 				out = append(out, rawImport{
@@ -224,7 +257,7 @@ func readWave(wave []string, workers int) ([]source, error) {
 		go func() {
 			defer wg.Done()
 			for i := range jobs {
-				results[i], failures[i] = readOne(order[i])
+				results[i], failures[i] = readGuarded(order[i])
 			}
 		}()
 	}
@@ -257,11 +290,30 @@ func readWave(wave []string, workers int) ([]source, error) {
 	return out, nil
 }
 
+// readGuarded reads one file and turns a panic into that file's failure.
+//
+// The parser re-panics anything that is not its own bail-out sentinel,
+// which is the right call there: swallowing it would hide a parser bug.
+// But this is a goroutine, and a panic here takes the process down
+// without naming the file that caused it. The property a load owes its
+// caller is that a malformed declaration costs that declaration, so the
+// panic is attributed to its file and reported as a read failure.
+func readGuarded(path string) (s source, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			s = source{}
+			err = errs.Msgf("smi: panic reading %s: %v", path, rec)
+		}
+	}()
+
+	return readOne(path)
+}
+
 // readOne reads, frames and parses one file. Nothing here is shared with
 // another worker: the framer and the parser own everything they touch,
 // and the bytes are read into a slice this call allocated.
 func readOne(path string) (source, error) {
-	src, err := os.ReadFile(path)
+	src, err := readSource(path)
 	if err != nil {
 		return source{}, errs.Wrapf(err, "smi: reading %s", path)
 	}
@@ -269,6 +321,39 @@ func readOne(path string) (source, error) {
 	f := frame.Cut(src, frame.Options{File: path})
 
 	return source{path: path, frames: f, parsed: parse.Parse(f)}, nil
+}
+
+// readSource reads path, stopping one byte past the framer's source
+// limit.
+//
+// Reading the whole file first would put it all in memory before
+// anything looked at its size, so a file far past the limit — or a named
+// pipe, which has no size to look at — costs the memory whatever the
+// limit says. Stopping one byte over leaves the framer holding a slice
+// that is still over the bound, so it raises the same limit diagnostic
+// it always did and no fixture moves.
+func readSource(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	const limit = int64(frame.MaxSourceBytes) + 1
+
+	// Size the buffer from the file when it has a size worth trusting,
+	// so the common case still reads into one allocation.
+	hint := int64(0)
+	if info, err := f.Stat(); err == nil && info.Mode().IsRegular() {
+		hint = min(info.Size(), limit)
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, hint))
+	if _, err := buf.ReadFrom(io.LimitReader(f, limit)); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 // canonicalPath returns the path two spellings of the same file agree

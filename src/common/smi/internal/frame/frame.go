@@ -62,8 +62,10 @@ const (
 	// MaxDepth bounds bracket nesting in any recursive construct.
 	MaxDepth = 64
 
-	// MaxDiagnostics bounds what one file may report.
-	MaxDiagnostics = 10000
+	// MaxDiagnostics bounds what one file may report. The lexer honors
+	// the same cap and sits below this package, so the number lives in
+	// package diag and this is the framer's spelling of it.
+	MaxDiagnostics = diag.MaxDiagnostics
 )
 
 // Span is a half-open byte range in the source it was cut from.

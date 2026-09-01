@@ -10,7 +10,7 @@
 //
 // Invoke from the repository root:
 //
-//	go run ./src/common/snmp/cmd/mibgen [-config <yaml>] [-out <dir>] [-pkg-prefix <importpath>]
+//	go run ./src/common/snmp/cmd/mibgen [-config <yaml>] [-out <dir>] [-pkg-prefix <importpath>] [-baseline <yaml>]
 //	go run ./src/common/snmp/cmd/mibgen -verify   # load-only; no codegen
 //	go run ./src/common/snmp/cmd/mibgen -check    # exit non-zero if regenerated output drifts
 //	go run ./src/common/snmp/cmd/mibgen -update   # regenerate committed bindings

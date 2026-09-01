@@ -518,3 +518,22 @@ func TestUnterminatedCurlyQuotedStringIsFatal(t *testing.T) {
 		t.Errorf("content: got %q, want %q", got, want)
 	}
 }
+
+// The framer and the parser both stop at the diagnostic cap, and the
+// lexer honors the same one. It cannot stop scanning the way they stop —
+// its contract is that every byte slice yields a token stream — so the
+// cap closes the diagnostic list and the tokens keep coming.
+func TestDiagnosticsAreCapped(t *testing.T) {
+	// An identifier ending in a hyphen is one diagnostic each.
+	src := []byte(strings.Repeat("bad- ", diag.MaxDiagnostics+500))
+
+	r := Lex(src, Options{File: "test.mib"})
+
+	if got, want := len(r.Diagnostics), diag.MaxDiagnostics+1; got != want {
+		t.Fatalf("got %d diagnostics, want %d: the cap plus the one that reports it", got, want)
+	}
+	if got := r.Diagnostics[len(r.Diagnostics)-1].Code(); got != diag.ErrCodeLimitExceeded {
+		t.Errorf("got %v, want %v as the last diagnostic", got, diag.ErrCodeLimitExceeded)
+	}
+	wantTiling(t, src, r)
+}

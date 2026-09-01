@@ -18,6 +18,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/smi/internal/catalog"
 )
 
+// MaxDiagnostics bounds what one file may report.
+//
+// It lives here rather than beside the framer's other limits because
+// every pass that raises diagnostics has to honor the same cap, and the
+// lexer sits below the framer in the import graph. This package is the
+// one they all already depend on.
+const MaxDiagnostics = 10000
+
 // Position is where in a source file something was found: the file's name
 // as the caller gave it, and a byte offset from the start of that file.
 //

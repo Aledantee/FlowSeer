@@ -399,3 +399,36 @@ func TestNoPanicEscapesTheFrame(t *testing.T) {
 		}
 	}
 }
+
+// TestGradeAtTheDiagnosticLimitDoesNotEscape pins the recover the grade
+// pass needs. Grading runs after the declaration loop, so a limit it
+// reaches unwinds with no frame boundary between it and Parse's caller.
+func TestGradeAtTheDiagnosticLimitDoesNotEscape(t *testing.T) {
+	// An SMIv2 module whose ACCESS clause says an SMIv1-only word: the
+	// declaration parses, and only the grade pass has anything to say
+	// about it.
+	src := wrap(`IMPORTS OBJECT-TYPE FROM SNMPv2-SMI;
+o OBJECT-TYPE SYNTAX INTEGER ACCESS write-only STATUS current DESCRIPTION "d" ::= { test 1 }`)
+
+	f := frame.Cut([]byte(src), frame.Options{File: testFile})
+
+	// Seed the file at the cap, which the parser clones as its starting
+	// diagnostic list, so the grade pass is the call that trips it.
+	for range diag.MaxDiagnostics {
+		f.Diagnostics = append(f.Diagnostics, diag.Raise(
+			diag.Position{File: testFile},
+			diag.ErrCodeLimitExceeded,
+			diag.ArgString("diagnostics"), diag.ArgInt(diag.MaxDiagnostics),
+		))
+	}
+
+	r := Parse(f)
+
+	if r == nil {
+		t.Fatal("Parse returned nothing")
+	}
+	last := r.Diagnostics[len(r.Diagnostics)-1]
+	if last.Code() != diag.ErrCodeLimitExceeded {
+		t.Errorf("got %v, want the limit diagnostic that ended the grade pass", last.Code())
+	}
+}
