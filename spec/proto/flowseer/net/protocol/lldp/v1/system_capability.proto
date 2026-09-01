@@ -1,0 +1,28 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+// A function a system announces in its LLDP system capabilities. Integers are
+// the capability bit positions assigned by IEEE Std 802.1AB
+// (https://standards.ieee.org/ieee/802.1AB/7268/), mirrored by the LLDP-MIB
+// textual convention LldpSystemCapabilitiesMap. Unnamed positions remain
+// valid capabilities. Zero is a real capability, so a capability list is
+// empty rather than zero-filled when nothing was announced.
+enum SystemCapability {
+  // A capability outside the assigned positions.
+  SYSTEM_CAPABILITY_OTHER = 0;
+  // Repeats frames at the physical layer.
+  SYSTEM_CAPABILITY_REPEATER = 1;
+  // Forwards frames as an IEEE 802.1D or 802.1Q bridge.
+  SYSTEM_CAPABILITY_BRIDGE = 2;
+  // Serves an IEEE 802.11 wireless LAN as an access point.
+  SYSTEM_CAPABILITY_WLAN_ACCESS_POINT = 3;
+  // Forwards packets between IP subnets.
+  SYSTEM_CAPABILITY_ROUTER = 4;
+  // Terminates voice calls as a telephone.
+  SYSTEM_CAPABILITY_TELEPHONE = 5;
+  // Operates as a DOCSIS cable device, RFC 2669 and RFC 2670.
+  SYSTEM_CAPABILITY_DOCSIS_CABLE_DEVICE = 6;
+  // Acts as an end station and forwards nothing.
+  SYSTEM_CAPABILITY_STATION_ONLY = 7;
+}

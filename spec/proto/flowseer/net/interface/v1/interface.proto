@@ -1,0 +1,82 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/interface/v1/admin_status.proto";
+import "flowseer/net/interface/v1/interface_counters.proto";
+import "flowseer/net/interface/v1/lag_interface.proto";
+import "flowseer/net/interface/v1/loopback_interface.proto";
+import "flowseer/net/interface/v1/management_interface.proto";
+import "flowseer/net/interface/v1/oper_status.proto";
+import "flowseer/net/interface/v1/other_interface.proto";
+import "flowseer/net/interface/v1/physical_interface.proto";
+import "flowseer/net/interface/v1/subinterface.proto";
+import "flowseer/net/interface/v1/tunnel_interface.proto";
+import "flowseer/net/interface/v1/vlan_interface.proto";
+import "flowseer/net/ip/v1/ip_facet.proto";
+import option "buf/validate/validate.proto";
+
+// One interface of a device, in the device's own naming. Attributes that
+// depend on what the interface is live in the kind arm; the IP facet applies
+// to every kind.
+message Interface {
+  // The device-local interface name, as the device spells it. Must be
+  // present and non-empty.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  // The SNMP ifIndex of the interface. Absent means the source exposes no
+  // index or did not report one; the index is not stable across restarts.
+  uint32 if_index = 2;
+  // The administratively requested state. Absent means unreported. Unknown
+  // non-zero values stay valid so a device reporting a state this version
+  // does not name passes validation.
+  AdminStatus admin_status = 3;
+  // The reported operational state. Absent means unreported. Unknown
+  // non-zero values stay valid so a device reporting a state this version
+  // does not name passes validation.
+  OperStatus oper_status = 4;
+  // The largest payload in octets the interface transmits or receives.
+  // Absent means unreported; an explicit zero is the device's own report.
+  uint32 mtu = 5;
+  // The interface's own hardware address. Absent means the interface has
+  // none or the source did not report one.
+  flowseer.net.addr.v1.EuiAddress mac = 6;
+  // The interface description configured on the device. Absent means
+  // unreported; an empty string means the device reports an empty
+  // description.
+  string description = 7;
+  // Cumulative traffic counters. Absent means the source reported no
+  // counters at all; individual counters carry their own presence.
+  InterfaceCounters counters = 8;
+
+  // What the interface is. Exactly one arm is set, and kind-specific
+  // attributes live inside it.
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    // A port backed by physical hardware.
+    PhysicalInterface physical = 10;
+    // A link aggregation.
+    LagInterface lag = 11;
+    // A switched virtual interface routing one VLAN.
+    VlanInterface vlan = 12;
+    // A logical interface carved out of another interface.
+    Subinterface sub = 13;
+    // A device-local loopback.
+    LoopbackInterface loopback = 14;
+    // An encapsulated transport interface.
+    TunnelInterface tunnel = 15;
+    // An out-of-band management interface.
+    ManagementInterface management = 16;
+    // An interface whose type has no dedicated arm.
+    OtherInterface other = 17;
+  }
+
+  // IP attributes of the interface. Presence means the interface is routed;
+  // absence means it is not routed or the source reported no IP
+  // information.
+  flowseer.net.ip.v1.IpFacet ip = 20;
+}

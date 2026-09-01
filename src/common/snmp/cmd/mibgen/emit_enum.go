@@ -41,7 +41,7 @@ func emitEnums(f *jen.File, ec *emitCtx, mod *smi.Module, nodes []*smi.Node) {
 	// the module declares. Well-known TCs are excluded because they
 	// have a dedicated decoder path that decides their Go shape.
 	for _, t := range mod.Types {
-		if !t.Enumerated() && !namedBits(t) {
+		if !t.Enumerated() {
 			continue
 		}
 		if _, wellKnown := wellKnownTC(t.Name); wellKnown {

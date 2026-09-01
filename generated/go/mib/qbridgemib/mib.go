@@ -491,10 +491,30 @@ var Dot1qFdbDynamicCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 
 // Dot1qFdbTableRow is one row of dot1qFdbTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qFdbTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qFdbTableRow struct {
 	Index                snmp.OID
 	Dot1qFdbDynamicCount uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qFdbTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qFdbDynamicCount.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
 }
 
 // Dot1qFdbTableWalker is a table-aware walker over dot1qFdbTable.
@@ -520,7 +540,8 @@ type Dot1qFdbTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -570,6 +591,7 @@ func (tw *Dot1qFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qFdbTableRow] {
 			case 2:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qFdbDynamicCount = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -580,6 +602,7 @@ func (tw *Dot1qFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qFdbTableRow] {
 							derr = dErr
 						} else {
 							row.Dot1qFdbDynamicCount = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -625,17 +648,24 @@ var Dot1qFdbTable dot1qFdbTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qFdbTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qFdbTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qFdbTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qFdbTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 1))
 
 	return &Dot1qFdbTableWalker{
 		byCol: byCol,
@@ -682,11 +712,33 @@ var Dot1qTpFdbStatus = snmp.NewColumn[Dot1qTpFdbStatusValue](snmp.MustOID(1, 3, 
 
 // Dot1qTpFdbTableRow is one row of dot1qTpFdbTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qTpFdbTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qTpFdbTableRow struct {
 	Index            snmp.OID
 	Dot1qTpFdbPort   int32
 	Dot1qTpFdbStatus Dot1qTpFdbStatusValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qTpFdbTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qTpFdbPort.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qTpFdbStatus.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // Dot1qTpFdbTableWalker is a table-aware walker over dot1qTpFdbTable.
@@ -712,7 +764,8 @@ type Dot1qTpFdbTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -762,6 +815,7 @@ func (tw *Dot1qTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpFdbTableRow] 
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qTpFdbPort = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -772,12 +826,14 @@ func (tw *Dot1qTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpFdbTableRow] 
 							derr = dErr
 						} else {
 							row.Dot1qTpFdbPort = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qTpFdbStatus = Dot1qTpFdbStatusValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -788,6 +844,7 @@ func (tw *Dot1qTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpFdbTableRow] 
 							derr = dErr
 						} else {
 							row.Dot1qTpFdbStatus = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -833,17 +890,24 @@ var Dot1qTpFdbTable dot1qTpFdbTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qTpFdbTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qTpFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qTpFdbTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qTpFdbTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qTpFdbTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2))
 
 	return &Dot1qTpFdbTableWalker{
 		byCol: byCol,
@@ -870,11 +934,33 @@ var Dot1qTpGroupLearnt = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 1
 
 // Dot1qTpGroupTableRow is one row of dot1qTpGroupTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qTpGroupTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qTpGroupTableRow struct {
 	Index                   snmp.OID
 	Dot1qTpGroupEgressPorts []byte
 	Dot1qTpGroupLearnt      []byte
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qTpGroupTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qTpGroupEgressPorts.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qTpGroupLearnt.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // Dot1qTpGroupTableWalker is a table-aware walker over dot1qTpGroupTable.
@@ -900,7 +986,8 @@ type Dot1qTpGroupTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -957,6 +1044,7 @@ func (tw *Dot1qTpGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpGroupTableR
 						derr = dErr
 					} else {
 						row.Dot1qTpGroupEgressPorts = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 3:
@@ -969,6 +1057,7 @@ func (tw *Dot1qTpGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpGroupTableR
 						derr = dErr
 					} else {
 						row.Dot1qTpGroupLearnt = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			}
@@ -1013,17 +1102,24 @@ var Dot1qTpGroupTable dot1qTpGroupTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qTpGroupTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qTpGroupTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qTpGroupTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qTpGroupTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qTpGroupTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3))
 
 	return &Dot1qTpGroupTableWalker{
 		byCol: byCol,
@@ -1073,12 +1169,36 @@ var Dot1qForwardAllForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6,
 
 // Dot1qForwardAllTableRow is one row of dot1qForwardAllTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qForwardAllTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qForwardAllTableRow struct {
 	Index                         snmp.OID
 	Dot1qForwardAllPorts          []byte
 	Dot1qForwardAllStaticPorts    []byte
 	Dot1qForwardAllForbiddenPorts []byte
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qForwardAllTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qForwardAllPorts.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qForwardAllStaticPorts.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qForwardAllForbiddenPorts.Key():
+		return r.observed[0]&(1<<2) != 0
+	}
+
+	return false
 }
 
 // Dot1qForwardAllTableWalker is a table-aware walker over dot1qForwardAllTable.
@@ -1104,7 +1224,8 @@ type Dot1qForwardAllTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1161,6 +1282,7 @@ func (tw *Dot1qForwardAllTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qForwardAll
 						derr = dErr
 					} else {
 						row.Dot1qForwardAllPorts = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 2:
@@ -1173,6 +1295,7 @@ func (tw *Dot1qForwardAllTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qForwardAll
 						derr = dErr
 					} else {
 						row.Dot1qForwardAllStaticPorts = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -1185,6 +1308,7 @@ func (tw *Dot1qForwardAllTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qForwardAll
 						derr = dErr
 					} else {
 						row.Dot1qForwardAllForbiddenPorts = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			}
@@ -1229,17 +1353,24 @@ var Dot1qForwardAllTable dot1qForwardAllTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qForwardAllTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qForwardAllTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qForwardAllTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qForwardAllTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qForwardAllTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4))
 
 	return &Dot1qForwardAllTableWalker{
 		byCol: byCol,
@@ -1289,12 +1420,36 @@ var Dot1qForwardUnregisteredForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID
 
 // Dot1qForwardUnregisteredTableRow is one row of dot1qForwardUnregisteredTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qForwardUnregisteredTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qForwardUnregisteredTableRow struct {
 	Index                                  snmp.OID
 	Dot1qForwardUnregisteredPorts          []byte
 	Dot1qForwardUnregisteredStaticPorts    []byte
 	Dot1qForwardUnregisteredForbiddenPorts []byte
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qForwardUnregisteredTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qForwardUnregisteredPorts.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qForwardUnregisteredStaticPorts.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qForwardUnregisteredForbiddenPorts.Key():
+		return r.observed[0]&(1<<2) != 0
+	}
+
+	return false
 }
 
 // Dot1qForwardUnregisteredTableWalker is a table-aware walker over dot1qForwardUnregisteredTable.
@@ -1320,7 +1475,8 @@ type Dot1qForwardUnregisteredTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1377,6 +1533,7 @@ func (tw *Dot1qForwardUnregisteredTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qF
 						derr = dErr
 					} else {
 						row.Dot1qForwardUnregisteredPorts = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 2:
@@ -1389,6 +1546,7 @@ func (tw *Dot1qForwardUnregisteredTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qF
 						derr = dErr
 					} else {
 						row.Dot1qForwardUnregisteredStaticPorts = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -1401,6 +1559,7 @@ func (tw *Dot1qForwardUnregisteredTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qF
 						derr = dErr
 					} else {
 						row.Dot1qForwardUnregisteredForbiddenPorts = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			}
@@ -1445,17 +1604,24 @@ var Dot1qForwardUnregisteredTable dot1qForwardUnregisteredTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qForwardUnregisteredTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qForwardUnregisteredTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qForwardUnregisteredTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qForwardUnregisteredTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qForwardUnregisteredTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5))
 
 	return &Dot1qForwardUnregisteredTableWalker{
 		byCol: byCol,
@@ -1500,11 +1666,33 @@ var Dot1qStaticUnicastStatus = snmp.NewColumn[Dot1qStaticUnicastStatusValue](snm
 
 // Dot1qStaticUnicastTableRow is one row of dot1qStaticUnicastTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qStaticUnicastTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qStaticUnicastTableRow struct {
 	Index                           snmp.OID
 	Dot1qStaticUnicastAllowedToGoTo []byte
 	Dot1qStaticUnicastStatus        Dot1qStaticUnicastStatusValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qStaticUnicastTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qStaticUnicastAllowedToGoTo.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qStaticUnicastStatus.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // Dot1qStaticUnicastTableWalker is a table-aware walker over dot1qStaticUnicastTable.
@@ -1530,7 +1718,8 @@ type Dot1qStaticUnicastTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1587,11 +1776,13 @@ func (tw *Dot1qStaticUnicastTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qStaticU
 						derr = dErr
 					} else {
 						row.Dot1qStaticUnicastAllowedToGoTo = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qStaticUnicastStatus = Dot1qStaticUnicastStatusValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1602,6 +1793,7 @@ func (tw *Dot1qStaticUnicastTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qStaticU
 							derr = dErr
 						} else {
 							row.Dot1qStaticUnicastStatus = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -1647,17 +1839,24 @@ var Dot1qStaticUnicastTable dot1qStaticUnicastTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qStaticUnicastTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qStaticUnicastTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qStaticUnicastTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qStaticUnicastTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qStaticUnicastTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1))
 
 	return &Dot1qStaticUnicastTableWalker{
 		byCol: byCol,
@@ -1713,12 +1912,36 @@ var Dot1qStaticMulticastStatus = snmp.NewColumn[Dot1qStaticMulticastStatusValue]
 
 // Dot1qStaticMulticastTableRow is one row of dot1qStaticMulticastTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qStaticMulticastTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qStaticMulticastTableRow struct {
 	Index                                    snmp.OID
 	Dot1qStaticMulticastStaticEgressPorts    []byte
 	Dot1qStaticMulticastForbiddenEgressPorts []byte
 	Dot1qStaticMulticastStatus               Dot1qStaticMulticastStatusValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qStaticMulticastTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qStaticMulticastStaticEgressPorts.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qStaticMulticastForbiddenEgressPorts.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qStaticMulticastStatus.Key():
+		return r.observed[0]&(1<<2) != 0
+	}
+
+	return false
 }
 
 // Dot1qStaticMulticastTableWalker is a table-aware walker over dot1qStaticMulticastTable.
@@ -1744,7 +1967,8 @@ type Dot1qStaticMulticastTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1801,6 +2025,7 @@ func (tw *Dot1qStaticMulticastTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qStati
 						derr = dErr
 					} else {
 						row.Dot1qStaticMulticastStaticEgressPorts = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 4:
@@ -1813,11 +2038,13 @@ func (tw *Dot1qStaticMulticastTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qStati
 						derr = dErr
 					} else {
 						row.Dot1qStaticMulticastForbiddenEgressPorts = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qStaticMulticastStatus = Dot1qStaticMulticastStatusValue(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1828,6 +2055,7 @@ func (tw *Dot1qStaticMulticastTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qStati
 							derr = dErr
 						} else {
 							row.Dot1qStaticMulticastStatus = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
@@ -1873,17 +2101,24 @@ var Dot1qStaticMulticastTable dot1qStaticMulticastTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qStaticMulticastTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qStaticMulticastTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qStaticMulticastTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qStaticMulticastTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qStaticMulticastTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2))
 
 	return &Dot1qStaticMulticastTableWalker{
 		byCol: byCol,
@@ -1944,7 +2179,9 @@ var Dot1qVlanCreationTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1
 
 // Dot1qVlanCurrentTableRow is one row of dot1qVlanCurrentTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qVlanCurrentTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qVlanCurrentTableRow struct {
 	Index                         snmp.OID
 	Dot1qVlanFdbId                uint32
@@ -1952,6 +2189,32 @@ type Dot1qVlanCurrentTableRow struct {
 	Dot1qVlanCurrentUntaggedPorts []byte
 	Dot1qVlanStatus               Dot1qVlanStatusValue
 	Dot1qVlanCreationTime         uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qVlanCurrentTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qVlanFdbId.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qVlanCurrentEgressPorts.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qVlanCurrentUntaggedPorts.Key():
+		return r.observed[0]&(1<<2) != 0
+	case Dot1qVlanStatus.Key():
+		return r.observed[0]&(1<<3) != 0
+	case Dot1qVlanCreationTime.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // Dot1qVlanCurrentTableWalker is a table-aware walker over dot1qVlanCurrentTable.
@@ -1977,7 +2240,8 @@ type Dot1qVlanCurrentTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2027,6 +2291,7 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 			case 3:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Dot1qVlanFdbId = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2037,6 +2302,7 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 							derr = dErr
 						} else {
 							row.Dot1qVlanFdbId = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -2050,6 +2316,7 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 						derr = dErr
 					} else {
 						row.Dot1qVlanCurrentEgressPorts = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 5:
@@ -2062,11 +2329,13 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 						derr = dErr
 					} else {
 						row.Dot1qVlanCurrentUntaggedPorts = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qVlanStatus = Dot1qVlanStatusValue(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2077,12 +2346,14 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 							derr = dErr
 						} else {
 							row.Dot1qVlanStatus = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.Dot1qVlanCreationTime = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2093,6 +2364,7 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 							derr = dErr
 						} else {
 							row.Dot1qVlanCreationTime = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -2138,17 +2410,24 @@ var Dot1qVlanCurrentTable dot1qVlanCurrentTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qVlanCurrentTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qVlanCurrentTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qVlanCurrentTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qVlanCurrentTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qVlanCurrentTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2))
 
 	return &Dot1qVlanCurrentTableWalker{
 		byCol: byCol,
@@ -2210,7 +2489,9 @@ var Dot1qVlanStaticRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3,
 
 // Dot1qVlanStaticTableRow is one row of dot1qVlanStaticTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qVlanStaticTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qVlanStaticTableRow struct {
 	Index                         snmp.OID
 	Dot1qVlanStaticName           []byte
@@ -2218,6 +2499,32 @@ type Dot1qVlanStaticTableRow struct {
 	Dot1qVlanForbiddenEgressPorts []byte
 	Dot1qVlanStaticUntaggedPorts  []byte
 	Dot1qVlanStaticRowStatus      snmp.RowStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qVlanStaticTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qVlanStaticName.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qVlanStaticEgressPorts.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qVlanForbiddenEgressPorts.Key():
+		return r.observed[0]&(1<<2) != 0
+	case Dot1qVlanStaticUntaggedPorts.Key():
+		return r.observed[0]&(1<<3) != 0
+	case Dot1qVlanStaticRowStatus.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // Dot1qVlanStaticTableWalker is a table-aware walker over dot1qVlanStaticTable.
@@ -2243,7 +2550,8 @@ type Dot1qVlanStaticTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2300,6 +2608,7 @@ func (tw *Dot1qVlanStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanStatic
 						derr = dErr
 					} else {
 						row.Dot1qVlanStaticName = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 2:
@@ -2312,6 +2621,7 @@ func (tw *Dot1qVlanStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanStatic
 						derr = dErr
 					} else {
 						row.Dot1qVlanStaticEgressPorts = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -2324,6 +2634,7 @@ func (tw *Dot1qVlanStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanStatic
 						derr = dErr
 					} else {
 						row.Dot1qVlanForbiddenEgressPorts = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
@@ -2336,6 +2647,7 @@ func (tw *Dot1qVlanStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanStatic
 						derr = dErr
 					} else {
 						row.Dot1qVlanStaticUntaggedPorts = dv
+						row.observed[0] |= 1 << 3
 					}
 				}
 			case 5:
@@ -2348,6 +2660,7 @@ func (tw *Dot1qVlanStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanStatic
 						derr = dErr
 					} else {
 						row.Dot1qVlanStaticRowStatus = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			}
@@ -2392,17 +2705,24 @@ var Dot1qVlanStaticTable dot1qVlanStaticTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qVlanStaticTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qVlanStaticTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qVlanStaticTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qVlanStaticTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qVlanStaticTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3))
 
 	return &Dot1qVlanStaticTableWalker{
 		byCol: byCol,
@@ -2493,7 +2813,9 @@ var Dot1qPortRestrictedVlanRegistration = snmp.NewColumn[bool](snmp.MustOID(1, 3
 
 // Dot1qPortVlanTableRow is one row of dot1qPortVlanTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qPortVlanTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qPortVlanTableRow struct {
 	Index                               snmp.OID
 	Dot1qPvid                           uint32
@@ -2503,6 +2825,36 @@ type Dot1qPortVlanTableRow struct {
 	Dot1qPortGvrpFailedRegistrations    uint32
 	Dot1qPortGvrpLastPduOrigin          net.HardwareAddr
 	Dot1qPortRestrictedVlanRegistration bool
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qPortVlanTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qPvid.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qPortAcceptableFrameTypes.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qPortIngressFiltering.Key():
+		return r.observed[0]&(1<<2) != 0
+	case Dot1qPortGvrpStatus.Key():
+		return r.observed[0]&(1<<3) != 0
+	case Dot1qPortGvrpFailedRegistrations.Key():
+		return r.observed[0]&(1<<4) != 0
+	case Dot1qPortGvrpLastPduOrigin.Key():
+		return r.observed[0]&(1<<5) != 0
+	case Dot1qPortRestrictedVlanRegistration.Key():
+		return r.observed[0]&(1<<6) != 0
+	}
+
+	return false
 }
 
 // Dot1qPortVlanTableWalker is a table-aware walker over dot1qPortVlanTable.
@@ -2528,7 +2880,8 @@ type Dot1qPortVlanTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2578,6 +2931,7 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 			case 1:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.Dot1qPvid = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2588,12 +2942,14 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 							derr = dErr
 						} else {
 							row.Dot1qPvid = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qPortAcceptableFrameTypes = Dot1qPortAcceptableFrameTypesValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2604,6 +2960,7 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 							derr = dErr
 						} else {
 							row.Dot1qPortAcceptableFrameTypes = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -2617,11 +2974,13 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 						derr = dErr
 					} else {
 						row.Dot1qPortIngressFiltering = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qPortGvrpStatus = pbridgemib.EnabledStatus(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2632,12 +2991,14 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 							derr = dErr
 						} else {
 							row.Dot1qPortGvrpStatus = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qPortGvrpFailedRegistrations = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2648,6 +3009,7 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 							derr = dErr
 						} else {
 							row.Dot1qPortGvrpFailedRegistrations = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -2661,6 +3023,7 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 						derr = dErr
 					} else {
 						row.Dot1qPortGvrpLastPduOrigin = dv
+						row.observed[0] |= 1 << 5
 					}
 				}
 			case 7:
@@ -2673,6 +3036,7 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 						derr = dErr
 					} else {
 						row.Dot1qPortRestrictedVlanRegistration = dv
+						row.observed[0] |= 1 << 6
 					}
 				}
 			}
@@ -2717,17 +3081,24 @@ var Dot1qPortVlanTable dot1qPortVlanTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qPortVlanTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qPortVlanTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVlanTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qPortVlanTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qPortVlanTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5))
 
 	return &Dot1qPortVlanTableWalker{
 		byCol: byCol,
@@ -2788,7 +3159,9 @@ var Dot1qTpVlanPortInOverflowDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3
 
 // Dot1qPortVlanStatisticsTableRow is one row of dot1qPortVlanStatisticsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qPortVlanStatisticsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qPortVlanStatisticsTableRow struct {
 	Index                             snmp.OID
 	Dot1qTpVlanPortInFrames           uint32
@@ -2797,6 +3170,34 @@ type Dot1qPortVlanStatisticsTableRow struct {
 	Dot1qTpVlanPortInOverflowFrames   uint32
 	Dot1qTpVlanPortOutOverflowFrames  uint32
 	Dot1qTpVlanPortInOverflowDiscards uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qPortVlanStatisticsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qTpVlanPortInFrames.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qTpVlanPortOutFrames.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qTpVlanPortInDiscards.Key():
+		return r.observed[0]&(1<<2) != 0
+	case Dot1qTpVlanPortInOverflowFrames.Key():
+		return r.observed[0]&(1<<3) != 0
+	case Dot1qTpVlanPortOutOverflowFrames.Key():
+		return r.observed[0]&(1<<4) != 0
+	case Dot1qTpVlanPortInOverflowDiscards.Key():
+		return r.observed[0]&(1<<5) != 0
+	}
+
+	return false
 }
 
 // Dot1qPortVlanStatisticsTableWalker is a table-aware walker over dot1qPortVlanStatisticsTable.
@@ -2822,7 +3223,8 @@ type Dot1qPortVlanStatisticsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2872,6 +3274,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 			case 1:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qTpVlanPortInFrames = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2882,12 +3285,14 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortInFrames = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qTpVlanPortOutFrames = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2898,12 +3303,14 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortOutFrames = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qTpVlanPortInDiscards = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2914,12 +3321,14 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortInDiscards = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qTpVlanPortInOverflowFrames = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2930,12 +3339,14 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortInOverflowFrames = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qTpVlanPortOutOverflowFrames = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2946,12 +3357,14 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortOutOverflowFrames = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.Dot1qTpVlanPortInOverflowDiscards = uint32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2962,6 +3375,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortInOverflowDiscards = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
@@ -3007,17 +3421,24 @@ var Dot1qPortVlanStatisticsTable dot1qPortVlanStatisticsTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qPortVlanStatisticsTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qPortVlanStatisticsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVlanStatisticsTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qPortVlanStatisticsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qPortVlanStatisticsTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6))
 
 	return &Dot1qPortVlanStatisticsTableWalker{
 		byCol: byCol,
@@ -3057,12 +3478,36 @@ var Dot1qTpVlanPortHCInDiscards = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1
 
 // Dot1qPortVlanHCStatisticsTableRow is one row of dot1qPortVlanHCStatisticsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qPortVlanHCStatisticsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qPortVlanHCStatisticsTableRow struct {
 	Index                       snmp.OID
 	Dot1qTpVlanPortHCInFrames   uint64
 	Dot1qTpVlanPortHCOutFrames  uint64
 	Dot1qTpVlanPortHCInDiscards uint64
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qPortVlanHCStatisticsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qTpVlanPortHCInFrames.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qTpVlanPortHCOutFrames.Key():
+		return r.observed[0]&(1<<1) != 0
+	case Dot1qTpVlanPortHCInDiscards.Key():
+		return r.observed[0]&(1<<2) != 0
+	}
+
+	return false
 }
 
 // Dot1qPortVlanHCStatisticsTableWalker is a table-aware walker over dot1qPortVlanHCStatisticsTable.
@@ -3088,7 +3533,8 @@ type Dot1qPortVlanHCStatisticsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -3138,6 +3584,7 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1q
 			case 1:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.Dot1qTpVlanPortHCInFrames = uint64(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3148,12 +3595,14 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1q
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortHCInFrames = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.Dot1qTpVlanPortHCOutFrames = uint64(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3164,12 +3613,14 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1q
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortHCOutFrames = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.Dot1qTpVlanPortHCInDiscards = uint64(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3180,6 +3631,7 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1q
 							derr = dErr
 						} else {
 							row.Dot1qTpVlanPortHCInDiscards = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
@@ -3225,17 +3677,24 @@ var Dot1qPortVlanHCStatisticsTable dot1qPortVlanHCStatisticsTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qPortVlanHCStatisticsTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qPortVlanHCStatisticsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVlanHCStatisticsTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qPortVlanHCStatisticsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qPortVlanHCStatisticsTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7))
 
 	return &Dot1qPortVlanHCStatisticsTableWalker{
 		byCol: byCol,
@@ -3266,11 +3725,33 @@ var Dot1qConstraintStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6,
 
 // Dot1qLearningConstraintsTableRow is one row of dot1qLearningConstraintsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1qLearningConstraintsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1qLearningConstraintsTableRow struct {
 	Index                 snmp.OID
 	Dot1qConstraintType   Dot1qConstraintTypeValue
 	Dot1qConstraintStatus snmp.RowStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1qLearningConstraintsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1qConstraintType.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1qConstraintStatus.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // Dot1qLearningConstraintsTableWalker is a table-aware walker over dot1qLearningConstraintsTable.
@@ -3296,7 +3777,8 @@ type Dot1qLearningConstraintsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -3346,6 +3828,7 @@ func (tw *Dot1qLearningConstraintsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qL
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1qConstraintType = Dot1qConstraintTypeValue(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3356,6 +3839,7 @@ func (tw *Dot1qLearningConstraintsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qL
 							derr = dErr
 						} else {
 							row.Dot1qConstraintType = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -3369,6 +3853,7 @@ func (tw *Dot1qLearningConstraintsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qL
 						derr = dErr
 					} else {
 						row.Dot1qConstraintStatus = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			}
@@ -3413,17 +3898,24 @@ var Dot1qLearningConstraintsTable dot1qLearningConstraintsTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1qLearningConstraintsTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1qLearningConstraintsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qLearningConstraintsTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1qLearningConstraintsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1qLearningConstraintsTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8))
 
 	return &Dot1qLearningConstraintsTableWalker{
 		byCol: byCol,
@@ -3447,11 +3939,33 @@ var Dot1vProtocolGroupRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1,
 
 // Dot1vProtocolGroupTableRow is one row of dot1vProtocolGroupTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1vProtocolGroupTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1vProtocolGroupTableRow struct {
 	Index                       snmp.OID
 	Dot1vProtocolGroupId        int32
 	Dot1vProtocolGroupRowStatus snmp.RowStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1vProtocolGroupTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1vProtocolGroupId.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1vProtocolGroupRowStatus.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // Dot1vProtocolGroupTableWalker is a table-aware walker over dot1vProtocolGroupTable.
@@ -3477,7 +3991,8 @@ type Dot1vProtocolGroupTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -3527,6 +4042,7 @@ func (tw *Dot1vProtocolGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtoco
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1vProtocolGroupId = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3537,6 +4053,7 @@ func (tw *Dot1vProtocolGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtoco
 							derr = dErr
 						} else {
 							row.Dot1vProtocolGroupId = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -3550,6 +4067,7 @@ func (tw *Dot1vProtocolGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtoco
 						derr = dErr
 					} else {
 						row.Dot1vProtocolGroupRowStatus = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			}
@@ -3594,17 +4112,24 @@ var Dot1vProtocolGroupTable dot1vProtocolGroupTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1vProtocolGroupTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1vProtocolGroupTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1vProtocolGroupTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1vProtocolGroupTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1vProtocolGroupTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1))
 
 	return &Dot1vProtocolGroupTableWalker{
 		byCol: byCol,
@@ -3627,11 +4152,33 @@ var Dot1vProtocolPortRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 
 
 // Dot1vProtocolPortTableRow is one row of dot1vProtocolPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// Dot1vProtocolPortTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type Dot1vProtocolPortTableRow struct {
 	Index                      snmp.OID
 	Dot1vProtocolPortGroupVid  int32
 	Dot1vProtocolPortRowStatus snmp.RowStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r Dot1vProtocolPortTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case Dot1vProtocolPortGroupVid.Key():
+		return r.observed[0]&(1<<0) != 0
+	case Dot1vProtocolPortRowStatus.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // Dot1vProtocolPortTableWalker is a table-aware walker over dot1vProtocolPortTable.
@@ -3657,7 +4204,8 @@ type Dot1vProtocolPortTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -3707,6 +4255,7 @@ func (tw *Dot1vProtocolPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtocol
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.Dot1vProtocolPortGroupVid = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3717,6 +4266,7 @@ func (tw *Dot1vProtocolPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtocol
 							derr = dErr
 						} else {
 							row.Dot1vProtocolPortGroupVid = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -3730,6 +4280,7 @@ func (tw *Dot1vProtocolPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtocol
 						derr = dErr
 					} else {
 						row.Dot1vProtocolPortRowStatus = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			}
@@ -3774,17 +4325,24 @@ var Dot1vProtocolPortTable dot1vProtocolPortTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of dot1vProtocolPortTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (dot1vProtocolPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1vProtocolPortTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &Dot1vProtocolPortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1vProtocolPortTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2))
 
 	return &Dot1vProtocolPortTableWalker{
 		byCol: byCol,

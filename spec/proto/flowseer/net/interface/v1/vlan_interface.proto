@@ -1,0 +1,17 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+import option "buf/validate/validate.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// A switched virtual interface: the routed presence of one VLAN on the
+// device.
+message VlanInterface {
+  // The VLAN the interface routes, as an IEEE 802.1Q VLAN identifier
+  // (https://standards.ieee.org/ieee/802.1Q/10323/). Must be present.
+  uint32 vlan_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true
+  ];
+}

@@ -1,0 +1,30 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+// A TLV carried in an LLDP data unit. Integers are the TLV type values
+// assigned by IEEE Std 802.1AB (https://standards.ieee.org/ieee/802.1AB/7268/);
+// unnamed values from 0 through 127 remain valid types.
+enum TlvType {
+  // The zero-length TLV that ends an LLDP data unit.
+  TLV_TYPE_END_OF_LLDPDU = 0;
+  // The mandatory chassis identifier.
+  TLV_TYPE_CHASSIS_ID = 1;
+  // The mandatory port identifier.
+  TLV_TYPE_PORT_ID = 2;
+  // The mandatory validity time of the announcement.
+  TLV_TYPE_TIME_TO_LIVE = 3;
+  // The port's description.
+  TLV_TYPE_PORT_DESCRIPTION = 4;
+  // The system's administratively assigned name.
+  TLV_TYPE_SYSTEM_NAME = 5;
+  // The system's textual description.
+  TLV_TYPE_SYSTEM_DESCRIPTION = 6;
+  // The capabilities the system supports and has enabled.
+  TLV_TYPE_SYSTEM_CAPABILITIES = 7;
+  // An address at which the system is managed.
+  TLV_TYPE_MANAGEMENT_ADDRESS = 8;
+  // A TLV defined by an organization rather than by IEEE Std 802.1AB, its
+  // payload prefixed with the organization's OUI.
+  TLV_TYPE_ORGANIZATIONALLY_SPECIFIC = 127;
+}

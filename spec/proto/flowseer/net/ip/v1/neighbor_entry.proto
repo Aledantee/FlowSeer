@@ -1,0 +1,46 @@
+edition = "2024";
+
+package flowseer.net.ip.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/ip/v1/neighbor_origin.proto";
+import "flowseer/net/ip/v1/neighbor_reachability.proto";
+import option "buf/validate/validate.proto";
+
+// A device neighbor-cache row keyed by interface name and IP address. It
+// represents both IPv4 ARP and IPv6 Neighbor Discovery without carrying a
+// device ref or observation provenance.
+message NeighborEntry {
+  option (buf.validate.message).cel = {
+    id: "neighbor_entry.router_flag_is_ipv6_only"
+    message: "the neighbor router flag is valid only for an IPv6 neighbor"
+    expression: "!has(this.is_router) || (has(this.ip) && has(this.ip.v6))"
+  };
+
+  // The device-reported interface name that scopes the mapping. Must be
+  // present and non-empty; omit the containing entry when it is unavailable.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  // The neighbor's network-layer address. Must be present; omit the
+  // containing entry when no neighbor address was observed.
+  flowseer.net.addr.v1.IpAddress ip = 2 [(buf.validate.field).required = true];
+  // The resolved link-layer address. Its width varies at the sources — RFC
+  // 4293 (https://www.rfc-editor.org/rfc/rfc4293.html) models it as an
+  // opaque PhysAddress, and IPv6 ND on non-Ethernet media reports an
+  // EUI-64 — so the tagged wrapper keeps the variant
+  // explicit instead of inferred from a byte count. Absent means it is not
+  // known, as is expected for incomplete or failed resolution.
+  flowseer.net.addr.v1.EuiAddress mac = 3;
+  // How the mapping was created. Absent means the source did not report an
+  // origin.
+  NeighborOrigin origin = 4;
+  // Whether the neighbor advertises itself as an IPv6 router. Absent means
+  // the source did not expose the router flag; false means it explicitly did
+  // not identify the neighbor as a router.
+  bool is_router = 5;
+  // Current reachability. Absent means the source did not report it.
+  NeighborReachability reachability = 6;
+}

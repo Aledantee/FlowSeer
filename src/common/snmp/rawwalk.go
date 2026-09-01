@@ -305,6 +305,28 @@ func (w *RawWalker) Close() error {
 	return nil
 }
 
+// ErrForeignColumn reports a column handed to a generated table's Walk
+// that is not a column of that table. Column sub-ids repeat across
+// tables, so accepting one would either decode the local column that
+// happens to share the foreign column's last sub-id or match nothing at
+// all and return an empty table; both are silent. A generated Walk
+// therefore refuses the walk outright and surfaces this through Err.
+var ErrForeignColumn = errs.Msg("column does not belong to this table")
+
+// ForeignColumnWalk builds the failed [RawWalker] a generated Walk
+// returns when it is handed a foreign column: no request reaches the
+// device, the iterator yields nothing, and Err wraps
+// [ErrForeignColumn] naming the table and the offending column.
+// Generated code calls this; there is no reason to call it by hand.
+func ForeignColumnWalk(ctx context.Context, table string, col AnyColumn) *RawWalker {
+	rw := NewRawWalker(ctx, 0)
+	rw.Fail(errs.From(ErrForeignColumn).
+		Attr("table", table).
+		Attr("column", col.OID().String()).
+		Msgf("%s.Walk: column %s is not a column of %s", table, col.OID(), table))
+	return rw
+}
+
 // RawWalkerFromWalker adapts a [Walker] into a [RawWalker]: each
 // (OID, VarBind) pair is yielded as a pre-decoded [RawVarBind] (VB set,
 // OID re-encoded to canonical wire octets), and the source walker's

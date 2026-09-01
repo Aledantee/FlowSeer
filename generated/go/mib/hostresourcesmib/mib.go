@@ -525,7 +525,9 @@ var HrStorageAllocationFailures = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 
 // HrStorageTableRow is one row of hrStorageTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrStorageTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrStorageTableRow struct {
 	Index                       snmp.OID
 	HrStorageIndex              int32
@@ -535,6 +537,36 @@ type HrStorageTableRow struct {
 	HrStorageSize               int32
 	HrStorageUsed               int32
 	HrStorageAllocationFailures uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrStorageTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrStorageIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrStorageType.Key():
+		return r.observed[0]&(1<<1) != 0
+	case HrStorageDescr.Key():
+		return r.observed[0]&(1<<2) != 0
+	case HrStorageAllocationUnits.Key():
+		return r.observed[0]&(1<<3) != 0
+	case HrStorageSize.Key():
+		return r.observed[0]&(1<<4) != 0
+	case HrStorageUsed.Key():
+		return r.observed[0]&(1<<5) != 0
+	case HrStorageAllocationFailures.Key():
+		return r.observed[0]&(1<<6) != 0
+	}
+
+	return false
 }
 
 // HrStorageTableWalker is a table-aware walker over hrStorageTable.
@@ -560,7 +592,8 @@ type HrStorageTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -610,6 +643,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrStorageIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -620,6 +654,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 							derr = dErr
 						} else {
 							row.HrStorageIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -633,6 +668,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 						derr = dErr
 					} else {
 						row.HrStorageType = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -645,11 +681,13 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 						derr = dErr
 					} else {
 						row.HrStorageDescr = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrStorageAllocationUnits = int32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -660,12 +698,14 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 							derr = dErr
 						} else {
 							row.HrStorageAllocationUnits = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrStorageSize = int32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -676,12 +716,14 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 							derr = dErr
 						} else {
 							row.HrStorageSize = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrStorageUsed = int32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -692,12 +734,14 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 							derr = dErr
 						} else {
 							row.HrStorageUsed = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.HrStorageAllocationFailures = uint32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -708,6 +752,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 							derr = dErr
 						} else {
 							row.HrStorageAllocationFailures = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
@@ -753,17 +798,24 @@ var HrStorageTable hrStorageTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrStorageTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrStorageTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrStorageTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrStorageTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3))
 
 	return &HrStorageTableWalker{
 		byCol: byCol,
@@ -839,7 +891,9 @@ var HrDeviceErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3
 
 // HrDeviceTableRow is one row of hrDeviceTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrDeviceTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrDeviceTableRow struct {
 	Index          snmp.OID
 	HrDeviceIndex  int32
@@ -848,6 +902,34 @@ type HrDeviceTableRow struct {
 	HrDeviceID     snmp.OID
 	HrDeviceStatus HrDeviceStatusValue
 	HrDeviceErrors uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrDeviceTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrDeviceIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrDeviceType.Key():
+		return r.observed[0]&(1<<1) != 0
+	case HrDeviceDescr.Key():
+		return r.observed[0]&(1<<2) != 0
+	case HrDeviceID.Key():
+		return r.observed[0]&(1<<3) != 0
+	case HrDeviceStatus.Key():
+		return r.observed[0]&(1<<4) != 0
+	case HrDeviceErrors.Key():
+		return r.observed[0]&(1<<5) != 0
+	}
+
+	return false
 }
 
 // HrDeviceTableWalker is a table-aware walker over hrDeviceTable.
@@ -873,7 +955,8 @@ type HrDeviceTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -923,6 +1006,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrDeviceIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -933,6 +1017,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 							derr = dErr
 						} else {
 							row.HrDeviceIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -946,6 +1031,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 						derr = dErr
 					} else {
 						row.HrDeviceType = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -958,6 +1044,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 						derr = dErr
 					} else {
 						row.HrDeviceDescr = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
@@ -970,11 +1057,13 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 						derr = dErr
 					} else {
 						row.HrDeviceID = dv
+						row.observed[0] |= 1 << 3
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrDeviceStatus = HrDeviceStatusValue(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -985,12 +1074,14 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 							derr = dErr
 						} else {
 							row.HrDeviceStatus = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.HrDeviceErrors = uint32(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1001,6 +1092,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 							derr = dErr
 						} else {
 							row.HrDeviceErrors = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
@@ -1046,17 +1138,24 @@ var HrDeviceTable hrDeviceTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrDeviceTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrDeviceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrDeviceTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrDeviceTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2))
 
 	return &HrDeviceTableWalker{
 		byCol: byCol,
@@ -1081,11 +1180,33 @@ var HrProcessorLoad = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3
 
 // HrProcessorTableRow is one row of hrProcessorTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrProcessorTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrProcessorTableRow struct {
 	Index            snmp.OID
 	HrProcessorFrwID snmp.OID
 	HrProcessorLoad  int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrProcessorTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrProcessorFrwID.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrProcessorLoad.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // HrProcessorTableWalker is a table-aware walker over hrProcessorTable.
@@ -1111,7 +1232,8 @@ type HrProcessorTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1168,11 +1290,13 @@ func (tw *HrProcessorTableWalker) Iter() iter.Seq2[snmp.OID, HrProcessorTableRow
 						derr = dErr
 					} else {
 						row.HrProcessorFrwID = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrProcessorLoad = int32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1183,6 +1307,7 @@ func (tw *HrProcessorTableWalker) Iter() iter.Seq2[snmp.OID, HrProcessorTableRow
 							derr = dErr
 						} else {
 							row.HrProcessorLoad = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -1228,17 +1353,24 @@ var HrProcessorTable hrProcessorTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrProcessorTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrProcessorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrProcessorTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrProcessorTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3))
 
 	return &HrProcessorTableWalker{
 		byCol: byCol,
@@ -1256,10 +1388,30 @@ var HrNetworkIfIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 
 
 // HrNetworkTableRow is one row of hrNetworkTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrNetworkTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrNetworkTableRow struct {
 	Index            snmp.OID
 	HrNetworkIfIndex int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrNetworkTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrNetworkIfIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
 }
 
 // HrNetworkTableWalker is a table-aware walker over hrNetworkTable.
@@ -1285,7 +1437,8 @@ type HrNetworkTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1335,6 +1488,7 @@ func (tw *HrNetworkTableWalker) Iter() iter.Seq2[snmp.OID, HrNetworkTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrNetworkIfIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1345,6 +1499,7 @@ func (tw *HrNetworkTableWalker) Iter() iter.Seq2[snmp.OID, HrNetworkTableRow] {
 							derr = dErr
 						} else {
 							row.HrNetworkIfIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -1390,17 +1545,24 @@ var HrNetworkTable hrNetworkTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrNetworkTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrNetworkTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrNetworkTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrNetworkTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4))
 
 	return &HrNetworkTableWalker{
 		byCol: byCol,
@@ -1439,11 +1601,33 @@ var HrPrinterDetectedErrorState = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1
 
 // HrPrinterTableRow is one row of hrPrinterTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrPrinterTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrPrinterTableRow struct {
 	Index                       snmp.OID
 	HrPrinterStatus             HrPrinterStatusValue
 	HrPrinterDetectedErrorState []byte
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrPrinterTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrPrinterStatus.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrPrinterDetectedErrorState.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // HrPrinterTableWalker is a table-aware walker over hrPrinterTable.
@@ -1469,7 +1653,8 @@ type HrPrinterTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1519,6 +1704,7 @@ func (tw *HrPrinterTableWalker) Iter() iter.Seq2[snmp.OID, HrPrinterTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrPrinterStatus = HrPrinterStatusValue(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1529,6 +1715,7 @@ func (tw *HrPrinterTableWalker) Iter() iter.Seq2[snmp.OID, HrPrinterTableRow] {
 							derr = dErr
 						} else {
 							row.HrPrinterStatus = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -1542,6 +1729,7 @@ func (tw *HrPrinterTableWalker) Iter() iter.Seq2[snmp.OID, HrPrinterTableRow] {
 						derr = dErr
 					} else {
 						row.HrPrinterDetectedErrorState = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			}
@@ -1586,17 +1774,24 @@ var HrPrinterTable hrPrinterTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrPrinterTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrPrinterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrPrinterTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrPrinterTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5))
 
 	return &HrPrinterTableWalker{
 		byCol: byCol,
@@ -1643,13 +1838,39 @@ var HrDiskStorageCapacity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 
 // HrDiskStorageTableRow is one row of hrDiskStorageTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrDiskStorageTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrDiskStorageTableRow struct {
 	Index                  snmp.OID
 	HrDiskStorageAccess    HrDiskStorageAccessValue
 	HrDiskStorageMedia     HrDiskStorageMediaValue
 	HrDiskStorageRemoveble bool
 	HrDiskStorageCapacity  int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrDiskStorageTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrDiskStorageAccess.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrDiskStorageMedia.Key():
+		return r.observed[0]&(1<<1) != 0
+	case HrDiskStorageRemoveble.Key():
+		return r.observed[0]&(1<<2) != 0
+	case HrDiskStorageCapacity.Key():
+		return r.observed[0]&(1<<3) != 0
+	}
+
+	return false
 }
 
 // HrDiskStorageTableWalker is a table-aware walker over hrDiskStorageTable.
@@ -1675,7 +1896,8 @@ type HrDiskStorageTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1725,6 +1947,7 @@ func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTabl
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrDiskStorageAccess = HrDiskStorageAccessValue(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1735,12 +1958,14 @@ func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTabl
 							derr = dErr
 						} else {
 							row.HrDiskStorageAccess = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrDiskStorageMedia = HrDiskStorageMediaValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1751,6 +1976,7 @@ func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTabl
 							derr = dErr
 						} else {
 							row.HrDiskStorageMedia = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -1764,11 +1990,13 @@ func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTabl
 						derr = dErr
 					} else {
 						row.HrDiskStorageRemoveble = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrDiskStorageCapacity = int32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1779,6 +2007,7 @@ func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTabl
 							derr = dErr
 						} else {
 							row.HrDiskStorageCapacity = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
@@ -1824,17 +2053,24 @@ var HrDiskStorageTable hrDiskStorageTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrDiskStorageTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrDiskStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrDiskStorageTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrDiskStorageTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6))
 
 	return &HrDiskStorageTableWalker{
 		byCol: byCol,
@@ -1883,7 +2119,9 @@ var HrPartitionFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25
 
 // HrPartitionTableRow is one row of hrPartitionTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrPartitionTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrPartitionTableRow struct {
 	Index              snmp.OID
 	HrPartitionIndex   int32
@@ -1891,6 +2129,32 @@ type HrPartitionTableRow struct {
 	HrPartitionID      []byte
 	HrPartitionSize    int32
 	HrPartitionFSIndex int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrPartitionTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrPartitionIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrPartitionLabel.Key():
+		return r.observed[0]&(1<<1) != 0
+	case HrPartitionID.Key():
+		return r.observed[0]&(1<<2) != 0
+	case HrPartitionSize.Key():
+		return r.observed[0]&(1<<3) != 0
+	case HrPartitionFSIndex.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // HrPartitionTableWalker is a table-aware walker over hrPartitionTable.
@@ -1916,7 +2180,8 @@ type HrPartitionTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1966,6 +2231,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrPartitionIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1976,6 +2242,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 							derr = dErr
 						} else {
 							row.HrPartitionIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -1989,6 +2256,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 						derr = dErr
 					} else {
 						row.HrPartitionLabel = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -2001,11 +2269,13 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 						derr = dErr
 					} else {
 						row.HrPartitionID = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrPartitionSize = int32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2016,12 +2286,14 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 							derr = dErr
 						} else {
 							row.HrPartitionSize = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrPartitionFSIndex = int32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2032,6 +2304,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 							derr = dErr
 						} else {
 							row.HrPartitionFSIndex = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -2077,17 +2350,24 @@ var HrPartitionTable hrPartitionTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrPartitionTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrPartitionTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrPartitionTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7))
 
 	return &HrPartitionTableWalker{
 		byCol: byCol,
@@ -2177,7 +2457,9 @@ var HrFSLastPartialBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 
 
 // HrFSTableRow is one row of hrFSTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrFSTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrFSTableRow struct {
 	Index                     snmp.OID
 	HrFSIndex                 int32
@@ -2189,6 +2471,40 @@ type HrFSTableRow struct {
 	HrFSStorageIndex          int32
 	HrFSLastFullBackupDate    time.Time
 	HrFSLastPartialBackupDate time.Time
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrFSTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrFSIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrFSMountPoint.Key():
+		return r.observed[0]&(1<<1) != 0
+	case HrFSRemoteMountPoint.Key():
+		return r.observed[0]&(1<<2) != 0
+	case HrFSType.Key():
+		return r.observed[0]&(1<<3) != 0
+	case HrFSAccess.Key():
+		return r.observed[0]&(1<<4) != 0
+	case HrFSBootable.Key():
+		return r.observed[0]&(1<<5) != 0
+	case HrFSStorageIndex.Key():
+		return r.observed[0]&(1<<6) != 0
+	case HrFSLastFullBackupDate.Key():
+		return r.observed[0]&(1<<7) != 0
+	case HrFSLastPartialBackupDate.Key():
+		return r.observed[0]&(1<<8) != 0
+	}
+
+	return false
 }
 
 // HrFSTableWalker is a table-aware walker over hrFSTable.
@@ -2214,7 +2530,8 @@ type HrFSTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2264,6 +2581,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrFSIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2274,6 +2592,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 							derr = dErr
 						} else {
 							row.HrFSIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -2287,6 +2606,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 						derr = dErr
 					} else {
 						row.HrFSMountPoint = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -2299,6 +2619,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 						derr = dErr
 					} else {
 						row.HrFSRemoteMountPoint = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
@@ -2311,11 +2632,13 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 						derr = dErr
 					} else {
 						row.HrFSType = dv
+						row.observed[0] |= 1 << 3
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrFSAccess = HrFSAccessValue(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2326,6 +2649,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 							derr = dErr
 						} else {
 							row.HrFSAccess = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -2339,11 +2663,13 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 						derr = dErr
 					} else {
 						row.HrFSBootable = dv
+						row.observed[0] |= 1 << 5
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrFSStorageIndex = int32(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2354,6 +2680,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 							derr = dErr
 						} else {
 							row.HrFSStorageIndex = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
@@ -2367,6 +2694,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 						derr = dErr
 					} else {
 						row.HrFSLastFullBackupDate = dv
+						row.observed[0] |= 1 << 7
 					}
 				}
 			case 9:
@@ -2379,6 +2707,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 						derr = dErr
 					} else {
 						row.HrFSLastPartialBackupDate = dv
+						row.observed[0] |= 1 << 8
 					}
 				}
 			}
@@ -2423,17 +2752,24 @@ var HrFSTable hrFSTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrFSTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrFSTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrFSTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrFSTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrFSTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8))
 
 	return &HrFSTableWalker{
 		byCol: byCol,
@@ -2503,7 +2839,9 @@ var HrSWRunStatus = snmp.NewColumn[HrSWRunStatusValue](snmp.MustOID(1, 3, 6, 1, 
 
 // HrSWRunTableRow is one row of hrSWRunTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrSWRunTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrSWRunTableRow struct {
 	Index             snmp.OID
 	HrSWRunIndex      int32
@@ -2513,6 +2851,36 @@ type HrSWRunTableRow struct {
 	HrSWRunParameters []byte
 	HrSWRunType       HrSWRunTypeValue
 	HrSWRunStatus     HrSWRunStatusValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrSWRunTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrSWRunIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrSWRunName.Key():
+		return r.observed[0]&(1<<1) != 0
+	case HrSWRunID.Key():
+		return r.observed[0]&(1<<2) != 0
+	case HrSWRunPath.Key():
+		return r.observed[0]&(1<<3) != 0
+	case HrSWRunParameters.Key():
+		return r.observed[0]&(1<<4) != 0
+	case HrSWRunType.Key():
+		return r.observed[0]&(1<<5) != 0
+	case HrSWRunStatus.Key():
+		return r.observed[0]&(1<<6) != 0
+	}
+
+	return false
 }
 
 // HrSWRunTableWalker is a table-aware walker over hrSWRunTable.
@@ -2538,7 +2906,8 @@ type HrSWRunTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2588,6 +2957,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrSWRunIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2598,6 +2968,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 							derr = dErr
 						} else {
 							row.HrSWRunIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -2611,6 +2982,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 						derr = dErr
 					} else {
 						row.HrSWRunName = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -2623,6 +2995,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 						derr = dErr
 					} else {
 						row.HrSWRunID = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
@@ -2635,6 +3008,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 						derr = dErr
 					} else {
 						row.HrSWRunPath = dv
+						row.observed[0] |= 1 << 3
 					}
 				}
 			case 5:
@@ -2647,11 +3021,13 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 						derr = dErr
 					} else {
 						row.HrSWRunParameters = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrSWRunType = HrSWRunTypeValue(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2662,12 +3038,14 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 							derr = dErr
 						} else {
 							row.HrSWRunType = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrSWRunStatus = HrSWRunStatusValue(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2678,6 +3056,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 							derr = dErr
 						} else {
 							row.HrSWRunStatus = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
@@ -2723,17 +3102,24 @@ var HrSWRunTable hrSWRunTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrSWRunTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrSWRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrSWRunTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrSWRunTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2))
 
 	return &HrSWRunTableWalker{
 		byCol: byCol,
@@ -2759,11 +3145,33 @@ var HrSWRunPerfMem = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5,
 
 // HrSWRunPerfTableRow is one row of hrSWRunPerfTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrSWRunPerfTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrSWRunPerfTableRow struct {
 	Index          snmp.OID
 	HrSWRunPerfCPU int32
 	HrSWRunPerfMem int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrSWRunPerfTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrSWRunPerfCPU.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrSWRunPerfMem.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // HrSWRunPerfTableWalker is a table-aware walker over hrSWRunPerfTable.
@@ -2789,7 +3197,8 @@ type HrSWRunPerfTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2839,6 +3248,7 @@ func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrSWRunPerfCPU = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2849,12 +3259,14 @@ func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow
 							derr = dErr
 						} else {
 							row.HrSWRunPerfCPU = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrSWRunPerfMem = int32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2865,6 +3277,7 @@ func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow
 							derr = dErr
 						} else {
 							row.HrSWRunPerfMem = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -2910,17 +3323,24 @@ var HrSWRunPerfTable hrSWRunPerfTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrSWRunPerfTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrSWRunPerfTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrSWRunPerfTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrSWRunPerfTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1))
 
 	return &HrSWRunPerfTableWalker{
 		byCol: byCol,
@@ -2972,7 +3392,9 @@ var HrSWInstalledDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1,
 
 // HrSWInstalledTableRow is one row of hrSWInstalledTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// HrSWInstalledTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type HrSWInstalledTableRow struct {
 	Index              snmp.OID
 	HrSWInstalledIndex int32
@@ -2980,6 +3402,32 @@ type HrSWInstalledTableRow struct {
 	HrSWInstalledID    snmp.OID
 	HrSWInstalledType  HrSWInstalledTypeValue
 	HrSWInstalledDate  time.Time
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r HrSWInstalledTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case HrSWInstalledIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case HrSWInstalledName.Key():
+		return r.observed[0]&(1<<1) != 0
+	case HrSWInstalledID.Key():
+		return r.observed[0]&(1<<2) != 0
+	case HrSWInstalledType.Key():
+		return r.observed[0]&(1<<3) != 0
+	case HrSWInstalledDate.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // HrSWInstalledTableWalker is a table-aware walker over hrSWInstalledTable.
@@ -3005,7 +3453,8 @@ type HrSWInstalledTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -3055,6 +3504,7 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrSWInstalledIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3065,6 +3515,7 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 							derr = dErr
 						} else {
 							row.HrSWInstalledIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -3078,6 +3529,7 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 						derr = dErr
 					} else {
 						row.HrSWInstalledName = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
@@ -3090,11 +3542,13 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 						derr = dErr
 					} else {
 						row.HrSWInstalledID = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.HrSWInstalledType = HrSWInstalledTypeValue(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -3105,6 +3559,7 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 							derr = dErr
 						} else {
 							row.HrSWInstalledType = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
@@ -3118,6 +3573,7 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 						derr = dErr
 					} else {
 						row.HrSWInstalledDate = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			}
@@ -3162,17 +3618,24 @@ var HrSWInstalledTable hrSWInstalledTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of hrSWInstalledTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (hrSWInstalledTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &HrSWInstalledTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrSWInstalledTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3))
 
 	return &HrSWInstalledTableWalker{
 		byCol: byCol,
@@ -3206,30 +3669,35 @@ func decodeHrSWInstalledTableRow(idx snmp.OID, vbs []snmp.VarBind) (HrSWInstalle
 				return row, derr
 			}
 			row.HrSWInstalledIndex = dv
+			row.observed[0] |= 1 << 0
 		case 2:
 			dv, derr := HrSWInstalledName.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.HrSWInstalledName = dv
+			row.observed[0] |= 1 << 1
 		case 3:
 			dv, derr := HrSWInstalledID.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.HrSWInstalledID = dv
+			row.observed[0] |= 1 << 2
 		case 4:
 			dv, derr := HrSWInstalledType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.HrSWInstalledType = dv
+			row.observed[0] |= 1 << 3
 		case 5:
 			dv, derr := HrSWInstalledDate.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.HrSWInstalledDate = dv
+			row.observed[0] |= 1 << 4
 		}
 	}
 
@@ -3267,26 +3735,31 @@ func mergeHrSWInstalledTableRow(dst *HrSWInstalledTableRow, vbs []snmp.VarBind) 
 			dv, derr := HrSWInstalledIndex.Decode(vb)
 			if derr == nil {
 				dst.HrSWInstalledIndex = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 2:
 			dv, derr := HrSWInstalledName.Decode(vb)
 			if derr == nil {
 				dst.HrSWInstalledName = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 3:
 			dv, derr := HrSWInstalledID.Decode(vb)
 			if derr == nil {
 				dst.HrSWInstalledID = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 4:
 			dv, derr := HrSWInstalledType.Decode(vb)
 			if derr == nil {
 				dst.HrSWInstalledType = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 5:
 			dv, derr := HrSWInstalledDate.Decode(vb)
 			if derr == nil {
 				dst.HrSWInstalledDate = dv
+				dst.observed[0] |= 1 << 4
 			}
 		}
 	}

@@ -146,6 +146,12 @@ func renderModule(
 	// declaration.
 	emitEnums(f, ec, mod, nodes)
 
+	// Pass 1b: named bit positions for the module's BITS types. These
+	// are constants, not a Go type — BITS values decode to
+	// [snmp.BitSet] and the constants name the positions worth asking
+	// about.
+	emitBitsConsts(f, mod)
+
 	// Pass 2: scalars (read-accessible OBJECT-TYPEs with NodeScalar).
 	for _, n := range nodes {
 		if n.Kind != smi.NodeScalar {

@@ -1,0 +1,22 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/lldp/v1/other_management_address.proto";
+import option "buf/validate/validate.proto";
+
+// An address at which a system announces it can be managed. LLDP carries the
+// address behind an IANA address family number, so the address is not always
+// an IP address; the arm is what a consumer switches on.
+message ManagementAddress {
+  oneof address {
+    option (buf.validate.oneof).required = true;
+
+    // An address of IANA family 1 (IPv4) or 2 (IPv6).
+    flowseer.net.addr.v1.IpAddress ip = 1;
+    // An address of any other family, or one whose reported payload does
+    // not fit its family.
+    OtherManagementAddress other = 2;
+  }
+}

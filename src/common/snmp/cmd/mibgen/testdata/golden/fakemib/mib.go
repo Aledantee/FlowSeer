@@ -2,7 +2,7 @@
 //
 // Source MIB:    FAKE-MIB
 // Source path:   testdata/mibs/FAKE-MIB.mib
-// Source SHA-256: 017b9b891806d51793385eae2e523b91eda1c4085f91210998e638b9bd102a78
+// Source SHA-256: d28f3aef3e1f103f3ac02811fcd4bb9eca39bee8545caf46a736ac087a19aed6
 //
 // Regenerate with `go generate .` at the repository root.
 
@@ -41,6 +41,17 @@ func (v FakeStatusValue) String() string {
 
 	return fmt.Sprintf("FakeStatusValue(%d)", v)
 }
+
+// FakeCapabilities names the bit positions of the SMI BITS type FakeCapabilities.
+// Pass one to [snmp.BitSet.Has] on a value of this type.
+// A named BITS convention. Bit positions follow declaration order; the
+// emitter names each one as an snmp.BitPos constant and decodes values of
+// this type to an snmp.BitSet.
+const (
+	FakeCapabilitiesAlpha snmp.BitPos = 0
+	FakeCapabilitiesBeta  snmp.BitPos = 1
+	FakeCapabilitiesGamma snmp.BitPos = 2
+)
 
 // FakeScalarGet reads the SMIv2 scalar fakeScalar.
 // A simple scalar.
@@ -98,6 +109,23 @@ func FakeStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, err
 	}(vbs[0])
 }
 
+// FakeCapsGet reads the SMIv2 scalar fakeCaps.
+// A BITS-typed scalar.
+func FakeCapsGet(ctx context.Context, sess snmp.Session) (snmp.BitSet, error) {
+	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 6, 0)})
+	if err != nil {
+		return snmp.BitSet{}, err
+	}
+
+	if len(vbs) == 0 {
+		return snmp.BitSet{}, ae.Msg("empty Get response for fakeCaps")
+	}
+
+	return func(vb snmp.VarBind) (snmp.BitSet, error) {
+		return snmp.DecodeBitSet(vb)
+	}(vbs[0])
+}
+
 // FakeName is the column fakeName of table fakeTable.
 // Name.
 var FakeName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
@@ -124,15 +152,51 @@ var FakeLastChange = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999
 	return snmp.DecodeUint32(vb)
 })
 
+// FakeFlags is the column fakeFlags of table fakeTable.
+// A BITS-typed column. Covers the row-struct, watch- equality, and
+// observation paths for set-valued columns.
+var FakeFlags = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
+	return snmp.DecodeBitSet(vb)
+})
+
 // FakeTableRow is one row of fakeTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// FakeTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type FakeTableRow struct {
 	Index          snmp.OID
 	FakeName       string
 	FakeMac        net.HardwareAddr
 	FakeOctets     uint64
 	FakeLastChange uint32
+	FakeFlags      snmp.BitSet
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r FakeTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case FakeName.Key():
+		return r.observed[0]&(1<<0) != 0
+	case FakeMac.Key():
+		return r.observed[0]&(1<<1) != 0
+	case FakeOctets.Key():
+		return r.observed[0]&(1<<2) != 0
+	case FakeLastChange.Key():
+		return r.observed[0]&(1<<3) != 0
+	case FakeFlags.Key():
+		return r.observed[0]&(1<<4) != 0
+	}
+
+	return false
 }
 
 // FakeTableWalker is a table-aware walker over fakeTable.
@@ -158,7 +222,8 @@ type FakeTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -215,6 +280,7 @@ func (tw *FakeTableWalker) Iter() iter.Seq2[snmp.OID, FakeTableRow] {
 						derr = dErr
 					} else {
 						row.FakeName = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 3:
@@ -227,11 +293,13 @@ func (tw *FakeTableWalker) Iter() iter.Seq2[snmp.OID, FakeTableRow] {
 						derr = dErr
 					} else {
 						row.FakeMac = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.FakeOctets = uint64(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -242,12 +310,14 @@ func (tw *FakeTableWalker) Iter() iter.Seq2[snmp.OID, FakeTableRow] {
 							derr = dErr
 						} else {
 							row.FakeOctets = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.FakeLastChange = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -258,7 +328,21 @@ func (tw *FakeTableWalker) Iter() iter.Seq2[snmp.OID, FakeTableRow] {
 							derr = dErr
 						} else {
 							row.FakeLastChange = dv
+							row.observed[0] |= 1 << 3
 						}
+					}
+				}
+			case 6:
+				vb, vbErr := rv.Decode()
+				if vbErr != nil {
+					derr = vbErr
+				} else {
+					dv, dErr := FakeFlags.Decode(vb)
+					if dErr != nil {
+						derr = dErr
+					} else {
+						row.FakeFlags = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			}
@@ -303,17 +387,24 @@ var FakeTable fakeTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of fakeTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (fakeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &FakeTableWalker{rw: snmp.ForeignColumnWalk(ctx, "fakeTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3))
 
 	return &FakeTableWalker{
 		byCol: byCol,
@@ -347,24 +438,35 @@ func decodeFakeTableRow(idx snmp.OID, vbs []snmp.VarBind) (FakeTableRow, error) 
 				return row, derr
 			}
 			row.FakeName = dv
+			row.observed[0] |= 1 << 0
 		case 3:
 			dv, derr := FakeMac.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.FakeMac = dv
+			row.observed[0] |= 1 << 1
 		case 4:
 			dv, derr := FakeOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.FakeOctets = dv
+			row.observed[0] |= 1 << 2
 		case 5:
 			dv, derr := FakeLastChange.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.FakeLastChange = dv
+			row.observed[0] |= 1 << 3
+		case 6:
+			dv, derr := FakeFlags.Decode(vb)
+			if derr != nil {
+				return row, derr
+			}
+			row.FakeFlags = dv
+			row.observed[0] |= 1 << 4
 		}
 	}
 
@@ -376,7 +478,7 @@ func decodeFakeTableRow(idx snmp.OID, vbs []snmp.VarBind) (FakeTableRow, error) 
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalFakeTableRow(a FakeTableRow, b FakeTableRow) bool {
-	return a.Index.Equal(b.Index) && a.FakeName == b.FakeName && bytes.Equal(a.FakeMac, b.FakeMac) && a.FakeOctets == b.FakeOctets && a.FakeLastChange == b.FakeLastChange
+	return a.Index.Equal(b.Index) && a.FakeName == b.FakeName && bytes.Equal(a.FakeMac, b.FakeMac) && a.FakeOctets == b.FakeOctets && a.FakeLastChange == b.FakeLastChange && a.FakeFlags.Equal(b.FakeFlags)
 }
 
 // mergeFakeTableRow merges the values decoded from vbs into dst, leaving fields
@@ -402,21 +504,31 @@ func mergeFakeTableRow(dst *FakeTableRow, vbs []snmp.VarBind) {
 			dv, derr := FakeName.Decode(vb)
 			if derr == nil {
 				dst.FakeName = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 3:
 			dv, derr := FakeMac.Decode(vb)
 			if derr == nil {
 				dst.FakeMac = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 4:
 			dv, derr := FakeOctets.Decode(vb)
 			if derr == nil {
 				dst.FakeOctets = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 5:
 			dv, derr := FakeLastChange.Decode(vb)
 			if derr == nil {
 				dst.FakeLastChange = dv
+				dst.observed[0] |= 1 << 3
+			}
+		case 6:
+			dv, derr := FakeFlags.Decode(vb)
+			if derr == nil {
+				dst.FakeFlags = dv
+				dst.observed[0] |= 1 << 4
 			}
 		}
 	}
@@ -503,10 +615,30 @@ var FakeStackName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999,
 
 // FakeStackTableRow is one row of fakeStackTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// FakeStackTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type FakeStackTableRow struct {
 	Index         snmp.OID
 	FakeStackName string
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r FakeStackTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case FakeStackName.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
 }
 
 // FakeStackTableWalker is a table-aware walker over fakeStackTable.
@@ -532,7 +664,8 @@ type FakeStackTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -589,6 +722,7 @@ func (tw *FakeStackTableWalker) Iter() iter.Seq2[snmp.OID, FakeStackTableRow] {
 						derr = dErr
 					} else {
 						row.FakeStackName = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			}
@@ -633,17 +767,24 @@ var FakeStackTable fakeStackTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of fakeStackTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (fakeStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeStackTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4))
+	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &FakeStackTableWalker{rw: snmp.ForeignColumnWalk(ctx, "fakeStackTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4))
 
 	return &FakeStackTableWalker{
 		byCol: byCol,
@@ -677,6 +818,7 @@ func decodeFakeStackTableRow(idx snmp.OID, vbs []snmp.VarBind) (FakeStackTableRo
 				return row, derr
 			}
 			row.FakeStackName = dv
+			row.observed[0] |= 1 << 0
 		}
 	}
 
@@ -714,6 +856,7 @@ func mergeFakeStackTableRow(dst *FakeStackTableRow, vbs []snmp.VarBind) {
 			dv, derr := FakeStackName.Decode(vb)
 			if derr == nil {
 				dst.FakeStackName = dv
+				dst.observed[0] |= 1 << 0
 			}
 		}
 	}
@@ -801,6 +944,7 @@ var fAKEMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3).WireKey(): FakeMac,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4).WireKey(): FakeOctets,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 5).WireKey(): FakeLastChange,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 6).WireKey(): FakeFlags,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1, 2).WireKey(): FakeStackName,
 }
 
@@ -826,6 +970,7 @@ var fAKEMIBColumnTiers = map[string]snmp.Tier{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3).WireKey(): snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4).WireKey(): snmp.TierCounter,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 5).WireKey(): snmp.TierIndicator,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 6).WireKey(): snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1, 2).WireKey(): snmp.TierState,
 }
 

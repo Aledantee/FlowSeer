@@ -519,7 +519,9 @@ var IfSpecific = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1
 
 // IfTableRow is one row of ifTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IfTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IfTableRow struct {
 	Index             snmp.OID
 	IfIndex           int32
@@ -544,6 +546,66 @@ type IfTableRow struct {
 	IfOutErrors       uint32
 	IfOutQLen         uint32
 	IfSpecific        snmp.OID
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IfTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IfIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IfDescr.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IfType.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IfMtu.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IfSpeed.Key():
+		return r.observed[0]&(1<<4) != 0
+	case IfPhysAddress.Key():
+		return r.observed[0]&(1<<5) != 0
+	case IfAdminStatus.Key():
+		return r.observed[0]&(1<<6) != 0
+	case IfOperStatus.Key():
+		return r.observed[0]&(1<<7) != 0
+	case IfLastChange.Key():
+		return r.observed[0]&(1<<8) != 0
+	case IfInOctets.Key():
+		return r.observed[0]&(1<<9) != 0
+	case IfInUcastPkts.Key():
+		return r.observed[0]&(1<<10) != 0
+	case IfInNUcastPkts.Key():
+		return r.observed[0]&(1<<11) != 0
+	case IfInDiscards.Key():
+		return r.observed[0]&(1<<12) != 0
+	case IfInErrors.Key():
+		return r.observed[0]&(1<<13) != 0
+	case IfInUnknownProtos.Key():
+		return r.observed[0]&(1<<14) != 0
+	case IfOutOctets.Key():
+		return r.observed[0]&(1<<15) != 0
+	case IfOutUcastPkts.Key():
+		return r.observed[0]&(1<<16) != 0
+	case IfOutNUcastPkts.Key():
+		return r.observed[0]&(1<<17) != 0
+	case IfOutDiscards.Key():
+		return r.observed[0]&(1<<18) != 0
+	case IfOutErrors.Key():
+		return r.observed[0]&(1<<19) != 0
+	case IfOutQLen.Key():
+		return r.observed[0]&(1<<20) != 0
+	case IfSpecific.Key():
+		return r.observed[0]&(1<<21) != 0
+	}
+
+	return false
 }
 
 // IfTableWalker is a table-aware walker over ifTable.
@@ -569,7 +631,8 @@ type IfTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -619,6 +682,7 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -629,6 +693,7 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -642,11 +707,13 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 						derr = dErr
 					} else {
 						row.IfDescr = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfType = ianaiftype.IANAifType(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -657,12 +724,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfType = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfMtu = int32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -673,12 +742,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfMtu = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IfSpeed = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -689,6 +760,7 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfSpeed = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -702,11 +774,13 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 						derr = dErr
 					} else {
 						row.IfPhysAddress = dv
+						row.observed[0] |= 1 << 5
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfAdminStatus = IfAdminStatusValue(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -717,12 +791,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfAdminStatus = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfOperStatus = IfOperStatusValue(v)
+					row.observed[0] |= 1 << 7
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -733,12 +809,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfOperStatus = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.IfLastChange = uint32(v)
+					row.observed[0] |= 1 << 8
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -749,12 +827,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfLastChange = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
 			case 10:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInOctets = uint32(v)
+					row.observed[0] |= 1 << 9
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -765,12 +845,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfInOctets = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
 				}
 			case 11:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInUcastPkts = uint32(v)
+					row.observed[0] |= 1 << 10
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -781,12 +863,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfInUcastPkts = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
 				}
 			case 12:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInNUcastPkts = uint32(v)
+					row.observed[0] |= 1 << 11
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -797,12 +881,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfInNUcastPkts = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
 				}
 			case 13:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInDiscards = uint32(v)
+					row.observed[0] |= 1 << 12
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -813,12 +899,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfInDiscards = dv
+							row.observed[0] |= 1 << 12
 						}
 					}
 				}
 			case 14:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInErrors = uint32(v)
+					row.observed[0] |= 1 << 13
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -829,12 +917,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfInErrors = dv
+							row.observed[0] |= 1 << 13
 						}
 					}
 				}
 			case 15:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInUnknownProtos = uint32(v)
+					row.observed[0] |= 1 << 14
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -845,12 +935,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfInUnknownProtos = dv
+							row.observed[0] |= 1 << 14
 						}
 					}
 				}
 			case 16:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfOutOctets = uint32(v)
+					row.observed[0] |= 1 << 15
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -861,12 +953,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutOctets = dv
+							row.observed[0] |= 1 << 15
 						}
 					}
 				}
 			case 17:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfOutUcastPkts = uint32(v)
+					row.observed[0] |= 1 << 16
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -877,12 +971,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutUcastPkts = dv
+							row.observed[0] |= 1 << 16
 						}
 					}
 				}
 			case 18:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfOutNUcastPkts = uint32(v)
+					row.observed[0] |= 1 << 17
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -893,12 +989,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutNUcastPkts = dv
+							row.observed[0] |= 1 << 17
 						}
 					}
 				}
 			case 19:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfOutDiscards = uint32(v)
+					row.observed[0] |= 1 << 18
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -909,12 +1007,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutDiscards = dv
+							row.observed[0] |= 1 << 18
 						}
 					}
 				}
 			case 20:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfOutErrors = uint32(v)
+					row.observed[0] |= 1 << 19
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -925,12 +1025,14 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutErrors = dv
+							row.observed[0] |= 1 << 19
 						}
 					}
 				}
 			case 21:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IfOutQLen = uint32(v)
+					row.observed[0] |= 1 << 20
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -941,6 +1043,7 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutQLen = dv
+							row.observed[0] |= 1 << 20
 						}
 					}
 				}
@@ -954,6 +1057,7 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 						derr = dErr
 					} else {
 						row.IfSpecific = dv
+						row.observed[0] |= 1 << 21
 					}
 				}
 			}
@@ -998,17 +1102,24 @@ var IfTable ifTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2))
 
 	return &IfTableWalker{
 		byCol: byCol,
@@ -1042,132 +1153,154 @@ func decodeIfTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfTableRow, error) {
 				return row, derr
 			}
 			row.IfIndex = dv
+			row.observed[0] |= 1 << 0
 		case 2:
 			dv, derr := IfDescr.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfDescr = dv
+			row.observed[0] |= 1 << 1
 		case 3:
 			dv, derr := IfType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfType = dv
+			row.observed[0] |= 1 << 2
 		case 4:
 			dv, derr := IfMtu.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfMtu = dv
+			row.observed[0] |= 1 << 3
 		case 5:
 			dv, derr := IfSpeed.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfSpeed = dv
+			row.observed[0] |= 1 << 4
 		case 6:
 			dv, derr := IfPhysAddress.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfPhysAddress = dv
+			row.observed[0] |= 1 << 5
 		case 7:
 			dv, derr := IfAdminStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfAdminStatus = dv
+			row.observed[0] |= 1 << 6
 		case 8:
 			dv, derr := IfOperStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfOperStatus = dv
+			row.observed[0] |= 1 << 7
 		case 9:
 			dv, derr := IfLastChange.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfLastChange = dv
+			row.observed[0] |= 1 << 8
 		case 10:
 			dv, derr := IfInOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfInOctets = dv
+			row.observed[0] |= 1 << 9
 		case 11:
 			dv, derr := IfInUcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfInUcastPkts = dv
+			row.observed[0] |= 1 << 10
 		case 12:
 			dv, derr := IfInNUcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfInNUcastPkts = dv
+			row.observed[0] |= 1 << 11
 		case 13:
 			dv, derr := IfInDiscards.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfInDiscards = dv
+			row.observed[0] |= 1 << 12
 		case 14:
 			dv, derr := IfInErrors.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfInErrors = dv
+			row.observed[0] |= 1 << 13
 		case 15:
 			dv, derr := IfInUnknownProtos.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfInUnknownProtos = dv
+			row.observed[0] |= 1 << 14
 		case 16:
 			dv, derr := IfOutOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfOutOctets = dv
+			row.observed[0] |= 1 << 15
 		case 17:
 			dv, derr := IfOutUcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfOutUcastPkts = dv
+			row.observed[0] |= 1 << 16
 		case 18:
 			dv, derr := IfOutNUcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfOutNUcastPkts = dv
+			row.observed[0] |= 1 << 17
 		case 19:
 			dv, derr := IfOutDiscards.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfOutDiscards = dv
+			row.observed[0] |= 1 << 18
 		case 20:
 			dv, derr := IfOutErrors.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfOutErrors = dv
+			row.observed[0] |= 1 << 19
 		case 21:
 			dv, derr := IfOutQLen.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfOutQLen = dv
+			row.observed[0] |= 1 << 20
 		case 22:
 			dv, derr := IfSpecific.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.IfSpecific = dv
+			row.observed[0] |= 1 << 21
 		}
 	}
 
@@ -1205,111 +1338,133 @@ func mergeIfTableRow(dst *IfTableRow, vbs []snmp.VarBind) {
 			dv, derr := IfIndex.Decode(vb)
 			if derr == nil {
 				dst.IfIndex = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 2:
 			dv, derr := IfDescr.Decode(vb)
 			if derr == nil {
 				dst.IfDescr = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 3:
 			dv, derr := IfType.Decode(vb)
 			if derr == nil {
 				dst.IfType = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 4:
 			dv, derr := IfMtu.Decode(vb)
 			if derr == nil {
 				dst.IfMtu = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 5:
 			dv, derr := IfSpeed.Decode(vb)
 			if derr == nil {
 				dst.IfSpeed = dv
+				dst.observed[0] |= 1 << 4
 			}
 		case 6:
 			dv, derr := IfPhysAddress.Decode(vb)
 			if derr == nil {
 				dst.IfPhysAddress = dv
+				dst.observed[0] |= 1 << 5
 			}
 		case 7:
 			dv, derr := IfAdminStatus.Decode(vb)
 			if derr == nil {
 				dst.IfAdminStatus = dv
+				dst.observed[0] |= 1 << 6
 			}
 		case 8:
 			dv, derr := IfOperStatus.Decode(vb)
 			if derr == nil {
 				dst.IfOperStatus = dv
+				dst.observed[0] |= 1 << 7
 			}
 		case 9:
 			dv, derr := IfLastChange.Decode(vb)
 			if derr == nil {
 				dst.IfLastChange = dv
+				dst.observed[0] |= 1 << 8
 			}
 		case 10:
 			dv, derr := IfInOctets.Decode(vb)
 			if derr == nil {
 				dst.IfInOctets = dv
+				dst.observed[0] |= 1 << 9
 			}
 		case 11:
 			dv, derr := IfInUcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IfInUcastPkts = dv
+				dst.observed[0] |= 1 << 10
 			}
 		case 12:
 			dv, derr := IfInNUcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IfInNUcastPkts = dv
+				dst.observed[0] |= 1 << 11
 			}
 		case 13:
 			dv, derr := IfInDiscards.Decode(vb)
 			if derr == nil {
 				dst.IfInDiscards = dv
+				dst.observed[0] |= 1 << 12
 			}
 		case 14:
 			dv, derr := IfInErrors.Decode(vb)
 			if derr == nil {
 				dst.IfInErrors = dv
+				dst.observed[0] |= 1 << 13
 			}
 		case 15:
 			dv, derr := IfInUnknownProtos.Decode(vb)
 			if derr == nil {
 				dst.IfInUnknownProtos = dv
+				dst.observed[0] |= 1 << 14
 			}
 		case 16:
 			dv, derr := IfOutOctets.Decode(vb)
 			if derr == nil {
 				dst.IfOutOctets = dv
+				dst.observed[0] |= 1 << 15
 			}
 		case 17:
 			dv, derr := IfOutUcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IfOutUcastPkts = dv
+				dst.observed[0] |= 1 << 16
 			}
 		case 18:
 			dv, derr := IfOutNUcastPkts.Decode(vb)
 			if derr == nil {
 				dst.IfOutNUcastPkts = dv
+				dst.observed[0] |= 1 << 17
 			}
 		case 19:
 			dv, derr := IfOutDiscards.Decode(vb)
 			if derr == nil {
 				dst.IfOutDiscards = dv
+				dst.observed[0] |= 1 << 18
 			}
 		case 20:
 			dv, derr := IfOutErrors.Decode(vb)
 			if derr == nil {
 				dst.IfOutErrors = dv
+				dst.observed[0] |= 1 << 19
 			}
 		case 21:
 			dv, derr := IfOutQLen.Decode(vb)
 			if derr == nil {
 				dst.IfOutQLen = dv
+				dst.observed[0] |= 1 << 20
 			}
 		case 22:
 			dv, derr := IfSpecific.Decode(vb)
 			if derr == nil {
 				dst.IfSpecific = dv
+				dst.observed[0] |= 1 << 21
 			}
 		}
 	}
@@ -1621,7 +1776,9 @@ var IfCounterDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1,
 
 // IfXTableRow is one row of ifXTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IfXTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IfXTableRow struct {
 	Index                      snmp.OID
 	IfName                     string
@@ -1643,6 +1800,60 @@ type IfXTableRow struct {
 	IfConnectorPresent         bool
 	IfAlias                    string
 	IfCounterDiscontinuityTime uint32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IfXTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IfName.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IfInMulticastPkts.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IfInBroadcastPkts.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IfOutMulticastPkts.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IfOutBroadcastPkts.Key():
+		return r.observed[0]&(1<<4) != 0
+	case IfHCInOctets.Key():
+		return r.observed[0]&(1<<5) != 0
+	case IfHCInUcastPkts.Key():
+		return r.observed[0]&(1<<6) != 0
+	case IfHCInMulticastPkts.Key():
+		return r.observed[0]&(1<<7) != 0
+	case IfHCInBroadcastPkts.Key():
+		return r.observed[0]&(1<<8) != 0
+	case IfHCOutOctets.Key():
+		return r.observed[0]&(1<<9) != 0
+	case IfHCOutUcastPkts.Key():
+		return r.observed[0]&(1<<10) != 0
+	case IfHCOutMulticastPkts.Key():
+		return r.observed[0]&(1<<11) != 0
+	case IfHCOutBroadcastPkts.Key():
+		return r.observed[0]&(1<<12) != 0
+	case IfLinkUpDownTrapEnable.Key():
+		return r.observed[0]&(1<<13) != 0
+	case IfHighSpeed.Key():
+		return r.observed[0]&(1<<14) != 0
+	case IfPromiscuousMode.Key():
+		return r.observed[0]&(1<<15) != 0
+	case IfConnectorPresent.Key():
+		return r.observed[0]&(1<<16) != 0
+	case IfAlias.Key():
+		return r.observed[0]&(1<<17) != 0
+	case IfCounterDiscontinuityTime.Key():
+		return r.observed[0]&(1<<18) != 0
+	}
+
+	return false
 }
 
 // IfXTableWalker is a table-aware walker over ifXTable.
@@ -1668,7 +1879,8 @@ type IfXTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1725,11 +1937,13 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 						derr = dErr
 					} else {
 						row.IfName = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInMulticastPkts = uint32(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1740,12 +1954,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfInMulticastPkts = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfInBroadcastPkts = uint32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1756,12 +1972,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfInBroadcastPkts = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfOutMulticastPkts = uint32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1772,12 +1990,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutMulticastPkts = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawCounter32(rv); okRaw {
 					row.IfOutBroadcastPkts = uint32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1788,12 +2008,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfOutBroadcastPkts = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCInOctets = uint64(v)
+					row.observed[0] |= 1 << 5
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1804,12 +2026,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCInOctets = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
 				}
 			case 7:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCInUcastPkts = uint64(v)
+					row.observed[0] |= 1 << 6
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1820,12 +2044,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCInUcastPkts = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
 				}
 			case 8:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCInMulticastPkts = uint64(v)
+					row.observed[0] |= 1 << 7
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1836,12 +2062,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCInMulticastPkts = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
 				}
 			case 9:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCInBroadcastPkts = uint64(v)
+					row.observed[0] |= 1 << 8
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1852,12 +2080,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCInBroadcastPkts = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
 			case 10:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCOutOctets = uint64(v)
+					row.observed[0] |= 1 << 9
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1868,12 +2098,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCOutOctets = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
 				}
 			case 11:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCOutUcastPkts = uint64(v)
+					row.observed[0] |= 1 << 10
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1884,12 +2116,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCOutUcastPkts = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
 				}
 			case 12:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCOutMulticastPkts = uint64(v)
+					row.observed[0] |= 1 << 11
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1900,12 +2134,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCOutMulticastPkts = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
 				}
 			case 13:
 				if v, okRaw := snmp.RawCounter64(rv); okRaw {
 					row.IfHCOutBroadcastPkts = uint64(v)
+					row.observed[0] |= 1 << 12
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1916,12 +2152,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHCOutBroadcastPkts = dv
+							row.observed[0] |= 1 << 12
 						}
 					}
 				}
 			case 14:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfLinkUpDownTrapEnable = IfLinkUpDownTrapEnableValue(v)
+					row.observed[0] |= 1 << 13
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1932,12 +2170,14 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfLinkUpDownTrapEnable = dv
+							row.observed[0] |= 1 << 13
 						}
 					}
 				}
 			case 15:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IfHighSpeed = uint32(v)
+					row.observed[0] |= 1 << 14
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1948,6 +2188,7 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfHighSpeed = dv
+							row.observed[0] |= 1 << 14
 						}
 					}
 				}
@@ -1961,6 +2202,7 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 						derr = dErr
 					} else {
 						row.IfPromiscuousMode = dv
+						row.observed[0] |= 1 << 15
 					}
 				}
 			case 17:
@@ -1973,6 +2215,7 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 						derr = dErr
 					} else {
 						row.IfConnectorPresent = dv
+						row.observed[0] |= 1 << 16
 					}
 				}
 			case 18:
@@ -1985,11 +2228,13 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 						derr = dErr
 					} else {
 						row.IfAlias = dv
+						row.observed[0] |= 1 << 17
 					}
 				}
 			case 19:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IfCounterDiscontinuityTime = uint32(v)
+					row.observed[0] |= 1 << 18
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2000,6 +2245,7 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 							derr = dErr
 						} else {
 							row.IfCounterDiscontinuityTime = dv
+							row.observed[0] |= 1 << 18
 						}
 					}
 				}
@@ -2045,17 +2291,24 @@ var IfXTable ifXTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifXTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifXTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfXTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfXTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifXTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1))
 
 	return &IfXTableWalker{
 		byCol: byCol,
@@ -2077,10 +2330,30 @@ var IfStackStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1
 
 // IfStackTableRow is one row of ifStackTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IfStackTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IfStackTableRow struct {
 	Index         snmp.OID
 	IfStackStatus snmp.RowStatus
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IfStackTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IfStackStatus.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
 }
 
 // IfStackTableWalker is a table-aware walker over ifStackTable.
@@ -2106,7 +2379,8 @@ type IfStackTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2163,6 +2437,7 @@ func (tw *IfStackTableWalker) Iter() iter.Seq2[snmp.OID, IfStackTableRow] {
 						derr = dErr
 					} else {
 						row.IfStackStatus = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			}
@@ -2207,17 +2482,24 @@ var IfStackTable ifStackTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifStackTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfStackTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfStackTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifStackTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2))
 
 	return &IfStackTableWalker{
 		byCol: byCol,
@@ -2251,6 +2533,7 @@ func decodeIfStackTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfStackTableRow, e
 				return row, derr
 			}
 			row.IfStackStatus = dv
+			row.observed[0] |= 1 << 0
 		}
 	}
 
@@ -2288,6 +2571,7 @@ func mergeIfStackTableRow(dst *IfStackTableRow, vbs []snmp.VarBind) {
 			dv, derr := IfStackStatus.Decode(vb)
 			if derr == nil {
 				dst.IfStackStatus = dv
+				dst.observed[0] |= 1 << 0
 			}
 		}
 	}
@@ -2439,7 +2723,9 @@ var IfTestOwner = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3
 
 // IfTestTableRow is one row of ifTestTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IfTestTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IfTestTableRow struct {
 	Index        snmp.OID
 	IfTestId     uint32
@@ -2448,6 +2734,34 @@ type IfTestTableRow struct {
 	IfTestResult IfTestResultValue
 	IfTestCode   snmp.OID
 	IfTestOwner  []byte
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IfTestTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IfTestId.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IfTestStatus.Key():
+		return r.observed[0]&(1<<1) != 0
+	case IfTestType.Key():
+		return r.observed[0]&(1<<2) != 0
+	case IfTestResult.Key():
+		return r.observed[0]&(1<<3) != 0
+	case IfTestCode.Key():
+		return r.observed[0]&(1<<4) != 0
+	case IfTestOwner.Key():
+		return r.observed[0]&(1<<5) != 0
+	}
+
+	return false
 }
 
 // IfTestTableWalker is a table-aware walker over ifTestTable.
@@ -2473,7 +2787,8 @@ type IfTestTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2523,6 +2838,7 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 			case 1:
 				if v, okRaw := snmp.RawGauge32(rv); okRaw {
 					row.IfTestId = uint32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2533,12 +2849,14 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 							derr = dErr
 						} else {
 							row.IfTestId = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
 			case 2:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfTestStatus = IfTestStatusValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2549,6 +2867,7 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 							derr = dErr
 						} else {
 							row.IfTestStatus = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -2562,11 +2881,13 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 						derr = dErr
 					} else {
 						row.IfTestType = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfTestResult = IfTestResultValue(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2577,6 +2898,7 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 							derr = dErr
 						} else {
 							row.IfTestResult = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
@@ -2590,6 +2912,7 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 						derr = dErr
 					} else {
 						row.IfTestCode = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			case 6:
@@ -2602,6 +2925,7 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 						derr = dErr
 					} else {
 						row.IfTestOwner = dv
+						row.observed[0] |= 1 << 5
 					}
 				}
 			}
@@ -2646,17 +2970,24 @@ var IfTestTable ifTestTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifTestTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifTestTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfTestTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfTestTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifTestTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3))
 
 	return &IfTestTableWalker{
 		byCol: byCol,
@@ -2689,11 +3020,33 @@ var IfRcvAddressType = snmp.NewColumn[IfRcvAddressTypeValue](snmp.MustOID(1, 3, 
 
 // IfRcvAddressTableRow is one row of ifRcvAddressTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// IfRcvAddressTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type IfRcvAddressTableRow struct {
 	Index              snmp.OID
 	IfRcvAddressStatus snmp.RowStatus
 	IfRcvAddressType   IfRcvAddressTypeValue
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r IfRcvAddressTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case IfRcvAddressStatus.Key():
+		return r.observed[0]&(1<<0) != 0
+	case IfRcvAddressType.Key():
+		return r.observed[0]&(1<<1) != 0
+	}
+
+	return false
 }
 
 // IfRcvAddressTableWalker is a table-aware walker over ifRcvAddressTable.
@@ -2719,7 +3072,8 @@ type IfRcvAddressTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2776,11 +3130,13 @@ func (tw *IfRcvAddressTableWalker) Iter() iter.Seq2[snmp.OID, IfRcvAddressTableR
 						derr = dErr
 					} else {
 						row.IfRcvAddressStatus = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 3:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.IfRcvAddressType = IfRcvAddressTypeValue(v)
+					row.observed[0] |= 1 << 1
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2791,6 +3147,7 @@ func (tw *IfRcvAddressTableWalker) Iter() iter.Seq2[snmp.OID, IfRcvAddressTableR
 							derr = dErr
 						} else {
 							row.IfRcvAddressType = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
@@ -2836,17 +3193,24 @@ var IfRcvAddressTable ifRcvAddressTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of ifRcvAddressTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (ifRcvAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfRcvAddressTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 4))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &IfRcvAddressTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ifRcvAddressTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 4))
 
 	return &IfRcvAddressTableWalker{
 		byCol: byCol,

@@ -1,0 +1,21 @@
+edition = "2024";
+
+package flowseer.net.interface.v1;
+
+import "flowseer/net/phy/v1/ethernet_facet.proto";
+import "flowseer/net/switching/v1/switchport_facet.proto";
+import option "buf/validate/validate.proto";
+
+// An interface backed by a physical port.
+message PhysicalInterface {
+  // Physical Ethernet attributes of the port. Absent means the source
+  // supplied no physical-layer information.
+  flowseer.net.phy.v1.EthernetFacet ethernet = 1;
+  // Ethernet switching attributes of the port. Absent means the port
+  // forwards no bridged traffic or the source reported no switching
+  // configuration.
+  flowseer.net.switching.v1.SwitchportFacet switchport = 2;
+  // The device-local name of the aggregation this port is a member of.
+  // Absent means the port is not a reported member of any aggregation.
+  string lag_parent = 3 [(buf.validate.field).string.min_len = 1];
+}

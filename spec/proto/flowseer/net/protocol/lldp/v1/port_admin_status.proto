@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+// Which directions of the protocol an agent runs on a port. Integers map
+// directly to the values of the LLDP-MIB object lldpPortConfigAdminStatus.
+// Unnamed values remain valid states.
+enum PortAdminStatus {
+  // The LLDP-MIB assigns no zero value. Absence, not this value, means the
+  // source did not report the state.
+  PORT_ADMIN_STATUS_UNSPECIFIED = 0;
+  // The agent transmits announcements and ignores received ones.
+  PORT_ADMIN_STATUS_TX_ONLY = 1;
+  // The agent stores received announcements and transmits none.
+  PORT_ADMIN_STATUS_RX_ONLY = 2;
+  // The agent transmits announcements and stores received ones.
+  PORT_ADMIN_STATUS_TX_AND_RX = 3;
+  // The agent neither transmits nor stores announcements on the port.
+  PORT_ADMIN_STATUS_DISABLED = 4;
+}

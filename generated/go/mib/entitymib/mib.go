@@ -411,7 +411,9 @@ var EntPhysicalUUID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 
 
 // EntPhysicalTableRow is one row of entPhysicalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// EntPhysicalTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type EntPhysicalTableRow struct {
 	Index                   snmp.OID
 	EntPhysicalDescr        []byte
@@ -432,6 +434,58 @@ type EntPhysicalTableRow struct {
 	EntPhysicalMfgDate      time.Time
 	EntPhysicalUris         []byte
 	EntPhysicalUUID         []byte
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r EntPhysicalTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case EntPhysicalDescr.Key():
+		return r.observed[0]&(1<<0) != 0
+	case EntPhysicalVendorType.Key():
+		return r.observed[0]&(1<<1) != 0
+	case EntPhysicalContainedIn.Key():
+		return r.observed[0]&(1<<2) != 0
+	case EntPhysicalClass.Key():
+		return r.observed[0]&(1<<3) != 0
+	case EntPhysicalParentRelPos.Key():
+		return r.observed[0]&(1<<4) != 0
+	case EntPhysicalName.Key():
+		return r.observed[0]&(1<<5) != 0
+	case EntPhysicalHardwareRev.Key():
+		return r.observed[0]&(1<<6) != 0
+	case EntPhysicalFirmwareRev.Key():
+		return r.observed[0]&(1<<7) != 0
+	case EntPhysicalSoftwareRev.Key():
+		return r.observed[0]&(1<<8) != 0
+	case EntPhysicalSerialNum.Key():
+		return r.observed[0]&(1<<9) != 0
+	case EntPhysicalMfgName.Key():
+		return r.observed[0]&(1<<10) != 0
+	case EntPhysicalModelName.Key():
+		return r.observed[0]&(1<<11) != 0
+	case EntPhysicalAlias.Key():
+		return r.observed[0]&(1<<12) != 0
+	case EntPhysicalAssetID.Key():
+		return r.observed[0]&(1<<13) != 0
+	case EntPhysicalIsFRU.Key():
+		return r.observed[0]&(1<<14) != 0
+	case EntPhysicalMfgDate.Key():
+		return r.observed[0]&(1<<15) != 0
+	case EntPhysicalUris.Key():
+		return r.observed[0]&(1<<16) != 0
+	case EntPhysicalUUID.Key():
+		return r.observed[0]&(1<<17) != 0
+	}
+
+	return false
 }
 
 // EntPhysicalTableWalker is a table-aware walker over entPhysicalTable.
@@ -457,7 +511,8 @@ type EntPhysicalTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -514,6 +569,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalDescr = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 3:
@@ -526,11 +582,13 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalVendorType = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 4:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhysicalContainedIn = int32(v)
+					row.observed[0] |= 1 << 2
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -541,12 +599,14 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 							derr = dErr
 						} else {
 							row.EntPhysicalContainedIn = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
 				}
 			case 5:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhysicalClass = int32(v)
+					row.observed[0] |= 1 << 3
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -557,12 +617,14 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 							derr = dErr
 						} else {
 							row.EntPhysicalClass = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
 			case 6:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhysicalParentRelPos = int32(v)
+					row.observed[0] |= 1 << 4
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -573,6 +635,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 							derr = dErr
 						} else {
 							row.EntPhysicalParentRelPos = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
@@ -586,6 +649,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalName = dv
+						row.observed[0] |= 1 << 5
 					}
 				}
 			case 8:
@@ -598,6 +662,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalHardwareRev = dv
+						row.observed[0] |= 1 << 6
 					}
 				}
 			case 9:
@@ -610,6 +675,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalFirmwareRev = dv
+						row.observed[0] |= 1 << 7
 					}
 				}
 			case 10:
@@ -622,6 +688,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalSoftwareRev = dv
+						row.observed[0] |= 1 << 8
 					}
 				}
 			case 11:
@@ -634,6 +701,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalSerialNum = dv
+						row.observed[0] |= 1 << 9
 					}
 				}
 			case 12:
@@ -646,6 +714,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalMfgName = dv
+						row.observed[0] |= 1 << 10
 					}
 				}
 			case 13:
@@ -658,6 +727,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalModelName = dv
+						row.observed[0] |= 1 << 11
 					}
 				}
 			case 14:
@@ -670,6 +740,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalAlias = dv
+						row.observed[0] |= 1 << 12
 					}
 				}
 			case 15:
@@ -682,6 +753,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalAssetID = dv
+						row.observed[0] |= 1 << 13
 					}
 				}
 			case 16:
@@ -694,6 +766,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalIsFRU = dv
+						row.observed[0] |= 1 << 14
 					}
 				}
 			case 17:
@@ -706,6 +779,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalMfgDate = dv
+						row.observed[0] |= 1 << 15
 					}
 				}
 			case 18:
@@ -718,6 +792,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalUris = dv
+						row.observed[0] |= 1 << 16
 					}
 				}
 			case 19:
@@ -730,6 +805,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 						derr = dErr
 					} else {
 						row.EntPhysicalUUID = dv
+						row.observed[0] |= 1 << 17
 					}
 				}
 			}
@@ -774,17 +850,24 @@ var EntPhysicalTable entPhysicalTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entPhysicalTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhysicalTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntPhysicalTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entPhysicalTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1))
 
 	return &EntPhysicalTableWalker{
 		byCol: byCol,
@@ -818,108 +901,126 @@ func decodeEntPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhysicalTab
 				return row, derr
 			}
 			row.EntPhysicalDescr = dv
+			row.observed[0] |= 1 << 0
 		case 3:
 			dv, derr := EntPhysicalVendorType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalVendorType = dv
+			row.observed[0] |= 1 << 1
 		case 4:
 			dv, derr := EntPhysicalContainedIn.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalContainedIn = dv
+			row.observed[0] |= 1 << 2
 		case 5:
 			dv, derr := EntPhysicalClass.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalClass = dv
+			row.observed[0] |= 1 << 3
 		case 6:
 			dv, derr := EntPhysicalParentRelPos.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalParentRelPos = dv
+			row.observed[0] |= 1 << 4
 		case 7:
 			dv, derr := EntPhysicalName.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalName = dv
+			row.observed[0] |= 1 << 5
 		case 8:
 			dv, derr := EntPhysicalHardwareRev.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalHardwareRev = dv
+			row.observed[0] |= 1 << 6
 		case 9:
 			dv, derr := EntPhysicalFirmwareRev.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalFirmwareRev = dv
+			row.observed[0] |= 1 << 7
 		case 10:
 			dv, derr := EntPhysicalSoftwareRev.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalSoftwareRev = dv
+			row.observed[0] |= 1 << 8
 		case 11:
 			dv, derr := EntPhysicalSerialNum.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalSerialNum = dv
+			row.observed[0] |= 1 << 9
 		case 12:
 			dv, derr := EntPhysicalMfgName.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalMfgName = dv
+			row.observed[0] |= 1 << 10
 		case 13:
 			dv, derr := EntPhysicalModelName.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalModelName = dv
+			row.observed[0] |= 1 << 11
 		case 14:
 			dv, derr := EntPhysicalAlias.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalAlias = dv
+			row.observed[0] |= 1 << 12
 		case 15:
 			dv, derr := EntPhysicalAssetID.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalAssetID = dv
+			row.observed[0] |= 1 << 13
 		case 16:
 			dv, derr := EntPhysicalIsFRU.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalIsFRU = dv
+			row.observed[0] |= 1 << 14
 		case 17:
 			dv, derr := EntPhysicalMfgDate.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalMfgDate = dv
+			row.observed[0] |= 1 << 15
 		case 18:
 			dv, derr := EntPhysicalUris.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalUris = dv
+			row.observed[0] |= 1 << 16
 		case 19:
 			dv, derr := EntPhysicalUUID.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntPhysicalUUID = dv
+			row.observed[0] |= 1 << 17
 		}
 	}
 
@@ -957,91 +1058,109 @@ func mergeEntPhysicalTableRow(dst *EntPhysicalTableRow, vbs []snmp.VarBind) {
 			dv, derr := EntPhysicalDescr.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalDescr = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 3:
 			dv, derr := EntPhysicalVendorType.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalVendorType = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 4:
 			dv, derr := EntPhysicalContainedIn.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalContainedIn = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 5:
 			dv, derr := EntPhysicalClass.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalClass = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 6:
 			dv, derr := EntPhysicalParentRelPos.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalParentRelPos = dv
+				dst.observed[0] |= 1 << 4
 			}
 		case 7:
 			dv, derr := EntPhysicalName.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalName = dv
+				dst.observed[0] |= 1 << 5
 			}
 		case 8:
 			dv, derr := EntPhysicalHardwareRev.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalHardwareRev = dv
+				dst.observed[0] |= 1 << 6
 			}
 		case 9:
 			dv, derr := EntPhysicalFirmwareRev.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalFirmwareRev = dv
+				dst.observed[0] |= 1 << 7
 			}
 		case 10:
 			dv, derr := EntPhysicalSoftwareRev.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalSoftwareRev = dv
+				dst.observed[0] |= 1 << 8
 			}
 		case 11:
 			dv, derr := EntPhysicalSerialNum.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalSerialNum = dv
+				dst.observed[0] |= 1 << 9
 			}
 		case 12:
 			dv, derr := EntPhysicalMfgName.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalMfgName = dv
+				dst.observed[0] |= 1 << 10
 			}
 		case 13:
 			dv, derr := EntPhysicalModelName.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalModelName = dv
+				dst.observed[0] |= 1 << 11
 			}
 		case 14:
 			dv, derr := EntPhysicalAlias.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalAlias = dv
+				dst.observed[0] |= 1 << 12
 			}
 		case 15:
 			dv, derr := EntPhysicalAssetID.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalAssetID = dv
+				dst.observed[0] |= 1 << 13
 			}
 		case 16:
 			dv, derr := EntPhysicalIsFRU.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalIsFRU = dv
+				dst.observed[0] |= 1 << 14
 			}
 		case 17:
 			dv, derr := EntPhysicalMfgDate.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalMfgDate = dv
+				dst.observed[0] |= 1 << 15
 			}
 		case 18:
 			dv, derr := EntPhysicalUris.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalUris = dv
+				dst.observed[0] |= 1 << 16
 			}
 		case 19:
 			dv, derr := EntPhysicalUUID.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalUUID = dv
+				dst.observed[0] |= 1 << 17
 			}
 		}
 	}
@@ -1223,7 +1342,9 @@ var EntLogicalContextName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1
 
 // EntLogicalTableRow is one row of entLogicalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// EntLogicalTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type EntLogicalTableRow struct {
 	Index                     snmp.OID
 	EntLogicalDescr           []byte
@@ -1233,6 +1354,36 @@ type EntLogicalTableRow struct {
 	EntLogicalTDomain         snmp.OID
 	EntLogicalContextEngineID []byte
 	EntLogicalContextName     []byte
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r EntLogicalTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case EntLogicalDescr.Key():
+		return r.observed[0]&(1<<0) != 0
+	case EntLogicalType.Key():
+		return r.observed[0]&(1<<1) != 0
+	case EntLogicalCommunity.Key():
+		return r.observed[0]&(1<<2) != 0
+	case EntLogicalTAddress.Key():
+		return r.observed[0]&(1<<3) != 0
+	case EntLogicalTDomain.Key():
+		return r.observed[0]&(1<<4) != 0
+	case EntLogicalContextEngineID.Key():
+		return r.observed[0]&(1<<5) != 0
+	case EntLogicalContextName.Key():
+		return r.observed[0]&(1<<6) != 0
+	}
+
+	return false
 }
 
 // EntLogicalTableWalker is a table-aware walker over entLogicalTable.
@@ -1258,7 +1409,8 @@ type EntLogicalTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1315,6 +1467,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 						derr = dErr
 					} else {
 						row.EntLogicalDescr = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			case 3:
@@ -1327,6 +1480,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 						derr = dErr
 					} else {
 						row.EntLogicalType = dv
+						row.observed[0] |= 1 << 1
 					}
 				}
 			case 4:
@@ -1339,6 +1493,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 						derr = dErr
 					} else {
 						row.EntLogicalCommunity = dv
+						row.observed[0] |= 1 << 2
 					}
 				}
 			case 5:
@@ -1351,6 +1506,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 						derr = dErr
 					} else {
 						row.EntLogicalTAddress = dv
+						row.observed[0] |= 1 << 3
 					}
 				}
 			case 6:
@@ -1363,6 +1519,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 						derr = dErr
 					} else {
 						row.EntLogicalTDomain = dv
+						row.observed[0] |= 1 << 4
 					}
 				}
 			case 7:
@@ -1375,6 +1532,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 						derr = dErr
 					} else {
 						row.EntLogicalContextEngineID = dv
+						row.observed[0] |= 1 << 5
 					}
 				}
 			case 8:
@@ -1387,6 +1545,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 						derr = dErr
 					} else {
 						row.EntLogicalContextName = dv
+						row.observed[0] |= 1 << 6
 					}
 				}
 			}
@@ -1431,17 +1590,24 @@ var EntLogicalTable entLogicalTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entLogicalTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entLogicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntLogicalTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntLogicalTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entLogicalTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1))
 
 	return &EntLogicalTableWalker{
 		byCol: byCol,
@@ -1475,42 +1641,49 @@ func decodeEntLogicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLogicalTable
 				return row, derr
 			}
 			row.EntLogicalDescr = dv
+			row.observed[0] |= 1 << 0
 		case 3:
 			dv, derr := EntLogicalType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntLogicalType = dv
+			row.observed[0] |= 1 << 1
 		case 4:
 			dv, derr := EntLogicalCommunity.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntLogicalCommunity = dv
+			row.observed[0] |= 1 << 2
 		case 5:
 			dv, derr := EntLogicalTAddress.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntLogicalTAddress = dv
+			row.observed[0] |= 1 << 3
 		case 6:
 			dv, derr := EntLogicalTDomain.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntLogicalTDomain = dv
+			row.observed[0] |= 1 << 4
 		case 7:
 			dv, derr := EntLogicalContextEngineID.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntLogicalContextEngineID = dv
+			row.observed[0] |= 1 << 5
 		case 8:
 			dv, derr := EntLogicalContextName.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
 			row.EntLogicalContextName = dv
+			row.observed[0] |= 1 << 6
 		}
 	}
 
@@ -1548,36 +1721,43 @@ func mergeEntLogicalTableRow(dst *EntLogicalTableRow, vbs []snmp.VarBind) {
 			dv, derr := EntLogicalDescr.Decode(vb)
 			if derr == nil {
 				dst.EntLogicalDescr = dv
+				dst.observed[0] |= 1 << 0
 			}
 		case 3:
 			dv, derr := EntLogicalType.Decode(vb)
 			if derr == nil {
 				dst.EntLogicalType = dv
+				dst.observed[0] |= 1 << 1
 			}
 		case 4:
 			dv, derr := EntLogicalCommunity.Decode(vb)
 			if derr == nil {
 				dst.EntLogicalCommunity = dv
+				dst.observed[0] |= 1 << 2
 			}
 		case 5:
 			dv, derr := EntLogicalTAddress.Decode(vb)
 			if derr == nil {
 				dst.EntLogicalTAddress = dv
+				dst.observed[0] |= 1 << 3
 			}
 		case 6:
 			dv, derr := EntLogicalTDomain.Decode(vb)
 			if derr == nil {
 				dst.EntLogicalTDomain = dv
+				dst.observed[0] |= 1 << 4
 			}
 		case 7:
 			dv, derr := EntLogicalContextEngineID.Decode(vb)
 			if derr == nil {
 				dst.EntLogicalContextEngineID = dv
+				dst.observed[0] |= 1 << 5
 			}
 		case 8:
 			dv, derr := EntLogicalContextName.Decode(vb)
 			if derr == nil {
 				dst.EntLogicalContextName = dv
+				dst.observed[0] |= 1 << 6
 			}
 		}
 	}
@@ -1665,10 +1845,30 @@ var EntLPPhysicalIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47
 
 // EntLPMappingTableRow is one row of entLPMappingTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// EntLPMappingTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type EntLPMappingTableRow struct {
 	Index              snmp.OID
 	EntLPPhysicalIndex int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r EntLPMappingTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case EntLPPhysicalIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
 }
 
 // EntLPMappingTableWalker is a table-aware walker over entLPMappingTable.
@@ -1694,7 +1894,8 @@ type EntLPMappingTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -1744,6 +1945,7 @@ func (tw *EntLPMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntLPMappingTableR
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntLPPhysicalIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -1754,6 +1956,7 @@ func (tw *EntLPMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntLPMappingTableR
 							derr = dErr
 						} else {
 							row.EntLPPhysicalIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -1799,17 +2002,24 @@ var EntLPMappingTable entLPMappingTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entLPMappingTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entLPMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntLPMappingTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntLPMappingTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entLPMappingTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1))
 
 	return &EntLPMappingTableWalker{
 		byCol: byCol,
@@ -1843,6 +2053,7 @@ func decodeEntLPMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLPMappingT
 				return row, derr
 			}
 			row.EntLPPhysicalIndex = dv
+			row.observed[0] |= 1 << 0
 		}
 	}
 
@@ -1880,6 +2091,7 @@ func mergeEntLPMappingTableRow(dst *EntLPMappingTableRow, vbs []snmp.VarBind) {
 			dv, derr := EntLPPhysicalIndex.Decode(vb)
 			if derr == nil {
 				dst.EntLPPhysicalIndex = dv
+				dst.observed[0] |= 1 << 0
 			}
 		}
 	}
@@ -1981,10 +2193,30 @@ var EntAliasMappingIdentifier = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1
 
 // EntAliasMappingTableRow is one row of entAliasMappingTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// EntAliasMappingTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type EntAliasMappingTableRow struct {
 	Index                     snmp.OID
 	EntAliasMappingIdentifier snmp.OID
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r EntAliasMappingTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case EntAliasMappingIdentifier.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
 }
 
 // EntAliasMappingTableWalker is a table-aware walker over entAliasMappingTable.
@@ -2010,7 +2242,8 @@ type EntAliasMappingTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2067,6 +2300,7 @@ func (tw *EntAliasMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntAliasMapping
 						derr = dErr
 					} else {
 						row.EntAliasMappingIdentifier = dv
+						row.observed[0] |= 1 << 0
 					}
 				}
 			}
@@ -2111,17 +2345,24 @@ var EntAliasMappingTable entAliasMappingTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entAliasMappingTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entAliasMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntAliasMappingTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntAliasMappingTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entAliasMappingTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2))
 
 	return &EntAliasMappingTableWalker{
 		byCol: byCol,
@@ -2155,6 +2396,7 @@ func decodeEntAliasMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntAliasMa
 				return row, derr
 			}
 			row.EntAliasMappingIdentifier = dv
+			row.observed[0] |= 1 << 0
 		}
 	}
 
@@ -2192,6 +2434,7 @@ func mergeEntAliasMappingTableRow(dst *EntAliasMappingTableRow, vbs []snmp.VarBi
 			dv, derr := EntAliasMappingIdentifier.Decode(vb)
 			if derr == nil {
 				dst.EntAliasMappingIdentifier = dv
+				dst.observed[0] |= 1 << 0
 			}
 		}
 	}
@@ -2278,10 +2521,30 @@ var EntPhysicalChildIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 
 // EntPhysicalContainsTableRow is one row of entPhysicalContainsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
-// populated only for columns the caller passed to Walk().
+// populated only for columns the caller passed to Walk(). Use
+// EntPhysicalContainsTableRow.Observed to tell a reported zero from a column the
+// agent never answered.
 type EntPhysicalContainsTableRow struct {
 	Index                 snmp.OID
 	EntPhysicalChildIndex int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r EntPhysicalContainsTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case EntPhysicalChildIndex.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
 }
 
 // EntPhysicalContainsTableWalker is a table-aware walker over entPhysicalContainsTable.
@@ -2307,7 +2570,8 @@ type EntPhysicalContainsTableWalker struct {
 //
 //  2. Row presence: every index observed under the entry prefix
 //     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero.
+//     that index. The row's requested-column fields stay at zero
+//     and Observed reports every column of that row as unobserved.
 //
 //  3. Decode error: rows for indexes strictly before the failing
 //     index in appearance order flush before Walker.Fail is set,
@@ -2357,6 +2621,7 @@ func (tw *EntPhysicalContainsTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysical
 			case 1:
 				if v, okRaw := snmp.RawInteger32(rv); okRaw {
 					row.EntPhysicalChildIndex = int32(v)
+					row.observed[0] |= 1 << 0
 				} else {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
@@ -2367,6 +2632,7 @@ func (tw *EntPhysicalContainsTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysical
 							derr = dErr
 						} else {
 							row.EntPhysicalChildIndex = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
 				}
@@ -2412,17 +2678,24 @@ var EntPhysicalContainsTable entPhysicalContainsTableT
 // rides the raw fast path (BulkWalkRaw); sessions or responses
 // that cannot deliver raw bytes degrade transparently to the
 // generic per-varbind decode.
+//
+// Every column in cols must be a column of entPhysicalContainsTable. A column
+// of any other table is a caller bug, not a device quirk: no request
+// is sent, the iterator yields nothing, and Err reports
+// snmp.ErrForeignColumn.
 func (entPhysicalContainsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhysicalContainsTableWalker {
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3))
+	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
 
 	for _, c := range cols {
 		o := c.OID()
-		if o.Len() == 0 {
-			continue
+		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
+			return &EntPhysicalContainsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entPhysicalContainsTable", c)}
 		}
 		byCol[o.At(o.Len()-1)] = c
 	}
+
+	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3))
 
 	return &EntPhysicalContainsTableWalker{
 		byCol: byCol,
@@ -2456,6 +2729,7 @@ func decodeEntPhysicalContainsTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhy
 				return row, derr
 			}
 			row.EntPhysicalChildIndex = dv
+			row.observed[0] |= 1 << 0
 		}
 	}
 
@@ -2493,6 +2767,7 @@ func mergeEntPhysicalContainsTableRow(dst *EntPhysicalContainsTableRow, vbs []sn
 			dv, derr := EntPhysicalChildIndex.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalChildIndex = dv
+				dst.observed[0] |= 1 << 0
 			}
 		}
 	}

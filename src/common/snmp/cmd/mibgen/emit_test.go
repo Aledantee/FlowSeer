@@ -179,6 +179,10 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"func (tw *FakeTableWalker) Iter()",
 		"func (tw *FakeTableWalker) Err()",
 		"func (fakeTableT) Walk",
+		// Walk's foreign-column guard: a column from another table
+		// must not be keyed into byCol by its bare last sub-id, where
+		// it would enable whichever local column shares that arc.
+		"snmp.ForeignColumnWalk(ctx, \"fakeTable\", c)",
 		"var FakeTable fakeTableT",
 		// Module-prefixed dispatch map: FAKE-MIB → fAKEMIBOIDDispatch
 		// (camelCase upper-cases letters following hyphens, then the
@@ -222,11 +226,27 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		// equal helper uses the type-appropriate comparator
 		// (bytes.Equal for the MacAddress []byte field).
 		"bytes.Equal(a.FakeMac, b.FakeMac)",
+		// Per-column observation: the row carries one bit per column
+		// and answers by column identity, so a mapper can tell a
+		// reported zero from a column the agent never answered.
+		"func (r FakeTableRow) Observed(col snmp.AnyColumn) bool",
+		"case FakeName.Key():",
+		// BITS decodes to a set of positions, with one named constant
+		// per bit the MIB names.
+		"FakeCapabilitiesAlpha snmp.BitPos = 0",
+		"FakeCapabilitiesGamma snmp.BitPos = 2",
+		"snmp.DecodeBitSet(vb)",
+		"var FakeFlags = snmp.NewColumn[snmp.BitSet]",
+		"a.FakeFlags.Equal(b.FakeFlags)",
 	}
 	notWantFragments := []string{
 		// Removed in the D5 refactor; ensure the helper does not creep
 		// back in.
 		"func mustParseOID",
+		// A BITS type must not be resolved through the enum path: an
+		// int32 constant per bit can carry neither the wire OCTET
+		// STRING nor a two-bits-set answer.
+		"type FakeCapabilities int32",
 	}
 	for _, w := range wantFragments {
 		if !strings.Contains(src, w) {

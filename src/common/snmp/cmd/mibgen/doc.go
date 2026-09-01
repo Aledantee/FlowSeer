@@ -8,6 +8,17 @@
 // per-package OID → AnyColumn dispatch map. Well-known SMIv2
 // textual conventions delegate to [snmp.Decode*] helpers.
 //
+// Two generated shapes carry more than the MIB's field list:
+//
+//   - Each row type has an Observed(snmp.AnyColumn) bool method. A
+//     zero-valued field is ambiguous on its own — the agent may have
+//     answered zero or may not have answered at all — so the row records
+//     which requested columns actually landed and answers by column
+//     identity.
+//   - BITS-valued objects decode to [snmp.BitSet], the set of positions
+//     the agent reported, and the module gets one [snmp.BitPos] constant
+//     per named bit (see emit_bits.go for how positions are recovered).
+//
 // Invoke from the repository root:
 //
 //	go run ./src/common/snmp/cmd/mibgen [-config <yaml>] [-out <dir>] [-pkg-prefix <importpath>] [-baseline <yaml>]
@@ -33,7 +44,8 @@
 // intact. See baseline.go for the file's shape and the two-tier gate.
 //
 // The emitter lives in emit.go (and per-shape companions emit_scalar.go,
-// emit_table.go, emit_enum.go, emit_tc.go, emit_dispatch.go); the CLI
+// emit_table.go, emit_enum.go, emit_bits.go, emit_tc.go,
+// emit_dispatch.go); the CLI
 // entrypoint is in main.go.
 //
 // # Refreshing golden test fixtures

@@ -1,0 +1,31 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import option "buf/validate/validate.proto";
+
+// A management address of a family this package gives no typed form, held as
+// the family number plus the raw address octets.
+message OtherManagementAddress {
+  // The IANA address family number of the address
+  // (https://www.iana.org/assignments/address-family-numbers). Must be
+  // present. Families 1 and 2 normally reach a consumer through the typed
+  // IPv4 and IPv6 arm; they appear here when the reported payload is not a
+  // well-formed address of that family.
+  uint32 address_family = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32 = {
+      gte: 1
+      lte: 65535
+    }
+  ];
+  // The address octets as reported, 1 to 31 of them per IEEE Std 802.1AB.
+  // Must be present; omit the containing field instead.
+  bytes value = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes = {
+      min_len: 1
+      max_len: 31
+    }
+  ];
+}
