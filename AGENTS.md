@@ -77,3 +77,6 @@ invariants.
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts); relevant when orienting to the codebase or discussing domain terms.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).
+- `.serena/project.yml` — shared Serena configuration for Go-aware symbol lookup,
+  reference discovery, and diagnostics. Put machine-local
+  overrides in the ignored `.serena/project.local.yml` file.
