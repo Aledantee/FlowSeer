@@ -1404,18 +1404,18 @@ func MtxrLteFirmwareStatusGet(ctx context.Context, sess snmp.Session) (string, e
 // MtxrLteFirmwareLastCheckedGet reads the SMIv2 scalar mtxrLteFirmwareLastChecked.
 // Unix epoch timestamp indicating when the firmware version was last
 // successfully checked online.
-func MtxrLteFirmwareLastCheckedGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
+func MtxrLteFirmwareLastCheckedGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 4, 0)})
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	if len(vbs) == 0 {
-		return nil, ae.Msg("empty Get response for mtxrLteFirmwareLastChecked")
+		return 0, ae.Msg("empty Get response for mtxrLteFirmwareLastChecked")
 	}
 
-	return func(vb snmp.VarBind) ([]byte, error) {
-		return snmp.DecodeBytes(vb)
+	return func(vb snmp.VarBind) (uint32, error) {
+		return snmp.DecodeUint32(vb)
 	}(vbs[0])
 }
 

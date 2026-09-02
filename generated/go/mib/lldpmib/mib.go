@@ -195,6 +195,35 @@ func (v LldpPortIdSubtype) String() string {
 	return fmt.Sprintf("LldpPortIdSubtype(%d)", v)
 }
 
+// LldpPortConfigTLVsTxEnableBit names the bit positions of the SMI BITS type lldpPortConfigTLVsTxEnable (inline).
+// Pass one to [snmp.BitSet.Has] on a value of this type.
+// The lldpPortConfigTLVsTxEnable, defined as a bitmap, includes the basic
+// set of LLDP TLVs whose transmission is allowed on the local LLDP agent
+// by the network management. Each bit in the bitmap corresponds to a TLV
+// type associated with a specific optional TLV. It should be noted that
+// the organizationally-specific TLVs are excluded from the
+// lldpTLVsTxEnable bitmap. LLDP Organization Specific Information
+// Extension MIBs should have similar configuration object to control
+// transmission of their organizationally defined TLVs. The bit
+// 'portDesc(0)' indicates that LLDP agent should transmit 'Port
+// Description TLV'. The bit 'sysName(1)' indicates that LLDP agent should
+// transmit 'System Name TLV'. The bit 'sysDesc(2)' indicates that LLDP
+// agent should transmit 'System Description TLV'. The bit 'sysCap(3)'
+// indicates that LLDP agent should transmit 'System Capabilities TLV'.
+// There is no bit reserved for the management address TLV type since
+// transmission of management address TLVs are controlled by another
+// object, lldpConfigManAddrTable. The default value for
+// lldpPortConfigTLVsTxEnable object is empty set, which means no
+// enumerated values are set. The value of this object must be restored
+// from non-volatile storage after a re-initialization of the management
+// system.
+const (
+	LldpPortConfigTLVsTxEnableBitPortDesc snmp.BitPos = 0
+	LldpPortConfigTLVsTxEnableBitSysName  snmp.BitPos = 1
+	LldpPortConfigTLVsTxEnableBitSysDesc  snmp.BitPos = 2
+	LldpPortConfigTLVsTxEnableBitSysCap   snmp.BitPos = 3
+)
+
 // LldpSystemCapabilitiesMap names the bit positions of the SMI BITS type LldpSystemCapabilitiesMap.
 // Pass one to [snmp.BitSet.Has] on a value of this type.
 // This TC describes the system capabilities. The bit 'other(0)' indicates

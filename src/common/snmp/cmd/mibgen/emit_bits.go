@@ -27,9 +27,10 @@ import (
 // position: a type numbering its members 0, 2, 4 has nothing to say
 // about position 1.
 //
-// Only the BITS textual conventions and type assignments the module
-// declares are named here. A `SYNTAX BITS {…}` written inline on one
-// object still decodes to a set; its positions go unnamed.
+// An inline `SYNTAX BITS {…}` on a scalar or column is named too. The
+// declaring object owns those names, suffixed so they cannot collide
+// with the object's own identifier, which is the same shape the inline
+// enum case uses.
 func emitBitsConsts(f *jen.File, mod *smi.Module) {
 	type bitsDecl struct {
 		GoName  string // constant-name prefix
@@ -59,6 +60,23 @@ func emitBitsConsts(f *jen.File, mod *smi.Module) {
 			MIBName: t.Name,
 			Comment: t.Description,
 			Members: t.Members,
+		})
+	}
+
+	// Inline `SYNTAX BITS {…}` on a scalar or column. The type has no
+	// name of its own, so the declaring object supplies one.
+	for _, n := range mod.Nodes {
+		if n.Kind != smi.NodeScalar && n.Kind != smi.NodeColumn {
+			continue
+		}
+		if !isBitsType(n.Type) || n.Type.Name != "" || len(n.Type.Members) == 0 {
+			continue
+		}
+		add("node:"+n.Name, &bitsDecl{
+			GoName:  camelCase(n.Name) + "Bit",
+			MIBName: n.Name + " (inline)",
+			Comment: n.Description,
+			Members: n.Type.Members,
 		})
 	}
 

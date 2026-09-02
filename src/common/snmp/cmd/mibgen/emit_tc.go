@@ -243,20 +243,6 @@ func naturalResolved(ec *emitCtx, nodeName string, t *smi.Type) resolved {
 	return resolveBase(dispatchBase(t))
 }
 
-// applicationTypeNames spells the SMI application types the way
-// SNMPv2-SMI declares them, which is the spelling an IMPORTS clause has
-// to name before a module may write one.
-var applicationTypeNames = map[smi.BaseType]string{
-	smi.BaseInteger32:  "Integer32",
-	smi.BaseUnsigned32: "Unsigned32",
-	smi.BaseGauge32:    "Gauge32",
-	smi.BaseCounter32:  "Counter32",
-	smi.BaseCounter64:  "Counter64",
-	smi.BaseTimeTicks:  "TimeTicks",
-	smi.BaseIPAddress:  "IpAddress",
-	smi.BaseOpaque:     "Opaque",
-}
-
 // typeAvailable reports whether the module being emitted may write t.
 //
 // RFC 2578 §3.2 makes IMPORTS the statement of where every external
@@ -269,18 +255,24 @@ var applicationTypeNames = map[smi.BaseType]string{
 // an import and their declarations are still worth seeing — so the
 // judgment lives here, where the binding is written.
 //
-// The types with no name are the ASN.1 built-ins and BITS, which are
-// keywords rather than imported symbols.
+// The judgment stops at names. A named type has to be imported because
+// the import is what says which module's definition is meant, and
+// guessing there would bind a column to the wrong one. A base type names
+// no module: RFC 2578 §7.1 defines Counter32 and its siblings, so a
+// module that writes one without importing it has stated its intent
+// unambiguously and only failed to say where it came from. Withholding
+// the base there does not refuse the declaration, it renders it from the
+// untyped fallback -- MIKROTIK-MIB's mtxrLteFirmwareLastChecked shipped
+// as a byte string for want of an import of Unsigned32 -- which turns a
+// diagnosable omission into a binding that decodes a device's number as
+// bytes. The resolver has already raised the missing import; the wire
+// type is not the generator's to withhold.
 func (ec *emitCtx) typeAvailable(t *smi.Type) bool {
 	if t.Name != "" {
 		return ec.visible[t.Name]
 	}
-	name, needsImport := applicationTypeNames[t.Base]
-	if !needsImport {
-		return true
-	}
 
-	return ec.visible[name]
+	return true
 }
 
 // enumResolved is the canonical resolved descriptor for any enum-like

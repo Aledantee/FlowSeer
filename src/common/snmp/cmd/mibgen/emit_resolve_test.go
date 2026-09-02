@@ -132,13 +132,25 @@ func TestResolve_ConventionOverApplicationTypeIsNotTheApplicationType(t *testing
 // a module to its IMPORTS clause. MIKROTIK-MIB writes SYNTAX Unsigned32
 // without importing it, and the binding falls back to octets rather
 // than to a definition the author never claimed.
-func TestResolve_TypeNotImportedIsNotAvailable(t *testing.T) {
+// TestResolve_ImportsGateNamesNotBaseTypes pins where the IMPORTS check
+// stops. A name has to be imported, because the import is what says
+// which module's definition is meant and guessing binds to the wrong
+// one. A base type names no module -- RFC 2578 §7.1 defines it -- so a
+// module that writes one without importing it has said what it means and
+// only failed to say where it came from. Withholding the wire type there
+// does not refuse the declaration, it emits a byte string for a number.
+func TestResolve_ImportsGateNamesNotBaseTypes(t *testing.T) {
 	mod := &smi.Module{Name: "TEST-MIB"}
 	ec := newEmitCtx(mod, &smi.ModuleSet{}, Module{Name: "TEST-MIB", Package: "testmib"}, nil, "")
 
 	got := kindOf(t, ec, &smi.Type{Base: smi.BaseUnsigned32})
+	if !strings.Contains(got, "KindUinteger32") {
+		t.Errorf("un-imported Unsigned32 resolved to %s; want its own wire kind", got)
+	}
+
+	got = kindOf(t, ec, &smi.Type{Name: "SomebodyElsesTC", Base: smi.BaseUnsigned32})
 	if !strings.Contains(got, "KindOctetString") {
-		t.Errorf("un-imported Unsigned32 resolved to %s; want the octet-string fallback", got)
+		t.Errorf("un-imported named type resolved to %s; want the octet-string fallback", got)
 	}
 }
 

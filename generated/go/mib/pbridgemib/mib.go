@@ -39,6 +39,51 @@ func (v EnabledStatus) String() string {
 	return fmt.Sprintf("EnabledStatus(%d)", v)
 }
 
+// Dot1dDeviceCapabilitiesBit names the bit positions of the SMI BITS type dot1dDeviceCapabilities (inline).
+// Pass one to [snmp.BitSet.Has] on a value of this type.
+// Indicates the optional parts of IEEE 802.1D and 802.1Q that are
+// implemented by this device and are manageable through this MIB.
+// Capabilities that are allowed on a per-port basis are indicated in
+// dot1dPortCapabilities. dot1dExtendedFilteringServices(0), -- can perform
+// filtering of -- individual multicast addresses -- controlled by GMRP.
+// dot1dTrafficClasses(1), -- can map user priority to -- multiple traffic
+// classes. dot1qStaticEntryIndividualPort(2), --
+// dot1qStaticUnicastReceivePort & -- dot1qStaticMulticastReceivePort --
+// can represent non-zero entries. dot1qIVLCapable(3), -- Independent VLAN
+// Learning (IVL). dot1qSVLCapable(4), -- Shared VLAN Learning (SVL).
+// dot1qHybridCapable(5), -- both IVL & SVL simultaneously.
+// dot1qConfigurablePvidTagging(6), -- whether the implementation --
+// supports the ability to -- override the default PVID -- setting and its
+// egress status -- (VLAN-Tagged or Untagged) on -- each port.
+// dot1dLocalVlanCapable(7) -- can support multiple local -- bridges,
+// outside of the scope -- of 802.1Q defined VLANs.
+const (
+	Dot1dDeviceCapabilitiesBitDot1dExtendedFilteringServices snmp.BitPos = 0
+	Dot1dDeviceCapabilitiesBitDot1dTrafficClasses            snmp.BitPos = 1
+	Dot1dDeviceCapabilitiesBitDot1qStaticEntryIndividualPort snmp.BitPos = 2
+	Dot1dDeviceCapabilitiesBitDot1qIVLCapable                snmp.BitPos = 3
+	Dot1dDeviceCapabilitiesBitDot1qSVLCapable                snmp.BitPos = 4
+	Dot1dDeviceCapabilitiesBitDot1qHybridCapable             snmp.BitPos = 5
+	Dot1dDeviceCapabilitiesBitDot1qConfigurablePvidTagging   snmp.BitPos = 6
+	Dot1dDeviceCapabilitiesBitDot1dLocalVlanCapable          snmp.BitPos = 7
+)
+
+// Dot1dPortCapabilitiesBit names the bit positions of the SMI BITS type dot1dPortCapabilities (inline).
+// Pass one to [snmp.BitSet.Has] on a value of this type.
+// Indicates the parts of IEEE 802.1D and 802.1Q that are optional on a
+// per-port basis, that are implemented by this device, and that are
+// manageable through this MIB. dot1qDot1qTagging(0), -- supports 802.1Q
+// VLAN tagging of -- frames and GVRP.
+// dot1qConfigurableAcceptableFrameTypes(1), -- allows modified values of
+// -- dot1qPortAcceptableFrameTypes. dot1qIngressFiltering(2) -- supports
+// the discarding of any -- frame received on a Port whose -- VLAN
+// classification does not -- include that Port in its Member -- set.
+const (
+	Dot1dPortCapabilitiesBitDot1qDot1qTagging                     snmp.BitPos = 0
+	Dot1dPortCapabilitiesBitDot1qConfigurableAcceptableFrameTypes snmp.BitPos = 1
+	Dot1dPortCapabilitiesBitDot1qIngressFiltering                 snmp.BitPos = 2
+)
+
 // Dot1dDeviceCapabilitiesGet reads the SMIv2 scalar dot1dDeviceCapabilities.
 // Indicates the optional parts of IEEE 802.1D and 802.1Q that are
 // implemented by this device and are manageable through this MIB.
