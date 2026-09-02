@@ -280,6 +280,16 @@ func (c *cutter) run() {
 		}
 	}
 
+	// A source with no significant tokens never entered the loop, so it
+	// never reached the report above. Empty files and files holding
+	// nothing but comments both land here, and both are as much "not a
+	// MIB" as a file full of prose is. Saying nothing about them would
+	// break the one promise a read makes: every file answers with a
+	// module or with the reason there is none.
+	if !c.stopped && len(c.out.Modules) == 0 {
+		c.reportTrailing(len(c.toks))
+	}
+
 	if c.stopped {
 		c.out.Modules = nil
 	}

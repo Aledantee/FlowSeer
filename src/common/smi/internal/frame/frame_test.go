@@ -453,6 +453,31 @@ func TestMissingModuleHeaderIsFatal(t *testing.T) {
 	}
 }
 
+// A source can hold no significant tokens at all, and a vendor tree has
+// both shapes: a zero-byte placeholder, and a file that is nothing but a
+// comment banner. Neither is a MIB, and neither may pass in silence --
+// a caller that gets back no module and no reason cannot tell a refusal
+// from a success.
+func TestSourceWithNoTokensIsStillNotAMIB(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  string
+	}{
+		{"empty", ""},
+		{"only a comment", "-- please ignore this mib\n-- Copyright (c) 2010\n"},
+		{"only whitespace", "\n\t \r\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := cut(t, tc.src)
+
+			wantCodes(t, f, diag.ErrCodeMissingModuleHeader)
+			if len(f.Modules) != 0 {
+				t.Errorf("got %d modules, want none", len(f.Modules))
+			}
+		})
+	}
+}
+
 func TestUnrecognizedDeclarationCostsOnlyItself(t *testing.T) {
 	src := inModule(`%%% junk nobody can classify
 sysUpTime OBJECT-TYPE ::= { system 3 }`)

@@ -1,5 +1,10 @@
 version: v2
 
+# Remove the previous output before generating, so a proto file that goes
+# away takes its generated Go with it instead of leaving an orphan behind
+# that still compiles.
+clean: true
+
 managed:
   enabled: true
   disable:
