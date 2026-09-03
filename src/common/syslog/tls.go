@@ -23,5 +23,15 @@ func tlsConfiguration(config *tls.Config, server bool) (*tls.Config, error) {
 	if server && len(c.Certificates) == 0 && c.GetCertificate == nil && c.GetConfigForClient == nil {
 		return nil, errs.Msg("syslog TLS server certificate required")
 	}
+	if server && c.GetConfigForClient != nil {
+		selectConfig := c.GetConfigForClient
+		c.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+			selected, err := selectConfig(hello)
+			if err != nil || selected == nil {
+				return selected, err
+			}
+			return tlsConfiguration(selected, true)
+		}
+	}
 	return c, nil
 }

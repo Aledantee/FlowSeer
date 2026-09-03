@@ -2,6 +2,7 @@ package syslog
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strconv"
 	"time"
@@ -78,7 +79,7 @@ func (r *streamReader) next() (byte, time.Time, error) {
 	return b, r.observed, nil
 }
 
-func readFrame(r *streamReader, mode Framing, storage []byte) ([]byte, time.Time, error) {
+func readFrame(r *streamReader, mode Framing, storage []byte) (payload []byte, observed time.Time, err error) {
 	r.frameStarted = false
 	if r.deadline != nil {
 		if err := r.deadline(time.Now().Add(r.idle)); err != nil {
@@ -89,6 +90,11 @@ func readFrame(r *streamReader, mode Framing, storage []byte) ([]byte, time.Time
 	if err != nil {
 		return nil, at, err
 	}
+	defer func() {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
 	if mode == Auto {
 		switch {
 		case b == '<':

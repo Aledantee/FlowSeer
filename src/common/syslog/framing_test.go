@@ -64,3 +64,10 @@ func FuzzFrame(f *testing.F) {
 		t.Fatal("framer did not progress")
 	})
 }
+
+func TestIncompleteFrameIsNotCleanEOF(t *testing.T) {
+	reader := streamReader{reader: bytes.NewBufferString("5 abc"), buffer: make([]byte, 8)}
+	if _, _, err := readFrame(&reader, OctetCounting, make([]byte, 8)); !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatal(err)
+	}
+}

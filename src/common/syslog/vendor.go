@@ -2,8 +2,7 @@ package syslog
 
 import "strings"
 
-func (p *Parser) vendor(r *Record) {
-	s := string(r.Content)
+func (p *Parser) vendor(r *Record, s string) {
 	body := s
 	if r.Tag.Presence == Present {
 		_, body, _ = strings.Cut(s, ":")
@@ -127,7 +126,7 @@ func (p *Parser) cisco(r *Record, s string) {
 			return
 		}
 		r.Vendor.Components = append([]string(nil), fields[1:sev]...)
-		if len(p.options.CiscoComponents) != sev-1 {
+		if p.options.CiscoComponentCount != sev-1 {
 			r.diagnose("ambiguous_vendor_components", 0, p.limits)
 		}
 	}

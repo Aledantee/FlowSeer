@@ -64,10 +64,10 @@ tests, not firmware interoperability or packet-capture claims.
 `ParseOptions.Year`, `Location`, and `ZoneOffsets` provide explicit clock context.
 The record marks inferred components. DST gaps/folds and unmapped abbreviations
 remain unresolved. Numeric dates require `NumericDateOrder: "dmy"` or `"mdy"`.
-A single Cisco leading counter is interpreted as sequence; multiple leading
-counters remain in `Vendor.Counters` unless `CiscoCounterOrder` names their roles
+Cisco leading counters remain in `Vendor.Counters` unless
+`CiscoCounterOrder` names their roles
 (`sequence`, `counter`). Extra percent-prefix components remain ordered evidence;
-`CiscoComponents` supplies the expected profile shape without asserting identity.
+`CiscoComponentCount` supplies the expected profile shape without asserting identity.
 
 ## Embedding and pressure
 

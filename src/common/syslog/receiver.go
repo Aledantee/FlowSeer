@@ -95,11 +95,31 @@ func Listen(ctx context.Context, configs []ListenConfig, options ReceiverOptions
 	}
 	// Fixed allowances include queue headers, listener state, socket slots, and
 	// parser result/scratch. Payload buffers are charged at their full capacity.
-	initial := l.headroom() + l.MaxFrames*int(unsafe.Sizeof(receivedFrame{})) + l.MaxConnections*32 + len(configs)*1024
-	for _, config := range configs {
-		if config.Transport == UDP {
-			initial += 65536
+	initial := l.headroom()
+	charge := func(count, size int) bool {
+		if count > (l.MaxBytes-initial)/size {
+			return false
 		}
+		initial += count * size
+		return true
+	}
+	if !charge(l.MaxFrames, int(unsafe.Sizeof(receivedFrame{}))) || !charge(l.MaxConnections, 32) || !charge(len(configs), 1024) {
+		return nil, ErrLimit
+	}
+	for _, config := range configs {
+		if config.Transport == UDP && !charge(1, 65536) {
+			return nil, ErrLimit
+		}
+	}
+	minimum := l.MaxPayload
+	for _, config := range configs {
+		if config.Transport == TCP || config.Transport == TLS {
+			minimum += streamAllowance
+			break
+		}
+	}
+	if minimum > l.MaxBytes-initial {
+		return nil, errs.Wrap(ErrLimit, "syslog budget cannot admit a listener frame")
 	}
 	admission, err := newAdmission(l, initial)
 	if err != nil {
@@ -171,6 +191,8 @@ func Listen(ctx context.Context, configs []ListenConfig, options ReceiverOptions
 				r.admission.release(r.initial, false)
 				r.queue = nil
 				r.connections = nil
+				r.listeners = nil
+				r.parser = nil
 				r.nextMu.Unlock()
 				close(r.done)
 				return

@@ -72,3 +72,19 @@ func TestParserTimeAndSD(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestInvalidHeaderBytesRemainUnparsed(t *testing.T) {
+	p, err := syslog.NewParser(syslog.ParseOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, wire := range []string{"<13>1 - bad\xffhost app - - - body", "<13>Sep 03 10:00:00 bad\xffhost app: body"} {
+		r, err := p.Parse([]byte(wire), syslog.Observation{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Status != syslog.Partial || !bytes.Contains(r.Unparsed, []byte{0xff}) {
+			t.Fatal("lost invalid header evidence", r)
+		}
+	}
+}

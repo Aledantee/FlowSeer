@@ -18,7 +18,7 @@ func TestVendorEvidence(t *testing.T) {
 		}
 		switch f.ID {
 		case "cisco-ios":
-			if r.Vendor.Sequence.Value != "00123" || r.DeviceTime.ClockMarker != "*" || r.DeviceTime.Instant != nil {
+			if r.Vendor.Sequence.Presence != syslog.Absent || len(r.Vendor.Counters) != 1 || r.Vendor.Counters[0] != "00123" || r.DeviceTime.ClockMarker != "*" || r.DeviceTime.Instant != nil {
 				t.Fatal(r)
 			}
 		case "cisco-uptime":

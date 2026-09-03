@@ -44,6 +44,7 @@ func (p *Parser) structured(r *Record, s string, owned []byte, pos int) {
 		v := fields[i+1]
 		if !headerText(v, max) {
 			r.diagnose("invalid_header_field", 0, p.limits)
+			r.Unparsed = owned[:pos]
 		}
 	}
 	if r.Version.Value != "1" {

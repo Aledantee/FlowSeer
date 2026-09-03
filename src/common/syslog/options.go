@@ -54,7 +54,7 @@ func (l Limits) normalized() (Limits, error) {
 	// Arithmetic uses small factors below. Reject before computing any allocation size.
 	maxInt := int(^uint(0) >> 1)
 	for _, v := range ints {
-		if *v.p > maxInt/1024 {
+		if v.p != &l.MaxBytes && *v.p > maxInt/1024 {
 			return l, ErrLimit
 		}
 	}
@@ -74,12 +74,12 @@ func (l Limits) headroom() int {
 // ParseOptions is immutable after NewParser. Raw capture is disabled by default.
 // Year, Location, and zone offsets are explicit interpretation context.
 type ParseOptions struct {
-	CaptureRaw        bool
-	Year              int
-	Location          *time.Location
-	ZoneOffsets       map[string]int
-	NumericDateOrder  string
-	CiscoCounterOrder []string
-	CiscoComponents   []string
-	Limits            Limits
+	CaptureRaw          bool
+	Year                int
+	Location            *time.Location
+	ZoneOffsets         map[string]int
+	NumericDateOrder    string
+	CiscoCounterOrder   []string
+	CiscoComponentCount int
+	Limits              Limits
 }

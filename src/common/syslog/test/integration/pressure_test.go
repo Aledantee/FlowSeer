@@ -66,7 +66,7 @@ func TestLifecycleAndAtomicBind(t *testing.T) {
 }
 
 func TestPartialFrameDeadlineAndConnectionCap(t *testing.T) {
-	r, err := syslog.Listen(context.Background(), []syslog.ListenConfig{{Transport: syslog.TCP, Address: "127.0.0.1:0"}}, syslog.ReceiverOptions{Limits: syslog.Limits{MaxConnections: 1, FrameTimeout: 50 * time.Millisecond, IdleTimeout: time.Second}})
+	r, err := syslog.Listen(context.Background(), []syslog.ListenConfig{{Transport: syslog.TCP, Address: "127.0.0.1:0"}}, syslog.ReceiverOptions{Limits: syslog.Limits{MaxConnections: 1, FrameTimeout: 500 * time.Millisecond, IdleTimeout: time.Second}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,10 @@ func TestPartialFrameDeadlineAndConnectionCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer closeChecked(t, second)
-	time.Sleep(100 * time.Millisecond)
+	deadline = time.Now().Add(2 * time.Second)
+	for (r.Stats().ActiveConnections != 0 || r.Stats().ConnectionRejected == 0 || r.Stats().FramingErrors == 0) && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
 	if r.Stats().ActiveConnections != 0 || r.Stats().ConnectionRejected == 0 || r.Stats().FramingErrors == 0 {
 		t.Fatal(r.Stats())
 	}

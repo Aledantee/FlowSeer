@@ -13,9 +13,7 @@ func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
 		pos += i + 2
 		rest = s[pos:]
 	}
-	if len(r.Vendor.Counters) == 1 && len(p.options.CiscoCounterOrder) == 0 {
-		r.Vendor.Sequence = Text(r.Vendor.Counters[0])
-	} else if len(r.Vendor.Counters) > 0 {
+	if len(r.Vendor.Counters) > 0 {
 		if len(p.options.CiscoCounterOrder) != len(r.Vendor.Counters) {
 			r.diagnose("ambiguous_vendor_counters", 0, p.limits)
 		} else {
@@ -46,6 +44,7 @@ func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
 		r.diagnose("missing_timestamp", pos, p.limits)
 	} else if d.Present&(DatePart|ClockPart) != (DatePart|ClockPart) || strings.Contains(d.Original, "/") && p.options.NumericDateOrder == "" {
 		r.diagnose("unresolved_timestamp", pos-n, p.limits)
+		r.Unparsed = owned[:pos]
 	}
 	rest = s[pos:]
 	first, tail := token(rest)
@@ -57,12 +56,16 @@ func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
 			pos++
 		}
 	}
+	if r.Hostname.Presence == Present && !headerText(r.Hostname.Value, 255) {
+		r.diagnose("invalid_hostname", pos-len(r.Hostname.Value), p.limits)
+		r.Unparsed = owned[:pos]
+	}
 	r.Content = owned[pos:]
 	// Retain the complete post-envelope content even when a tag is extracted.
-	body := string(r.Content)
+	body := s[pos:]
 	if colon := strings.IndexByte(body, ':'); colon > 0 && colon <= 128 {
 		tag := body[:colon]
-		if !strings.ContainsAny(tag, " %|") {
+		if !strings.ContainsAny(tag, " %|") && headerText(tag, 128) {
 			r.Tag = Text(tag)
 			r.Application = Text(tag)
 			if bracket := strings.IndexByte(tag, '['); bracket > 0 && strings.HasSuffix(tag, "]") {

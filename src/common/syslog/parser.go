@@ -28,7 +28,7 @@ func NewParser(options ParseOptions) (*Parser, error) {
 	if options.NumericDateOrder != "" && options.NumericDateOrder != "mdy" && options.NumericDateOrder != "dmy" {
 		return nil, errs.Msg("invalid syslog numeric date order")
 	}
-	if len(options.ZoneOffsets) > 64 || len(options.CiscoComponents) > 32 {
+	if len(options.ZoneOffsets) > 64 || options.CiscoComponentCount < 0 || options.CiscoComponentCount > 32 {
 		return nil, ErrLimit
 	}
 	for name, offset := range options.ZoneOffsets {
@@ -49,7 +49,6 @@ func NewParser(options ParseOptions) (*Parser, error) {
 	}
 	options.CiscoCounterOrder = append([]string(nil), options.CiscoCounterOrder...)
 	options.ZoneOffsets = maps.Clone(options.ZoneOffsets)
-	options.CiscoComponents = append([]string(nil), options.CiscoComponents...)
 	return &Parser{options: options, limits: l}, nil
 }
 
@@ -103,7 +102,7 @@ func (p *Parser) Parse(payload []byte, observation Observation) (Record, error) 
 	} else {
 		p.legacy(&r, s, owned, pos)
 	}
-	p.vendor(&r)
+	p.vendor(&r, s[len(s)-len(r.Content):])
 	if len(r.Diagnostics) > 0 && r.Status == Complete {
 		r.Status = Partial
 	}
