@@ -59,6 +59,10 @@ type Config struct {
 	Setup SetupFunc
 	// Modules declares the service's explicit top-level modules.
 	Modules []Module
+	// Strategy selects the root supervisor's affected set. Zero is one-for-one.
+	Strategy Strategy
+	// Intensity bounds root strategy applications. Zero selects three per five minutes.
+	Intensity RestartBudget
 }
 
 type runtimeConfig struct {
@@ -67,6 +71,7 @@ type runtimeConfig struct {
 	modules           []plannedModule
 	registry          *staticRegistry
 	admission         *admissionRevision
+	rootSupervisor    normalizedSupervisor
 	telemetryShutdown func(context.Context) error
 }
 

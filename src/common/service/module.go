@@ -31,6 +31,9 @@ type Module struct {
 	// Gate controls whether this module participates in a supervisor generation.
 	// Its zero value enables the module.
 	Gate Gate
+	// Policy controls how the owning supervisor handles this module's outcomes.
+	// Its zero value stops normal returns and restarts errors and panics.
+	Policy Policy
 	// Leaf declares attempt-local execution.
 	Leaf *Leaf
 	// Branch declares a nested supervisor and its children.
@@ -51,6 +54,11 @@ type Leaf struct {
 // Branch declares a nested supervisor. It must contain at least one child.
 // The zero value is invalid.
 type Branch struct {
+	// Strategy selects the affected sibling set. The zero value is one-for-one.
+	Strategy Strategy
+	// Intensity bounds aggregate strategy applications in a rolling window.
+	// Its zero value selects five applications per five minutes.
+	Intensity RestartBudget
 	// Children is ordered for stable identity and supervision policy.
 	Children []Module
 }
@@ -61,6 +69,8 @@ type plannedModule struct {
 	pathToken   string
 	durableName string
 	gate        Gate
+	policy      normalizedPolicy
+	supervisor  normalizedSupervisor
 	leaf        *plannedLeaf
 	children    []plannedModule
 	enabled     bool
@@ -109,6 +119,10 @@ func validateDeclaration(config Config) (runtimeConfig, error) {
 	if err != nil {
 		return runtimeConfig{}, err
 	}
+	rootSupervisor, err := normalizeRootSupervisor(config.Strategy, config.Intensity)
+	if err != nil {
+		return runtimeConfig{}, err
+	}
 
 	hasImplicit := config.Setup != nil
 	hasExplicit := len(config.Modules) != 0
@@ -141,6 +155,7 @@ func validateDeclaration(config Config) (runtimeConfig, error) {
 		envPrefix:         envPrefix,
 		modules:           modules,
 		registry:          registry.build(),
+		rootSupervisor:    rootSupervisor,
 		telemetryShutdown: config.TelemetryShutdown,
 	}, nil
 }
@@ -202,6 +217,13 @@ func validateModule(
 	if err := validateGate(path, module.Gate); err != nil {
 		return plannedModule{}, err
 	}
+	policy, err := normalizePolicy(module.Policy)
+	if err != nil {
+		return plannedModule{}, errs.From(err).
+			Code(errCodeModuleShape).
+			Attr("module_path", path).
+			Msgf("module %s has an invalid outcome policy", path)
+	}
 
 	isLeaf := module.Leaf != nil
 	isBranch := module.Branch != nil
@@ -246,6 +268,7 @@ func validateModule(
 		pathToken:   pathToken,
 		durableName: durableName,
 		gate:        module.Gate,
+		policy:      policy,
 	}
 	if isLeaf {
 		leaf, err := validateLeaf(path, *module.Leaf, registry)
@@ -258,6 +281,14 @@ func validateModule(
 	}
 
 	registry.addModule(path, false)
+	supervisor, err := normalizeSupervisor(module.Branch.Strategy, module.Branch.Intensity)
+	if err != nil {
+		return plannedModule{}, errs.From(err).
+			Code(errCodeModuleShape).
+			Attr("module_path", path).
+			Msgf("module %s has an invalid supervisor policy", path)
+	}
+	planned.supervisor = supervisor
 	children, err := validateModuleList(module.Branch.Children, path, rootPath, envPrefix, registry, identities)
 	if err != nil {
 		return plannedModule{}, err
@@ -301,25 +332,6 @@ func (c runtimeConfig) modulePaths() []string {
 	}
 	appendPaths(c.modules)
 	return paths
-}
-
-func enabledLeafModules(modules []plannedModule) []plannedModule {
-	var leaves []plannedModule
-	var appendLeaves func([]plannedModule)
-	appendLeaves = func(items []plannedModule) {
-		for _, module := range items {
-			if !module.enabled {
-				continue
-			}
-			if module.leaf != nil {
-				leaves = append(leaves, module)
-				continue
-			}
-			appendLeaves(module.children)
-		}
-	}
-	appendLeaves(modules)
-	return leaves
 }
 
 func moduleEnvKey(prefix, rootPath, path string) string {

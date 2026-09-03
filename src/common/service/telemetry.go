@@ -22,6 +22,7 @@ type lifecycleAction uint8
 const (
 	lifecycleActionStart lifecycleAction = iota + 1
 	lifecycleActionStop
+	lifecycleActionRestart
 )
 
 func (a lifecycleAction) string() (string, bool) {
@@ -30,6 +31,8 @@ func (a lifecycleAction) string() (string, bool) {
 		return "start", true
 	case lifecycleActionStop:
 		return "stop", true
+	case lifecycleActionRestart:
+		return "restart", true
 	default:
 		return "", false
 	}

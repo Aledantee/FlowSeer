@@ -95,7 +95,14 @@ func TestRunContainsSetupAndRunnerPanics(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := run(context.Background(), Config{Identity: testIdentity(), Setup: tt.setup})
+			err := run(context.Background(), Config{
+				Identity: testIdentity(),
+				Modules: []Module{{
+					Name:   "worker",
+					Policy: Policy{Error: OutcomePolicy{Action: Escalate}, Panic: OutcomePolicy{Action: Escalate}},
+					Leaf:   &Leaf{Setup: tt.setup},
+				}},
+			})
 			if err == nil {
 				t.Fatal("run() succeeded, want contained panic error")
 			}
@@ -144,9 +151,13 @@ func TestRunReturnsSetupAndShutdownErrors(t *testing.T) {
 	errShutdown := errors.New("shutdown failed")
 	err := run(context.Background(), Config{
 		Identity: testIdentity(),
-		Setup: func(context.Context) (Attempt, error) {
-			return Attempt{}, errSetup
-		},
+		Modules: []Module{{
+			Name:   "worker",
+			Policy: Policy{Error: OutcomePolicy{Action: Escalate}},
+			Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				return Attempt{}, errSetup
+			}},
+		}},
 		TelemetryShutdown: func(context.Context) error { return errShutdown },
 	})
 	if !errors.Is(err, errSetup) || !errors.Is(err, errShutdown) {
