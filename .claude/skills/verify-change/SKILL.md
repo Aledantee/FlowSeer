@@ -23,7 +23,7 @@ Use explicit paths after `--` to verify a narrow scope without including other
 worktree changes:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- .claude/hooks/protect-generated.sh
+.claude/skills/verify-change/scripts/verify-change.sh -- tools/hooks/protect-generated-bash.sh
 ```
 
 Use `--full` for all Go modules, protobuf sources, and Claude configuration. This

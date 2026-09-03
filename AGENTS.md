@@ -34,16 +34,17 @@ Binding on humans and agents equally; each doc states its own scope.
   files. Enforce schema rules through `buf lint`, not executable tests.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
-- `AGENTS.md`, `buf.yaml`, `.agent/hooks/`, `.claude/settings.json`,
+- `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
   `.codex/hooks.json`, and merge-gate configuration are policy surfaces; changes
   require explicit guardrail review.
 
 ## Isolation
 
 On a protected branch in the primary checkout, enter a session worktree (short
-task-shaped name) before the first edit — a hook denies mutations until you do;
-read-only exploration is fine. Worktrees live in `.claude/worktrees/` (gitignored)
-and branch off local `HEAD` — the repo has no remote.
+task-shaped name) before the first edit; read-only exploration is fine.
+Worktrees live outside the repository and branch off local `HEAD` — the repo has
+no remote. The Claude worktree hook defaults to the sibling
+`worktrees/<repo>/` directory.
 
 ## Agent behavior
 
@@ -63,13 +64,13 @@ and branch off local `HEAD` — the repo has no remote.
 
 ## Enforced rules
 
-Hooks in `.agent/hooks/` (registered per runtime in `.claude/settings.json` and
+Hooks in `tools/hooks/` (registered per runtime in `.claude/settings.json` and
 `.codex/hooks.json`) deny hand-edits to `generated/` and `buf.lock`, reject
 non-source files under `spec/proto/`, auto-run gofumpt/goimports and
-`buf format`/`buf lint` on edits, check triad and ref message sync, and block
-completion until the `verify-change` skill passes for the affected scope. Hooks
-are fast feedback, not the authority — `go test -race ./...` enforces the same
-invariants.
+`buf format`/`buf lint` on edits, and check triad and ref message sync. Claude's
+completion hooks also require a fresh `verify-change` receipt; Codex's Stop hook
+runs the repository layout checks directly. Hooks are fast feedback, not the
+authority — `go test -race ./...` enforces the same invariants.
 
 ## Layout
 
@@ -83,6 +84,7 @@ invariants.
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts); relevant when orienting to the codebase or discussing domain terms.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).
-- `.serena/project.yml` — shared Serena configuration for Go-aware symbol lookup,
-  reference discovery, and diagnostics. Put machine-local
-  overrides in the ignored `.serena/project.local.yml` file.
+- `tools/serena/project.yml` — shared Serena configuration for Go-aware symbol
+  lookup, reference discovery, and diagnostics. Complete the one-time client
+  setup in `tools/serena/README.md`; put machine-local overrides in the ignored
+  `tools/serena/project.local.yml` file.

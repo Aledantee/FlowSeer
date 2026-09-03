@@ -15,7 +15,7 @@ written — edition 2024 presence, symbol visibility, naming, evolution,
 protovalidate — and governs everything here. This document defines what
 Primitive, Entity, Triad, Ref Pair, Typed Variant, Provenance Envelope, and
 Facet oblige a schema author to write, and is the "conventions doc" that
-`.agent/hooks/proto-check.sh` names when it reports a missing family member.
+`tools/hooks/proto-check.sh` names when it reports a missing family member.
 
 The package tree, the import layering, and the primitive/entity split are fixed
 by [the network model structure

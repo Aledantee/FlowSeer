@@ -7,7 +7,7 @@ usage() {
 Usage: verify-change.sh [--full] [--base REF] [-- PATH...]
 
 Without explicit paths, verify files changed from REF (default: HEAD), including
-untracked files. --full verifies every Go module plus protobuf and Claude tooling.
+untracked files. --full verifies every Go module plus protobuf and agent hook tooling.
 USAGE
 }
 
@@ -112,8 +112,9 @@ markdown_files=()
 modules=()
 proto_files=()
 proto=false
-claude=false
+hook_tooling=false
 mib=false
+serena=false
 
 add_module() {
   local candidate=$1
@@ -141,20 +142,21 @@ module_for_file() {
 if [[ $full == true ]]; then
   while IFS= read -r modfile; do
     add_module "$(dirname "$modfile")"
-  done < <(find . -name go.mod -not -path './.git/*' -not -path './.claude/worktrees/*' -print | sort)
+  done < <(find . -name go.mod -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -print | sort)
   while IFS= read -r gofile; do
     go_files+=("${gofile#./}")
-  done < <(find . -name '*.go' -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './generated/*' -not -path './frontend/web/generated/*' -print | sort)
+  done < <(find . -name '*.go' -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -not -path './generated/*' -not -path './frontend/web/generated/*' -print | sort)
   proto=true
-  claude=true
+  hook_tooling=true
   mib=true
+  serena=true
 else
   for path in "${paths[@]}"; do
     case "$path" in
       *.md)
         [[ -f $path ]] && markdown_files+=("$path")
         case "$path" in
-          .claude/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md) claude=true ;;
+          .claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*) hook_tooling=true ;;
         esac
         ;;
       *.go)
@@ -172,8 +174,8 @@ else
         proto=true
         [[ $path == *.proto && -f $path ]] && proto_files+=("$path")
         ;;
-      .claude/*)
-        claude=true
+      .claude/*|.codex/*|tools/hooks/*)
+        hook_tooling=true
         ;;
     esac
     # Independent of the classification above: a change to the mibgen
@@ -181,6 +183,9 @@ else
     # committed bindings under generated/go/mib.
     case "$path" in
       mibgen.yaml|spec/mib/*|src/common/snmp/cmd/mibgen/*|src/common/smi/*) mib=true ;;
+    esac
+    case "$path" in
+      tools/serena/*) serena=true ;;
     esac
   done
 fi
@@ -296,14 +301,31 @@ if [[ $mib == true ]]; then
   fi
 fi
 
-if [[ $claude == true ]]; then
+if [[ $hook_tooling == true ]]; then
   need_tool jq
   need_tool shellcheck
   run jq empty .claude/settings.json
-  hook_scripts=(.claude/hooks/*.sh .claude/skills/verify-change/scripts/*.sh)
+  run jq empty .codex/hooks.json
+  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh .claude/skills/verify-change/scripts/*.sh)
   run shellcheck "${hook_scripts[@]}"
-  if [[ -x .claude/hooks/tests/run.sh ]]; then
-    run .claude/hooks/tests/run.sh
+  if [[ -x tools/hooks/tests/run.sh ]]; then
+    run tools/hooks/tests/run.sh
+  fi
+fi
+
+if [[ $serena == true ]]; then
+  if command -v serena >/dev/null 2>&1; then
+    if ! serena_output=$(run serena project is_ignored_path buf.lock "$root"); then
+      printf '%s\n' "$serena_output" >&2
+      exit 1
+    fi
+    printf '%s\n' "$serena_output"
+    [[ $serena_output == *"Path 'buf.lock' IS ignored by the project configuration."* ]] || {
+      echo "Serena did not load tools/serena/project.yml." >&2
+      exit 1
+    }
+  else
+    echo "serena is not on PATH; skipping the optional project-config smoke check."
   fi
 fi
 

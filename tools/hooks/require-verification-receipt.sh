@@ -31,4 +31,3 @@ if [[ $event == TaskCompleted ]]; then
 fi
 
 jq -n --arg reason "$reason" '{decision:"block",reason:$reason}'
-

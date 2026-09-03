@@ -4,12 +4,24 @@
 # JetBrains IDEs
 .idea/
 
-# Claude Code per-session worktrees and the worktree-guard opt-out marker
+# Agent runtime state and optional local configuration
+/.agent/
+/.compound-engineering/
+/.serena/
+/.codex/config.toml
+/.codex/worktrees/
+
+# Fallback paths for Claude versions or sessions that do not load project hooks
 .claude/worktrees/
 .claude/no-worktree-guard
 
-# Compound Engineering checkout-local config and scratch artifacts
-.compound-engineering/*.local.yaml
+# Runtime data for the visible, shared Serena project configuration
+/tools/serena/cache/
+/tools/serena/.gitignore
+/tools/serena/logs/
+/tools/serena/project.local.yml
+
+# Compound Engineering scratch artifacts
 .context/compound-engineering/
 
 # Vendored upstream cisco-mibs clone (has own .git; restore/refresh per spec/mib/README.md)
