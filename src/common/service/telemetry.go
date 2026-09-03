@@ -7,10 +7,9 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
-	tracenoop "go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -76,21 +75,19 @@ func newTelemetry(config Config) (telemetry, error) {
 	if logger == nil {
 		logger = defaultLogger
 	}
-	tracerProvider := config.TracerProvider
-	if tracerProvider == nil {
-		tracerProvider = tracenoop.NewTracerProvider()
-	}
-	meterProvider := config.MeterProvider
-	if meterProvider == nil {
-		meterProvider = metricnoop.NewMeterProvider()
-	}
 	propagator := config.Propagator
 	if propagator == nil {
 		propagator = defaultPropagator
 	}
 
-	tracer := tracerProvider.Tracer(instrumentationScope, trace.WithInstrumentationVersion(instrumentationVersion))
-	meter := meterProvider.Meter(instrumentationScope, metric.WithInstrumentationVersion(instrumentationVersion))
+	tracer := defaultTracer
+	if config.TracerProvider != nil {
+		tracer = config.TracerProvider.Tracer(instrumentationScope, trace.WithInstrumentationVersion(instrumentationVersion))
+	}
+	meter := defaultMeter
+	if config.MeterProvider != nil {
+		meter = config.MeterProvider.Meter(instrumentationScope, metric.WithInstrumentationVersion(instrumentationVersion))
+	}
 	lifecycle, err := meter.Int64Counter(
 		"flowseer.service.module.lifecycle",
 		metric.WithDescription("Module lifecycle transitions"),
@@ -137,9 +134,9 @@ func (t telemetry) recordLifecycle(
 	}
 
 	attrs := []attribute.KeyValue{
-		attribute.String("service.name", identity.Name),
-		attribute.String("service.namespace", identity.Namespace),
-		attribute.String("service.version", identity.Version),
+		semconv.ServiceName(identity.Name),
+		semconv.ServiceNamespace(identity.Namespace),
+		semconv.ServiceVersion(identity.Version),
 		attribute.String("service.module.path", modulePath),
 		attribute.String("service.lifecycle.action", actionName),
 		attribute.String("service.lifecycle.outcome", outcomeName),

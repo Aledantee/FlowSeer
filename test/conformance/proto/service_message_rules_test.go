@@ -3,9 +3,10 @@ package conformance
 import (
 	"testing"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 )
 
 func TestServiceMessageValidation(t *testing.T) {

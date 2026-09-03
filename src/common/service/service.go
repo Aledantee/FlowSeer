@@ -21,20 +21,16 @@ func Run(ctx context.Context, config Config) error {
 
 func runWithSignalChannel(ctx context.Context, config Config, signals <-chan os.Signal) error {
 	ctx, cancel := context.WithCancel(ctx)
-	done := make(chan struct{})
+	defer cancel()
 	go func() {
 		select {
 		case <-signals:
 			cancel()
 		case <-ctx.Done():
-		case <-done:
 		}
 	}()
 
-	err := run(ctx, config)
-	close(done)
-	cancel()
-	return err
+	return run(ctx, config)
 }
 
 func run(ctx context.Context, config Config) (runErr error) {
@@ -57,12 +53,13 @@ func run(ctx context.Context, config Config) (runErr error) {
 
 	type attempt struct {
 		module runtimeModule
-		ctx    context.Context
+		values contextValues
 		runner Runner
 	}
 	attempts := make([]attempt, 0, len(normalized.modules))
 	for _, module := range normalized.modules {
-		attemptCtx := withContextValues(ctx, telemetry.values(normalized.identity, normalized.envPrefix, module.path))
+		values := telemetry.values(normalized.identity, normalized.envPrefix, module.path)
+		attemptCtx := withContextValues(ctx, values)
 		runner, setupErr := callSetup(attemptCtx, module)
 		if setupErr != nil {
 			return setupErr
@@ -70,7 +67,7 @@ func run(ctx context.Context, config Config) (runErr error) {
 		if runner == nil {
 			return fmt.Errorf("module %s setup returned a nil runner", module.path)
 		}
-		attempts = append(attempts, attempt{module: module, ctx: attemptCtx, runner: runner})
+		attempts = append(attempts, attempt{module: module, values: values, runner: runner})
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -82,8 +79,7 @@ func run(ctx context.Context, config Config) (runErr error) {
 	}
 	results := make(chan result, len(attempts))
 	for _, attempt := range attempts {
-		attempt := attempt
-		attemptCtx := withContextValues(runCtx, valuesFromContext(attempt.ctx))
+		attemptCtx := withContextValues(runCtx, attempt.values)
 		if err := telemetry.recordLifecycle(attemptCtx, normalized.identity, attempt.module.path, lifecycleActionStart, lifecycleOutcomeRunning); err != nil {
 			return err
 		}

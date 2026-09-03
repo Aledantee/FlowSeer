@@ -68,7 +68,6 @@ type runtimeConfig struct {
 }
 
 type runtimeModule struct {
-	name  string
 	path  string
 	setup SetupFunc
 }
@@ -98,13 +97,11 @@ func normalizeConfig(config Config) (runtimeConfig, error) {
 	modules := make([]runtimeModule, 0, max(1, len(config.Modules)))
 	if hasImplicit {
 		modules = append(modules, runtimeModule{
-			name:  config.Identity.Name,
 			path:  config.Identity.Name,
 			setup: config.Setup,
 		})
 	} else {
-		declarations := append([]Module(nil), config.Modules...)
-		for _, module := range declarations {
+		for _, module := range config.Modules {
 			if err := validateIdentitySegment("module name", module.Name); err != nil {
 				return runtimeConfig{}, err
 			}
@@ -112,7 +109,6 @@ func normalizeConfig(config Config) (runtimeConfig, error) {
 				return runtimeConfig{}, fmt.Errorf("module %q has no setup", module.Name)
 			}
 			modules = append(modules, runtimeModule{
-				name:  module.Name,
 				path:  config.Identity.Name + "/" + module.Name,
 				setup: module.Setup,
 			})

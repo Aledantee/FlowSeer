@@ -85,8 +85,8 @@ func TestNormalizeConfigHasNoSetupSideEffectsAndCopiesModules(t *testing.T) {
 	}
 
 	modules[0].Name = "changed"
-	if got.modules[0].name != "worker" {
-		t.Errorf("normalized module name = %q, want %q", got.modules[0].name, "worker")
+	if got.modules[0].path != "edge/worker" {
+		t.Errorf("normalized module path = %q, want %q", got.modules[0].path, "edge/worker")
 	}
 }
 

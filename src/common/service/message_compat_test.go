@@ -22,6 +22,7 @@ var updateMessageV1 = flag.Bool("update-message-v1", false, "rewrite testdata/me
 func TestMessageV1Compatibility(t *testing.T) {
 	path := filepath.Join("testdata", "message_v1.bin")
 	want := messageV1Fixture(t)
+	var data []byte
 	if *updateMessageV1 {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("creating fixture directory: %v", err)
@@ -29,11 +30,13 @@ func TestMessageV1Compatibility(t *testing.T) {
 		if err := os.WriteFile(path, want, 0o644); err != nil {
 			t.Fatalf("writing v1 message fixture: %v", err)
 		}
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading v1 message fixture (run with -update-message-v1 after auditing the schema): %v", err)
+		data = want
+	} else {
+		var err error
+		data, err = os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("reading v1 message fixture (run with -update-message-v1 after auditing the schema): %v", err)
+		}
 	}
 	if !bytes.Equal(data, want) {
 		t.Fatal("v1 message fixture changed; persisted field or enum numbers require an explicit migration")
