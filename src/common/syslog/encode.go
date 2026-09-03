@@ -130,8 +130,12 @@ func Encode(record Record, options EncodeOptions) ([]byte, EncodeReport, error) 
 				report.Losses |= LossPrecision
 				t = t.Truncate(time.Microsecond)
 			}
+			_, offset := t.Zone()
+			if offset <= -86400 || offset >= 86400 || offset%60 != 0 {
+				return nil, report, ErrUnrepresentable
+			}
 			timestamp = t.Format(time.RFC3339Nano)
-		} else if r.DeviceTime.Original != "" && r.DeviceTime.Original != "-" {
+		} else if r.DeviceTime.Present|r.DeviceTime.Inferred != 0 || r.DeviceTime.Original != "" && r.DeviceTime.Original != "-" {
 			report.Losses |= LossTime
 		}
 	case RFC3164:
@@ -167,7 +171,11 @@ func Encode(record Record, options EncodeOptions) ([]byte, EncodeReport, error) 
 		if len(r.StructuredData) > 0 || len(r.OriginalSD) > 1 {
 			report.Losses |= LossStructuredData
 		}
-		if r.Format == RFC5424 && (r.Application.Presence == Present || r.ProcessID.Presence == Present || r.MessageID.Presence == Present) {
+		tag, app, process := legacyTag(string(r.Content))
+		if r.MessageID.Presence == Present ||
+			r.Application.Presence == Present && r.Application != app ||
+			r.ProcessID.Presence == Present && r.ProcessID != process ||
+			r.Tag.Presence == Present && r.Tag != tag {
 			report.Losses |= LossHeader
 		}
 	default:

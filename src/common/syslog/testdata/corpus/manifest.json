@@ -9,7 +9,18 @@
     "format": "rfc5424",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "router",
+      "timestamp": "2026-09-03T10:02:03.123456Z",
+      "content": "body",
+      "year": 2026,
+      "zone": "Z",
+      "status": "partial",
+      "diagnostics": [
+        "duplicate_sd_parameter"
+      ]
+    }
   },
   {
     "id": "standard-nil",
@@ -21,7 +32,16 @@
     "format": "rfc5424",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "",
+      "timestamp": "-",
+      "content": "",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "legacy",
@@ -33,7 +53,16 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "host",
+      "timestamp": "Feb  5 17:32:18",
+      "content": "app[12]: hello",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "netgear",
@@ -45,7 +74,16 @@
     "format": "rfc3164",
     "module": "MSTP",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "0.0.0.0-1",
+      "timestamp": "Jan 01 00:00:12",
+      "content": "MSTP[2110]: mstp_api.c(318) 237%% port enabled",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "dlink-dws",
@@ -57,7 +95,18 @@
     "format": "rfc3164",
     "module": "UNKN",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "0.0.0.0-1",
+      "timestamp": "JAN 01 00:00:12",
+      "content": "UNKN [0x800023]: bootos.c(386) 4 %% boot complete",
+      "year": 0,
+      "zone": "",
+      "status": "partial",
+      "diagnostics": [
+        "header_whitespace"
+      ]
+    }
   },
   {
     "id": "dlink-dgs",
@@ -69,7 +118,16 @@
     "format": "rfc3164",
     "module": "POE",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "POE: Power changed",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "cisco-ios",
@@ -81,7 +139,18 @@
     "format": "rfc3164",
     "module": "LINK",
     "event_id": "",
-    "mnemonic": "UPDOWN"
+    "mnemonic": "UPDOWN",
+    "expected": {
+      "hostname": "",
+      "timestamp": "*Mar  1 00:00:01.123",
+      "content": "%LINK-3-UPDOWN: Interface down",
+      "year": 0,
+      "zone": "",
+      "status": "partial",
+      "diagnostics": [
+        "ambiguous_vendor_counters"
+      ]
+    }
   },
   {
     "id": "cisco-uptime",
@@ -93,7 +162,18 @@
     "format": "rfc3164",
     "module": "SYS",
     "event_id": "",
-    "mnemonic": "RESTART"
+    "mnemonic": "RESTART",
+    "expected": {
+      "hostname": "",
+      "timestamp": "2d03h",
+      "content": "%SYS-5-RESTART: restarted",
+      "year": 0,
+      "zone": "",
+      "status": "partial",
+      "diagnostics": [
+        "unresolved_timestamp"
+      ]
+    }
   },
   {
     "id": "cisco-nxos",
@@ -105,7 +185,16 @@
     "format": "rfc3164",
     "module": "ETHPORT",
     "event_id": "",
-    "mnemonic": "IF_DOWN"
+    "mnemonic": "IF_DOWN",
+    "expected": {
+      "hostname": "nexus",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "%ETHPORT-5-IF_DOWN: down",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "cisco-asa",
@@ -117,7 +206,16 @@
     "format": "rfc3164",
     "module": "ASA",
     "event_id": "302013",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "asa",
+      "timestamp": "2026-09-03T10:00:00Z",
+      "content": "%ASA-6-302013: connection built",
+      "year": 2026,
+      "zone": "Z",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "huawei",
@@ -129,7 +227,16 @@
     "format": "rfc3164",
     "module": "IFNET",
     "event_id": "",
-    "mnemonic": "LINK_STATE"
+    "mnemonic": "LINK_STATE",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "Sep 03 2026 10:00:00",
+      "content": "%%01IFNET/4/LINK_STATE(l): down",
+      "year": 2026,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "huawei-brief",
@@ -141,7 +248,16 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "interface down",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "ruckus-legacy",
@@ -153,7 +269,16 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "icx",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "System: interface up",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "ruckus-5424",
@@ -165,7 +290,16 @@
     "format": "rfc5424",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "icx",
+      "timestamp": "2026-09-03T10:00:00Z",
+      "content": "interface up",
+      "year": 2026,
+      "zone": "Z",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "comware",
@@ -177,7 +311,16 @@
     "format": "rfc3164",
     "module": "IFNET",
     "event_id": "",
-    "mnemonic": "LINK_UPDOWN"
+    "mnemonic": "LINK_UPDOWN",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "Sep 03 10:00:00:123 2026",
+      "content": "%%10IFNET/4/LINK_UPDOWN: down",
+      "year": 2026,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "comware-notime",
@@ -189,7 +332,18 @@
     "format": "rfc3164",
     "module": "IFNET",
     "event_id": "",
-    "mnemonic": "LINK_UPDOWN"
+    "mnemonic": "LINK_UPDOWN",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "",
+      "content": "%%10IFNET/4/LINK_UPDOWN: down",
+      "year": 0,
+      "zone": "",
+      "status": "partial",
+      "diagnostics": [
+        "missing_timestamp"
+      ]
+    }
   },
   {
     "id": "procurve",
@@ -201,7 +355,16 @@
     "format": "rfc3164",
     "module": "ports",
     "event_id": "00076",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "00076 ports: port up",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "aoscx",
@@ -213,7 +376,16 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "403",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "ops-switchd[214]: Event|403|LOG_INFO|||Port up",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "exos",
@@ -225,7 +397,16 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": "HAL.Port.Up"
+    "mnemonic": "HAL.Port.Up",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "<Info:HAL.Port.Up> port up",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "exos-numeric",
@@ -237,7 +418,18 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": "HAL.Port.Up"
+    "mnemonic": "HAL.Port.Up",
+    "expected": {
+      "hostname": "switch",
+      "timestamp": "03/09/2026 10:00:00",
+      "content": "<Info:HAL.Port.Up> port up",
+      "year": 0,
+      "zone": "",
+      "status": "partial",
+      "diagnostics": [
+        "unresolved_timestamp"
+      ]
+    }
   },
   {
     "id": "slx-5424",
@@ -249,7 +441,16 @@
     "format": "rfc5424",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "slx",
+      "timestamp": "2026-09-03T10:00:00Z",
+      "content": "up",
+      "year": 2026,
+      "zone": "Z",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "slx-legacy",
@@ -261,7 +462,16 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "slx",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "raslog: [origin ip=\"192.0.2.1\"] up",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "voss",
@@ -273,7 +483,16 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "voss",
+      "timestamp": "Sep 03 10:00:00",
+      "content": "CPU1: interface up",
+      "year": 0,
+      "zone": "",
+      "status": "complete",
+      "diagnostics": []
+    }
   },
   {
     "id": "unrecognized",
@@ -285,6 +504,86 @@
     "format": "unknown",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "",
+    "expected": {
+      "hostname": "",
+      "timestamp": "",
+      "content": "an arbitrary binary-compatible payload",
+      "year": 0,
+      "zone": "",
+      "status": "unknown",
+      "diagnostics": [
+        "unknown_envelope"
+      ]
+    }
+  },
+  {
+    "id": "cisco-timezone",
+    "family": "cisco-ios",
+    "provenance": "synthetic regression derived from documented grammar; not a packet capture",
+    "source": "https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/fundamentals/command/cf_command_ref/R_through_setup.html",
+    "configuration": "timezone suffix or hostname ambiguity; no firmware interoperability assertion",
+    "payload": "<189>00123: *Mar 1 00:00:01.123 UTC: %LINK-3-UPDOWN: Interface down",
+    "format": "rfc3164",
+    "module": "LINK",
+    "event_id": "",
+    "mnemonic": "UPDOWN",
+    "expected": {
+      "hostname": "",
+      "timestamp": "*Mar 1 00:00:01.123 UTC",
+      "content": "%LINK-3-UPDOWN: Interface down",
+      "year": 0,
+      "zone": "UTC",
+      "status": "partial",
+      "diagnostics": [
+        "ambiguous_vendor_counters"
+      ]
+    }
+  },
+  {
+    "id": "ambiguous-zone-host",
+    "family": "rfc3164",
+    "provenance": "synthetic regression derived from documented grammar; not a packet capture",
+    "source": "https://www.rfc-editor.org/rfc/rfc3164.html",
+    "configuration": "timezone suffix or hostname ambiguity; no firmware interoperability assertion",
+    "payload": "<13>Sep 3 10:00:00 UTC app: text",
+    "format": "rfc3164",
+    "module": "",
+    "event_id": "",
+    "mnemonic": "",
+    "expected": {
+      "hostname": "",
+      "timestamp": "Sep 3 10:00:00",
+      "content": "UTC app: text",
+      "year": 0,
+      "zone": "",
+      "status": "partial",
+      "diagnostics": [
+        "ambiguous_timestamp_suffix"
+      ]
+    }
+  },
+  {
+    "id": "ambiguous-year-host",
+    "family": "rfc3164",
+    "provenance": "synthetic regression derived from documented grammar; not a packet capture",
+    "source": "https://www.rfc-editor.org/rfc/rfc3164.html",
+    "configuration": "timezone suffix or hostname ambiguity; no firmware interoperability assertion",
+    "payload": "<13>Sep 3 10:00:00 1000 app: text",
+    "format": "rfc3164",
+    "module": "",
+    "event_id": "",
+    "mnemonic": "",
+    "expected": {
+      "hostname": "",
+      "timestamp": "Sep 3 10:00:00",
+      "content": "1000 app: text",
+      "year": 0,
+      "zone": "",
+      "status": "partial",
+      "diagnostics": [
+        "ambiguous_timestamp_suffix"
+      ]
+    }
   }
 ]

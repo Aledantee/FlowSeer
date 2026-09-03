@@ -228,6 +228,18 @@ func (r Record) checkSize(l Limits) error {
 		n += v
 		return true
 	}
+	// Collection storage counts even when its strings and values are empty.
+	if !add(32*len(r.Diagnostics)) || !add(16*(len(r.Vendor.Counters)+len(r.Vendor.Components))) {
+		return ErrLimit
+	}
+	metadata := 0
+	addMetadata := func(v int) bool {
+		if v > l.MetadataBytes-metadata || !add(v) {
+			return false
+		}
+		metadata += v
+		return true
+	}
 	for _, b := range [][]byte{r.Content, r.OriginalSD, r.Unparsed} {
 		if len(b) > l.MaxPayload || !add(len(b)) {
 			return ErrLimit
@@ -242,11 +254,11 @@ func (r Record) checkSize(l Limits) error {
 			return ErrLimit
 		}
 		params += len(e.Parameters)
-		if !add(len(e.ID)) {
+		if !addMetadata(64) || !addMetadata(len(e.ID)) {
 			return ErrLimit
 		}
 		for _, p := range e.Parameters {
-			if !add(len(p.Name)) || !add(len(p.Value)) {
+			if !addMetadata(48) || !addMetadata(len(p.Name)) || !addMetadata(len(p.Value)) {
 				return ErrLimit
 			}
 		}

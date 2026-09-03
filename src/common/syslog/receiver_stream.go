@@ -92,12 +92,26 @@ func (r *Receiver) receiveStream(ctx context.Context, b boundListener, raw net.C
 		authenticated = len(secure.ConnectionState().VerifiedChains) > 0
 		conn = secure
 	}
-	reader := streamReader{reader: conn, buffer: make([]byte, 4096), deadline: conn.SetReadDeadline, idle: r.limits.IdleTimeout, frame: r.limits.FrameTimeout}
+	// TLS reads can write control records, which must obey the same deadline.
+	reader := streamReader{reader: conn, buffer: make([]byte, 4096), deadline: raw.SetDeadline, idle: r.limits.IdleTimeout, frame: r.limits.FrameTimeout}
 	for {
-		pressure, cancel := context.WithTimeout(ctx, r.limits.PressureTimeout)
+		if err := reader.beginFrame(); err != nil {
+			if ctx.Err() == nil && !errors.Is(err, io.EOF) {
+				r.stats.framingErrors.Add(1)
+			}
+			return
+		}
+		deadline := time.Now().Add(r.limits.PressureTimeout)
+		if reader.frameDeadline.Before(deadline) {
+			deadline = reader.frameDeadline
+		}
+		pressure, cancel := context.WithDeadline(ctx, deadline)
 		err := r.admission.acquire(pressure, r.limits.MaxPayload, true, true)
 		cancel()
 		if err != nil {
+			if ctx.Err() == nil {
+				r.stats.pressureClosed.Add(1)
+			}
 			return
 		}
 		storage := make([]byte, r.limits.MaxPayload)
@@ -127,6 +141,11 @@ func (r *Receiver) receiveStream(ctx context.Context, b boundListener, raw net.C
 			return
 		case <-timer.C:
 			r.admission.release(r.limits.MaxPayload, true)
+			if ctx.Err() == nil {
+				r.stats.pressureClosed.Add(1)
+			} else {
+				r.stats.shutdownDiscarded.Add(1)
+			}
 			return
 		}
 	}

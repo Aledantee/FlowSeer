@@ -94,15 +94,18 @@ func (p *Parser) Parse(payload []byte, observation Observation) (Record, error) 
 	// structured data must not fall through to an unrelated legacy interpretation.
 	version, rest := token(s[pos:])
 	timestamp, _ := token(rest)
+	interpretVendor := true
 	if r.Priority.Presence == Present && len(version) <= 3 && digits(version) && version[0] != '0' && (timestamp == "-" || isoShape(timestamp)) {
 		r.Format = RFC5424
 		r.Status = Complete
 		r.Version = Text(version)
 		p.structured(&r, s, owned, pos+len(version)+1)
 	} else {
-		p.legacy(&r, s, owned, pos)
+		interpretVendor = p.legacy(&r, s, owned, pos)
 	}
-	p.vendor(&r, s[len(s)-len(r.Content):])
+	if interpretVendor {
+		p.vendor(&r, s[len(s)-len(r.Content):])
+	}
 	if len(r.Diagnostics) > 0 && r.Status == Complete {
 		r.Status = Partial
 	}

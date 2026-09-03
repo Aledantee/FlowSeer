@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
 	"strconv"
 	"time"
 )
@@ -39,14 +40,15 @@ func framingDefault(f Framing, transport Transport) Framing {
 }
 
 type streamReader struct {
-	reader       io.Reader
-	buffer       []byte
-	start, end   int
-	observed     time.Time
-	pending      error
-	deadline     func(time.Time) error
-	idle, frame  time.Duration
-	frameStarted bool
+	reader        io.Reader
+	buffer        []byte
+	start, end    int
+	observed      time.Time
+	pending       error
+	deadline      func(time.Time) error
+	idle, frame   time.Duration
+	frameStarted  bool
+	frameDeadline time.Time
 }
 
 func (r *streamReader) next() (byte, time.Time, error) {
@@ -71,7 +73,8 @@ func (r *streamReader) next() (byte, time.Time, error) {
 	if !r.frameStarted {
 		r.frameStarted = true
 		if r.deadline != nil {
-			if err := r.deadline(time.Now().Add(r.frame)); err != nil {
+			r.frameDeadline = time.Now().Add(r.frame)
+			if err := r.deadline(r.frameDeadline); err != nil {
 				return 0, time.Time{}, err
 			}
 		}
@@ -79,12 +82,30 @@ func (r *streamReader) next() (byte, time.Time, error) {
 	return b, r.observed, nil
 }
 
-func readFrame(r *streamReader, mode Framing, storage []byte) (payload []byte, observed time.Time, err error) {
+// beginFrame waits in fixed scratch so idle peers do not reserve payload storage.
+func (r *streamReader) beginFrame() error {
 	r.frameStarted = false
 	if r.deadline != nil {
 		if err := r.deadline(time.Now().Add(r.idle)); err != nil {
+			return err
+		}
+	}
+	if _, _, err := r.next(); err != nil {
+		return err
+	}
+	r.start--
+	return nil
+}
+
+func readFrame(r *streamReader, mode Framing, storage []byte) (payload []byte, observed time.Time, err error) {
+	if !r.frameStarted {
+		if err := r.beginFrame(); err != nil {
 			return nil, time.Time{}, err
 		}
+	}
+	defer func() { r.frameStarted = false }()
+	if !r.frameDeadline.IsZero() && !time.Now().Before(r.frameDeadline) {
+		return nil, time.Time{}, os.ErrDeadlineExceeded
 	}
 	b, at, err := r.next()
 	if err != nil {

@@ -71,3 +71,14 @@ func TestIncompleteFrameIsNotCleanEOF(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestFrameDeadlineIncludesAdmissionWait(t *testing.T) {
+	reader := streamReader{reader: bytes.NewBufferString("3 abc"), buffer: make([]byte, 64), idle: time.Second, frame: 20 * time.Millisecond, deadline: func(time.Time) error { return nil }}
+	if err := reader.beginFrame(); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if _, _, err := readFrame(&reader, OctetCounting, make([]byte, 64)); err == nil {
+		t.Fatal("buffered frame ignored expired admission deadline")
+	}
+}

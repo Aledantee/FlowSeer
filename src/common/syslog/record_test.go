@@ -3,6 +3,7 @@ package syslog_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/syslog"
@@ -31,6 +32,24 @@ func TestCloneAndRawPresence(t *testing.T) {
 		}
 		if bytes.Contains(b, []byte(`"_raw"`)) != enabled {
 			t.Fatalf("raw presence: %s", b)
+		}
+	}
+}
+
+func TestCloneCollectionBudget(t *testing.T) {
+	for _, count := range []int{1, 500, 50000} {
+		params := make([]syslog.Parameter, count)
+		for i := range params {
+			params[i].Name = "a"
+		}
+		r := syslog.Record{StructuredData: []syslog.Element{{ID: "x", Parameters: params}}}
+		got, err := r.Clone(syslog.Limits{MaxBytes: 512 << 10, MaxParameters: 50000, MetadataBytes: 1024})
+		if count == 1 {
+			if err != nil || len(got.StructuredData) != 1 {
+				t.Fatal(err)
+			}
+		} else if !errors.Is(err, syslog.ErrLimit) {
+			t.Fatalf("count %d: got %v", count, err)
 		}
 	}
 }

@@ -51,6 +51,13 @@ func (p *Parser) structured(r *Record, s string, owned []byte, pos int) {
 		r.diagnose("unsupported_version", 0, p.limits)
 	}
 	start := pos
+	headerInvalid := len(r.Unparsed) > 0
+	unparsed := func(at int) []byte {
+		if headerInvalid {
+			return owned
+		}
+		return owned[at:]
+	}
 	switch {
 	case pos < len(s) && s[pos] == '-':
 		pos++
@@ -59,13 +66,13 @@ func (p *Parser) structured(r *Record, s string, owned []byte, pos int) {
 		pos, ok = p.structuredData(r, s, pos)
 		if !ok {
 			r.OriginalSD = owned[start:]
-			r.Unparsed = owned[start:]
+			r.Unparsed = unparsed(start)
 			r.Content = nil
 			return
 		}
 	default:
 		r.diagnose("invalid_sd", pos, p.limits)
-		r.Unparsed = owned[pos:]
+		r.Unparsed = unparsed(pos)
 		r.Content = nil
 		return
 	}
@@ -76,7 +83,7 @@ func (p *Parser) structured(r *Record, s string, owned []byte, pos int) {
 	}
 	if s[pos] != ' ' {
 		r.diagnose("invalid_sd_separator", pos, p.limits)
-		r.Unparsed = owned[pos:]
+		r.Unparsed = unparsed(pos)
 		r.Content = nil
 		return
 	}

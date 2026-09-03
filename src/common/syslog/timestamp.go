@@ -186,7 +186,7 @@ func monthNumber(s string) time.Month {
 
 // timestampPrefix recognizes only bounded calendar shapes, leaving the remainder
 // untouched. A numeric date without context is retained but never resolved.
-func (p *Parser) timestampPrefix(s string) (DeviceTime, int) {
+func (p *Parser) timestampPrefix(s string) (DeviceTime, int, bool) {
 	offset := 0
 	if len(s) > 0 && (s[0] == '*' || s[0] == '.') {
 		offset = 1
@@ -194,19 +194,22 @@ func (p *Parser) timestampPrefix(s string) (DeviceTime, int) {
 	rest := s[offset:]
 	first, _ := token(rest)
 	if isoShape(first) {
-		return p.deviceTime(s[:offset+len(first)]), offset + len(first)
+		return p.deviceTime(s[:offset+len(first)]), offset + len(first), false
 	}
 	if monthNumber(first) == 0 && !strings.Contains(first, "/") {
 		if strings.HasSuffix(first, ":") && strings.ContainsAny(first, "dhw") {
 			end := offset + len(first) - 1
-			return p.deviceTime(s[:end]), end
+			return p.deviceTime(s[:end]), end, false
 		}
-		return DeviceTime{}, 0
+		return DeviceTime{}, 0, false
 	}
 	// At most six tokens: month day [year] clock [zone] [year].
 	end := offset
 	count := 0
 	clockSeen := false
+	clockEnd := 0
+	ambiguous := false
+	suffixContext := p.options.LegacyTimeSuffix
 	for end < len(s) && count < 6 {
 		for end < len(s) && s[end] == ' ' {
 			end++
@@ -223,6 +226,8 @@ func (p *Parser) timestampPrefix(s string) (DeviceTime, int) {
 		}
 		if strings.Count(clean, ":") >= 2 {
 			clockSeen = true
+			clockEnd = end
+			suffixContext = suffixContext || strings.Count(clean, ":") == 3
 			if len(v) > 0 && v[len(v)-1] == ':' {
 				end--
 				break
@@ -230,13 +235,14 @@ func (p *Parser) timestampPrefix(s string) (DeviceTime, int) {
 			continue
 		}
 		if clockSeen {
-			if len(v) == 4 && digits(v) {
-				continue
-			}
-			if zoneLike(v) {
-				continue
-			}
-			if _, ok := p.options.ZoneOffsets[v]; ok {
+			_, knownZone := p.options.ZoneOffsets[clean]
+			if len(clean) == 4 && digits(clean) || zoneLike(clean) || knownZone {
+				if clean != v {
+					end--
+					ambiguous = false
+					break
+				}
+				ambiguous = !suffixContext
 				continue
 			}
 			end = start
@@ -246,13 +252,18 @@ func (p *Parser) timestampPrefix(s string) (DeviceTime, int) {
 			break
 		}
 		if count > 1 && !digits(v) {
-			return DeviceTime{}, 0
+			return DeviceTime{}, 0, false
 		}
 	}
 	if !clockSeen {
-		return DeviceTime{}, 0
+		return DeviceTime{}, 0, false
 	}
-	return p.deviceTime(s[:end]), end
+	if ambiguous {
+		d := p.deviceTime(s[:clockEnd])
+		d.Instant = nil
+		return d, clockEnd, true
+	}
+	return p.deviceTime(s[:end]), end, false
 }
 
 func zoneLike(s string) bool {

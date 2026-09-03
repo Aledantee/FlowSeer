@@ -1,0 +1,69 @@
+=== RUN   TestOverload
+    overload_test.go:118: elapsed=10s live_heap=37027072 heap_inuse=38993920 stack_inuse=1245184 rss_kib=69856 goroutines=38
+    overload_test.go:118: elapsed=20s live_heap=37067752 heap_inuse=39124992 stack_inuse=1277952 rss_kib=70224 goroutines=38
+    overload_test.go:118: elapsed=30s live_heap=37048400 heap_inuse=38854656 stack_inuse=1376256 rss_kib=70304 goroutines=38
+    overload_test.go:118: elapsed=40s live_heap=37119976 heap_inuse=39100416 stack_inuse=1376256 rss_kib=70432 goroutines=38
+    overload_test.go:118: elapsed=50s live_heap=37097576 heap_inuse=39084032 stack_inuse=1507328 rss_kib=70528 goroutines=39
+    overload_test.go:118: elapsed=60s live_heap=37104152 heap_inuse=39034880 stack_inuse=1441792 rss_kib=70576 goroutines=38
+    overload_test.go:118: elapsed=70s live_heap=37095672 heap_inuse=39010304 stack_inuse=1507328 rss_kib=70592 goroutines=38
+    overload_test.go:118: elapsed=80s live_heap=37138360 heap_inuse=39157760 stack_inuse=1507328 rss_kib=70816 goroutines=38
+    overload_test.go:118: elapsed=90s live_heap=37150544 heap_inuse=39149568 stack_inuse=1507328 rss_kib=70848 goroutines=38
+    overload_test.go:118: elapsed=100s live_heap=37144032 heap_inuse=39256064 stack_inuse=1540096 rss_kib=70880 goroutines=38
+    overload_test.go:118: elapsed=110s live_heap=37162696 heap_inuse=39223296 stack_inuse=1572864 rss_kib=70912 goroutines=38
+    overload_test.go:118: elapsed=120s live_heap=37095720 heap_inuse=38813696 stack_inuse=1507328 rss_kib=70960 goroutines=38
+    overload_test.go:118: elapsed=130s live_heap=37061064 heap_inuse=38797312 stack_inuse=1540096 rss_kib=71360 goroutines=38
+    overload_test.go:118: elapsed=140s live_heap=37232968 heap_inuse=39346176 stack_inuse=1703936 rss_kib=71392 goroutines=38
+    overload_test.go:118: elapsed=150s live_heap=37183088 heap_inuse=39313408 stack_inuse=1671168 rss_kib=71424 goroutines=38
+    overload_test.go:118: elapsed=160s live_heap=37169016 heap_inuse=39075840 stack_inuse=1703936 rss_kib=71456 goroutines=38
+    overload_test.go:118: elapsed=170s live_heap=37180392 heap_inuse=39362560 stack_inuse=1703936 rss_kib=71456 goroutines=38
+    overload_test.go:118: elapsed=180s live_heap=37202120 heap_inuse=39264256 stack_inuse=1802240 rss_kib=71472 goroutines=38
+    overload_test.go:118: elapsed=190s live_heap=37169544 heap_inuse=38895616 stack_inuse=1802240 rss_kib=71472 goroutines=38
+    overload_test.go:118: elapsed=200s live_heap=37204472 heap_inuse=39182336 stack_inuse=1835008 rss_kib=71472 goroutines=38
+    overload_test.go:118: elapsed=210s live_heap=37202928 heap_inuse=39256064 stack_inuse=1802240 rss_kib=71472 goroutines=38
+    overload_test.go:118: elapsed=220s live_heap=37187992 heap_inuse=39239680 stack_inuse=1802240 rss_kib=71472 goroutines=38
+    overload_test.go:118: elapsed=230s live_heap=37151096 heap_inuse=39002112 stack_inuse=1933312 rss_kib=71488 goroutines=38
+    overload_test.go:118: elapsed=240s live_heap=37163112 heap_inuse=38961152 stack_inuse=1802240 rss_kib=71488 goroutines=38
+    overload_test.go:118: elapsed=250s live_heap=37188704 heap_inuse=39084032 stack_inuse=1835008 rss_kib=71488 goroutines=38
+    overload_test.go:118: elapsed=260s live_heap=37194624 heap_inuse=39215104 stack_inuse=1835008 rss_kib=71488 goroutines=38
+    overload_test.go:118: elapsed=270s live_heap=37201056 heap_inuse=39075840 stack_inuse=1867776 rss_kib=71488 goroutines=38
+    overload_test.go:118: elapsed=280s live_heap=37169296 heap_inuse=39043072 stack_inuse=1835008 rss_kib=71488 goroutines=38
+    overload_test.go:118: elapsed=290s live_heap=37203840 heap_inuse=39165952 stack_inuse=1835008 rss_kib=71488 goroutines=38
+    overload_test.go:118: elapsed=300s live_heap=37224104 heap_inuse=39215104 stack_inuse=1867776 rss_kib=71504 goroutines=42
+    overload_test.go:118: elapsed=310s live_heap=42147552 heap_inuse=45711360 stack_inuse=1998848 rss_kib=96576 goroutines=51
+    overload_test.go:118: elapsed=320s live_heap=38916936 heap_inuse=42532864 stack_inuse=2031616 rss_kib=97120 goroutines=50
+    overload_test.go:118: elapsed=330s live_heap=39741736 heap_inuse=43368448 stack_inuse=2097152 rss_kib=97776 goroutines=54
+    overload_test.go:118: elapsed=340s live_heap=39277992 heap_inuse=43106304 stack_inuse=2031616 rss_kib=99520 goroutines=53
+    overload_test.go:118: elapsed=350s live_heap=40137512 heap_inuse=44195840 stack_inuse=2097152 rss_kib=99744 goroutines=54
+    overload_test.go:118: elapsed=360s live_heap=38631008 heap_inuse=41803776 stack_inuse=2162688 rss_kib=99760 goroutines=52
+    overload_test.go:118: elapsed=370s live_heap=39282936 heap_inuse=42885120 stack_inuse=2162688 rss_kib=99792 goroutines=54
+    overload_test.go:118: elapsed=380s live_heap=39235288 heap_inuse=42770432 stack_inuse=2228224 rss_kib=99808 goroutines=52
+    overload_test.go:118: elapsed=390s live_heap=38290296 heap_inuse=41467904 stack_inuse=2228224 rss_kib=99840 goroutines=51
+    overload_test.go:118: elapsed=400s live_heap=38681048 heap_inuse=42590208 stack_inuse=2228224 rss_kib=100304 goroutines=54
+    overload_test.go:118: elapsed=410s live_heap=38639608 heap_inuse=42565632 stack_inuse=2326528 rss_kib=100320 goroutines=54
+    overload_test.go:118: elapsed=420s live_heap=38784776 heap_inuse=42852352 stack_inuse=2326528 rss_kib=100368 goroutines=53
+    overload_test.go:118: elapsed=430s live_heap=38939984 heap_inuse=42598400 stack_inuse=2326528 rss_kib=100400 goroutines=53
+    overload_test.go:118: elapsed=440s live_heap=39519552 heap_inuse=43597824 stack_inuse=2392064 rss_kib=100416 goroutines=52
+    overload_test.go:118: elapsed=450s live_heap=38698944 heap_inuse=42934272 stack_inuse=2359296 rss_kib=101616 goroutines=52
+    overload_test.go:118: elapsed=460s live_heap=39843024 heap_inuse=43655168 stack_inuse=2424832 rss_kib=101616 goroutines=53
+    overload_test.go:118: elapsed=470s live_heap=39140080 heap_inuse=43180032 stack_inuse=2424832 rss_kib=101632 goroutines=53
+    overload_test.go:118: elapsed=480s live_heap=39492880 heap_inuse=43450368 stack_inuse=2424832 rss_kib=101632 goroutines=53
+    overload_test.go:118: elapsed=490s live_heap=39049968 heap_inuse=43335680 stack_inuse=2523136 rss_kib=101680 goroutines=52
+    overload_test.go:118: elapsed=500s live_heap=39168904 heap_inuse=43032576 stack_inuse=2490368 rss_kib=101712 goroutines=53
+    overload_test.go:118: elapsed=510s live_heap=38381584 heap_inuse=42622976 stack_inuse=2588672 rss_kib=101760 goroutines=52
+    overload_test.go:118: elapsed=520s live_heap=39661296 heap_inuse=44040192 stack_inuse=2588672 rss_kib=101760 goroutines=54
+    overload_test.go:118: elapsed=530s live_heap=37705632 heap_inuse=41017344 stack_inuse=2490368 rss_kib=101760 goroutines=48
+    overload_test.go:118: elapsed=540s live_heap=40551496 heap_inuse=44933120 stack_inuse=2490368 rss_kib=101760 goroutines=56
+    overload_test.go:118: elapsed=550s live_heap=39187000 heap_inuse=43065344 stack_inuse=2424832 rss_kib=101792 goroutines=52
+    overload_test.go:118: elapsed=560s live_heap=38035656 heap_inuse=42041344 stack_inuse=2359296 rss_kib=101840 goroutines=53
+    overload_test.go:118: elapsed=570s live_heap=39397328 heap_inuse=43614208 stack_inuse=2424832 rss_kib=101856 goroutines=52
+    overload_test.go:118: elapsed=580s live_heap=39510888 heap_inuse=43237376 stack_inuse=2424832 rss_kib=101888 goroutines=53
+    overload_test.go:118: elapsed=590s live_heap=42061928 heap_inuse=46727168 stack_inuse=2457600 rss_kib=101888 goroutines=54
+    overload_test.go:118: elapsed=600s live_heap=38760184 heap_inuse=42893312 stack_inuse=2424832 rss_kib=101888 goroutines=54
+    overload_test.go:138: minute_medians=[37067752 37144032 37180392 37202120 37194624 39741736 38681048 39140080 39168904 39397328]
+    overload_test.go:141: profile=0 stats={Received:612786 Queued:15256 Delivered:15000 Partial:0 UDPDropped:597530 PressureClosed:2930 Oversized:0 FramingErrors:0 ConnectionRejected:0 HandshakeErrors:0 ShutdownDiscarded:0 ActiveConnections:7 ActiveHandshakes:0 ReservedBytes:17243648 ReservedFrames:256}
+    overload_test.go:141: profile=1 stats={Received:613148 Queued:15256 Delivered:15000 Partial:0 UDPDropped:597892 PressureClosed:2929 Oversized:0 FramingErrors:0 ConnectionRejected:0 HandshakeErrors:0 ShutdownDiscarded:0 ActiveConnections:5 ActiveHandshakes:0 ReservedBytes:17227264 ReservedFrames:256}
+    overload_test.go:141: profile=2 stats={Received:612904 Queued:15008 Delivered:15000 Partial:0 UDPDropped:597896 PressureClosed:2328 Oversized:0 FramingErrors:0 ConnectionRejected:1205063 HandshakeErrors:0 ShutdownDiscarded:0 ActiveConnections:4 ActiveHandshakes:0 ReservedBytes:254656 ReservedFrames:8}
+    overload_test.go:141: profile=3 stats={Received:612744 Queued:15008 Delivered:15000 Partial:0 UDPDropped:597736 PressureClosed:2420 Oversized:0 FramingErrors:0 ConnectionRejected:1006256 HandshakeErrors:0 ShutdownDiscarded:0 ActiveConnections:4 ActiveHandshakes:0 ReservedBytes:254656 ReservedFrames:8}
+--- PASS: TestOverload (600.01s)
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/syslog/test/integration	600.306s

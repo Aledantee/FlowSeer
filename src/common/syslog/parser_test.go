@@ -2,7 +2,9 @@ package syslog_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -24,6 +26,17 @@ func TestParserCorpus(t *testing.T) {
 				}
 				if string(r.Format) != f.Format || r.Vendor.Module.Value != f.Module || r.Vendor.EventID.Value != f.EventID || r.Vendor.Mnemonic.Value != f.Mnemonic {
 					t.Fatalf("got format=%s vendor=%+v", r.Format, r.Vendor)
+				}
+				expected := f.Expected
+				if r.Hostname.Value != expected.Hostname || r.DeviceTime.Original != expected.Timestamp || r.DeviceTime.Year != expected.Year || r.DeviceTime.Zone != expected.Zone || string(r.Content) != expected.Content || string(r.Status) != expected.Status {
+					t.Fatalf("got %+v, want %+v", r, expected)
+				}
+				codes := make([]string, len(r.Diagnostics))
+				for i, diagnostic := range r.Diagnostics {
+					codes[i] = diagnostic.Code
+				}
+				if !slices.Equal(codes, expected.Diagnostics) {
+					t.Fatalf("got diagnostics %v, want %v", codes, expected.Diagnostics)
 				}
 				if (r.Raw != nil) != raw {
 					t.Fatal("raw presence")
@@ -86,5 +99,32 @@ func TestInvalidHeaderBytesRemainUnparsed(t *testing.T) {
 		if r.Status != syslog.Partial || !bytes.Contains(r.Unparsed, []byte{0xff}) {
 			t.Fatal("lost invalid header evidence", r)
 		}
+	}
+}
+
+func TestMalformedHeaderAndSDJSONPreservation(t *testing.T) {
+	for _, sd := range []string{"[broken", "invalid", "-bad"} {
+		t.Run(sd, func(t *testing.T) {
+			p, err := syslog.NewParser(syslog.ParseOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			input := []byte("<13>1 - bad\xffhost app - - " + sd)
+			r, err := p.Parse(input, syslog.Observation{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, err := json.Marshal(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got syslog.Record
+			if err := json.Unmarshal(b, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Raw != nil || got.Status != syslog.Partial || !bytes.Equal(got.Unparsed, input) {
+				t.Fatalf("lost bytes: %+v", got)
+			}
+		})
 	}
 }

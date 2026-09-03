@@ -2,7 +2,7 @@ package syslog
 
 import "strings"
 
-func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
+func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) bool {
 	rest := s[pos:]
 	for range 2 {
 		i := strings.Index(rest, ": ")
@@ -26,12 +26,12 @@ func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
 			}
 		}
 	}
-	d, n := p.timestampPrefix(rest)
+	d, n, ambiguous := p.timestampPrefix(rest)
 	recognized := n > 0 || r.Priority.Presence == Present
 	if !recognized {
 		r.Unparsed = owned[pos:]
 		r.diagnose("unknown_envelope", pos, p.limits)
-		return
+		return false
 	}
 	r.Format = RFC3164
 	r.Status = Complete
@@ -45,6 +45,12 @@ func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
 	} else if d.Present&(DatePart|ClockPart) != (DatePart|ClockPart) || strings.Contains(d.Original, "/") && p.options.NumericDateOrder == "" {
 		r.diagnose("unresolved_timestamp", pos-n, p.limits)
 		r.Unparsed = owned[:pos]
+	}
+	if ambiguous {
+		r.diagnose("ambiguous_timestamp_suffix", pos, p.limits)
+		r.Unparsed = owned[pos:]
+		r.Content = owned[pos:]
+		return false
 	}
 	rest = s[pos:]
 	first, tail := token(rest)
@@ -62,18 +68,23 @@ func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
 	}
 	r.Content = owned[pos:]
 	// Retain the complete post-envelope content even when a tag is extracted.
-	body := s[pos:]
+	r.Tag, r.Application, r.ProcessID = legacyTag(s[pos:])
+	return true
+}
+
+func legacyTag(body string) (tag, application, process Field) {
 	if colon := strings.IndexByte(body, ':'); colon > 0 && colon <= 128 {
-		tag := body[:colon]
-		if !strings.ContainsAny(tag, " %|") && headerText(tag, 128) {
-			r.Tag = Text(tag)
-			r.Application = Text(tag)
-			if bracket := strings.IndexByte(tag, '['); bracket > 0 && strings.HasSuffix(tag, "]") {
-				r.Application = Text(tag[:bracket])
-				r.ProcessID = Text(tag[bracket+1 : len(tag)-1])
+		value := body[:colon]
+		if !strings.ContainsAny(value, " %|") && headerText(value, 128) {
+			tag = Text(value)
+			application = tag
+			if bracket := strings.IndexByte(value, '['); bracket > 0 && strings.HasSuffix(value, "]") {
+				application = Text(value[:bracket])
+				process = Text(value[bracket+1 : len(value)-1])
 			}
 		}
 	}
+	return tag, application, process
 }
 
 func numericEvent(s string) bool {

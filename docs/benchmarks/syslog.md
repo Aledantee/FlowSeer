@@ -69,6 +69,31 @@ is measured below. Listener startup validation and shutdown reference cleanup we
 also tightened afterward and covered by the final race suite. The long-run result
 is evidence for the more allocation-heavy baseline, not a claim of a second run.
 
+## First-byte admission and escaped structured data
+
+A second ten-minute run uses first-byte frame admission, bidirectional TLS
+receive deadlines, and escaped structured-data values in every message. The
+same four profiles and stopped/slow consumer phases apply. The test requires
+at least 1,000 delivered records per profile and reports unexpected `Next`
+errors, so a stalled receiver cannot pass solely through a flat heap.
+
+The baseline one-minute median was 37,144,032 bytes. The final three medians
+were 39,140,080, 39,168,904, and 39,397,328 bytes, below the 40,858,435-byte
+threshold. Peak sampled RSS was 99.5 MiB. Reservations stayed within the
+configured limits at every sample and reached zero after shutdown.
+
+| Profile | Delivered | UDP admission drops | Pressure closures | Final reserved bytes | Limit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Default, raw off | 15,000 | 597,530 | 2,930 | 17,243,648 | 33,554,432 |
+| Default, raw on | 15,000 | 597,892 | 2,929 | 17,227,264 | 33,554,432 |
+| Small, raw off | 15,000 | 597,896 | 2,328 | 254,656 | 2,097,152 |
+| Small, raw on | 15,000 | 597,736 | 2,420 | 254,656 | 2,097,152 |
+
+Pressure closures count connections, not unread messages. The raw
+[samples](syslog/overload-admission.txt) include connection rejection counts
+and each heap observation. Separate regressions cover blocked TLS alert writes,
+idle TCP peers sharing capacity with UDP, and frame deadlines during admission.
+
 ## Protocol and TLS worksheet
 
 Let `P` be MaxPayload and `E` MetadataBytes. Startup reserves `3P + 3E +
@@ -113,14 +138,16 @@ reads and alert writes without depending on TLS close-notify completion.
 
 No service is wired to this package in this change. An embedding service should
 watch its receiver's reserved bytes/frames, active connections/handshakes, UDP
-drops, and framing/handshake errors. Correlate those with downstream publication
+drops, pressure closures, and framing/handshake errors. Correlate those with downstream publication
 latency; sustained full occupancy means the caller or broker path is slower than
 arrival traffic. Preserve partial records for compatibility investigation, and
 capture raw messages only where that retention is intended.
 
 ## Performance baseline and retained change
 
-Median results from ten 100 ms samples per case:
+Median results from ten 100 ms samples per case, using the 24-fixture corpus
+from the initial measurement. The current corpus adds three timestamp regressions;
+these historical mixed-corpus timings do not include them:
 
 | Workload | ns/message | messages/second | MB/second | bytes allocated/message | allocations/message |
 | --- | ---: | ---: | ---: | ---: | ---: |

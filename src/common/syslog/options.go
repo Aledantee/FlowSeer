@@ -74,6 +74,9 @@ func (l Limits) headroom() int {
 // ParseOptions is immutable after NewParser. Raw capture is disabled by default.
 // Year, Location, and zone offsets are explicit interpretation context.
 type ParseOptions struct {
+	// LegacyTimeSuffix interprets year/zone tokens after a legacy clock. Enable
+	// only for a matching device configuration; otherwise ambiguous suffixes stay unparsed.
+	LegacyTimeSuffix    bool
 	CaptureRaw          bool
 	Year                int
 	Location            *time.Location

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -85,8 +86,12 @@ func TestOverload(t *testing.T) {
 							return
 						case <-tick.C:
 							next, cancelNext := context.WithTimeout(ctx, 10*time.Millisecond)
-							_, _ = r.Next(next)
+							_, err := r.Next(next)
 							cancelNext()
+							if err != nil && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+								t.Errorf("receiver stopped delivering: %v", err)
+								return
+							}
 						}
 					}
 				}()
@@ -134,6 +139,9 @@ func TestOverload(t *testing.T) {
 	for i, r := range receivers {
 		stats := r.Stats()
 		t.Logf("profile=%d stats=%+v", i, stats)
+		if stats.Delivered < 1000 {
+			t.Errorf("profile %d delivered %d records, want at least 1000", i, stats.Delivered)
+		}
 		if stats.UDPDropped == 0 {
 			t.Errorf("profile %d did not exercise UDP pressure", i)
 		}
@@ -150,7 +158,7 @@ func TestOverload(t *testing.T) {
 }
 
 func flood(ctx context.Context, endpoint syslog.Endpoint, config *tls.Config) {
-	payload := append([]byte("<134>1 2026-09-03T10:00:00Z switch app - - [meta a=\"value\"] "), bytes.Repeat([]byte("x"), 1024)...)
+	payload := append([]byte(`<134>1 2026-09-03T10:00:00Z switch app - - [meta a="one\]two\\three\"four"] `), bytes.Repeat([]byte("x"), 1024)...)
 	frame := append([]byte(fmt.Sprintf("%d ", len(payload))), payload...)
 	network := "tcp"
 	if endpoint.Transport == syslog.UDP {

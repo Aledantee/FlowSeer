@@ -27,7 +27,10 @@ completes a frame. Frames from the same read retain that time through a backlog.
 `Record` owns its data. Mutating input after `Parse`, calling `Next` again, or
 closing the receiver cannot change a returned record. Byte fields within one
 record may share storage; shallow record copies share slices. `Clone` makes an
-independent copy. Caller-retained records are outside the receiver's memory budget.
+independent copy for mutation and checks metadata storage before allocation.
+Immutable string fields can share a payload backing string even after cloning;
+retaining one such field can retain that payload. Caller-retained records are
+outside the receiver's memory budget.
 
 `Content` preserves the full post-envelope payload, including a legacy process tag
 or vendor prefix. Parsed vendor fields supplement that content. `OriginalSD` keeps
@@ -63,7 +66,13 @@ tests, not firmware interoperability or packet-capture claims.
 
 `ParseOptions.Year`, `Location`, and `ZoneOffsets` provide explicit clock context.
 The record marks inferred components. DST gaps/folds and unmapped abbreviations
-remain unresolved. Numeric dates require `NumericDateOrder: "dmy"` or `"mdy"`.
+remain unresolved. A year or timezone after a legacy clock can also be a hostname.
+Without an unambiguous timestamp terminator, these suffixes remain in `Unparsed`
+with an `ambiguous_timestamp_suffix` diagnostic. Set `LegacyTimeSuffix: true`
+only when the sending device is configured to include those timestamp components.
+For example, it disambiguates `Sep 3 10:00:00 UTC host app: text`; Cisco
+`Sep 3 10:00:00 UTC: %LINK-3-UPDOWN: down` needs no hint.
+Numeric dates require `NumericDateOrder: "dmy"` or `"mdy"`.
 Cisco leading counters remain in `Vendor.Counters` unless
 `CiscoCounterOrder` names their roles
 (`sequence`, `counter`). Extra percent-prefix components remain ordered evidence;
@@ -124,7 +133,9 @@ fail before binding or allocation.
 | Handshake / absolute partial-frame / idle / pressure timeout | 5s / 10s / 120s / 30s |
 | Send timeout | 5s |
 
-Every frame reserves its full payload capacity before allocation. Read buffers,
+Idle streams hold only fixed read scratch. A frame reserves its full payload
+capacity after its first byte arrives and before payload allocation; the absolute
+frame deadline includes time waiting for admission. Read buffers,
 queue entries, connection slots, and fixed state have startup or per-connection
 reservations. Parser/result headroom is reserved at startup and cannot be consumed
 by queued frames. Consequently `Next` can drain a full queue. There is no pool
@@ -143,8 +154,10 @@ pools or callback state. See the [measurement and TLS worksheet](../../../docs/b
 Counters have fixed cardinality. `Received`, `Queued`, and `Delivered` are totals;
 `ReservedFrames` is current partial/queued occupancy. `UDPDropped` reports observed
 library admission drops; network and kernel losses before receipt are unknown.
-`Oversized`, `FramingErrors`, `HandshakeErrors`, `ConnectionRejected`, and
-`ShutdownDiscarded` distinguish other failure paths.
+`PressureClosed` counts streams closed while waiting for admission or handoff;
+unread frames make an exact lost-message count unavailable. Shutdown cancellation
+is excluded from that counter. `Oversized`, `FramingErrors`, `HandshakeErrors`,
+`ConnectionRejected`, and `ShutdownDiscarded` distinguish other failure paths.
 
 ## Sending and losses
 
@@ -160,7 +173,10 @@ fields, clock-quality evidence, and vendor counters outside preserved content.
 `Omitted` describes expected local-only reception, raw, and diagnostic metadata.
 Encoding rejects header injection, invalid SD names/duplicates, invalid declared
 UTF-8, size overflow, and delimiter collisions without truncating bytes. Caller
-hostname/time overrides affect only that encoding operation.
+hostname/time overrides affect only that encoding operation. Offset seconds must
+be whole minutes within RFC 5424 bounds; unrepresentable offsets are rejected.
+Loss reporting also applies to records constructed directly by callers, including
+partial device times and header fields absent from preserved legacy content.
 
 `NewSender` performs no network I/O. `Send` preflights encoding/framing, lazily
 connects, and reuses a healthy connection. It accepts one active call and stores
