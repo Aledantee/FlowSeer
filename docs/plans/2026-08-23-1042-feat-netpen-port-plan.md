@@ -255,7 +255,7 @@ All three are resolved during planning; see the Planning Contract for the decisi
 **Validation and release**
 
 - KTD14. **Characterization-first port.** The Python tool stays the fixture factory during the port: per-attack reference frames are captured to pcap and each Go behavior is pinned against them. Pins are byte-for-byte where the baseline is deterministic; where it randomizes, the pin is a field-set comparison defined up front — matched fields are the protocol structure (EtherType, IP protocol, ports, message/opcode types, option-type sets, flags) and masked fields are per-run randomness (DHCP xids, chaddr, random MAC tails, timestamps, TTLs). `l2l3-audit` retires once parity is pinned this way (Governs R1).
-- KTD15. **Lab validation tiers mirror the Integration Tier pattern.** Build-tag-gated tiers under `src/netpen/integration/` — t1 containerized FRRouting (OSPF/EIGRP/VRRP-adjacent targets) plus a netpen-against-netpen ring for Cisco-proprietary protocols that containers cannot impersonate, t2 opt-in virtual Cisco target (vIOS-class image, operator-supplied), never in the default test run. Each of the eight superset attacks ships with its teardown path and a tier-1 reproducible finding (R5).
+- KTD15. **Lab validation tiers mirror the Integration Tier pattern.** Build-tag-gated tiers under `test/integration/netpen/` — t1 containerized FRRouting (OSPF/EIGRP/VRRP-adjacent targets) plus a netpen-against-netpen ring for Cisco-proprietary protocols that containers cannot impersonate, t2 opt-in virtual Cisco target (vIOS-class image, operator-supplied), never in the default test run. Each of the eight superset attacks ships with its teardown path and a tier-1 reproducible finding (R5).
 - KTD16. **Static release via a Taskfile, not goreleaser.** `CGO_ENABLED=0 go build` for linux/amd64 and linux/arm64 with `-s -w -X` ldflags into a version package, in a `src/netpen/Taskfile.yml` release task — matches the repo's per-area Taskfile convention and avoids a new CI tool in a repo with none.
 
 ### High-Level Technical Design
@@ -608,9 +608,9 @@ Unit index (U-IDs are stable; bodies below are authoritative):
 
 - **Requirements:** R5, R16, R17 (KTD14, KTD15, KTD16; AE5, AE6)
 - **Dependencies:** U12
-- **Files:** `src/netpen/integration/{t1,t2}/`, tier Taskfiles, `src/netpen/bench/` (baseline + bench script), release task in `src/netpen/Taskfile.yml`
+- **Files:** `test/integration/netpen/{t1,t2}/`, tier Taskfiles, `src/netpen/bench/` (baseline + bench script), release task in `src/netpen/Taskfile.yml`
 - **Approach:** t1 containerlab with FRR targets plus a netpen-vs-netpen ring for Cisco-proprietary protocols, t2 opt-in operator-supplied Cisco image. The validation matrix labels every attack's ground-truth source: (a) Python-tool fixture (wire-shape truth), (b) vendor capture in t2 (behavioral truth), or (c) ring-only (self-consistency, no ground truth), and (c) rows carry an explicit "wire-shape-validated, behavior-unvalidated" caveat until t2 covers them. The bench suite follows the snmp bench shape (committed baseline, allocs/op and B/op measured on the decode and flood-craft loops) as an **advisory** report — Success Criteria disclaims a performance budget, so no hard fail. Release builds the two-arch matrix and AE5 is validated by run-to-completion of `full` in the t1 environment.
-- **Patterns to follow:** `src/common/snmp/integration/` tier structure (per-tier build tag, TestMain ownership, compile error on two tags); `src/common/snmp/bench/` gate script rules.
+- **Patterns to follow:** `test/integration/snmp/` tier structure (per-tier build tag, TestMain ownership, compile error on two tags); `src/common/snmp/bench/` gate script rules.
 - **Test scenarios:**
   - Covers AE5. Static binary (CGO_ENABLED=0, `--static` shape verified via `file`/ldd check) executes `netpen full` in the t1 environment with no Python, no packages, no network resolution — runs to completion.
   - Covers AE6. Each of the eight superset attacks runs twice in its tier and produces the same findings class both times (matrix recorded in the validation doc).
@@ -633,7 +633,7 @@ The repo merge gate applies inside `src/netpen` (module scope) plus the main-mod
 | Vet | both modules | `go vet ./...` |
 | Race tests | both modules | `go test -race ./...` runs zero lab tiers by default (build-tag gating) |
 | Characterization pins | `layers/`, `attacks/` | fixture round-trip and differential tests are part of the default race run |
-| Lab tiers | `src/netpen/integration/` | opt-in per tier via package build tag; t1 is the superset-validation environment |
+| Lab tiers | `test/integration/netpen/` | opt-in per tier via package build tag; t1 is the superset-validation environment |
 | Perf bench (advisory) | `src/netpen/bench/` | benchstat report against committed baseline (allocs/op, B/op); informational only — Success Criteria disclaims a performance budget |
 | Release | Taskfile | two-arch CGO_ENABLED=0 builds + embedded version + AE5 smoke in t1 |
 

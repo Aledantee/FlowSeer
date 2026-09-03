@@ -11,7 +11,7 @@ root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || {
 }
 
 if output=$("$script_dir/contract-test.sh" 2>&1) && \
-  output=$(cd "$root" && go test ./src/common/protoconformance 2>&1); then
+  output=$(cd "$root" && go test ./test/conformance 2>&1); then
   printf '{}\n'
   exit 0
 fi

@@ -130,7 +130,7 @@ flowchart TB
 - `src/common/snmp/doc.go` — the primitives lifecycle contract the new libraries extend; authoritative over the drifted `src/common/snmp/README.md`.
 - `src/common/snmp/cmd/mibgen/` — the manifest, emission, and drift-check conventions `yanggen` mirrors (config.go strict-YAML manifest, load.go Kahn topo-sort, emit.go jennifer pipeline, golden tests).
 - `src/common/snmp/CONFORMANCE.md` and `src/common/snmp/conformance_corpus_test.go` — the corpus discipline R13 extends (append-only rows, `// Covers conformance matrix row:` markers, build-tagged completeness gate).
-- `src/common/snmp/integration/doc.go` — the four-tier integration model (build-tag per tier, testcontainers, opt-in live devices via env var).
+- `test/integration/snmp/doc.go` — the four-tier integration model (build-tag per tier, testcontainers, opt-in live devices via env var).
 - `docs/solutions/architecture-patterns/snmp-collection-library-architecture-and-fast-path-conventions.md` — guarded fast paths, machine-checked pins, tiered gates.
 - `docs/solutions/architecture-patterns/errs-package-architecture-and-error-conventions.md` and `docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md` — the errs wire contract; mibgen output still emits `ae` with migration deferred.
 - `spec/yang/*/SOURCES.md` — per-vendor protocol orientation (ICX: RESTCONF only, HTTPS/443, basic auth; Aruba CX: gNMI/OpenConfig telemetry-oriented, proprietary REST config plane; IOS-XE: NETCONF/RESTCONF/gNMI).
@@ -250,8 +250,8 @@ Three phases; units within a phase can proceed in parallel where dependencies al
 | U6 | RESTCONF library | `src/common/restconf/` | U1, U2 |
 | U7 | gNMI library | `src/common/gnmi/` | U1, U2 |
 | U8 | Walker/Watcher primitives over sessions | `src/common/netconf/`, `src/common/restconf/`, `src/common/gnmi/` | U4, U5, U6, U7 |
-| U9 | Conformance corpus + t1 integration env | per-library corpus tests, `src/common/*/integration/` | U5, U6, U7 |
-| U10 | Lab validation (t4) | `src/common/*/integration/` | U8, U9 |
+| U9 | Conformance corpus + t1 integration env | per-library corpus tests, `test/integration/*/` | U5, U6, U7 |
+| U10 | Lab validation (t4) | `test/integration/*/` | U8, U9 |
 
 ### U1. Extract pump to `src/common/pump`
 
@@ -421,12 +421,12 @@ Three phases; units within a phase can proceed in parallel where dependencies al
 - **Goal:** The quirk-corpus discipline and containerized integration tier exist for all three libraries before lab work starts.
 - **Requirements:** R13; cites KTD10.
 - **Dependencies:** U5, U6, U7.
-- **Files:** `src/common/netconf/conformance_corpus_test.go` (and restconf/gnmi equivalents), per-library `CONFORMANCE.md` (generated), `src/common/yang/integration/testenv/` (shared container helpers), per-library `integration/` with build-tag-per-tier `TestMain`s.
+- **Files:** `src/common/netconf/conformance_corpus_test.go` (and restconf/gnmi equivalents), per-library `CONFORMANCE.md` (generated), `test/integration/yang/testenv/` (shared container helpers), per-library `integration/` with build-tag-per-tier `TestMain`s.
 - **Approach:**
   1. Transcribe the snmp corpus machinery per library: append-only rows with ID/clause/provenance/adversarial-input, `// Covers conformance matrix row:` AST scan, always-on integrity test, build-tagged completeness gate, generated `CONFORMANCE.md` golden.
   2. t1 testenv: netopeer2/sysrepo container (NETCONF + RESTCONF against IETF models), reference gNMI target container; build-from-context images, log + protocol-level readiness probes, dialing only through public constructors.
   3. Seed corpus rows from RFC errata and the research-known quirks (ICX nonconformant error bodies expected; IOS-XE candidate-mode datastore behavior).
-- **Patterns to follow:** `src/common/snmp/conformance_corpus_test.go`, `src/common/snmp/integration/doc.go`, `integration/testenv/snmpd.go`.
+- **Patterns to follow:** `src/common/snmp/conformance_corpus_test.go`, `test/integration/snmp/doc.go`, `integration/testenv/snmpd.go`.
 - **Test scenarios:**
   - Corpus integrity gate fails on: covered row without citing marker, empty adversarial input, deleted row.
   - t1 NETCONF: get-config, candidate edit + commit, validate-failure discard against netopeer2.
@@ -447,7 +447,7 @@ Three phases; units within a phase can proceed in parallel where dependencies al
   4. Runtime revision-drift detection (R8) exercised: compare device hello/Capabilities module revisions against lockfile revisions; mismatch surfaces as a warning.
   5. ICX `depth`/`fields` assumption verified; corpus rows appended for every quirk found, with provenance.
 - **Execution note:** Every t4 write is a small reversible change with explicit cleanup; never leave lab devices modified on test exit, including on failure paths.
-- **Patterns to follow:** `src/common/snmp/integration/t4_main_test.go` env-var contract.
+- **Patterns to follow:** `test/integration/snmp/t4_main_test.go` env-var contract.
 - **Test scenarios:**
   - Covers AE1. Identity read on IOS-XE (any protocol), ICX (RESTCONF), Aruba CX (gNMI) returns all four fields typed.
   - Covers AE2. IOS-XE: staged invalid change → validate fails → discard → read-back diff shows running unchanged.
@@ -511,7 +511,7 @@ rows are deliberately `pending` (`nc-t4-*`, `rc-t4-*`, `gn-t4-*`,
 build-tagged completeness gates stay red by design until a lab pass
 runs. To close: supply targets via `YANG_NETCONF_T4_TARGETS` /
 `YANG_RESTCONF_T4_TARGETS` / `YANG_GNMI_T4_TARGETS`, run
-`go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/integration/`,
+`go test -tags yang_integration_t4 ./test/integration/{netconf,restconf,gnmi}/`,
 then flip those rows to `covered` with the observed detail (or record
 the R14 Aruba conversion here) and regenerate the CONFORMANCE.md
 goldens.
@@ -626,7 +626,7 @@ build-tagged completeness gates fail until the lab pass flips them —
 by design, that is the remaining Definition-of-Done gap. Once
 credentials/addresses are provided via the env contract, run:
 
-	go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/integration/
+	go test -tags yang_integration_t4 ./test/integration/{netconf,restconf,gnmi}/
 
 then flip the rows (Covered, with the observed adversarial detail) or
 record the R14 conversion here.

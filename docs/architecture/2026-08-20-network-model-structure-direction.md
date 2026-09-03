@@ -80,7 +80,7 @@ device ← inventory ← integration ← {service, event}
 packages; `net/switching` imports address and packet values, while `net/ip`
 imports address values. Service and event packages are sibling boundary
 consumers and never import one another. The order's home for automated
-checking is `src/common/protoconformance/`; `spec/proto/` holds only `.proto`
+checking is `test/conformance/`; `spec/proto/` holds only `.proto`
 and `README.md` files, so no test can sit beside the schemas.
 
 ## Why this shape
@@ -655,5 +655,5 @@ opened by moving the two packages this record named after OSI layers.
   amendment above left the order to review alone, and a later plan specified a
   layering test at `spec/proto/layering_test.go` that could never land —
   `spec/proto/` accepts only `.proto` and `README.md` files. The order's home
-  for automated checking is `src/common/protoconformance/`, where the rest of
+  for automated checking is `test/conformance/`, where the rest of
   the schema gates already live.

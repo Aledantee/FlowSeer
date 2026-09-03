@@ -68,7 +68,7 @@ collapsed again.
   `spec/proto/ruckus/` (including its `nanopb/` subtree) is byte-identical
   before and after, and nothing is written under `frontend/`.
 - **R8.** `generated/` is regenerated in the same change as each schema edit
-  and `src/common/protoconformance/` passes `go test -race`.
+  and `test/conformance/` passes `go test -race`.
 
 ### Assumptions
 
@@ -87,7 +87,7 @@ collapsed again.
 ## Scope Boundaries
 
 **In scope:** `spec/proto/flowseer/**` (protos + READMEs), `spec/proto/README.md`,
-`docs/code-style-proto.md` Workflow section, `src/common/protoconformance/`,
+`docs/code-style-proto.md` Workflow section, `test/conformance/`,
 regenerated `generated/go/proto/flowseer/**`.
 
 **Out of scope:** vendor mirrors (`spec/proto/ruckus/`), `spec/mib/`,
@@ -161,9 +161,9 @@ deleted `spec/proto/flowseer/net/addr/v1/mac_address.proto`,
 `spec/proto/flowseer/net/addr/v1/eui64_address.proto`;
 `spec/proto/flowseer/net/l2/v1/fdb_entry.proto`,
 `spec/proto/flowseer/net/l3/v1/neighbor_entry.proto`,
-`src/common/protoconformance/l2_rules_test.go`,
-`src/common/protoconformance/l3_rules_test.go`,
-new `src/common/protoconformance/addr_rules_test.go`,
+`test/conformance/l2_rules_test.go`,
+`test/conformance/l3_rules_test.go`,
+new `test/conformance/addr_rules_test.go`,
 regenerated `generated/go/proto/flowseer/**`.
 **Approach:**
 1. Author `eui.proto` in the worktree: `Eui48Address` and `Eui64Address`
@@ -194,7 +194,7 @@ regenerated `generated/go/proto/flowseer/**`.
   import.
 - `NeighborEntry` with an absent link-layer address remains valid.
 **Verification:** `buf lint` exits clean for the whole workspace;
-`go test -race ./src/common/protoconformance/...` passes.
+`go test -race ./test/conformance/...` passes.
 **Execution note:** smoke-first — lint and generate before touching tests.
 
 ### U2. Standards audit and qualified links: registry packages (`addr`, `packet`)
@@ -294,7 +294,7 @@ land before the mechanical renumber (one regen churn, cleaner review).
 `spec/proto/flowseer/net/phy/v1/poe_facet.proto`,
 `spec/proto/flowseer/net/phy/v1/transceiver_facet.proto`,
 regenerated `generated/go/proto/flowseer/**`, and the conformance suites the
-renumber reaches: `src/common/protoconformance/addr_rules_test.go` (new in
+renumber reaches: `test/conformance/addr_rules_test.go` (new in
 U1), `l2_rules_test.go`, `l3_rules_test.go`, `phy_rules_test.go`.
 **Approach:**
 0. Precondition, fail closed: record an inventory confirming no serialized
@@ -311,7 +311,7 @@ U1), `l2_rules_test.go`, `l3_rules_test.go`, `phy_rules_test.go`.
 3. `TestNeighborEntryReservedStateTag` in `l3_rules_test.go` is
    wire-number-dependent by design: it unmarshals raw bytes carrying the
    reserved neighbor-entry tag and asserts nothing populates. The renumber
-   retires it. Because `src/common/protoconformance/` is an AGENTS.md policy
+   retires it. Because `test/conformance/` is an AGENTS.md policy
    surface, raise its removal as an explicit guardrail review before U4
    lands — never edit it away quietly inside the renumber commit.
 4. Confirm `spec/proto/ruckus/` descriptors are untouched (`git status`
@@ -354,7 +354,7 @@ match the audited schemas and the current toolchain.
    the same doc's Workflow section to match the trimmed `buf.gen.yaml`.
    Otherwise skip and flag (per the Assumptions).
 **Test scenarios:** Test expectation: none — documentation-only;
-`src/common/protoconformance/layout_test.go` (README placement rules) and
+`test/conformance/layout_test.go` (README placement rules) and
 the repo's Stop-hook layout package must stay green.
 **Verification:** every standard named in a README carries its qualified
 link; no README describes a file that no longer exists.
@@ -376,7 +376,7 @@ link; no README describes a file that no longer exists.
   end.
 - `spec/proto/ruckus/` (including `nanopb/`) shows no diff at any point, and
   nothing appears under `frontend/` (R7).
-- `src/common/protoconformance/` is an AGENTS.md **policy surface**: U1's new
+- `test/conformance/` is an AGENTS.md **policy surface**: U1's new
   `addr_rules_test.go` and U4's suite edits (including the retired
   reserved-tag guard) require an explicit guardrail review — budget it in
   the review of those units.

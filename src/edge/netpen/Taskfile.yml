@@ -49,12 +49,12 @@ tasks:
   tier-t1:
     desc: 'Tier 1 — FRR targets + netpen-vs-netpen ring in Docker (superset validation)'
     cmds:
-      - go test -tags=netpen_t1 -v -count=1 ./integration/...
+      - go -C ../../../test/integration/netpen test -tags=netpen_t1 -v -count=1 ./...
 
   tier-t2:
     desc: 'Tier 2 — operator-supplied vIOS-class Cisco image (opt-in, never automated)'
     cmds:
-      - go test -tags=netpen_t2 -v -count=1 ./integration/...
+      - go -C ../../../test/integration/netpen test -tags=netpen_t2 -v -count=1 ./...
 
   # --- U13: advisory benchmark suite (KTD14 perf gate shape) ---
 

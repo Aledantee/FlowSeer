@@ -281,10 +281,11 @@ spec/          # protobuf + MIB sources of truth
 - Mark helpers with `t.Helper()`; use `t.Cleanup` over deferred teardown in helpers.
 - Go behavior tests live in the package they test; use `package foo_test` when the
   test should be confined to the exported API. Cross-repository schema and layout
-  checks live in `src/common/protoconformance/`, with fixtures under its `testdata/`;
+  checks live in `test/conformance/`, with fixtures under its `testdata/`;
   they never live in `spec/` or `generated/`.
-- Integration tests that need real services use testcontainers and are guarded by
-  `testing.Short()`.
+- Integration suites live under `test/integration/<component>/`, with their
+  fixtures and environment helpers. Tests that need real services use
+  testcontainers and are guarded by `testing.Short()`.
 
 ## Toolchain & enforcement
 

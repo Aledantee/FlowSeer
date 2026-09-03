@@ -94,7 +94,7 @@ Config defaults to `common/snmp/cmd/mibgen/mibgen.yaml` (search paths, module
 list with `depends_on` edges, per-OID type overrides). The emitter lives in
 `emit.go` and the per-shape `emit_*.go` companions.
 
-## Integration tests (`integration/`)
+## Integration tests (`test/integration/snmp/`)
 
 End-to-end tests against real SNMP agents, gated by build tags so bare
 `go test ./...` runs **zero** integration tests. Run via `task`, not `make`:
@@ -111,11 +111,11 @@ container/lab lifecycle (cleanup runs even on panic); selecting two tier tags
 at once is a deliberate compile error. All tiers dial through the
 `testenv.Dialer` / `testenv.TrapListener` seam so a future native backend
 swaps in with two lines. Prerequisites and per-tier walkthroughs are in
-[`integration/README.md`](integration/README.md).
+[integration test guide](../../../test/integration/snmp/README.md).
 
 ## Conventions
 
 Style and behavioural rules are repo-wide; see
-[`docs/conventions/`](../../docs/conventions/) (notably `go-style.md`,
+[`docs/conventions/`](../../../docs/conventions/) (notably `go-style.md`,
 `naming.md`, `errors.md`). The `mibgen`-emitted MIB packages under
 `generated/go/mib/` are subject to the full lint set like hand-written code.

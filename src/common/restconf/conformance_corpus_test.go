@@ -98,7 +98,7 @@ var restconfFamilies = []conformance.Family{
 // ratified.
 var restconfAllowlist = map[string]bool{}
 
-// corpusDirs returns the package dir and its integration subdir.
+// corpusDirs returns the package and integration suite directories.
 func corpusDirs(t *testing.T) []string {
 	t.Helper()
 	_, here, _, ok := runtime.Caller(0)
@@ -106,7 +106,7 @@ func corpusDirs(t *testing.T) []string {
 		t.Fatal("runtime.Caller failed")
 	}
 	dir := filepath.Dir(here)
-	return []string{dir, filepath.Join(dir, "integration")}
+	return []string{dir, filepath.Join(dir, "..", "..", "..", "test", "integration", "restconf")}
 }
 
 // TestConformanceCorpusIntegrity is the always-on gate.
