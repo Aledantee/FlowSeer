@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## Working language
+
+Conversation language does not change the working language. Write every plan,
+document, code change, code comment, and piece of documentation in English. The
+only exception is translated content in localization (`i18n`) files.
+
 ## Conventions
 
 Binding on humans and agents equally; each doc states its own scope.
