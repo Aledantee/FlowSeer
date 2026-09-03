@@ -44,4 +44,4 @@ Each package owns its own tests, `test/integration/` suite, and where the
 dependency would otherwise leak into the main module, a nested `bench/` or
 `differential/` module with its own `go.mod`. Those nested modules exist to keep
 comparison dependencies (gosnmp, gosmi) out of the main module's graph, so run
-them with `go test -C <dir>`.
+them with `go -C <dir> test ./...`.

@@ -73,7 +73,7 @@ These commands run from the repository root:
 go test -race ./test/conformance/proto
 go test -race ./src/protocol/snmp/test/integration/...
 go test -tags=snmp_integration_t1 ./src/protocol/snmp/test/integration
-go test -tags=yang_integration_t1 ./src/common/{gnmi,netconf,restconf}/test/integration
+go test -tags=yang_integration_t1 ./src/protocol/{gnmi,netconf,restconf}/test/integration
 go -C src/edge/netpen test -tags=netpen_t1 ./test/integration/...
 ```
 

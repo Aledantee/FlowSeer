@@ -11,7 +11,7 @@ by the toolchain and enforced in CI; this document owns the judgement rules a li
 cannot check — what a doc comment must say, when a comment earns its place, error and
 concurrency discipline, and how to keep agent-written code clean.
 
-Target runtime: **Go 1.26+**. The baseline is [Effective Go], the [Go doc-comment
+Target runtime: **Go 1.27+**. The baseline is [Effective Go], the [Go doc-comment
 conventions][doc-comments], and the [Google Go Style Guide][google-style]; where they
 are silent, the [Uber Go Style Guide][uber-style] is advisory. When a rule below
 conflicts with older advice found online, this document wins.
@@ -256,10 +256,11 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
 
 ```
 src/
-  backend/     # collector/analysis services
-  common/      # shared libraries (e.g. snmp)
-  edge/        # edge agents
-  frontend/    # UI (own toolchain; this document does not govern it)
+  protocol/    # protocol clients and schema-language libraries
+  common/      # cross-cutting, domain-free foundations
+  modules/     # reusable behavior assembled by a host
+  services/    # control-plane services
+  edge/        # applications designed to run at the edge
 generated/     # generated bindings — never edited by hand
 spec/          # protobuf, MIB, and YANG sources of truth
 ```

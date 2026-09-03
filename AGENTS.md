@@ -27,6 +27,8 @@ Binding on humans and agents equally; each doc states its own scope.
   lists, trailing participles, puffery, comment-per-line).
 - [`docs/agent-knowledge.md`](docs/agent-knowledge.md) — where shared rules and
   learnings live; repository guidance wins over private memory.
+- [`docs/agent-steering.md`](docs/agent-steering.md) — how to decide whether a
+  recurring rule belongs here, in scoped docs, in a skill, or in enforcement.
 
 ## Hard boundaries
 
@@ -54,6 +56,23 @@ no remote. The Claude worktree hook defaults to the sibling
   output, and keep small sequential work in the main conversation.
 - Auto-memory is personal and fallible; promote durable team facts per
   `docs/agent-knowledge.md`.
+
+## Work sequence
+
+1. Read only the conventions, accepted direction, and captured solutions that
+   apply to the task. Inspect the current source and tests before proposing a
+   change.
+2. Record the existing worktree state and preserve changes that are not part of
+   the task. Make the smallest change that satisfies the request.
+3. Run focused checks while working. Before handoff, run the diff-aware verifier
+   for every changed path:
+
+   ```bash
+   .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+   ```
+
+4. Review the final diff against the request and repository guidance. Report the
+   commands run, their results, and any residual risk.
 
 ## Investigation discipline
 
@@ -86,6 +105,8 @@ authority — `go test -race ./...` enforces the same invariants.
   device service, inventory, discovery, or ingestion planes.
 - `docs/solutions/` — captured learnings (bugs, conventions, patterns) with YAML
   frontmatter; check when working in a documented area.
+- `README.md` is the human entry point; `docs/README.md` maps the documentation
+  system of record.
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts); relevant when orienting to the codebase or discussing domain terms.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).
