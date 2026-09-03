@@ -27,3 +27,11 @@ allowlisted resolver and is then discarded with an observable disposition.
 Trace context uses the W3C `traceparent` and `tracestate` header values captured
 at publication. Payload and trace-header contents are durable data and must not
 be written to logs or metric labels.
+
+The same package owns the bus control records. `RuntimeManifest` and
+`ReconciliationRecord` make stream and consumer changes resumable without
+inventing a private JSON compatibility surface. `Settlement` records retry or
+terminal intent before a broker acknowledgement. `StoreProvenance` is a small
+sidecar read before NATS opens an existing store, so a server-version change can
+require the operator's backup rather than discovering the pin after the new
+binary has already touched the files.
