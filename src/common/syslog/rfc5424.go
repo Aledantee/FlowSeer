@@ -24,6 +24,15 @@ func (p *Parser) structured(r *Record, s string, owned []byte, pos int) {
 		pos += end + 1
 	}
 	r.DeviceTime = p.deviceTime(fields[0])
+	if i := strings.IndexByte(fields[0], '.'); i >= 0 {
+		end := i + 1
+		for end < len(fields[0]) && fields[0][end] >= '0' && fields[0][end] <= '9' {
+			end++
+		}
+		if end-i-1 > 6 {
+			r.diagnose("timestamp_precision", 0, p.limits)
+		}
+	}
 	if fields[0] != "-" && r.DeviceTime.Instant == nil {
 		r.diagnose("invalid_timestamp", 0, p.limits)
 	}

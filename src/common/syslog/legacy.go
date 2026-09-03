@@ -4,11 +4,29 @@ import "strings"
 
 func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
 	rest := s[pos:]
-	// IOS sequence counters precede the device clock, unlike the outer PRI.
-	if i := strings.Index(rest, ": "); i > 0 && i <= 20 && digits(rest[:i]) {
-		r.Vendor.Sequence = Text(rest[:i])
+	for range 2 {
+		i := strings.Index(rest, ": ")
+		if i <= 0 || i > 20 || !digits(rest[:i]) {
+			break
+		}
+		r.Vendor.Counters = append(r.Vendor.Counters, rest[:i])
 		pos += i + 2
 		rest = s[pos:]
+	}
+	if len(r.Vendor.Counters) == 1 && len(p.options.CiscoCounterOrder) == 0 {
+		r.Vendor.Sequence = Text(r.Vendor.Counters[0])
+	} else if len(r.Vendor.Counters) > 0 {
+		if len(p.options.CiscoCounterOrder) != len(r.Vendor.Counters) {
+			r.diagnose("ambiguous_vendor_counters", 0, p.limits)
+		} else {
+			for i, role := range p.options.CiscoCounterOrder {
+				if role == "sequence" {
+					r.Vendor.Sequence = Text(r.Vendor.Counters[i])
+				} else {
+					r.Vendor.Counter = Text(r.Vendor.Counters[i])
+				}
+			}
+		}
 	}
 	d, n := p.timestampPrefix(rest)
 	recognized := n > 0 || r.Priority.Presence == Present

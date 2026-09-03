@@ -36,6 +36,18 @@ func NewParser(options ParseOptions) (*Parser, error) {
 			return nil, errs.Msg("invalid syslog zone context")
 		}
 	}
+	if len(options.CiscoCounterOrder) > 2 {
+		return nil, ErrLimit
+	}
+	for _, role := range options.CiscoCounterOrder {
+		if role != "sequence" && role != "counter" {
+			return nil, errs.Msg("invalid Cisco counter role")
+		}
+	}
+	if len(options.CiscoCounterOrder) == 2 && options.CiscoCounterOrder[0] == options.CiscoCounterOrder[1] {
+		return nil, errs.Msg("duplicate Cisco counter role")
+	}
+	options.CiscoCounterOrder = append([]string(nil), options.CiscoCounterOrder...)
 	options.ZoneOffsets = maps.Clone(options.ZoneOffsets)
 	options.CiscoComponents = append([]string(nil), options.CiscoComponents...)
 	return &Parser{options: options, limits: l}, nil
@@ -92,6 +104,9 @@ func (p *Parser) Parse(payload []byte, observation Observation) (Record, error) 
 		p.legacy(&r, s, owned, pos)
 	}
 	p.vendor(&r)
+	if len(r.Diagnostics) > 0 && r.Status == Complete {
+		r.Status = Partial
+	}
 	return r, nil
 }
 

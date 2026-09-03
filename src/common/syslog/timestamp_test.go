@@ -55,3 +55,17 @@ func TestUnknownAndLimitedSD(t *testing.T) {
 		t.Fatal(r)
 	}
 }
+
+func TestUnknownZoneEvidence(t *testing.T) {
+	p, err := syslog.NewParser(syslog.ParseOptions{Year: 2026})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := p.Parse([]byte("<13>Sep 03 10:00:00 PDT host app: text"), syslog.Observation{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.DeviceTime.Zone != "PDT" || r.DeviceTime.Instant != nil || r.Hostname.Value != "host" {
+		t.Fatal(r)
+	}
+}

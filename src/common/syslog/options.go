@@ -1,8 +1,9 @@
 package syslog
 
 import (
-	"fmt"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Limits bounds a single receiver or parser. Zero fields select finite defaults.
@@ -33,7 +34,7 @@ func (l Limits) normalized() (Limits, error) {
 	}
 	for _, v := range ints {
 		if *v.p < 0 {
-			return l, fmt.Errorf("negative syslog limit")
+			return l, errs.Msg("negative syslog limit")
 		}
 		if *v.p == 0 {
 			*v.p = v.def
@@ -44,7 +45,7 @@ func (l Limits) normalized() (Limits, error) {
 		def time.Duration
 	}{{&l.HandshakeTimeout, 5 * time.Second}, {&l.FrameTimeout, 10 * time.Second}, {&l.IdleTimeout, 120 * time.Second}, {&l.PressureTimeout, 30 * time.Second}} {
 		if *v.p < 0 {
-			return l, fmt.Errorf("negative syslog timeout")
+			return l, errs.Msg("negative syslog timeout")
 		}
 		if *v.p == 0 {
 			*v.p = v.def
@@ -58,7 +59,7 @@ func (l Limits) normalized() (Limits, error) {
 		}
 	}
 	if l.headroom()+l.MaxPayload > l.MaxBytes {
-		return l, fmt.Errorf("syslog budget lacks parser headroom: %w", ErrLimit)
+		return l, errs.Wrap(ErrLimit, "syslog budget lacks parser headroom")
 	}
 	if l.MaxHandshakes > l.MaxConnections {
 		l.MaxHandshakes = l.MaxConnections
@@ -73,12 +74,12 @@ func (l Limits) headroom() int {
 // ParseOptions is immutable after NewParser. Raw capture is disabled by default.
 // Year, Location, and zone offsets are explicit interpretation context.
 type ParseOptions struct {
-	CaptureRaw       bool
-	Year             int
-	Location         *time.Location
-	ZoneOffsets      map[string]int
-	NumericDateOrder string
-	Family           string
-	CiscoComponents  []string
-	Limits           Limits
+	CaptureRaw        bool
+	Year              int
+	Location          *time.Location
+	ZoneOffsets       map[string]int
+	NumericDateOrder  string
+	CiscoCounterOrder []string
+	CiscoComponents   []string
+	Limits            Limits
 }

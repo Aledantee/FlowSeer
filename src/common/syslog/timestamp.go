@@ -22,7 +22,11 @@ func (p *Parser) deviceTime(original string) DeviceTime {
 			d.fill(instant)
 			d.Instant = &instant
 			d.Present = YearPart | DatePart | ClockPart | OffsetPart
-			d.Zone = s[19:]
+			zoneStart := 19
+			for zoneStart < len(s) && (s[zoneStart] == '.' || s[zoneStart] >= '0' && s[zoneStart] <= '9') {
+				zoneStart++
+			}
+			d.Zone = s[zoneStart:]
 			return d
 		}
 		// Preserve calendar components when an ISO clock lacks an offset.
@@ -229,7 +233,7 @@ func (p *Parser) timestampPrefix(s string) (DeviceTime, int) {
 			if len(v) == 4 && digits(v) {
 				continue
 			}
-			if v == "UTC" || v == "GMT" {
+			if zoneLike(v) {
 				continue
 			}
 			if _, ok := p.options.ZoneOffsets[v]; ok {
@@ -249,4 +253,12 @@ func (p *Parser) timestampPrefix(s string) (DeviceTime, int) {
 		return DeviceTime{}, 0
 	}
 	return p.deviceTime(s[:end]), end
+}
+
+func zoneLike(s string) bool {
+	switch s {
+	case "UTC", "GMT", "CET", "CEST", "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT":
+		return true
+	}
+	return false
 }

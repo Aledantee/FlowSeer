@@ -25,6 +25,8 @@ const (
 	LossUnparsed
 	// LossHeader is a field such as version, process ID, or message ID not represented.
 	LossHeader
+	// LossVendor is vendor prefix evidence outside the preserved message content.
+	LossVendor
 	// LossTime is incomplete or invalid device time replaced by NILVALUE.
 	LossTime
 	// OmitObservation is local reception metadata, outside the syslog wire model.
@@ -88,8 +90,32 @@ func Encode(record Record, options EncodeOptions) ([]byte, EncodeReport, error) 
 	if r.Priority.Presence != Present || !digits(r.Priority.Value) || err != nil || pri > 191 {
 		return nil, report, ErrUnrepresentable
 	}
+	if len(r.Vendor.Counters) > 0 {
+		report.Losses |= LossVendor
+	}
+	if normalized := strconv.Itoa(pri); normalized != r.Priority.Value {
+		report.Losses |= LossHeader
+		r.Priority = Text(normalized)
+	}
 	if r.Version.Presence == Present && r.Version.Value != "1" {
 		report.Losses |= LossHeader
+	}
+
+	if options.Format == RFC5424 {
+		for i, element := range r.StructuredData {
+			for _, previous := range r.StructuredData[:i] {
+				if previous.ID == element.ID {
+					return nil, report, ErrUnrepresentable
+				}
+			}
+			for j, parameter := range element.Parameters {
+				for _, previous := range element.Parameters[:j] {
+					if previous.Name == parameter.Name {
+						return nil, report, ErrUnrepresentable
+					}
+				}
+			}
+		}
 	}
 	limit := l.MaxPayload
 	timestamp := "-"

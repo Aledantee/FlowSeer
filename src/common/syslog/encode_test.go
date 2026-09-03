@@ -35,3 +35,15 @@ func TestEncodeProjection(t *testing.T) {
 		t.Fatal("header injection")
 	}
 }
+
+func TestEncodeRejectsDuplicateSDAndInvalidPresence(t *testing.T) {
+	r := syslog.Record{Priority: syslog.Text("13"), StructuredData: []syslog.Element{{ID: "same"}, {ID: "same"}}}
+	if _, _, err := syslog.Encode(r, syslog.EncodeOptions{Format: syslog.RFC5424}); err == nil {
+		t.Fatal("duplicate SD cannot be standard wire output")
+	}
+	r.StructuredData = nil
+	r.Hostname = syslog.Field{Presence: 99}
+	if _, _, err := syslog.Encode(r, syslog.EncodeOptions{Format: syslog.RFC5424}); err == nil {
+		t.Fatal("invalid presence")
+	}
+}

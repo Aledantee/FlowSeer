@@ -139,6 +139,7 @@ func (s *Sender) Send(ctx context.Context, record Record, options EncodeOptions)
 	defer func() {
 		if !stop() {
 			<-interrupted
+			s.discard()
 		}
 	}()
 	deadline, _ := operation.Deadline()

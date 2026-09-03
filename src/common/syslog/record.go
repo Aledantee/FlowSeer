@@ -134,6 +134,7 @@ type Vendor struct {
 	Source     Field    `json:"source"`
 	Slot       Field    `json:"slot"`
 	Flags      Field    `json:"flags"`
+	Counters   []string `json:"counters,omitempty"`
 	Components []string `json:"components,omitempty"`
 }
 
@@ -192,6 +193,7 @@ func (r Record) Clone(limits Limits) (Record, error) {
 		out.DeviceTime.Instant = &instant
 	}
 	out.Diagnostics = append([]Diagnostic(nil), r.Diagnostics...)
+	out.Vendor.Counters = append([]string(nil), r.Vendor.Counters...)
 	out.Vendor.Components = append([]string(nil), r.Vendor.Components...)
 	out.StructuredData = make([]Element, len(r.StructuredData))
 	for i, e := range r.StructuredData {
@@ -215,7 +217,7 @@ func (r *Record) diagnose(code string, offset int, l Limits) {
 }
 
 func (r Record) checkSize(l Limits) error {
-	if len(r.StructuredData) > l.MaxElements || len(r.Diagnostics) > l.MaxDiagnostics || len(r.Vendor.Components) > 32 {
+	if len(r.StructuredData) > l.MaxElements || len(r.Diagnostics) > l.MaxDiagnostics || len(r.Vendor.Components) > 32 || len(r.Vendor.Counters) > 2 {
 		return ErrLimit
 	}
 	n := 0
@@ -250,7 +252,15 @@ func (r Record) checkSize(l Limits) error {
 		}
 	}
 	for _, f := range []Field{r.Priority, r.Version, r.Hostname, r.Application, r.ProcessID, r.MessageID, r.Tag, r.Vendor.Module, r.Vendor.Mnemonic, r.Vendor.EventID, r.Vendor.Severity, r.Vendor.Sequence, r.Vendor.Counter, r.Vendor.Thread, r.Vendor.Source, r.Vendor.Slot, r.Vendor.Flags} {
+		if f.Presence > Present {
+			return ErrUnrepresentable
+		}
 		if !add(len(f.Value)) {
+			return ErrLimit
+		}
+	}
+	for _, v := range r.Vendor.Counters {
+		if !add(len(v)) {
 			return ErrLimit
 		}
 	}
@@ -258,6 +268,14 @@ func (r Record) checkSize(l Limits) error {
 		if !add(len(v)) {
 			return ErrLimit
 		}
+	}
+	for _, d := range r.Diagnostics {
+		if !add(len(d.Code)) {
+			return ErrLimit
+		}
+	}
+	if !add(len(r.Vendor.Family)) || !add(len(r.DeviceTime.ClockMarker)) {
+		return ErrLimit
 	}
 	if !add(len(r.DeviceTime.Original)) || !add(len(r.DeviceTime.Zone)) || !add(len(r.DeviceTime.Uptime)) {
 		return ErrLimit

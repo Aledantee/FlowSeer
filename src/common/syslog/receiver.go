@@ -71,6 +71,7 @@ type Receiver struct {
 	connections []net.Conn
 	terminal    error
 	nextMu      sync.Mutex
+	pending     *receivedFrame
 }
 
 // Listen binds all endpoints or closes everything on failure. Cancellation ends
@@ -156,6 +157,11 @@ func Listen(ctx context.Context, configs []ListenConfig, options ReceiverOptions
 		r.stop(nil)
 		r.wg.Wait()
 		r.nextMu.Lock()
+		if r.pending != nil {
+			r.admission.release(l.MaxPayload, true)
+			r.stats.shutdownDiscarded.Add(1)
+			r.pending = nil
+		}
 		for {
 			select {
 			case <-r.queue:
@@ -188,30 +194,42 @@ func (r *Receiver) Next(ctx context.Context) (Record, error) {
 	if r.closed.Load() {
 		return Record{}, r.closeError()
 	}
-	for {
-		if err := ctx.Err(); err != nil {
-			return Record{}, err
-		}
-		// Readiness waiting does not claim a message. Recheck cancellation under the
-		// one-consumer lock before receiving, so canceled callers cannot drain data.
+	if err := ctx.Err(); err != nil {
+		return Record{}, err
+	}
+	var frame receivedFrame
+	if r.pending != nil {
+		frame = *r.pending
+		r.pending = nil
+	} else {
 		select {
 		case <-r.stopped:
 			return Record{}, r.closeError()
 		case <-ctx.Done():
 			return Record{}, ctx.Err()
-		case frame := <-r.queue:
-			record, err := r.parser.Parse(frame.payload, frame.observation)
-			r.admission.release(r.limits.MaxPayload, true)
-			if err != nil {
-				return Record{}, err
-			}
-			r.stats.delivered.Add(1)
-			if record.Status != Complete {
-				r.stats.partial.Add(1)
-			}
-			return record, nil
+		case frame = <-r.queue:
 		}
 	}
+	// Cancellation can race queue readiness. Keep an unclaimed frame at the head
+	// for the next consumer instead of reinserting it behind newer messages.
+	if err := ctx.Err(); err != nil {
+		r.pending = &frame
+		return Record{}, err
+	}
+	if r.closed.Load() {
+		r.pending = &frame
+		return Record{}, r.closeError()
+	}
+	record, err := r.parser.Parse(frame.payload, frame.observation)
+	r.admission.release(r.limits.MaxPayload, true)
+	if err != nil {
+		return Record{}, err
+	}
+	r.stats.delivered.Add(1)
+	if record.Status != Complete {
+		r.stats.partial.Add(1)
+	}
+	return record, nil
 }
 
 // Close stops the receiver and waits for library goroutines and reservations.
