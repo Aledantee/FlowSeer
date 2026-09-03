@@ -225,7 +225,7 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "HAL.Port.Up"
   },
   {
     "id": "exos-numeric",
@@ -237,7 +237,7 @@
     "format": "rfc3164",
     "module": "",
     "event_id": "",
-    "mnemonic": ""
+    "mnemonic": "HAL.Port.Up"
   },
   {
     "id": "slx-5424",

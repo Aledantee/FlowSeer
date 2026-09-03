@@ -1,0 +1,61 @@
+package syslog
+
+import "strings"
+
+func (p *Parser) legacy(r *Record, s string, owned []byte, pos int) {
+	rest := s[pos:]
+	// IOS sequence counters precede the device clock, unlike the outer PRI.
+	if i := strings.Index(rest, ": "); i > 0 && i <= 20 && digits(rest[:i]) {
+		r.Vendor.Sequence = Text(rest[:i])
+		pos += i + 2
+		rest = s[pos:]
+	}
+	d, n := p.timestampPrefix(rest)
+	recognized := n > 0 || r.Priority.Presence == Present
+	if !recognized {
+		r.Unparsed = owned[pos:]
+		r.diagnose("unknown_envelope", pos, p.limits)
+		return
+	}
+	r.Format = RFC3164
+	r.Status = Complete
+	r.DeviceTime = d
+	pos += n
+	for pos < len(s) && (s[pos] == ' ' || s[pos] == ':') {
+		pos++
+	}
+	if n == 0 {
+		r.diagnose("missing_timestamp", pos, p.limits)
+	} else if d.Present&(DatePart|ClockPart) != (DatePart|ClockPart) || strings.Contains(d.Original, "/") && p.options.NumericDateOrder == "" {
+		r.diagnose("unresolved_timestamp", pos-n, p.limits)
+	}
+	rest = s[pos:]
+	first, tail := token(rest)
+	// A recognizable prefix or tag at this position means origin was omitted.
+	if first != "" && !strings.HasPrefix(first, "%") && !strings.HasSuffix(first, ":") && !strings.Contains(first, "[") && !numericEvent(rest) {
+		r.Hostname = Text(first)
+		pos += len(first)
+		if tail != "" {
+			pos++
+		}
+	}
+	r.Content = owned[pos:]
+	// Retain the complete post-envelope content even when a tag is extracted.
+	body := string(r.Content)
+	if colon := strings.IndexByte(body, ':'); colon > 0 && colon <= 128 {
+		tag := body[:colon]
+		if !strings.ContainsAny(tag, " %|") {
+			r.Tag = Text(tag)
+			r.Application = Text(tag)
+			if bracket := strings.IndexByte(tag, '['); bracket > 0 && strings.HasSuffix(tag, "]") {
+				r.Application = Text(tag[:bracket])
+				r.ProcessID = Text(tag[bracket+1 : len(tag)-1])
+			}
+		}
+	}
+}
+
+func numericEvent(s string) bool {
+	a, b := token(s)
+	return len(a) >= 4 && digits(a) && strings.Contains(b, ":")
+}
