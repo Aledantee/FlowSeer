@@ -14,16 +14,16 @@ func TestRunCancelsAndWaitsBeforeTelemetryShutdown(t *testing.T) {
 	shutdown := make(chan struct{})
 	cfg := Config{
 		Identity: testIdentity(),
-		Setup: func(ctx context.Context) (Runner, error) {
+		Setup: func(ctx context.Context) (Attempt, error) {
 			if got := ModulePath(ctx); got != "edge" {
 				t.Errorf("setup module path = %q, want %q", got, "edge")
 			}
-			return func(ctx context.Context) error {
+			return Attempt{Runner: func(ctx context.Context) error {
 				close(started)
 				<-ctx.Done()
 				close(released)
 				return ctx.Err()
-			}, nil
+			}}, nil
 		},
 		TelemetryShutdown: func(context.Context) error {
 			select {
@@ -56,12 +56,12 @@ func TestRunWithSignalChannelCancelsService(t *testing.T) {
 	signals := make(chan os.Signal, 1)
 	cfg := Config{
 		Identity: testIdentity(),
-		Setup: func(context.Context) (Runner, error) {
-			return func(ctx context.Context) error {
+		Setup: func(context.Context) (Attempt, error) {
+			return Attempt{Runner: func(ctx context.Context) error {
 				close(started)
 				<-ctx.Done()
 				return ctx.Err()
-			}, nil
+			}}, nil
 		},
 	}
 	done := make(chan error, 1)
@@ -81,14 +81,14 @@ func TestRunContainsSetupAndRunnerPanics(t *testing.T) {
 	}{
 		{
 			name: "setup panic",
-			setup: func(context.Context) (Runner, error) {
+			setup: func(context.Context) (Attempt, error) {
 				panic("setup boom")
 			},
 		},
 		{
 			name: "runner panic",
-			setup: func(context.Context) (Runner, error) {
-				return func(context.Context) error { panic("runner boom") }, nil
+			setup: func(context.Context) (Attempt, error) {
+				return Attempt{Runner: func(context.Context) error { panic("runner boom") }}, nil
 			},
 		},
 	}
@@ -108,8 +108,8 @@ func TestRunStartsExplicitModulesConcurrently(t *testing.T) {
 	started := make(map[string]bool)
 	allStarted := make(chan struct{})
 	makeSetup := func(name string) SetupFunc {
-		return func(context.Context) (Runner, error) {
-			return func(ctx context.Context) error {
+		return func(context.Context) (Attempt, error) {
+			return Attempt{Runner: func(ctx context.Context) error {
 				mu.Lock()
 				started[name] = true
 				if len(started) == 2 {
@@ -118,14 +118,14 @@ func TestRunStartsExplicitModulesConcurrently(t *testing.T) {
 				mu.Unlock()
 				<-ctx.Done()
 				return ctx.Err()
-			}, nil
+			}}, nil
 		}
 	}
 	cfg := Config{
 		Identity: testIdentity(),
 		Modules: []Module{
-			{Name: "first", Setup: makeSetup("first")},
-			{Name: "second", Setup: makeSetup("second")},
+			{Name: "first", Leaf: &Leaf{Setup: makeSetup("first")}},
+			{Name: "second", Leaf: &Leaf{Setup: makeSetup("second")}},
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -144,8 +144,8 @@ func TestRunReturnsSetupAndShutdownErrors(t *testing.T) {
 	errShutdown := errors.New("shutdown failed")
 	err := run(context.Background(), Config{
 		Identity: testIdentity(),
-		Setup: func(context.Context) (Runner, error) {
-			return nil, errSetup
+		Setup: func(context.Context) (Attempt, error) {
+			return Attempt{}, errSetup
 		},
 		TelemetryShutdown: func(context.Context) error { return errShutdown },
 	})

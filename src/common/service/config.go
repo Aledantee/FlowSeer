@@ -18,17 +18,18 @@ var envPrefixPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*_$`)
 // A Runner may be called only once and need not be safe for concurrent use.
 type Runner func(ctx context.Context) error
 
-// SetupFunc constructs the mutable state for one module attempt. Each call
-// must return a fresh Runner whose lifetime is bounded by ctx.
-type SetupFunc func(ctx context.Context) (Runner, error)
-
-// Module declares one service module. Its zero value is invalid.
-type Module struct {
-	// Name is the module's stable lower-snake-case path segment.
-	Name string
-	// Setup constructs the mutable state for each execution attempt.
-	Setup SetupFunc
+// Attempt contains the fresh runner and canonical handlers constructed by one
+// Setup call. Its values are owned by that attempt and need not be reusable.
+type Attempt struct {
+	// Runner performs the module's non-message work.
+	Runner Runner
+	// Handlers must exactly match the leaf's static subscriptions.
+	Handlers []Handler
 }
+
+// SetupFunc constructs the mutable state for one module attempt. Each call
+// must return a fresh Attempt whose lifetime is bounded by ctx.
+type SetupFunc func(ctx context.Context) (Attempt, error)
 
 // Config declares one service run. Callers must choose either Setup for an
 // implicit singleton or Modules for explicit top-level modules. Config is
@@ -63,62 +64,22 @@ type Config struct {
 type runtimeConfig struct {
 	identity          Identity
 	envPrefix         string
-	modules           []runtimeModule
+	modules           []plannedModule
+	registry          *staticRegistry
+	admission         *admissionRevision
 	telemetryShutdown func(context.Context) error
 }
 
-type runtimeModule struct {
-	path  string
-	setup SetupFunc
-}
-
-func normalizeConfig(config Config) (runtimeConfig, error) {
-	if err := validateIdentity(config.Identity); err != nil {
-		return runtimeConfig{}, err
-	}
-
+func normalizeEnvPrefix(config Config) (string, error) {
 	envPrefix := config.EnvPrefix
 	if envPrefix == "" {
 		envPrefix = strings.ToUpper(config.Identity.Namespace + "_" + config.Identity.Name + "_")
 	}
 	if !envPrefixPattern.MatchString(envPrefix) {
-		return runtimeConfig{}, fmt.Errorf("service environment prefix %q is invalid", envPrefix)
+		return "", fmt.Errorf("service environment prefix %q is invalid", envPrefix)
 	}
 	if len(envPrefix) > maxIdentityLength {
-		return runtimeConfig{}, fmt.Errorf("service environment prefix exceeds %d bytes", maxIdentityLength)
+		return "", fmt.Errorf("service environment prefix exceeds %d bytes", maxIdentityLength)
 	}
-
-	hasImplicit := config.Setup != nil
-	hasExplicit := len(config.Modules) != 0
-	if hasImplicit == hasExplicit {
-		return runtimeConfig{}, fmt.Errorf("service declares neither or both implicit and explicit modules")
-	}
-
-	modules := make([]runtimeModule, 0, max(1, len(config.Modules)))
-	if hasImplicit {
-		modules = append(modules, runtimeModule{
-			path:  config.Identity.Name,
-			setup: config.Setup,
-		})
-	} else {
-		for _, module := range config.Modules {
-			if err := validateIdentitySegment("module name", module.Name); err != nil {
-				return runtimeConfig{}, err
-			}
-			if module.Setup == nil {
-				return runtimeConfig{}, fmt.Errorf("module %q has no setup", module.Name)
-			}
-			modules = append(modules, runtimeModule{
-				path:  config.Identity.Name + "/" + module.Name,
-				setup: module.Setup,
-			})
-		}
-	}
-
-	return runtimeConfig{
-		identity:          config.Identity,
-		envPrefix:         envPrefix,
-		modules:           modules,
-		telemetryShutdown: config.TelemetryShutdown,
-	}, nil
+	return envPrefix, nil
 }

@@ -6,8 +6,8 @@ import (
 )
 
 func TestNormalizeConfigModuleForms(t *testing.T) {
-	setup := func(context.Context) (Runner, error) {
-		return func(context.Context) error { return nil }, nil
+	setup := func(context.Context) (Attempt, error) {
+		return Attempt{Runner: func(context.Context) error { return nil }}, nil
 	}
 
 	tests := []struct {
@@ -28,7 +28,7 @@ func TestNormalizeConfigModuleForms(t *testing.T) {
 			name: "explicit singleton",
 			config: Config{
 				Identity: testIdentity(),
-				Modules:  []Module{{Name: "worker", Setup: setup}},
+				Modules:  []Module{{Name: "worker", Leaf: &Leaf{Setup: setup}}},
 			},
 			wantModules: 1,
 		},
@@ -44,7 +44,7 @@ func TestNormalizeConfigModuleForms(t *testing.T) {
 			config: Config{
 				Identity: testIdentity(),
 				Setup:    setup,
-				Modules:  []Module{{Name: "worker", Setup: setup}},
+				Modules:  []Module{{Name: "worker", Leaf: &Leaf{Setup: setup}}},
 			},
 			wantErr: true,
 		},
@@ -52,7 +52,7 @@ func TestNormalizeConfigModuleForms(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := normalizeConfig(tt.config)
+			got, err := validateDeclaration(tt.config)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("normalizeConfig() error = %v, want error %t", err, tt.wantErr)
 			}
@@ -70,13 +70,13 @@ func TestNormalizeConfigHasNoSetupSideEffectsAndCopiesModules(t *testing.T) {
 	called := false
 	modules := []Module{{
 		Name: "worker",
-		Setup: func(context.Context) (Runner, error) {
+		Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
 			called = true
-			return nil, nil
-		},
+			return Attempt{}, nil
+		}},
 	}}
 
-	got, err := normalizeConfig(Config{Identity: testIdentity(), Modules: modules})
+	got, err := validateDeclaration(Config{Identity: testIdentity(), Modules: modules})
 	if err != nil {
 		t.Fatalf("normalizeConfig() error: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestNormalizeConfigHasNoSetupSideEffectsAndCopiesModules(t *testing.T) {
 }
 
 func TestNormalizeConfigRejectsInvalidIdentity(t *testing.T) {
-	setup := func(context.Context) (Runner, error) { return nil, nil }
+	setup := func(context.Context) (Attempt, error) { return Attempt{}, nil }
 
 	tests := []Identity{
 		{Name: "BadName", Namespace: "flowseer", Version: "v1"},
@@ -99,7 +99,7 @@ func TestNormalizeConfigRejectsInvalidIdentity(t *testing.T) {
 		{Name: "edge", Namespace: "flowseer"},
 	}
 	for _, identity := range tests {
-		_, err := normalizeConfig(Config{Identity: identity, Setup: setup})
+		_, err := validateDeclaration(Config{Identity: identity, Setup: setup})
 		if err == nil {
 			t.Errorf("normalizeConfig(%+v) succeeded, want error", identity)
 		}

@@ -34,7 +34,7 @@ func runWithSignalChannel(ctx context.Context, config Config, signals <-chan os.
 }
 
 func run(ctx context.Context, config Config) (runErr error) {
-	normalized, err := normalizeConfig(config)
+	normalized, err := preflight(ctx, config, os.LookupEnv)
 	if err != nil {
 		return err
 	}
@@ -51,29 +51,33 @@ func run(ctx context.Context, config Config) (runErr error) {
 		return nil
 	}
 
-	type attempt struct {
-		module runtimeModule
+	type runtimeAttempt struct {
+		module plannedModule
 		values contextValues
 		runner Runner
 	}
-	attempts := make([]attempt, 0, len(normalized.modules))
-	for _, module := range normalized.modules {
+	leaves := enabledLeafModules(normalized.modules)
+	attempts := make([]runtimeAttempt, 0, len(leaves))
+	for _, module := range leaves {
 		values := telemetry.values(normalized.identity, normalized.envPrefix, module.path)
 		attemptCtx := withContextValues(ctx, values)
-		runner, setupErr := callSetup(attemptCtx, module)
+		moduleAttempt, setupErr := callSetup(attemptCtx, module)
 		if setupErr != nil {
 			return setupErr
 		}
-		if runner == nil {
+		if moduleAttempt.Runner == nil {
 			return fmt.Errorf("module %s setup returned a nil runner", module.path)
 		}
-		attempts = append(attempts, attempt{module: module, values: values, runner: runner})
+		if err := validateAttemptHandlers(module.path, module.leaf.subscriptions, moduleAttempt.Handlers); err != nil {
+			return err
+		}
+		attempts = append(attempts, runtimeAttempt{module: module, values: values, runner: moduleAttempt.Runner})
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	type result struct {
-		module  runtimeModule
+		module  plannedModule
 		outcome lifecycleOutcome
 		err     error
 	}
@@ -104,17 +108,17 @@ func run(ctx context.Context, config Config) (runErr error) {
 	return resultErr
 }
 
-func callSetup(ctx context.Context, module runtimeModule) (runner Runner, err error) {
+func callSetup(ctx context.Context, module plannedModule) (attempt Attempt, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			err = fmt.Errorf("module %s setup panic: %v", module.path, recovered)
 		}
 	}()
 
-	return module.setup(ctx)
+	return module.leaf.setup(ctx)
 }
 
-func callRunner(ctx context.Context, module runtimeModule, runner Runner) (outcome lifecycleOutcome, err error) {
+func callRunner(ctx context.Context, module plannedModule, runner Runner) (outcome lifecycleOutcome, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			outcome = lifecycleOutcomePanic

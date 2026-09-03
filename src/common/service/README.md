@@ -10,15 +10,15 @@ err := service.Run(ctx, service.Config{
         Namespace: "flowseer",
         Version:   buildVersion,
     },
-    Setup: func(ctx context.Context) (service.Runner, error) {
+    Setup: func(ctx context.Context) (service.Attempt, error) {
         client, err := openClient(ctx)
         if err != nil {
-            return nil, err
+            return service.Attempt{}, err
         }
-        return func(ctx context.Context) error {
+        return service.Attempt{Runner: func(ctx context.Context) error {
             defer client.Close()
             return client.Serve(ctx)
-        }, nil
+        }}, nil
     },
 })
 ```
@@ -26,7 +26,8 @@ err := service.Run(ctx, service.Config{
 Setup owns attempt-local construction. A restart calls it again, so mutable
 state from a failed attempt cannot leak into its replacement. The returned
 runner must cooperate with context cancellation; the runtime waits for it and
-will not overlap it with another attempt.
+will not overlap it with another attempt. The runner owns cleanup for resources
+created by setup, including closing `client` before it returns.
 
 `service.Logger(ctx)`, `service.Tracer(ctx)`, `service.Meter(ctx)`, and
 `service.Propagator(ctx)` read the capabilities attached to the current attempt.
