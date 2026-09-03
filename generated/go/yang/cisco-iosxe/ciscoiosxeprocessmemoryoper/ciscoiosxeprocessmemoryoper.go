@@ -6,7 +6,7 @@
 // Package ciscoiosxeprocessmemoryoper binds the YANG module Cisco-IOS-XE-process-memory-oper.
 package ciscoiosxeprocessmemoryoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MemoryUsageProcesses is the Cisco-IOS-XE-process-memory-oper node /Cisco-IOS-XE-process-memory-oper/memory-usage-processes.
 type MemoryUsageProcesses struct {

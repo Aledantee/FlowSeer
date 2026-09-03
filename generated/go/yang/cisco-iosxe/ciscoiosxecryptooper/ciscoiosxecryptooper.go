@@ -6,7 +6,7 @@
 // Package ciscoiosxecryptooper binds the YANG module Cisco-IOS-XE-crypto-oper.
 package ciscoiosxecryptooper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CryptoOperData is the Cisco-IOS-XE-crypto-oper node /Cisco-IOS-XE-crypto-oper/crypto-oper-data.
 type CryptoOperData struct {

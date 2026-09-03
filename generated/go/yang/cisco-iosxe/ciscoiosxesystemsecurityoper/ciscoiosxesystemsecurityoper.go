@@ -6,7 +6,7 @@
 // Package ciscoiosxesystemsecurityoper binds the YANG module Cisco-IOS-XE-system-security-oper.
 package ciscoiosxesystemsecurityoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SystemSecurityOperData is the Cisco-IOS-XE-system-security-oper node /Cisco-IOS-XE-system-security-oper/system-security-oper-data.
 type SystemSecurityOperData struct {

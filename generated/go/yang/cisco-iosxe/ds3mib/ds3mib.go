@@ -6,7 +6,7 @@
 // Package ds3mib binds the YANG module DS3-MIB.
 package ds3mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DS3MIB is the DS3-MIB node /DS3-MIB/DS3-MIB.
 type DS3MIB struct {

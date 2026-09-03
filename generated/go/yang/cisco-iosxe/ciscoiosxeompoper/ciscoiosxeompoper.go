@@ -6,7 +6,7 @@
 // Package ciscoiosxeompoper binds the YANG module Cisco-IOS-XE-omp-oper.
 package ciscoiosxeompoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // OmpOperData is the Cisco-IOS-XE-omp-oper node /Cisco-IOS-XE-omp-oper/omp-oper-data.
 type OmpOperData struct {

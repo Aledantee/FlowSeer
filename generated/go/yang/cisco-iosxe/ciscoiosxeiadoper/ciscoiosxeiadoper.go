@@ -6,7 +6,7 @@
 // Package ciscoiosxeiadoper binds the YANG module Cisco-IOS-XE-iad-oper.
 package ciscoiosxeiadoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IadOperData is the Cisco-IOS-XE-iad-oper node /Cisco-IOS-XE-iad-oper/iad-oper-data.
 type IadOperData struct {

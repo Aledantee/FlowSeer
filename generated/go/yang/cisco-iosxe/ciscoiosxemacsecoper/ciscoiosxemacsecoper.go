@@ -6,7 +6,7 @@
 // Package ciscoiosxemacsecoper binds the YANG module Cisco-IOS-XE-macsec-oper.
 package ciscoiosxemacsecoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MacsecOperData is the Cisco-IOS-XE-macsec-oper node /Cisco-IOS-XE-macsec-oper/macsec-oper-data.
 type MacsecOperData struct {

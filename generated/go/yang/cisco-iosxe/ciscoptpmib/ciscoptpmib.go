@@ -6,7 +6,7 @@
 // Package ciscoptpmib binds the YANG module CISCO-PTP-MIB.
 package ciscoptpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOPTPMIB is the CISCO-PTP-MIB node /CISCO-PTP-MIB/CISCO-PTP-MIB.
 type CISCOPTPMIB struct {

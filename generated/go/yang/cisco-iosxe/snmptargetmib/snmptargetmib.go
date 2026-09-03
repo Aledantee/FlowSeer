@@ -6,7 +6,7 @@
 // Package snmptargetmib binds the YANG module SNMP-TARGET-MIB.
 package snmptargetmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SNMPTARGETMIB is the SNMP-TARGET-MIB node /SNMP-TARGET-MIB/SNMP-TARGET-MIB.
 type SNMPTARGETMIB struct {

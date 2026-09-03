@@ -24,7 +24,7 @@ Live integration tiers require an explicit build tag and their lab prerequisites
 | Repository-wide protobuf conformance | `test/conformance/proto/` | Schema validation, import layering, and source layout span several packages. |
 
 ```text
-src/common/snmp/
+src/protocol/snmp/
   session.go
   session_test.go
   conformance_corpus_test.go
@@ -32,7 +32,7 @@ src/common/snmp/
     testenv/
     testdata/
 
-src/common/yang/
+src/protocol/yang/
   test/integration/testenv/
 
 src/edge/netpen/
@@ -58,7 +58,7 @@ Existing tier-specific fixtures may live under `<tier>/testdata/`. Go starts tes
 in the package directory, so fixture paths should resolve from there.
 
 Share helpers through the narrowest common domain owner. The gNMI, NETCONF, and
-RESTCONF suites use `src/common/yang/test/integration/testenv/` for their container
+RESTCONF suites use `src/protocol/yang/test/integration/testenv/` for their container
 environments. Helpers used only by SNMP remain in its own suite.
 
 Executable protobuf checks and their fixtures stay outside `spec/proto/` and
@@ -71,14 +71,14 @@ These commands run from the repository root:
 
 ```sh
 go test -race ./test/conformance/proto
-go test -race ./src/common/snmp/test/integration/...
-go test -tags=snmp_integration_t1 ./src/common/snmp/test/integration
+go test -race ./src/protocol/snmp/test/integration/...
+go test -tags=snmp_integration_t1 ./src/protocol/snmp/test/integration
 go test -tags=yang_integration_t1 ./src/common/{gnmi,netconf,restconf}/test/integration
 go -C src/edge/netpen test -tags=netpen_t1 ./test/integration/...
 ```
 
 Choose one tier tag per invocation. Default tests cover the corpus, fixtures, and
 harness; tagged tiers connect to containers or configured lab devices. See the
-[SNMP integration guide](../../src/common/snmp/test/integration/README.md) and
+[SNMP integration guide](../../src/protocol/snmp/test/integration/README.md) and
 [netpen validation matrix](../../src/edge/netpen/test/integration/VALIDATION_MATRIX.md)
 for their prerequisites.

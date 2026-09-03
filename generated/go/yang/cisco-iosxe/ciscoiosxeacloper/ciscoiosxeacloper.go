@@ -6,7 +6,7 @@
 // Package ciscoiosxeacloper binds the YANG module Cisco-IOS-XE-acl-oper.
 package ciscoiosxeacloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AccessLists is the Cisco-IOS-XE-acl-oper node /Cisco-IOS-XE-acl-oper/access-lists.
 type AccessLists struct {

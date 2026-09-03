@@ -6,7 +6,7 @@
 // Package ietfdiffservaction binds the YANG module ietf-diffserv-action.
 package ietfdiffservaction
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AlgorithmicDrop is the ietf-diffserv-action identity "algorithmic-drop".
 var Identity_AlgorithmicDrop = yang.Identity{

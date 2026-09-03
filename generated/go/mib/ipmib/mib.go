@@ -18,7 +18,7 @@ import (
 
 	snmpv2tc "go.aledante.io/FlowSeer/generated/go/mib/snmpv2tc"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // IpAddressOriginTC is the SMI enum IpAddressOriginTC.

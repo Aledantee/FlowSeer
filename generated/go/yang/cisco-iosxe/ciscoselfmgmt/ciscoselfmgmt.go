@@ -6,7 +6,7 @@
 // Package ciscoselfmgmt binds the YANG module cisco-self-mgmt.
 package ciscoselfmgmt
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NetconfYang is the cisco-self-mgmt node /cisco-self-mgmt/netconf-yang.
 type NetconfYang struct {

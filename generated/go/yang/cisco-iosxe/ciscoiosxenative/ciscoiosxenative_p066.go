@@ -5,359 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/additional-paths/send for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Receive",
-		Name:   "receive",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "send",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPaths is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/additional-paths/additional-paths-choice/send-paths/send-paths.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPaths struct {
-	Receive *bool
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPathsSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/additional-paths/additional-paths-choice/send-paths/send-paths for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPathsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Receive",
-		Name:   "receive",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "send-paths",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise struct {
-	AdditionalPaths *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths
-	BestExternal    *bool
-	DiversePath     *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_DiversePath
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdvertiseSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdvertiseSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPathsSchema,
-		GoName: "AdditionalPaths",
-		Name:   "additional-paths",
-	}, {
-		GoName: "BestExternal",
-		Name:   "best-external",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_DiversePathSchema,
-		GoName: "DiversePath",
-		Name:   "diverse-path",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "advertise",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths struct {
-	All       *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All
-	AllBest   *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBest
-	Best      *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best
-	GroupBest *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_GroupBest
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPathsSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPathsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllSchema,
-		GoName: "All",
-		Name:   "all",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBestSchema,
-		GoName: "AllBest",
-		Name:   "all-best",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_BestSchema,
-		GoName: "Best",
-		Name:   "best",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_GroupBestSchema,
-		GoName: "GroupBest",
-		Name:   "group-best",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "additional-paths",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All struct {
-	Best      *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best
-	GroupBest *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBest
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_BestSchema,
-		GoName: "Best",
-		Name:   "best",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBestSchema,
-		GoName: "GroupBest",
-		Name:   "group-best",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "all",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best struct {
-	BestRange []Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_BestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_BestSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema,
-		GoName: "BestRange",
-		List:   true,
-		Name:   "best-range",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "best",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best/best-range.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange struct {
-	GroupBest *bool
-	Range     *uint8
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best/best-range for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "GroupBest",
-		Name:   "group-best",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Range",
-		Name:   "range",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"range"},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "best-range",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey is Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange's row identity (ancestor keys in canonical form).
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey struct {
-	Bgp_Id       string
-	Vrf_Id       string
-	L2vpn_AfName string
-	Neighbor_Id  string
-	Range        uint8
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow flattens one Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange entry with its ancestor list keys.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow struct {
-	Bgp_Id       string
-	Vrf_Id       string
-	L2vpn_AfName string
-	Neighbor_Id  string
-	Entry        Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange.
-func Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeDescriptor() yang.ListDescriptor[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey] {
-	return yang.ListDescriptor[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey]{
-		Codec: yang.RowCodec[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_Scope_VrfSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpnSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_NeighborSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow{
-						Bgp_Id:       yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:        en.Entry,
-						L2vpn_AfName: yang.AncestorKey(en.AncestorKeys, 2, "af-name"),
-						Neighbor_Id:  yang.AncestorKey(en.AncestorKeys, 3, "id"),
-						Vrf_Id:       yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_Scope_VrfSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpnSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_NeighborSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow{
-						Bgp_Id:       yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:        en.Entry,
-						L2vpn_AfName: yang.AncestorKey(en.AncestorKeys, 2, "af-name"),
-						Neighbor_Id:  yang.AncestorKey(en.AncestorKeys, 3, "id"),
-						Vrf_Id:       yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow) Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey {
-				var k Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey
-				k.Bgp_Id = r.Bgp_Id
-				k.Vrf_Id = r.Vrf_Id
-				k.L2vpn_AfName = r.L2vpn_AfName
-				k.Neighbor_Id = r.Neighbor_Id
-				if r.Entry.Range != nil {
-					k.Range = *r.Entry.Range
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow) Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-bgp",
-			Name:      "bgp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-		}, {Name: "scope"}, {Name: "vrf"}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "l2vpn"}, {Name: "l2vpn-evpn"}, {Name: "peer-group"}, {Name: "neighbor"}, {Name: "advertise"}, {Name: "additional-paths"}, {Name: "all"}, {Name: "best"}, {Name: "best-range"}}},
-	}
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBest is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/group-best.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBest struct {
-	Best *uint8
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/group-best for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBestSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Best",
-		Name:   "best",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "group-best",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBest is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all-best.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBest struct {
-	All       *bool
-	Best      *uint8
-	GroupBest *bool
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all-best for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBestSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "All",
-		Name:   "all",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Best",
-		Name:   "best",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "GroupBest",
-		Name:   "group-best",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "all-best",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best struct {
-	BestRange []Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_BestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_BestSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeSchema,
-		GoName: "BestRange",
-		List:   true,
-		Name:   "best-range",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "best",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best/best-range.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange struct {
-	All       *bool
-	GroupBest *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange_GroupBest
-	Range     *uint8
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best/best-range for the generic codecs.
-var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "All",
-		Name:   "all",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange_GroupBestSchema,
-		GoName: "GroupBest",
-		Name:   "group-best",
-	}, {
-		GoName: "Range",
-		Name:   "range",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"range"},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "best-range",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeKey is Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange's row identity (ancestor keys in canonical form).
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeKey struct {
-	Bgp_Id       string
-	Vrf_Id       string
-	L2vpn_AfName string
-	Neighbor_Id  string
-	Range        uint8
-}
-
-// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeFlatRow flattens one Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange entry with its ancestor list keys.
-type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeFlatRow struct {
-	Bgp_Id       string
-	Vrf_Id       string
-	L2vpn_AfName string
-	Neighbor_Id  string
-	Entry        Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange.
 func Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeDescriptor() yang.ListDescriptor[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeFlatRow, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeKey] {
@@ -38821,4 +38469,363 @@ type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Ei
 	AddressFamily_Type string
 	AfIpVrfList_Vrf    string
 	AutonomousSystem   uint16
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow flattens one Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList entry with its ancestor list keys.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow struct {
+	Eigrp_Id           string
+	AddressFamily_Type string
+	AfIpVrfList_Vrf    string
+	Entry              Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListDescriptor is the flattened-row descriptor for the nested list Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList.
+func Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListDescriptor() yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey] {
+	return yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey]{
+		Codec: yang.RowCodec[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow{
+						AddressFamily_Type: yang.AncestorKey(en.AncestorKeys, 1, "type"),
+						AfIpVrfList_Vrf:    yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
+						Eigrp_Id:           yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:              en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow{
+						AddressFamily_Type: yang.AncestorKey(en.AncestorKeys, 1, "type"),
+						AfIpVrfList_Vrf:    yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
+						Eigrp_Id:           yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:              en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey {
+				var k Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey
+				k.Eigrp_Id = r.Eigrp_Id
+				k.AddressFamily_Type = r.AddressFamily_Type
+				k.AfIpVrfList_Vrf = r.AfIpVrfList_Vrf
+				if r.Entry.AutonomousSystem != nil {
+					k.AutonomousSystem = *r.Entry.AutonomousSystem
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-eigrp",
+			Name:      "eigrp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+		}, {Name: "address-family"}, {Name: "af-ip-vrf-list"}, {Name: "topology"}, {Name: "base"}, {Name: "redistribute"}, {Name: "eigrp"}, {Name: "as-list"}}},
+	}
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/metric.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_Metric struct {
+	Effective   *uint8
+	Bandwith    *uint32
+	Delay       *uint32
+	Mtu         *uint16
+	Reliability *uint8
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_MetricSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/metric for the generic codecs.
+var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_MetricSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Effective",
+		Name:   "Effective",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Bandwith",
+		Name:   "bandwith",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Delay",
+		Name:   "delay",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Mtu",
+		Name:   "mtu",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Reliability",
+		Name:   "reliability",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "metric",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap struct {
+	RmapName []Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map for the generic codecs.
+var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema,
+		GoName: "RmapName",
+		List:   true,
+		Name:   "rmap-name",
+	}},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "route-map",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map/rmap-name.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName struct {
+	RmapName *string
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map/rmap-name for the generic codecs.
+var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "RmapName",
+		Name:   "rmap-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"rmap-name"},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "rmap-name",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey is Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName's row identity (ancestor keys in canonical form).
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey struct {
+	Eigrp_Id                string
+	AddressFamily_Type      string
+	AfIpVrfList_Vrf         string
+	AsList_AutonomousSystem string
+	RmapName                string
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow flattens one Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName entry with its ancestor list keys.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow struct {
+	Eigrp_Id                string
+	AddressFamily_Type      string
+	AfIpVrfList_Vrf         string
+	AsList_AutonomousSystem string
+	Entry                   Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameDescriptor is the flattened-row descriptor for the nested list Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName.
+func Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameDescriptor() yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey] {
+	return yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey]{
+		Codec: yang.RowCodec[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow{
+						AddressFamily_Type:      yang.AncestorKey(en.AncestorKeys, 1, "type"),
+						AfIpVrfList_Vrf:         yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
+						AsList_AutonomousSystem: yang.AncestorKey(en.AncestorKeys, 3, "autonomous-system"),
+						Eigrp_Id:                yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow{
+						AddressFamily_Type:      yang.AncestorKey(en.AncestorKeys, 1, "type"),
+						AfIpVrfList_Vrf:         yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
+						AsList_AutonomousSystem: yang.AncestorKey(en.AncestorKeys, 3, "autonomous-system"),
+						Eigrp_Id:                yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey {
+				var k Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey
+				k.Eigrp_Id = r.Eigrp_Id
+				k.AddressFamily_Type = r.AddressFamily_Type
+				k.AfIpVrfList_Vrf = r.AfIpVrfList_Vrf
+				k.AsList_AutonomousSystem = r.AsList_AutonomousSystem
+				if r.Entry.RmapName != nil {
+					k.RmapName = *r.Entry.RmapName
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-eigrp",
+			Name:      "eigrp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+		}, {Name: "address-family"}, {Name: "af-ip-vrf-list"}, {Name: "topology"}, {Name: "base"}, {Name: "redistribute"}, {Name: "eigrp"}, {Name: "as-list"}, {Name: "route-map"}, {Name: "rmap-name"}}},
+	}
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute struct {
+	Dia      *bool
+	Metric   *Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_Metric
+	Outside  *bool
+	RouteMap *Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRouteSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route for the generic codecs.
+var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRouteSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Dia",
+		Name:   "dia",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_MetricSchema,
+		GoName: "Metric",
+		Name:   "metric",
+	}, {
+		GoName: "Outside",
+		Name:   "outside",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMapSchema,
+		GoName: "RouteMap",
+		Name:   "route-map",
+	}},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "nat-route",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/metric.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_Metric struct {
+	Effective   *uint8
+	Bandwith    *uint32
+	Delay       *uint32
+	Mtu         *uint16
+	Reliability *uint8
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_MetricSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/metric for the generic codecs.
+var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_MetricSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Effective",
+		Name:   "Effective",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Bandwith",
+		Name:   "bandwith",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Delay",
+		Name:   "delay",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Mtu",
+		Name:   "mtu",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Reliability",
+		Name:   "reliability",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "metric",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap struct {
+	RmapName []Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map for the generic codecs.
+var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameSchema,
+		GoName: "RmapName",
+		List:   true,
+		Name:   "rmap-name",
+	}},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "route-map",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map/rmap-name.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName struct {
+	RmapName *string
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map/rmap-name for the generic codecs.
+var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "RmapName",
+		Name:   "rmap-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"rmap-name"},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "rmap-name",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameKey is Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName's row identity (ancestor keys in canonical form).
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameKey struct {
+	Eigrp_Id           string
+	AddressFamily_Type string
+	AfIpVrfList_Vrf    string
+	RmapName           string
+}
+
+// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameFlatRow flattens one Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName entry with its ancestor list keys.
+type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameFlatRow struct {
+	Eigrp_Id           string
+	AddressFamily_Type string
+	AfIpVrfList_Vrf    string
+	Entry              Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName
 }

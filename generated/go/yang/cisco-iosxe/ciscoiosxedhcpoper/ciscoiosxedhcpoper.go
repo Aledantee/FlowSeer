@@ -6,7 +6,7 @@
 // Package ciscoiosxedhcpoper binds the YANG module Cisco-IOS-XE-dhcp-oper.
 package ciscoiosxedhcpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DhcpOperData is the Cisco-IOS-XE-dhcp-oper node /Cisco-IOS-XE-dhcp-oper/dhcp-oper-data.
 type DhcpOperData struct {

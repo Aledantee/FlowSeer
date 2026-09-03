@@ -6,7 +6,7 @@
 // Package ciscoiosxel2tpoper binds the YANG module Cisco-IOS-XE-l2tp-oper.
 package ciscoiosxel2tpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // L2tpOperData is the Cisco-IOS-XE-l2tp-oper node /Cisco-IOS-XE-l2tp-oper/l2tp-oper-data.
 type L2tpOperData struct {

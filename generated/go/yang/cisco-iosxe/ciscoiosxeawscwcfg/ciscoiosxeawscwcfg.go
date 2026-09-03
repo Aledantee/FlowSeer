@@ -6,7 +6,7 @@
 // Package ciscoiosxeawscwcfg binds the YANG module Cisco-IOS-XE-aws-cw-cfg.
 package ciscoiosxeawscwcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AwsCwCfgData is the Cisco-IOS-XE-aws-cw-cfg node /Cisco-IOS-XE-aws-cw-cfg/aws-cw-cfg-data.
 type AwsCwCfgData struct {

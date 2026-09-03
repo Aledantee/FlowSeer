@@ -6,7 +6,7 @@
 // Package ciscoiosxemdtcfg binds the YANG module Cisco-IOS-XE-mdt-cfg.
 package ciscoiosxemdtcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MdtConfigData is the Cisco-IOS-XE-mdt-cfg node /Cisco-IOS-XE-mdt-cfg/mdt-config-data.
 type MdtConfigData struct {

@@ -6,7 +6,7 @@
 // Package etherwis binds the YANG module ETHER-WIS.
 package etherwis
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ETHERWIS is the ETHER-WIS node /ETHER-WIS/ETHER-WIS.
 type ETHERWIS struct {

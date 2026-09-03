@@ -6,7 +6,7 @@
 // Package ciscoietfpwenetmib binds the YANG module CISCO-IETF-PW-ENET-MIB.
 package ciscoietfpwenetmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIETFPWENETMIB is the CISCO-IETF-PW-ENET-MIB node /CISCO-IETF-PW-ENET-MIB/CISCO-IETF-PW-ENET-MIB.
 type CISCOIETFPWENETMIB struct {

@@ -6,7 +6,7 @@
 // Package openconfiglocalrouting binds the YANG module openconfig-local-routing.
 package openconfiglocalrouting
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_DROP is the openconfig-local-routing identity "DROP".
 var Identity_DROP = yang.Identity{

@@ -6,7 +6,7 @@
 // Package ciscoietfbfdmib binds the YANG module CISCO-IETF-BFD-MIB.
 package ciscoietfbfdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIETFBFDMIB is the CISCO-IETF-BFD-MIB node /CISCO-IETF-BFD-MIB/CISCO-IETF-BFD-MIB.
 type CISCOIETFBFDMIB struct {

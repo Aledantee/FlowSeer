@@ -6,7 +6,7 @@
 // Package ciscoietfpwmib binds the YANG module CISCO-IETF-PW-MIB.
 package ciscoietfpwmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIETFPWMIB is the CISCO-IETF-PW-MIB node /CISCO-IETF-PW-MIB/CISCO-IETF-PW-MIB.
 type CISCOIETFPWMIB struct {

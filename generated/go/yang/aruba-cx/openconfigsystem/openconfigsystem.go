@@ -6,7 +6,7 @@
 // Package openconfigsystem binds the YANG module openconfig-system.
 package openconfigsystem
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_NTPAUTHAESCBC128 is the openconfig-system identity "NTP_AUTH_AES_CBC_128".
 var Identity_NTPAUTHAESCBC128 = yang.Identity{

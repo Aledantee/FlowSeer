@@ -6,7 +6,7 @@
 // Package ciscosessborderctrlrcallstatsmib binds the YANG module CISCO-SESS-BORDER-CTRLR-CALL-STATS-MIB.
 package ciscosessborderctrlrcallstatsmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOSESSBORDERCTRLRCALLSTATSMIB is the CISCO-SESS-BORDER-CTRLR-CALL-STATS-MIB node /CISCO-SESS-BORDER-CTRLR-CALL-STATS-MIB/CISCO-SESS-BORDER-CTRLR-CALL-STATS-MIB.
 type CISCOSESSBORDERCTRLRCALLSTATSMIB struct {

@@ -5,273 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/multicast/match/attribute/attr-type.
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType struct {
-	AttrType *string
-	AttrVal  *string
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/multicast/match/attribute/attr-type for the generic codecs.
-var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AttrType",
-		Name:   "attr-type",
-		Type:   yang.TString,
-	}, {
-		GoName: "AttrVal",
-		Name:   "attr-val",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"attr-type"},
-	Module:    "Cisco-IOS-XE-nhrp",
-	Name:      "attr-type",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey is Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType's row identity (ancestor keys in canonical form).
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey struct {
-	Tunnel_Name       string
-	DestIpv4_DestIpv4 string
-	DestMask_DestMask string
-	NbmaIpv6_NbmaIpv6 string
-	AttrType          string
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow flattens one Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType entry with its ancestor list keys.
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow struct {
-	Tunnel_Name       string
-	DestIpv4_DestIpv4 string
-	DestMask_DestMask string
-	NbmaIpv6_NbmaIpv6 string
-	Entry             Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeDescriptor is the flattened-row descriptor for the nested list Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType.
-func Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeDescriptor() yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey] {
-	return yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey]{
-		Codec: yang.RowCodec[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow{
-						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
-						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
-						Entry:             en.Entry,
-						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
-						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow{
-						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
-						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
-						Entry:             en.Entry,
-						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
-						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey {
-				var k Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey
-				k.Tunnel_Name = r.Tunnel_Name
-				k.DestIpv4_DestIpv4 = r.DestIpv4_DestIpv4
-				k.DestMask_DestMask = r.DestMask_DestMask
-				k.NbmaIpv6_NbmaIpv6 = r.NbmaIpv6_NbmaIpv6
-				if r.Entry.AttrType != nil {
-					k.AttrType = *r.Entry.AttrType
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Tunnel"}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-nhrp",
-			Name:      "nhrp-v4",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
-		}, {Name: "nhrp"}, {Name: "summary-map"}, {Name: "dest-ipv4"}, {Name: "dest-mask"}, {Name: "nbma-ipv6"}, {Name: "preference"}, {Name: "multicast"}, {Name: "match"}, {Name: "attribute"}, {Name: "attr-type"}}},
-	}
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range.
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange struct {
-	Match     *Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match
-	Multicast *Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Multicast
-	PriRange  *uint8
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range for the generic codecs.
-var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MatchSchema,
-		GoName: "Match",
-		Name:   "match",
-	}, {
-		Child:  Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MulticastSchema,
-		GoName: "Multicast",
-		Name:   "multicast",
-	}, {
-		GoName: "PriRange",
-		Name:   "pri-range",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"pri-range"},
-	Module:    "Cisco-IOS-XE-nhrp",
-	Name:      "pri-range",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey is Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange's row identity (ancestor keys in canonical form).
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey struct {
-	Tunnel_Name       string
-	DestIpv4_DestIpv4 string
-	DestMask_DestMask string
-	NbmaIpv6_NbmaIpv6 string
-	PriRange          uint8
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow flattens one Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange entry with its ancestor list keys.
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow struct {
-	Tunnel_Name       string
-	DestIpv4_DestIpv4 string
-	DestMask_DestMask string
-	NbmaIpv6_NbmaIpv6 string
-	Entry             Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeDescriptor is the flattened-row descriptor for the nested list Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange.
-func Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeDescriptor() yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey] {
-	return yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey]{
-		Codec: yang.RowCodec[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow{
-						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
-						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
-						Entry:             en.Entry,
-						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
-						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow{
-						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
-						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
-						Entry:             en.Entry,
-						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
-						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey {
-				var k Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey
-				k.Tunnel_Name = r.Tunnel_Name
-				k.DestIpv4_DestIpv4 = r.DestIpv4_DestIpv4
-				k.DestMask_DestMask = r.DestMask_DestMask
-				k.NbmaIpv6_NbmaIpv6 = r.NbmaIpv6_NbmaIpv6
-				if r.Entry.PriRange != nil {
-					k.PriRange = *r.Entry.PriRange
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Tunnel"}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-nhrp",
-			Name:      "nhrp-v4",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
-		}, {Name: "nhrp"}, {Name: "summary-map"}, {Name: "dest-ipv4"}, {Name: "dest-mask"}, {Name: "nbma-ipv6"}, {Name: "preference"}, {Name: "pri-range"}}},
-	}
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range/match.
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match struct {
-	Attribute    *Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute
-	GeoLocation  *string
-	Group        *string
-	TopoLocation *string
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MatchSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range/match for the generic codecs.
-var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MatchSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_AttributeSchema,
-		GoName: "Attribute",
-		Name:   "attribute",
-	}, {
-		GoName: "GeoLocation",
-		Name:   "geo-location",
-		Type:   yang.TString,
-	}, {
-		GoName: "Group",
-		Name:   "group",
-		Type:   yang.TString,
-	}, {
-		GoName: "TopoLocation",
-		Name:   "topo-location",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-nhrp",
-	Name:      "match",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
-}
-
-// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range/match/attribute.
-type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute struct {
-	AttrType []Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute_AttrType
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_AttributeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range/match/attribute for the generic codecs.
 var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_AttributeSchema = &yang.Schema{
@@ -42829,4 +42563,345 @@ var Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Include_UnknownUn
 type Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_Threshold struct {
 	FallingThreshold *yang.Value
 	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/include/unknown-unicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level.
+type Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level struct {
+	Bps       *Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Bps
+	Pps       *Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Pps
+	Threshold *Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Threshold
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Multicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level/level-choice/bps-case/bps.
+type Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level/level-choice/pps-case/pps.
+type Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/multicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Multicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast struct {
+	Include *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include
+	Level   *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Level
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_UnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include struct {
+	Broadcast      *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast
+	Multicast      *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Multicast
+	UnknownUnicast *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_UnknownUnicast
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_BroadcastSchema,
+		GoName: "Broadcast",
+		Name:   "broadcast",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_MulticastSchema,
+		GoName: "Multicast",
+		Name:   "multicast",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_UnknownUnicastSchema,
+		GoName: "UnknownUnicast",
+		Name:   "unknown-unicast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast struct {
+	Include *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include
+	Level   *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Level
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_BroadcastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "broadcast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include struct {
+	Multicast      *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast
+	UnknownUnicast *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_UnknownUnicast
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_MulticastSchema,
+		GoName: "Multicast",
+		Name:   "multicast",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_UnknownUnicastSchema,
+		GoName: "UnknownUnicast",
+		Name:   "unknown-unicast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast struct {
+	Include *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include
+	Level   *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Level
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_MulticastSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_MulticastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "multicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include struct {
+	UnknownUnicast *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicastSchema,
+		GoName: "UnknownUnicast",
+		Name:   "unknown-unicast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast struct {
+	Level *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicastSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unknown-unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast/level.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level struct {
+	Bps       *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_Bps
+	Pps       *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_Pps
+	Threshold *Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_Threshold
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast/level for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast/level/level-choice/bps-case/bps.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast/level/level-choice/pps-case/pps.
+type Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/storm-control/level-shared/unicast/include/broadcast/include/multicast/include/unknown-unicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_Tunnel_StormControl_LevelShared_Unicast_Include_Broadcast_Include_Multicast_Include_UnknownUnicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
 }

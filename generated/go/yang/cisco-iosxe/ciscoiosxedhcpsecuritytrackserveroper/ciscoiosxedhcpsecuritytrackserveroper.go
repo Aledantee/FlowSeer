@@ -6,7 +6,7 @@
 // Package ciscoiosxedhcpsecuritytrackserveroper binds the YANG module Cisco-IOS-XE-dhcp-security-track-server-oper.
 package ciscoiosxedhcpsecuritytrackserveroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DhcpSecurityTrackServerOperData is the Cisco-IOS-XE-dhcp-security-track-server-oper node /Cisco-IOS-XE-dhcp-security-track-server-oper/dhcp-security-track-server-oper-data.
 type DhcpSecurityTrackServerOperData struct {

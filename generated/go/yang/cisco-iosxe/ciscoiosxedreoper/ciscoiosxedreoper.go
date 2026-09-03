@@ -6,7 +6,7 @@
 // Package ciscoiosxedreoper binds the YANG module Cisco-IOS-XE-dre-oper.
 package ciscoiosxedreoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DreOperData is the Cisco-IOS-XE-dre-oper node /Cisco-IOS-XE-dre-oper/dre-oper-data.
 type DreOperData struct {

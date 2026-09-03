@@ -6,7 +6,7 @@
 // Package ciscoiosxemsdpoper binds the YANG module Cisco-IOS-XE-msdp-oper.
 package ciscoiosxemsdpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MsdpOperData is the Cisco-IOS-XE-msdp-oper node /Cisco-IOS-XE-msdp-oper/msdp-oper-data.
 type MsdpOperData struct {

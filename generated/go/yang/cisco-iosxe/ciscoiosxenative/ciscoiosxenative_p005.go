@@ -5,349 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor is the flattened-row descriptor for the nested list Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Prefix.
-func Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor() yang.ListDescriptor[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey] {
-	return yang.ListDescriptor[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
-		Codec: yang.RowCodec[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_ATMSubinterface_ATMSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyListSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
-						ATM_Name:                yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_ATMSubinterface_ATMSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyListSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
-						ATM_Name:                yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey {
-				var k Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey
-				k.ATM_Name = r.ATM_Name
-				k.StandbyList_GroupNumber = r.StandbyList_GroupNumber
-				if r.Entry.Prefix != nil {
-					k.Prefix = *r.Entry.Prefix
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "ATM-subinterface"}, {Name: "ATM"}, {Name: "standby"}, {Name: "standby-list"}, {Name: "ipv6-config"}, {Name: "ipv6_prefix"}}},
-	}
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt struct {
-	Delay *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_Delay
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_PreemptSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_PreemptSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_DelaySchema,
-		GoName: "Delay",
-		Name:   "delay",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "preempt",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_Delay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt/delay.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_Delay struct {
-	Minimum *uint16
-	Reload  *uint16
-	Sync    *uint16
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_DelaySchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt/delay for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_DelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Minimum",
-		Name:   "minimum",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Reload",
-		Name:   "reload",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Sync",
-		Name:   "sync",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "delay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect struct {
-	Advertisement *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement
-	Timers        *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Timers
-	Unknown       *bool
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_RedirectSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_RedirectSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_AdvertisementSchema,
-		GoName: "Advertisement",
-		Name:   "advertisement",
-	}, {
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_TimersSchema,
-		GoName: "Timers",
-		Name:   "timers",
-	}, {
-		GoName: "Unknown",
-		Name:   "unknown",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "redirect",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement struct {
-	Authentication *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_AdvertisementSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_AdvertisementSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_AuthenticationSchema,
-		GoName: "Authentication",
-		Name:   "authentication",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "advertisement",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication struct {
-	Md5 *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_AuthenticationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5Schema,
-		GoName: "Md5",
-		Name:   "md5",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "authentication",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5 struct {
-	KeyChain  *string
-	KeyString *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyString
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5Schema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5 for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "KeyChain",
-		Name:   "key-chain",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyStringSchema,
-		GoName: "KeyString",
-		Name:   "key-string",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "md5",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5/key-string.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyString struct {
-	Encrypt *string
-	String  *string
-	Timeout *uint16
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5/key-string for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyStringSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Encrypt",
-		Name:   "encrypt",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "String",
-		Name:   "string",
-		Type:   yang.TString,
-	}, {
-		GoName: "Timeout",
-		Name:   "timeout",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "key-string",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Timers is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/timers.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Timers struct {
-	Advertisement *uint16
-	Holddown      *uint16
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_TimersSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/timers for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_TimersSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Advertisement",
-		Name:   "advertisement",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Holddown",
-		Name:   "holddown",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "timers",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers struct {
-	HelloInterval *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloInterval
-	HoldTime      *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTime
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TimersSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TimersSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloIntervalSchema,
-		GoName: "HelloInterval",
-		Name:   "hello-interval",
-	}, {
-		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTimeSchema,
-		GoName: "HoldTime",
-		Name:   "hold-time",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "timers",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloInterval is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hello-interval.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloInterval struct {
-	Msec    *uint16
-	Seconds *uint8
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloIntervalSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hello-interval for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloIntervalSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Msec",
-		Name:   "msec",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Seconds",
-		Name:   "seconds",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "hello-interval",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTime is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hold-time.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTime struct {
-	Msec    *uint16
-	Seconds *uint8
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTimeSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hold-time for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTimeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Msec",
-		Name:   "msec",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Seconds",
-		Name:   "seconds",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "hold-time",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Track is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/track.
-type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Track struct {
-	Decrement      *uint8
-	Number         *uint16
-	Shutdown       *bool
-	TrackDecrement *uint8
-	TrackShutdown  *bool
-}
-
-// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TrackSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/track for the generic codecs.
-var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TrackSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Decrement",
-		Name:   "decrement",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Number",
-		Name:   "number",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Shutdown",
-		Name:   "shutdown",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "TrackDecrement",
-		Name:   "track-decrement",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "TrackShutdown",
-		Name:   "track-shutdown",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"number"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "track",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TrackKey is Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Track's row identity (ancestor keys in canonical form).
 type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TrackKey struct {
@@ -40856,4 +40514,353 @@ type Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey st
 type Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow struct {
 	AppGigabitEthernet_Name string
 	Entry                   Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_Password
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordDescriptor is the flattened-row descriptor for the nested list Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_Password.
+func Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordDescriptor() yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey] {
+	return yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey]{
+		Codec: yang.RowCodec[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_Password](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow{
+						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_Password](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow{
+						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey {
+				var k Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey
+				k.AppGigabitEthernet_Name = r.AppGigabitEthernet_Name
+				if r.Entry.Levels != nil {
+					k.Levels = *r.Entry.Levels
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "AppGigabitEthernet"}, {Name: "isis"}, {
+			Module:    "Cisco-IOS-XE-isis",
+			Name:      "isis-lan",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+		}, {Name: "password-lan"}, {Name: "password"}}},
+	}
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial.
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial struct {
+	AdjacencySid          *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid
+	AuthenticationSerial  *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial
+	HelloIntervalSerial   *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloIntervalSerial
+	HelloMultiplierSerial *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloMultiplierSerial
+	PasswordSerial        *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_PasswordSerial
+	ThreeWayHandshake     *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_ThreeWayHandshake
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerialSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial for the generic codecs.
+var Native_Interface_AppGigabitEthernet_Isis_IsisSerialSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySidSchema,
+		GoName: "AdjacencySid",
+		Name:   "adjacency-sid",
+	}, {
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerialSchema,
+		GoName: "AuthenticationSerial",
+		Name:   "authentication-serial",
+	}, {
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloIntervalSerialSchema,
+		GoName: "HelloIntervalSerial",
+		Name:   "hello-interval-serial",
+	}, {
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloMultiplierSerialSchema,
+		GoName: "HelloMultiplierSerial",
+		Name:   "hello-multiplier-serial",
+	}, {
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_PasswordSerialSchema,
+		GoName: "PasswordSerial",
+		Name:   "password-serial",
+	}, {
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_ThreeWayHandshakeSchema,
+		GoName: "ThreeWayHandshake",
+		Name:   "three-way-handshake",
+	}},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "isis-serial",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid.
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid struct {
+	AdjSidListAbsolute []Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute
+	AdjSidListIndex    []Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySidSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid for the generic codecs.
+var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySidSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema,
+		GoName: "AdjSidListAbsolute",
+		List:   true,
+		Name:   "adj-sid-list-absolute",
+	}, {
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema,
+		GoName: "AdjSidListIndex",
+		List:   true,
+		Name:   "adj-sid-list-index",
+	}},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "adjacency-sid",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-absolute.
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute struct {
+	Absolute  *bool
+	Protected *bool
+	SidValue  *uint32
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-absolute for the generic codecs.
+var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Absolute",
+		Name:   "absolute",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Protected",
+		Name:   "protected",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "SidValue",
+		Name:   "sid-value",
+		Type:   yang.TUint32,
+	}},
+	Keys:      []string{"sid-value"},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "adj-sid-list-absolute",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey is Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute's row identity (ancestor keys in canonical form).
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey struct {
+	AppGigabitEthernet_Name string
+	SidValue                uint32
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow flattens one Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute entry with its ancestor list keys.
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow struct {
+	AppGigabitEthernet_Name string
+	Entry                   Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteDescriptor is the flattened-row descriptor for the nested list Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute.
+func Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteDescriptor() yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey] {
+	return yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey]{
+		Codec: yang.RowCodec[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow{
+						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow{
+						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey {
+				var k Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey
+				k.AppGigabitEthernet_Name = r.AppGigabitEthernet_Name
+				if r.Entry.SidValue != nil {
+					k.SidValue = *r.Entry.SidValue
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "AppGigabitEthernet"}, {Name: "isis"}, {
+			Module:    "Cisco-IOS-XE-isis",
+			Name:      "isis-serial",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+		}, {Name: "adjacency-sid"}, {Name: "adj-sid-list-absolute"}}},
+	}
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-index.
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex struct {
+	Index     *bool
+	Protected *bool
+	SidValue  *uint32
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-index for the generic codecs.
+var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Index",
+		Name:   "index",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Protected",
+		Name:   "protected",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "SidValue",
+		Name:   "sid-value",
+		Type:   yang.TUint32,
+	}},
+	Keys:      []string{"sid-value"},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "adj-sid-list-index",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey is Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex's row identity (ancestor keys in canonical form).
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey struct {
+	AppGigabitEthernet_Name string
+	SidValue                uint32
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow flattens one Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex entry with its ancestor list keys.
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow struct {
+	AppGigabitEthernet_Name string
+	Entry                   Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexDescriptor is the flattened-row descriptor for the nested list Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex.
+func Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexDescriptor() yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey] {
+	return yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey]{
+		Codec: yang.RowCodec[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow{
+						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow{
+						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey {
+				var k Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey
+				k.AppGigabitEthernet_Name = r.AppGigabitEthernet_Name
+				if r.Entry.SidValue != nil {
+					k.SidValue = *r.Entry.SidValue
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "AppGigabitEthernet"}, {Name: "isis"}, {
+			Module:    "Cisco-IOS-XE-isis",
+			Name:      "isis-serial",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+		}, {Name: "adjacency-sid"}, {Name: "adj-sid-list-index"}}},
+	}
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/authentication-serial.
+type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial struct {
+	Authentication *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication
+}
+
+// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerialSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/authentication-serial for the generic codecs.
+var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerialSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial_AuthenticationSchema,
+		GoName: "Authentication",
+		Name:   "authentication",
+	}},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "authentication-serial",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
 }

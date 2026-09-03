@@ -6,7 +6,7 @@
 // Package ipmroutestdmib binds the YANG module IPMROUTE-STD-MIB.
 package ipmroutestdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IPMROUTESTDMIB is the IPMROUTE-STD-MIB node /IPMROUTE-STD-MIB/IPMROUTE-STD-MIB.
 type IPMROUTESTDMIB struct {

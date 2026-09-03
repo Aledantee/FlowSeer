@@ -6,7 +6,7 @@
 // Package ciscoiosxeisisoper binds the YANG module Cisco-IOS-XE-isis-oper.
 package ciscoiosxeisisoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IsisOperData is the Cisco-IOS-XE-isis-oper node /Cisco-IOS-XE-isis-oper/isis-oper-data.
 type IsisOperData struct {

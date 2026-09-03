@@ -6,7 +6,7 @@
 // Package ciscoietfatm2pvctrapmibextn binds the YANG module CISCO-IETF-ATM2-PVCTRAP-MIB-EXTN.
 package ciscoietfatm2pvctrapmibextn
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIETFATM2PVCTRAPMIBEXTN is the CISCO-IETF-ATM2-PVCTRAP-MIB-EXTN node /CISCO-IETF-ATM2-PVCTRAP-MIB-EXTN/CISCO-IETF-ATM2-PVCTRAP-MIB-EXTN.
 type CISCOIETFATM2PVCTRAPMIBEXTN struct {

@@ -6,7 +6,7 @@
 // Package ciscoevpnservice binds the YANG module cisco-evpn-service.
 package ciscoevpnservice
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EvpnService is the cisco-evpn-service node /cisco-evpn-service/evpn-service.
 type EvpnService struct {

@@ -6,7 +6,7 @@
 // Package bgp4mib binds the YANG module BGP4-MIB.
 package bgp4mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BGP4MIB is the BGP4-MIB node /BGP4-MIB/BGP4-MIB.
 type BGP4MIB struct {

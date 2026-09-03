@@ -6,7 +6,7 @@
 // Package ciscoiosxeappcflowdoper binds the YANG module Cisco-IOS-XE-app-cflowd-oper.
 package ciscoiosxeappcflowdoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AppCflowdOperData is the Cisco-IOS-XE-app-cflowd-oper node /Cisco-IOS-XE-app-cflowd-oper/app-cflowd-oper-data.
 type AppCflowdOperData struct {

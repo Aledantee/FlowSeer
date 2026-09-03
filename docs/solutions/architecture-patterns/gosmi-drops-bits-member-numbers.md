@@ -2,14 +2,14 @@
 title: gosmi Drops BITS Member Numbers, So Generated Bit Positions Are a Guess
 date: 2026-08-30
 category: architecture-patterns
-module: src/common/snmp/cmd/mibgen
+module: src/protocol/snmp/cmd/mibgen
 problem_type: tooling_decision
 component: code_generation
 severity: medium
 applies_when:
   - "weighing whether to replace a parsing dependency, where error recovery is the property in question"
   - "reading a verdict in this store that a later change overturned"
-  - "tracing why src/common/smi exists rather than a gosmi fork"
+  - "tracing why src/protocol/smi exists rather than a gosmi fork"
 related_components:
   - snmp_library
   - code_generation
@@ -21,7 +21,7 @@ tags: [gosmi, snmp, mibgen, bits, code-generation, third-party, known-limitation
 
 ## Superseded: the replacement landed
 
-`gosmi` is gone. `src/common/smi` is a hand-written SMIv1/SMIv2 parser and
+`gosmi` is gone. `src/protocol/smi` is a hand-written SMIv1/SMIv2 parser and
 `mibgen` renders from it, so a `BITS` member now carries the number the MIB
 wrote and the emitted positions are read rather than inferred. The two
 `-- FlowSeer local patch:` edits in the vendored IEEE MIBs are reverted, the

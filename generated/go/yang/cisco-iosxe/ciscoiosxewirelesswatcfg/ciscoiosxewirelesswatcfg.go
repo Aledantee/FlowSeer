@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesswatcfg binds the YANG module Cisco-IOS-XE-wireless-wat-cfg.
 package ciscoiosxewirelesswatcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // WatCfgData is the Cisco-IOS-XE-wireless-wat-cfg node /Cisco-IOS-XE-wireless-wat-cfg/wat-cfg-data.
 type WatCfgData struct {

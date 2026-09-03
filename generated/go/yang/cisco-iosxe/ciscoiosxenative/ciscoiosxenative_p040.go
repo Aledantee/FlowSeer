@@ -5,448 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/backup-path.
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath struct {
-	Tunnel []Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPathSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/backup-path for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPathSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelSchema,
-		GoName: "Tunnel",
-		List:   true,
-		Name:   "Tunnel",
-	}},
-	Module:    "Cisco-IOS-XE-mpls",
-	Name:      "backup-path",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mpls",
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/backup-path/Tunnel.
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel struct {
-	Name *uint32
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/backup-path/Tunnel for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-mpls",
-	Name:      "Tunnel",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mpls",
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelKey is Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel's row identity (ancestor keys in canonical form).
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelKey struct {
-	TwentyFiveGigE_Name string
-	Name                uint32
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow flattens one Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel entry with its ancestor list keys.
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow struct {
-	TwentyFiveGigE_Name string
-	Entry               Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelDescriptor is the flattened-row descriptor for the nested list Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel.
-func Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelDescriptor() yang.ListDescriptor[Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow, Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelKey] {
-	return yang.ListDescriptor[Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow, Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelKey]{
-		Codec: yang.RowCodec[Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow, Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TwentyFiveGigESchema, Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow{
-						Entry:               en.Entry,
-						TwentyFiveGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TwentyFiveGigESchema, Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_Tunnel](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow{
-						Entry:               en.Entry,
-						TwentyFiveGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow) Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelKey {
-				var k Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelKey
-				k.TwentyFiveGigE_Name = r.TwentyFiveGigE_Name
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow) Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_BackupPath_TunnelSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "TwentyFiveGigE"}, {Name: "mpls"}, {
-			Module:    "Cisco-IOS-XE-mpls",
-			Name:      "traffic-eng",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mpls",
-		}, {Name: "backup-path"}, {Name: "Tunnel"}}},
-	}
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/flooding.
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding struct {
-	Thresholds *Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding_Thresholds
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_FloodingSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/flooding for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_FloodingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding_ThresholdsSchema,
-		GoName: "Thresholds",
-		Name:   "thresholds",
-	}},
-	Module:    "Cisco-IOS-XE-mpls",
-	Name:      "flooding",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mpls",
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding_Thresholds is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/flooding/thresholds.
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding_Thresholds struct {
-	Down []uint8
-	Up   []uint8
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding_ThresholdsSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/flooding/thresholds for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_Flooding_ThresholdsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:   "Down",
-		LeafList: true,
-		Name:     "down",
-		Type:     yang.TUint8,
-	}, {
-		GoName:   "Up",
-		LeafList: true,
-		Name:     "up",
-		Type:     yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-mpls",
-	Name:      "thresholds",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mpls",
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/passive-interface.
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface struct {
-	NbrIfAddr *string
-	NbrIgpId  *Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface_NbrIgpId
-	NbrTeId   *string
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterfaceSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/passive-interface for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "NbrIfAddr",
-		Name:   "nbr-if-addr",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface_NbrIgpIdSchema,
-		GoName: "NbrIgpId",
-		Name:   "nbr-igp-id",
-	}, {
-		GoName: "NbrTeId",
-		Name:   "nbr-te-id",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-mpls",
-	Name:      "passive-interface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mpls",
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface_NbrIgpId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/passive-interface/nbr-igp-id.
-type Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface_NbrIgpId struct {
-	Isis *string
-	Ospf *string
-}
-
-// Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface_NbrIgpIdSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mpls/traffic-eng/passive-interface/nbr-igp-id for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mpls_TrafficEng_PassiveInterface_NbrIgpIdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Isis",
-		Name:   "isis",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ospf",
-		Name:   "ospf",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-mpls",
-	Name:      "nbr-igp-id",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mpls",
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp.
-type Native_Interface_TwentyFiveGigE_Mvrp struct {
-	Mvrp         *bool
-	Registration *Native_Interface_TwentyFiveGigE_Mvrp_Registration
-	Timer        *Native_Interface_TwentyFiveGigE_Mvrp_Timer
-}
-
-// Native_Interface_TwentyFiveGigE_MvrpSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp for the generic codecs.
-var Native_Interface_TwentyFiveGigE_MvrpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Mvrp",
-		Name:   "mvrp",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_TwentyFiveGigE_Mvrp_RegistrationSchema,
-		GoName: "Registration",
-		Name:   "registration",
-	}, {
-		Child:  Native_Interface_TwentyFiveGigE_Mvrp_TimerSchema,
-		GoName: "Timer",
-		Name:   "timer",
-	}},
-	Module:    "Cisco-IOS-XE-mvrp",
-	Name:      "mvrp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mvrp",
-	Presence:  true,
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Registration is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/registration.
-type Native_Interface_TwentyFiveGigE_Mvrp_Registration struct {
-	Fixed     *bool
-	Forbidden *bool
-	Normal    *bool
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_RegistrationSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/registration for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mvrp_RegistrationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Fixed",
-		Name:   "fixed",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Forbidden",
-		Name:   "forbidden",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Normal",
-		Name:   "normal",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-mvrp",
-	Name:      "registration",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mvrp",
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Timer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer.
-type Native_Interface_TwentyFiveGigE_Mvrp_Timer struct {
-	Join     *Native_Interface_TwentyFiveGigE_Mvrp_Timer_Join
-	Leave    *Native_Interface_TwentyFiveGigE_Mvrp_Timer_Leave
-	LeaveAll *Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveAll
-	Periodic *bool
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_TimerSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mvrp_TimerSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwentyFiveGigE_Mvrp_Timer_JoinSchema,
-		GoName: "Join",
-		Name:   "join",
-	}, {
-		Child:  Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveSchema,
-		GoName: "Leave",
-		Name:   "leave",
-	}, {
-		Child:  Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveAllSchema,
-		GoName: "LeaveAll",
-		Name:   "leave-all",
-	}, {
-		GoName: "Periodic",
-		Name:   "periodic",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-mvrp",
-	Name:      "timer",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mvrp",
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Timer_Join is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer/join.
-type Native_Interface_TwentyFiveGigE_Mvrp_Timer_Join struct {
-	Range *uint32
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Timer_JoinSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer/join for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mvrp_Timer_JoinSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Range",
-		Name:   "_range",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-mvrp",
-	Name:      "join",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mvrp",
-	Presence:  true,
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Timer_Leave is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer/leave.
-type Native_Interface_TwentyFiveGigE_Mvrp_Timer_Leave struct {
-	Range *uint32
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer/leave for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Range",
-		Name:   "_range",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-mvrp",
-	Name:      "leave",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mvrp",
-	Presence:  true,
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveAll is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer/leave-all.
-type Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveAll struct {
-	Range *uint32
-}
-
-// Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveAllSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/mvrp/timer/leave-all for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Mvrp_Timer_LeaveAllSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Range",
-		Name:   "_range",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-mvrp",
-	Name:      "leave-all",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mvrp",
-	Presence:  true,
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64.
-type Native_Interface_TwentyFiveGigE_Nat64 struct {
-	Enable   *bool
-	Prefix   *Native_Interface_TwentyFiveGigE_Nat64_Prefix
-	Settings *Native_Interface_TwentyFiveGigE_Nat64_Settings
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64Schema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64 for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Nat64Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_TwentyFiveGigE_Nat64_PrefixSchema,
-		GoName: "Prefix",
-		Name:   "prefix",
-	}, {
-		Child:  Native_Interface_TwentyFiveGigE_Nat64_SettingsSchema,
-		GoName: "Settings",
-		Name:   "settings",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "nat64",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_Prefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/prefix.
-type Native_Interface_TwentyFiveGigE_Nat64_Prefix struct {
-	Stateful *Native_Interface_TwentyFiveGigE_Nat64_Prefix_Stateful
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_PrefixSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/prefix for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Nat64_PrefixSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwentyFiveGigE_Nat64_Prefix_StatefulSchema,
-		GoName: "Stateful",
-		Name:   "stateful",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "prefix",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_Prefix_Stateful is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/prefix/stateful.
-type Native_Interface_TwentyFiveGigE_Nat64_Prefix_Stateful struct {
-	Ipv6Prefix *string
-	Vrf        *string
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_Prefix_StatefulSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/prefix/stateful for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Nat64_Prefix_StatefulSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Ipv6Prefix",
-		Name:   "ipv6-prefix",
-		Type:   yang.TString,
-	}, {
-		GoName: "Vrf",
-		Name:   "vrf",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "stateful",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_Settings is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/settings.
-type Native_Interface_TwentyFiveGigE_Nat64_Settings struct {
-	Mtu *Native_Interface_TwentyFiveGigE_Nat64_Settings_Mtu
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_SettingsSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/settings for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Nat64_SettingsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwentyFiveGigE_Nat64_Settings_MtuSchema,
-		GoName: "Mtu",
-		Name:   "mtu",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "settings",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_Settings_Mtu is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/settings/mtu.
-type Native_Interface_TwentyFiveGigE_Nat64_Settings_Mtu struct {
-	Minimum *uint16
-}
-
-// Native_Interface_TwentyFiveGigE_Nat64_Settings_MtuSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/nat64/settings/mtu for the generic codecs.
-var Native_Interface_TwentyFiveGigE_Nat64_Settings_MtuSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Minimum",
-		Name:   "minimum",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "mtu",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_TwentyFiveGigE_Negotiation is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigE/negotiation.
 type Native_Interface_TwentyFiveGigE_Negotiation struct {
@@ -41642,4 +41201,268 @@ type Native_Interface_TwentyFiveGigabitEthernet_VlanRangeKey struct {
 type Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow struct {
 	TwentyFiveGigabitEthernet_Name string
 	Entry                          Native_Interface_TwentyFiveGigabitEthernet_VlanRange
+}
+
+// Native_Interface_TwentyFiveGigabitEthernet_VlanRangeDescriptor is the flattened-row descriptor for the nested list Native_Interface_TwentyFiveGigabitEthernet_VlanRange.
+func Native_Interface_TwentyFiveGigabitEthernet_VlanRangeDescriptor() yang.ListDescriptor[Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow, Native_Interface_TwentyFiveGigabitEthernet_VlanRangeKey] {
+	return yang.ListDescriptor[Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow, Native_Interface_TwentyFiveGigabitEthernet_VlanRangeKey]{
+		Codec: yang.RowCodec[Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow, Native_Interface_TwentyFiveGigabitEthernet_VlanRangeKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TwentyFiveGigabitEthernetSchema, Native_Interface_TwentyFiveGigabitEthernet_VlanRangeSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_TwentyFiveGigabitEthernet_VlanRange](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow{
+						Entry:                          en.Entry,
+						TwentyFiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TwentyFiveGigabitEthernetSchema, Native_Interface_TwentyFiveGigabitEthernet_VlanRangeSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_TwentyFiveGigabitEthernet_VlanRange](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow{
+						Entry:                          en.Entry,
+						TwentyFiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow) Native_Interface_TwentyFiveGigabitEthernet_VlanRangeKey {
+				var k Native_Interface_TwentyFiveGigabitEthernet_VlanRangeKey
+				k.TwentyFiveGigabitEthernet_Name = r.TwentyFiveGigabitEthernet_Name
+				if r.Entry.Id != nil {
+					k.Id = yang.CanonicalKey(r.Entry.Id)
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow) Native_Interface_TwentyFiveGigabitEthernet_VlanRangeFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_TwentyFiveGigabitEthernet_VlanRangeSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "TwentyFiveGigabitEthernet"}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "vlan-range",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}}},
+	}
+}
+
+// Native_Interface_TwentyFiveGigabitEthernet_VlanRange_ServicePolicy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigabitEthernet/vlan-range/service-policy.
+type Native_Interface_TwentyFiveGigabitEthernet_VlanRange_ServicePolicy struct {
+	Input  *string
+	Output *string
+}
+
+// Native_Interface_TwentyFiveGigabitEthernet_VlanRange_ServicePolicySchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigabitEthernet/vlan-range/service-policy for the generic codecs.
+var Native_Interface_TwentyFiveGigabitEthernet_VlanRange_ServicePolicySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Input",
+		Name:   "input",
+		Type:   yang.TString,
+	}, {
+		GoName: "Output",
+		Name:   "output",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "service-policy",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_TwentyFiveGigabitEthernet_Vrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigabitEthernet/vrf-choice/vrf/vrf.
+type Native_Interface_TwentyFiveGigabitEthernet_Vrf struct {
+	Downstream *string
+	Forwarding *string
+}
+
+// Native_Interface_TwentyFiveGigabitEthernet_VrfSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigabitEthernet/vrf-choice/vrf/vrf for the generic codecs.
+var Native_Interface_TwentyFiveGigabitEthernet_VrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Downstream",
+		Name:   "downstream",
+		Type:   yang.TString,
+	}, {
+		GoName: "Forwarding",
+		Name:   "forwarding",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwentyFiveGigabitEthernet_ZoneMember is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwentyFiveGigabitEthernet/zone-member.
+type Native_Interface_TwentyFiveGigabitEthernet_ZoneMember struct {
+	Security *string
+}
+
+// Native_Interface_TwentyFiveGigabitEthernet_ZoneMemberSchema describes /Cisco-IOS-XE-native/native/interface/TwentyFiveGigabitEthernet/zone-member for the generic codecs.
+var Native_Interface_TwentyFiveGigabitEthernet_ZoneMemberSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Security",
+		Name:   "security",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-zone",
+	Name:      "zone-member",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-zone",
+}
+
+// Native_Interface_TwoGigabitEthernet is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet.
+type Native_Interface_TwoGigabitEthernet struct {
+	AccessSession        *Native_Interface_TwoGigabitEthernet_AccessSession
+	AnalysisModule       *Native_Interface_TwoGigabitEthernet_AnalysisModule
+	Arp                  *Native_Interface_TwoGigabitEthernet_Arp
+	Authentication       *Native_Interface_TwoGigabitEthernet_Authentication
+	Auto                 *Native_Interface_TwoGigabitEthernet_Auto
+	Backup               *Native_Interface_TwoGigabitEthernet_Backup
+	Bandwidth            *Native_Interface_TwoGigabitEthernet_Bandwidth
+	Bfd                  *Native_Interface_TwoGigabitEthernet_Bfd
+	CarrierDelay         *Native_Interface_TwoGigabitEthernet_CarrierDelay
+	Cdp                  *Native_Interface_TwoGigabitEthernet_Cdp
+	Cemoudp              *Native_Interface_TwoGigabitEthernet_Cemoudp
+	ChannelGroup         *Native_Interface_TwoGigabitEthernet_ChannelGroup
+	ChannelProtocol      *string
+	Clns                 *Native_Interface_TwoGigabitEthernet_Clns
+	Crypto               *Native_Interface_TwoGigabitEthernet_Crypto
+	Cts                  *Native_Interface_TwoGigabitEthernet_Cts
+	CwsTunnel            *Native_Interface_TwoGigabitEthernet_CwsTunnel
+	Dampening            *Native_Interface_TwoGigabitEthernet_Dampening
+	Dapr                 *Native_Interface_TwoGigabitEthernet_Dapr
+	Datalink             *Native_Interface_TwoGigabitEthernet_Datalink
+	Delay                *uint32
+	Description          *string
+	DeviceSensor         *Native_Interface_TwoGigabitEthernet_DeviceSensor
+	DeviceTracking       *Native_Interface_TwoGigabitEthernet_DeviceTracking
+	DhcpServerTracking   *Native_Interface_TwoGigabitEthernet_DhcpServerTracking
+	Domain               *Native_Interface_TwoGigabitEthernet_Domain
+	Dot1x                *Native_Interface_TwoGigabitEthernet_Dot1x
+	DualActive           *Native_Interface_TwoGigabitEthernet_DualActive
+	Duplex               *string
+	Eapol                *Native_Interface_TwoGigabitEthernet_Eapol
+	Encapsulation        *Native_Interface_TwoGigabitEthernet_Encapsulation
+	Energywise           *Native_Interface_TwoGigabitEthernet_Energywise
+	Esmc                 *Native_Interface_TwoGigabitEthernet_Esmc
+	EtAnalytics          *Native_Interface_TwoGigabitEthernet_EtAnalytics
+	Ethernet             *Native_Interface_TwoGigabitEthernet_Ethernet
+	Evpn                 *Native_Interface_TwoGigabitEthernet_Evpn
+	ExportName           *string
+	FabricDomain         *Native_Interface_TwoGigabitEthernet_FabricDomain
+	FairQueue            *Native_Interface_TwoGigabitEthernet_FairQueue
+	FairQueueConf        *Native_Interface_TwoGigabitEthernet_FairQueueConf
+	Flowcontrol          *Native_Interface_TwoGigabitEthernet_Flowcontrol
+	Group                *uint16
+	GroupPolicy          *Native_Interface_TwoGigabitEthernet_GroupPolicy
+	History              *Native_Interface_TwoGigabitEthernet_History
+	HoldQueue            []Native_Interface_TwoGigabitEthernet_HoldQueue
+	IfState              *string
+	InterfaceQos         *Native_Interface_TwoGigabitEthernet_InterfaceQos
+	Ip                   *Native_Interface_TwoGigabitEthernet_Ip
+	IpVrf                *Native_Interface_TwoGigabitEthernet_IpVrf
+	Ipv6                 *Native_Interface_TwoGigabitEthernet_Ipv6
+	Isis                 *Native_Interface_TwoGigabitEthernet_Isis
+	Keepalive            *bool
+	KeepaliveConfig      *Native_Interface_TwoGigabitEthernet_KeepaliveConfig
+	KeepaliveSettings    *Native_Interface_TwoGigabitEthernet_KeepaliveSettings
+	L2protocol           *Native_Interface_TwoGigabitEthernet_L2protocol
+	L2protocolTunnel     *Native_Interface_TwoGigabitEthernet_L2protocolTunnel
+	Lacp                 *Native_Interface_TwoGigabitEthernet_Lacp
+	Lisp                 *Native_Interface_TwoGigabitEthernet_Lisp
+	Lldp                 *Native_Interface_TwoGigabitEthernet_Lldp
+	LoadBalancing        *Native_Interface_TwoGigabitEthernet_LoadBalancing
+	LoadInterval         *uint16
+	Location             *Native_Interface_TwoGigabitEthernet_Location
+	Logging              *Native_Interface_TwoGigabitEthernet_Logging
+	Loopback             *Native_Interface_TwoGigabitEthernet_Loopback
+	LoopdetectEnable     *Native_Interface_TwoGigabitEthernet_LoopdetectEnable
+	LoopdetectParam      *Native_Interface_TwoGigabitEthernet_LoopdetectParam
+	Mab                  *Native_Interface_TwoGigabitEthernet_Mab
+	Mac                  *Native_Interface_TwoGigabitEthernet_Mac
+	MacAddress           *string
+	Macro                *Native_Interface_TwoGigabitEthernet_Macro
+	Macsec               *bool
+	MacsecEnable         *Native_Interface_TwoGigabitEthernet_MacsecEnable
+	MacsecOption         *Native_Interface_TwoGigabitEthernet_MacsecOption
+	MaxReservedBandwidth *uint8
+	Mdix                 *Native_Interface_TwoGigabitEthernet_Mdix
+	MdnsSd               *Native_Interface_TwoGigabitEthernet_MdnsSd
+	MediaType            *string
+	Mka                  *Native_Interface_TwoGigabitEthernet_Mka
+	Mop                  *Native_Interface_TwoGigabitEthernet_Mop
+	Mpls                 *Native_Interface_TwoGigabitEthernet_Mpls
+	Mtu                  *uint16
+	Mvrp                 *Native_Interface_TwoGigabitEthernet_Mvrp
+	Name                 *string
+	Nat64                *Native_Interface_TwoGigabitEthernet_Nat64
+	Nat66                *string
+	Negotiation          *Native_Interface_TwoGigabitEthernet_Negotiation
+	NetworkClock         *Native_Interface_TwoGigabitEthernet_NetworkClock
+	NetworkPolicy        *uint32
+	Ntp                  *Native_Interface_TwoGigabitEthernet_Ntp
+	Ospfv3               *Native_Interface_TwoGigabitEthernet_Ospfv3
+	Peer                 *Native_Interface_TwoGigabitEthernet_Peer
+	Performance          *Native_Interface_TwoGigabitEthernet_Performance
+	Plim                 *Native_Interface_TwoGigabitEthernet_Plim
+	PmPath               *Native_Interface_TwoGigabitEthernet_PmPath
+	Pnp                  *Native_Interface_TwoGigabitEthernet_Pnp
+	PortSettings         *Native_Interface_TwoGigabitEthernet_PortSettings
+	PortType             *string
+	Power                *Native_Interface_TwoGigabitEthernet_Power
+	Pppoe                *Native_Interface_TwoGigabitEthernet_Pppoe
+	PppoeClient          *Native_Interface_TwoGigabitEthernet_PppoeClient
+	PppoeSession         *Native_Interface_TwoGigabitEthernet_PppoeSession
+	PriorityQueue        *Native_Interface_TwoGigabitEthernet_PriorityQueue
+	Ptp                  *Native_Interface_TwoGigabitEthernet_Ptp
+	PuntControl          *Native_Interface_TwoGigabitEthernet_PuntControl
+	RcvQueue             *Native_Interface_TwoGigabitEthernet_RcvQueue
+	Redundancy           *Native_Interface_TwoGigabitEthernet_Redundancy
+	Service              *Native_Interface_TwoGigabitEthernet_Service
+	ServiceInsertion     *string
+	ServicePolicy        *Native_Interface_TwoGigabitEthernet_ServicePolicy
+	Shutdown             *bool
+	SiteManager          *Native_Interface_TwoGigabitEthernet_SiteManager
+	Snmp                 *Native_Interface_TwoGigabitEthernet_Snmp
+	Source               *Native_Interface_TwoGigabitEthernet_Source
+	SpanningTree         *Native_Interface_TwoGigabitEthernet_SpanningTree
+	Speed                *Native_Interface_TwoGigabitEthernet_Speed
+	Srlg                 *Native_Interface_TwoGigabitEthernet_Srlg
+	SrrQueue             *Native_Interface_TwoGigabitEthernet_SrrQueue
+	StackwiseVirtual     *Native_Interface_TwoGigabitEthernet_StackwiseVirtual
+	Standby              *Native_Interface_TwoGigabitEthernet_Standby
+	StormControl         *Native_Interface_TwoGigabitEthernet_StormControl
+	Subscriber           *Native_Interface_TwoGigabitEthernet_Subscriber
+	Switch               *Native_Interface_TwoGigabitEthernet_Switch
+	Switchport           *Native_Interface_TwoGigabitEthernet_Switchport
+	SwitchportConf       *Native_Interface_TwoGigabitEthernet_SwitchportConf
+	SwitchportConfig     *Native_Interface_TwoGigabitEthernet_SwitchportConfig
+	Synchronous          *Native_Interface_TwoGigabitEthernet_Synchronous
+	SynchronousSynce     *Native_Interface_TwoGigabitEthernet_SynchronousSynce
+	Trust                *Native_Interface_TwoGigabitEthernet_Trust
+	Udld                 *Native_Interface_TwoGigabitEthernet_Udld
+	Umbrella             *Native_Interface_TwoGigabitEthernet_Umbrella
+	Uplink               *Native_Interface_TwoGigabitEthernet_Uplink
+	VlanRange            []Native_Interface_TwoGigabitEthernet_VlanRange
+	Vrf                  *Native_Interface_TwoGigabitEthernet_Vrf
+	Vrrp                 *Native_Interface_TwoGigabitEthernet_Vrrp
+	Vtp                  *bool
+	Xconnect             *Native_Interface_TwoGigabitEthernet_Xconnect
+	ZoneMember           *Native_Interface_TwoGigabitEthernet_ZoneMember
 }

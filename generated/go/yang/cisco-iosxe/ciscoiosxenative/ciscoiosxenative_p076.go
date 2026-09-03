@@ -5,531 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ImportSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ImportSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_DatabaseSchema,
-		GoName: "Database",
-		Name:   "database",
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PrefixListContainerSchema,
-		GoName: "PrefixListContainer",
-		Name:   "prefix-list-container",
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PublicationSchema,
-		GoName: "Publication",
-		Name:   "publication",
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "import",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/database.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database struct {
-	LocatorSet       *string
-	Publication      *Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_Publication
-	SiteRegSrc       *Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_SiteRegSrc
-	SiteRegistration *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_DatabaseSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/database for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_DatabaseSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocatorSet",
-		Name:   "locator-set",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_PublicationSchema,
-		GoName: "Publication",
-		Name:   "publication",
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_SiteRegSrcSchema,
-		GoName: "SiteRegSrc",
-		Name:   "site-reg-src",
-	}, {
-		GoName: "SiteRegistration",
-		Name:   "site-registration",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "database",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_Publication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/database/publication.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_Publication struct {
-	LocatorSet       *string
-	PreservePriority *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_PublicationSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/database/publication for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_PublicationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocatorSet",
-		Name:   "locator-set",
-		Type:   yang.TString,
-	}, {
-		GoName: "PreservePriority",
-		Name:   "preserve-priority",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "publication",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_SiteRegSrc is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/database/site-reg-src.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_SiteRegSrc struct {
-	LocSet              *string
-	SiteRegistrationSrc *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_SiteRegSrcSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/database/site-reg-src for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Database_SiteRegSrcSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocSet",
-		Name:   "loc-set",
-		Type:   yang.TString,
-	}, {
-		GoName: "SiteRegistrationSrc",
-		Name:   "site-registration-src",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "site-reg-src",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PrefixListContainer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/prefix-list-container.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PrefixListContainer struct {
-	PrefixList       *string
-	Publication      *bool
-	SiteRegistration *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PrefixListContainerSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/prefix-list-container for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PrefixListContainerSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PrefixList",
-		Name:   "prefix-list",
-		Type:   yang.TString,
-	}, {
-		GoName: "Publication",
-		Name:   "publication",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "SiteRegistration",
-		Name:   "site-registration",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "prefix-list-container",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/publication.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication struct {
-	InheritPublisher *Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_InheritPublisher
-	Publisher        []Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PublicationSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/publication for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_PublicationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_InheritPublisherSchema,
-		GoName: "InheritPublisher",
-		Name:   "inherit-publisher",
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherSchema,
-		GoName: "Publisher",
-		List:   true,
-		Name:   "publisher",
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "publication",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_InheritPublisher is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/publication/publisher-choice/inherit-publisher/inherit-publisher.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_InheritPublisher struct {
-	Publisher *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_InheritPublisherSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/publication/publisher-choice/inherit-publisher/inherit-publisher for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_InheritPublisherSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Publisher",
-		Name:   "publisher",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "inherit-publisher",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/publication/publisher-choice/publisher/publisher.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher struct {
-	IpAddr *yang.Value
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/import/publication/publisher-choice/publisher/publisher for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "IpAddr",
-		Name:   "ip-addr",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-		},
-	}},
-	Keys:      []string{"ip-addr"},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "publisher",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherKey is Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher's row identity (ancestor keys in canonical form).
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherKey struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	IpAddr                  string
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow flattens one Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher entry with its ancestor list keys.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	Entry                   Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherDescriptor is the flattened-row descriptor for the nested list Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher.
-func Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherDescriptor() yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherKey] {
-	return yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherKey]{
-		Codec: yang.RowCodec[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_Publisher](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherKey {
-				var k Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherKey
-				k.LispList_Lisp = r.LispList_Lisp
-				k.InstanceList_InstanceId = r.InstanceList_InstanceId
-				if r.Entry.IpAddr != nil {
-					k.IpAddr = yang.CanonicalKey(r.Entry.IpAddr)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Import_Publication_PublisherSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-lisp",
-			Name:      "lisp-list",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		}, {Name: "instance-container"}, {Name: "instance-list"}, {Name: "service"}, {Name: "ipv4"}, {Name: "import"}, {Name: "publication"}, {Name: "publisher"}}},
-	}
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/itr.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr struct {
-	MapResolver []Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver
-	NmrTtl      *uint16
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ItrSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/itr for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ItrSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverSchema,
-		GoName: "MapResolver",
-		List:   true,
-		Name:   "map-resolver",
-	}, {
-		GoName: "NmrTtl",
-		Name:   "nmr-ttl",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "itr",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/itr/map-resolver.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver struct {
-	IpAddr     *yang.Value
-	PrefixList *string
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/itr/map-resolver for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "IpAddr",
-		Name:   "ip-addr",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "PrefixList",
-		Name:   "prefix-list",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"ip-addr"},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "map-resolver",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverKey is Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver's row identity (ancestor keys in canonical form).
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverKey struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	IpAddr                  string
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow flattens one Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver entry with its ancestor list keys.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	Entry                   Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverDescriptor is the flattened-row descriptor for the nested list Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver.
-func Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverDescriptor() yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverKey] {
-	return yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverKey]{
-		Codec: yang.RowCodec[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolver](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverKey {
-				var k Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverKey
-				k.LispList_Lisp = r.LispList_Lisp
-				k.InstanceList_InstanceId = r.InstanceList_InstanceId
-				if r.Entry.IpAddr != nil {
-					k.IpAddr = yang.CanonicalKey(r.Entry.IpAddr)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_Itr_MapResolverSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-lisp",
-			Name:      "lisp-list",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		}, {Name: "instance-container"}, {Name: "instance-list"}, {Name: "service"}, {Name: "ipv4"}, {Name: "itr"}, {Name: "map-resolver"}}},
-	}
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ItrEnable is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/itr-enable.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ItrEnable struct {
-	Itr *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ItrEnableSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/itr-enable for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_ItrEnableSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Itr",
-		Name:   "itr",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "itr-enable",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/map-cache.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache struct {
-	AwayEids               *Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_AwayEids
-	ConservativeAllocation *bool
-	EidInterface           []Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface
-	Publications           *bool
-	SiteRegistration       *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCacheSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/map-cache for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCacheSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_AwayEidsSchema,
-		GoName: "AwayEids",
-		Name:   "away-eids",
-	}, {
-		GoName: "ConservativeAllocation",
-		Name:   "conservative-allocation",
-		Type:   yang.TBool,
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceSchema,
-		GoName: "EidInterface",
-		List:   true,
-		Name:   "eid-interface",
-	}, {
-		GoName: "Publications",
-		Name:   "publications",
-		Type:   yang.TBool,
-	}, {
-		GoName: "SiteRegistration",
-		Name:   "site-registration",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "map-cache",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_AwayEids is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/map-cache/away-eids.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_AwayEids struct {
-	SendMapRequest *bool
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_AwayEidsSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/map-cache/away-eids for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_AwayEidsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SendMapRequest",
-		Name:   "send-map-request",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "away-eids",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/map-cache/eid-interface.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface struct {
-	Drop           *bool
-	EidPrefix      *yang.Value
-	EtrInterfaceIp *Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface_EtrInterfaceIp
-	MapRequest     *bool
-	NativeForward  *bool
-	RlocAttributes []Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface_RlocAttributes
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/service/ipv4/map-cache/eid-interface for the generic codecs.
-var Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Drop",
-		Name:   "drop",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "EidPrefix",
-		Name:   "eid-prefix",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-		},
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface_EtrInterfaceIpSchema,
-		GoName: "EtrInterfaceIp",
-		Name:   "etr-interface-ip",
-	}, {
-		GoName: "MapRequest",
-		Name:   "map-request",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "NativeForward",
-		Name:   "native-forward",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface_RlocAttributesSchema,
-		GoName: "RlocAttributes",
-		List:   true,
-		Name:   "rloc-attributes",
-	}},
-	Keys:      []string{"eid-prefix"},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "eid-interface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceKey is Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface's row identity (ancestor keys in canonical form).
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceKey struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	EidPrefix               string
-}
-
-// Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceFlatRow flattens one Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface entry with its ancestor list keys.
-type Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceFlatRow struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	Entry                   Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceDescriptor is the flattened-row descriptor for the nested list Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterface.
 func Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceDescriptor() yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Service_Ipv4_MapCache_EidInterfaceKey] {
@@ -41567,4 +41043,576 @@ var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Schema = &yang.
 	Module:    "Cisco-IOS-XE-nhrp",
 	Name:      "ospfv3",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Key is Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3's row identity (ancestor keys in canonical form).
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Key struct {
+	Nhrp_Id  string
+	Vrf_Name string
+	Id       uint32
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow flattens one Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3 entry with its ancestor list keys.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow struct {
+	Nhrp_Id  string
+	Vrf_Name string
+	Entry    Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Descriptor is the flattened-row descriptor for the nested list Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3.
+func Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Descriptor() yang.ListDescriptor[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Key] {
+	return yang.ListDescriptor[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Key]{
+		Codec: yang.RowCodec[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Key]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow, error) {
+				chain := []*yang.Schema{Native_Router_NhrpSchema, Native_Router_Nhrp_AddressFamily_Ipv4_VrfSchema, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Schema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow{
+						Entry:    en.Entry,
+						Nhrp_Id:  yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Name: yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow, error) {
+				chain := []*yang.Schema{Native_Router_NhrpSchema, Native_Router_Nhrp_AddressFamily_Ipv4_VrfSchema, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Schema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow{
+						Entry:    en.Entry,
+						Nhrp_Id:  yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Name: yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow) Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Key {
+				var k Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Key
+				k.Nhrp_Id = r.Nhrp_Id
+				k.Vrf_Name = r.Vrf_Name
+				if r.Entry.Id != nil {
+					k.Id = *r.Entry.Id
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow) Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3FlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3Schema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-nhrp",
+			Name:      "nhrp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+		}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "vrf"}, {Name: "redistribute"}, {Name: "ospfv3"}}},
+	}
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match struct {
+	External     *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_External
+	Internal     *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_Internal
+	NssaExternal *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_NssaExternal
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_MatchSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_MatchSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_ExternalSchema,
+		GoName: "External",
+		Name:   "external",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_InternalSchema,
+		GoName: "Internal",
+		Name:   "internal",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_NssaExternalSchema,
+		GoName: "NssaExternal",
+		Name:   "nssa-external",
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "match",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_External is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match/external.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_External struct {
+	ExternalRoutes *string
+	Metric         *uint32
+	MetricType     *string
+	NssaOnly       *bool
+	RouteMap       *string
+	Subnets        *bool
+	Tag            *uint32
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_ExternalSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match/external for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_ExternalSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ExternalRoutes",
+		Name:   "external-routes",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "MetricType",
+		Name:   "metric-type",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "NssaOnly",
+		Name:   "nssa-only",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "Subnets",
+		Name:   "subnets",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Tag",
+		Name:   "tag",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "external",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+	Presence:  true,
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_Internal is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match/internal.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_Internal struct {
+	Metric     *uint32
+	MetricType *string
+	NssaOnly   *bool
+	RouteMap   *string
+	Subnets    *bool
+	Tag        *uint32
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_InternalSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match/internal for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_InternalSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "MetricType",
+		Name:   "metric-type",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "NssaOnly",
+		Name:   "nssa-only",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "Subnets",
+		Name:   "subnets",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Tag",
+		Name:   "tag",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "internal",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+	Presence:  true,
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_NssaExternal is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match/nssa-external.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_NssaExternal struct {
+	Metric             *uint32
+	MetricType         *string
+	NssaExternalRoutes *string
+	NssaOnly           *bool
+	RouteMap           *string
+	Subnets            *bool
+	Tag                *uint32
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_NssaExternalSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/ospfv3/match/nssa-external for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Ospfv3_Match_NssaExternalSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "MetricType",
+		Name:   "metric-type",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "NssaExternalRoutes",
+		Name:   "nssa-external-routes",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "NssaOnly",
+		Name:   "nssa-only",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "Subnets",
+		Name:   "subnets",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Tag",
+		Name:   "tag",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "nssa-external",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+	Presence:  true,
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/rip.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip struct {
+	Id            *string
+	RedistOptions *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip_RedistOptions
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/rip for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip_RedistOptionsSchema,
+		GoName: "RedistOptions",
+		Name:   "redist-options",
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "rip",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipKey is Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip's row identity (ancestor keys in canonical form).
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipKey struct {
+	Nhrp_Id  string
+	Vrf_Name string
+	Id       string
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow flattens one Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip entry with its ancestor list keys.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow struct {
+	Nhrp_Id  string
+	Vrf_Name string
+	Entry    Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipDescriptor is the flattened-row descriptor for the nested list Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip.
+func Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipDescriptor() yang.ListDescriptor[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipKey] {
+	return yang.ListDescriptor[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipKey]{
+		Codec: yang.RowCodec[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_NhrpSchema, Native_Router_Nhrp_AddressFamily_Ipv4_VrfSchema, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow{
+						Entry:    en.Entry,
+						Nhrp_Id:  yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Name: yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_NhrpSchema, Native_Router_Nhrp_AddressFamily_Ipv4_VrfSchema, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow{
+						Entry:    en.Entry,
+						Nhrp_Id:  yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Name: yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow) Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipKey {
+				var k Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipKey
+				k.Nhrp_Id = r.Nhrp_Id
+				k.Vrf_Name = r.Vrf_Name
+				if r.Entry.Id != nil {
+					k.Id = *r.Entry.Id
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow) Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_RipSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-nhrp",
+			Name:      "nhrp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+		}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "vrf"}, {Name: "redistribute"}, {Name: "rip"}}},
+	}
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip_RedistOptions is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/rip/redist-options.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip_RedistOptions struct {
+	Metric   *uint32
+	RouteMap *string
+	Tag      *uint32
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip_RedistOptionsSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/rip/redist-options for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Rip_RedistOptionsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "Tag",
+		Name:   "tag",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "redist-options",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/static.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static struct {
+	RedistOptions *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static_RedistOptions
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_StaticSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/static for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_StaticSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static_RedistOptionsSchema,
+		GoName: "RedistOptions",
+		Name:   "redist-options",
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "static",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+	Presence:  true,
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static_RedistOptions is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/static/redist-options.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static_RedistOptions struct {
+	Metric   *uint32
+	RouteMap *string
+	Tag      *uint32
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static_RedistOptionsSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/static/redist-options for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Static_RedistOptionsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "Tag",
+		Name:   "tag",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "redist-options",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/vrf.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf struct {
+	Global       *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global
+	NonGlobalVrf []Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_NonGlobalVrf
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_VrfSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/vrf for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_VrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_GlobalSchema,
+		GoName: "Global",
+		Name:   "global",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_NonGlobalVrfSchema,
+		GoName: "NonGlobalVrf",
+		List:   true,
+		Name:   "non-global-vrf",
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/vrf/global.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global struct {
+	Application []Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application
+	Bgp         []Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Bgp
+	Connected   *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Connected
+	Eigrp       []Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Eigrp
+	Isis        *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Isis
+	IsoIgrp     *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_IsoIgrp
+	Lisp        *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Lisp
+	Mobile      *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Mobile
+	NatRoute    *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_NatRoute
+	Odr         *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Odr
+	Omp         *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Omp
+	Ospf        []Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Ospf
+	Ospfv3      []Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Ospfv3
+	Rip         []Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Rip
+	Static      *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Static
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_GlobalSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/vrf/global for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_GlobalSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ApplicationSchema,
+		GoName: "Application",
+		List:   true,
+		Name:   "application",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_BgpSchema,
+		GoName: "Bgp",
+		List:   true,
+		Name:   "bgp",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ConnectedSchema,
+		GoName: "Connected",
+		Name:   "connected",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_EigrpSchema,
+		GoName: "Eigrp",
+		List:   true,
+		Name:   "eigrp",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_IsisSchema,
+		GoName: "Isis",
+		Name:   "isis",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_IsoIgrpSchema,
+		GoName: "IsoIgrp",
+		Name:   "iso-igrp",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_LispSchema,
+		GoName: "Lisp",
+		Name:   "lisp",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_MobileSchema,
+		GoName: "Mobile",
+		Name:   "mobile",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_NatRouteSchema,
+		GoName: "NatRoute",
+		Name:   "nat-route",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_OdrSchema,
+		GoName: "Odr",
+		Name:   "odr",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_OmpSchema,
+		GoName: "Omp",
+		Name:   "omp",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_OspfSchema,
+		GoName: "Ospf",
+		List:   true,
+		Name:   "ospf",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Ospfv3Schema,
+		GoName: "Ospfv3",
+		List:   true,
+		Name:   "ospfv3",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_RipSchema,
+		GoName: "Rip",
+		List:   true,
+		Name:   "rip",
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_StaticSchema,
+		GoName: "Static",
+		Name:   "static",
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "global",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/vrf/global/application.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application struct {
+	Name          *string
+	RedistOptions *Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application_RedistOptions
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ApplicationSchema describes /Cisco-IOS-XE-native/native/router/nhrp/address-family/ipv4/vrf/redistribute/vrf/global/application for the generic codecs.
+var Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ApplicationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application_RedistOptionsSchema,
+		GoName: "RedistOptions",
+		Name:   "redist-options",
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "application",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ApplicationKey is Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application's row identity (ancestor keys in canonical form).
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ApplicationKey struct {
+	Nhrp_Id  string
+	Vrf_Name string
+	Name     string
+}
+
+// Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ApplicationFlatRow flattens one Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application entry with its ancestor list keys.
+type Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_ApplicationFlatRow struct {
+	Nhrp_Id  string
+	Vrf_Name string
+	Entry    Native_Router_Nhrp_AddressFamily_Ipv4_Vrf_Redistribute_Vrf_Global_Application
 }

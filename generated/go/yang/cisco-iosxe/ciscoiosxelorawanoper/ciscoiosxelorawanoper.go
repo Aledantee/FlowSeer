@@ -6,7 +6,7 @@
 // Package ciscoiosxelorawanoper binds the YANG module Cisco-IOS-XE-lorawan-oper.
 package ciscoiosxelorawanoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LorawanOperData is the Cisco-IOS-XE-lorawan-oper node /Cisco-IOS-XE-lorawan-oper/lorawan-oper-data.
 type LorawanOperData struct {

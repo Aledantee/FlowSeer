@@ -6,7 +6,7 @@
 // Package ciscoiosxeswitchportoper binds the YANG module Cisco-IOS-XE-switchport-oper.
 package ciscoiosxeswitchportoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SwitchportOperData is the Cisco-IOS-XE-switchport-oper node /Cisco-IOS-XE-switchport-oper/switchport-oper-data.
 type SwitchportOperData struct {

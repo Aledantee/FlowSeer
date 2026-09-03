@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesshotspotcfg binds the YANG module Cisco-IOS-XE-wireless-hotspot-cfg.
 package ciscoiosxewirelesshotspotcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // HotspotCfgData is the Cisco-IOS-XE-wireless-hotspot-cfg node /Cisco-IOS-XE-wireless-hotspot-cfg/hotspot-cfg-data.
 type HotspotCfgData struct {

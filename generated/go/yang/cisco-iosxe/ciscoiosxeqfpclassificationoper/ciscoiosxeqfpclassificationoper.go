@@ -6,7 +6,7 @@
 // Package ciscoiosxeqfpclassificationoper binds the YANG module Cisco-IOS-XE-qfp-classification-oper.
 package ciscoiosxeqfpclassificationoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // QfpClassificationOperData is the Cisco-IOS-XE-qfp-classification-oper node /Cisco-IOS-XE-qfp-classification-oper/qfp-classification-oper-data.
 type QfpClassificationOperData struct {

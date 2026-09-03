@@ -6,7 +6,7 @@
 // Package ciscobridgedomain binds the YANG module cisco-bridge-domain.
 package ciscobridgedomain
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BridgeDomainConfig is the cisco-bridge-domain node /cisco-bridge-domain/bridge-domain-config.
 type BridgeDomainConfig struct {

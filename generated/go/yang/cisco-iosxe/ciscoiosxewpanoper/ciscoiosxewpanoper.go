@@ -6,7 +6,7 @@
 // Package ciscoiosxewpanoper binds the YANG module Cisco-IOS-XE-wpan-oper.
 package ciscoiosxewpanoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // WpanOperData is the Cisco-IOS-XE-wpan-oper node /Cisco-IOS-XE-wpan-oper/wpan-oper-data.
 type WpanOperData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmeshcfg binds the YANG module Cisco-IOS-XE-wireless-mesh-cfg.
 package ciscoiosxewirelessmeshcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MeshCfgData is the Cisco-IOS-XE-wireless-mesh-cfg node /Cisco-IOS-XE-wireless-mesh-cfg/mesh-cfg-data.
 type MeshCfgData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxestackingoper binds the YANG module Cisco-IOS-XE-stacking-oper.
 package ciscoiosxestackingoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // StackingOperData is the Cisco-IOS-XE-stacking-oper node /Cisco-IOS-XE-stacking-oper/stacking-oper-data.
 type StackingOperData struct {

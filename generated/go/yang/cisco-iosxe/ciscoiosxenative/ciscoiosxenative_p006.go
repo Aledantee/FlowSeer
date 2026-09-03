@@ -5,356 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordDescriptor is the flattened-row descriptor for the nested list Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_Password.
-func Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordDescriptor() yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey] {
-	return yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey]{
-		Codec: yang.RowCodec[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_Password](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow{
-						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_Password](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow{
-						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey {
-				var k Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordKey
-				k.AppGigabitEthernet_Name = r.AppGigabitEthernet_Name
-				if r.Entry.Levels != nil {
-					k.Levels = *r.Entry.Levels
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_AppGigabitEthernet_Isis_IsisLan_PasswordLan_PasswordSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "AppGigabitEthernet"}, {Name: "isis"}, {
-			Module:    "Cisco-IOS-XE-isis",
-			Name:      "isis-lan",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-		}, {Name: "password-lan"}, {Name: "password"}}},
-	}
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial.
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial struct {
-	AdjacencySid          *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid
-	AuthenticationSerial  *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial
-	HelloIntervalSerial   *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloIntervalSerial
-	HelloMultiplierSerial *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloMultiplierSerial
-	PasswordSerial        *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_PasswordSerial
-	ThreeWayHandshake     *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_ThreeWayHandshake
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerialSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial for the generic codecs.
-var Native_Interface_AppGigabitEthernet_Isis_IsisSerialSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySidSchema,
-		GoName: "AdjacencySid",
-		Name:   "adjacency-sid",
-	}, {
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerialSchema,
-		GoName: "AuthenticationSerial",
-		Name:   "authentication-serial",
-	}, {
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloIntervalSerialSchema,
-		GoName: "HelloIntervalSerial",
-		Name:   "hello-interval-serial",
-	}, {
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_HelloMultiplierSerialSchema,
-		GoName: "HelloMultiplierSerial",
-		Name:   "hello-multiplier-serial",
-	}, {
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_PasswordSerialSchema,
-		GoName: "PasswordSerial",
-		Name:   "password-serial",
-	}, {
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_ThreeWayHandshakeSchema,
-		GoName: "ThreeWayHandshake",
-		Name:   "three-way-handshake",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "isis-serial",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid.
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid struct {
-	AdjSidListAbsolute []Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute
-	AdjSidListIndex    []Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySidSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid for the generic codecs.
-var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySidSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema,
-		GoName: "AdjSidListAbsolute",
-		List:   true,
-		Name:   "adj-sid-list-absolute",
-	}, {
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema,
-		GoName: "AdjSidListIndex",
-		List:   true,
-		Name:   "adj-sid-list-index",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "adjacency-sid",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-absolute.
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute struct {
-	Absolute  *bool
-	Protected *bool
-	SidValue  *uint32
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-absolute for the generic codecs.
-var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Absolute",
-		Name:   "absolute",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Protected",
-		Name:   "protected",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "SidValue",
-		Name:   "sid-value",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"sid-value"},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "adj-sid-list-absolute",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey is Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute's row identity (ancestor keys in canonical form).
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey struct {
-	AppGigabitEthernet_Name string
-	SidValue                uint32
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow flattens one Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute entry with its ancestor list keys.
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow struct {
-	AppGigabitEthernet_Name string
-	Entry                   Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteDescriptor is the flattened-row descriptor for the nested list Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute.
-func Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteDescriptor() yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey] {
-	return yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey]{
-		Codec: yang.RowCodec[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow{
-						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsolute](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow{
-						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey {
-				var k Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteKey
-				k.AppGigabitEthernet_Name = r.AppGigabitEthernet_Name
-				if r.Entry.SidValue != nil {
-					k.SidValue = *r.Entry.SidValue
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListAbsoluteSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "AppGigabitEthernet"}, {Name: "isis"}, {
-			Module:    "Cisco-IOS-XE-isis",
-			Name:      "isis-serial",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-		}, {Name: "adjacency-sid"}, {Name: "adj-sid-list-absolute"}}},
-	}
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-index.
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex struct {
-	Index     *bool
-	Protected *bool
-	SidValue  *uint32
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/adjacency-sid/adj-sid-list-index for the generic codecs.
-var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Index",
-		Name:   "index",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Protected",
-		Name:   "protected",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "SidValue",
-		Name:   "sid-value",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"sid-value"},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "adj-sid-list-index",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey is Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex's row identity (ancestor keys in canonical form).
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey struct {
-	AppGigabitEthernet_Name string
-	SidValue                uint32
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow flattens one Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex entry with its ancestor list keys.
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow struct {
-	AppGigabitEthernet_Name string
-	Entry                   Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexDescriptor is the flattened-row descriptor for the nested list Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex.
-func Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexDescriptor() yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey] {
-	return yang.ListDescriptor[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey]{
-		Codec: yang.RowCodec[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow{
-						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_AppGigabitEthernetSchema, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndex](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow{
-						AppGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey {
-				var k Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexKey
-				k.AppGigabitEthernet_Name = r.AppGigabitEthernet_Name
-				if r.Entry.SidValue != nil {
-					k.SidValue = *r.Entry.SidValue
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow) Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AdjacencySid_AdjSidListIndexSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "AppGigabitEthernet"}, {Name: "isis"}, {
-			Module:    "Cisco-IOS-XE-isis",
-			Name:      "isis-serial",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-		}, {Name: "adjacency-sid"}, {Name: "adj-sid-list-index"}}},
-	}
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/authentication-serial.
-type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial struct {
-	Authentication *Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication
-}
-
-// Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerialSchema describes /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/authentication-serial for the generic codecs.
-var Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerialSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial_AuthenticationSchema,
-		GoName: "Authentication",
-		Name:   "authentication",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "authentication-serial",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppGigabitEthernet/isis/isis-serial/authentication-serial/authentication.
 type Native_Interface_AppGigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication struct {
@@ -41104,4 +40755,389 @@ var Native_Interface_AppNavCompress_Ipv6_Verify_Unicast_SourceV1Schema = &yang.S
 	Module:    "Cisco-IOS-XE-native",
 	Name:      "source-v1",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_Ipv6_VirtualReassembly is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/ipv6/virtual-reassembly.
+type Native_Interface_AppNavCompress_Ipv6_VirtualReassembly struct {
+	In  *Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_In
+	Out *Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_Out
+}
+
+// Native_Interface_AppNavCompress_Ipv6_VirtualReassemblySchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/ipv6/virtual-reassembly for the generic codecs.
+var Native_Interface_AppNavCompress_Ipv6_VirtualReassemblySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_InSchema,
+		GoName: "In",
+		Name:   "in",
+	}, {
+		Child:  Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_OutSchema,
+		GoName: "Out",
+		Name:   "out",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "virtual-reassembly",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_In is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/ipv6/virtual-reassembly/in.
+type Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_In struct {
+	DropFragments   *bool
+	MaxFragments    *uint8
+	MaxReassemblies *uint16
+	Mode            *string
+	Timeout         *uint8
+}
+
+// Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_InSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/ipv6/virtual-reassembly/in for the generic codecs.
+var Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_InSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DropFragments",
+		Name:   "drop-fragments",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MaxFragments",
+		Name:   "max-fragments",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "MaxReassemblies",
+		Name:   "max-reassemblies",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Mode",
+		Name:   "mode",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Timeout",
+		Name:   "timeout",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "in",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_Out is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/ipv6/virtual-reassembly/out.
+type Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_Out struct {
+	DropFragments   *bool
+	MaxFragments    *uint8
+	MaxReassemblies *uint16
+	Mode            *string
+	Timeout         *uint8
+}
+
+// Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_OutSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/ipv6/virtual-reassembly/out for the generic codecs.
+var Native_Interface_AppNavCompress_Ipv6_VirtualReassembly_OutSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DropFragments",
+		Name:   "drop-fragments",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MaxFragments",
+		Name:   "max-fragments",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "MaxReassemblies",
+		Name:   "max-reassemblies",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Mode",
+		Name:   "mode",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Timeout",
+		Name:   "timeout",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "out",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_AppNavCompress_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/isis.
+type Native_Interface_AppNavCompress_Isis struct{}
+
+// Native_Interface_AppNavCompress_IsisSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/isis for the generic codecs.
+var Native_Interface_AppNavCompress_IsisSchema = &yang.Schema{
+	Fields:    []yang.Field{},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "isis",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_KeepaliveConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/keepalive-config.
+type Native_Interface_AppNavCompress_KeepaliveConfig struct {
+	Keepalive *bool
+	Period    *uint16
+	Retries   *uint8
+}
+
+// Native_Interface_AppNavCompress_KeepaliveConfigSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/keepalive-config for the generic codecs.
+var Native_Interface_AppNavCompress_KeepaliveConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Keepalive",
+		Name:   "keepalive",
+		Type:   yang.TBool,
+	}, {
+		GoName: "Period",
+		Name:   "period",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Retries",
+		Name:   "retries",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "keepalive-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_KeepaliveSettings is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/keepalive-choice/keepalive-settings/keepalive-settings.
+type Native_Interface_AppNavCompress_KeepaliveSettings struct {
+	Keepalive *Native_Interface_AppNavCompress_KeepaliveSettings_Keepalive
+}
+
+// Native_Interface_AppNavCompress_KeepaliveSettingsSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/keepalive-choice/keepalive-settings/keepalive-settings for the generic codecs.
+var Native_Interface_AppNavCompress_KeepaliveSettingsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppNavCompress_KeepaliveSettings_KeepaliveSchema,
+		GoName: "Keepalive",
+		Name:   "keepalive",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "keepalive-settings",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_KeepaliveSettings_Keepalive is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/keepalive-choice/keepalive-settings/keepalive-settings/keepalive.
+type Native_Interface_AppNavCompress_KeepaliveSettings_Keepalive struct {
+	Period  *uint16
+	Retries *uint8
+}
+
+// Native_Interface_AppNavCompress_KeepaliveSettings_KeepaliveSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/keepalive-choice/keepalive-settings/keepalive-settings/keepalive for the generic codecs.
+var Native_Interface_AppNavCompress_KeepaliveSettings_KeepaliveSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Period",
+		Name:   "period",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Retries",
+		Name:   "retries",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "keepalive",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_AppNavCompress_L2protocol is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol.
+type Native_Interface_AppNavCompress_L2protocol struct {
+	Forward *Native_Interface_AppNavCompress_L2protocol_Forward
+}
+
+// Native_Interface_AppNavCompress_L2protocolSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol for the generic codecs.
+var Native_Interface_AppNavCompress_L2protocolSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppNavCompress_L2protocol_ForwardSchema,
+		GoName: "Forward",
+		Name:   "forward",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "l2protocol",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward.
+type Native_Interface_AppNavCompress_L2protocol_Forward struct {
+	DropThreshold     *Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold
+	Protocols         []string
+	ShutdownThreshold *Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold
+}
+
+// Native_Interface_AppNavCompress_L2protocol_ForwardSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward for the generic codecs.
+var Native_Interface_AppNavCompress_L2protocol_ForwardSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppNavCompress_L2protocol_Forward_DropThresholdSchema,
+		GoName: "DropThreshold",
+		Name:   "drop-threshold",
+	}, {
+		GoName:   "Protocols",
+		LeafList: true,
+		Name:     "protocols",
+		Type:     yang.TEnum,
+	}, {
+		Child:  Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThresholdSchema,
+		GoName: "ShutdownThreshold",
+		Name:   "shutdown-threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "forward",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/drop-threshold.
+type Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold struct {
+	ThresholdList []Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_DropThresholdSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/drop-threshold for the generic codecs.
+var Native_Interface_AppNavCompress_L2protocol_Forward_DropThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListSchema,
+		GoName: "ThresholdList",
+		List:   true,
+		Name:   "threshold-list",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "drop-threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/drop-threshold/threshold-list.
+type Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList struct {
+	PpsNum    *uint16
+	ProtoType *string
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/drop-threshold/threshold-list for the generic codecs.
+var Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PpsNum",
+		Name:   "pps-num",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "ProtoType",
+		Name:   "proto-type",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"proto-type"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListKey is Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList's row identity (ancestor keys in canonical form).
+type Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListKey struct {
+	AppNavCompress_Name string
+	ProtoType           string
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow flattens one Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList entry with its ancestor list keys.
+type Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow struct {
+	AppNavCompress_Name string
+	Entry               Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListDescriptor is the flattened-row descriptor for the nested list Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList.
+func Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListDescriptor() yang.ListDescriptor[Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListKey] {
+	return yang.ListDescriptor[Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListKey]{
+		Codec: yang.RowCodec[Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppNavCompressSchema, Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow{
+						AppNavCompress_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:               en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_AppNavCompressSchema, Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow{
+						AppNavCompress_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:               en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListKey {
+				var k Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListKey
+				k.AppNavCompress_Name = r.AppNavCompress_Name
+				if r.Entry.ProtoType != nil {
+					k.ProtoType = *r.Entry.ProtoType
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_AppNavCompress_L2protocol_Forward_DropThreshold_ThresholdListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "AppNav-Compress"}, {Name: "l2protocol"}, {Name: "forward"}, {Name: "drop-threshold"}, {Name: "threshold-list"}}},
+	}
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/shutdown-threshold.
+type Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold struct {
+	ThresholdList []Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdList
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThresholdSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/shutdown-threshold for the generic codecs.
+var Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema,
+		GoName: "ThresholdList",
+		List:   true,
+		Name:   "threshold-list",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "shutdown-threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/shutdown-threshold/threshold-list.
+type Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdList struct {
+	PpsNum    *uint16
+	ProtoType *string
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema describes /Cisco-IOS-XE-native/native/interface/AppNav-Compress/l2protocol/forward/shutdown-threshold/threshold-list for the generic codecs.
+var Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PpsNum",
+		Name:   "pps-num",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "ProtoType",
+		Name:   "proto-type",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"proto-type"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdListKey is Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdList's row identity (ancestor keys in canonical form).
+type Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdListKey struct {
+	AppNavCompress_Name string
+	ProtoType           string
+}
+
+// Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow flattens one Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdList entry with its ancestor list keys.
+type Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow struct {
+	AppNavCompress_Name string
+	Entry               Native_Interface_AppNavCompress_L2protocol_Forward_ShutdownThreshold_ThresholdList
 }

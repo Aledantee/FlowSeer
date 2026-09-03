@@ -6,7 +6,7 @@
 // Package ciscoiosxeawss3oper binds the YANG module Cisco-IOS-XE-aws-s3-oper.
 package ciscoiosxeawss3oper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AwsS3OperData is the Cisco-IOS-XE-aws-s3-oper node /Cisco-IOS-XE-aws-s3-oper/aws-s3-oper-data.
 type AwsS3OperData struct {

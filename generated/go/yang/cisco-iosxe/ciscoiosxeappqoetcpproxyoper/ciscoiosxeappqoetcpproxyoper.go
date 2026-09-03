@@ -6,7 +6,7 @@
 // Package ciscoiosxeappqoetcpproxyoper binds the YANG module Cisco-IOS-XE-appqoe-tcpproxy-oper.
 package ciscoiosxeappqoetcpproxyoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AppqoeTcpproxyOperData is the Cisco-IOS-XE-appqoe-tcpproxy-oper node /Cisco-IOS-XE-appqoe-tcpproxy-oper/appqoe-tcpproxy-oper-data.
 type AppqoeTcpproxyOperData struct {

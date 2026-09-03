@@ -6,7 +6,7 @@
 // Package openconfigvlantypes binds the YANG module openconfig-vlan-types.
 package openconfigvlantypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_TPID0X8100 is the openconfig-vlan-types identity "TPID_0X8100".
 var Identity_TPID0X8100 = yang.Identity{

@@ -6,7 +6,7 @@
 // Package ciscoiosxeembeddedapoper binds the YANG module Cisco-IOS-XE-embedded-ap-oper.
 package ciscoiosxeembeddedapoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EmbeddedApOperData is the Cisco-IOS-XE-embedded-ap-oper node /Cisco-IOS-XE-embedded-ap-oper/embedded-ap-oper-data.
 type EmbeddedApOperData struct {

@@ -5,663 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_Address_PoolSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address/address-choice/pool/pool for the generic codecs.
-var Native_Interface_GroupAsync_Peer_Default_Ip_Address_PoolSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Pools",
-		Name:   "pools",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pool",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config.
-type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig struct {
-	Address *Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfigSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config for the generic codecs.
-var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_AddressSchema,
-		GoName: "Address",
-		Name:   "address",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "address-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address.
-type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address struct {
-	Dhcp     *bool
-	DhcpPool *Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPool
-	Pool     *Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_Pool
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_AddressSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address for the generic codecs.
-var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_AddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Dhcp",
-		Name:   "dhcp",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPoolSchema,
-		GoName: "DhcpPool",
-		Name:   "dhcp-pool",
-	}, {
-		Child:  Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_PoolSchema,
-		GoName: "Pool",
-		Name:   "pool",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPool is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/dhcp-pool/dhcp-pool.
-type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPool struct {
-	Pools *string
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPoolSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/dhcp-pool/dhcp-pool for the generic codecs.
-var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPoolSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Pools",
-		Name:   "pools",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "dhcp-pool",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_Pool is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/pool/pool.
-type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_Pool struct {
-	Pools *string
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_PoolSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/pool/pool for the generic codecs.
-var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_PoolSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Pools",
-		Name:   "pools",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pool",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressNo is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-no/address-no.
-type Native_Interface_GroupAsync_Peer_Default_Ip_AddressNo struct {
-	Address *bool
-}
-
-// Native_Interface_GroupAsync_Peer_Default_Ip_AddressNoSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-no/address-no for the generic codecs.
-var Native_Interface_GroupAsync_Peer_Default_Ip_AddressNoSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "address-no",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_PmPath is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/pm-path.
-type Native_Interface_GroupAsync_PmPath struct {
-	InterfaceId *uint8
-	Name        *string
-}
-
-// Native_Interface_GroupAsync_PmPathSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/pm-path for the generic codecs.
-var Native_Interface_GroupAsync_PmPathSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "InterfaceId",
-		Name:   "interface-id",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pm-path",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_PriorityQueue is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue.
-type Native_Interface_GroupAsync_PriorityQueue struct {
-	CosMap *Native_Interface_GroupAsync_PriorityQueue_CosMap
-	Out    *bool
-}
-
-// Native_Interface_GroupAsync_PriorityQueueSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue for the generic codecs.
-var Native_Interface_GroupAsync_PriorityQueueSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GroupAsync_PriorityQueue_CosMapSchema,
-		GoName: "CosMap",
-		Name:   "cos-map",
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "priority-queue",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_PriorityQueue_CosMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue/cos-map.
-type Native_Interface_GroupAsync_PriorityQueue_CosMap struct {
-	CosValues []uint8
-	Id        *uint8
-}
-
-// Native_Interface_GroupAsync_PriorityQueue_CosMapSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue/cos-map for the generic codecs.
-var Native_Interface_GroupAsync_PriorityQueue_CosMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:   "CosValues",
-		LeafList: true,
-		Name:     "cos-values",
-		Type:     yang.TUint8,
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "cos-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_PuntControl is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control.
-type Native_Interface_GroupAsync_PuntControl struct {
-	Cause  []Native_Interface_GroupAsync_PuntControl_Cause
-	Enable *Native_Interface_GroupAsync_PuntControl_Enable
-}
-
-// Native_Interface_GroupAsync_PuntControlSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control for the generic codecs.
-var Native_Interface_GroupAsync_PuntControlSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GroupAsync_PuntControl_CauseSchema,
-		GoName: "Cause",
-		List:   true,
-		Name:   "cause",
-	}, {
-		Child:  Native_Interface_GroupAsync_PuntControl_EnableSchema,
-		GoName: "Enable",
-		Name:   "enable",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "punt-control",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_PuntControl_Cause is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/cause.
-type Native_Interface_GroupAsync_PuntControl_Cause struct {
-	Name *string
-	Rate *uint32
-}
-
-// Native_Interface_GroupAsync_PuntControl_CauseSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/cause for the generic codecs.
-var Native_Interface_GroupAsync_PuntControl_CauseSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Rate",
-		Name:   "rate",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "cause",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_PuntControl_CauseKey is Native_Interface_GroupAsync_PuntControl_Cause's row identity (ancestor keys in canonical form).
-type Native_Interface_GroupAsync_PuntControl_CauseKey struct {
-	GroupAsync_Name string
-	Name            string
-}
-
-// Native_Interface_GroupAsync_PuntControl_CauseFlatRow flattens one Native_Interface_GroupAsync_PuntControl_Cause entry with its ancestor list keys.
-type Native_Interface_GroupAsync_PuntControl_CauseFlatRow struct {
-	GroupAsync_Name string
-	Entry           Native_Interface_GroupAsync_PuntControl_Cause
-}
-
-// Native_Interface_GroupAsync_PuntControl_CauseDescriptor is the flattened-row descriptor for the nested list Native_Interface_GroupAsync_PuntControl_Cause.
-func Native_Interface_GroupAsync_PuntControl_CauseDescriptor() yang.ListDescriptor[Native_Interface_GroupAsync_PuntControl_CauseFlatRow, Native_Interface_GroupAsync_PuntControl_CauseKey] {
-	return yang.ListDescriptor[Native_Interface_GroupAsync_PuntControl_CauseFlatRow, Native_Interface_GroupAsync_PuntControl_CauseKey]{
-		Codec: yang.RowCodec[Native_Interface_GroupAsync_PuntControl_CauseFlatRow, Native_Interface_GroupAsync_PuntControl_CauseKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_PuntControl_CauseSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_GroupAsync_PuntControl_Cause](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GroupAsync_PuntControl_CauseFlatRow{
-						Entry:           en.Entry,
-						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_PuntControl_CauseSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_GroupAsync_PuntControl_Cause](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GroupAsync_PuntControl_CauseFlatRow{
-						Entry:           en.Entry,
-						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_GroupAsync_PuntControl_CauseFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_GroupAsync_PuntControl_CauseFlatRow) Native_Interface_GroupAsync_PuntControl_CauseKey {
-				var k Native_Interface_GroupAsync_PuntControl_CauseKey
-				k.GroupAsync_Name = r.GroupAsync_Name
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_GroupAsync_PuntControl_CauseFlatRow) Native_Interface_GroupAsync_PuntControl_CauseFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_GroupAsync_PuntControl_CauseSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Group-Async"}, {Name: "punt-control"}, {Name: "cause"}}},
-	}
-}
-
-// Native_Interface_GroupAsync_PuntControl_Enable is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/enable.
-type Native_Interface_GroupAsync_PuntControl_Enable struct {
-	Pps *uint32
-}
-
-// Native_Interface_GroupAsync_PuntControl_EnableSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/enable for the generic codecs.
-var Native_Interface_GroupAsync_PuntControl_EnableSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Pps",
-		Name:   "pps",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "enable",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_GroupAsync_RcvQueue is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue.
-type Native_Interface_GroupAsync_RcvQueue struct {
-	CosMap []Native_Interface_GroupAsync_RcvQueue_CosMap
-}
-
-// Native_Interface_GroupAsync_RcvQueueSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue for the generic codecs.
-var Native_Interface_GroupAsync_RcvQueueSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GroupAsync_RcvQueue_CosMapSchema,
-		GoName: "CosMap",
-		List:   true,
-		Name:   "cos-map",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "rcv-queue",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_RcvQueue_CosMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue/cos-map.
-type Native_Interface_GroupAsync_RcvQueue_CosMap struct {
-	CosValues   []uint8
-	QueueId     *uint8
-	ThresholdId *uint8
-}
-
-// Native_Interface_GroupAsync_RcvQueue_CosMapSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue/cos-map for the generic codecs.
-var Native_Interface_GroupAsync_RcvQueue_CosMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:   "CosValues",
-		LeafList: true,
-		Name:     "cos-values",
-		Type:     yang.TUint8,
-	}, {
-		GoName: "QueueId",
-		Name:   "queue-id",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "ThresholdId",
-		Name:   "threshold-id",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"queue-id", "threshold-id"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "cos-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_RcvQueue_CosMapKey is Native_Interface_GroupAsync_RcvQueue_CosMap's row identity (ancestor keys in canonical form).
-type Native_Interface_GroupAsync_RcvQueue_CosMapKey struct {
-	GroupAsync_Name string
-	QueueId         uint8
-	ThresholdId     uint8
-}
-
-// Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow flattens one Native_Interface_GroupAsync_RcvQueue_CosMap entry with its ancestor list keys.
-type Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow struct {
-	GroupAsync_Name string
-	Entry           Native_Interface_GroupAsync_RcvQueue_CosMap
-}
-
-// Native_Interface_GroupAsync_RcvQueue_CosMapDescriptor is the flattened-row descriptor for the nested list Native_Interface_GroupAsync_RcvQueue_CosMap.
-func Native_Interface_GroupAsync_RcvQueue_CosMapDescriptor() yang.ListDescriptor[Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, Native_Interface_GroupAsync_RcvQueue_CosMapKey] {
-	return yang.ListDescriptor[Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, Native_Interface_GroupAsync_RcvQueue_CosMapKey]{
-		Codec: yang.RowCodec[Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, Native_Interface_GroupAsync_RcvQueue_CosMapKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_RcvQueue_CosMapSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_GroupAsync_RcvQueue_CosMap](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow{
-						Entry:           en.Entry,
-						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_RcvQueue_CosMapSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_GroupAsync_RcvQueue_CosMap](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow{
-						Entry:           en.Entry,
-						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow) Native_Interface_GroupAsync_RcvQueue_CosMapKey {
-				var k Native_Interface_GroupAsync_RcvQueue_CosMapKey
-				k.GroupAsync_Name = r.GroupAsync_Name
-				if r.Entry.QueueId != nil {
-					k.QueueId = *r.Entry.QueueId
-				}
-				if r.Entry.ThresholdId != nil {
-					k.ThresholdId = *r.Entry.ThresholdId
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow) Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_GroupAsync_RcvQueue_CosMapSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Group-Async"}, {Name: "rcv-queue"}, {Name: "cos-map"}}},
-	}
-}
-
-// Native_Interface_GroupAsync_Redundancy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy.
-type Native_Interface_GroupAsync_Redundancy struct {
-	AsymmetricRouting *Native_Interface_GroupAsync_Redundancy_AsymmetricRouting
-	GratuitousArp     *Native_Interface_GroupAsync_Redundancy_GratuitousArp
-	Group             []Native_Interface_GroupAsync_Redundancy_Group
-	Rii               *Native_Interface_GroupAsync_Redundancy_Rii
-}
-
-// Native_Interface_GroupAsync_RedundancySchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy for the generic codecs.
-var Native_Interface_GroupAsync_RedundancySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GroupAsync_Redundancy_AsymmetricRoutingSchema,
-		GoName: "AsymmetricRouting",
-		Name:   "asymmetric-routing",
-	}, {
-		Child:  Native_Interface_GroupAsync_Redundancy_GratuitousArpSchema,
-		GoName: "GratuitousArp",
-		Name:   "gratuitous-arp",
-	}, {
-		Child:  Native_Interface_GroupAsync_Redundancy_GroupSchema,
-		GoName: "Group",
-		List:   true,
-		Name:   "group",
-	}, {
-		Child:  Native_Interface_GroupAsync_Redundancy_RiiSchema,
-		GoName: "Rii",
-		Name:   "rii",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "redundancy",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Redundancy_AsymmetricRouting is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/asymmetric-routing.
-type Native_Interface_GroupAsync_Redundancy_AsymmetricRouting struct {
-	Enable *bool
-}
-
-// Native_Interface_GroupAsync_Redundancy_AsymmetricRoutingSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/asymmetric-routing for the generic codecs.
-var Native_Interface_GroupAsync_Redundancy_AsymmetricRoutingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "asymmetric-routing",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp.
-type Native_Interface_GroupAsync_Redundancy_GratuitousArp struct {
-	Group []Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArpSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp for the generic codecs.
-var Native_Interface_GroupAsync_Redundancy_GratuitousArpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema,
-		GoName: "Group",
-		List:   true,
-		Name:   "group",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "gratuitous-arp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group.
-type Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group struct {
-	Id       *uint8
-	Interval *Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_Interval
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group for the generic codecs.
-var Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_IntervalSchema,
-		GoName: "Interval",
-		Name:   "interval",
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey is Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group's row identity (ancestor keys in canonical form).
-type Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey struct {
-	GroupAsync_Name string
-	Id              uint8
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow flattens one Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group entry with its ancestor list keys.
-type Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow struct {
-	GroupAsync_Name string
-	Entry           Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group.
-func Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupDescriptor() yang.ListDescriptor[Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey] {
-	return yang.ListDescriptor[Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey]{
-		Codec: yang.RowCodec[Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow{
-						Entry:           en.Entry,
-						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow{
-						Entry:           en.Entry,
-						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow) Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey {
-				var k Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey
-				k.GroupAsync_Name = r.GroupAsync_Name
-				if r.Entry.Id != nil {
-					k.Id = *r.Entry.Id
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow) Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Group-Async"}, {Name: "redundancy"}, {Name: "gratuitous-arp"}, {Name: "group"}}},
-	}
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_Interval is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group/interval.
-type Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_Interval struct {
-	Min *uint8
-	Sec *uint16
-}
-
-// Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_IntervalSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group/interval for the generic codecs.
-var Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_IntervalSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Min",
-		Name:   "min",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Sec",
-		Name:   "sec",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "interval",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Redundancy_Group is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/group.
-type Native_Interface_GroupAsync_Redundancy_Group struct {
-	Decrement *uint8
-	Id        *uint8
-	VirtualIp []Native_Interface_GroupAsync_Redundancy_Group_VirtualIp
-}
-
-// Native_Interface_GroupAsync_Redundancy_GroupSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/group for the generic codecs.
-var Native_Interface_GroupAsync_Redundancy_GroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Decrement",
-		Name:   "decrement",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Interface_GroupAsync_Redundancy_Group_VirtualIpSchema,
-		GoName: "VirtualIp",
-		List:   true,
-		Name:   "virtual-ip",
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_GroupAsync_Redundancy_GroupKey is Native_Interface_GroupAsync_Redundancy_Group's row identity (ancestor keys in canonical form).
-type Native_Interface_GroupAsync_Redundancy_GroupKey struct {
-	GroupAsync_Name string
-	Id              uint8
-}
-
-// Native_Interface_GroupAsync_Redundancy_GroupFlatRow flattens one Native_Interface_GroupAsync_Redundancy_Group entry with its ancestor list keys.
-type Native_Interface_GroupAsync_Redundancy_GroupFlatRow struct {
-	GroupAsync_Name string
-	Entry           Native_Interface_GroupAsync_Redundancy_Group
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_GroupAsync_Redundancy_GroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_GroupAsync_Redundancy_Group.
 func Native_Interface_GroupAsync_Redundancy_GroupDescriptor() yang.ListDescriptor[Native_Interface_GroupAsync_Redundancy_GroupFlatRow, Native_Interface_GroupAsync_Redundancy_GroupKey] {
@@ -41112,4 +40456,556 @@ type Native_Interface_HundredGigE_Ip_Address_SecondaryKey struct {
 type Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow struct {
 	HundredGigE_Name string
 	Entry            Native_Interface_HundredGigE_Ip_Address_Secondary
+}
+
+// Native_Interface_HundredGigE_Ip_Address_SecondaryDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_Address_Secondary.
+func Native_Interface_HundredGigE_Ip_Address_SecondaryDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, Native_Interface_HundredGigE_Ip_Address_SecondaryKey] {
+	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, Native_Interface_HundredGigE_Ip_Address_SecondaryKey]{
+		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, Native_Interface_HundredGigE_Ip_Address_SecondaryKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_Address_SecondarySchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_Address_Secondary](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_Address_SecondarySchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_Address_Secondary](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow) Native_Interface_HundredGigE_Ip_Address_SecondaryKey {
+				var k Native_Interface_HundredGigE_Ip_Address_SecondaryKey
+				k.HundredGigE_Name = r.HundredGigE_Name
+				if r.Entry.Address != nil {
+					k.Address = *r.Entry.Address
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow) Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_Address_SecondarySchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {Name: "address"}, {Name: "secondary"}}},
+	}
+}
+
+// Native_Interface_HundredGigE_Ip_Arp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp.
+type Native_Interface_HundredGigE_Ip_Arp struct {
+	Inspection *Native_Interface_HundredGigE_Ip_Arp_Inspection
+}
+
+// Native_Interface_HundredGigE_Ip_ArpSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp for the generic codecs.
+var Native_Interface_HundredGigE_Ip_ArpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_Ip_Arp_InspectionSchema,
+		GoName: "Inspection",
+		Name:   "inspection",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "arp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_Ip_Arp_Inspection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection.
+type Native_Interface_HundredGigE_Ip_Arp_Inspection struct {
+	Limit *Native_Interface_HundredGigE_Ip_Arp_Inspection_Limit
+	Trust *bool
+}
+
+// Native_Interface_HundredGigE_Ip_Arp_InspectionSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection for the generic codecs.
+var Native_Interface_HundredGigE_Ip_Arp_InspectionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_Ip_Arp_Inspection_LimitSchema,
+		GoName: "Limit",
+		Name:   "limit",
+	}, {
+		GoName: "Trust",
+		Name:   "trust",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "inspection",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_Ip_Arp_Inspection_Limit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection/limit.
+type Native_Interface_HundredGigE_Ip_Arp_Inspection_Limit struct {
+	None *bool
+	Rate *uint32
+}
+
+// Native_Interface_HundredGigE_Ip_Arp_Inspection_LimitSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection/limit for the generic codecs.
+var Native_Interface_HundredGigE_Ip_Arp_Inspection_LimitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "None",
+		Name:   "none",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Rate",
+		Name:   "rate",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "limit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_Ip_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication.
+type Native_Interface_HundredGigE_Ip_Authentication struct {
+	KeyChain *Native_Interface_HundredGigE_Ip_Authentication_KeyChain
+	Mode     *Native_Interface_HundredGigE_Ip_Authentication_Mode
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication for the generic codecs.
+var Native_Interface_HundredGigE_Ip_AuthenticationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_Ip_Authentication_KeyChainSchema,
+		GoName: "KeyChain",
+		Name:   "key-chain",
+	}, {
+		Child:  Native_Interface_HundredGigE_Ip_Authentication_ModeSchema,
+		GoName: "Mode",
+		Name:   "mode",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "authentication",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_Ip_Authentication_KeyChain is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/key-chain.
+type Native_Interface_HundredGigE_Ip_Authentication_KeyChain struct {
+	Eigrp *uint16
+	Name  *string
+}
+
+// Native_Interface_HundredGigE_Ip_Authentication_KeyChainSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/key-chain for the generic codecs.
+var Native_Interface_HundredGigE_Ip_Authentication_KeyChainSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Eigrp",
+		Name:   "eigrp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "key-chain",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_Ip_Authentication_Mode is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/mode.
+type Native_Interface_HundredGigE_Ip_Authentication_Mode struct {
+	Eigrp *uint16
+	Md5   *bool
+}
+
+// Native_Interface_HundredGigE_Ip_Authentication_ModeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/mode for the generic codecs.
+var Native_Interface_HundredGigE_Ip_Authentication_ModeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Eigrp",
+		Name:   "eigrp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Md5",
+		Name:   "md5",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "mode",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp.
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp struct {
+	Authentication *Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrpSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp for the generic codecs.
+var Native_Interface_HundredGigE_Ip_AuthenticationEigrpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_Ip_AuthenticationEigrp_AuthenticationSchema,
+		GoName: "Authentication",
+		Name:   "authentication",
+	}},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "authentication-eigrp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication.
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication struct {
+	KeyChain []Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain
+	Mode     []Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication for the generic codecs.
+var Native_Interface_HundredGigE_Ip_AuthenticationEigrp_AuthenticationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema,
+		GoName: "KeyChain",
+		List:   true,
+		Name:   "key-chain",
+	}, {
+		Child:  Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema,
+		GoName: "Mode",
+		List:   true,
+		Name:   "mode",
+	}},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "authentication",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/key-chain.
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain struct {
+	Eigrp        *uint16
+	KeyChainName *string
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/key-chain for the generic codecs.
+var Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Eigrp",
+		Name:   "eigrp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "KeyChainName",
+		Name:   "key-chain-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"eigrp"},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "key-chain",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey is Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain's row identity (ancestor keys in canonical form).
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey struct {
+	HundredGigE_Name string
+	Eigrp            uint16
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow flattens one Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain entry with its ancestor list keys.
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow struct {
+	HundredGigE_Name string
+	Entry            Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain.
+func Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey] {
+	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey]{
+		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey {
+				var k Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey
+				k.HundredGigE_Name = r.HundredGigE_Name
+				if r.Entry.Eigrp != nil {
+					k.Eigrp = *r.Entry.Eigrp
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-eigrp",
+			Name:      "authentication-eigrp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+		}, {Name: "authentication"}, {Name: "key-chain"}}},
+	}
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/mode.
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode struct {
+	Eigrp *uint16
+	Md5   *bool
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/mode for the generic codecs.
+var Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Eigrp",
+		Name:   "eigrp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Md5",
+		Name:   "md5",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"eigrp"},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "mode",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey is Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode's row identity (ancestor keys in canonical form).
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey struct {
+	HundredGigE_Name string
+	Eigrp            uint16
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow flattens one Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode entry with its ancestor list keys.
+type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow struct {
+	HundredGigE_Name string
+	Entry            Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode
+}
+
+// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode.
+func Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey] {
+	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey]{
+		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey {
+				var k Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey
+				k.HundredGigE_Name = r.HundredGigE_Name
+				if r.Entry.Eigrp != nil {
+					k.Eigrp = *r.Entry.Eigrp
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-eigrp",
+			Name:      "authentication-eigrp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+		}, {Name: "authentication"}, {Name: "mode"}}},
+	}
+}
+
+// Native_Interface_HundredGigE_Ip_BandwidthPercent is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/bandwidth-percent.
+type Native_Interface_HundredGigE_Ip_BandwidthPercent struct {
+	BandwidthPercent *uint32
+	Eigrp            *uint16
+}
+
+// Native_Interface_HundredGigE_Ip_BandwidthPercentSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/bandwidth-percent for the generic codecs.
+var Native_Interface_HundredGigE_Ip_BandwidthPercentSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "BandwidthPercent",
+		Name:   "bandwidth-percent",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Eigrp",
+		Name:   "eigrp",
+		Type:   yang.TUint16,
+	}},
+	Keys:      []string{"eigrp"},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "bandwidth-percent",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Interface_HundredGigE_Ip_BandwidthPercentKey is Native_Interface_HundredGigE_Ip_BandwidthPercent's row identity (ancestor keys in canonical form).
+type Native_Interface_HundredGigE_Ip_BandwidthPercentKey struct {
+	HundredGigE_Name string
+	Eigrp            uint16
+}
+
+// Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow flattens one Native_Interface_HundredGigE_Ip_BandwidthPercent entry with its ancestor list keys.
+type Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow struct {
+	HundredGigE_Name string
+	Entry            Native_Interface_HundredGigE_Ip_BandwidthPercent
+}
+
+// Native_Interface_HundredGigE_Ip_BandwidthPercentDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_BandwidthPercent.
+func Native_Interface_HundredGigE_Ip_BandwidthPercentDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, Native_Interface_HundredGigE_Ip_BandwidthPercentKey] {
+	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, Native_Interface_HundredGigE_Ip_BandwidthPercentKey]{
+		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, Native_Interface_HundredGigE_Ip_BandwidthPercentKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_BandwidthPercentSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_BandwidthPercent](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_BandwidthPercentSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_BandwidthPercent](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow{
+						Entry:            en.Entry,
+						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow) Native_Interface_HundredGigE_Ip_BandwidthPercentKey {
+				var k Native_Interface_HundredGigE_Ip_BandwidthPercentKey
+				k.HundredGigE_Name = r.HundredGigE_Name
+				if r.Entry.Eigrp != nil {
+					k.Eigrp = *r.Entry.Eigrp
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow) Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_BandwidthPercentSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-eigrp",
+			Name:      "bandwidth-percent",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+		}}},
+	}
+}
+
+// Native_Interface_HundredGigE_Ip_DampeningChange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/dampening-change.
+type Native_Interface_HundredGigE_Ip_DampeningChange struct {
+	ChangePercent *uint8
+	Eigrp         *uint16
+}
+
+// Native_Interface_HundredGigE_Ip_DampeningChangeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/dampening-change for the generic codecs.
+var Native_Interface_HundredGigE_Ip_DampeningChangeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ChangePercent",
+		Name:   "change-percent",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Eigrp",
+		Name:   "eigrp",
+		Type:   yang.TUint16,
+	}},
+	Keys:      []string{"eigrp"},
+	Module:    "Cisco-IOS-XE-eigrp",
+	Name:      "dampening-change",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
+}
+
+// Native_Interface_HundredGigE_Ip_DampeningChangeKey is Native_Interface_HundredGigE_Ip_DampeningChange's row identity (ancestor keys in canonical form).
+type Native_Interface_HundredGigE_Ip_DampeningChangeKey struct {
+	HundredGigE_Name string
+	Eigrp            uint16
+}
+
+// Native_Interface_HundredGigE_Ip_DampeningChangeFlatRow flattens one Native_Interface_HundredGigE_Ip_DampeningChange entry with its ancestor list keys.
+type Native_Interface_HundredGigE_Ip_DampeningChangeFlatRow struct {
+	HundredGigE_Name string
+	Entry            Native_Interface_HundredGigE_Ip_DampeningChange
 }

@@ -6,7 +6,7 @@
 // Package igmpstdmib binds the YANG module IGMP-STD-MIB.
 package igmpstdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IGMPSTDMIB is the IGMP-STD-MIB node /IGMP-STD-MIB/IGMP-STD-MIB.
 type IGMPSTDMIB struct {

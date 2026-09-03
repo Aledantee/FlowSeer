@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessnmspoper binds the YANG module Cisco-IOS-XE-wireless-nmsp-oper.
 package ciscoiosxewirelessnmspoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NmspOperData is the Cisco-IOS-XE-wireless-nmsp-oper node /Cisco-IOS-XE-wireless-nmsp-oper/nmsp-oper-data.
 type NmspOperData struct {

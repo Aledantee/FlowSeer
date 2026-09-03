@@ -6,7 +6,7 @@
 // Package ciscoiosxesdwanaaaoper binds the YANG module Cisco-IOS-XE-sdwan-aaa-oper.
 package ciscoiosxesdwanaaaoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SdwanAaaOperData is the Cisco-IOS-XE-sdwan-aaa-oper node /Cisco-IOS-XE-sdwan-aaa-oper/sdwan-aaa-oper-data.
 type SdwanAaaOperData struct {

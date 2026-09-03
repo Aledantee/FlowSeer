@@ -6,7 +6,7 @@
 // Package ciscotap2mib binds the YANG module CISCO-TAP2-MIB.
 package ciscotap2mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOTAP2MIB is the CISCO-TAP2-MIB node /CISCO-TAP2-MIB/CISCO-TAP2-MIB.
 type CISCOTAP2MIB struct {

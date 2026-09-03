@@ -6,7 +6,7 @@
 // Package ciscoiosxeiparpoper binds the YANG module Cisco-IOS-XE-ip-arp-oper.
 package ciscoiosxeiparpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IpArpOperData is the Cisco-IOS-XE-ip-arp-oper node /Cisco-IOS-XE-ip-arp-oper/ip-arp-oper-data.
 type IpArpOperData struct {

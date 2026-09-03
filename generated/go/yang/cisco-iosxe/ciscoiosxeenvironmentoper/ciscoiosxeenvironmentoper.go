@@ -6,7 +6,7 @@
 // Package ciscoiosxeenvironmentoper binds the YANG module Cisco-IOS-XE-environment-oper.
 package ciscoiosxeenvironmentoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EnvironmentSensors is the Cisco-IOS-XE-environment-oper node /Cisco-IOS-XE-environment-oper/environment-sensors.
 type EnvironmentSensors struct {

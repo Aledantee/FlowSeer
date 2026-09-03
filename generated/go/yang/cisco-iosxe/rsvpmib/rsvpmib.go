@@ -6,7 +6,7 @@
 // Package rsvpmib binds the YANG module RSVP-MIB.
 package rsvpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RSVPMIB is the RSVP-MIB node /RSVP-MIB/RSVP-MIB.
 type RSVPMIB struct {

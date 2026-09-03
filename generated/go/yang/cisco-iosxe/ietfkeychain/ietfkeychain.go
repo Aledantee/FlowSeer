@@ -6,7 +6,7 @@
 // Package ietfkeychain binds the YANG module ietf-key-chain.
 package ietfkeychain
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // KeyChains is the ietf-key-chain node /ietf-key-chain/key-chains.
 type KeyChains struct {

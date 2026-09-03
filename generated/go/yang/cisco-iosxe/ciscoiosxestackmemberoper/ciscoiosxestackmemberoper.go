@@ -6,7 +6,7 @@
 // Package ciscoiosxestackmemberoper binds the YANG module Cisco-IOS-XE-stack-member-oper.
 package ciscoiosxestackmemberoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // StackMemberOperData is the Cisco-IOS-XE-stack-member-oper node /Cisco-IOS-XE-stack-member-oper/stack-member-oper-data.
 type StackMemberOperData struct {

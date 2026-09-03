@@ -6,7 +6,7 @@
 // Package tailfconfdmonitoring binds the YANG module tailf-confd-monitoring.
 package tailfconfdmonitoring
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ConfdState is the tailf-confd-monitoring node /tailf-confd-monitoring/confd-state.
 type ConfdState struct {

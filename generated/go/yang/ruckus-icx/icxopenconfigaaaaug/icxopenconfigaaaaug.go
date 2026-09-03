@@ -6,7 +6,7 @@
 // Package icxopenconfigaaaaug binds the YANG module icx-openconfig-aaa-aug.
 package icxopenconfigaaaaug
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ENABLE is the icx-openconfig-aaa-aug identity "ENABLE".
 var Identity_ENABLE = yang.Identity{

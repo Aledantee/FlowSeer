@@ -6,7 +6,7 @@
 // Package ciscoiosxeinterfacesoper binds the YANG module Cisco-IOS-XE-interfaces-oper.
 package ciscoiosxeinterfacesoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Interfaces is the Cisco-IOS-XE-interfaces-oper node /Cisco-IOS-XE-interfaces-oper/interfaces.
 type Interfaces struct {

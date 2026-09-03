@@ -6,7 +6,7 @@
 // Package ciscoiosxedevicehardwareoper binds the YANG module Cisco-IOS-XE-device-hardware-oper.
 package ciscoiosxedevicehardwareoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DeviceHardwareData is the Cisco-IOS-XE-device-hardware-oper node /Cisco-IOS-XE-device-hardware-oper/device-hardware-data.
 type DeviceHardwareData struct {

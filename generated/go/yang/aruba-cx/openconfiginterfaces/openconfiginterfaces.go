@@ -6,7 +6,7 @@
 // Package openconfiginterfaces binds the YANG module openconfig-interfaces.
 package openconfiginterfaces
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Interfaces is the openconfig-interfaces node /openconfig-interfaces/interfaces.
 type Interfaces struct {

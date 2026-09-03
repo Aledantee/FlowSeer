@@ -6,7 +6,7 @@
 // Package openconfigicmpv4types binds the YANG module openconfig-icmpv4-types.
 package openconfigicmpv4types
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_CODE is the openconfig-icmpv4-types identity "CODE".
 var Identity_CODE = yang.Identity{

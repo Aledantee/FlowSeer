@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesslocationcfg binds the YANG module Cisco-IOS-XE-wireless-location-cfg.
 package ciscoiosxewirelesslocationcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LocationCfgData is the Cisco-IOS-XE-wireless-location-cfg node /Cisco-IOS-XE-wireless-location-cfg/location-cfg-data.
 type LocationCfgData struct {

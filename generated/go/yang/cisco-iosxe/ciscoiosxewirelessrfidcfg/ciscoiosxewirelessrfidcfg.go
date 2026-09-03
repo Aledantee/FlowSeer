@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrfidcfg binds the YANG module Cisco-IOS-XE-wireless-rfid-cfg.
 package ciscoiosxewirelessrfidcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RfidCfgData is the Cisco-IOS-XE-wireless-rfid-cfg node /Cisco-IOS-XE-wireless-rfid-cfg/rfid-cfg-data.
 type RfidCfgData struct {

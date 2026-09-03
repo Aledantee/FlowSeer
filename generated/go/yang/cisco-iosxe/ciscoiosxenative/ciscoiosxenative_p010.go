@@ -5,333 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}, {
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_UnicastSchema,
-		GoName: "Unicast",
-		Name:   "unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast struct {
-	Include *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include
-	Level   *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_BroadcastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "broadcast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include struct {
-	Unicast *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_UnicastSchema,
-		GoName: "Unicast",
-		Name:   "unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast struct {
-	Level *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_UnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level struct {
-	Bps       *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Bps
-	Pps       *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Pps
-	Threshold *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Threshold
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level struct {
-	Bps       *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Bps
-	Pps       *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Pps
-	Threshold *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Threshold
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/unicast.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast struct {
-	Include *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include
-	Level   *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Level
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/unicast for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_UnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/unicast/include.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include struct {
-	Broadcast *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_Broadcast
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/unicast/include for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/unicast/include/broadcast.
-type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_Broadcast struct {
-	Level *Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_Broadcast_Level
-}
-
-// Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/unicast/include/broadcast for the generic codecs.
-var Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_BroadcastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_Broadcast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "broadcast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/BDI/storm-control/level-shared/unknown-unicast/include/multicast/include/unicast/include/broadcast/level.
 type Native_Interface_BDI_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast_Include_Broadcast_Level struct {
@@ -45211,5 +44885,336 @@ var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast
 	}},
 	Module:    "Cisco-IOS-XE-native",
 	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level struct {
+	Bps       *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Bps
+	Pps       *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Pps
+	Threshold *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Threshold
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/bps-case/bps.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/pps-case/pps.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/threshold-case/threshold.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast struct {
+	Include *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include
+	Level   *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicastSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unknown-unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include struct {
+	Broadcast *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_BroadcastSchema,
+		GoName: "Broadcast",
+		Name:   "broadcast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast struct {
+	Level *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_BroadcastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "broadcast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level struct {
+	Bps       *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps
+	Pps       *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps
+	Threshold *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/level.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level struct {
+	Bps       *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_Bps
+	Pps       *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_Pps
+	Threshold *Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_Threshold
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/level for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/level/level-choice/bps-case/bps.
+type Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Cellular/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_Cellular_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
 }

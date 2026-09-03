@@ -4,7 +4,7 @@ import (
 	"context"
 	"slices"
 
-	"go.aledante.io/FlowSeer/src/common/snmp"
+	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // vbFixture is one OID+VarBind pair fed to fakeSession's pump.
@@ -20,7 +20,7 @@ type vbFixture struct {
 // exercise their real request and merge path.
 //
 // The pattern is re-declared here rather than imported from
-// src/common/snmp/test/integration, where the same fake lives in a _test.go
+// src/protocol/snmp/test/integration, where the same fake lives in a _test.go
 // file that no other package can reach.
 type fakeSession struct {
 	vbs []vbFixture

@@ -5,559 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_HundredGigE_Ip_Address_SecondaryDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_Address_Secondary.
-func Native_Interface_HundredGigE_Ip_Address_SecondaryDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, Native_Interface_HundredGigE_Ip_Address_SecondaryKey] {
-	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, Native_Interface_HundredGigE_Ip_Address_SecondaryKey]{
-		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, Native_Interface_HundredGigE_Ip_Address_SecondaryKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_Address_SecondarySchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_Address_Secondary](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_Address_SecondarySchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_Address_Secondary](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow) Native_Interface_HundredGigE_Ip_Address_SecondaryKey {
-				var k Native_Interface_HundredGigE_Ip_Address_SecondaryKey
-				k.HundredGigE_Name = r.HundredGigE_Name
-				if r.Entry.Address != nil {
-					k.Address = *r.Entry.Address
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow) Native_Interface_HundredGigE_Ip_Address_SecondaryFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_Address_SecondarySchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {Name: "address"}, {Name: "secondary"}}},
-	}
-}
-
-// Native_Interface_HundredGigE_Ip_Arp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp.
-type Native_Interface_HundredGigE_Ip_Arp struct {
-	Inspection *Native_Interface_HundredGigE_Ip_Arp_Inspection
-}
-
-// Native_Interface_HundredGigE_Ip_ArpSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp for the generic codecs.
-var Native_Interface_HundredGigE_Ip_ArpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_HundredGigE_Ip_Arp_InspectionSchema,
-		GoName: "Inspection",
-		Name:   "inspection",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "arp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_HundredGigE_Ip_Arp_Inspection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection.
-type Native_Interface_HundredGigE_Ip_Arp_Inspection struct {
-	Limit *Native_Interface_HundredGigE_Ip_Arp_Inspection_Limit
-	Trust *bool
-}
-
-// Native_Interface_HundredGigE_Ip_Arp_InspectionSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection for the generic codecs.
-var Native_Interface_HundredGigE_Ip_Arp_InspectionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_HundredGigE_Ip_Arp_Inspection_LimitSchema,
-		GoName: "Limit",
-		Name:   "limit",
-	}, {
-		GoName: "Trust",
-		Name:   "trust",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "inspection",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_HundredGigE_Ip_Arp_Inspection_Limit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection/limit.
-type Native_Interface_HundredGigE_Ip_Arp_Inspection_Limit struct {
-	None *bool
-	Rate *uint32
-}
-
-// Native_Interface_HundredGigE_Ip_Arp_Inspection_LimitSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/arp/inspection/limit for the generic codecs.
-var Native_Interface_HundredGigE_Ip_Arp_Inspection_LimitSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "None",
-		Name:   "none",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Rate",
-		Name:   "rate",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "limit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_HundredGigE_Ip_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication.
-type Native_Interface_HundredGigE_Ip_Authentication struct {
-	KeyChain *Native_Interface_HundredGigE_Ip_Authentication_KeyChain
-	Mode     *Native_Interface_HundredGigE_Ip_Authentication_Mode
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication for the generic codecs.
-var Native_Interface_HundredGigE_Ip_AuthenticationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_HundredGigE_Ip_Authentication_KeyChainSchema,
-		GoName: "KeyChain",
-		Name:   "key-chain",
-	}, {
-		Child:  Native_Interface_HundredGigE_Ip_Authentication_ModeSchema,
-		GoName: "Mode",
-		Name:   "mode",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "authentication",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_HundredGigE_Ip_Authentication_KeyChain is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/key-chain.
-type Native_Interface_HundredGigE_Ip_Authentication_KeyChain struct {
-	Eigrp *uint16
-	Name  *string
-}
-
-// Native_Interface_HundredGigE_Ip_Authentication_KeyChainSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/key-chain for the generic codecs.
-var Native_Interface_HundredGigE_Ip_Authentication_KeyChainSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Eigrp",
-		Name:   "eigrp",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "key-chain",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_HundredGigE_Ip_Authentication_Mode is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/mode.
-type Native_Interface_HundredGigE_Ip_Authentication_Mode struct {
-	Eigrp *uint16
-	Md5   *bool
-}
-
-// Native_Interface_HundredGigE_Ip_Authentication_ModeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication/mode for the generic codecs.
-var Native_Interface_HundredGigE_Ip_Authentication_ModeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Eigrp",
-		Name:   "eigrp",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Md5",
-		Name:   "md5",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "mode",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp.
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp struct {
-	Authentication *Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrpSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp for the generic codecs.
-var Native_Interface_HundredGigE_Ip_AuthenticationEigrpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_HundredGigE_Ip_AuthenticationEigrp_AuthenticationSchema,
-		GoName: "Authentication",
-		Name:   "authentication",
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "authentication-eigrp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication.
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication struct {
-	KeyChain []Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain
-	Mode     []Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication for the generic codecs.
-var Native_Interface_HundredGigE_Ip_AuthenticationEigrp_AuthenticationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema,
-		GoName: "KeyChain",
-		List:   true,
-		Name:   "key-chain",
-	}, {
-		Child:  Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema,
-		GoName: "Mode",
-		List:   true,
-		Name:   "mode",
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "authentication",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/key-chain.
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain struct {
-	Eigrp        *uint16
-	KeyChainName *string
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/key-chain for the generic codecs.
-var Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Eigrp",
-		Name:   "eigrp",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "KeyChainName",
-		Name:   "key-chain-name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"eigrp"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "key-chain",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey is Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain's row identity (ancestor keys in canonical form).
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey struct {
-	HundredGigE_Name string
-	Eigrp            uint16
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow flattens one Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain entry with its ancestor list keys.
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow struct {
-	HundredGigE_Name string
-	Entry            Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain.
-func Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey] {
-	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey]{
-		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChain](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey {
-				var k Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainKey
-				k.HundredGigE_Name = r.HundredGigE_Name
-				if r.Entry.Eigrp != nil {
-					k.Eigrp = *r.Entry.Eigrp
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_KeyChainSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-eigrp",
-			Name:      "authentication-eigrp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-		}, {Name: "authentication"}, {Name: "key-chain"}}},
-	}
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/mode.
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode struct {
-	Eigrp *uint16
-	Md5   *bool
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/authentication-eigrp/authentication/mode for the generic codecs.
-var Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Eigrp",
-		Name:   "eigrp",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Md5",
-		Name:   "md5",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"eigrp"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "mode",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey is Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode's row identity (ancestor keys in canonical form).
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey struct {
-	HundredGigE_Name string
-	Eigrp            uint16
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow flattens one Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode entry with its ancestor list keys.
-type Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow struct {
-	HundredGigE_Name string
-	Entry            Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode
-}
-
-// Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode.
-func Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey] {
-	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey]{
-		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_Mode](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey {
-				var k Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeKey
-				k.HundredGigE_Name = r.HundredGigE_Name
-				if r.Entry.Eigrp != nil {
-					k.Eigrp = *r.Entry.Eigrp
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow) Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_AuthenticationEigrp_Authentication_ModeSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-eigrp",
-			Name:      "authentication-eigrp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-		}, {Name: "authentication"}, {Name: "mode"}}},
-	}
-}
-
-// Native_Interface_HundredGigE_Ip_BandwidthPercent is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/bandwidth-percent.
-type Native_Interface_HundredGigE_Ip_BandwidthPercent struct {
-	BandwidthPercent *uint32
-	Eigrp            *uint16
-}
-
-// Native_Interface_HundredGigE_Ip_BandwidthPercentSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/bandwidth-percent for the generic codecs.
-var Native_Interface_HundredGigE_Ip_BandwidthPercentSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "BandwidthPercent",
-		Name:   "bandwidth-percent",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Eigrp",
-		Name:   "eigrp",
-		Type:   yang.TUint16,
-	}},
-	Keys:      []string{"eigrp"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "bandwidth-percent",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Interface_HundredGigE_Ip_BandwidthPercentKey is Native_Interface_HundredGigE_Ip_BandwidthPercent's row identity (ancestor keys in canonical form).
-type Native_Interface_HundredGigE_Ip_BandwidthPercentKey struct {
-	HundredGigE_Name string
-	Eigrp            uint16
-}
-
-// Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow flattens one Native_Interface_HundredGigE_Ip_BandwidthPercent entry with its ancestor list keys.
-type Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow struct {
-	HundredGigE_Name string
-	Entry            Native_Interface_HundredGigE_Ip_BandwidthPercent
-}
-
-// Native_Interface_HundredGigE_Ip_BandwidthPercentDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_BandwidthPercent.
-func Native_Interface_HundredGigE_Ip_BandwidthPercentDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, Native_Interface_HundredGigE_Ip_BandwidthPercentKey] {
-	return yang.ListDescriptor[Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, Native_Interface_HundredGigE_Ip_BandwidthPercentKey]{
-		Codec: yang.RowCodec[Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, Native_Interface_HundredGigE_Ip_BandwidthPercentKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_BandwidthPercentSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_HundredGigE_Ip_BandwidthPercent](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_HundredGigESchema, Native_Interface_HundredGigE_Ip_BandwidthPercentSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_HundredGigE_Ip_BandwidthPercent](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow{
-						Entry:            en.Entry,
-						HundredGigE_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow) Native_Interface_HundredGigE_Ip_BandwidthPercentKey {
-				var k Native_Interface_HundredGigE_Ip_BandwidthPercentKey
-				k.HundredGigE_Name = r.HundredGigE_Name
-				if r.Entry.Eigrp != nil {
-					k.Eigrp = *r.Entry.Eigrp
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow) Native_Interface_HundredGigE_Ip_BandwidthPercentFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_HundredGigE_Ip_BandwidthPercentSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "HundredGigE"}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-eigrp",
-			Name:      "bandwidth-percent",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-		}}},
-	}
-}
-
-// Native_Interface_HundredGigE_Ip_DampeningChange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/dampening-change.
-type Native_Interface_HundredGigE_Ip_DampeningChange struct {
-	ChangePercent *uint8
-	Eigrp         *uint16
-}
-
-// Native_Interface_HundredGigE_Ip_DampeningChangeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/ip/dampening-change for the generic codecs.
-var Native_Interface_HundredGigE_Ip_DampeningChangeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ChangePercent",
-		Name:   "change-percent",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Eigrp",
-		Name:   "eigrp",
-		Type:   yang.TUint16,
-	}},
-	Keys:      []string{"eigrp"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "dampening-change",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Interface_HundredGigE_Ip_DampeningChangeKey is Native_Interface_HundredGigE_Ip_DampeningChange's row identity (ancestor keys in canonical form).
-type Native_Interface_HundredGigE_Ip_DampeningChangeKey struct {
-	HundredGigE_Name string
-	Eigrp            uint16
-}
-
-// Native_Interface_HundredGigE_Ip_DampeningChangeFlatRow flattens one Native_Interface_HundredGigE_Ip_DampeningChange entry with its ancestor list keys.
-type Native_Interface_HundredGigE_Ip_DampeningChangeFlatRow struct {
-	HundredGigE_Name string
-	Entry            Native_Interface_HundredGigE_Ip_DampeningChange
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_HundredGigE_Ip_DampeningChangeDescriptor is the flattened-row descriptor for the nested list Native_Interface_HundredGigE_Ip_DampeningChange.
 func Native_Interface_HundredGigE_Ip_DampeningChangeDescriptor() yang.ListDescriptor[Native_Interface_HundredGigE_Ip_DampeningChangeFlatRow, Native_Interface_HundredGigE_Ip_DampeningChangeKey] {
@@ -44922,4 +44370,450 @@ var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unic
 type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_Threshold struct {
 	FallingThreshold *yang.Value
 	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level struct {
+	Bps       *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Bps
+	Pps       *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Pps
+	Threshold *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Threshold
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level/level-choice/bps-case/bps.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level/level-choice/pps-case/pps.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_Unicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast struct {
+	Include *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include
+	Level   *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicastSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unknown-unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include struct {
+	Broadcast *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast
+	Unicast   *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_BroadcastSchema,
+		GoName: "Broadcast",
+		Name:   "broadcast",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_UnicastSchema,
+		GoName: "Unicast",
+		Name:   "unicast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast struct {
+	Include *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include
+	Level   *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_BroadcastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "broadcast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include struct {
+	Unicast *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_UnicastSchema,
+		GoName: "Unicast",
+		Name:   "unicast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast struct {
+	Level *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_UnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level struct {
+	Bps       *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps
+	Pps       *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps
+	Threshold *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level struct {
+	Bps       *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps
+	Pps       *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps
+	Threshold *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast struct {
+	Include *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include
+	Level   *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast for the generic codecs.
+var Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_UnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/HundredGigE/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include.
+type Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include struct {
+	Broadcast *Native_Interface_HundredGigE_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast
 }

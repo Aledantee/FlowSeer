@@ -6,7 +6,7 @@
 // Package ciscoentitysensormib binds the YANG module CISCO-ENTITY-SENSOR-MIB.
 package ciscoentitysensormib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOENTITYSENSORMIB is the CISCO-ENTITY-SENSOR-MIB node /CISCO-ENTITY-SENSOR-MIB/CISCO-ENTITY-SENSOR-MIB.
 type CISCOENTITYSENSORMIB struct {

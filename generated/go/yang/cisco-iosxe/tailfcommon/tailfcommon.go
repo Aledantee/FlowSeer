@@ -6,7 +6,7 @@
 // Package tailfcommon binds the YANG module tailf-common.
 package tailfcommon
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_MountId is the tailf-common identity "mount-id".
 var Identity_MountId = yang.Identity{

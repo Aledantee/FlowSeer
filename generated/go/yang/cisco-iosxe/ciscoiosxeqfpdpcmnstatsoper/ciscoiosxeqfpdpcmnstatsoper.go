@@ -6,7 +6,7 @@
 // Package ciscoiosxeqfpdpcmnstatsoper binds the YANG module Cisco-IOS-XE-qfp-dp-cmn-stats-oper.
 package ciscoiosxeqfpdpcmnstatsoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // QfpDpCmnStatsOperData is the Cisco-IOS-XE-qfp-dp-cmn-stats-oper node /Cisco-IOS-XE-qfp-dp-cmn-stats-oper/qfp-dp-cmn-stats-oper-data.
 type QfpDpCmnStatsOperData struct {

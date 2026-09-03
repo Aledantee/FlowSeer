@@ -6,7 +6,7 @@
 // Package openconfigmpls binds the YANG module openconfig-mpls.
 package openconfigmpls
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Mpls is the openconfig-mpls node /openconfig-mpls/mpls.
 type Mpls struct {

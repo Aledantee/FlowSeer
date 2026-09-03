@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessroguecfg binds the YANG module Cisco-IOS-XE-wireless-rogue-cfg.
 package ciscoiosxewirelessroguecfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RogueCfgData is the Cisco-IOS-XE-wireless-rogue-cfg node /Cisco-IOS-XE-wireless-rogue-cfg/rogue-cfg-data.
 type RogueCfgData struct {

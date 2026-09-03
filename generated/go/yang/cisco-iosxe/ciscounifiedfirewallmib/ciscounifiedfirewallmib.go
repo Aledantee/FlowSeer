@@ -6,7 +6,7 @@
 // Package ciscounifiedfirewallmib binds the YANG module CISCO-UNIFIED-FIREWALL-MIB.
 package ciscounifiedfirewallmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOUNIFIEDFIREWALLMIB is the CISCO-UNIFIED-FIREWALL-MIB node /CISCO-UNIFIED-FIREWALL-MIB/CISCO-UNIFIED-FIREWALL-MIB.
 type CISCOUNIFIEDFIREWALLMIB struct {

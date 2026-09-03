@@ -6,7 +6,7 @@
 // Package ciscovoicecommondialcontrolmib binds the YANG module CISCO-VOICE-COMMON-DIAL-CONTROL-MIB.
 package ciscovoicecommondialcontrolmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOVOICECOMMONDIALCONTROLMIB is the CISCO-VOICE-COMMON-DIAL-CONTROL-MIB node /CISCO-VOICE-COMMON-DIAL-CONTROL-MIB/CISCO-VOICE-COMMON-DIAL-CONTROL-MIB.
 type CISCOVOICECOMMONDIALCONTROLMIB struct {

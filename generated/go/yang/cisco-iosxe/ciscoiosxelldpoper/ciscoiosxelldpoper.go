@@ -6,7 +6,7 @@
 // Package ciscoiosxelldpoper binds the YANG module Cisco-IOS-XE-lldp-oper.
 package ciscoiosxelldpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LldpEntries is the Cisco-IOS-XE-lldp-oper node /Cisco-IOS-XE-lldp-oper/lldp-entries.
 type LldpEntries struct {

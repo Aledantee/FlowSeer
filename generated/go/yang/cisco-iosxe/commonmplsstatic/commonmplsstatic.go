@@ -6,7 +6,7 @@
 // Package commonmplsstatic binds the YANG module common-mpls-static.
 package commonmplsstatic
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_BgpRouteNexthop is the common-mpls-static identity "bgp-route-nexthop".
 var Identity_BgpRouteNexthop = yang.Identity{

@@ -5,7 +5,7 @@
 
 package openconfignetworkinstance
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NetworkInstances_NetworkInstance_Protocols_Protocol_Isis_Levels_Level_LinkStateDatabase_Lsp_Tlvs_Tlv_MtIpv4Reachability_Prefixes_Prefix_SubTLVs_SubTLVs_Ipv4SourceRouterIdSchema describes /openconfig-network-instance/network-instances/network-instance/protocols/protocol/isis/levels/level/link-state-database/lsp/tlvs/tlv/mt-ipv4-reachability/prefixes/prefix/subTLVs/subTLVs/ipv4-source-router-id for the generic codecs.
 var NetworkInstances_NetworkInstance_Protocols_Protocol_Isis_Levels_Level_LinkStateDatabase_Lsp_Tlvs_Tlv_MtIpv4Reachability_Prefixes_Prefix_SubTLVs_SubTLVs_Ipv4SourceRouterIdSchema = &yang.Schema{

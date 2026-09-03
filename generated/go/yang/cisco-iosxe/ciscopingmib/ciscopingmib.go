@@ -6,7 +6,7 @@
 // Package ciscopingmib binds the YANG module CISCO-PING-MIB.
 package ciscopingmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOPINGMIB is the CISCO-PING-MIB node /CISCO-PING-MIB/CISCO-PING-MIB.
 type CISCOPINGMIB struct {

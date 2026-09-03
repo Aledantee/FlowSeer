@@ -6,7 +6,7 @@
 // Package ciscoiosxedigitaliooper binds the YANG module Cisco-IOS-XE-digital-io-oper.
 package ciscoiosxedigitaliooper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DigitalIoOperData is the Cisco-IOS-XE-digital-io-oper node /Cisco-IOS-XE-digital-io-oper/digital-io-oper-data.
 type DigitalIoOperData struct {

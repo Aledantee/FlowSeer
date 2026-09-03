@@ -6,7 +6,7 @@
 // Package ciscoiosxeprocesscpuoper binds the YANG module Cisco-IOS-XE-process-cpu-oper.
 package ciscoiosxeprocesscpuoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CpuUsage is the Cisco-IOS-XE-process-cpu-oper node /Cisco-IOS-XE-process-cpu-oper/cpu-usage.
 type CpuUsage struct {

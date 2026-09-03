@@ -6,7 +6,7 @@
 // Package confddyncfg binds the YANG module confd_dyncfg.
 package confddyncfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ConfdConfig is the confd_dyncfg node /confd_dyncfg/confdConfig.
 type ConfdConfig struct {

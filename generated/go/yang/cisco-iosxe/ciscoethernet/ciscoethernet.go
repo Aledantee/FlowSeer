@@ -6,7 +6,7 @@
 // Package ciscoethernet binds the YANG module cisco-ethernet.
 package ciscoethernet
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_EthIfSpeed is the cisco-ethernet identity "eth-if-speed".
 var Identity_EthIfSpeed = yang.Identity{

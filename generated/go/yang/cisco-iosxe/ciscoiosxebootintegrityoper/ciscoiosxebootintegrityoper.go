@@ -6,7 +6,7 @@
 // Package ciscoiosxebootintegrityoper binds the YANG module Cisco-IOS-XE-boot-integrity-oper.
 package ciscoiosxebootintegrityoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BootIntegrityOperData is the Cisco-IOS-XE-boot-integrity-oper node /Cisco-IOS-XE-boot-integrity-oper/boot-integrity-oper-data.
 type BootIntegrityOperData struct {

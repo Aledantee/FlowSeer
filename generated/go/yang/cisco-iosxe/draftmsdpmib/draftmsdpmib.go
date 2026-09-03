@@ -6,7 +6,7 @@
 // Package draftmsdpmib binds the YANG module DRAFT-MSDP-MIB.
 package draftmsdpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DRAFTMSDPMIB is the DRAFT-MSDP-MIB node /DRAFT-MSDP-MIB/DRAFT-MSDP-MIB.
 type DRAFTMSDPMIB struct {

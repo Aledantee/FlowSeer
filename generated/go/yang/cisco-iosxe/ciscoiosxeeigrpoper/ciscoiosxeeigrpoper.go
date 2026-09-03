@@ -6,7 +6,7 @@
 // Package ciscoiosxeeigrpoper binds the YANG module Cisco-IOS-XE-eigrp-oper.
 package ciscoiosxeeigrpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EigrpOperData is the Cisco-IOS-XE-eigrp-oper node /Cisco-IOS-XE-eigrp-oper/eigrp-oper-data.
 type EigrpOperData struct {

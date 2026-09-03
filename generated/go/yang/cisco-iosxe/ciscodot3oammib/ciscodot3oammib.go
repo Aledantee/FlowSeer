@@ -6,7 +6,7 @@
 // Package ciscodot3oammib binds the YANG module CISCO-DOT3-OAM-MIB.
 package ciscodot3oammib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCODOT3OAMMIB is the CISCO-DOT3-OAM-MIB node /CISCO-DOT3-OAM-MIB/CISCO-DOT3-OAM-MIB.
 type CISCODOT3OAMMIB struct {

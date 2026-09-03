@@ -6,7 +6,7 @@
 // Package entitysensormib binds the YANG module ENTITY-SENSOR-MIB.
 package entitysensormib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ENTITYSENSORMIB is the ENTITY-SENSOR-MIB node /ENTITY-SENSOR-MIB/ENTITY-SENSOR-MIB.
 type ENTITYSENSORMIB struct {

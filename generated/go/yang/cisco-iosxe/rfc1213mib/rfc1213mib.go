@@ -6,7 +6,7 @@
 // Package rfc1213mib binds the YANG module RFC1213-MIB.
 package rfc1213mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RFC1213MIB is the RFC1213-MIB node /RFC1213-MIB/RFC1213-MIB.
 type RFC1213MIB struct {

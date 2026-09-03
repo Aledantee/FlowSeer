@@ -6,7 +6,7 @@
 // Package nhrpmib binds the YANG module NHRP-MIB.
 package nhrpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NHRPMIB is the NHRP-MIB node /NHRP-MIB/NHRP-MIB.
 type NHRPMIB struct {

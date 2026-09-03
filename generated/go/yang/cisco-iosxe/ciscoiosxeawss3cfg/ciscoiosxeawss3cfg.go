@@ -6,7 +6,7 @@
 // Package ciscoiosxeawss3cfg binds the YANG module Cisco-IOS-XE-aws-s3-cfg.
 package ciscoiosxeawss3cfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AwsS3CfgData is the Cisco-IOS-XE-aws-s3-cfg node /Cisco-IOS-XE-aws-s3-cfg/aws-s3-cfg-data.
 type AwsS3CfgData struct {

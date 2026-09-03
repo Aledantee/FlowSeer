@@ -6,7 +6,7 @@
 // Package ietfrestconfmonitoring binds the YANG module ietf-restconf-monitoring.
 package ietfrestconfmonitoring
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RestconfState is the ietf-restconf-monitoring node /ietf-restconf-monitoring/restconf-state.
 type RestconfState struct {

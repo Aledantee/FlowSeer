@@ -6,7 +6,7 @@
 // Package snmpframeworkmib binds the YANG module SNMP-FRAMEWORK-MIB.
 package snmpframeworkmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_SnmpAuthProtocols is the SNMP-FRAMEWORK-MIB identity "snmpAuthProtocols".
 var Identity_SnmpAuthProtocols = yang.Identity{

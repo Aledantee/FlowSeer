@@ -6,7 +6,7 @@
 // Package cisconbarprotocoldiscoverymib binds the YANG module CISCO-NBAR-PROTOCOL-DISCOVERY-MIB.
 package cisconbarprotocoldiscoverymib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCONBARPROTOCOLDISCOVERYMIB is the CISCO-NBAR-PROTOCOL-DISCOVERY-MIB node /CISCO-NBAR-PROTOCOL-DISCOVERY-MIB/CISCO-NBAR-PROTOCOL-DISCOVERY-MIB.
 type CISCONBARPROTOCOLDISCOVERYMIB struct {

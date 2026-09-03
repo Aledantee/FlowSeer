@@ -5,463 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor.
-func Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborDescriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey] {
-	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey]{
-		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow{
-						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:       en.Entry,
-						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow{
-						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:       en.Entry,
-						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey {
-				var k Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey
-				k.Bgp_Id = r.Bgp_Id
-				k.Ipv4_AfName = r.Ipv4_AfName
-				if r.Entry.Id != nil {
-					k.Id = yang.CanonicalKey(r.Entry.Id)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-bgp",
-			Name:      "bgp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-		}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "ipv4"}, {Name: "ipv4-flowspec"}, {Name: "neighbor"}}},
-	}
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasIn is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/allowas-in.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasIn struct {
-	AsNumber *uint8
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasInSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/allowas-in for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasInSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AsNumber",
-		Name:   "as-number",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "allowas-in",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_Inherit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/inherit.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_Inherit struct {
-	PeerPolicy  *string
-	PeerSession *string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_InheritSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/inherit for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_InheritSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PeerPolicy",
-		Name:   "peer-policy",
-		Type:   yang.TString,
-	}, {
-		GoName: "PeerSession",
-		Name:   "peer-session",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "inherit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/maximum-prefix.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefix struct {
-	DiscardExtra *bool
-	MaxPrefixNo  *uint32
-	Restart      *uint16
-	Threshold    *uint8
-	WarningOnly  *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefixSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/maximum-prefix for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefixSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "DiscardExtra",
-		Name:   "discard-extra",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "MaxPrefixNo",
-		Name:   "max-prefix-no",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Restart",
-		Name:   "restart",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Threshold",
-		Name:   "threshold",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "WarningOnly",
-		Name:   "warning-only",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "maximum-prefix",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/next-hop-self.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelf struct {
-	All *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelfSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/next-hop-self for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelfSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "All",
-		Name:   "all",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "next-hop-self",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchanged is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/nexthop-unchanged.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchanged struct {
-	Allpaths         *bool
-	NextHopUnchanged *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchangedSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/nexthop-unchanged for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchangedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Allpaths",
-		Name:   "allpaths",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "NextHopUnchanged",
-		Name:   "next-hop-unchanged",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "nexthop-unchanged",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs struct {
-	All *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_All
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAsSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_AllSchema,
-		GoName: "All",
-		Name:   "all",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "remove-private-as",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_All is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as/all.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_All struct {
-	ReplaceAs *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_AllSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as/all for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_AllSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ReplaceAs",
-		Name:   "replace-as",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "all",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/route-map.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap struct {
-	Inout        *string
-	RouteMapName *string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/route-map for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Inout",
-		Name:   "inout",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "RouteMapName",
-		Name:   "route-map-name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"inout"},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "route-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey is Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap's row identity (ancestor keys in canonical form).
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey struct {
-	Bgp_Id      string
-	Ipv4_AfName string
-	Neighbor_Id string
-	Inout       string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow flattens one Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap entry with its ancestor list keys.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow struct {
-	Bgp_Id      string
-	Ipv4_AfName string
-	Neighbor_Id string
-	Entry       Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap.
-func Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapDescriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey] {
-	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey]{
-		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow{
-						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:       en.Entry,
-						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
-						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 2, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow{
-						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:       en.Entry,
-						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
-						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 2, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey {
-				var k Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey
-				k.Bgp_Id = r.Bgp_Id
-				k.Ipv4_AfName = r.Ipv4_AfName
-				k.Neighbor_Id = r.Neighbor_Id
-				if r.Entry.Inout != nil {
-					k.Inout = *r.Entry.Inout
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-bgp",
-			Name:      "bgp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-		}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "ipv4"}, {Name: "ipv4-flowspec"}, {Name: "neighbor"}, {Name: "route-map"}}},
-	}
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunity is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunity struct {
-	SendCommunityWhere *string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunitySchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunitySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SendCommunityWhere",
-		Name:   "send-community-where",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "send-community",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community-v2.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2 struct {
-	SendCommunityWhere *string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2Schema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community-v2 for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SendCommunityWhere",
-		Name:   "send-community-where",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "send-community-v2",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer struct {
-	Detection        *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_Detection
-	SplitUpdateGroup *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeerSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeerSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_DetectionSchema,
-		GoName: "Detection",
-		Name:   "detection",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroupSchema,
-		GoName: "SplitUpdateGroup",
-		Name:   "split-update-group",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "slow-peer",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_Detection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/detection.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_Detection struct {
-	Disable   *bool
-	Threshold *uint16
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_DetectionSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/detection for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_DetectionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Threshold",
-		Name:   "threshold",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "detection",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup struct {
-	Dynamic *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_Dynamic
-	Static  *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroupSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_DynamicSchema,
-		GoName: "Dynamic",
-		Name:   "dynamic",
-	}, {
-		GoName: "Static",
-		Name:   "static",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "split-update-group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_Dynamic is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group/dynamic.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_Dynamic struct {
-	Disable   *bool
-	Permanent *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_DynamicSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group/dynamic for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_DynamicSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Permanent",
-		Name:   "permanent",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "dynamic",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/network.
-type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network struct {
-	NoMask   []Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network_NoMask
-	WithMask []Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network_WithMask
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NetworkSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/network for the generic codecs.
 var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NetworkSchema = &yang.Schema{
@@ -39345,4 +38889,521 @@ type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Ospfv
 	External2    *string
 	Internal     *bool
 	NssaExternal *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Ospfv3_MatchSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/ospfv3/match for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Ospfv3_MatchSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "External",
+		Name:   "external",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "External2",
+		Name:   "external2",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Internal",
+		Name:   "internal",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "NssaExternal",
+		Name:   "nssa-external",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "match",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Rip is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/rip.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Rip struct {
+	Metric   *uint32
+	Name     *string
+	RouteMap *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_RipSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/rip for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_RipSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "rip",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static struct {
+	Clns    *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Clns
+	Default *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Default
+	Ip      *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Ip
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_StaticSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_StaticSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_ClnsSchema,
+		GoName: "Clns",
+		Name:   "clns",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_DefaultSchema,
+		GoName: "Default",
+		Name:   "default",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_IpSchema,
+		GoName: "Ip",
+		Name:   "ip",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "static",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Clns is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static/static-choice/clns/clns.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Clns struct {
+	Metric   *uint32
+	RouteMap *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_ClnsSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static/static-choice/clns/clns for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_ClnsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "clns",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Default is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static/static-choice/default/default.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Default struct {
+	Metric   *uint32
+	RouteMap *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_DefaultSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static/static-choice/default/default for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_DefaultSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "default",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Ip is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static/static-choice/ip/ip.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_Ip struct {
+	Metric   *uint32
+	RouteMap *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_IpSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute/static/static-choice/ip/ip for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_Redistribute_Static_IpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "ip",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6 struct {
+	Application *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Application
+	Connected   *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Connected
+	Eigrp       *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Eigrp
+	EigrpList   []Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList
+	Isis        *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Isis
+	IsisAreaTag *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag
+	Lisp        *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Lisp
+	NatRoute    *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_NatRoute
+	Omp         *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Omp
+	Ospf        []Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Ospf
+	Rip         *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Rip
+	Static      *Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Static
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6Schema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6 for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_ApplicationSchema,
+		GoName: "Application",
+		Name:   "application",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_ConnectedSchema,
+		GoName: "Connected",
+		Name:   "connected",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpSchema,
+		GoName: "Eigrp",
+		Name:   "eigrp",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListSchema,
+		GoName: "EigrpList",
+		List:   true,
+		Name:   "eigrp-list",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisSchema,
+		GoName: "Isis",
+		Name:   "isis",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTagSchema,
+		GoName: "IsisAreaTag",
+		Name:   "isis-area-tag",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_LispSchema,
+		GoName: "Lisp",
+		Name:   "lisp",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_NatRouteSchema,
+		GoName: "NatRoute",
+		Name:   "nat-route",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_OmpSchema,
+		GoName: "Omp",
+		Name:   "omp",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_OspfSchema,
+		GoName: "Ospf",
+		List:   true,
+		Name:   "ospf",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_RipSchema,
+		GoName: "Rip",
+		Name:   "rip",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_StaticSchema,
+		GoName: "Static",
+		Name:   "static",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "redistribute-v6",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Application is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/application.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Application struct {
+	IncludeConnected *bool
+	Metric           *uint32
+	RouteMap         *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_ApplicationSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/application for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_ApplicationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "IncludeConnected",
+		Name:   "include-connected",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "application",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Connected is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/connected.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Connected struct {
+	Metric   *uint32
+	RouteMap *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_ConnectedSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/connected for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_ConnectedSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "connected",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Eigrp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/eigrp.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Eigrp struct {
+	AsNo             *uint16
+	IncludeConnected *bool
+	Metric           *uint32
+	RouteMap         *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/eigrp for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AsNo",
+		Name:   "as-no",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "IncludeConnected",
+		Name:   "include-connected",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "eigrp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/eigrp-list.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList struct {
+	AsNo               *uint16
+	IncludeConnected   *bool
+	Metric             *uint32
+	RouteMap           *string
+	TranslateRibMetric *bool
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/eigrp-list for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AsNo",
+		Name:   "as-no",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "IncludeConnected",
+		Name:   "include-connected",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "TranslateRibMetric",
+		Name:   "translate-rib-metric",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"as-no"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "eigrp-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListKey is Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList's row identity (ancestor keys in canonical form).
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListKey struct {
+	Bgp_Id      string
+	Ipv6_AfName string
+	AsNo        uint16
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow flattens one Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList entry with its ancestor list keys.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow struct {
+	Bgp_Id      string
+	Ipv6_AfName string
+	Entry       Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList.
+func Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListDescriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListKey] {
+	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListKey]{
+		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv6_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv6_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListKey {
+				var k Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListKey
+				k.Bgp_Id = r.Bgp_Id
+				k.Ipv6_AfName = r.Ipv6_AfName
+				if r.Entry.AsNo != nil {
+					k.AsNo = *r.Entry.AsNo
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_EigrpListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-bgp",
+			Name:      "bgp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+		}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "ipv6"}, {Name: "ipv6-multicast"}, {Name: "redistribute-v6"}, {Name: "eigrp-list"}}},
+	}
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/isis.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_Isis struct {
+	IncludeConnected *bool
+	Metric           *uint32
+	RouteMap         *string
+	Routes           *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/isis for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "IncludeConnected",
+		Name:   "include-connected",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "Routes",
+		Name:   "routes",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "isis",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/isis-area-tag.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag struct {
+	Isis   []Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_Isis
+	IsisV2 []Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_IsisV2
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTagSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/isis-area-tag for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTagSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_IsisSchema,
+		GoName: "Isis",
+		List:   true,
+		Name:   "isis",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_IsisV2Schema,
+		GoName: "IsisV2",
+		List:   true,
+		Name:   "isis-v2",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "isis-area-tag",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/isis-area-tag/isis.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_Isis struct {
+	AreaTag          *string
+	IncludeConnected *bool
+	Metric           *uint32
+	RouteMap         *string
+	Routes           *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_IsisSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv6/ipv6-multicast/redistribute-v6/isis-area-tag/isis for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv6_Ipv6Multicast_RedistributeV6_IsisAreaTag_IsisSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AreaTag",
+		Name:   "area-tag",
+		Type:   yang.TString,
+	}, {
+		GoName: "IncludeConnected",
+		Name:   "include-connected",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Metric",
+		Name:   "metric",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "RouteMap",
+		Name:   "route-map",
+		Type:   yang.TString,
+	}, {
+		GoName: "Routes",
+		Name:   "routes",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"area-tag"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "isis",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
 }

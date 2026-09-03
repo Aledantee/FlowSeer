@@ -6,7 +6,7 @@
 // Package ciscoimagemib binds the YANG module CISCO-IMAGE-MIB.
 package ciscoimagemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIMAGEMIB is the CISCO-IMAGE-MIB node /CISCO-IMAGE-MIB/CISCO-IMAGE-MIB.
 type CISCOIMAGEMIB struct {

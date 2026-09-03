@@ -6,7 +6,7 @@
 // Package ciscoiosxemdtoper binds the YANG module Cisco-IOS-XE-mdt-oper.
 package ciscoiosxemdtoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MdtOperData is the Cisco-IOS-XE-mdt-oper node /Cisco-IOS-XE-mdt-oper/mdt-oper-data.
 type MdtOperData struct {

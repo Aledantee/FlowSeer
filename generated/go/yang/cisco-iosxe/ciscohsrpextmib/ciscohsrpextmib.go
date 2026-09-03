@@ -6,7 +6,7 @@
 // Package ciscohsrpextmib binds the YANG module CISCO-HSRP-EXT-MIB.
 package ciscohsrpextmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOHSRPEXTMIB is the CISCO-HSRP-EXT-MIB node /CISCO-HSRP-EXT-MIB/CISCO-HSRP-EXT-MIB.
 type CISCOHSRPEXTMIB struct {

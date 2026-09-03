@@ -6,7 +6,7 @@
 // Package tcpmib binds the YANG module TCP-MIB.
 package tcpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TCPMIB is the TCP-MIB node /TCP-MIB/TCP-MIB.
 type TCPMIB struct {

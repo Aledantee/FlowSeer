@@ -6,7 +6,7 @@
 // Package ietfeventnotifications binds the YANG module ietf-event-notifications.
 package ietfeventnotifications
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_NETCONF is the ietf-event-notifications identity "NETCONF".
 var Identity_NETCONF = yang.Identity{

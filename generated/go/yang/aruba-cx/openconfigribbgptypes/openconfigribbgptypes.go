@@ -6,7 +6,7 @@
 // Package openconfigribbgptypes binds the YANG module openconfig-rib-bgp-types.
 package openconfigribbgptypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ASPATHLONGER is the openconfig-rib-bgp-types identity "AS_PATH_LONGER".
 var Identity_ASPATHLONGER = yang.Identity{

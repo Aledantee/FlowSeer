@@ -6,7 +6,7 @@
 // Package ciscoiosxeeemoper binds the YANG module Cisco-IOS-XE-eem-oper.
 package ciscoiosxeeemoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EemOperData is the Cisco-IOS-XE-eem-oper node /Cisco-IOS-XE-eem-oper/eem-oper-data.
 type EemOperData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxecfmoper binds the YANG module Cisco-IOS-XE-cfm-oper.
 package ciscoiosxecfmoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CfmStatistics is the Cisco-IOS-XE-cfm-oper node /Cisco-IOS-XE-cfm-oper/cfm-statistics.
 type CfmStatistics struct {

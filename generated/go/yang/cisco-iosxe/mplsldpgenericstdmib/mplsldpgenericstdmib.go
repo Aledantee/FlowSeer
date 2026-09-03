@@ -6,7 +6,7 @@
 // Package mplsldpgenericstdmib binds the YANG module MPLS-LDP-GENERIC-STD-MIB.
 package mplsldpgenericstdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MPLSLDPGENERICSTDMIB is the MPLS-LDP-GENERIC-STD-MIB node /MPLS-LDP-GENERIC-STD-MIB/MPLS-LDP-GENERIC-STD-MIB.
 type MPLSLDPGENERICSTDMIB struct {

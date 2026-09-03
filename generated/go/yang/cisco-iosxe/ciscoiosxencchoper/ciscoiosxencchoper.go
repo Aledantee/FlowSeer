@@ -6,7 +6,7 @@
 // Package ciscoiosxencchoper binds the YANG module Cisco-IOS-XE-ncch-oper.
 package ciscoiosxencchoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NetconfCallhomeOper is the Cisco-IOS-XE-ncch-oper node /Cisco-IOS-XE-ncch-oper/netconf-callhome-oper.
 type NetconfCallhomeOper struct {

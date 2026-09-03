@@ -6,7 +6,7 @@
 // Package openconfigisistypes binds the YANG module openconfig-isis-types.
 package openconfigisistypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AFISAFITYPE is the openconfig-isis-types identity "AFI_SAFI_TYPE".
 var Identity_AFISAFITYPE = yang.Identity{

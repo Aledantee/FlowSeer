@@ -6,7 +6,7 @@
 // Package ciscocdpmib binds the YANG module CISCO-CDP-MIB.
 package ciscocdpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOCDPMIB is the CISCO-CDP-MIB node /CISCO-CDP-MIB/CISCO-CDP-MIB.
 type CISCOCDPMIB struct {

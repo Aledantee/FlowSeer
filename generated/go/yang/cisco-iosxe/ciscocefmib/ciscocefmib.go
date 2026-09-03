@@ -6,7 +6,7 @@
 // Package ciscocefmib binds the YANG module CISCO-CEF-MIB.
 package ciscocefmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOCEFMIB is the CISCO-CEF-MIB node /CISCO-CEF-MIB/CISCO-CEF-MIB.
 type CISCOCEFMIB struct {

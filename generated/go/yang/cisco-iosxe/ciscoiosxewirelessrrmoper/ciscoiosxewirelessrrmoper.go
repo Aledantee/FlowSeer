@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrrmoper binds the YANG module Cisco-IOS-XE-wireless-rrm-oper.
 package ciscoiosxewirelessrrmoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RrmOperData is the Cisco-IOS-XE-wireless-rrm-oper node /Cisco-IOS-XE-wireless-rrm-oper/rrm-oper-data.
 type RrmOperData struct {

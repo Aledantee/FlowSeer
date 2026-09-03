@@ -6,7 +6,7 @@
 // Package ciscoiosxeapphostingcfg binds the YANG module Cisco-IOS-XE-app-hosting-cfg.
 package ciscoiosxeapphostingcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AppHostingCfgData is the Cisco-IOS-XE-app-hosting-cfg node /Cisco-IOS-XE-app-hosting-cfg/app-hosting-cfg-data.
 type AppHostingCfgData struct {

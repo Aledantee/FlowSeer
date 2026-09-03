@@ -4,4 +4,4 @@
 // bindings under generated/go/mib from mibgen.yaml.
 package flowseer
 
-//go:generate go run ./src/common/snmp/cmd/mibgen -config ./mibgen.yaml
+//go:generate go run ./src/protocol/snmp/cmd/mibgen -config ./mibgen.yaml

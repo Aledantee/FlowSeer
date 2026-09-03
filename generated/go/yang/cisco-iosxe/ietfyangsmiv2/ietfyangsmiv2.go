@@ -6,7 +6,7 @@
 // Package ietfyangsmiv2 binds the YANG module ietf-yang-smiv2.
 package ietfyangsmiv2
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ObjectIdentity is the ietf-yang-smiv2 identity "object-identity".
 var Identity_ObjectIdentity = yang.Identity{

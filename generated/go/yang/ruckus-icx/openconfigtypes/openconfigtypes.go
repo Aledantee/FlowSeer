@@ -6,7 +6,7 @@
 // Package openconfigtypes binds the YANG module openconfig-types.
 package openconfigtypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ADDRESSFAMILY is the openconfig-types identity "ADDRESS_FAMILY".
 var Identity_ADDRESSFAMILY = yang.Identity{

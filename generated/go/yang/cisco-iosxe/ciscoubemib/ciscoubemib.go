@@ -6,7 +6,7 @@
 // Package ciscoubemib binds the YANG module CISCO-UBE-MIB.
 package ciscoubemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOUBEMIB is the CISCO-UBE-MIB node /CISCO-UBE-MIB/CISCO-UBE-MIB.
 type CISCOUBEMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxesroper binds the YANG module Cisco-IOS-XE-sr-oper.
 package ciscoiosxesroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SrOperData is the Cisco-IOS-XE-sr-oper node /Cisco-IOS-XE-sr-oper/sr-oper-data.
 type SrOperData struct {

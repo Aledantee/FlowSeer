@@ -6,7 +6,7 @@
 // Package ciscostormcontrol binds the YANG module cisco-storm-control.
 package ciscostormcontrol
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ActionDrop is the cisco-storm-control identity "action-drop".
 var Identity_ActionDrop = yang.Identity{

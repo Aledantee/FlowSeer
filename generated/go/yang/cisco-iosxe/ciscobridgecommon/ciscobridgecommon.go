@@ -6,7 +6,7 @@
 // Package ciscobridgecommon binds the YANG module cisco-bridge-common.
 package ciscobridgecommon
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_MacLimitNotificationType is the cisco-bridge-common identity "mac-limit-notification-type".
 var Identity_MacLimitNotificationType = yang.Identity{

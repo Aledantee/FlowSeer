@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesssecuritycfg binds the YANG module Cisco-IOS-XE-wireless-security-cfg.
 package ciscoiosxewirelesssecuritycfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LscCfgData is the Cisco-IOS-XE-wireless-security-cfg node /Cisco-IOS-XE-wireless-security-cfg/lsc-cfg-data.
 type LscCfgData struct {

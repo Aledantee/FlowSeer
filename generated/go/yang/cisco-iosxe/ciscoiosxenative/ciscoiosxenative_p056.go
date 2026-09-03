@@ -5,550 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressDescriptor() yang.ListDescriptor[Native_Nat64_V6v4_Static_Ipv6address_Ipv6address, Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey] {
-	return yang.ListDescriptor[Native_Nat64_V6v4_Static_Ipv6address_Ipv6address, Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey]{
-		Codec: yang.StructRowCodec(Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressSchema, func(r *Native_Nat64_V6v4_Static_Ipv6address_Ipv6address) Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey {
-			var k Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey
-			if r.Ipv6Address != nil {
-				k.Ipv6Address = *r.Ipv6Address
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat64",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "v6v4"}, {Name: "static"}, {Name: "ipv6address"}, {Name: "ipv6address"}}},
-	}
-}
-
-// Native_Nat64_V6v4_Static_Tcp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp.
-type Native_Nat64_V6v4_Static_Tcp struct {
-	Tcp []Native_Nat64_V6v4_Static_Tcp_Tcp
-}
-
-// Native_Nat64_V6v4_Static_TcpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp for the generic codecs.
-var Native_Nat64_V6v4_Static_TcpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Nat64_V6v4_Static_Tcp_TcpSchema,
-		GoName: "Tcp",
-		List:   true,
-		Name:   "tcp",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "tcp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat64_V6v4_Static_Tcp_Tcp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp/tcp.
-type Native_Nat64_V6v4_Static_Tcp_Tcp struct {
-	Ipv4Address  *string
-	Ipv6Address  *string
-	V4PortNumber *uint16
-	V6PortNumber *uint16
-}
-
-// Native_Nat64_V6v4_Static_Tcp_TcpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp/tcp for the generic codecs.
-var Native_Nat64_V6v4_Static_Tcp_TcpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Ipv4Address",
-		Name:   "ipv4-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6Address",
-		Name:   "ipv6-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "V4PortNumber",
-		Name:   "v4-port-number",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "V6PortNumber",
-		Name:   "v6-port-number",
-		Type:   yang.TUint16,
-	}},
-	Keys:      []string{"ipv6-address"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "tcp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat64_V6v4_Static_Tcp_TcpKey is Native_Nat64_V6v4_Static_Tcp_Tcp's row identity (ancestor keys in canonical form).
-type Native_Nat64_V6v4_Static_Tcp_TcpKey struct {
-	Ipv6Address string
-}
-
-// Native_Nat64_V6v4_Static_Tcp_TcpDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Nat64_V6v4_Static_Tcp_TcpDescriptor() yang.ListDescriptor[Native_Nat64_V6v4_Static_Tcp_Tcp, Native_Nat64_V6v4_Static_Tcp_TcpKey] {
-	return yang.ListDescriptor[Native_Nat64_V6v4_Static_Tcp_Tcp, Native_Nat64_V6v4_Static_Tcp_TcpKey]{
-		Codec: yang.StructRowCodec(Native_Nat64_V6v4_Static_Tcp_TcpSchema, func(r *Native_Nat64_V6v4_Static_Tcp_Tcp) Native_Nat64_V6v4_Static_Tcp_TcpKey {
-			var k Native_Nat64_V6v4_Static_Tcp_TcpKey
-			if r.Ipv6Address != nil {
-				k.Ipv6Address = *r.Ipv6Address
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat64",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "v6v4"}, {Name: "static"}, {Name: "tcp"}, {Name: "tcp"}}},
-	}
-}
-
-// Native_Nat64_V6v4_Static_Udp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp.
-type Native_Nat64_V6v4_Static_Udp struct {
-	Udp []Native_Nat64_V6v4_Static_Udp_Udp
-}
-
-// Native_Nat64_V6v4_Static_UdpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp for the generic codecs.
-var Native_Nat64_V6v4_Static_UdpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Nat64_V6v4_Static_Udp_UdpSchema,
-		GoName: "Udp",
-		List:   true,
-		Name:   "udp",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "udp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat64_V6v4_Static_Udp_Udp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp/udp.
-type Native_Nat64_V6v4_Static_Udp_Udp struct {
-	Ipv4Address  *string
-	Ipv6Address  *string
-	V4PortNumber *uint16
-	V6PortNumber *uint16
-}
-
-// Native_Nat64_V6v4_Static_Udp_UdpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp/udp for the generic codecs.
-var Native_Nat64_V6v4_Static_Udp_UdpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Ipv4Address",
-		Name:   "ipv4-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6Address",
-		Name:   "ipv6-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "V4PortNumber",
-		Name:   "v4-port-number",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "V6PortNumber",
-		Name:   "v6-port-number",
-		Type:   yang.TUint16,
-	}},
-	Keys:      []string{"ipv6-address"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "udp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat64_V6v4_Static_Udp_UdpKey is Native_Nat64_V6v4_Static_Udp_Udp's row identity (ancestor keys in canonical form).
-type Native_Nat64_V6v4_Static_Udp_UdpKey struct {
-	Ipv6Address string
-}
-
-// Native_Nat64_V6v4_Static_Udp_UdpDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Nat64_V6v4_Static_Udp_UdpDescriptor() yang.ListDescriptor[Native_Nat64_V6v4_Static_Udp_Udp, Native_Nat64_V6v4_Static_Udp_UdpKey] {
-	return yang.ListDescriptor[Native_Nat64_V6v4_Static_Udp_Udp, Native_Nat64_V6v4_Static_Udp_UdpKey]{
-		Codec: yang.StructRowCodec(Native_Nat64_V6v4_Static_Udp_UdpSchema, func(r *Native_Nat64_V6v4_Static_Udp_Udp) Native_Nat64_V6v4_Static_Udp_UdpKey {
-			var k Native_Nat64_V6v4_Static_Udp_UdpKey
-			if r.Ipv6Address != nil {
-				k.Ipv6Address = *r.Ipv6Address
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat64",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "v6v4"}, {Name: "static"}, {Name: "udp"}, {Name: "udp"}}},
-	}
-}
-
-// Native_Nat66 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66.
-type Native_Nat66 struct {
-	MaxVpn  *uint8
-	Nd      *Native_Nat66_Nd
-	Outside *bool
-	Prefix  *Native_Nat66_Prefix
-	Route   []Native_Nat66_Route
-}
-
-// Native_Nat66Schema describes /Cisco-IOS-XE-native/native/nat66 for the generic codecs.
-var Native_Nat66Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "MaxVpn",
-		Name:   "max-vpn",
-		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Nat66_NdSchema,
-		GoName: "Nd",
-		Name:   "nd",
-	}, {
-		GoName: "Outside",
-		Name:   "outside",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Nat66_PrefixSchema,
-		GoName: "Prefix",
-		Name:   "prefix",
-	}, {
-		Child:  Native_Nat66_RouteSchema,
-		GoName: "Route",
-		List:   true,
-		Name:   "route",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "nat66",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Nd is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/nd.
-type Native_Nat66_Nd struct {
-	Enable *bool
-}
-
-// Native_Nat66_NdSchema describes /Cisco-IOS-XE-native/native/nat66/nd for the generic codecs.
-var Native_Nat66_NdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "nd",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix.
-type Native_Nat66_Prefix struct {
-	Inside                   []Native_Nat66_Prefix_Inside
-	InsideNoVrf              *Native_Nat66_Prefix_InsideNoVrf
-	InsideWithEgressNoVrf    *Native_Nat66_Prefix_InsideWithEgressNoVrf
-	InsideWithEgressVrf      *Native_Nat66_Prefix_InsideWithEgressVrf
-	InsideWithInterfaceNoVrf *Native_Nat66_Prefix_InsideWithInterfaceNoVrf
-	InsideWithInterfaceVrf   *Native_Nat66_Prefix_InsideWithInterfaceVrf
-	InsideWithVrf            *Native_Nat66_Prefix_InsideWithVrf
-}
-
-// Native_Nat66_PrefixSchema describes /Cisco-IOS-XE-native/native/nat66/prefix for the generic codecs.
-var Native_Nat66_PrefixSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Nat66_Prefix_InsideSchema,
-		GoName: "Inside",
-		List:   true,
-		Name:   "inside",
-	}, {
-		Child:  Native_Nat66_Prefix_InsideNoVrfSchema,
-		GoName: "InsideNoVrf",
-		Name:   "inside-no-vrf",
-	}, {
-		Child:  Native_Nat66_Prefix_InsideWithEgressNoVrfSchema,
-		GoName: "InsideWithEgressNoVrf",
-		Name:   "inside-with-egress-no-vrf",
-	}, {
-		Child:  Native_Nat66_Prefix_InsideWithEgressVrfSchema,
-		GoName: "InsideWithEgressVrf",
-		Name:   "inside-with-egress-vrf",
-	}, {
-		Child:  Native_Nat66_Prefix_InsideWithInterfaceNoVrfSchema,
-		GoName: "InsideWithInterfaceNoVrf",
-		Name:   "inside-with-interface-no-vrf",
-	}, {
-		Child:  Native_Nat66_Prefix_InsideWithInterfaceVrfSchema,
-		GoName: "InsideWithInterfaceVrf",
-		Name:   "inside-with-interface-vrf",
-	}, {
-		Child:  Native_Nat66_Prefix_InsideWithVrfSchema,
-		GoName: "InsideWithVrf",
-		Name:   "inside-with-vrf",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "prefix",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside.
-type Native_Nat66_Prefix_Inside struct {
-	InsidePfx *string
-	Outside   *string
-}
-
-// Native_Nat66_Prefix_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside for the generic codecs.
-var Native_Nat66_Prefix_InsideSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "InsidePfx",
-		Name:   "inside-pfx",
-		Type:   yang.TString,
-	}, {
-		GoName: "Outside",
-		Name:   "outside",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"inside-pfx"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "inside",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_InsideKey is Native_Nat66_Prefix_Inside's row identity (ancestor keys in canonical form).
-type Native_Nat66_Prefix_InsideKey struct {
-	InsidePfx string
-}
-
-// Native_Nat66_Prefix_InsideDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Nat66_Prefix_InsideDescriptor() yang.ListDescriptor[Native_Nat66_Prefix_Inside, Native_Nat66_Prefix_InsideKey] {
-	return yang.ListDescriptor[Native_Nat66_Prefix_Inside, Native_Nat66_Prefix_InsideKey]{
-		Codec: yang.StructRowCodec(Native_Nat66_Prefix_InsideSchema, func(r *Native_Nat66_Prefix_Inside) Native_Nat66_Prefix_InsideKey {
-			var k Native_Nat66_Prefix_InsideKey
-			if r.InsidePfx != nil {
-				k.InsidePfx = *r.InsidePfx
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat66",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "prefix"}, {Name: "inside"}}},
-	}
-}
-
-// Native_Nat66_Prefix_InsideNoVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf.
-type Native_Nat66_Prefix_InsideNoVrf struct {
-	Inside []Native_Nat66_Prefix_InsideNoVrf_Inside
-}
-
-// Native_Nat66_Prefix_InsideNoVrfSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf for the generic codecs.
-var Native_Nat66_Prefix_InsideNoVrfSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Nat66_Prefix_InsideNoVrf_InsideSchema,
-		GoName: "Inside",
-		List:   true,
-		Name:   "inside",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "inside-no-vrf",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_InsideNoVrf_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf/inside.
-type Native_Nat66_Prefix_InsideNoVrf_Inside struct {
-	InsidePfx *string
-	Outside   *yang.Value
-}
-
-// Native_Nat66_Prefix_InsideNoVrf_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf/inside for the generic codecs.
-var Native_Nat66_Prefix_InsideNoVrf_InsideSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "InsidePfx",
-		Name:   "inside-pfx",
-		Type:   yang.TString,
-	}, {
-		GoName: "Outside",
-		Name:   "outside",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-		},
-	}},
-	Keys:      []string{"inside-pfx"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "inside",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_InsideNoVrf_InsideKey is Native_Nat66_Prefix_InsideNoVrf_Inside's row identity (ancestor keys in canonical form).
-type Native_Nat66_Prefix_InsideNoVrf_InsideKey struct {
-	InsidePfx string
-}
-
-// Native_Nat66_Prefix_InsideNoVrf_InsideDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Nat66_Prefix_InsideNoVrf_InsideDescriptor() yang.ListDescriptor[Native_Nat66_Prefix_InsideNoVrf_Inside, Native_Nat66_Prefix_InsideNoVrf_InsideKey] {
-	return yang.ListDescriptor[Native_Nat66_Prefix_InsideNoVrf_Inside, Native_Nat66_Prefix_InsideNoVrf_InsideKey]{
-		Codec: yang.StructRowCodec(Native_Nat66_Prefix_InsideNoVrf_InsideSchema, func(r *Native_Nat66_Prefix_InsideNoVrf_Inside) Native_Nat66_Prefix_InsideNoVrf_InsideKey {
-			var k Native_Nat66_Prefix_InsideNoVrf_InsideKey
-			if r.InsidePfx != nil {
-				k.InsidePfx = *r.InsidePfx
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat66",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "prefix"}, {Name: "inside-no-vrf"}, {Name: "inside"}}},
-	}
-}
-
-// Native_Nat66_Prefix_InsideWithEgressNoVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf.
-type Native_Nat66_Prefix_InsideWithEgressNoVrf struct {
-	Inside []Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside
-}
-
-// Native_Nat66_Prefix_InsideWithEgressNoVrfSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf for the generic codecs.
-var Native_Nat66_Prefix_InsideWithEgressNoVrfSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema,
-		GoName: "Inside",
-		List:   true,
-		Name:   "inside",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "inside-with-egress-no-vrf",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf/inside.
-type Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside struct {
-	EgressInterface *string
-	InsidePfx       *string
-	Outside         *yang.Value
-}
-
-// Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf/inside for the generic codecs.
-var Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "EgressInterface",
-		Name:   "egress-interface",
-		Type:   yang.TString,
-	}, {
-		GoName: "InsidePfx",
-		Name:   "inside-pfx",
-		Type:   yang.TString,
-	}, {
-		GoName: "Outside",
-		Name:   "outside",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-		},
-	}},
-	Keys:      []string{"inside-pfx", "egress-interface"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "inside",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey is Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside's row identity (ancestor keys in canonical form).
-type Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey struct {
-	InsidePfx       string
-	EgressInterface string
-}
-
-// Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideDescriptor() yang.ListDescriptor[Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside, Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey] {
-	return yang.ListDescriptor[Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside, Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey]{
-		Codec: yang.StructRowCodec(Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema, func(r *Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside) Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey {
-			var k Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey
-			if r.InsidePfx != nil {
-				k.InsidePfx = *r.InsidePfx
-			}
-			if r.EgressInterface != nil {
-				k.EgressInterface = *r.EgressInterface
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat66",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "prefix"}, {Name: "inside-with-egress-no-vrf"}, {Name: "inside"}}},
-	}
-}
-
-// Native_Nat66_Prefix_InsideWithEgressVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf.
-type Native_Nat66_Prefix_InsideWithEgressVrf struct {
-	Inside []Native_Nat66_Prefix_InsideWithEgressVrf_Inside
-}
-
-// Native_Nat66_Prefix_InsideWithEgressVrfSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf for the generic codecs.
-var Native_Nat66_Prefix_InsideWithEgressVrfSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Nat66_Prefix_InsideWithEgressVrf_InsideSchema,
-		GoName: "Inside",
-		List:   true,
-		Name:   "inside",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "inside-with-egress-vrf",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_InsideWithEgressVrf_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf/inside.
-type Native_Nat66_Prefix_InsideWithEgressVrf_Inside struct {
-	EgressInterface *string
-	InsidePfx       *string
-	Outside         *yang.Value
-	Vrf             *string
-}
-
-// Native_Nat66_Prefix_InsideWithEgressVrf_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf/inside for the generic codecs.
-var Native_Nat66_Prefix_InsideWithEgressVrf_InsideSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "EgressInterface",
-		Name:   "egress-interface",
-		Type:   yang.TString,
-	}, {
-		GoName: "InsidePfx",
-		Name:   "inside-pfx",
-		Type:   yang.TString,
-	}, {
-		GoName: "Outside",
-		Name:   "outside",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "Vrf",
-		Name:   "vrf",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"inside-pfx", "vrf", "egress-interface"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "inside",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Nat66_Prefix_InsideWithEgressVrf_InsideKey is Native_Nat66_Prefix_InsideWithEgressVrf_Inside's row identity (ancestor keys in canonical form).
-type Native_Nat66_Prefix_InsideWithEgressVrf_InsideKey struct {
-	InsidePfx       string
-	Vrf             string
-	EgressInterface string
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Nat66_Prefix_InsideWithEgressVrf_InsideDescriptor is the list descriptor callers hand to a protocol library.
 func Native_Nat66_Prefix_InsideWithEgressVrf_InsideDescriptor() yang.ListDescriptor[Native_Nat66_Prefix_InsideWithEgressVrf_Inside, Native_Nat66_Prefix_InsideWithEgressVrf_InsideKey] {
@@ -47592,4 +47049,276 @@ type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_V
 	Source     *string
 	VendorName *string
 	Version    *string
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/vendor-conf/vendor/vendor-name-version-source-list for the generic codecs.
+var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Source",
+		Name:   "source",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "VendorName",
+		Name:   "vendor-name",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Version",
+		Name:   "version",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"vendor-name", "version", "source"},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "vendor-name-version-source-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey is Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList's row identity (ancestor keys in canonical form).
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey struct {
+	ClassMap_Name string
+	VendorName    string
+	Version       string
+	Source        string
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow flattens one Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList entry with its ancestor list keys.
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow struct {
+	ClassMap_Name string
+	Entry         Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListDescriptor is the flattened-row descriptor for the nested list Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList.
+func Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListDescriptor() yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey] {
+	return yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey]{
+		Codec: yang.RowCodec[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, error) {
+				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow{
+						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:         en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, error) {
+				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow{
+						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:         en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey {
+				var k Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey
+				k.ClassMap_Name = r.ClassMap_Name
+				if r.Entry.VendorName != nil {
+					k.VendorName = *r.Entry.VendorName
+				}
+				if r.Entry.Version != nil {
+					k.Version = *r.Entry.Version
+				}
+				if r.Entry.Source != nil {
+					k.Source = *r.Entry.Source
+				}
+				return k
+			},
+			Merge: func(base, update Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "policy"}, {
+			Module:    "Cisco-IOS-XE-policy",
+			Name:      "class-map",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+		}, {Name: "match"}, {Name: "application"}, {Name: "ip-camera-conf"}, {Name: "ip-camera"}, {Name: "vendor-conf"}, {Name: "vendor"}, {Name: "vendor-name-version-source-list"}}},
+	}
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf.
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf struct {
+	Version *Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConfSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf for the generic codecs.
+var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_VersionSchema,
+		GoName: "Version",
+		Name:   "version",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "version-conf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version.
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version struct {
+	VersionNameList       []Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList
+	VersionNameSourceList []Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_VersionSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version for the generic codecs.
+var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_VersionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema,
+		GoName: "VersionNameList",
+		List:   true,
+		Name:   "version-name-list",
+	}, {
+		Child:  Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListSchema,
+		GoName: "VersionNameSourceList",
+		List:   true,
+		Name:   "version-name-source-list",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "version",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-list.
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList struct {
+	VersionName *string
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-list for the generic codecs.
+var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "VersionName",
+		Name:   "version-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"version-name"},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "version-name-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey is Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList's row identity (ancestor keys in canonical form).
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey struct {
+	ClassMap_Name string
+	VersionName   string
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow flattens one Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList entry with its ancestor list keys.
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow struct {
+	ClassMap_Name string
+	Entry         Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListDescriptor is the flattened-row descriptor for the nested list Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList.
+func Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListDescriptor() yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey] {
+	return yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey]{
+		Codec: yang.RowCodec[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, error) {
+				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow{
+						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:         en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, error) {
+				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow{
+						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:         en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey {
+				var k Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey
+				k.ClassMap_Name = r.ClassMap_Name
+				if r.Entry.VersionName != nil {
+					k.VersionName = *r.Entry.VersionName
+				}
+				return k
+			},
+			Merge: func(base, update Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "policy"}, {
+			Module:    "Cisco-IOS-XE-policy",
+			Name:      "class-map",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+		}, {Name: "match"}, {Name: "application"}, {Name: "ip-camera-conf"}, {Name: "ip-camera"}, {Name: "version-conf"}, {Name: "version"}, {Name: "version-name-list"}}},
+	}
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-source-list.
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList struct {
+	Source         *string
+	VersionStrName *string
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-source-list for the generic codecs.
+var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Source",
+		Name:   "source",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "VersionStrName",
+		Name:   "version-str-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"version-str-name", "source"},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "version-name-source-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListKey is Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList's row identity (ancestor keys in canonical form).
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListKey struct {
+	ClassMap_Name  string
+	VersionStrName string
+	Source         string
+}
+
+// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListFlatRow flattens one Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList entry with its ancestor list keys.
+type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListFlatRow struct {
+	ClassMap_Name string
+	Entry         Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList
 }

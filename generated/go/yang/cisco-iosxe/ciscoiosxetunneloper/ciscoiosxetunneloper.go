@@ -6,7 +6,7 @@
 // Package ciscoiosxetunneloper binds the YANG module Cisco-IOS-XE-tunnel-oper.
 package ciscoiosxetunneloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TunnelOperData is the Cisco-IOS-XE-tunnel-oper node /Cisco-IOS-XE-tunnel-oper/tunnel-oper-data.
 type TunnelOperData struct {

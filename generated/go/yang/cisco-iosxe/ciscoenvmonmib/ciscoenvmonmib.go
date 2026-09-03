@@ -6,7 +6,7 @@
 // Package ciscoenvmonmib binds the YANG module CISCO-ENVMON-MIB.
 package ciscoenvmonmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOENVMONMIB is the CISCO-ENVMON-MIB node /CISCO-ENVMON-MIB/CISCO-ENVMON-MIB.
 type CISCOENVMONMIB struct {

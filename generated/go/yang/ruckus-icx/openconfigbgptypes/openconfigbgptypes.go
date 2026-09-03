@@ -6,7 +6,7 @@
 // Package openconfigbgptypes binds the YANG module openconfig-bgp-types.
 package openconfigbgptypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ADDPATHS is the openconfig-bgp-types identity "ADD_PATHS".
 var Identity_ADDPATHS = yang.Identity{

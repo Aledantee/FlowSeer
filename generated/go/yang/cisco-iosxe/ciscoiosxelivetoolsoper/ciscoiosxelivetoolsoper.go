@@ -6,7 +6,7 @@
 // Package ciscoiosxelivetoolsoper binds the YANG module Cisco-IOS-XE-livetools-oper.
 package ciscoiosxelivetoolsoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LivetoolsOperData is the Cisco-IOS-XE-livetools-oper node /Cisco-IOS-XE-livetools-oper/livetools-oper-data.
 type LivetoolsOperData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesslispagentoper binds the YANG module Cisco-IOS-XE-wireless-lisp-agent-oper.
 package ciscoiosxewirelesslispagentoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LispAgentOperData is the Cisco-IOS-XE-wireless-lisp-agent-oper node /Cisco-IOS-XE-wireless-lisp-agent-oper/lisp-agent-oper-data.
 type LispAgentOperData struct {

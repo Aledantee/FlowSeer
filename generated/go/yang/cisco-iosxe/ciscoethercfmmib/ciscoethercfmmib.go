@@ -6,7 +6,7 @@
 // Package ciscoethercfmmib binds the YANG module CISCO-ETHER-CFM-MIB.
 package ciscoethercfmmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOETHERCFMMIB is the CISCO-ETHER-CFM-MIB node /CISCO-ETHER-CFM-MIB/CISCO-ETHER-CFM-MIB.
 type CISCOETHERCFMMIB struct {

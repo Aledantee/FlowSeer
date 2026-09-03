@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessclientoper binds the YANG module Cisco-IOS-XE-wireless-client-oper.
 package ciscoiosxewirelessclientoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ClientOperData is the Cisco-IOS-XE-wireless-client-oper node /Cisco-IOS-XE-wireless-client-oper/client-oper-data.
 type ClientOperData struct {

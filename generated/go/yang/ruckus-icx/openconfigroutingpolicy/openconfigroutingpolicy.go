@@ -6,7 +6,7 @@
 // Package openconfigroutingpolicy binds the YANG module openconfig-routing-policy.
 package openconfigroutingpolicy
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RoutingPolicy is the openconfig-routing-policy node /openconfig-routing-policy/routing-policy.
 type RoutingPolicy struct {

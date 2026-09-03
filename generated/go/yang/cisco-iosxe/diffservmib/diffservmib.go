@@ -6,7 +6,7 @@
 // Package diffservmib binds the YANG module DIFFSERV-MIB.
 package diffservmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_DiffServSchedulerPriority is the DIFFSERV-MIB identity "diffServSchedulerPriority".
 var Identity_DiffServSchedulerPriority = yang.Identity{

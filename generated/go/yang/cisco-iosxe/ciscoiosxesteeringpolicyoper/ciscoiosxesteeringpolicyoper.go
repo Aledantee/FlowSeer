@@ -6,7 +6,7 @@
 // Package ciscoiosxesteeringpolicyoper binds the YANG module Cisco-IOS-XE-steering-policy-oper.
 package ciscoiosxesteeringpolicyoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SteeringPolicyOperData is the Cisco-IOS-XE-steering-policy-oper node /Cisco-IOS-XE-steering-policy-oper/steering-policy-oper-data.
 type SteeringPolicyOperData struct {

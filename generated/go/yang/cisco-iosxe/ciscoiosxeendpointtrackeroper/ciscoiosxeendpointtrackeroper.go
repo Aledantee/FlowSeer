@@ -6,7 +6,7 @@
 // Package ciscoiosxeendpointtrackeroper binds the YANG module Cisco-IOS-XE-endpoint-tracker-oper.
 package ciscoiosxeendpointtrackeroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EndpointTrackerOper is the Cisco-IOS-XE-endpoint-tracker-oper node /Cisco-IOS-XE-endpoint-tracker-oper/endpoint-tracker-oper.
 type EndpointTrackerOper struct {

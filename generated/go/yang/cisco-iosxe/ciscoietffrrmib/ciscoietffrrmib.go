@@ -6,7 +6,7 @@
 // Package ciscoietffrrmib binds the YANG module CISCO-IETF-FRR-MIB.
 package ciscoietffrrmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIETFFRRMIB is the CISCO-IETF-FRR-MIB node /CISCO-IETF-FRR-MIB/CISCO-IETF-FRR-MIB.
 type CISCOIETFFRRMIB struct {

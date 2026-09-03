@@ -6,7 +6,7 @@
 // Package openconfigalarmtypes binds the YANG module openconfig-alarm-types.
 package openconfigalarmtypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AIS is the openconfig-alarm-types identity "AIS".
 var Identity_AIS = yang.Identity{

@@ -6,7 +6,7 @@
 // Package openconfigwifiphy binds the YANG module openconfig-wifi-phy.
 package openconfigwifiphy
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Radios is the openconfig-wifi-phy node /openconfig-wifi-phy/radios.
 type Radios struct {

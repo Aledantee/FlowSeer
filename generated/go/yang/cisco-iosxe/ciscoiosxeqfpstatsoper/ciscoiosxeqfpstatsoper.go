@@ -6,7 +6,7 @@
 // Package ciscoiosxeqfpstatsoper binds the YANG module Cisco-IOS-XE-qfp-stats-oper.
 package ciscoiosxeqfpstatsoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // QfpStatsOperData is the Cisco-IOS-XE-qfp-stats-oper node /Cisco-IOS-XE-qfp-stats-oper/qfp-stats-oper-data.
 type QfpStatsOperData struct {

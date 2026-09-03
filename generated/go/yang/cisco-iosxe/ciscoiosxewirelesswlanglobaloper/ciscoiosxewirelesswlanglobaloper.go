@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesswlanglobaloper binds the YANG module Cisco-IOS-XE-wireless-wlan-global-oper.
 package ciscoiosxewirelesswlanglobaloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // WlanGlobalOperData is the Cisco-IOS-XE-wireless-wlan-global-oper node /Cisco-IOS-XE-wireless-wlan-global-oper/wlan-global-oper-data.
 type WlanGlobalOperData struct {

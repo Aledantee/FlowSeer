@@ -6,7 +6,7 @@
 // Package ciscoiosxeeogretunneloper binds the YANG module Cisco-IOS-XE-eogre-tunnel-oper.
 package ciscoiosxeeogretunneloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EogreTunnelOperData is the Cisco-IOS-XE-eogre-tunnel-oper node /Cisco-IOS-XE-eogre-tunnel-oper/eogre-tunnel-oper-data.
 type EogreTunnelOperData struct {

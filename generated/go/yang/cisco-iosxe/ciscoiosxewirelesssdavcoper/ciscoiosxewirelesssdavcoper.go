@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesssdavcoper binds the YANG module Cisco-IOS-XE-wireless-sdavc-oper.
 package ciscoiosxewirelesssdavcoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SdavcOperData is the Cisco-IOS-XE-wireless-sdavc-oper node /Cisco-IOS-XE-wireless-sdavc-oper/sdavc-oper-data.
 type SdavcOperData struct {

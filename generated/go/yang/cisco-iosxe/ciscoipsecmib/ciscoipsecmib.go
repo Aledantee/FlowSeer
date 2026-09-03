@@ -6,7 +6,7 @@
 // Package ciscoipsecmib binds the YANG module CISCO-IPSEC-MIB.
 package ciscoipsecmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPSECMIB is the CISCO-IPSEC-MIB node /CISCO-IPSEC-MIB/CISCO-IPSEC-MIB.
 type CISCOIPSECMIB struct {

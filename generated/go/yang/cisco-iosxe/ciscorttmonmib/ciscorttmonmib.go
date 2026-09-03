@@ -6,7 +6,7 @@
 // Package ciscorttmonmib binds the YANG module CISCO-RTTMON-MIB.
 package ciscorttmonmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCORTTMONMIB is the CISCO-RTTMON-MIB node /CISCO-RTTMON-MIB/CISCO-RTTMON-MIB.
 type CISCORTTMONMIB struct {

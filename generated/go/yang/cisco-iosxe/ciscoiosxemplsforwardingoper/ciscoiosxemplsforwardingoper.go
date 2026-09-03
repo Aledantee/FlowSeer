@@ -6,7 +6,7 @@
 // Package ciscoiosxemplsforwardingoper binds the YANG module Cisco-IOS-XE-mpls-forwarding-oper.
 package ciscoiosxemplsforwardingoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MplsForwardingOperData is the Cisco-IOS-XE-mpls-forwarding-oper node /Cisco-IOS-XE-mpls-forwarding-oper/mpls-forwarding-oper-data.
 type MplsForwardingOperData struct {

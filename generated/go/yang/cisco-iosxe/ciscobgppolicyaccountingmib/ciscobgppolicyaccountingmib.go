@@ -6,7 +6,7 @@
 // Package ciscobgppolicyaccountingmib binds the YANG module CISCO-BGP-POLICY-ACCOUNTING-MIB.
 package ciscobgppolicyaccountingmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOBGPPOLICYACCOUNTINGMIB is the CISCO-BGP-POLICY-ACCOUNTING-MIB node /CISCO-BGP-POLICY-ACCOUNTING-MIB/CISCO-BGP-POLICY-ACCOUNTING-MIB.
 type CISCOBGPPOLICYACCOUNTINGMIB struct {

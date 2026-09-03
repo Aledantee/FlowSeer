@@ -6,7 +6,7 @@
 // Package tokenringmib binds the YANG module TOKENRING-MIB.
 package tokenringmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Dot5ChipSetIBM16 is the TOKENRING-MIB identity "dot5ChipSetIBM16".
 var Identity_Dot5ChipSetIBM16 = yang.Identity{

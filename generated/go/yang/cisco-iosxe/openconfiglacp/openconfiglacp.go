@@ -6,7 +6,7 @@
 // Package openconfiglacp binds the YANG module openconfig-lacp.
 package openconfiglacp
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Lacp is the openconfig-lacp node /openconfig-lacp/lacp.
 type Lacp struct {

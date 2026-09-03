@@ -5,489 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/LISP-subinterface/LISP-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterface struct {
-	LISP *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LISP",
-		Name:   "LISP",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterface struct {
-	PortChannel *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PortChannel",
-		Name:   "Port-channel",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "Port-channel-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Serial-subinterface/Serial-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterface struct {
-	Serial *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Serial-subinterface/Serial-subinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Serial",
-		Name:   "Serial",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "Serial-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew struct {
-	ATM                       *string
-	ATMACR                    *string
-	ATMACRsubinterface        *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterface
-	ATMSubinterface           *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterface
-	AppGigabitEthernet        *string
-	AppNavCompress            *uint16
-	AppNavUnCompress          *uint16
-	Async                     *string
-	BDVIF                     *string
-	BDI                       *string
-	Bundle                    *uint32
-	CEM                       *string
-	CEMACR                    *uint8
-	Cellular                  *string
-	Dialer                    *string
-	EmbeddedServiceEngine     *string
-	Ethernet                  *string
-	FastEthernet              *string
-	FiveGigabitEthernet       *string
-	FortyGigabitEthernet      *string
-	GigabitEthernet           *string
-	HundredGigE               *string
-	L2LISP                    *string
-	L2LISPSubinterface        *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterface
-	LISP                      *string
-	LISPSubinterface          *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterface
-	Loopback                  *uint32
-	MFR                       *uint32
-	Multilink                 *uint16
-	PortChannel               *uint32
-	PortChannelSubinterface   *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterface
-	SM                        *string
-	Serial                    *string
-	SerialSubinterface        *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterface
-	TenGigabitEthernet        *string
-	Tunnel                    *uint32
-	TwentyFiveGigE            *string
-	TwentyFiveGigabitEthernet *string
-	TwoGigabitEthernet        *string
-	VirtualTemplate           *uint16
-	VirtualPortGroup          *uint16
-	Vlan                      *uint16
-	Nve                       *uint16
-	Overlay                   *uint16
-	Pseudowire                *uint32
-	Vasileft                  *uint16
-	Vasiright                 *uint16
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNewSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNewSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:    "ATM",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "ATMACR",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM-ACR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterfaceSchema,
-		GoName:    "ATMACRsubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM-ACRsubinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-	}, {
-		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterfaceSchema,
-		GoName:    "ATMSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-	}, {
-		GoName:    "AppGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "AppGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "AppNavCompress",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "AppNav-Compress",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "AppNavUnCompress",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "AppNav-UnCompress",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Async",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Async",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "BDVIF",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "BD-VIF",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "BDI",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "BDI",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Bundle",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Bundle",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "CEM",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "CEM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "CEMACR",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "CEM-ACR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint8,
-	}, {
-		GoName:    "Cellular",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Cellular",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Dialer",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Dialer",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "EmbeddedServiceEngine",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Embedded-Service-Engine",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Ethernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Ethernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FastEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "FastEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FiveGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "FiveGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FortyGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "FortyGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "GigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "GigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "HundredGigE",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "HundredGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "L2LISP",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "L2LISP",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterfaceSchema,
-		GoName:    "L2LISPSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "L2LISP-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-	}, {
-		GoName:    "LISP",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "LISP",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterfaceSchema,
-		GoName:    "LISPSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "LISP-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-	}, {
-		GoName:    "Loopback",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Loopback",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "MFR",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "MFR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "Multilink",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Multilink",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "PortChannel",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Port-channel",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint32,
-	}, {
-		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterfaceSchema,
-		GoName:    "PortChannelSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Port-channel-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-	}, {
-		GoName:    "SM",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "SM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Serial",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Serial",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterfaceSchema,
-		GoName:    "SerialSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Serial-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-	}, {
-		GoName:    "TenGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TenGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Tunnel",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Tunnel",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "TwentyFiveGigE",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TwentyFiveGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "TwentyFiveGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TwentyFiveGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "TwoGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TwoGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "VirtualTemplate",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Virtual-Template",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "VirtualPortGroup",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "VirtualPortGroup",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Vlan",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Vlan",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Nve",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "nve",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Overlay",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "overlay",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Pseudowire",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "pseudowire",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "Vasileft",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "vasileft",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Vasiright",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "vasiright",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		Type:      yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "IPv6-interface-new",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterface struct {
-	ATMACR *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ATMACR",
-		Name:   "ATM-ACR",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "ATM-ACRsubinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-subinterface/ATM-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterface struct {
-	ATM *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-subinterface/ATM-subinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ATM",
-		Name:   "ATM",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "ATM-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/L2LISP-subinterface/L2LISP-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterface struct {
-	L2LISP *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/L2LISP-subinterface/L2LISP-subinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "L2LISP",
-		Name:   "L2LISP",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "L2LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/LISP-subinterface/LISP-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterface struct {
-	LISP *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LISP",
-		Name:   "LISP",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterface struct {
-	PortChannel *string
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
-var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PortChannel",
-		Name:   "Port-channel",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "Port-channel-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/Serial-subinterface/Serial-subinterface.
-type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterface struct {
-	Serial *string
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/Serial-subinterface/Serial-subinterface for the generic codecs.
 var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterfaceSchema = &yang.Schema{
@@ -33021,4 +32539,397 @@ type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_
 	MaxMapCacheEntries *uint32
 	ReserveList        *string
 	WarningThreshold   *uint8
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_MapCacheLimitSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ethernet/map-cache-limit for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_MapCacheLimitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "MaxMapCacheEntries",
+		Name:   "max-map-cache-entries",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "ReserveList",
+		Name:   "reserve-list",
+		Type:   yang.TString,
+	}, {
+		GoName: "WarningThreshold",
+		Name:   "warning-threshold",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "map-cache-limit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_RegistrationHistory is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ethernet/registration-history.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_RegistrationHistory struct {
+	Limit *uint32
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_RegistrationHistorySchema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ethernet/registration-history for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_RegistrationHistorySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Limit",
+		Name:   "limit",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "registration-history",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SiteRegistration is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ethernet/site-registration.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SiteRegistration struct {
+	Limit            *uint32
+	WarningThreshold *uint8
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SiteRegistrationSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ethernet/site-registration for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SiteRegistrationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Limit",
+		Name:   "limit",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "WarningThreshold",
+		Name:   "warning-threshold",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "site-registration",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SolicitMapRequest is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ethernet/solicit-map-request.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SolicitMapRequest struct {
+	Ignore          *bool
+	MaxPerEntry     *uint8
+	SuppressionTime *uint16
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SolicitMapRequestSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ethernet/solicit-map-request for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ethernet_SolicitMapRequestSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ignore",
+		Name:   "ignore",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MaxPerEntry",
+		Name:   "max-per-entry",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "SuppressionTime",
+		Name:   "suppression-time",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "solicit-map-request",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4 struct {
+	Alt                 *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt
+	AltVrf              *string
+	DatabaseMapping     *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping
+	Default             *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Default
+	Distance            *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Distance
+	EidTable            *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_EidTable
+	Etr                 *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Etr
+	EtrEnable           *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_EtrEnable
+	FirstPacketPetr     *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_FirstPacketPetr
+	Import              *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Import
+	Itr                 *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Itr
+	ItrEnable           *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_ItrEnable
+	MapCache            *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MapCache
+	MapCacheLimit       *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MapCacheLimit
+	MapCachePersistent  *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MapCachePersistent
+	MapRequestSource    *string
+	MrUsePetr           *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MrUsePetr
+	ProxyEtr            *bool
+	ProxyItr            *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_ProxyItr
+	RegistrationHistory *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_RegistrationHistory
+	RouteExport         *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_RouteExport
+	RouteImport         *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_RouteImport
+	Sgt                 *bool
+	SgtConfig           *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_SgtConfig
+	SiteRegistration    *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_SiteRegistration
+	SolicitMapRequest   *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_SolicitMapRequest
+	UsePetr             []Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_UsePetr
+	UsePetrConfig       *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_UsePetrConfig
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4Schema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4 for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_AltSchema,
+		GoName: "Alt",
+		Name:   "alt",
+	}, {
+		GoName: "AltVrf",
+		Name:   "alt-vrf",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMappingSchema,
+		GoName: "DatabaseMapping",
+		Name:   "database-mapping",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DefaultSchema,
+		GoName: "Default",
+		Name:   "default",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DistanceSchema,
+		GoName: "Distance",
+		Name:   "distance",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_EidTableSchema,
+		GoName: "EidTable",
+		Name:   "eid-table",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_EtrSchema,
+		GoName: "Etr",
+		Name:   "etr",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_EtrEnableSchema,
+		GoName: "EtrEnable",
+		Name:   "etr-enable",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_FirstPacketPetrSchema,
+		GoName: "FirstPacketPetr",
+		Name:   "first-packet-petr",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_ImportSchema,
+		GoName: "Import",
+		Name:   "import",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_ItrSchema,
+		GoName: "Itr",
+		Name:   "itr",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_ItrEnableSchema,
+		GoName: "ItrEnable",
+		Name:   "itr-enable",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MapCacheSchema,
+		GoName: "MapCache",
+		Name:   "map-cache",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MapCacheLimitSchema,
+		GoName: "MapCacheLimit",
+		Name:   "map-cache-limit",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MapCachePersistentSchema,
+		GoName: "MapCachePersistent",
+		Name:   "map-cache-persistent",
+	}, {
+		GoName: "MapRequestSource",
+		Name:   "map-request-source",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_MrUsePetrSchema,
+		GoName: "MrUsePetr",
+		Name:   "mr-use-petr",
+	}, {
+		GoName: "ProxyEtr",
+		Name:   "proxy-etr",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_ProxyItrSchema,
+		GoName: "ProxyItr",
+		Name:   "proxy-itr",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_RegistrationHistorySchema,
+		GoName: "RegistrationHistory",
+		Name:   "registration-history",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_RouteExportSchema,
+		GoName: "RouteExport",
+		Name:   "route-export",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_RouteImportSchema,
+		GoName: "RouteImport",
+		Name:   "route-import",
+	}, {
+		GoName: "Sgt",
+		Name:   "sgt",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_SgtConfigSchema,
+		GoName: "SgtConfig",
+		Name:   "sgt-config",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_SiteRegistrationSchema,
+		GoName: "SiteRegistration",
+		Name:   "site-registration",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_SolicitMapRequestSchema,
+		GoName: "SolicitMapRequest",
+		Name:   "solicit-map-request",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_UsePetrSchema,
+		GoName: "UsePetr",
+		List:   true,
+		Name:   "use-petr",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_UsePetrConfigSchema,
+		GoName: "UsePetrConfig",
+		Name:   "use-petr-config",
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "ipv4",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+	Presence:  true,
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4/alt.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt struct {
+	SummaryRoute []Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_AltSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4/alt for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_AltSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteSchema,
+		GoName: "SummaryRoute",
+		List:   true,
+		Name:   "summary-route",
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "alt",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4/alt/summary-route.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute struct {
+	EidPrefix *yang.Value
+	RouteTag  *uint32
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4/alt/summary-route for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "EidPrefix",
+		Name:   "eid-prefix",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+		},
+	}, {
+		GoName: "RouteTag",
+		Name:   "route-tag",
+		Type:   yang.TUint32,
+	}},
+	Keys:      []string{"eid-prefix"},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "summary-route",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteKey is Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute's row identity (ancestor keys in canonical form).
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteKey struct {
+	InstanceList_InstanceId string
+	EidPrefix               string
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow flattens one Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute entry with its ancestor list keys.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow struct {
+	InstanceList_InstanceId string
+	Entry                   Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteDescriptor is the flattened-row descriptor for the nested list Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute.
+func Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteDescriptor() yang.ListDescriptor[Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow, Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteKey] {
+	return yang.ListDescriptor[Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow, Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteKey]{
+		Codec: yang.RowCodec[Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow, Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Lisp_Default_InstanceContainer_InstanceListSchema, Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow{
+						Entry:                   en.Entry,
+						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 0, "instance-id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Lisp_Default_InstanceContainer_InstanceListSchema, Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRoute](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow{
+						Entry:                   en.Entry,
+						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 0, "instance-id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow) Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteKey {
+				var k Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteKey
+				k.InstanceList_InstanceId = r.InstanceList_InstanceId
+				if r.Entry.EidPrefix != nil {
+					k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow) Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_Alt_SummaryRouteSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-lisp",
+			Name:      "lisp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		}, {Name: "default"}, {Name: "instance-container"}, {Name: "instance-list"}, {Name: "service"}, {Name: "ipv4"}, {Name: "alt"}, {Name: "summary-route"}}},
+	}
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4/database-mapping.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping struct {
+	EidCont []Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont
+	Limit   *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_Limit
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMappingSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4/database-mapping for the generic codecs.
+var Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMappingSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidContSchema,
+		GoName: "EidCont",
+		List:   true,
+		Name:   "eid-cont",
+	}, {
+		Child:  Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_LimitSchema,
+		GoName: "Limit",
+		Name:   "limit",
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "database-mapping",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/instance-container/instance-list/service/ipv4/database-mapping/eid-cont.
+type Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont struct {
+	IPv4Interface       []Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont_IPv4Interface
+	IPv6Interface       []Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont_IPv6Interface
+	AutoDiscoverRlocs   *bool
+	EidPrefix           *string
+	Ipv4Addrees         []Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont_Ipv4Addrees
+	Ipv6Addrees         []Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont_Ipv6Addrees
+	LocatorSetContainer *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont_LocatorSetContainer
+	ServiceInsertion    *Native_Router_Lisp_Default_InstanceContainer_InstanceList_Service_Ipv4_DatabaseMapping_EidCont_ServiceInsertion
 }

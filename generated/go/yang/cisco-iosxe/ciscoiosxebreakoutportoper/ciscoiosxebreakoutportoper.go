@@ -6,7 +6,7 @@
 // Package ciscoiosxebreakoutportoper binds the YANG module Cisco-IOS-XE-breakout-port-oper.
 package ciscoiosxebreakoutportoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BreakoutPortOperData is the Cisco-IOS-XE-breakout-port-oper node /Cisco-IOS-XE-breakout-port-oper/breakout-port-oper-data.
 type BreakoutPortOperData struct {

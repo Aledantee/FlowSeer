@@ -6,7 +6,7 @@
 // Package ciscoiosxeefpoper binds the YANG module Cisco-IOS-XE-efp-oper.
 package ciscoiosxeefpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EfpStats is the Cisco-IOS-XE-efp-oper node /Cisco-IOS-XE-efp-oper/efp-stats.
 type EfpStats struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxeignitionoper binds the YANG module Cisco-IOS-XE-ignition-oper.
 package ciscoiosxeignitionoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IgnitionOperData is the Cisco-IOS-XE-ignition-oper node /Cisco-IOS-XE-ignition-oper/ignition-oper-data.
 type IgnitionOperData struct {

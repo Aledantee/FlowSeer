@@ -5,395 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfigSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/reachable-lifetime-choice/reachable-lifetime-config for the generic codecs.
-var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetimeSchema,
-		GoName: "ReachableLifetime",
-		Name:   "reachable-lifetime",
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "reachable-lifetime-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetime is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/reachable-lifetime-choice/reachable-lifetime-config/reachable-lifetime.
-type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetime struct {
-	Default  *bool
-	Infinite *bool
-	Seconds  *uint32
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetimeSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/reachable-lifetime-choice/reachable-lifetime-config/reachable-lifetime for the generic codecs.
-var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetimeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Default",
-		Name:   "default",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Infinite",
-		Name:   "infinite",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Seconds",
-		Name:   "seconds",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "reachable-lifetime",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval.
-type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval struct {
-	Default                 *bool
-	ReachableLifetimeConfig *Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig
-	Seconds                 *uint32
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryIntervalSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval for the generic codecs.
-var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryIntervalSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Default",
-		Name:   "default",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfigSchema,
-		GoName: "ReachableLifetimeConfig",
-		Name:   "reachable-lifetime-config",
-	}, {
-		GoName: "Seconds",
-		Name:   "seconds",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "retry-interval",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config.
-type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig struct {
-	ReachableLifetime *Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetime
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfigSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config for the generic codecs.
-var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetimeSchema,
-		GoName: "ReachableLifetime",
-		Name:   "reachable-lifetime",
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "reachable-lifetime-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetime is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config/reachable-lifetime.
-type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetime struct {
-	Default  *bool
-	Infinite *bool
-	Seconds  *uint32
-}
-
-// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetimeSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config/reachable-lifetime for the generic codecs.
-var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetimeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Default",
-		Name:   "default",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Infinite",
-		Name:   "infinite",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Seconds",
-		Name:   "seconds",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "reachable-lifetime",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Export is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/export.
-type Native_DeviceTracking_Export struct {
-	OperData *string
-}
-
-// Native_DeviceTracking_ExportSchema describes /Cisco-IOS-XE-native/native/device-tracking/export for the generic codecs.
-var Native_DeviceTracking_ExportSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "OperData",
-		Name:   "oper-data",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "export",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Logging is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/logging.
-type Native_DeviceTracking_Logging struct {
-	Packet         *Native_DeviceTracking_Logging_Packet
-	ResolutionVeto *bool
-	Theft          *bool
-}
-
-// Native_DeviceTracking_LoggingSchema describes /Cisco-IOS-XE-native/native/device-tracking/logging for the generic codecs.
-var Native_DeviceTracking_LoggingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_DeviceTracking_Logging_PacketSchema,
-		GoName: "Packet",
-		Name:   "packet",
-	}, {
-		GoName: "ResolutionVeto",
-		Name:   "resolution-veto",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Theft",
-		Name:   "theft",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "logging",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-	Presence:  true,
-}
-
-// Native_DeviceTracking_Logging_Packet is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/logging/packet.
-type Native_DeviceTracking_Logging_Packet struct {
-	Drop *bool
-}
-
-// Native_DeviceTracking_Logging_PacketSchema describes /Cisco-IOS-XE-native/native/device-tracking/logging/packet for the generic codecs.
-var Native_DeviceTracking_Logging_PacketSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Drop",
-		Name:   "drop",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "packet",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Policy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy.
-type Native_DeviceTracking_Policy struct {
-	DataGlean          *Native_DeviceTracking_Policy_DataGlean
-	DestinationGlean   *Native_DeviceTracking_Policy_DestinationGlean
-	DeviceRole         *Native_DeviceTracking_Policy_DeviceRole
-	DeviceRoleConfig   *string
-	Limit              *Native_DeviceTracking_Policy_Limit
-	MediumTypeWireless *bool
-	PrefixGlean        *Native_DeviceTracking_Policy_PrefixGlean
-	Protocol           *Native_DeviceTracking_Policy_Protocol
-	SecurityLevel      *Native_DeviceTracking_Policy_SecurityLevel
-	Tracking           *Native_DeviceTracking_Policy_Tracking
-	TrustedPort        *bool
-	Word               *string
-}
-
-// Native_DeviceTracking_PolicySchema describes /Cisco-IOS-XE-native/native/device-tracking/policy for the generic codecs.
-var Native_DeviceTracking_PolicySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_DeviceTracking_Policy_DataGleanSchema,
-		GoName: "DataGlean",
-		Name:   "data-glean",
-	}, {
-		Child:  Native_DeviceTracking_Policy_DestinationGleanSchema,
-		GoName: "DestinationGlean",
-		Name:   "destination-glean",
-	}, {
-		Child:  Native_DeviceTracking_Policy_DeviceRoleSchema,
-		GoName: "DeviceRole",
-		Name:   "device-role",
-	}, {
-		GoName: "DeviceRoleConfig",
-		Name:   "device-role-config",
-		Type:   yang.TEnum,
-	}, {
-		Child:  Native_DeviceTracking_Policy_LimitSchema,
-		GoName: "Limit",
-		Name:   "limit",
-	}, {
-		GoName: "MediumTypeWireless",
-		Name:   "medium-type-wireless",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_DeviceTracking_Policy_PrefixGleanSchema,
-		GoName: "PrefixGlean",
-		Name:   "prefix-glean",
-	}, {
-		Child:  Native_DeviceTracking_Policy_ProtocolSchema,
-		GoName: "Protocol",
-		Name:   "protocol",
-	}, {
-		Child:  Native_DeviceTracking_Policy_SecurityLevelSchema,
-		GoName: "SecurityLevel",
-		Name:   "security-level",
-	}, {
-		Child:  Native_DeviceTracking_Policy_TrackingSchema,
-		GoName: "Tracking",
-		Name:   "tracking",
-	}, {
-		GoName: "TrustedPort",
-		Name:   "trusted-port",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Word",
-		Name:   "word",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"word"},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "policy",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_PolicyKey is Native_DeviceTracking_Policy's row identity (ancestor keys in canonical form).
-type Native_DeviceTracking_PolicyKey struct {
-	Word string
-}
-
-// Native_DeviceTracking_PolicyDescriptor is the list descriptor callers hand to a protocol library.
-func Native_DeviceTracking_PolicyDescriptor() yang.ListDescriptor[Native_DeviceTracking_Policy, Native_DeviceTracking_PolicyKey] {
-	return yang.ListDescriptor[Native_DeviceTracking_Policy, Native_DeviceTracking_PolicyKey]{
-		Codec: yang.StructRowCodec(Native_DeviceTracking_PolicySchema, func(r *Native_DeviceTracking_Policy) Native_DeviceTracking_PolicyKey {
-			var k Native_DeviceTracking_PolicyKey
-			if r.Word != nil {
-				k.Word = *r.Word
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "device-tracking"}, {
-			Module:    "Cisco-IOS-XE-device-tracking",
-			Name:      "policy",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-		}}},
-	}
-}
-
-// Native_DeviceTracking_Policy_DataGlean is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean.
-type Native_DeviceTracking_Policy_DataGlean struct {
-	LogOnly  *bool
-	Recovery *Native_DeviceTracking_Policy_DataGlean_Recovery
-}
-
-// Native_DeviceTracking_Policy_DataGleanSchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean for the generic codecs.
-var Native_DeviceTracking_Policy_DataGleanSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LogOnly",
-		Name:   "log-only",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_DeviceTracking_Policy_DataGlean_RecoverySchema,
-		GoName: "Recovery",
-		Name:   "recovery",
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "data-glean",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Policy_DataGlean_Recovery is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean/recovery.
-type Native_DeviceTracking_Policy_DataGlean_Recovery struct {
-	Dhcp *bool
-	Ndp  *bool
-}
-
-// Native_DeviceTracking_Policy_DataGlean_RecoverySchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean/recovery for the generic codecs.
-var Native_DeviceTracking_Policy_DataGlean_RecoverySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Dhcp",
-		Name:   "dhcp",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Ndp",
-		Name:   "ndp",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "recovery",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Policy_DestinationGlean is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean.
-type Native_DeviceTracking_Policy_DestinationGlean struct {
-	LogOnly  *bool
-	Recovery *Native_DeviceTracking_Policy_DestinationGlean_Recovery
-}
-
-// Native_DeviceTracking_Policy_DestinationGleanSchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean for the generic codecs.
-var Native_DeviceTracking_Policy_DestinationGleanSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LogOnly",
-		Name:   "log-only",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_DeviceTracking_Policy_DestinationGlean_RecoverySchema,
-		GoName: "Recovery",
-		Name:   "recovery",
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "destination-glean",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Policy_DestinationGlean_Recovery is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean/recovery.
-type Native_DeviceTracking_Policy_DestinationGlean_Recovery struct {
-	Dhcp *bool
-}
-
-// Native_DeviceTracking_Policy_DestinationGlean_RecoverySchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean/recovery for the generic codecs.
-var Native_DeviceTracking_Policy_DestinationGlean_RecoverySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Dhcp",
-		Name:   "dhcp",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "recovery",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Policy_DeviceRole is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/device-role.
-type Native_DeviceTracking_Policy_DeviceRole struct {
-	Node   *bool
-	Router *bool
-	Switch *bool
-}
-
-// Native_DeviceTracking_Policy_DeviceRoleSchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/device-role for the generic codecs.
-var Native_DeviceTracking_Policy_DeviceRoleSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Node",
-		Name:   "node",
-		Type:   yang.TBool,
-	}, {
-		GoName: "Router",
-		Name:   "router",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Switch",
-		Name:   "switch",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "device-role",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
-}
-
-// Native_DeviceTracking_Policy_Limit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/limit.
-type Native_DeviceTracking_Policy_Limit struct {
-	AddressCount       *uint16
-	AddressCountConfig *Native_DeviceTracking_Policy_Limit_AddressCountConfig
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_DeviceTracking_Policy_LimitSchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/limit for the generic codecs.
 var Native_DeviceTracking_Policy_LimitSchema = &yang.Schema{
@@ -52352,4 +51964,522 @@ type Native_HwModule_Switch_Usbflash1PasswordKey struct {
 type Native_HwModule_Switch_Usbflash1PasswordFlatRow struct {
 	Switch_SwitchNumber string
 	Entry               Native_HwModule_Switch_Usbflash1Password
+}
+
+// Native_HwModule_Switch_Usbflash1PasswordDescriptor is the flattened-row descriptor for the nested list Native_HwModule_Switch_Usbflash1Password.
+func Native_HwModule_Switch_Usbflash1PasswordDescriptor() yang.ListDescriptor[Native_HwModule_Switch_Usbflash1PasswordFlatRow, Native_HwModule_Switch_Usbflash1PasswordKey] {
+	return yang.ListDescriptor[Native_HwModule_Switch_Usbflash1PasswordFlatRow, Native_HwModule_Switch_Usbflash1PasswordKey]{
+		Codec: yang.RowCodec[Native_HwModule_Switch_Usbflash1PasswordFlatRow, Native_HwModule_Switch_Usbflash1PasswordKey]{
+			DecodeJSON: func(data []byte) ([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, error) {
+				chain := []*yang.Schema{Native_HwModule_SwitchSchema, Native_HwModule_Switch_Usbflash1PasswordSchema}
+				entries, err := yang.DecodeJSONNested[Native_HwModule_Switch_Usbflash1Password](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_HwModule_Switch_Usbflash1PasswordFlatRow{
+						Entry:               en.Entry,
+						Switch_SwitchNumber: yang.AncestorKey(en.AncestorKeys, 0, "switch-number"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, error) {
+				chain := []*yang.Schema{Native_HwModule_SwitchSchema, Native_HwModule_Switch_Usbflash1PasswordSchema}
+				entries, err := yang.DecodeXMLNested[Native_HwModule_Switch_Usbflash1Password](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_HwModule_Switch_Usbflash1PasswordFlatRow{
+						Entry:               en.Entry,
+						Switch_SwitchNumber: yang.AncestorKey(en.AncestorKeys, 0, "switch-number"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_HwModule_Switch_Usbflash1PasswordFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_HwModule_Switch_Usbflash1PasswordFlatRow) Native_HwModule_Switch_Usbflash1PasswordKey {
+				var k Native_HwModule_Switch_Usbflash1PasswordKey
+				k.Switch_SwitchNumber = r.Switch_SwitchNumber
+				if r.Entry.Usbflash1PasswordString != nil {
+					k.Usbflash1PasswordString = *r.Entry.Usbflash1PasswordString
+				}
+				return k
+			},
+			Merge: func(base, update Native_HwModule_Switch_Usbflash1PasswordFlatRow) Native_HwModule_Switch_Usbflash1PasswordFlatRow {
+				base.Entry = yang.MergeStructs(Native_HwModule_Switch_Usbflash1PasswordSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "hw-module"}, {Name: "switch"}, {Name: "usbflash1-password"}}},
+	}
+}
+
+// Native_HwModule_SwitchAll is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/switch-all.
+type Native_HwModule_SwitchAll struct {
+	All *Native_HwModule_SwitchAll_All
+}
+
+// Native_HwModule_SwitchAllSchema describes /Cisco-IOS-XE-native/native/hw-module/switch-all for the generic codecs.
+var Native_HwModule_SwitchAllSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_HwModule_SwitchAll_AllSchema,
+		GoName: "All",
+		Name:   "all",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "switch-all",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_HwModule_SwitchAll_All is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/switch-all/all.
+type Native_HwModule_SwitchAll_All struct {
+	EcoMode *Native_HwModule_SwitchAll_All_EcoMode
+}
+
+// Native_HwModule_SwitchAll_AllSchema describes /Cisco-IOS-XE-native/native/hw-module/switch-all/all for the generic codecs.
+var Native_HwModule_SwitchAll_AllSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_HwModule_SwitchAll_All_EcoModeSchema,
+		GoName: "EcoMode",
+		Name:   "eco-mode",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "all",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_HwModule_SwitchAll_All_EcoMode is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/switch-all/all/eco-mode.
+type Native_HwModule_SwitchAll_All_EcoMode struct {
+	Led *bool
+}
+
+// Native_HwModule_SwitchAll_All_EcoModeSchema describes /Cisco-IOS-XE-native/native/hw-module/switch-all/all/eco-mode for the generic codecs.
+var Native_HwModule_SwitchAll_All_EcoModeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Led",
+		Name:   "led",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "eco-mode",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_HwModule_Uplink is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/uplink.
+type Native_HwModule_Uplink struct {
+	Mode   *string
+	Select *string
+}
+
+// Native_HwModule_UplinkSchema describes /Cisco-IOS-XE-native/native/hw-module/uplink for the generic codecs.
+var Native_HwModule_UplinkSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Mode",
+		Name:   "mode",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Select",
+		Name:   "select",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "uplink",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_HwSwitch is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch.
+type Native_HwSwitch struct {
+	Switch *Native_HwSwitch_Switch
+}
+
+// Native_HwSwitchSchema describes /Cisco-IOS-XE-native/native/hw-switch for the generic codecs.
+var Native_HwSwitchSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_HwSwitch_SwitchSchema,
+		GoName: "Switch",
+		Name:   "switch",
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "hw-switch",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_HwSwitch_Switch is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch.
+type Native_HwSwitch_Switch struct {
+	SwitchNumber []Native_HwSwitch_Switch_SwitchNumber
+}
+
+// Native_HwSwitch_SwitchSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch for the generic codecs.
+var Native_HwSwitch_SwitchSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_HwSwitch_Switch_SwitchNumberSchema,
+		GoName: "SwitchNumber",
+		List:   true,
+		Name:   "switch-number",
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "switch",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_HwSwitch_Switch_SwitchNumber is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number.
+type Native_HwSwitch_Switch_SwitchNumber struct {
+	Logging      *Native_HwSwitch_Switch_SwitchNumber_Logging
+	SwitchNumber *uint8
+}
+
+// Native_HwSwitch_Switch_SwitchNumberSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number for the generic codecs.
+var Native_HwSwitch_Switch_SwitchNumberSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_HwSwitch_Switch_SwitchNumber_LoggingSchema,
+		GoName: "Logging",
+		Name:   "logging",
+	}, {
+		GoName: "SwitchNumber",
+		Name:   "switch-number",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"switch-number"},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "switch-number",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_HwSwitch_Switch_SwitchNumberKey is Native_HwSwitch_Switch_SwitchNumber's row identity (ancestor keys in canonical form).
+type Native_HwSwitch_Switch_SwitchNumberKey struct {
+	SwitchNumber uint8
+}
+
+// Native_HwSwitch_Switch_SwitchNumberDescriptor is the list descriptor callers hand to a protocol library.
+func Native_HwSwitch_Switch_SwitchNumberDescriptor() yang.ListDescriptor[Native_HwSwitch_Switch_SwitchNumber, Native_HwSwitch_Switch_SwitchNumberKey] {
+	return yang.ListDescriptor[Native_HwSwitch_Switch_SwitchNumber, Native_HwSwitch_Switch_SwitchNumberKey]{
+		Codec: yang.StructRowCodec(Native_HwSwitch_Switch_SwitchNumberSchema, func(r *Native_HwSwitch_Switch_SwitchNumber) Native_HwSwitch_Switch_SwitchNumberKey {
+			var k Native_HwSwitch_Switch_SwitchNumberKey
+			if r.SwitchNumber != nil {
+				k.SwitchNumber = *r.SwitchNumber
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "hw-switch",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}, {Name: "switch"}, {Name: "switch-number"}}},
+	}
+}
+
+// Native_HwSwitch_Switch_SwitchNumber_Logging is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging.
+type Native_HwSwitch_Switch_SwitchNumber_Logging struct {
+	Onboard *Native_HwSwitch_Switch_SwitchNumber_Logging_Onboard
+}
+
+// Native_HwSwitch_Switch_SwitchNumber_LoggingSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging for the generic codecs.
+var Native_HwSwitch_Switch_SwitchNumber_LoggingSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_HwSwitch_Switch_SwitchNumber_Logging_OnboardSchema,
+		GoName: "Onboard",
+		Name:   "onboard",
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "logging",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_HwSwitch_Switch_SwitchNumber_Logging_Onboard is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging/onboard.
+type Native_HwSwitch_Switch_SwitchNumber_Logging_Onboard struct {
+	Counter     *bool
+	Environment *bool
+	Message     *bool
+	Poe         *bool
+	Temperature *bool
+	Voltage     *bool
+}
+
+// Native_HwSwitch_Switch_SwitchNumber_Logging_OnboardSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging/onboard for the generic codecs.
+var Native_HwSwitch_Switch_SwitchNumber_Logging_OnboardSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Counter",
+		Name:   "counter",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Environment",
+		Name:   "environment",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Message",
+		Name:   "message",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Poe",
+		Name:   "poe",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Temperature",
+		Name:   "temperature",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Voltage",
+		Name:   "voltage",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "onboard",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+	Presence:  true,
+}
+
+// Native_Ida is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ida.
+type Native_Ida struct {
+	TransportProfile []Native_Ida_TransportProfile
+}
+
+// Native_IdaSchema describes /Cisco-IOS-XE-native/native/ida for the generic codecs.
+var Native_IdaSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Ida_TransportProfileSchema,
+		GoName: "TransportProfile",
+		List:   true,
+		Name:   "transport-profile",
+	}},
+	Module:    "Cisco-IOS-XE-ida",
+	Name:      "ida",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ida",
+}
+
+// Native_Ida_TransportProfile is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ida/transport-profile.
+type Native_Ida_TransportProfile struct {
+	Active           *bool
+	CallhomeUrl      *string
+	ExecutionUrl     *string
+	KeepaliveTimer   *uint16
+	LocalTrustpoint  *string
+	Name             *string
+	ProxyAddr        *string
+	ReconnectTimer   *uint16
+	RemoteTrustpoint *string
+}
+
+// Native_Ida_TransportProfileSchema describes /Cisco-IOS-XE-native/native/ida/transport-profile for the generic codecs.
+var Native_Ida_TransportProfileSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Active",
+		Name:   "active",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "CallhomeUrl",
+		Name:   "callhome-url",
+		Type:   yang.TString,
+	}, {
+		GoName: "ExecutionUrl",
+		Name:   "execution-url",
+		Type:   yang.TString,
+	}, {
+		GoName: "KeepaliveTimer",
+		Name:   "keepalive-timer",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "LocalTrustpoint",
+		Name:   "local-trustpoint",
+		Type:   yang.TString,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		GoName: "ProxyAddr",
+		Name:   "proxy-addr",
+		Type:   yang.TString,
+	}, {
+		GoName: "ReconnectTimer",
+		Name:   "reconnect-timer",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "RemoteTrustpoint",
+		Name:   "remote-trustpoint",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-ida",
+	Name:      "transport-profile",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ida",
+}
+
+// Native_Ida_TransportProfileKey is Native_Ida_TransportProfile's row identity (ancestor keys in canonical form).
+type Native_Ida_TransportProfileKey struct {
+	Name string
+}
+
+// Native_Ida_TransportProfileDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Ida_TransportProfileDescriptor() yang.ListDescriptor[Native_Ida_TransportProfile, Native_Ida_TransportProfileKey] {
+	return yang.ListDescriptor[Native_Ida_TransportProfile, Native_Ida_TransportProfileKey]{
+		Codec: yang.StructRowCodec(Native_Ida_TransportProfileSchema, func(r *Native_Ida_TransportProfile) Native_Ida_TransportProfileKey {
+			var k Native_Ida_TransportProfileKey
+			if r.Name != nil {
+				k.Name = *r.Name
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-ida",
+			Name:      "ida",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ida",
+		}, {Name: "transport-profile"}}},
+	}
+}
+
+// Native_Identity is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/identity.
+type Native_Identity struct {
+	Policy  []Native_Identity_Policy
+	Profile *Native_Identity_Profile
+}
+
+// Native_IdentitySchema describes /Cisco-IOS-XE-native/native/identity for the generic codecs.
+var Native_IdentitySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Identity_PolicySchema,
+		GoName: "Policy",
+		List:   true,
+		Name:   "policy",
+	}, {
+		Child:  Native_Identity_ProfileSchema,
+		GoName: "Profile",
+		Name:   "profile",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "identity",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Identity_Policy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/identity/policy.
+type Native_Identity_Policy struct {
+	AbsoluteTimer     *uint16
+	AccessGroup       *string
+	Description       *string
+	InactivityTimer   *uint16
+	InterfaceTemplate *string
+	Linksec           *Native_Identity_Policy_Linksec
+	Name              *string
+	No                *Native_Identity_Policy_No
+	Redirect          *Native_Identity_Policy_Redirect
+	ServicePolicy     *Native_Identity_Policy_ServicePolicy
+	Sgt               *uint16
+	Tag               *string
+	Tunnel            *Native_Identity_Policy_Tunnel
+	Vlan              *uint16
+	Voice             *Native_Identity_Policy_Voice
+}
+
+// Native_Identity_PolicySchema describes /Cisco-IOS-XE-native/native/identity/policy for the generic codecs.
+var Native_Identity_PolicySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AbsoluteTimer",
+		Name:   "absolute-timer",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "AccessGroup",
+		Name:   "access-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "Description",
+		Name:   "description",
+		Type:   yang.TString,
+	}, {
+		GoName: "InactivityTimer",
+		Name:   "inactivity-timer",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "InterfaceTemplate",
+		Name:   "interface-template",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Identity_Policy_LinksecSchema,
+		GoName: "Linksec",
+		Name:   "linksec",
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Identity_Policy_NoSchema,
+		GoName: "No",
+		Name:   "no",
+	}, {
+		Child:  Native_Identity_Policy_RedirectSchema,
+		GoName: "Redirect",
+		Name:   "redirect",
+	}, {
+		Child:  Native_Identity_Policy_ServicePolicySchema,
+		GoName: "ServicePolicy",
+		Name:   "service-policy",
+	}, {
+		GoName: "Sgt",
+		Name:   "sgt",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Tag",
+		Name:   "tag",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Identity_Policy_TunnelSchema,
+		GoName: "Tunnel",
+		Name:   "tunnel",
+	}, {
+		GoName: "Vlan",
+		Name:   "vlan",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Identity_Policy_VoiceSchema,
+		GoName: "Voice",
+		Name:   "voice",
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "policy",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Identity_PolicyKey is Native_Identity_Policy's row identity (ancestor keys in canonical form).
+type Native_Identity_PolicyKey struct {
+	Name string
+}
+
+// Native_Identity_PolicyDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Identity_PolicyDescriptor() yang.ListDescriptor[Native_Identity_Policy, Native_Identity_PolicyKey] {
+	return yang.ListDescriptor[Native_Identity_Policy, Native_Identity_PolicyKey]{
+		Codec: yang.StructRowCodec(Native_Identity_PolicySchema, func(r *Native_Identity_Policy) Native_Identity_PolicyKey {
+			var k Native_Identity_PolicyKey
+			if r.Name != nil {
+				k.Name = *r.Name
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "identity"}, {Name: "policy"}}},
+	}
+}
+
+// Native_Identity_Policy_Linksec is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/identity/policy/linksec.
+type Native_Identity_Policy_Linksec struct {
+	Policy *string
 }

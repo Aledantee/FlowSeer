@@ -6,7 +6,7 @@
 // Package ciscoiosxeswitchptpoper binds the YANG module Cisco-IOS-XE-switch-ptp-oper.
 package ciscoiosxeswitchptpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SwitchPtpOperData is the Cisco-IOS-XE-switch-ptp-oper node /Cisco-IOS-XE-switch-ptp-oper/switch-ptp-oper-data.
 type SwitchPtpOperData struct {

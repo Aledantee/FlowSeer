@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmeshoper binds the YANG module Cisco-IOS-XE-wireless-mesh-oper.
 package ciscoiosxewirelessmeshoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MeshOperData is the Cisco-IOS-XE-wireless-mesh-oper node /Cisco-IOS-XE-wireless-mesh-oper/mesh-oper-data.
 type MeshOperData struct {

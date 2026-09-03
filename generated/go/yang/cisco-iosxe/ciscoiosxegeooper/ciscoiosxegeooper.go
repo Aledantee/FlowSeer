@@ -6,7 +6,7 @@
 // Package ciscoiosxegeooper binds the YANG module Cisco-IOS-XE-geo-oper.
 package ciscoiosxegeooper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GeoOperData is the Cisco-IOS-XE-geo-oper node /Cisco-IOS-XE-geo-oper/geo-oper-data.
 type GeoOperData struct {

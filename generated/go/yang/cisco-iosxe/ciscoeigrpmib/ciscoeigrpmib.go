@@ -6,7 +6,7 @@
 // Package ciscoeigrpmib binds the YANG module CISCO-EIGRP-MIB.
 package ciscoeigrpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOEIGRPMIB is the CISCO-EIGRP-MIB node /CISCO-EIGRP-MIB/CISCO-EIGRP-MIB.
 type CISCOEIGRPMIB struct {

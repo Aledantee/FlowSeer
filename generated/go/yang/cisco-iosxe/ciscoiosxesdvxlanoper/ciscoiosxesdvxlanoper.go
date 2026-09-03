@@ -6,7 +6,7 @@
 // Package ciscoiosxesdvxlanoper binds the YANG module Cisco-IOS-XE-sd-vxlan-oper.
 package ciscoiosxesdvxlanoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SdVxlanOperData is the Cisco-IOS-XE-sd-vxlan-oper node /Cisco-IOS-XE-sd-vxlan-oper/sd-vxlan-oper-data.
 type SdVxlanOperData struct {

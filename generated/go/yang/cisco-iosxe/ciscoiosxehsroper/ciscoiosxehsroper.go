@@ -6,7 +6,7 @@
 // Package ciscoiosxehsroper binds the YANG module Cisco-IOS-XE-hsr-oper.
 package ciscoiosxehsroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // HsrOperData is the Cisco-IOS-XE-hsr-oper node /Cisco-IOS-XE-hsr-oper/hsr-oper-data.
 type HsrOperData struct {

@@ -6,7 +6,7 @@
 // Package openconfigplatformtypes binds the YANG module openconfig-platform-types.
 package openconfigplatformtypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ACTIVE is the openconfig-platform-types identity "ACTIVE".
 var Identity_ACTIVE = yang.Identity{

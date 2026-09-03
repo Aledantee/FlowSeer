@@ -17,7 +17,7 @@ import (
 
 	pbridgemib "go.aledante.io/FlowSeer/generated/go/mib/pbridgemib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // Dot1qConstraintTypeDefaultValue is the SMI enum dot1qConstraintTypeDefault (inline).

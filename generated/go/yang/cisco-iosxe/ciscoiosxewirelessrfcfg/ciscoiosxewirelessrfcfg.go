@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrfcfg binds the YANG module Cisco-IOS-XE-wireless-rf-cfg.
 package ciscoiosxewirelessrfcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RfCfgData is the Cisco-IOS-XE-wireless-rf-cfg node /Cisco-IOS-XE-wireless-rf-cfg/rf-cfg-data.
 type RfCfgData struct {

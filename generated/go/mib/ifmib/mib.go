@@ -17,7 +17,7 @@ import (
 
 	ianaiftype "go.aledante.io/FlowSeer/generated/go/mib/ianaiftype"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // IfAdminStatusValue is the SMI enum ifAdminStatus (inline).

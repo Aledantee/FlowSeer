@@ -6,7 +6,7 @@
 // Package ciscoiosxegnssoper binds the YANG module Cisco-IOS-XE-gnss-oper.
 package ciscoiosxegnssoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GnssOperData is the Cisco-IOS-XE-gnss-oper node /Cisco-IOS-XE-gnss-oper/gnss-oper-data.
 type GnssOperData struct {

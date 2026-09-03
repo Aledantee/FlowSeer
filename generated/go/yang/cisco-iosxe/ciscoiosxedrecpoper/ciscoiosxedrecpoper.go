@@ -6,7 +6,7 @@
 // Package ciscoiosxedrecpoper binds the YANG module Cisco-IOS-XE-dre-cp-oper.
 package ciscoiosxedrecpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DreCpOperData is the Cisco-IOS-XE-dre-cp-oper node /Cisco-IOS-XE-dre-cp-oper/dre-cp-oper-data.
 type DreCpOperData struct {

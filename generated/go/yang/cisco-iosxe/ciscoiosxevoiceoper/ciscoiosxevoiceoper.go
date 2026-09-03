@@ -6,7 +6,7 @@
 // Package ciscoiosxevoiceoper binds the YANG module Cisco-IOS-XE-voice-oper.
 package ciscoiosxevoiceoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // VoiceOperData is the Cisco-IOS-XE-voice-oper node /Cisco-IOS-XE-voice-oper/voice-oper-data.
 type VoiceOperData struct {

@@ -5,507 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface for the generic codecs.
-var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:    "ATM",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "ATM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "ATMACR",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "ATM-ACR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMACRsubinterfaceSchema,
-		GoName:    "ATMACRsubinterface",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "ATM-ACRsubinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}, {
-		Child:     Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMSubinterfaceSchema,
-		GoName:    "ATMSubinterface",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "ATM-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}, {
-		GoName:    "AppGigabitEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "AppGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "AppNavCompress",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "AppNav-Compress",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "AppNavUnCompress",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "AppNav-UnCompress",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Async",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Async",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "BDVIF",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "BD-VIF",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "BDI",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "BDI",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Bundle",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Bundle",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "CEM",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "CEM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "CEMACR",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "CEM-ACR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint8,
-	}, {
-		GoName:    "Cellular",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Cellular",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Dialer",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Dialer",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "EmbeddedServiceEngine",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Embedded-Service-Engine",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Ethernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Ethernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FastEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "FastEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FiftyGigabitEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "FiftyGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FiveGigabitEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "FiveGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FortyGigabitEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "FortyGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FourHundredGigE",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "FourHundredGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "GigabitEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "GigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "HSRRing",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "HSR-ring",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint8,
-	}, {
-		GoName:    "HundredGigE",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "HundredGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "L2LISP",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "L2LISP",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		Child:     Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_L2LISPSubinterfaceSchema,
-		GoName:    "L2LISPSubinterface",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "L2LISP-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}, {
-		GoName:    "LISP",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "LISP",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		Child:     Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_LISPSubinterfaceSchema,
-		GoName:    "LISPSubinterface",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "LISP-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}, {
-		GoName:    "LORAWAN",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "LORAWAN",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Loopback",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Loopback",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "MFR",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "MFR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "Multilink",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Multilink",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "PRPChannel",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "PRP-channel",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint8,
-	}, {
-		GoName:    "PortChannel",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Port-channel",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint32,
-	}, {
-		Child:     Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_PortChannelSubinterfaceSchema,
-		GoName:    "PortChannelSubinterface",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Port-channel-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}, {
-		GoName:    "SM",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "SM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Serial",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Serial",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_SerialSubinterfaceSchema,
-		GoName:    "SerialSubinterface",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Serial-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}, {
-		GoName:    "TenGigabitEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "TenGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Tunnel",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Tunnel",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "TwentyFiveGigE",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "TwentyFiveGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "TwoGigabitEthernet",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "TwoGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "TwoHundredGigE",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "TwoHundredGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		GoName:    "VirtualTemplate",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Virtual-Template",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "VirtualWPAN",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Virtual-WPAN",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TEnum,
-	}, {
-		GoName:    "VirtualPortGroup",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "VirtualPortGroup",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Vlan",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "Vlan",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "WPAN",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "WPAN",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TString,
-	}, {
-		Child:  Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterfaceSchema,
-		GoName: "DestinationInterface",
-		Name:   "destination-interface",
-	}, {
-		GoName:    "Nve",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "nve",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Overlay",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "overlay",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Pseudowire",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "pseudowire",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint32,
-	}, {
-		Child:  Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_SourceServiceInstanceIdSchema,
-		GoName: "SourceServiceInstanceId",
-		Name:   "source-service-instance-id",
-	}, {
-		GoName:    "Vasileft",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "vasileft",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Vasiright",
-		Module:    "Cisco-IOS-XE-native",
-		Name:      "vasiright",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-		Type:      yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-l2vpn",
-	Name:      "source-interface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMACRsubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface.
-type Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMACRsubinterface struct {
-	ATMACR *string
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMACRsubinterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface for the generic codecs.
-var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMACRsubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ATMACR",
-		Name:   "ATM-ACR",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ATM-ACRsubinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/ATM-subinterface/ATM-subinterface.
-type Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMSubinterface struct {
-	ATM *string
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMSubinterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/ATM-subinterface/ATM-subinterface for the generic codecs.
-var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_ATMSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ATM",
-		Name:   "ATM",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ATM-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/L2LISP-subinterface/L2LISP-subinterface.
-type Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_L2LISPSubinterface struct {
-	L2LISP *string
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/L2LISP-subinterface/L2LISP-subinterface for the generic codecs.
-var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_L2LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "L2LISP",
-		Name:   "L2LISP",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "L2LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/LISP-subinterface/LISP-subinterface.
-type Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_LISPSubinterface struct {
-	LISP *string
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
-var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LISP",
-		Name:   "LISP",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
-type Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_PortChannelSubinterface struct {
-	PortChannel *string
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
-var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_PortChannelSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PortChannel",
-		Name:   "Port-channel",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "Port-channel-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/Serial-subinterface/Serial-subinterface.
-type Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_SerialSubinterface struct {
-	Serial *string
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_SerialSubinterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/interface-choice/Serial-subinterface/Serial-subinterface for the generic codecs.
-var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_SerialSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Serial",
-		Name:   "Serial",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "Serial-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
-// Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/connect-interface-choice/interface-without-service-instance/destination-interface.
-type Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface struct {
-	ATM                     *string
-	ATMACR                  *string
-	ATMACRsubinterface      *Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface_ATMACRsubinterface
-	ATMSubinterface         *Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface_ATMSubinterface
-	AppGigabitEthernet      *string
-	AppNavCompress          *uint16
-	AppNavUnCompress        *uint16
-	Async                   *string
-	BDVIF                   *string
-	BDI                     *string
-	Bundle                  *string
-	CEM                     *string
-	CEMACR                  *uint8
-	Cellular                *string
-	Dialer                  *uint16
-	EmbeddedServiceEngine   *string
-	Ethernet                *string
-	FastEthernet            *string
-	FiftyGigabitEthernet    *string
-	FiveGigabitEthernet     *string
-	FortyGigabitEthernet    *string
-	FourHundredGigE         *string
-	GigabitEthernet         *string
-	HSRRing                 *uint8
-	HundredGigE             *string
-	L2LISP                  *uint16
-	L2LISPSubinterface      *Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface_L2LISPSubinterface
-	LISP                    *uint16
-	LISPSubinterface        *Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface_LISPSubinterface
-	LORAWAN                 *string
-	Loopback                *uint32
-	MFR                     *uint32
-	Multilink               *uint32
-	PRPChannel              *uint8
-	PortChannel             *uint32
-	PortChannelSubinterface *Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface_PortChannelSubinterface
-	SM                      *string
-	Serial                  *string
-	SerialSubinterface      *Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterface_SerialSubinterface
-	TenGigabitEthernet      *string
-	Tunnel                  *uint32
-	TwentyFiveGigE          *string
-	TwoGigabitEthernet      *string
-	TwoHundredGigE          *string
-	VirtualTemplate         *uint16
-	VirtualWPAN             *string
-	VirtualPortGroup        *uint16
-	Vlan                    *uint16
-	WPAN                    *string
-	Nve                     *uint16
-	Overlay                 *uint16
-	Pseudowire              *uint32
-	Vasileft                *uint16
-	Vasiright               *uint16
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterfaceSchema describes /Cisco-IOS-XE-native/native/l2vpn-config/connect/connect-config/source-interface/connect-interface-choice/interface-without-service-instance/destination-interface for the generic codecs.
 var Native_L2vpnConfig_Connect_ConnectConfig_SourceInterface_DestinationInterfaceSchema = &yang.Schema{
@@ -53114,4 +52614,547 @@ var Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressSchema = &yang.Schema{
 // Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey is Native_Nat64_V6v4_Static_Ipv6address_Ipv6address's row identity (ancestor keys in canonical form).
 type Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey struct {
 	Ipv6Address string
+}
+
+// Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressDescriptor() yang.ListDescriptor[Native_Nat64_V6v4_Static_Ipv6address_Ipv6address, Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey] {
+	return yang.ListDescriptor[Native_Nat64_V6v4_Static_Ipv6address_Ipv6address, Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey]{
+		Codec: yang.StructRowCodec(Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressSchema, func(r *Native_Nat64_V6v4_Static_Ipv6address_Ipv6address) Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey {
+			var k Native_Nat64_V6v4_Static_Ipv6address_Ipv6addressKey
+			if r.Ipv6Address != nil {
+				k.Ipv6Address = *r.Ipv6Address
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat64",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "v6v4"}, {Name: "static"}, {Name: "ipv6address"}, {Name: "ipv6address"}}},
+	}
+}
+
+// Native_Nat64_V6v4_Static_Tcp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp.
+type Native_Nat64_V6v4_Static_Tcp struct {
+	Tcp []Native_Nat64_V6v4_Static_Tcp_Tcp
+}
+
+// Native_Nat64_V6v4_Static_TcpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp for the generic codecs.
+var Native_Nat64_V6v4_Static_TcpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Nat64_V6v4_Static_Tcp_TcpSchema,
+		GoName: "Tcp",
+		List:   true,
+		Name:   "tcp",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "tcp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat64_V6v4_Static_Tcp_Tcp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp/tcp.
+type Native_Nat64_V6v4_Static_Tcp_Tcp struct {
+	Ipv4Address  *string
+	Ipv6Address  *string
+	V4PortNumber *uint16
+	V6PortNumber *uint16
+}
+
+// Native_Nat64_V6v4_Static_Tcp_TcpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/tcp/tcp for the generic codecs.
+var Native_Nat64_V6v4_Static_Tcp_TcpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ipv4Address",
+		Name:   "ipv4-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6Address",
+		Name:   "ipv6-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "V4PortNumber",
+		Name:   "v4-port-number",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "V6PortNumber",
+		Name:   "v6-port-number",
+		Type:   yang.TUint16,
+	}},
+	Keys:      []string{"ipv6-address"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "tcp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat64_V6v4_Static_Tcp_TcpKey is Native_Nat64_V6v4_Static_Tcp_Tcp's row identity (ancestor keys in canonical form).
+type Native_Nat64_V6v4_Static_Tcp_TcpKey struct {
+	Ipv6Address string
+}
+
+// Native_Nat64_V6v4_Static_Tcp_TcpDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Nat64_V6v4_Static_Tcp_TcpDescriptor() yang.ListDescriptor[Native_Nat64_V6v4_Static_Tcp_Tcp, Native_Nat64_V6v4_Static_Tcp_TcpKey] {
+	return yang.ListDescriptor[Native_Nat64_V6v4_Static_Tcp_Tcp, Native_Nat64_V6v4_Static_Tcp_TcpKey]{
+		Codec: yang.StructRowCodec(Native_Nat64_V6v4_Static_Tcp_TcpSchema, func(r *Native_Nat64_V6v4_Static_Tcp_Tcp) Native_Nat64_V6v4_Static_Tcp_TcpKey {
+			var k Native_Nat64_V6v4_Static_Tcp_TcpKey
+			if r.Ipv6Address != nil {
+				k.Ipv6Address = *r.Ipv6Address
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat64",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "v6v4"}, {Name: "static"}, {Name: "tcp"}, {Name: "tcp"}}},
+	}
+}
+
+// Native_Nat64_V6v4_Static_Udp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp.
+type Native_Nat64_V6v4_Static_Udp struct {
+	Udp []Native_Nat64_V6v4_Static_Udp_Udp
+}
+
+// Native_Nat64_V6v4_Static_UdpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp for the generic codecs.
+var Native_Nat64_V6v4_Static_UdpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Nat64_V6v4_Static_Udp_UdpSchema,
+		GoName: "Udp",
+		List:   true,
+		Name:   "udp",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "udp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat64_V6v4_Static_Udp_Udp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp/udp.
+type Native_Nat64_V6v4_Static_Udp_Udp struct {
+	Ipv4Address  *string
+	Ipv6Address  *string
+	V4PortNumber *uint16
+	V6PortNumber *uint16
+}
+
+// Native_Nat64_V6v4_Static_Udp_UdpSchema describes /Cisco-IOS-XE-native/native/nat64/v6v4/static/udp/udp for the generic codecs.
+var Native_Nat64_V6v4_Static_Udp_UdpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ipv4Address",
+		Name:   "ipv4-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6Address",
+		Name:   "ipv6-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "V4PortNumber",
+		Name:   "v4-port-number",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "V6PortNumber",
+		Name:   "v6-port-number",
+		Type:   yang.TUint16,
+	}},
+	Keys:      []string{"ipv6-address"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "udp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat64_V6v4_Static_Udp_UdpKey is Native_Nat64_V6v4_Static_Udp_Udp's row identity (ancestor keys in canonical form).
+type Native_Nat64_V6v4_Static_Udp_UdpKey struct {
+	Ipv6Address string
+}
+
+// Native_Nat64_V6v4_Static_Udp_UdpDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Nat64_V6v4_Static_Udp_UdpDescriptor() yang.ListDescriptor[Native_Nat64_V6v4_Static_Udp_Udp, Native_Nat64_V6v4_Static_Udp_UdpKey] {
+	return yang.ListDescriptor[Native_Nat64_V6v4_Static_Udp_Udp, Native_Nat64_V6v4_Static_Udp_UdpKey]{
+		Codec: yang.StructRowCodec(Native_Nat64_V6v4_Static_Udp_UdpSchema, func(r *Native_Nat64_V6v4_Static_Udp_Udp) Native_Nat64_V6v4_Static_Udp_UdpKey {
+			var k Native_Nat64_V6v4_Static_Udp_UdpKey
+			if r.Ipv6Address != nil {
+				k.Ipv6Address = *r.Ipv6Address
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat64",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "v6v4"}, {Name: "static"}, {Name: "udp"}, {Name: "udp"}}},
+	}
+}
+
+// Native_Nat66 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66.
+type Native_Nat66 struct {
+	MaxVpn  *uint8
+	Nd      *Native_Nat66_Nd
+	Outside *bool
+	Prefix  *Native_Nat66_Prefix
+	Route   []Native_Nat66_Route
+}
+
+// Native_Nat66Schema describes /Cisco-IOS-XE-native/native/nat66 for the generic codecs.
+var Native_Nat66Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "MaxVpn",
+		Name:   "max-vpn",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Nat66_NdSchema,
+		GoName: "Nd",
+		Name:   "nd",
+	}, {
+		GoName: "Outside",
+		Name:   "outside",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Nat66_PrefixSchema,
+		GoName: "Prefix",
+		Name:   "prefix",
+	}, {
+		Child:  Native_Nat66_RouteSchema,
+		GoName: "Route",
+		List:   true,
+		Name:   "route",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "nat66",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Nd is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/nd.
+type Native_Nat66_Nd struct {
+	Enable *bool
+}
+
+// Native_Nat66_NdSchema describes /Cisco-IOS-XE-native/native/nat66/nd for the generic codecs.
+var Native_Nat66_NdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Enable",
+		Name:   "enable",
+		Type:   yang.TBool,
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "nd",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix.
+type Native_Nat66_Prefix struct {
+	Inside                   []Native_Nat66_Prefix_Inside
+	InsideNoVrf              *Native_Nat66_Prefix_InsideNoVrf
+	InsideWithEgressNoVrf    *Native_Nat66_Prefix_InsideWithEgressNoVrf
+	InsideWithEgressVrf      *Native_Nat66_Prefix_InsideWithEgressVrf
+	InsideWithInterfaceNoVrf *Native_Nat66_Prefix_InsideWithInterfaceNoVrf
+	InsideWithInterfaceVrf   *Native_Nat66_Prefix_InsideWithInterfaceVrf
+	InsideWithVrf            *Native_Nat66_Prefix_InsideWithVrf
+}
+
+// Native_Nat66_PrefixSchema describes /Cisco-IOS-XE-native/native/nat66/prefix for the generic codecs.
+var Native_Nat66_PrefixSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Nat66_Prefix_InsideSchema,
+		GoName: "Inside",
+		List:   true,
+		Name:   "inside",
+	}, {
+		Child:  Native_Nat66_Prefix_InsideNoVrfSchema,
+		GoName: "InsideNoVrf",
+		Name:   "inside-no-vrf",
+	}, {
+		Child:  Native_Nat66_Prefix_InsideWithEgressNoVrfSchema,
+		GoName: "InsideWithEgressNoVrf",
+		Name:   "inside-with-egress-no-vrf",
+	}, {
+		Child:  Native_Nat66_Prefix_InsideWithEgressVrfSchema,
+		GoName: "InsideWithEgressVrf",
+		Name:   "inside-with-egress-vrf",
+	}, {
+		Child:  Native_Nat66_Prefix_InsideWithInterfaceNoVrfSchema,
+		GoName: "InsideWithInterfaceNoVrf",
+		Name:   "inside-with-interface-no-vrf",
+	}, {
+		Child:  Native_Nat66_Prefix_InsideWithInterfaceVrfSchema,
+		GoName: "InsideWithInterfaceVrf",
+		Name:   "inside-with-interface-vrf",
+	}, {
+		Child:  Native_Nat66_Prefix_InsideWithVrfSchema,
+		GoName: "InsideWithVrf",
+		Name:   "inside-with-vrf",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "prefix",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside.
+type Native_Nat66_Prefix_Inside struct {
+	InsidePfx *string
+	Outside   *string
+}
+
+// Native_Nat66_Prefix_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside for the generic codecs.
+var Native_Nat66_Prefix_InsideSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "InsidePfx",
+		Name:   "inside-pfx",
+		Type:   yang.TString,
+	}, {
+		GoName: "Outside",
+		Name:   "outside",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"inside-pfx"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "inside",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_InsideKey is Native_Nat66_Prefix_Inside's row identity (ancestor keys in canonical form).
+type Native_Nat66_Prefix_InsideKey struct {
+	InsidePfx string
+}
+
+// Native_Nat66_Prefix_InsideDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Nat66_Prefix_InsideDescriptor() yang.ListDescriptor[Native_Nat66_Prefix_Inside, Native_Nat66_Prefix_InsideKey] {
+	return yang.ListDescriptor[Native_Nat66_Prefix_Inside, Native_Nat66_Prefix_InsideKey]{
+		Codec: yang.StructRowCodec(Native_Nat66_Prefix_InsideSchema, func(r *Native_Nat66_Prefix_Inside) Native_Nat66_Prefix_InsideKey {
+			var k Native_Nat66_Prefix_InsideKey
+			if r.InsidePfx != nil {
+				k.InsidePfx = *r.InsidePfx
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat66",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "prefix"}, {Name: "inside"}}},
+	}
+}
+
+// Native_Nat66_Prefix_InsideNoVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf.
+type Native_Nat66_Prefix_InsideNoVrf struct {
+	Inside []Native_Nat66_Prefix_InsideNoVrf_Inside
+}
+
+// Native_Nat66_Prefix_InsideNoVrfSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf for the generic codecs.
+var Native_Nat66_Prefix_InsideNoVrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Nat66_Prefix_InsideNoVrf_InsideSchema,
+		GoName: "Inside",
+		List:   true,
+		Name:   "inside",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "inside-no-vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_InsideNoVrf_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf/inside.
+type Native_Nat66_Prefix_InsideNoVrf_Inside struct {
+	InsidePfx *string
+	Outside   *yang.Value
+}
+
+// Native_Nat66_Prefix_InsideNoVrf_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-no-vrf/inside for the generic codecs.
+var Native_Nat66_Prefix_InsideNoVrf_InsideSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "InsidePfx",
+		Name:   "inside-pfx",
+		Type:   yang.TString,
+	}, {
+		GoName: "Outside",
+		Name:   "outside",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+		},
+	}},
+	Keys:      []string{"inside-pfx"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "inside",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_InsideNoVrf_InsideKey is Native_Nat66_Prefix_InsideNoVrf_Inside's row identity (ancestor keys in canonical form).
+type Native_Nat66_Prefix_InsideNoVrf_InsideKey struct {
+	InsidePfx string
+}
+
+// Native_Nat66_Prefix_InsideNoVrf_InsideDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Nat66_Prefix_InsideNoVrf_InsideDescriptor() yang.ListDescriptor[Native_Nat66_Prefix_InsideNoVrf_Inside, Native_Nat66_Prefix_InsideNoVrf_InsideKey] {
+	return yang.ListDescriptor[Native_Nat66_Prefix_InsideNoVrf_Inside, Native_Nat66_Prefix_InsideNoVrf_InsideKey]{
+		Codec: yang.StructRowCodec(Native_Nat66_Prefix_InsideNoVrf_InsideSchema, func(r *Native_Nat66_Prefix_InsideNoVrf_Inside) Native_Nat66_Prefix_InsideNoVrf_InsideKey {
+			var k Native_Nat66_Prefix_InsideNoVrf_InsideKey
+			if r.InsidePfx != nil {
+				k.InsidePfx = *r.InsidePfx
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat66",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "prefix"}, {Name: "inside-no-vrf"}, {Name: "inside"}}},
+	}
+}
+
+// Native_Nat66_Prefix_InsideWithEgressNoVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf.
+type Native_Nat66_Prefix_InsideWithEgressNoVrf struct {
+	Inside []Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside
+}
+
+// Native_Nat66_Prefix_InsideWithEgressNoVrfSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf for the generic codecs.
+var Native_Nat66_Prefix_InsideWithEgressNoVrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema,
+		GoName: "Inside",
+		List:   true,
+		Name:   "inside",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "inside-with-egress-no-vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf/inside.
+type Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside struct {
+	EgressInterface *string
+	InsidePfx       *string
+	Outside         *yang.Value
+}
+
+// Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-no-vrf/inside for the generic codecs.
+var Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "EgressInterface",
+		Name:   "egress-interface",
+		Type:   yang.TString,
+	}, {
+		GoName: "InsidePfx",
+		Name:   "inside-pfx",
+		Type:   yang.TString,
+	}, {
+		GoName: "Outside",
+		Name:   "outside",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+		},
+	}},
+	Keys:      []string{"inside-pfx", "egress-interface"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "inside",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey is Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside's row identity (ancestor keys in canonical form).
+type Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey struct {
+	InsidePfx       string
+	EgressInterface string
+}
+
+// Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideDescriptor() yang.ListDescriptor[Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside, Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey] {
+	return yang.ListDescriptor[Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside, Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey]{
+		Codec: yang.StructRowCodec(Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideSchema, func(r *Native_Nat66_Prefix_InsideWithEgressNoVrf_Inside) Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey {
+			var k Native_Nat66_Prefix_InsideWithEgressNoVrf_InsideKey
+			if r.InsidePfx != nil {
+				k.InsidePfx = *r.InsidePfx
+			}
+			if r.EgressInterface != nil {
+				k.EgressInterface = *r.EgressInterface
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat66",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "prefix"}, {Name: "inside-with-egress-no-vrf"}, {Name: "inside"}}},
+	}
+}
+
+// Native_Nat66_Prefix_InsideWithEgressVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf.
+type Native_Nat66_Prefix_InsideWithEgressVrf struct {
+	Inside []Native_Nat66_Prefix_InsideWithEgressVrf_Inside
+}
+
+// Native_Nat66_Prefix_InsideWithEgressVrfSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf for the generic codecs.
+var Native_Nat66_Prefix_InsideWithEgressVrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Nat66_Prefix_InsideWithEgressVrf_InsideSchema,
+		GoName: "Inside",
+		List:   true,
+		Name:   "inside",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "inside-with-egress-vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_InsideWithEgressVrf_Inside is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf/inside.
+type Native_Nat66_Prefix_InsideWithEgressVrf_Inside struct {
+	EgressInterface *string
+	InsidePfx       *string
+	Outside         *yang.Value
+	Vrf             *string
+}
+
+// Native_Nat66_Prefix_InsideWithEgressVrf_InsideSchema describes /Cisco-IOS-XE-native/native/nat66/prefix/inside-with-egress-vrf/inside for the generic codecs.
+var Native_Nat66_Prefix_InsideWithEgressVrf_InsideSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "EgressInterface",
+		Name:   "egress-interface",
+		Type:   yang.TString,
+	}, {
+		GoName: "InsidePfx",
+		Name:   "inside-pfx",
+		Type:   yang.TString,
+	}, {
+		GoName: "Outside",
+		Name:   "outside",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+		},
+	}, {
+		GoName: "Vrf",
+		Name:   "vrf",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"inside-pfx", "vrf", "egress-interface"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "inside",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Nat66_Prefix_InsideWithEgressVrf_InsideKey is Native_Nat66_Prefix_InsideWithEgressVrf_Inside's row identity (ancestor keys in canonical form).
+type Native_Nat66_Prefix_InsideWithEgressVrf_InsideKey struct {
+	InsidePfx       string
+	Vrf             string
+	EgressInterface string
 }

@@ -6,7 +6,7 @@
 // Package etherlikemib binds the YANG module EtherLike-MIB.
 package etherlikemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Dot3ErrorInitError is the EtherLike-MIB identity "dot3ErrorInitError".
 var Identity_Dot3ErrorInitError = yang.Identity{

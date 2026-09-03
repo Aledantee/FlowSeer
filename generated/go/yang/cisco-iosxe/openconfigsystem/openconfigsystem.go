@@ -6,7 +6,7 @@
 // Package openconfigsystem binds the YANG module openconfig-system.
 package openconfigsystem
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_NTPAUTHAESCBC128 is the openconfig-system identity "NTP_AUTH_AES_CBC_128".
 var Identity_NTPAUTHAESCBC128 = yang.Identity{
@@ -5232,9 +5232,9 @@ var System_StateSchema = &yang.Schema{
 	}, {
 		Child:     System_State_LicenseSchema,
 		GoName:    "License",
-		Module:    "cisco-xe-routing-openconfig-system-ext",
+		Module:    "cisco-xe-openconfig-system-ext",
 		Name:      "license",
-		Namespace: "http://cisco.com/ns/yang/cisco-xe-routing-openconfig-system-ext",
+		Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-system-ext",
 	}, {
 		GoName: "LoginBanner",
 		Name:   "login-banner",
@@ -5269,9 +5269,9 @@ var System_State_LicenseSchema = &yang.Schema{
 		Name:   "eula",
 		Type:   yang.TString,
 	}},
-	Module:    "cisco-xe-routing-openconfig-system-ext",
+	Module:    "cisco-xe-openconfig-system-ext",
 	Name:      "license",
-	Namespace: "http://cisco.com/ns/yang/cisco-xe-routing-openconfig-system-ext",
+	Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-system-ext",
 }
 
 // System_TelnetServer is the openconfig-system node /openconfig-system/system/telnet-server.

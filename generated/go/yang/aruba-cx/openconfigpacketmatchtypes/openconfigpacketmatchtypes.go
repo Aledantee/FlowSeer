@@ -6,7 +6,7 @@
 // Package openconfigpacketmatchtypes binds the YANG module openconfig-packet-match-types.
 package openconfigpacketmatchtypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ETHERTYPE is the openconfig-packet-match-types identity "ETHERTYPE".
 var Identity_ETHERTYPE = yang.Identity{

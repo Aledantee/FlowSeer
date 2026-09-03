@@ -6,7 +6,7 @@
 // Package ciscoiosxelinecardoper binds the YANG module Cisco-IOS-XE-linecard-oper.
 package ciscoiosxelinecardoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LinecardOperData is the Cisco-IOS-XE-linecard-oper node /Cisco-IOS-XE-linecard-oper/linecard-oper-data.
 type LinecardOperData struct {

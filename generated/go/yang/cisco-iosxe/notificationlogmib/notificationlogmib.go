@@ -6,7 +6,7 @@
 // Package notificationlogmib binds the YANG module NOTIFICATION-LOG-MIB.
 package notificationlogmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NOTIFICATIONLOGMIB is the NOTIFICATION-LOG-MIB node /NOTIFICATION-LOG-MIB/NOTIFICATION-LOG-MIB.
 type NOTIFICATIONLOGMIB struct {

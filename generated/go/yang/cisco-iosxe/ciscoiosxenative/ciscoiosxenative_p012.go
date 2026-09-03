@@ -5,619 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_EmbeddedServiceEngine_IpSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_IpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccessGroupSchema,
-		GoName: "AccessGroup",
-		Name:   "access-group",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccountingSchema,
-		GoName: "Accounting",
-		Name:   "accounting",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AddressSchema,
-		GoName: "Address",
-		Name:   "address",
-	}, {
-		GoName: "Admission",
-		Name:   "admission",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_ArpSchema,
-		GoName: "Arp",
-		Name:   "arp",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AuthenticationSchema,
-		GoName: "Authentication",
-		Name:   "authentication",
-	}, {
-		GoName: "ClearDontFragment",
-		Name:   "clear-dont-fragment",
-		Type:   yang.TBool,
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_DhcpSchema,
-		GoName: "Dhcp",
-		Name:   "dhcp",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_DirectedBroadcastSchema,
-		GoName: "DirectedBroadcast",
-		Name:   "directed-broadcast",
-	}, {
-		Child:     Native_Interface_EmbeddedServiceEngine_Ip_FlowSchema,
-		GoName:    "Flow",
-		Module:    "Cisco-IOS-XE-flow",
-		Name:      "flow",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-flow",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_HelloIntervalSchema,
-		GoName: "HelloInterval",
-		Name:   "hello-interval",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_HelperAddressSchema,
-		GoName: "HelperAddress",
-		List:   true,
-		Name:   "helper-address",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_HelperAddressAddressSchema,
-		GoName: "HelperAddressAddress",
-		Name:   "helper-address-address",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_HelperAddressGlobalSchema,
-		GoName: "HelperAddressGlobal",
-		Name:   "helper-address-global",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_HelperAddressVrfSchema,
-		GoName: "HelperAddressVrf",
-		Name:   "helper-address-vrf",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_HoldTimeSchema,
-		GoName: "HoldTime",
-		Name:   "hold-time",
-	}, {
-		GoName: "LocalProxyArp",
-		Name:   "local-proxy-arp",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "MaskReply",
-		Name:   "mask-reply",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "MrouteCache",
-		Name:   "mroute-cache",
-		Type:   yang.TBool,
-	}, {
-		GoName: "Mtu",
-		Name:   "mtu",
-		Type:   yang.TUint16,
-	}, {
-		Child:     Native_Interface_EmbeddedServiceEngine_Ip_NbarSchema,
-		GoName:    "Nbar",
-		Module:    "Cisco-IOS-XE-nbar",
-		Name:      "nbar",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nbar",
-	}, {
-		GoName: "NetworkBroadcast",
-		Name:   "network-broadcast",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_PimSchema,
-		GoName: "Pim",
-		Name:   "pim",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_PolicySchema,
-		GoName: "Policy",
-		Name:   "policy",
-	}, {
-		GoName: "ProxyArp",
-		Name:   "proxy-arp",
-		Type:   yang.TBool,
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_ReassemblySchema,
-		GoName: "Reassembly",
-		Name:   "reassembly",
-	}, {
-		GoName: "Redirects",
-		Name:   "redirects",
-		Type:   yang.TBool,
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_RipSchema,
-		GoName: "Rip",
-		Name:   "rip",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_RouteCacheSchema,
-		GoName: "RouteCache",
-		Name:   "route-cache",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_RouteCacheConfSchema,
-		GoName: "RouteCacheConf",
-		Name:   "route-cache-conf",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_RouterSchema,
-		GoName: "Router",
-		Name:   "router",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_SummaryAddressSchema,
-		GoName: "SummaryAddress",
-		Name:   "summary-address",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_TcpSchema,
-		GoName: "Tcp",
-		Name:   "tcp",
-	}, {
-		GoName: "Unnumbered",
-		Name:   "unnumbered",
-		Type:   yang.TString,
-	}, {
-		GoName:    "Unreachables",
-		Module:    "Cisco-IOS-XE-icmp",
-		Name:      "unreachables",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-icmp",
-		Type:      yang.TBool,
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_VerifySchema,
-		GoName: "Verify",
-		Name:   "verify",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_VirtualReassemblySchema,
-		GoName: "VirtualReassembly",
-		Name:   "virtual-reassembly",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_VirtualReassemblyOutSchema,
-		GoName: "VirtualReassemblyOut",
-		Name:   "virtual-reassembly-out",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_VrfSchema,
-		GoName: "Vrf",
-		Name:   "vrf",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ip",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group.
-type Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup struct {
-	In  *Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In
-	Out *Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroupSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccessGroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_InSchema,
-		GoName: "In",
-		Name:   "in",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_OutSchema,
-		GoName: "Out",
-		Name:   "out",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "access-group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/in.
-type Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In struct {
-	Acl       *Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_Acl
-	CommonAcl *Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_CommonAcl
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_InSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/in for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_InSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_AclSchema,
-		GoName: "Acl",
-		Name:   "acl",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_CommonAclSchema,
-		GoName: "CommonAcl",
-		Name:   "common-acl",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "in",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_Acl is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/in/apply-type/apply-intf/acl.
-type Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_Acl struct {
-	AclName *yang.Value
-	In      *bool
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_AclSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/in/apply-type/apply-intf/acl for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_AclSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "In",
-		Name:   "in",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "acl",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_CommonAcl is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/in/apply-type/apply-common/common-acl.
-type Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_CommonAcl struct {
-	AclName *yang.Value
-	Common  *yang.Value
-	In      *bool
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_CommonAclSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/in/apply-type/apply-common/common-acl for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_In_CommonAclSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "Common",
-		Name:   "common",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "In",
-		Name:   "in",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "common-acl",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/out.
-type Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out struct {
-	Acl       *Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_Acl
-	CommonAcl *Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_CommonAcl
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_OutSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/out for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_OutSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_AclSchema,
-		GoName: "Acl",
-		Name:   "acl",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_CommonAclSchema,
-		GoName: "CommonAcl",
-		Name:   "common-acl",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "out",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_Acl is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/out/apply-type/apply-intf/acl.
-type Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_Acl struct {
-	AclName *yang.Value
-	Out     *bool
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_AclSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/out/apply-type/apply-intf/acl for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_AclSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "acl",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_CommonAcl is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/out/apply-type/apply-common/common-acl.
-type Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_CommonAcl struct {
-	AclName *yang.Value
-	Common  *yang.Value
-	Out     *bool
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_CommonAclSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/access-group/out/apply-type/apply-common/common-acl for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccessGroup_Out_CommonAclSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "Common",
-		Name:   "common",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "common-acl",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Accounting is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/accounting.
-type Native_Interface_EmbeddedServiceEngine_Ip_Accounting struct {
-	MacAddress *Native_Interface_EmbeddedServiceEngine_Ip_Accounting_MacAddress
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AccountingSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/accounting for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AccountingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_Accounting_MacAddressSchema,
-		GoName: "MacAddress",
-		Name:   "mac-address",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "accounting",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Accounting_MacAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/accounting/mac-address.
-type Native_Interface_EmbeddedServiceEngine_Ip_Accounting_MacAddress struct {
-	Input  *bool
-	Output *bool
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Accounting_MacAddressSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/accounting/mac-address for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_Accounting_MacAddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Input",
-		Name:   "input",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Output",
-		Name:   "output",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "mac-address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address.
-type Native_Interface_EmbeddedServiceEngine_Ip_Address struct {
-	Dhcp       *Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp
-	Negotiated *bool
-	Primary    *Native_Interface_EmbeddedServiceEngine_Ip_Address_Primary
-	Secondary  []Native_Interface_EmbeddedServiceEngine_Ip_Address_Secondary
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_AddressSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_AddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_Address_DhcpSchema,
-		GoName: "Dhcp",
-		Name:   "dhcp",
-	}, {
-		GoName: "Negotiated",
-		Name:   "negotiated",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_Address_PrimarySchema,
-		GoName: "Primary",
-		Name:   "primary",
-	}, {
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondarySchema,
-		GoName: "Secondary",
-		List:   true,
-		Name:   "secondary",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/dhcp-case/dhcp.
-type Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp struct {
-	ClientId *Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp_ClientId
-	Hostname *string
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_DhcpSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/dhcp-case/dhcp for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_Address_DhcpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp_ClientIdSchema,
-		GoName: "ClientId",
-		Name:   "client-id",
-	}, {
-		GoName: "Hostname",
-		Name:   "hostname",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "dhcp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp_ClientId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/dhcp-case/dhcp/client-id.
-type Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp_ClientId struct {
-	AppGigabitEthernet        *string
-	Ethernet                  *string
-	FastEthernet              *string
-	FiftyGigabitEthernet      *string
-	FiveGigabitEthernet       *string
-	FortyGigabitEthernet      *string
-	FourHundredGigE           *string
-	GigabitEthernet           *string
-	HSRRing                   *uint8
-	HundredGigE               *string
-	PRPChannel                *uint8
-	PortChannel               *uint32
-	TenGigabitEthernet        *string
-	TwentyFiveGigE            *string
-	TwentyFiveGigabitEthernet *string
-	TwoGigabitEthernet        *string
-	TwoHundredGigE            *string
-	Vlan                      *uint16
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp_ClientIdSchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/dhcp-case/dhcp/client-id for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_Address_Dhcp_ClientIdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AppGigabitEthernet",
-		Name:   "AppGigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ethernet",
-		Name:   "Ethernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "FastEthernet",
-		Name:   "FastEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "FiftyGigabitEthernet",
-		Name:   "FiftyGigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "FiveGigabitEthernet",
-		Name:   "FiveGigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "FortyGigabitEthernet",
-		Name:   "FortyGigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "FourHundredGigE",
-		Name:   "FourHundredGigE",
-		Type:   yang.TString,
-	}, {
-		GoName: "GigabitEthernet",
-		Name:   "GigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "HSRRing",
-		Name:   "HSR-ring",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "HundredGigE",
-		Name:   "HundredGigE",
-		Type:   yang.TString,
-	}, {
-		GoName: "PRPChannel",
-		Name:   "PRP-channel",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "PortChannel",
-		Name:   "Port-channel",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "TenGigabitEthernet",
-		Name:   "TenGigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "TwentyFiveGigE",
-		Name:   "TwentyFiveGigE",
-		Type:   yang.TString,
-	}, {
-		GoName: "TwentyFiveGigabitEthernet",
-		Name:   "TwentyFiveGigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "TwoGigabitEthernet",
-		Name:   "TwoGigabitEthernet",
-		Type:   yang.TString,
-	}, {
-		GoName: "TwoHundredGigE",
-		Name:   "TwoHundredGigE",
-		Type:   yang.TString,
-	}, {
-		GoName: "Vlan",
-		Name:   "vlan",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "client-id",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_Primary is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/fixed-case/primary.
-type Native_Interface_EmbeddedServiceEngine_Ip_Address_Primary struct {
-	Address *string
-	Mask    *string
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_PrimarySchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/fixed-case/primary for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_Address_PrimarySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Mask",
-		Name:   "mask",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "primary",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_Secondary is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/fixed-case/secondary.
-type Native_Interface_EmbeddedServiceEngine_Ip_Address_Secondary struct {
-	Address   *string
-	Mask      *string
-	Secondary *bool
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondarySchema describes /Cisco-IOS-XE-native/native/interface/Embedded-Service-Engine/ip/address-choice/address/address/address-choice/fixed-case/secondary for the generic codecs.
-var Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondarySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Mask",
-		Name:   "mask",
-		Type:   yang.TString,
-	}, {
-		GoName: "Secondary",
-		Name:   "secondary",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"address"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "secondary",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryKey is Native_Interface_EmbeddedServiceEngine_Ip_Address_Secondary's row identity (ancestor keys in canonical form).
-type Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryKey struct {
-	EmbeddedServiceEngine_Name string
-	Address                    string
-}
-
-// Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryFlatRow flattens one Native_Interface_EmbeddedServiceEngine_Ip_Address_Secondary entry with its ancestor list keys.
-type Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryFlatRow struct {
-	EmbeddedServiceEngine_Name string
-	Entry                      Native_Interface_EmbeddedServiceEngine_Ip_Address_Secondary
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryDescriptor is the flattened-row descriptor for the nested list Native_Interface_EmbeddedServiceEngine_Ip_Address_Secondary.
 func Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryDescriptor() yang.ListDescriptor[Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryFlatRow, Native_Interface_EmbeddedServiceEngine_Ip_Address_SecondaryKey] {
@@ -42235,4 +41623,506 @@ var Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_OcSchema = &yang.Schema
 // Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_Resources is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost/dynamic/weight/resources.
 type Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_Resources struct {
 	Value *uint8
+}
+
+// Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost/dynamic/weight/resources for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "resources",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_Throughput is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost/dynamic/weight/throughput.
+type Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_Throughput struct {
+	Value *uint8
+}
+
+// Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost/dynamic/weight/throughput for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "throughput",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config.
+type Native_Interface_Ethernet_Ospfv3_CostConfig struct {
+	Dynamic *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic
+	Value   *uint32
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfigSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_DynamicSchema,
+		GoName: "Dynamic",
+		Name:   "dynamic",
+	}, {
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "cost-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic struct {
+	Default    *uint32
+	Hysteresis *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Hysteresis
+	Weight     *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_DynamicSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_DynamicSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Default",
+		Name:   "default",
+		Type:   yang.TUint32,
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_HysteresisSchema,
+		GoName: "Hysteresis",
+		Name:   "hysteresis",
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_WeightSchema,
+		GoName: "Weight",
+		Name:   "weight",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "dynamic",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Hysteresis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/hysteresis.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Hysteresis struct {
+	Percent   *uint8
+	Threshold *uint32
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_HysteresisSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/hysteresis for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_HysteresisSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Percent",
+		Name:   "percent",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "hysteresis",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight struct {
+	L2Factor   *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_L2Factor
+	Latency    *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Latency
+	Oc         *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Oc
+	Resources  *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Resources
+	Throughput *Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Throughput
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_WeightSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_WeightSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema,
+		GoName: "L2Factor",
+		Name:   "L2-factor",
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema,
+		GoName: "Latency",
+		Name:   "latency",
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_OcSchema,
+		GoName: "Oc",
+		Name:   "oc",
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema,
+		GoName: "Resources",
+		Name:   "resources",
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema,
+		GoName: "Throughput",
+		Name:   "throughput",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "weight",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_L2Factor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/L2-factor.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_L2Factor struct {
+	Value *uint8
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/L2-factor for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "L2-factor",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Latency is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/latency.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Latency struct {
+	Value *uint8
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/latency for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "latency",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Oc is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/oc.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Oc struct {
+	Cdr *bool
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_OcSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/oc for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_OcSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cdr",
+		Name:   "cdr",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "oc",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Resources is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/resources.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Resources struct {
+	Value *uint8
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/resources for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "resources",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Throughput is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/throughput.
+type Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_Throughput struct {
+	Value *uint8
+}
+
+// Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/throughput for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "throughput",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_DatabaseFilter is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/database-filter.
+type Native_Interface_Ethernet_Ospfv3_DatabaseFilter struct {
+	All *string
+}
+
+// Native_Interface_Ethernet_Ospfv3_DatabaseFilterSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/database-filter for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_DatabaseFilterSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "All",
+		Name:   "all",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "database-filter",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_DemandCircuit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/demand-circuit.
+type Native_Interface_Ethernet_Ospfv3_DemandCircuit struct {
+	Ignore *bool
+}
+
+// Native_Interface_Ethernet_Ospfv3_DemandCircuitSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/demand-circuit for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_DemandCircuitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ignore",
+		Name:   "ignore",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "demand-circuit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption.
+type Native_Interface_Ethernet_Ospfv3_Encryption struct {
+	Ipsec *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec
+	Null  *bool
+}
+
+// Native_Interface_Ethernet_Ospfv3_EncryptionSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_EncryptionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_IpsecSchema,
+		GoName: "Ipsec",
+		Name:   "ipsec",
+	}, {
+		GoName: "Null",
+		Name:   "null",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "encryption",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec struct {
+	AesCbc    *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc
+	Esp       *bool
+	Ipsec3des *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des
+	Spi       *uint64
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_IpsecSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_IpsecSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbcSchema,
+		GoName: "AesCbc",
+		Name:   "aes-cbc",
+	}, {
+		GoName: "Esp",
+		Name:   "esp",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3desSchema,
+		GoName: "Ipsec3des",
+		Name:   "ipsec_3des",
+	}, {
+		GoName: "Spi",
+		Name:   "spi",
+		Type:   yang.TUint64,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "ipsec",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc struct {
+	Aes192    *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192
+	Aes256    *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256
+	AesCbc128 *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbcSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbcSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192Schema,
+		GoName: "Aes192",
+		Name:   "aes-192",
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256Schema,
+		GoName: "Aes256",
+		Name:   "aes-256",
+	}, {
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128Schema,
+		GoName: "AesCbc128",
+		Name:   "aes-cbc-128",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "aes-cbc",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-192.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192 struct {
+	KeyString *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192_KeyString
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192Schema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-192 for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192_KeyStringSchema,
+		GoName: "KeyString",
+		Name:   "key-string",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "aes-192",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-192/key-string.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192_KeyString struct {
+	Encrypt *string
+	String  *string
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-192/key-string for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes192_KeyStringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "String",
+		Name:   "string",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "key-string",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-256.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256 struct {
+	KeyString *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256_KeyString
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256Schema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-256 for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256_KeyStringSchema,
+		GoName: "KeyString",
+		Name:   "key-string",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "aes-256",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-256/key-string.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256_KeyString struct {
+	Encrypt *string
+	String  *string
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-256/key-string for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_Aes256_KeyStringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "String",
+		Name:   "string",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "key-string",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-cbc-128.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128 struct {
+	KeyString *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128_KeyString
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128Schema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-cbc-128 for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128_KeyStringSchema,
+		GoName: "KeyString",
+		Name:   "key-string",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "aes-cbc-128",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-cbc-128/key-string.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128_KeyString struct {
+	Encrypt *string
+	String  *string
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/aes-cbc/aes-cbc-128/key-string for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_AesCbc_AesCbc128_KeyStringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "String",
+		Name:   "string",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "key-string",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/ipsec_3des.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des struct {
+	KeyString *Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des_KeyString
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3desSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/ipsec_3des for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3desSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des_KeyStringSchema,
+		GoName: "KeyString",
+		Name:   "key-string",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "ipsec_3des",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/ipsec_3des/key-string.
+type Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des_KeyString struct {
+	Encrypt *string
+	String  *string
+}
+
+// Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet/ospfv3/encryption/ipsec/ipsec_3des/key-string for the generic codecs.
+var Native_Interface_Ethernet_Ospfv3_Encryption_Ipsec_Ipsec3des_KeyStringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "String",
+		Name:   "string",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "key-string",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
 }

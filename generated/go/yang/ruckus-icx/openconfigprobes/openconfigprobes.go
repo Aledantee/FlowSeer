@@ -6,7 +6,7 @@
 // Package openconfigprobes binds the YANG module openconfig-probes.
 package openconfigprobes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Probes is the openconfig-probes node /openconfig-probes/probes.
 type Probes struct {

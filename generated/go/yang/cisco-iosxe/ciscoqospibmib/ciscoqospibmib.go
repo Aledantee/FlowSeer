@@ -6,7 +6,7 @@
 // Package ciscoqospibmib binds the YANG module CISCO-QOS-PIB-MIB.
 package ciscoqospibmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOQOSPIBMIB is the CISCO-QOS-PIB-MIB node /CISCO-QOS-PIB-MIB/CISCO-QOS-PIB-MIB.
 type CISCOQOSPIBMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxebgpoper binds the YANG module Cisco-IOS-XE-bgp-oper.
 package ciscoiosxebgpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BgpStateData is the Cisco-IOS-XE-bgp-oper node /Cisco-IOS-XE-bgp-oper/bgp-state-data.
 type BgpStateData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxerifoper binds the YANG module Cisco-IOS-XE-rif-oper.
 package ciscoiosxerifoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RifOperData is the Cisco-IOS-XE-rif-oper node /Cisco-IOS-XE-rif-oper/rif-oper-data.
 type RifOperData struct {

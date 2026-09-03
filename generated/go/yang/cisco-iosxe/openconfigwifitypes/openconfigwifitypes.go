@@ -6,7 +6,7 @@
 // Package openconfigwifitypes binds the YANG module openconfig-wifi-types.
 package openconfigwifitypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_APSTATE is the openconfig-wifi-types identity "AP_STATE".
 var Identity_APSTATE = yang.Identity{

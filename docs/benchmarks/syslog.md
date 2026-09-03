@@ -10,13 +10,13 @@ hardware-independent ingestion targets.
 From the repository root:
 
 ```sh
-go test -race ./src/common/syslog/...
-go test ./src/common/syslog -run '^$' -fuzz '^FuzzParse$' -fuzztime 60s
-go test ./src/common/syslog -run '^$' -fuzz '^FuzzFrame$' -fuzztime 60s
-go test ./src/common/syslog -run '^$' -fuzz '^FuzzEncode$' -fuzztime 60s
-go test ./src/common/syslog -run '^$' -bench . -benchmem -benchtime=100ms -count 10
-go -C src/common/syslog/bench test -run '^$' -bench . -benchmem -benchtime=100ms -count 10
-FLOWSEER_SYSLOG_OVERLOAD=1 go test ./src/common/syslog/test/integration -run '^TestOverload$' -count 1 -timeout 12m -v
+go test -race ./src/protocol/syslog/...
+go test ./src/protocol/syslog -run '^$' -fuzz '^FuzzParse$' -fuzztime 60s
+go test ./src/protocol/syslog -run '^$' -fuzz '^FuzzFrame$' -fuzztime 60s
+go test ./src/protocol/syslog -run '^$' -fuzz '^FuzzEncode$' -fuzztime 60s
+go test ./src/protocol/syslog -run '^$' -bench . -benchmem -benchtime=100ms -count 10
+go -C src/protocol/syslog/bench test -run '^$' -bench . -benchmem -benchtime=100ms -count 10
+FLOWSEER_SYSLOG_OVERLOAD=1 go test ./src/protocol/syslog/test/integration -run '^TestOverload$' -count 1 -timeout 12m -v
 ```
 
 The ten-minute measurement is explicitly enabled so normal package tests do not

@@ -5,416 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast struct {
-	Include *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include
-	Level   *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Level
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_UnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include struct {
-	Broadcast      *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast
-	UnknownUnicast *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicastSchema,
-		GoName: "UnknownUnicast",
-		Name:   "unknown-unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast struct {
-	Include *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include
-	Level   *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_BroadcastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "broadcast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include struct {
-	UnknownUnicast *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicastSchema,
-		GoName: "UnknownUnicast",
-		Name:   "unknown-unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast struct {
-	Level *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicastSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unknown-unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level struct {
-	Bps       *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Bps
-	Pps       *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Pps
-	Threshold *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Threshold
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/bps-case/bps.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/pps-case/pps.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level struct {
-	Bps       *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Bps
-	Pps       *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Pps
-	Threshold *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Threshold
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast struct {
-	Include *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include
-	Level   *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Level
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicastSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unknown-unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include.
-type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include struct {
-	Broadcast *Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast
-}
-
-// Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include for the generic codecs.
-var Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/L2LISP-subinterface/L2LISP/storm-control/level-shared/multicast/include/unicast/include/unknown-unicast/include/broadcast.
 type Native_Interface_L2LISPSubinterface_L2LISP_StormControl_LevelShared_Multicast_Include_Unicast_Include_UnknownUnicast_Include_Broadcast struct {
@@ -41949,4 +41540,547 @@ type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList struct {
 	Redirect       *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Redirect
 	Timers         *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Timers
 	Track          []Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Track
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_AuthenticationSchema,
+		GoName: "Authentication",
+		Name:   "authentication",
+	}, {
+		GoName: "Follow",
+		Name:   "follow",
+		Type:   yang.TString,
+	}, {
+		GoName: "GroupNumber",
+		Name:   "group-number",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpSchema,
+		GoName: "Ip",
+		Name:   "ip",
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfigSchema,
+		GoName: "IpConfig",
+		Name:   "ip-config",
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6ConfigSchema,
+		GoName: "Ipv6Config",
+		Name:   "ipv6-config",
+	}, {
+		GoName: "MacAddress",
+		Name:   "mac-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_PreemptSchema,
+		GoName: "Preempt",
+		Name:   "preempt",
+	}, {
+		GoName: "Priority",
+		Name:   "priority",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_RedirectSchema,
+		GoName: "Redirect",
+		Name:   "redirect",
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_TimersSchema,
+		GoName: "Timers",
+		Name:   "timers",
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_TrackSchema,
+		GoName: "Track",
+		List:   true,
+		Name:   "track",
+	}},
+	Keys:      []string{"group-number"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "standby-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey is Native_Interface_LISPSubinterface_LISP_Standby_StandbyList's row identity (ancestor keys in canonical form).
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey struct {
+	LISP_Name   string
+	GroupNumber uint16
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow flattens one Native_Interface_LISPSubinterface_LISP_Standby_StandbyList entry with its ancestor list keys.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow struct {
+	LISP_Name string
+	Entry     Native_Interface_LISPSubinterface_LISP_Standby_StandbyList
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListDescriptor is the flattened-row descriptor for the nested list Native_Interface_LISPSubinterface_LISP_Standby_StandbyList.
+func Native_Interface_LISPSubinterface_LISP_Standby_StandbyListDescriptor() yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey] {
+	return yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey]{
+		Codec: yang.RowCodec[Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow{
+						Entry:     en.Entry,
+						LISP_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow{
+						Entry:     en.Entry,
+						LISP_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey {
+				var k Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey
+				k.LISP_Name = r.LISP_Name
+				if r.Entry.GroupNumber != nil {
+					k.GroupNumber = *r.Entry.GroupNumber
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "LISP-subinterface"}, {Name: "LISP"}, {Name: "standby"}, {Name: "standby-list"}}},
+	}
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication struct {
+	Encrypt *string
+	Md5     *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5
+	Text    *string
+	Word    *string
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_AuthenticationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5Schema,
+		GoName: "Md5",
+		Name:   "md5",
+	}, {
+		GoName: "Text",
+		Name:   "text",
+		Type:   yang.TString,
+	}, {
+		GoName: "Word",
+		Name:   "word",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "authentication",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5 struct {
+	KeyChain  *string
+	KeyString *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyString
+	Md5Config *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5Schema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5 for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "KeyChain",
+		Name:   "key-chain",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyStringSchema,
+		GoName: "KeyString",
+		Name:   "key-string",
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5ConfigSchema,
+		GoName: "Md5Config",
+		Name:   "md5-config",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "md5",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/key-string.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyString struct {
+	Encrypt *string
+	String  *string
+	Timeout *uint16
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/key-string for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyStringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "String",
+		Name:   "string",
+		Type:   yang.TString,
+	}, {
+		GoName: "Timeout",
+		Name:   "timeout",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "key-string",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config struct {
+	KeyChain  *string
+	KeyString *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyString
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5ConfigSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5ConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "KeyChain",
+		Name:   "key-chain",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyStringSchema,
+		GoName: "KeyString",
+		Name:   "key-string",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "md5-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config/md5-choice/key-string/key-string.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyString struct {
+	Encrypt *string
+	String  *string
+	Timeout *uint16
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config/md5-choice/key-string/key-string for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyStringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "String",
+		Name:   "string",
+		Type:   yang.TString,
+	}, {
+		GoName: "Timeout",
+		Name:   "timeout",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "key-string",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ip is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ip struct {
+	Address   *string
+	Secondary *bool
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Address",
+		Name:   "address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Secondary",
+		Name:   "secondary",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "ip",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig struct {
+	Address          *string
+	SecondaryAddress []Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfigSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Address",
+		Name:   "address",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema,
+		GoName: "SecondaryAddress",
+		List:   true,
+		Name:   "secondary-address",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "ip-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config/secondary-address.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress struct {
+	Address   *string
+	Secondary *bool
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config/secondary-address for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Address",
+		Name:   "address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Secondary",
+		Name:   "secondary",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"address"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "secondary-address",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey is Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress's row identity (ancestor keys in canonical form).
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey struct {
+	LISP_Name               string
+	StandbyList_GroupNumber string
+	Address                 string
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow flattens one Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress entry with its ancestor list keys.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow struct {
+	LISP_Name               string
+	StandbyList_GroupNumber string
+	Entry                   Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressDescriptor is the flattened-row descriptor for the nested list Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress.
+func Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressDescriptor() yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey] {
+	return yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey]{
+		Codec: yang.RowCodec[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow{
+						Entry:                   en.Entry,
+						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow{
+						Entry:                   en.Entry,
+						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey {
+				var k Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey
+				k.LISP_Name = r.LISP_Name
+				k.StandbyList_GroupNumber = r.StandbyList_GroupNumber
+				if r.Entry.Address != nil {
+					k.Address = *r.Entry.Address
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "LISP-subinterface"}, {Name: "LISP"}, {Name: "standby"}, {Name: "standby-list"}, {Name: "ip-config"}, {Name: "secondary-address"}}},
+	}
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config struct {
+	Ipv6LinkLocal *yang.Value
+	Ipv6Prefix    []Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6ConfigSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6ConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ipv6LinkLocal",
+		Name:   "ipv6-link-local",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema,
+		GoName: "Ipv6Prefix",
+		List:   true,
+		Name:   "ipv6_prefix",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "ipv6-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config/ipv6_prefix.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix struct {
+	Prefix *string
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config/ipv6_prefix for the generic codecs.
+var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Prefix",
+		Name:   "prefix",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"prefix"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "ipv6_prefix",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey is Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix's row identity (ancestor keys in canonical form).
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey struct {
+	LISP_Name               string
+	StandbyList_GroupNumber string
+	Prefix                  string
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow flattens one Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix entry with its ancestor list keys.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow struct {
+	LISP_Name               string
+	StandbyList_GroupNumber string
+	Entry                   Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor is the flattened-row descriptor for the nested list Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix.
+func Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor() yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey] {
+	return yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
+		Codec: yang.RowCodec[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
+						Entry:                   en.Entry,
+						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
+						Entry:                   en.Entry,
+						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey {
+				var k Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey
+				k.LISP_Name = r.LISP_Name
+				k.StandbyList_GroupNumber = r.StandbyList_GroupNumber
+				if r.Entry.Prefix != nil {
+					k.Prefix = *r.Entry.Prefix
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "LISP-subinterface"}, {Name: "LISP"}, {Name: "standby"}, {Name: "standby-list"}, {Name: "ipv6-config"}, {Name: "ipv6_prefix"}}},
+	}
+}
+
+// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Preempt is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/preempt.
+type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Preempt struct {
+	Delay *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Preempt_Delay
 }

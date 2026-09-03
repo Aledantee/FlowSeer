@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessbleltxoper binds the YANG module Cisco-IOS-XE-wireless-ble-ltx-oper.
 package ciscoiosxewirelessbleltxoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BleLtxOperData is the Cisco-IOS-XE-wireless-ble-ltx-oper node /Cisco-IOS-XE-wireless-ble-ltx-oper/ble-ltx-oper-data.
 type BleLtxOperData struct {

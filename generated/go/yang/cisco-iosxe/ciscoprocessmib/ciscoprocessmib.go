@@ -6,7 +6,7 @@
 // Package ciscoprocessmib binds the YANG module CISCO-PROCESS-MIB.
 package ciscoprocessmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOPROCESSMIB is the CISCO-PROCESS-MIB node /CISCO-PROCESS-MIB/CISCO-PROCESS-MIB.
 type CISCOPROCESSMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxednsdefenseoper binds the YANG module Cisco-IOS-XE-dns-defense-oper.
 package ciscoiosxednsdefenseoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DnsDefenseOperData is the Cisco-IOS-XE-dns-defense-oper node /Cisco-IOS-XE-dns-defense-oper/dns-defense-oper-data.
 type DnsDefenseOperData struct {

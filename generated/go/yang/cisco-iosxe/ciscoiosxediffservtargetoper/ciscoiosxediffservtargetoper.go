@@ -6,7 +6,7 @@
 // Package ciscoiosxediffservtargetoper binds the YANG module Cisco-IOS-XE-diffserv-target-oper.
 package ciscoiosxediffservtargetoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Direction is the Cisco-IOS-XE-diffserv-target-oper identity "direction".
 var Identity_Direction = yang.Identity{

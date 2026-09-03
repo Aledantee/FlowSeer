@@ -6,7 +6,7 @@
 // Package ciscoiosxeplatformsoftwareoper binds the YANG module Cisco-IOS-XE-platform-software-oper.
 package ciscoiosxeplatformsoftwareoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CiscoPlatformSoftware is the Cisco-IOS-XE-platform-software-oper node /Cisco-IOS-XE-platform-software-oper/cisco-platform-software.
 type CiscoPlatformSoftware struct {
