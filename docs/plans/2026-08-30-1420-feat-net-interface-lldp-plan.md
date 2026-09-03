@@ -99,7 +99,7 @@ flowchart TB
 
 ### Dependencies / Assumptions
 
-- The rename is source- and wire-breaking for the generated `switching`/`ip` packages; accepted because no production code consumes them yet (verified — only `test/conformance/{l2,l3}_rules_test.go` import them, and those move with the rename).
+- The rename is source- and wire-breaking for the generated `switching`/`ip` packages; accepted because no production code consumes them yet (verified — only `test/conformance/proto/{l2,l3}_rules_test.go` import them, and those move with the rename).
 - `buf.yaml` suspends breaking checks for the flowseer module (`breaking.ignore: [spec/proto/flowseer]`, "until first stable release"), so the rename needs no baseline reconciliation and no policy change.
 - `buf generate` and mibgen checks require unsandboxed runs in this environment.
 - U7 regenerates every MIB module, not only `ifmib` and `lldpmib`, so its diff is wide even though its behavior change is narrow.
@@ -133,8 +133,8 @@ This plan owns the rename plus the `interface` and `lldp` packages. The surround
 ### Key Technical Decisions
 
 - KTD1. **Mappers live in a new `src/common/snmpmap/` package in the root module.** (session-settled: user-approved — chosen over a per-domain `src/common/mapper/` tree or waiting for `src/backend/`: no mapper precedent exists, `src/backend/` does not exist yet, and `src/common/` is where protocol-adjacent Go lives.) The package consumes only the generated MIB bindings' public API and the generated flowseer protos; errors follow `src/common/errs`. Instantiates KD6; governs R14.
-- KTD2. **Wire-contract tests are plain unit tests against an in-memory fake `snmp.Session` fed varbind fixtures.** (session-settled: user-approved — chosen over the build-tag-gated t1–t4 integration tiers: the `snmp.Session` interface is small, real table walkers run against a fake unchanged, and tests stay in the default `go test -race` gate. Precedent: the fixture-driven fake in `test/integration/snmp/assertions_test.go`, which is test-local and must be re-implemented in `snmpmap`.) Governs R15.
-- KTD3. **The import-layering test lands in `test/conformance/`, not `spec/proto/`.** (session-settled: user-approved — the base-types plan placed it at `spec/proto/layering_test.go`, which the repo's hard boundary forbids; the test was never landed and the layer order exists only in the direction doc's prose today.) It encodes the post-rename order from the Requirements diagram and fails on any upward or protocol-into-layer import. Governs R13.
+- KTD2. **Wire-contract tests are plain unit tests against an in-memory fake `snmp.Session` fed varbind fixtures.** (session-settled: user-approved — chosen over the build-tag-gated t1–t4 integration tiers: the `snmp.Session` interface is small, real table walkers run against a fake unchanged, and tests stay in the default `go test -race` gate. Precedent: the fixture-driven fake in `src/common/snmp/test/integration/assertions_test.go`, which is test-local and must be re-implemented in `snmpmap`.) Governs R15.
+- KTD3. **The import-layering test lands in `test/conformance/proto/`, not `spec/proto/`.** (session-settled: user-approved — the base-types plan placed it at `spec/proto/layering_test.go`, which the repo's hard boundary forbids; the test was never landed and the layer order exists only in the direction doc's prose today.) It encodes the post-rename order from the Requirements diagram and fails on any upward or protocol-into-layer import. Governs R13.
 - KTD4. **Counters are single `uint64` fields, mapped HC-first.** (session-settled: user-approved — one field per counter, the mapper choosing the source column; chosen over parallel 32/64-bit field pairs: the schema stays flat and consumers never reconcile two widths.) Fallback is per counter family: octets, unicast packets, errors, and discards fall back from the `IfXTable` HC columns to the `IfTable` 32-bit columns; multicast and broadcast exist only as 32-bit `IfXTable` columns, so they stay absent on a device with no `IfXTable` and are never derived from `ifInNUcastPkts`/`ifOutNUcastPkts`. Governs R9.
 - KTD5. **`AdminStatus`/`OperStatus` are FlowSeer-normalized open enums.** `<ENUM>_UNSPECIFIED = 0`, values covering IF-MIB's sets (up, down, testing; plus unknown, dormant, not-present, lower-layer-down for oper). Device-reported, so no `defined_only` rule — the deviation from the enum norm carries a contract comment and a pinned conformance test per the deviations convention. Governs R8.
 - KTD6. **LLDP chassis and port identifiers stay subtype + octets.** A subtype enum (registry pass-through, IEEE 802.1AB values preserved) beside a required `bytes` value, per message — never collapsed to a display string. Formatting is a library concern, matching the address-bytes decision in the direction record.
@@ -194,7 +194,7 @@ Units run in dependency order, which is not U-ID order: U7 is a prerequisite for
 - **Goal:** The layer packages carry their function names end to end, with the direction record amended in the same change.
 - **Requirements:** R1, R2, R3, R4 (KD1, KTD8).
 - **Dependencies:** None.
-- **Files:** `spec/proto/flowseer/net/l2/v1/` → `spec/proto/flowseer/net/switching/v1/` (13 protos + README); `spec/proto/flowseer/net/l3/v1/` → `spec/proto/flowseer/net/ip/v1/` (9 protos + README); `spec/proto/flowseer/README.md`; `spec/proto/flowseer/net/qos/v1/` (delete); `docs/architecture/2026-08-20-network-model-structure-direction.md`; `test/conformance/l2_rules_test.go` → `switching_rules_test.go`; `test/conformance/l3_rules_test.go` → `ip_rules_test.go`; `generated/go/proto/flowseer/net/{l2,l3}/v1/` (delete stale dirs); regenerated `generated/go/proto/flowseer/net/{switching,ip}/v1/`.
+- **Files:** `spec/proto/flowseer/net/l2/v1/` → `spec/proto/flowseer/net/switching/v1/` (13 protos + README); `spec/proto/flowseer/net/l3/v1/` → `spec/proto/flowseer/net/ip/v1/` (9 protos + README); `spec/proto/flowseer/README.md`; `spec/proto/flowseer/net/qos/v1/` (delete); `docs/architecture/2026-08-20-network-model-structure-direction.md`; `test/conformance/proto/l2_rules_test.go` → `switching_rules_test.go`; `test/conformance/proto/l3_rules_test.go` → `ip_rules_test.go`; `generated/go/proto/flowseer/net/{l2,l3}/v1/` (delete stale dirs); regenerated `generated/go/proto/flowseer/net/{switching,ip}/v1/`.
 - **Approach:**
   1. `git mv` the two package directories into the existing placeholder paths (drop the `.gitkeep`s); update `package` statements and every intra-package `import` / `import option` path.
   2. Update the two prose mentions in `spec/proto/flowseer/README.md` and delete `net/qos/v1`.
@@ -218,7 +218,7 @@ Units run in dependency order, which is not U-ID order: U7 is a prerequisite for
   3. Enums per KTD5; counters per KTD4 and R9.
   4. Every field comment states the contract including absence meaning, per the style guide.
 - **Patterns to follow:** `spec/proto/flowseer/net/switching/v1/switchport_facet.proto` (header, `import option`, predefined-rule use, comment idiom); `spec/proto/flowseer/net/addr/v1/ip.proto` (required-oneof shape).
-- **Test scenarios (in `test/conformance/interface_rules_test.go`):**
+- **Test scenarios (in `test/conformance/proto/interface_rules_test.go`):**
   - An `Interface` with no kind arm set fails validation; with exactly one arm it passes.
   - `Covers AE2.` A vlan-arm interface with `ip` set validates; a physical-arm interface without `ip` validates.
   - `name` empty or absent fails (`required` + `min_len`); `mtu = 0` set explicitly round-trips with presence.
@@ -233,7 +233,7 @@ Units run in dependency order, which is not U-ID order: U7 is a prerequisite for
 - **Goal:** The LLDP package holds the global block, per-port config, and neighbor table as lint-clean protos.
 - **Requirements:** R11, R12 (KD2, KTD6, KTD9).
 - **Dependencies:** U2, U7.
-- **Files:** `spec/proto/flowseer/net/protocol/lldp/v1/` — global/local-system message, per-port config message, neighbor row message, chassis-id and port-id messages with their subtype enums, management-address row, capability set; `README.md`; regenerated `generated/go/proto/flowseer/net/protocol/lldp/v1/`; conformance file `test/conformance/lldp_rules_test.go`.
+- **Files:** `spec/proto/flowseer/net/protocol/lldp/v1/` — global/local-system message, per-port config message, neighbor row message, chassis-id and port-id messages with their subtype enums, management-address row, capability set; `README.md`; regenerated `generated/go/proto/flowseer/net/protocol/lldp/v1/`; conformance file `test/conformance/proto/lldp_rules_test.go`.
 - **Approach:**
   1. Model what `lldpmib` exposes: local system block (chassis id, sys name/desc, capabilities), per-port config (admin status, TLV enablement), neighbor rows keyed by local interface name + remote index carrying chassis/port ids, sys name/desc, capabilities, and management addresses (as `addr.IpAddress`).
   2. Chassis/port identifiers per KTD6; capability bits as a repeated open enum, not a bitmask integer — fed by U7's bit-string decoding.
@@ -250,14 +250,14 @@ Units run in dependency order, which is not U-ID order: U7 is a prerequisite for
 - **Goal:** The declared import order is executable, not prose.
 - **Requirements:** R13 (KTD3).
 - **Dependencies:** U1, U2, U3.
-- **Files:** `test/conformance/layering_test.go`.
+- **Files:** `test/conformance/proto/layering_test.go`.
 - **Approach:** Walk `spec/proto/flowseer/`, parse each file's `import` statements, and assert the order from the Requirements diagram: leaves (`addr`, `packet`, `phy`) import nothing FlowSeer-owned; `switching`/`ip` import only leaves; `interface` imports leaves + `switching`/`ip`; `protocol/*` import anything below; layers never import `protocol/*`. Encode the order as one table so the next package addition is a one-line change. The completeness check considers only directories holding at least one `.proto` file, so the empty `net/wlan/v1`, `net/protocol/stp/v1`, and `net/protocol/lacp/v1` placeholders are skipped until they carry schemas.
-- **Patterns to follow:** `test/conformance/layout_test.go` (spec-tree walking).
+- **Patterns to follow:** `test/conformance/proto/layout_test.go` (spec-tree walking).
 - **Test scenarios:**
   - The current tree passes.
   - The table covers every schema-bearing package under `spec/proto/flowseer/net/` — such a package missing from the table fails the test, so new packages must declare their layer.
   - An empty placeholder directory does not fail the completeness check.
-- **Verification:** `go test -race ./test/conformance/`.
+- **Verification:** `go test -race ./test/conformance/proto/`.
 
 ### U5. ifmib mapper and wire-contract tests
 
@@ -271,7 +271,7 @@ Units run in dependency order, which is not U-ID order: U7 is a prerequisite for
   3. Counters HC-first per KTD4; a counter field is set only when U7's per-column observation says that column landed, so an unobserved counter stays absent per R9.
   4. Errors via `src/common/errs`; unmappable rows are never dropped (AE1), and per-row decode declines follow the SNMP library's decline-not-error semantics.
 - **Execution note:** Write the wire-contract test first from fixture varbinds, then make the mapper satisfy it.
-- **Patterns to follow:** fixture-driven fake session in `test/integration/snmp/assertions_test.go` (re-implemented locally per KTD2); `generated/go/mib/ifmib/mib.go` walker API.
+- **Patterns to follow:** fixture-driven fake session in `src/common/snmp/test/integration/assertions_test.go` (re-implemented locally per KTD2); `generated/go/mib/ifmib/mib.go` walker API.
 - **Test scenarios:**
   - `Covers AE1.` A row with ifType `ieee80211(71)` maps to `OtherInterface` with ifType preserved and common fields populated.
   - An `ethernetCsmacd` row maps to the physical arm; an `ieee8023adLag` row to lag; `l2vlan` to vlan; `softwareLoopback` to loopback; `tunnel` to tunnel.
@@ -310,7 +310,7 @@ Units run in dependency order, which is not U-ID order: U7 is a prerequisite for
 | Proto lint/format | `buf format -d --exit-code && buf lint` (run by verify-change) | U1–U3 |
 | Generated-output drift | `buf generate` to tmpdir + diff (run by verify-change) | U1–U3 |
 | MIB binding drift | `go run ./src/common/snmp/cmd/mibgen -check` (run by verify-change) | U7 |
-| Race tests | `go test -race ./test/conformance/ ./src/common/snmpmap/ ./src/common/snmp/...` | U1–U7 |
+| Race tests | `go test -race ./test/conformance/proto/ ./src/common/snmpmap/ ./src/common/snmp/...` | U1–U7 |
 
 `buf generate` and mibgen checks need unsandboxed runs in this environment. Never hand-edit `generated/` or `buf.lock`; never point golangci-lint at `generated/`.
 

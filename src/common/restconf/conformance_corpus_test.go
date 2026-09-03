@@ -106,7 +106,7 @@ func corpusDirs(t *testing.T) []string {
 		t.Fatal("runtime.Caller failed")
 	}
 	dir := filepath.Dir(here)
-	return []string{dir, filepath.Join(dir, "..", "..", "..", "test", "integration", "restconf")}
+	return []string{dir, filepath.Join(dir, "test", "integration")}
 }
 
 // TestConformanceCorpusIntegrity is the always-on gate.

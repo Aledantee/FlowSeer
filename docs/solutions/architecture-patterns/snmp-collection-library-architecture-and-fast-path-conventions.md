@@ -246,8 +246,8 @@ The two raw-path rows show the discipline, as the corpus records it:
   declaration (`:117`). Pinned in-package by
   `TestRawWalk_WrongTypedColumn_FallsBackToGenericCoercion`
   (`src/common/snmp/conformance_rawpath_test.go:19`) **and** end-to-end by a t3
-  `snmprec` replay (`test/integration/snmp/t3_offspec_test.go:29`; manifest
-  entry `test/integration/snmp/testdata/snmprec/manifest.yaml:29`).
+  `snmprec` replay (`src/common/snmp/test/integration/t3_offspec_test.go:29`; manifest
+  entry `src/common/snmp/test/integration/testdata/snmprec/manifest.yaml:29`).
 - `raw-noncanonical-oid-arc` — provenance `chemist/snmp #17`, agents emitting BER
   that is valid but not shortest-form (`:118`); pinned by
   `TestRawWalk_NonCanonicalOIDArc_EagerFallback`
@@ -328,7 +328,7 @@ you have not first seen in a profile (`src/common/snmp/bench/Taskfile.yml`,
 | Raw-path off-spec pins | `conformance_rawpath_test.go` | always on |
 | Misbehaving-responder scenarios | `misbehaving_responder_test.go:198`+ | always on |
 | No gosnmp identifier leaks | `no_gosnmp_test.go:15` | always on |
-| Integration t1–t4 | `test/integration/snmp/` | tags `snmp_integration_t1..t4` |
+| Integration t1–t4 | `src/common/snmp/test/integration/` | tags `snmp_integration_t1..t4` |
 | Perf | `src/common/snmp/bench/bench-gate.sh` | `task bench:gate` |
 
 Bare `go test ./...` runs zero integration tests by design; each tier owns its
@@ -409,7 +409,7 @@ capture serves `ifIndex`/`ifType`/`ifOperStatus` (Integer32-declared) as Gauge32
 `ifSpeed` (Gauge32-declared) as Counter32, `ifLastChange` (TimeTicks-declared) as
 INTEGER, and `ifInOctets` (Counter32-declared) as Gauge32; every fused arm must
 decline and the generic coercion must still yield the exact expected row values
-(`test/integration/snmp/t3_offspec_test.go:21`).
+(`src/common/snmp/test/integration/t3_offspec_test.go:21`).
 
 **Why the non-canonical-OID row is a fallback, not a rejection.** A name OID with a
 redundant `0x80` continuation octet is refused raw delivery by
@@ -441,10 +441,10 @@ pinning test, and an allowlist entry (`conformance_corpus_test.go:90`, `:132`).
   hand-edit.
 - `docs/code-style.md` — repo-wide Go conventions; the agent rules
   (`docs/code-style.md:280`) and merge gate (`:270`) govern every change here.
-- `test/integration/snmp/README.md` — per-tier prerequisites and
+- `src/common/snmp/test/integration/README.md` — per-tier prerequisites and
   walkthroughs.
 - Stale prose to fix when next in the area: `src/common/snmp/README.md:68`
   (gosnmp backend section), `:85` (AGENTS.md R14), `:118` (`docs/conventions/`);
-  and `test/integration/snmp/doc.go:8`, which says "Three independent
+  and `src/common/snmp/test/integration/doc.go:8`, which says "Three independent
   tiers" and documents only t1–t3 while a build-tag-gated, opt-in t4 live-device
-  tier exists (`test/integration/snmp/t4_main_test.go:1`).
+  tier exists (`src/common/snmp/test/integration/t4_main_test.go:1`).

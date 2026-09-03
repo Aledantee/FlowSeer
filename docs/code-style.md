@@ -279,13 +279,16 @@ spec/          # protobuf + MIB sources of truth
 - Table-driven tests with named cases and `t.Run` subtests when three or more cases
   share a shape; a straight sequence of checks is fine below that.
 - Mark helpers with `t.Helper()`; use `t.Cleanup` over deferred teardown in helpers.
-- Go behavior tests live in the package they test; use `package foo_test` when the
-  test should be confined to the exported API. Cross-repository schema and layout
-  checks live in `test/conformance/`, with fixtures under its `testdata/`;
-  they never live in `spec/` or `generated/`.
-- Integration suites live under `test/integration/<component>/`, with their
-  fixtures and environment helpers. Tests that need real services use
-  testcontainers and are guarded by `testing.Short()`.
+- Unit tests and package-specific conformance tests live beside the implementation;
+  use `package foo_test` when the test should be confined to the exported API.
+- Integration suites live in the owning package's `test/integration/`, with their
+  fixtures and environment helpers. Keep them in the owner's existing Go module.
+  Tests that need real services use testcontainers and are guarded by
+  `testing.Short()`.
+- Repository-wide protobuf conformance checks live in `test/conformance/proto/`;
+  executable tests and fixtures never live in `spec/` or `generated/`.
+- [Test layout](conventions/testing.md) defines ownership, shared helper placement,
+  and commands for running the suites.
 
 ## Toolchain & enforcement
 

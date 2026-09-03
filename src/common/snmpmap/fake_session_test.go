@@ -20,7 +20,7 @@ type vbFixture struct {
 // call.
 //
 // The pattern is re-declared here rather than imported from
-// test/integration/snmp, where the same fake lives in a _test.go
+// src/common/snmp/test/integration, where the same fake lives in a _test.go
 // file that no other package can reach.
 type fakeSession struct {
 	vbs []vbFixture

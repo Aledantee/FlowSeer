@@ -1,0 +1,49 @@
+# t1 netpen-vs-netpen ring: two netpen containers on a shared bridge.
+# One (the "crafter") runs a behavior's craft function and sends frames;
+# the other (the "decoder") captures and decodes the frames, asserting
+# the wire shape matches the fixture. This validates Cisco-proprietary
+# protocol wire shapes (DTP, VTP, MVRP, PAgP, LACP, etc.) that no
+# open-source container can impersonate.
+#
+# The ring proves wire shape (self-consistency), not vendor behavior —
+# the validation matrix labels these rows (c) with the explicit caveat:
+# "wire-shape-validated, behavior-unvalidated" until t2 covers them.
+#
+# Bring up:   docker compose -f testdata/netpen-ring/docker-compose.yml up -d
+# Tear down:  docker compose -f testdata/netpen-ring/docker-compose.yml down -v
+
+services:
+  netpen-crafter:
+    image: netpen:local
+    build:
+      context: ../../../../../../../..
+      dockerfile: src/edge/netpen/test/integration/t1/testdata/netpen-ring/Dockerfile
+    container_name: netpen-t1-crafter
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      netpen-t1-ring:
+        ipv4_address: 10.99.1.11
+    privileged: true
+
+  netpen-decoder:
+    image: netpen:local
+    build:
+      context: ../../../../../../../..
+      dockerfile: src/edge/netpen/test/integration/t1/testdata/netpen-ring/Dockerfile
+    container_name: netpen-t1-decoder
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      netpen-t1-ring:
+        ipv4_address: 10.99.1.12
+    privileged: true
+
+networks:
+  netpen-t1-ring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.1.0/24

@@ -36,7 +36,7 @@ that must be a missed rule" — and the review proposed adding
 
 Applying that edit broke an existing conformance test:
 `TestInventoryCapabilityRules/unknown_nonzero_capabilities_remain_valid` in
-`test/conformance/api_inventory_rules_test.go:36-42`, which
+`test/conformance/proto/api_inventory_rules_test.go:36-42`, which
 constructs a `CapabilitySet` holding `inventoryv1.Capability(99)` — a value
 with no defined enum entry — and pins `wantValid: true`. The looseness was
 not a gap; it was deliberate forward compatibility: capabilities are
@@ -94,7 +94,7 @@ package-wide pattern, close the gap in two layers, not one:
    name says the behavior is wanted**, not just that it is tolerated:
 
    ```go
-   // test/conformance/api_inventory_rules_test.go:36-42
+   // test/conformance/proto/api_inventory_rules_test.go:36-42
    {
        name: "unknown nonzero capabilities remain valid",
        message: inventoryv1.CapabilitySet_builder{
@@ -200,7 +200,7 @@ Set side by side, `capabilities` looks like an unfinished version of
 `protocol` — same package, same enum-rule shape, one field missing
 `defined_only`. Adding it broke
 `TestInventoryCapabilityRules/unknown_nonzero_capabilities_remain_valid`
-(`test/conformance/api_inventory_rules_test.go:36-42`).
+(`test/conformance/proto/api_inventory_rules_test.go:36-42`).
 
 **After** — the comment states the contract next to the loose rule, so the
 deviation reads as intentional:
@@ -233,7 +233,7 @@ failure, a commit message, or a review thread.
   `required` omission ("omitting `required` is how you spell an optional
   field ... State which it is in the field comment") and shows
   `defined_only` as the default enum pattern the package deviates from; it
-  also places executable schema tests in `test/conformance/`.
+  also places executable schema tests in `test/conformance/proto/`.
 - `docs/conventions/protobuf.md` — the same disclose-the-deliberate-absence
   move at the triad-family level ("the hook reports every missing member
   and cannot tell deliberate from forgotten, so the comment is what lets

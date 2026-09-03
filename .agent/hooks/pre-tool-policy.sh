@@ -35,7 +35,7 @@ while IFS= read -r candidate_file; do
     spec/proto/*)
       case "/$relative_file/" in
         */_test_fixtures/*|*/fixtures/*|*/testdata/*)
-          hook_deny "$relative_file is a test artifact inside the Buf source tree. Put schema tests and fixtures under test/conformance instead."
+          hook_deny "$relative_file is a test artifact inside the Buf source tree. Put schema tests and fixtures under test/conformance/proto instead."
           ;;
       esac
       case "${relative_file##*/}" in
@@ -44,7 +44,7 @@ while IFS= read -r candidate_file; do
           case "$relative_file" in
             *.proto) ;;
             *)
-              hook_deny "$relative_file is not a production schema, package README, or dotfile placeholder. spec/proto is source-only; put executable tests under test/conformance."
+              hook_deny "$relative_file is not a production schema, package README, or dotfile placeholder. spec/proto is source-only; put executable tests under test/conformance/proto."
               ;;
           esac
           ;;
