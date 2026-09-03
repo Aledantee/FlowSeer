@@ -629,7 +629,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &HrStorageTableRow{}
+				row = &HrStorageTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -992,7 +992,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &HrDeviceTableRow{}
+				row = &HrDeviceTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1269,7 +1269,7 @@ func (tw *HrProcessorTableWalker) Iter() iter.Seq2[snmp.OID, HrProcessorTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &HrProcessorTableRow{}
+				row = &HrProcessorTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1474,7 +1474,7 @@ func (tw *HrNetworkTableWalker) Iter() iter.Seq2[snmp.OID, HrNetworkTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &HrNetworkTableRow{}
+				row = &HrNetworkTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1690,7 +1690,7 @@ func (tw *HrPrinterTableWalker) Iter() iter.Seq2[snmp.OID, HrPrinterTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &HrPrinterTableRow{}
+				row = &HrPrinterTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1933,7 +1933,7 @@ func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &HrDiskStorageTableRow{}
+				row = &HrDiskStorageTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2217,7 +2217,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &HrPartitionTableRow{}
+				row = &HrPartitionTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2567,7 +2567,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &HrFSTableRow{}
+				row = &HrFSTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2943,7 +2943,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &HrSWRunTableRow{}
+				row = &HrSWRunTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3234,7 +3234,7 @@ func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &HrSWRunPerfTableRow{}
+				row = &HrSWRunPerfTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3490,7 +3490,7 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &HrSWInstalledTableRow{}
+				row = &HrSWInstalledTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3709,7 +3709,7 @@ func decodeHrSWInstalledTableRow(idx snmp.OID, vbs []snmp.VarBind) (HrSWInstalle
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalHrSWInstalledTableRow(a HrSWInstalledTableRow, b HrSWInstalledTableRow) bool {
-	return a.Index.Equal(b.Index) && a.HrSWInstalledIndex == b.HrSWInstalledIndex && bytes.Equal(a.HrSWInstalledName, b.HrSWInstalledName) && a.HrSWInstalledID.Equal(b.HrSWInstalledID) && a.HrSWInstalledType == b.HrSWInstalledType && a.HrSWInstalledDate.Equal(b.HrSWInstalledDate)
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.HrSWInstalledIndex == b.HrSWInstalledIndex && bytes.Equal(a.HrSWInstalledName, b.HrSWInstalledName) && a.HrSWInstalledID.Equal(b.HrSWInstalledID) && a.HrSWInstalledType == b.HrSWInstalledType && a.HrSWInstalledDate.Equal(b.HrSWInstalledDate)
 }
 
 // mergeHrSWInstalledTableRow merges the values decoded from vbs into dst, leaving fields

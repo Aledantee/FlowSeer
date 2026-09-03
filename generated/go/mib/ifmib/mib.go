@@ -668,7 +668,7 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IfTableRow{}
+				row = &IfTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1312,7 +1312,7 @@ func decodeIfTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfTableRow, error) {
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIfTableRow(a IfTableRow, b IfTableRow) bool {
-	return a.Index.Equal(b.Index) && a.IfIndex == b.IfIndex && a.IfDescr == b.IfDescr && a.IfType == b.IfType && a.IfMtu == b.IfMtu && a.IfSpeed == b.IfSpeed && bytes.Equal(a.IfPhysAddress, b.IfPhysAddress) && a.IfAdminStatus == b.IfAdminStatus && a.IfOperStatus == b.IfOperStatus && a.IfLastChange == b.IfLastChange && a.IfInOctets == b.IfInOctets && a.IfInUcastPkts == b.IfInUcastPkts && a.IfInNUcastPkts == b.IfInNUcastPkts && a.IfInDiscards == b.IfInDiscards && a.IfInErrors == b.IfInErrors && a.IfInUnknownProtos == b.IfInUnknownProtos && a.IfOutOctets == b.IfOutOctets && a.IfOutUcastPkts == b.IfOutUcastPkts && a.IfOutNUcastPkts == b.IfOutNUcastPkts && a.IfOutDiscards == b.IfOutDiscards && a.IfOutErrors == b.IfOutErrors && a.IfOutQLen == b.IfOutQLen && a.IfSpecific.Equal(b.IfSpecific)
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IfIndex == b.IfIndex && a.IfDescr == b.IfDescr && a.IfType == b.IfType && a.IfMtu == b.IfMtu && a.IfSpeed == b.IfSpeed && bytes.Equal(a.IfPhysAddress, b.IfPhysAddress) && a.IfAdminStatus == b.IfAdminStatus && a.IfOperStatus == b.IfOperStatus && a.IfLastChange == b.IfLastChange && a.IfInOctets == b.IfInOctets && a.IfInUcastPkts == b.IfInUcastPkts && a.IfInNUcastPkts == b.IfInNUcastPkts && a.IfInDiscards == b.IfInDiscards && a.IfInErrors == b.IfInErrors && a.IfInUnknownProtos == b.IfInUnknownProtos && a.IfOutOctets == b.IfOutOctets && a.IfOutUcastPkts == b.IfOutUcastPkts && a.IfOutNUcastPkts == b.IfOutNUcastPkts && a.IfOutDiscards == b.IfOutDiscards && a.IfOutErrors == b.IfOutErrors && a.IfOutQLen == b.IfOutQLen && a.IfSpecific.Equal(b.IfSpecific)
 }
 
 // mergeIfTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1770,7 +1770,7 @@ var IfAlias = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1,
 // If no such discontinuities have occurred since the last re-
 // initialization of the local management subsystem, then this object
 // contains a zero value.
-var IfCounterDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 19), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IfCounterDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 19), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -1916,7 +1916,7 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IfXTableRow{}
+				row = &IfXTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2232,7 +2232,7 @@ func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 					}
 				}
 			case 19:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.IfCounterDiscontinuityTime = uint32(v)
 					row.observed[0] |= 1 << 18
 				} else {
@@ -2416,7 +2416,7 @@ func (tw *IfStackTableWalker) Iter() iter.Seq2[snmp.OID, IfStackTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IfStackTableRow{}
+				row = &IfStackTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2545,7 +2545,7 @@ func decodeIfStackTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfStackTableRow, e
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIfStackTableRow(a IfStackTableRow, b IfStackTableRow) bool {
-	return a.Index.Equal(b.Index) && a.IfStackStatus == b.IfStackStatus
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IfStackStatus == b.IfStackStatus
 }
 
 // mergeIfStackTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2824,7 +2824,7 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IfTestTableRow{}
+				row = &IfTestTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3109,7 +3109,7 @@ func (tw *IfRcvAddressTableWalker) Iter() iter.Seq2[snmp.OID, IfRcvAddressTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &IfRcvAddressTableRow{}
+				row = &IfRcvAddressTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)

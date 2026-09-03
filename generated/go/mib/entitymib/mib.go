@@ -548,7 +548,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &EntPhysicalTableRow{}
+				row = &EntPhysicalTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1032,7 +1032,7 @@ func decodeEntPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhysicalTab
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntPhysicalTableRow(a EntPhysicalTableRow, b EntPhysicalTableRow) bool {
-	return a.Index.Equal(b.Index) && bytes.Equal(a.EntPhysicalDescr, b.EntPhysicalDescr) && a.EntPhysicalVendorType.Equal(b.EntPhysicalVendorType) && a.EntPhysicalContainedIn == b.EntPhysicalContainedIn && a.EntPhysicalClass == b.EntPhysicalClass && a.EntPhysicalParentRelPos == b.EntPhysicalParentRelPos && bytes.Equal(a.EntPhysicalName, b.EntPhysicalName) && bytes.Equal(a.EntPhysicalHardwareRev, b.EntPhysicalHardwareRev) && bytes.Equal(a.EntPhysicalFirmwareRev, b.EntPhysicalFirmwareRev) && bytes.Equal(a.EntPhysicalSoftwareRev, b.EntPhysicalSoftwareRev) && bytes.Equal(a.EntPhysicalSerialNum, b.EntPhysicalSerialNum) && bytes.Equal(a.EntPhysicalMfgName, b.EntPhysicalMfgName) && bytes.Equal(a.EntPhysicalModelName, b.EntPhysicalModelName) && bytes.Equal(a.EntPhysicalAlias, b.EntPhysicalAlias) && bytes.Equal(a.EntPhysicalAssetID, b.EntPhysicalAssetID) && a.EntPhysicalIsFRU == b.EntPhysicalIsFRU && a.EntPhysicalMfgDate.Equal(b.EntPhysicalMfgDate) && bytes.Equal(a.EntPhysicalUris, b.EntPhysicalUris) && bytes.Equal(a.EntPhysicalUUID, b.EntPhysicalUUID)
+	return a.Index.Equal(b.Index) && a.observed == b.observed && bytes.Equal(a.EntPhysicalDescr, b.EntPhysicalDescr) && a.EntPhysicalVendorType.Equal(b.EntPhysicalVendorType) && a.EntPhysicalContainedIn == b.EntPhysicalContainedIn && a.EntPhysicalClass == b.EntPhysicalClass && a.EntPhysicalParentRelPos == b.EntPhysicalParentRelPos && bytes.Equal(a.EntPhysicalName, b.EntPhysicalName) && bytes.Equal(a.EntPhysicalHardwareRev, b.EntPhysicalHardwareRev) && bytes.Equal(a.EntPhysicalFirmwareRev, b.EntPhysicalFirmwareRev) && bytes.Equal(a.EntPhysicalSoftwareRev, b.EntPhysicalSoftwareRev) && bytes.Equal(a.EntPhysicalSerialNum, b.EntPhysicalSerialNum) && bytes.Equal(a.EntPhysicalMfgName, b.EntPhysicalMfgName) && bytes.Equal(a.EntPhysicalModelName, b.EntPhysicalModelName) && bytes.Equal(a.EntPhysicalAlias, b.EntPhysicalAlias) && bytes.Equal(a.EntPhysicalAssetID, b.EntPhysicalAssetID) && a.EntPhysicalIsFRU == b.EntPhysicalIsFRU && a.EntPhysicalMfgDate.Equal(b.EntPhysicalMfgDate) && bytes.Equal(a.EntPhysicalUris, b.EntPhysicalUris) && bytes.Equal(a.EntPhysicalUUID, b.EntPhysicalUUID)
 }
 
 // mergeEntPhysicalTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1446,7 +1446,7 @@ func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] 
 					continue
 				}
 				key := string(idxWire)
-				row = &EntLogicalTableRow{}
+				row = &EntLogicalTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1695,7 +1695,7 @@ func decodeEntLogicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLogicalTable
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntLogicalTableRow(a EntLogicalTableRow, b EntLogicalTableRow) bool {
-	return a.Index.Equal(b.Index) && bytes.Equal(a.EntLogicalDescr, b.EntLogicalDescr) && a.EntLogicalType.Equal(b.EntLogicalType) && bytes.Equal(a.EntLogicalCommunity, b.EntLogicalCommunity) && bytes.Equal(a.EntLogicalTAddress, b.EntLogicalTAddress) && a.EntLogicalTDomain.Equal(b.EntLogicalTDomain) && bytes.Equal(a.EntLogicalContextEngineID, b.EntLogicalContextEngineID) && bytes.Equal(a.EntLogicalContextName, b.EntLogicalContextName)
+	return a.Index.Equal(b.Index) && a.observed == b.observed && bytes.Equal(a.EntLogicalDescr, b.EntLogicalDescr) && a.EntLogicalType.Equal(b.EntLogicalType) && bytes.Equal(a.EntLogicalCommunity, b.EntLogicalCommunity) && bytes.Equal(a.EntLogicalTAddress, b.EntLogicalTAddress) && a.EntLogicalTDomain.Equal(b.EntLogicalTDomain) && bytes.Equal(a.EntLogicalContextEngineID, b.EntLogicalContextEngineID) && bytes.Equal(a.EntLogicalContextName, b.EntLogicalContextName)
 }
 
 // mergeEntLogicalTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1931,7 +1931,7 @@ func (tw *EntLPMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntLPMappingTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &EntLPMappingTableRow{}
+				row = &EntLPMappingTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2065,7 +2065,7 @@ func decodeEntLPMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLPMappingT
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntLPMappingTableRow(a EntLPMappingTableRow, b EntLPMappingTableRow) bool {
-	return a.Index.Equal(b.Index) && a.EntLPPhysicalIndex == b.EntLPPhysicalIndex
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntLPPhysicalIndex == b.EntLPPhysicalIndex
 }
 
 // mergeEntLPMappingTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2279,7 +2279,7 @@ func (tw *EntAliasMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntAliasMapping
 					continue
 				}
 				key := string(idxWire)
-				row = &EntAliasMappingTableRow{}
+				row = &EntAliasMappingTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2408,7 +2408,7 @@ func decodeEntAliasMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntAliasMa
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntAliasMappingTableRow(a EntAliasMappingTableRow, b EntAliasMappingTableRow) bool {
-	return a.Index.Equal(b.Index) && a.EntAliasMappingIdentifier.Equal(b.EntAliasMappingIdentifier)
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntAliasMappingIdentifier.Equal(b.EntAliasMappingIdentifier)
 }
 
 // mergeEntAliasMappingTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2607,7 +2607,7 @@ func (tw *EntPhysicalContainsTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysical
 					continue
 				}
 				key := string(idxWire)
-				row = &EntPhysicalContainsTableRow{}
+				row = &EntPhysicalContainsTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2741,7 +2741,7 @@ func decodeEntPhysicalContainsTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhy
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntPhysicalContainsTableRow(a EntPhysicalContainsTableRow, b EntPhysicalContainsTableRow) bool {
-	return a.Index.Equal(b.Index) && a.EntPhysicalChildIndex == b.EntPhysicalChildIndex
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntPhysicalChildIndex == b.EntPhysicalChildIndex
 }
 
 // mergeEntPhysicalContainsTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2951,32 +2951,32 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Declared in mibgen.yaml under modules.<name>.indicators.
-var EntPhysicalTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1)}))
+var EntPhysicalTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1)}))
 
 // EntLogicalTableIndicator is the scalar change indicator for entLogicalTable.
 // The Watcher Gets entLastChangeTime on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Declared in mibgen.yaml under modules.<name>.indicators.
-var EntLogicalTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1)}))
+var EntLogicalTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1)}))
 
 // EntLPMappingTableIndicator is the scalar change indicator for entLPMappingTable.
 // The Watcher Gets entLastChangeTime on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Declared in mibgen.yaml under modules.<name>.indicators.
-var EntLPMappingTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1)}))
+var EntLPMappingTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1)}))
 
 // EntAliasMappingTableIndicator is the scalar change indicator for entAliasMappingTable.
 // The Watcher Gets entLastChangeTime on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Declared in mibgen.yaml under modules.<name>.indicators.
-var EntAliasMappingTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2)}))
+var EntAliasMappingTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2)}))
 
 // EntPhysicalContainsTableIndicator is the scalar change indicator for entPhysicalContainsTable.
 // The Watcher Gets entLastChangeTime on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Declared in mibgen.yaml under modules.<name>.indicators.
-var EntPhysicalContainsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3)}))
+var EntPhysicalContainsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3)}))

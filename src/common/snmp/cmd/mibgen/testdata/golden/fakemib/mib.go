@@ -259,7 +259,7 @@ func (tw *FakeTableWalker) Iter() iter.Seq2[snmp.OID, FakeTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &FakeTableRow{}
+				row = &FakeTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -478,7 +478,7 @@ func decodeFakeTableRow(idx snmp.OID, vbs []snmp.VarBind) (FakeTableRow, error) 
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalFakeTableRow(a FakeTableRow, b FakeTableRow) bool {
-	return a.Index.Equal(b.Index) && a.FakeName == b.FakeName && bytes.Equal(a.FakeMac, b.FakeMac) && a.FakeOctets == b.FakeOctets && a.FakeLastChange == b.FakeLastChange && a.FakeFlags.Equal(b.FakeFlags)
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.FakeName == b.FakeName && bytes.Equal(a.FakeMac, b.FakeMac) && a.FakeOctets == b.FakeOctets && a.FakeLastChange == b.FakeLastChange && a.FakeFlags.Equal(b.FakeFlags)
 }
 
 // mergeFakeTableRow merges the values decoded from vbs into dst, leaving fields
@@ -701,7 +701,7 @@ func (tw *FakeStackTableWalker) Iter() iter.Seq2[snmp.OID, FakeStackTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &FakeStackTableRow{}
+				row = &FakeStackTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -830,7 +830,7 @@ func decodeFakeStackTableRow(idx snmp.OID, vbs []snmp.VarBind) (FakeStackTableRo
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalFakeStackTableRow(a FakeStackTableRow, b FakeStackTableRow) bool {
-	return a.Index.Equal(b.Index) && a.FakeStackName == b.FakeStackName
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.FakeStackName == b.FakeStackName
 }
 
 // mergeFakeStackTableRow merges the values decoded from vbs into dst, leaving fields

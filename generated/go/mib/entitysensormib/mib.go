@@ -245,7 +245,7 @@ var EntPhySensorUnitsDisplay = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2
 // EntPhySensorValueTimeStamp is the column entPhySensorValueTimeStamp of table entPhySensorTable.
 // The value of sysUpTime at the time the status and/or value of this
 // sensor was last obtained by the agent.
-var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -369,7 +369,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &EntPhySensorTableRow{}
+				row = &EntPhySensorTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -484,7 +484,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 					}
 				}
 			case 7:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.EntPhySensorValueTimeStamp = uint32(v)
 					row.observed[0] |= 1 << 6
 				} else {

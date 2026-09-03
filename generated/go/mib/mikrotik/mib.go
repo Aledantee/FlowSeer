@@ -2058,7 +2058,7 @@ func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] 
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWlStatTableRow{}
+				row = &MtxrWlStatTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2519,7 +2519,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWlRtabTableRow{}
+				row = &MtxrWlRtabTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3080,7 +3080,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWlApTableRow{}
+				row = &MtxrWlApTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3508,7 +3508,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWlCMRtabTableRow{}
+				row = &MtxrWlCMRtabTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3906,7 +3906,7 @@ func (tw *MtxrWlCMTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWlCMTableRow{}
+				row = &MtxrWlCMTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -4229,7 +4229,7 @@ func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWl60GTableRow{}
+				row = &MtxrWl60GTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -4646,7 +4646,7 @@ func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWl60GStaTableRow{}
+				row = &MtxrWl60GStaTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -4981,7 +4981,7 @@ func (tw *MtxrWlCMRemoteTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRemoteTa
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWlCMRemoteTableRow{}
+				row = &MtxrWlCMRemoteTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -5315,7 +5315,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrQueueSimpleTableRow{}
+				row = &MtxrQueueSimpleTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -5772,7 +5772,7 @@ func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrQueueTreeTableRow{}
+				row = &MtxrQueueTreeTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -6099,7 +6099,7 @@ func (tw *MtxrGaugeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrGaugeTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrGaugeTableRow{}
+				row = &MtxrGaugeTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -6464,7 +6464,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrHotspotActiveUsersTableRow{}
+				row = &MtxrHotspotActiveUsersTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -6967,7 +6967,7 @@ func (tw *MtxrScriptTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptTableRow] 
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrScriptTableRow{}
+				row = &MtxrScriptTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -7207,7 +7207,7 @@ func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] 
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrDnStatTableRow{}
+				row = &MtxrDnStatTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -7517,7 +7517,7 @@ func (tw *MtxrNeighborTableWalker) Iter() iter.Seq2[snmp.OID, MtxrNeighborTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrNeighborTableRow{}
+				row = &MtxrNeighborTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -8321,7 +8321,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrInterfaceStatsTableRow{}
+				row = &MtxrInterfaceStatsTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -9751,7 +9751,7 @@ func (tw *MtxrPOETableWalker) Iter() iter.Seq2[snmp.OID, MtxrPOETableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrPOETableRow{}
+				row = &MtxrPOETableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -10202,7 +10202,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrLTEModemTableRow{}
+				row = &MtxrLTEModemTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -10847,7 +10847,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrLTECarrierAggTableRow{}
+				row = &MtxrLTECarrierAggTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -11248,7 +11248,7 @@ func (tw *MtxrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, MtxrPartitionTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrPartitionTableRow{}
+				row = &MtxrPartitionTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -11501,7 +11501,7 @@ func (tw *MtxrScriptRunTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptRunTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrScriptRunTableRow{}
+				row = &MtxrScriptRunTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -11617,7 +11617,7 @@ var MtxrOpticalTxFault = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1
 })
 
 // MtxrOpticalWavelength is the column mtxrOpticalWavelength of table mtxrOpticalTable.
-var MtxrOpticalWavelength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var MtxrOpticalWavelength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -11627,7 +11627,7 @@ var MtxrOpticalTemperature = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 
 })
 
 // MtxrOpticalSupplyVoltage is the column mtxrOpticalSupplyVoltage of table mtxrOpticalTable.
-var MtxrOpticalSupplyVoltage = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var MtxrOpticalSupplyVoltage = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -11840,7 +11840,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrOpticalTableRow{}
+				row = &MtxrOpticalTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -12486,7 +12486,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrIkeSATableRow{}
+				row = &MtxrIkeSATableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -13088,7 +13088,7 @@ func (tw *MtxrRemoteCapTableWalker) Iter() iter.Seq2[snmp.OID, MtxrRemoteCapTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrRemoteCapTableRow{}
+				row = &MtxrRemoteCapTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -13509,7 +13509,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWifiRegistrationTableRow{}
+				row = &MtxrWifiRegistrationTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -13991,7 +13991,7 @@ func (tw *MtxrWifiInterfacesWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiInterface
 					continue
 				}
 				key := string(idxWire)
-				row = &MtxrWifiInterfacesRow{}
+				row = &MtxrWifiInterfacesRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)

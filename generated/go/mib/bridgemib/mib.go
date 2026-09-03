@@ -741,7 +741,7 @@ func (tw *Dot1dBasePortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dBasePortTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &Dot1dBasePortTableRow{}
+				row = &Dot1dBasePortTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1124,7 +1124,7 @@ func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &Dot1dStpPortTableRow{}
+				row = &Dot1dStpPortTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1523,7 +1523,7 @@ func (tw *Dot1dTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpFdbTableRow] 
 					continue
 				}
 				key := string(idxWire)
-				row = &Dot1dTpFdbTableRow{}
+				row = &Dot1dTpFdbTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1792,7 +1792,7 @@ func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &Dot1dTpPortTableRow{}
+				row = &Dot1dTpPortTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2115,7 +2115,7 @@ func (tw *Dot1dStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStaticTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &Dot1dStaticTableRow{}
+				row = &Dot1dStaticTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)

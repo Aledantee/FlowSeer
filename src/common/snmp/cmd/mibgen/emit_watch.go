@@ -202,8 +202,11 @@ func emitWatchEqualFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName strin
 	).Bool().BlockFunc(func(g *jen.Group) {
 		// Begin the boolean expression with the Index comparison so
 		// the && chain stays one-per-line readable.
-		exprs := make([]*jen.Statement, 0, len(tw.Cols)+1)
+		exprs := make([]*jen.Statement, 0, len(tw.Cols)+2)
 		exprs = append(exprs, jen.Id("a").Dot("Index").Dot("Equal").Call(jen.Id("b").Dot("Index")))
+		// An absent value becoming a reported zero changes the row
+		// even though every data field still compares equal.
+		exprs = append(exprs, jen.Id("a").Dot("observed").Op("==").Id("b").Dot("observed"))
 		for _, c := range tw.Cols {
 			exprs = append(exprs, equalExprForField(c))
 		}

@@ -753,7 +753,7 @@ func (tw *LldpPortConfigTableWalker) Iter() iter.Seq2[snmp.OID, LldpPortConfigTa
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpPortConfigTableRow{}
+				row = &LldpPortConfigTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -976,7 +976,7 @@ func (tw *LldpConfigManAddrTableWalker) Iter() iter.Seq2[snmp.OID, LldpConfigMan
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpConfigManAddrTableRow{}
+				row = &LldpConfigManAddrTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1163,7 +1163,7 @@ func (tw *LldpStatsTxPortTableWalker) Iter() iter.Seq2[snmp.OID, LldpStatsTxPort
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpStatsTxPortTableRow{}
+				row = &LldpStatsTxPortTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1321,7 +1321,7 @@ var LldpStatsRxPortTLVsUnrecognizedTotal = snmp.NewColumn[uint32](snmp.MustOID(1
 // invalidated (aged out) from all related tables on a particular port.
 // Partial aging is not allowed, and thus, should not change the value of
 // this counter.
-var LldpStatsRxPortAgeoutsTotal = snmp.NewColumn[uint32](snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 7, 1, 7), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var LldpStatsRxPortAgeoutsTotal = snmp.NewColumn[uint32](snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 7, 1, 7), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -1428,7 +1428,7 @@ func (tw *LldpStatsRxPortTableWalker) Iter() iter.Seq2[snmp.OID, LldpStatsRxPort
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpStatsRxPortTableRow{}
+				row = &LldpStatsRxPortTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1736,7 +1736,7 @@ func (tw *LldpLocPortTableWalker) Iter() iter.Seq2[snmp.OID, LldpLocPortTableRow
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpLocPortTableRow{}
+				row = &LldpLocPortTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1994,7 +1994,7 @@ func (tw *LldpLocManAddrTableWalker) Iter() iter.Seq2[snmp.OID, LldpLocManAddrTa
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpLocManAddrTableRow{}
+				row = &LldpLocManAddrTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2322,7 +2322,7 @@ func (tw *LldpRemTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpRemTableRow{}
+				row = &LldpRemTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2649,7 +2649,7 @@ func (tw *LldpRemManAddrTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemManAddrTa
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpRemManAddrTableRow{}
+				row = &LldpRemManAddrTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2872,7 +2872,7 @@ func (tw *LldpRemUnknownTLVTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemUnknow
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpRemUnknownTLVTableRow{}
+				row = &LldpRemUnknownTLVTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3060,7 +3060,7 @@ func (tw *LldpRemOrgDefInfoTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemOrgDef
 					continue
 				}
 				key := string(idxWire)
-				row = &LldpRemOrgDefInfoTableRow{}
+				row = &LldpRemOrgDefInfoTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)

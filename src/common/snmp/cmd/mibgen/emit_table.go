@@ -370,7 +370,9 @@ func emitTableIter(f *jen.File, walkerTypeName, rowTypeName, entryPrefix string,
 					ng.List(jen.Id("idx"), jen.Id("idxErr")).Op(":=").Qual(snmpImport, "DecodeIndexArcs").Call(jen.Id("idxWire"))
 					ng.If(jen.Id("idxErr").Op("!=").Nil()).Block(jen.Continue())
 					ng.Id("key").Op(":=").String().Call(jen.Id("idxWire"))
-					ng.Id("row").Op("=").Op("&").Id(rowTypeName).Values()
+					ng.Id("row").Op("=").Op("&").Id(rowTypeName).Values(jen.Dict{
+						jen.Id("Index"): jen.Id("idx"),
+					})
 					ng.Id("buffer").Index(jen.Id("key")).Op("=").Id("row")
 					ng.Id("orderIdx").Op("=").Append(jen.Id("orderIdx"), jen.Id("idx"))
 					ng.Id("orderKey").Op("=").Append(jen.Id("orderKey"), jen.Id("key"))

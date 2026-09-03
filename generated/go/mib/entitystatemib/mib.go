@@ -383,7 +383,7 @@ func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &EntStateTableRow{}
+				row = &EntStateTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -632,7 +632,7 @@ func decodeEntStateTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntStateTableRow,
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntStateTableRow(a EntStateTableRow, b EntStateTableRow) bool {
-	return a.Index.Equal(b.Index) && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm.Equal(b.EntStateAlarm) && a.EntStateStandby == b.EntStateStandby
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm.Equal(b.EntStateAlarm) && a.EntStateStandby == b.EntStateStandby
 }
 
 // mergeEntStateTableRow merges the values decoded from vbs into dst, leaving fields

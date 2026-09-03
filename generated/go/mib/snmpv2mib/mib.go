@@ -866,7 +866,7 @@ var SysORDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 
 // SysORUpTime is the column sysORUpTime of table sysORTable.
 // The value of sysUpTime at the time this conceptual row was last
 // instantiated.
-var SysORUpTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 4), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var SysORUpTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 4), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -964,7 +964,7 @@ func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &SysORTableRow{}
+				row = &SysORTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -1002,7 +1002,7 @@ func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
 					}
 				}
 			case 4:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.SysORUpTime = uint32(v)
 					row.observed[0] |= 1 << 2
 				} else {
@@ -1138,7 +1138,7 @@ func decodeSysORTableRow(idx snmp.OID, vbs []snmp.VarBind) (SysORTableRow, error
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalSysORTableRow(a SysORTableRow, b SysORTableRow) bool {
-	return a.Index.Equal(b.Index) && a.SysORID.Equal(b.SysORID) && a.SysORDescr == b.SysORDescr && a.SysORUpTime == b.SysORUpTime
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.SysORID.Equal(b.SysORID) && a.SysORDescr == b.SysORDescr && a.SysORUpTime == b.SysORUpTime
 }
 
 // mergeSysORTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1310,4 +1310,4 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var SysORTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 8), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9)}))
+var SysORTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 8), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9)}))

@@ -1714,7 +1714,7 @@ func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IpAddrTableRow{}
+				row = &IpAddrTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2021,7 +2021,7 @@ func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &IpNetToMediaTableRow{}
+				row = &IpNetToMediaTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2283,7 +2283,7 @@ func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &Ipv4InterfaceTableRow{}
+				row = &Ipv4InterfaceTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -2467,7 +2467,7 @@ func decodeIpv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv4Interfac
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpv4InterfaceTableRow(a Ipv4InterfaceTableRow, b Ipv4InterfaceTableRow) bool {
-	return a.Index.Equal(b.Index) && a.Ipv4InterfaceReasmMaxSize == b.Ipv4InterfaceReasmMaxSize && a.Ipv4InterfaceEnableStatus == b.Ipv4InterfaceEnableStatus && a.Ipv4InterfaceRetransmitTime == b.Ipv4InterfaceRetransmitTime
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.Ipv4InterfaceReasmMaxSize == b.Ipv4InterfaceReasmMaxSize && a.Ipv4InterfaceEnableStatus == b.Ipv4InterfaceEnableStatus && a.Ipv4InterfaceRetransmitTime == b.Ipv4InterfaceRetransmitTime
 }
 
 // mergeIpv4InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2755,7 +2755,7 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &Ipv6InterfaceTableRow{}
+				row = &Ipv6InterfaceTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -3009,7 +3009,7 @@ func decodeIpv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv6Interfac
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpv6InterfaceTableRow(a Ipv6InterfaceTableRow, b Ipv6InterfaceTableRow) bool {
-	return a.Index.Equal(b.Index) && a.Ipv6InterfaceReasmMaxSize == b.Ipv6InterfaceReasmMaxSize && bytes.Equal(a.Ipv6InterfaceIdentifier, b.Ipv6InterfaceIdentifier) && a.Ipv6InterfaceEnableStatus == b.Ipv6InterfaceEnableStatus && a.Ipv6InterfaceReachableTime == b.Ipv6InterfaceReachableTime && a.Ipv6InterfaceRetransmitTime == b.Ipv6InterfaceRetransmitTime && a.Ipv6InterfaceForwarding == b.Ipv6InterfaceForwarding
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.Ipv6InterfaceReasmMaxSize == b.Ipv6InterfaceReasmMaxSize && bytes.Equal(a.Ipv6InterfaceIdentifier, b.Ipv6InterfaceIdentifier) && a.Ipv6InterfaceEnableStatus == b.Ipv6InterfaceEnableStatus && a.Ipv6InterfaceReachableTime == b.Ipv6InterfaceReachableTime && a.Ipv6InterfaceRetransmitTime == b.Ipv6InterfaceRetransmitTime && a.Ipv6InterfaceForwarding == b.Ipv6InterfaceForwarding
 }
 
 // mergeIpv6InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
@@ -3627,7 +3627,7 @@ var IpSystemStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1
 // more of this entry's counters suffered a discontinuity. If no such
 // discontinuities have occurred since the last re- initialization of the
 // local management subsystem, then this object contains a zero value.
-var IpSystemStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpSystemStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -3859,7 +3859,7 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 					continue
 				}
 				key := string(idxWire)
-				row = &IpSystemStatsTableRow{}
+				row = &IpSystemStatsTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -4645,7 +4645,7 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 					}
 				}
 			case 46:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.IpSystemStatsDiscontinuityTime = uint32(v)
 					row.observed[0] |= 1 << 43
 				} else {
@@ -5220,7 +5220,7 @@ var IpIfStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2,
 // more of this entry's counters suffered a discontinuity. If no such
 // discontinuities have occurred since the last re- initialization of the
 // local management subsystem, then this object contains a zero value.
-var IpIfStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpIfStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -5449,7 +5449,7 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IpIfStatsTableRow{}
+				row = &IpIfStatsTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -6217,7 +6217,7 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 					}
 				}
 			case 46:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.IpIfStatsDiscontinuityTime = uint32(v)
 					row.observed[0] |= 1 << 42
 				} else {
@@ -6658,7 +6658,7 @@ func decodeIpIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpIfStatsTableRo
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpIfStatsTableRow(a IpIfStatsTableRow, b IpIfStatsTableRow) bool {
-	return a.Index.Equal(b.Index) && a.IpIfStatsInReceives == b.IpIfStatsInReceives && a.IpIfStatsHCInReceives == b.IpIfStatsHCInReceives && a.IpIfStatsInOctets == b.IpIfStatsInOctets && a.IpIfStatsHCInOctets == b.IpIfStatsHCInOctets && a.IpIfStatsInHdrErrors == b.IpIfStatsInHdrErrors && a.IpIfStatsInNoRoutes == b.IpIfStatsInNoRoutes && a.IpIfStatsInAddrErrors == b.IpIfStatsInAddrErrors && a.IpIfStatsInUnknownProtos == b.IpIfStatsInUnknownProtos && a.IpIfStatsInTruncatedPkts == b.IpIfStatsInTruncatedPkts && a.IpIfStatsInForwDatagrams == b.IpIfStatsInForwDatagrams && a.IpIfStatsHCInForwDatagrams == b.IpIfStatsHCInForwDatagrams && a.IpIfStatsReasmReqds == b.IpIfStatsReasmReqds && a.IpIfStatsReasmOKs == b.IpIfStatsReasmOKs && a.IpIfStatsReasmFails == b.IpIfStatsReasmFails && a.IpIfStatsInDiscards == b.IpIfStatsInDiscards && a.IpIfStatsInDelivers == b.IpIfStatsInDelivers && a.IpIfStatsHCInDelivers == b.IpIfStatsHCInDelivers && a.IpIfStatsOutRequests == b.IpIfStatsOutRequests && a.IpIfStatsHCOutRequests == b.IpIfStatsHCOutRequests && a.IpIfStatsOutForwDatagrams == b.IpIfStatsOutForwDatagrams && a.IpIfStatsHCOutForwDatagrams == b.IpIfStatsHCOutForwDatagrams && a.IpIfStatsOutDiscards == b.IpIfStatsOutDiscards && a.IpIfStatsOutFragReqds == b.IpIfStatsOutFragReqds && a.IpIfStatsOutFragOKs == b.IpIfStatsOutFragOKs && a.IpIfStatsOutFragFails == b.IpIfStatsOutFragFails && a.IpIfStatsOutFragCreates == b.IpIfStatsOutFragCreates && a.IpIfStatsOutTransmits == b.IpIfStatsOutTransmits && a.IpIfStatsHCOutTransmits == b.IpIfStatsHCOutTransmits && a.IpIfStatsOutOctets == b.IpIfStatsOutOctets && a.IpIfStatsHCOutOctets == b.IpIfStatsHCOutOctets && a.IpIfStatsInMcastPkts == b.IpIfStatsInMcastPkts && a.IpIfStatsHCInMcastPkts == b.IpIfStatsHCInMcastPkts && a.IpIfStatsInMcastOctets == b.IpIfStatsInMcastOctets && a.IpIfStatsHCInMcastOctets == b.IpIfStatsHCInMcastOctets && a.IpIfStatsOutMcastPkts == b.IpIfStatsOutMcastPkts && a.IpIfStatsHCOutMcastPkts == b.IpIfStatsHCOutMcastPkts && a.IpIfStatsOutMcastOctets == b.IpIfStatsOutMcastOctets && a.IpIfStatsHCOutMcastOctets == b.IpIfStatsHCOutMcastOctets && a.IpIfStatsInBcastPkts == b.IpIfStatsInBcastPkts && a.IpIfStatsHCInBcastPkts == b.IpIfStatsHCInBcastPkts && a.IpIfStatsOutBcastPkts == b.IpIfStatsOutBcastPkts && a.IpIfStatsHCOutBcastPkts == b.IpIfStatsHCOutBcastPkts && a.IpIfStatsDiscontinuityTime == b.IpIfStatsDiscontinuityTime && a.IpIfStatsRefreshRate == b.IpIfStatsRefreshRate
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IpIfStatsInReceives == b.IpIfStatsInReceives && a.IpIfStatsHCInReceives == b.IpIfStatsHCInReceives && a.IpIfStatsInOctets == b.IpIfStatsInOctets && a.IpIfStatsHCInOctets == b.IpIfStatsHCInOctets && a.IpIfStatsInHdrErrors == b.IpIfStatsInHdrErrors && a.IpIfStatsInNoRoutes == b.IpIfStatsInNoRoutes && a.IpIfStatsInAddrErrors == b.IpIfStatsInAddrErrors && a.IpIfStatsInUnknownProtos == b.IpIfStatsInUnknownProtos && a.IpIfStatsInTruncatedPkts == b.IpIfStatsInTruncatedPkts && a.IpIfStatsInForwDatagrams == b.IpIfStatsInForwDatagrams && a.IpIfStatsHCInForwDatagrams == b.IpIfStatsHCInForwDatagrams && a.IpIfStatsReasmReqds == b.IpIfStatsReasmReqds && a.IpIfStatsReasmOKs == b.IpIfStatsReasmOKs && a.IpIfStatsReasmFails == b.IpIfStatsReasmFails && a.IpIfStatsInDiscards == b.IpIfStatsInDiscards && a.IpIfStatsInDelivers == b.IpIfStatsInDelivers && a.IpIfStatsHCInDelivers == b.IpIfStatsHCInDelivers && a.IpIfStatsOutRequests == b.IpIfStatsOutRequests && a.IpIfStatsHCOutRequests == b.IpIfStatsHCOutRequests && a.IpIfStatsOutForwDatagrams == b.IpIfStatsOutForwDatagrams && a.IpIfStatsHCOutForwDatagrams == b.IpIfStatsHCOutForwDatagrams && a.IpIfStatsOutDiscards == b.IpIfStatsOutDiscards && a.IpIfStatsOutFragReqds == b.IpIfStatsOutFragReqds && a.IpIfStatsOutFragOKs == b.IpIfStatsOutFragOKs && a.IpIfStatsOutFragFails == b.IpIfStatsOutFragFails && a.IpIfStatsOutFragCreates == b.IpIfStatsOutFragCreates && a.IpIfStatsOutTransmits == b.IpIfStatsOutTransmits && a.IpIfStatsHCOutTransmits == b.IpIfStatsHCOutTransmits && a.IpIfStatsOutOctets == b.IpIfStatsOutOctets && a.IpIfStatsHCOutOctets == b.IpIfStatsHCOutOctets && a.IpIfStatsInMcastPkts == b.IpIfStatsInMcastPkts && a.IpIfStatsHCInMcastPkts == b.IpIfStatsHCInMcastPkts && a.IpIfStatsInMcastOctets == b.IpIfStatsInMcastOctets && a.IpIfStatsHCInMcastOctets == b.IpIfStatsHCInMcastOctets && a.IpIfStatsOutMcastPkts == b.IpIfStatsOutMcastPkts && a.IpIfStatsHCOutMcastPkts == b.IpIfStatsHCOutMcastPkts && a.IpIfStatsOutMcastOctets == b.IpIfStatsOutMcastOctets && a.IpIfStatsHCOutMcastOctets == b.IpIfStatsHCOutMcastOctets && a.IpIfStatsInBcastPkts == b.IpIfStatsInBcastPkts && a.IpIfStatsHCInBcastPkts == b.IpIfStatsHCInBcastPkts && a.IpIfStatsOutBcastPkts == b.IpIfStatsOutBcastPkts && a.IpIfStatsHCOutBcastPkts == b.IpIfStatsHCOutBcastPkts && a.IpIfStatsDiscontinuityTime == b.IpIfStatsDiscontinuityTime && a.IpIfStatsRefreshRate == b.IpIfStatsRefreshRate
 }
 
 // mergeIpIfStatsTableRow merges the values decoded from vbs into dst, leaving fields
@@ -7170,7 +7170,7 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 					continue
 				}
 				key := string(idxWire)
-				row = &IpAddressPrefixTableRow{}
+				row = &IpAddressPrefixTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -7382,7 +7382,7 @@ var IpAddressStatus = snmp.NewColumn[IpAddressStatusTC](snmp.MustOID(1, 3, 6, 1,
 // The value of sysUpTime at the time this entry was created. If this entry
 // was created prior to the last re- initialization of the local network
 // management subsystem, then this object contains a zero value.
-var IpAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -7390,7 +7390,7 @@ var IpAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 
 // The value of sysUpTime at the time this entry was last updated. If this
 // entry was updated prior to the last re- initialization of the local
 // network management subsystem, then this object contains a zero value.
-var IpAddressLastChanged = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpAddressLastChanged = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -7529,7 +7529,7 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IpAddressTableRow{}
+				row = &IpAddressTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -7626,7 +7626,7 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 					}
 				}
 			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.IpAddressCreated = uint32(v)
 					row.observed[0] |= 1 << 5
 				} else {
@@ -7644,7 +7644,7 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 					}
 				}
 			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.IpAddressLastChanged = uint32(v)
 					row.observed[0] |= 1 << 6
 				} else {
@@ -7853,7 +7853,7 @@ func decodeIpAddressTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpAddressTableRo
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpAddressTableRow(a IpAddressTableRow, b IpAddressTableRow) bool {
-	return a.Index.Equal(b.Index) && a.IpAddressIfIndex == b.IpAddressIfIndex && a.IpAddressType == b.IpAddressType && a.IpAddressPrefix.Equal(b.IpAddressPrefix) && a.IpAddressOrigin == b.IpAddressOrigin && a.IpAddressStatus == b.IpAddressStatus && a.IpAddressCreated == b.IpAddressCreated && a.IpAddressLastChanged == b.IpAddressLastChanged && a.IpAddressRowStatus == b.IpAddressRowStatus && a.IpAddressStorageType == b.IpAddressStorageType
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IpAddressIfIndex == b.IpAddressIfIndex && a.IpAddressType == b.IpAddressType && a.IpAddressPrefix.Equal(b.IpAddressPrefix) && a.IpAddressOrigin == b.IpAddressOrigin && a.IpAddressStatus == b.IpAddressStatus && a.IpAddressCreated == b.IpAddressCreated && a.IpAddressLastChanged == b.IpAddressLastChanged && a.IpAddressRowStatus == b.IpAddressRowStatus && a.IpAddressStorageType == b.IpAddressStorageType
 }
 
 // mergeIpAddressTableRow merges the values decoded from vbs into dst, leaving fields
@@ -8018,7 +8018,7 @@ var IpNetToPhysicalPhysAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1,
 // The value of sysUpTime at the time this entry was last updated. If this
 // entry was updated prior to the last re- initialization of the local
 // network management subsystem, then this object contains a zero value.
-var IpNetToPhysicalLastUpdated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpNetToPhysicalLastUpdated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -8175,7 +8175,7 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 					continue
 				}
 				key := string(idxWire)
-				row = &IpNetToPhysicalTableRow{}
+				row = &IpNetToPhysicalTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -8200,7 +8200,7 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 					}
 				}
 			case 5:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
+				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
 					row.IpNetToPhysicalLastUpdated = uint32(v)
 					row.observed[0] |= 1 << 1
 				} else {
@@ -8399,7 +8399,7 @@ func decodeIpNetToPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpNetToPhy
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpNetToPhysicalTableRow(a IpNetToPhysicalTableRow, b IpNetToPhysicalTableRow) bool {
-	return a.Index.Equal(b.Index) && bytes.Equal(a.IpNetToPhysicalPhysAddress, b.IpNetToPhysicalPhysAddress) && a.IpNetToPhysicalLastUpdated == b.IpNetToPhysicalLastUpdated && a.IpNetToPhysicalType == b.IpNetToPhysicalType && a.IpNetToPhysicalState == b.IpNetToPhysicalState && a.IpNetToPhysicalRowStatus == b.IpNetToPhysicalRowStatus
+	return a.Index.Equal(b.Index) && a.observed == b.observed && bytes.Equal(a.IpNetToPhysicalPhysAddress, b.IpNetToPhysicalPhysAddress) && a.IpNetToPhysicalLastUpdated == b.IpNetToPhysicalLastUpdated && a.IpNetToPhysicalType == b.IpNetToPhysicalType && a.IpNetToPhysicalState == b.IpNetToPhysicalState && a.IpNetToPhysicalRowStatus == b.IpNetToPhysicalRowStatus
 }
 
 // mergeIpNetToPhysicalTableRow merges the values decoded from vbs into dst, leaving fields
@@ -8721,7 +8721,7 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 					continue
 				}
 				key := string(idxWire)
-				row = &Ipv6ScopeZoneIndexTableRow{}
+				row = &Ipv6ScopeZoneIndexTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -9132,7 +9132,7 @@ func (tw *IpDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IpDefaultRouter
 					continue
 				}
 				key := string(idxWire)
-				row = &IpDefaultRouterTableRow{}
+				row = &IpDefaultRouterTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -9462,7 +9462,7 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 					continue
 				}
 				key := string(idxWire)
-				row = &Ipv6RouterAdvertTableRow{}
+				row = &Ipv6RouterAdvertTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -9848,7 +9848,7 @@ func (tw *IcmpStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpStatsTableRow] {
 					continue
 				}
 				key := string(idxWire)
-				row = &IcmpStatsTableRow{}
+				row = &IcmpStatsTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -10102,7 +10102,7 @@ func (tw *IcmpMsgStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpMsgStatsTableR
 					continue
 				}
 				key := string(idxWire)
-				row = &IcmpMsgStatsTableRow{}
+				row = &IcmpMsgStatsTableRow{Index: idx}
 				buffer[key] = row
 				orderIdx = append(orderIdx, idx)
 				orderKey = append(orderKey, key)
@@ -10580,21 +10580,21 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var Ipv4InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28)}))
+var Ipv4InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28)}))
 
 // Ipv6InterfaceTableIndicator is the scalar change indicator for ipv6InterfaceTable.
 // The Watcher Gets ipv6InterfaceTableLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var Ipv6InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30)}))
+var Ipv6InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30)}))
 
 // IpIfStatsTableIndicator is the scalar change indicator for ipIfStatsTable.
 // The Watcher Gets ipIfStatsTableLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var IpIfStatsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3)}))
+var IpIfStatsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3)}))
 
 // IpAddressTableIndicator is the per-row change indicator for ipAddressTable.
 // The Watcher probes the indicator column on each tick and only
