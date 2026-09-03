@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// --- updateStateInterval unit tests ----------------------------------
-
 // TestUpdateStateInterval_AdvanceResetsToMin pins the
 // advance-resets-to-CadenceMin rule.
 func TestUpdateStateInterval_AdvanceResetsToMin(t *testing.T) {
@@ -112,8 +110,6 @@ func TestUpdateStateInterval_FactorOneDegenerate(t *testing.T) {
 		t.Errorf("factor 1.0 produced step: stateInterval = %v, want 10ms", got)
 	}
 }
-
-// --- Live adaptive-cadence test against fakeSession ------------------
 
 // TestWatcher_AdaptiveCadence_QuietTicksStep verifies that several
 // quiet indicator walks cause the State-tier interval to climb
@@ -298,8 +294,6 @@ loop:
 	}
 }
 
-// --- Counter-tier independence -----------------------------------------
-
 // TestWatcher_CounterTier_FiresOnOwnCadence verifies that Counter-tier
 // columns fire on their own schedule independently of the State-tier
 // indicator-gated path.
@@ -451,8 +445,6 @@ func TestWatcher_CounterTier_NoColumnsNoExtraTicks(t *testing.T) {
 	}
 }
 
-// --- Static-tier opt-in --------------------------------------------
-
 // TestWatcher_StaticTier_RespectedByOverride verifies that
 // WithColumnTier(col, TierStatic) keeps the column out of the
 // indicator-advance path. The State-tier targeted Get for an
@@ -600,8 +592,6 @@ loop:
 	}
 }
 
-// --- Tier resolution --------------------------------------------------
-
 func TestPartitionCols_CounterKindHeuristic(t *testing.T) {
 	counterCol := fakeColumn{
 		oid:  MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 10),
@@ -707,8 +697,6 @@ func TestPartitionCols_CounterDefaultCadenceByKind(t *testing.T) {
 		}
 	}
 }
-
-// --- computeNextDeadline -------------------------------------------
 
 func TestComputeNextDeadline_PicksEarliest(t *testing.T) {
 	now := time.Now()

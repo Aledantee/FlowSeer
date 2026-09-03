@@ -95,7 +95,6 @@ func TestT1_USMMatrix(t *testing.T) {
 	}
 }
 
-// --- native-backend USM matrix ---------------------------------------
 //
 // The same matrix run directly on the NATIVE backend, plus native-only
 // cells the reference gosnmp matrix omits: 3DES is implemented by the

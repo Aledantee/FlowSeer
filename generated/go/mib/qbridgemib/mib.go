@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package qbridgemib binds the SMI objects declared by Q-BRIDGE-MIB.
 package qbridgemib
 
 import (
@@ -17,7 +18,6 @@ import (
 	pbridgemib "go.aledante.io/FlowSeer/generated/go/mib/pbridgemib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // Dot1qConstraintTypeDefaultValue is the SMI enum dot1qConstraintTypeDefault (inline).
@@ -25,13 +25,19 @@ import (
 // explicit entry for that VLAN in dot1qLearningConstraintsTable. The types
 // are as defined for dot1qConstraintType. The value of this object MUST be
 // retained across reinitializations of the management system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qConstraintTypeDefaultValue int32
 
 const (
+	// Dot1qConstraintTypeDefaultValueIndependent represents the SMI value independent.
 	Dot1qConstraintTypeDefaultValueIndependent Dot1qConstraintTypeDefaultValue = 1
-	Dot1qConstraintTypeDefaultValueShared      Dot1qConstraintTypeDefaultValue = 2
+	// Dot1qConstraintTypeDefaultValueShared represents the SMI value shared.
+	Dot1qConstraintTypeDefaultValueShared Dot1qConstraintTypeDefaultValue = 2
 )
 
+// String returns the SMI label, or Dot1qConstraintTypeDefaultValue(n) for an unrecognized value n.
 func (v Dot1qConstraintTypeDefaultValue) String() string {
 	switch v {
 	case Dot1qConstraintTypeDefaultValueIndependent:
@@ -49,13 +55,19 @@ func (v Dot1qConstraintTypeDefaultValue) String() string {
 // other VLANs in the same set, defined by dot1qConstraintSet. shared(2) -
 // the VLAN, dot1qConstraintVlan, shares the same filtering database as all
 // other VLANs in the same set, defined by dot1qConstraintSet.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qConstraintTypeValue int32
 
 const (
+	// Dot1qConstraintTypeValueIndependent represents the SMI value independent.
 	Dot1qConstraintTypeValueIndependent Dot1qConstraintTypeValue = 1
-	Dot1qConstraintTypeValueShared      Dot1qConstraintTypeValue = 2
+	// Dot1qConstraintTypeValueShared represents the SMI value shared.
+	Dot1qConstraintTypeValueShared Dot1qConstraintTypeValue = 2
 )
 
+// String returns the SMI label, or Dot1qConstraintTypeValue(n) for an unrecognized value n.
 func (v Dot1qConstraintTypeValue) String() string {
 	switch v {
 	case Dot1qConstraintTypeValueIndependent:
@@ -77,13 +89,19 @@ func (v Dot1qConstraintTypeValue) String() string {
 // Protocol (STP). It does affect VLAN- dependent BPDU frames, such as
 // GMRP. The value of this object MUST be retained across reinitializations
 // of the management system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qPortAcceptableFrameTypesValue int32
 
 const (
-	Dot1qPortAcceptableFrameTypesValueAdmitAll            Dot1qPortAcceptableFrameTypesValue = 1
+	// Dot1qPortAcceptableFrameTypesValueAdmitAll represents the SMI value admitAll.
+	Dot1qPortAcceptableFrameTypesValueAdmitAll Dot1qPortAcceptableFrameTypesValue = 1
+	// Dot1qPortAcceptableFrameTypesValueAdmitOnlyVlanTagged represents the SMI value admitOnlyVlanTagged.
 	Dot1qPortAcceptableFrameTypesValueAdmitOnlyVlanTagged Dot1qPortAcceptableFrameTypesValue = 2
 )
 
+// String returns the SMI label, or Dot1qPortAcceptableFrameTypesValue(n) for an unrecognized value n.
 func (v Dot1qPortAcceptableFrameTypesValue) String() string {
 	switch v {
 	case Dot1qPortAcceptableFrameTypesValueAdmitAll:
@@ -106,16 +124,25 @@ func (v Dot1qPortAcceptableFrameTypesValue) String() string {
 // currently in use and will remain so until it is aged out. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qStaticMulticastStatusValue int32
 
 const (
-	Dot1qStaticMulticastStatusValueOther           Dot1qStaticMulticastStatusValue = 1
-	Dot1qStaticMulticastStatusValueInvalid         Dot1qStaticMulticastStatusValue = 2
-	Dot1qStaticMulticastStatusValuePermanent       Dot1qStaticMulticastStatusValue = 3
-	Dot1qStaticMulticastStatusValueDeleteOnReset   Dot1qStaticMulticastStatusValue = 4
+	// Dot1qStaticMulticastStatusValueOther represents the SMI value other.
+	Dot1qStaticMulticastStatusValueOther Dot1qStaticMulticastStatusValue = 1
+	// Dot1qStaticMulticastStatusValueInvalid represents the SMI value invalid.
+	Dot1qStaticMulticastStatusValueInvalid Dot1qStaticMulticastStatusValue = 2
+	// Dot1qStaticMulticastStatusValuePermanent represents the SMI value permanent.
+	Dot1qStaticMulticastStatusValuePermanent Dot1qStaticMulticastStatusValue = 3
+	// Dot1qStaticMulticastStatusValueDeleteOnReset represents the SMI value deleteOnReset.
+	Dot1qStaticMulticastStatusValueDeleteOnReset Dot1qStaticMulticastStatusValue = 4
+	// Dot1qStaticMulticastStatusValueDeleteOnTimeout represents the SMI value deleteOnTimeout.
 	Dot1qStaticMulticastStatusValueDeleteOnTimeout Dot1qStaticMulticastStatusValue = 5
 )
 
+// String returns the SMI label, or Dot1qStaticMulticastStatusValue(n) for an unrecognized value n.
 func (v Dot1qStaticMulticastStatusValue) String() string {
 	switch v {
 	case Dot1qStaticMulticastStatusValueOther:
@@ -144,16 +171,25 @@ func (v Dot1qStaticMulticastStatusValue) String() string {
 // currently in use and will remain so until it is aged out. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qStaticUnicastStatusValue int32
 
 const (
-	Dot1qStaticUnicastStatusValueOther           Dot1qStaticUnicastStatusValue = 1
-	Dot1qStaticUnicastStatusValueInvalid         Dot1qStaticUnicastStatusValue = 2
-	Dot1qStaticUnicastStatusValuePermanent       Dot1qStaticUnicastStatusValue = 3
-	Dot1qStaticUnicastStatusValueDeleteOnReset   Dot1qStaticUnicastStatusValue = 4
+	// Dot1qStaticUnicastStatusValueOther represents the SMI value other.
+	Dot1qStaticUnicastStatusValueOther Dot1qStaticUnicastStatusValue = 1
+	// Dot1qStaticUnicastStatusValueInvalid represents the SMI value invalid.
+	Dot1qStaticUnicastStatusValueInvalid Dot1qStaticUnicastStatusValue = 2
+	// Dot1qStaticUnicastStatusValuePermanent represents the SMI value permanent.
+	Dot1qStaticUnicastStatusValuePermanent Dot1qStaticUnicastStatusValue = 3
+	// Dot1qStaticUnicastStatusValueDeleteOnReset represents the SMI value deleteOnReset.
+	Dot1qStaticUnicastStatusValueDeleteOnReset Dot1qStaticUnicastStatusValue = 4
+	// Dot1qStaticUnicastStatusValueDeleteOnTimeout represents the SMI value deleteOnTimeout.
 	Dot1qStaticUnicastStatusValueDeleteOnTimeout Dot1qStaticUnicastStatusValue = 5
 )
 
+// String returns the SMI label, or Dot1qStaticUnicastStatusValue(n) for an unrecognized value n.
 func (v Dot1qStaticUnicastStatusValue) String() string {
 	switch v {
 	case Dot1qStaticUnicastStatusValueOther:
@@ -186,16 +222,25 @@ func (v Dot1qStaticUnicastStatusValue) String() string {
 // dot1qTpFdbPort indicates which of the device's ports has this address.
 // mgmt(5) - the value of the corresponding instance of dot1qTpFdbAddress
 // is also the value of an existing instance of dot1qStaticAddress.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qTpFdbStatusValue int32
 
 const (
-	Dot1qTpFdbStatusValueOther   Dot1qTpFdbStatusValue = 1
+	// Dot1qTpFdbStatusValueOther represents the SMI value other.
+	Dot1qTpFdbStatusValueOther Dot1qTpFdbStatusValue = 1
+	// Dot1qTpFdbStatusValueInvalid represents the SMI value invalid.
 	Dot1qTpFdbStatusValueInvalid Dot1qTpFdbStatusValue = 2
+	// Dot1qTpFdbStatusValueLearned represents the SMI value learned.
 	Dot1qTpFdbStatusValueLearned Dot1qTpFdbStatusValue = 3
-	Dot1qTpFdbStatusValueSelf    Dot1qTpFdbStatusValue = 4
-	Dot1qTpFdbStatusValueMgmt    Dot1qTpFdbStatusValue = 5
+	// Dot1qTpFdbStatusValueSelf represents the SMI value self.
+	Dot1qTpFdbStatusValueSelf Dot1qTpFdbStatusValue = 4
+	// Dot1qTpFdbStatusValueMgmt represents the SMI value mgmt.
+	Dot1qTpFdbStatusValueMgmt Dot1qTpFdbStatusValue = 5
 )
 
+// String returns the SMI label, or Dot1qTpFdbStatusValue(n) for an unrecognized value n.
 func (v Dot1qTpFdbStatusValue) String() string {
 	switch v {
 	case Dot1qTpFdbStatusValueOther:
@@ -224,14 +269,21 @@ func (v Dot1qTpFdbStatusValue) String() string {
 // currently in use and will remain so until removed by GVRP. There is no
 // static entry for this VLAN, and it will be removed when the last port
 // leaves the VLAN.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qVlanStatusValue int32
 
 const (
-	Dot1qVlanStatusValueOther       Dot1qVlanStatusValue = 1
-	Dot1qVlanStatusValuePermanent   Dot1qVlanStatusValue = 2
+	// Dot1qVlanStatusValueOther represents the SMI value other.
+	Dot1qVlanStatusValueOther Dot1qVlanStatusValue = 1
+	// Dot1qVlanStatusValuePermanent represents the SMI value permanent.
+	Dot1qVlanStatusValuePermanent Dot1qVlanStatusValue = 2
+	// Dot1qVlanStatusValueDynamicGvrp represents the SMI value dynamicGvrp.
 	Dot1qVlanStatusValueDynamicGvrp Dot1qVlanStatusValue = 3
 )
 
+// String returns the SMI label, or Dot1qVlanStatusValue(n) for an unrecognized value n.
 func (v Dot1qVlanStatusValue) String() string {
 	switch v {
 	case Dot1qVlanStatusValueOther:
@@ -247,12 +299,17 @@ func (v Dot1qVlanStatusValue) String() string {
 
 // Dot1qVlanVersionNumberValue is the SMI enum dot1qVlanVersionNumber (inline).
 // The version number of IEEE 802.1Q that this device supports.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1qVlanVersionNumberValue int32
 
 const (
+	// Dot1qVlanVersionNumberValueVersion1 represents the SMI value version1.
 	Dot1qVlanVersionNumberValueVersion1 Dot1qVlanVersionNumberValue = 1
 )
 
+// String returns the SMI label, or Dot1qVlanVersionNumberValue(n) for an unrecognized value n.
 func (v Dot1qVlanVersionNumberValue) String() string {
 	switch v {
 	case Dot1qVlanVersionNumberValueVersion1:
@@ -265,16 +322,25 @@ func (v Dot1qVlanVersionNumberValue) String() string {
 // Dot1vProtocolTemplateFrameTypeValue is the SMI enum dot1vProtocolTemplateFrameType (inline).
 // The data-link encapsulation format or the 'detagged_frame_type' in a
 // Protocol Template.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1vProtocolTemplateFrameTypeValue int32
 
 const (
-	Dot1vProtocolTemplateFrameTypeValueEthernet  Dot1vProtocolTemplateFrameTypeValue = 1
-	Dot1vProtocolTemplateFrameTypeValueRfc1042   Dot1vProtocolTemplateFrameTypeValue = 2
+	// Dot1vProtocolTemplateFrameTypeValueEthernet represents the SMI value ethernet.
+	Dot1vProtocolTemplateFrameTypeValueEthernet Dot1vProtocolTemplateFrameTypeValue = 1
+	// Dot1vProtocolTemplateFrameTypeValueRfc1042 represents the SMI value rfc1042.
+	Dot1vProtocolTemplateFrameTypeValueRfc1042 Dot1vProtocolTemplateFrameTypeValue = 2
+	// Dot1vProtocolTemplateFrameTypeValueSnap8021H represents the SMI value snap8021H.
 	Dot1vProtocolTemplateFrameTypeValueSnap8021H Dot1vProtocolTemplateFrameTypeValue = 3
+	// Dot1vProtocolTemplateFrameTypeValueSnapOther represents the SMI value snapOther.
 	Dot1vProtocolTemplateFrameTypeValueSnapOther Dot1vProtocolTemplateFrameTypeValue = 4
-	Dot1vProtocolTemplateFrameTypeValueLlcOther  Dot1vProtocolTemplateFrameTypeValue = 5
+	// Dot1vProtocolTemplateFrameTypeValueLlcOther represents the SMI value llcOther.
+	Dot1vProtocolTemplateFrameTypeValueLlcOther Dot1vProtocolTemplateFrameTypeValue = 5
 )
 
+// String returns the SMI label, or Dot1vProtocolTemplateFrameTypeValue(n) for an unrecognized value n.
 func (v Dot1vProtocolTemplateFrameTypeValue) String() string {
 	switch v {
 	case Dot1vProtocolTemplateFrameTypeValueEthernet:
@@ -293,6 +359,8 @@ func (v Dot1vProtocolTemplateFrameTypeValue) String() string {
 }
 
 // Dot1qVlanVersionNumberGet reads the SMIv2 scalar dot1qVlanVersionNumber.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The version number of IEEE 802.1Q that this device supports.
 func Dot1qVlanVersionNumberGet(ctx context.Context, sess snmp.Session) (Dot1qVlanVersionNumberValue, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 1, 1, 0)})
@@ -301,7 +369,7 @@ func Dot1qVlanVersionNumberGet(ctx context.Context, sess snmp.Session) (Dot1qVla
 	}
 
 	if len(vbs) == 0 {
-		return Dot1qVlanVersionNumberValue(0), ae.Msg("empty Get response for dot1qVlanVersionNumber")
+		return Dot1qVlanVersionNumberValue(0), errs.Msg("empty Get response for dot1qVlanVersionNumber")
 	}
 
 	return func(vb snmp.VarBind) (Dot1qVlanVersionNumberValue, error) {
@@ -314,6 +382,8 @@ func Dot1qVlanVersionNumberGet(ctx context.Context, sess snmp.Session) (Dot1qVla
 }
 
 // Dot1qMaxVlanIdGet reads the SMIv2 scalar dot1qMaxVlanId.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The maximum IEEE 802.1Q VLAN-ID that this device supports.
 func Dot1qMaxVlanIdGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 1, 2, 0)})
@@ -322,7 +392,7 @@ func Dot1qMaxVlanIdGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1qMaxVlanId")
+		return 0, errs.Msg("empty Get response for dot1qMaxVlanId")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -331,6 +401,8 @@ func Dot1qMaxVlanIdGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // Dot1qMaxSupportedVlansGet reads the SMIv2 scalar dot1qMaxSupportedVlans.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The maximum number of IEEE 802.1Q VLANs that this device supports.
 func Dot1qMaxSupportedVlansGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 1, 3, 0)})
@@ -339,7 +411,7 @@ func Dot1qMaxSupportedVlansGet(ctx context.Context, sess snmp.Session) (uint32, 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1qMaxSupportedVlans")
+		return 0, errs.Msg("empty Get response for dot1qMaxSupportedVlans")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -348,6 +420,8 @@ func Dot1qMaxSupportedVlansGet(ctx context.Context, sess snmp.Session) (uint32, 
 }
 
 // Dot1qNumVlansGet reads the SMIv2 scalar dot1qNumVlans.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The current number of IEEE 802.1Q VLANs that are configured in this
 // device.
 func Dot1qNumVlansGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -357,7 +431,7 @@ func Dot1qNumVlansGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1qNumVlans")
+		return 0, errs.Msg("empty Get response for dot1qNumVlans")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -366,6 +440,8 @@ func Dot1qNumVlansGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // Dot1qGvrpStatusGet reads the SMIv2 scalar dot1qGvrpStatus.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The administrative status requested by management for GVRP. The value
 // enabled(1) indicates that GVRP should be enabled on this device, on all
 // ports for which it has not been specifically disabled. When disabled(2),
@@ -381,7 +457,7 @@ func Dot1qGvrpStatusGet(ctx context.Context, sess snmp.Session) (pbridgemib.Enab
 	}
 
 	if len(vbs) == 0 {
-		return pbridgemib.EnabledStatus(0), ae.Msg("empty Get response for dot1qGvrpStatus")
+		return pbridgemib.EnabledStatus(0), errs.Msg("empty Get response for dot1qGvrpStatus")
 	}
 
 	return func(vb snmp.VarBind) (pbridgemib.EnabledStatus, error) {
@@ -394,6 +470,8 @@ func Dot1qGvrpStatusGet(ctx context.Context, sess snmp.Session) (pbridgemib.Enab
 }
 
 // Dot1qVlanNumDeletesGet reads the SMIv2 scalar dot1qVlanNumDeletes.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of times a VLAN entry has been deleted from the
 // dot1qVlanCurrentTable (for any reason). If an entry is deleted, then
 // inserted, and then deleted, this counter will be incremented by 2.
@@ -404,7 +482,7 @@ func Dot1qVlanNumDeletesGet(ctx context.Context, sess snmp.Session) (uint32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1qVlanNumDeletes")
+		return 0, errs.Msg("empty Get response for dot1qVlanNumDeletes")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -413,6 +491,8 @@ func Dot1qVlanNumDeletesGet(ctx context.Context, sess snmp.Session) (uint32, err
 }
 
 // Dot1qNextFreeLocalVlanIndexGet reads the SMIv2 scalar dot1qNextFreeLocalVlanIndex.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The next available value for dot1qVlanIndex of a local VLAN entry in
 // dot1qVlanStaticTable. This will report values >=4096 if a new Local VLAN
 // may be created or else the value 0 if this is not possible. A row
@@ -431,7 +511,7 @@ func Dot1qNextFreeLocalVlanIndexGet(ctx context.Context, sess snmp.Session) (int
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1qNextFreeLocalVlanIndex")
+		return 0, errs.Msg("empty Get response for dot1qNextFreeLocalVlanIndex")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -440,6 +520,8 @@ func Dot1qNextFreeLocalVlanIndexGet(ctx context.Context, sess snmp.Session) (int
 }
 
 // Dot1qConstraintSetDefaultGet reads the SMIv2 scalar dot1qConstraintSetDefault.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The identity of the constraint set to which a VLAN belongs, if there is
 // not an explicit entry for that VLAN in dot1qLearningConstraintsTable.
 // The value of this object MUST be retained across reinitializations of
@@ -451,7 +533,7 @@ func Dot1qConstraintSetDefaultGet(ctx context.Context, sess snmp.Session) (int32
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1qConstraintSetDefault")
+		return 0, errs.Msg("empty Get response for dot1qConstraintSetDefault")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -460,6 +542,8 @@ func Dot1qConstraintSetDefaultGet(ctx context.Context, sess snmp.Session) (int32
 }
 
 // Dot1qConstraintTypeDefaultGet reads the SMIv2 scalar dot1qConstraintTypeDefault.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The type of constraint set to which a VLAN belongs, if there is not an
 // explicit entry for that VLAN in dot1qLearningConstraintsTable. The types
 // are as defined for dot1qConstraintType. The value of this object MUST be
@@ -471,7 +555,7 @@ func Dot1qConstraintTypeDefaultGet(ctx context.Context, sess snmp.Session) (Dot1
 	}
 
 	if len(vbs) == 0 {
-		return Dot1qConstraintTypeDefaultValue(0), ae.Msg("empty Get response for dot1qConstraintTypeDefault")
+		return Dot1qConstraintTypeDefaultValue(0), errs.Msg("empty Get response for dot1qConstraintTypeDefault")
 	}
 
 	return func(vb snmp.VarBind) (Dot1qConstraintTypeDefaultValue, error) {
@@ -492,8 +576,10 @@ var Dot1qFdbDynamicCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // Dot1qFdbTableRow is one row of dot1qFdbTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qFdbTableRow.Observed to tell a reported zero from a column the
+// [Dot1qFdbTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qFdbTableRow struct {
 	Index                snmp.OID
 	Dot1qFdbDynamicCount uint32
@@ -518,6 +604,7 @@ func (r Dot1qFdbTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qFdbTableWalker streams selected columns of dot1qFdbTable.
+// The zero value is not usable; construct via Dot1qFdbTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qFdbTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -658,8 +745,10 @@ var Dot1qTpFdbStatus = snmp.NewColumn[Dot1qTpFdbStatusValue](snmp.MustOID(1, 3, 
 // Dot1qTpFdbTableRow is one row of dot1qTpFdbTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qTpFdbTableRow.Observed to tell a reported zero from a column the
+// [Dot1qTpFdbTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qTpFdbTableRow struct {
 	Index            snmp.OID
 	Dot1qTpFdbPort   int32
@@ -687,6 +776,7 @@ func (r Dot1qTpFdbTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qTpFdbTableWalker streams selected columns of dot1qTpFdbTable.
+// The zero value is not usable; construct via Dot1qTpFdbTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qTpFdbTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -825,8 +915,10 @@ var Dot1qTpGroupLearnt = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 1
 // Dot1qTpGroupTableRow is one row of dot1qTpGroupTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qTpGroupTableRow.Observed to tell a reported zero from a column the
+// [Dot1qTpGroupTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qTpGroupTableRow struct {
 	Index                   snmp.OID
 	Dot1qTpGroupEgressPorts []byte
@@ -854,6 +946,7 @@ func (r Dot1qTpGroupTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qTpGroupTableWalker streams selected columns of dot1qTpGroupTable.
+// The zero value is not usable; construct via Dot1qTpGroupTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qTpGroupTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1005,8 +1098,10 @@ var Dot1qForwardAllForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6,
 // Dot1qForwardAllTableRow is one row of dot1qForwardAllTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qForwardAllTableRow.Observed to tell a reported zero from a column the
+// [Dot1qForwardAllTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qForwardAllTableRow struct {
 	Index                         snmp.OID
 	Dot1qForwardAllPorts          []byte
@@ -1037,6 +1132,7 @@ func (r Dot1qForwardAllTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qForwardAllTableWalker streams selected columns of dot1qForwardAllTable.
+// The zero value is not usable; construct via Dot1qForwardAllTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qForwardAllTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1201,8 +1297,10 @@ var Dot1qForwardUnregisteredForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID
 // Dot1qForwardUnregisteredTableRow is one row of dot1qForwardUnregisteredTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qForwardUnregisteredTableRow.Observed to tell a reported zero from a column the
+// [Dot1qForwardUnregisteredTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qForwardUnregisteredTableRow struct {
 	Index                                  snmp.OID
 	Dot1qForwardUnregisteredPorts          []byte
@@ -1233,6 +1331,7 @@ func (r Dot1qForwardUnregisteredTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qForwardUnregisteredTableWalker streams selected columns of dot1qForwardUnregisteredTable.
+// The zero value is not usable; construct via Dot1qForwardUnregisteredTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qForwardUnregisteredTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1392,8 +1491,10 @@ var Dot1qStaticUnicastStatus = snmp.NewColumn[Dot1qStaticUnicastStatusValue](snm
 // Dot1qStaticUnicastTableRow is one row of dot1qStaticUnicastTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qStaticUnicastTableRow.Observed to tell a reported zero from a column the
+// [Dot1qStaticUnicastTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qStaticUnicastTableRow struct {
 	Index                           snmp.OID
 	Dot1qStaticUnicastAllowedToGoTo []byte
@@ -1421,6 +1522,7 @@ func (r Dot1qStaticUnicastTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qStaticUnicastTableWalker streams selected columns of dot1qStaticUnicastTable.
+// The zero value is not usable; construct via Dot1qStaticUnicastTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qStaticUnicastTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1583,8 +1685,10 @@ var Dot1qStaticMulticastStatus = snmp.NewColumn[Dot1qStaticMulticastStatusValue]
 // Dot1qStaticMulticastTableRow is one row of dot1qStaticMulticastTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qStaticMulticastTableRow.Observed to tell a reported zero from a column the
+// [Dot1qStaticMulticastTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qStaticMulticastTableRow struct {
 	Index                                    snmp.OID
 	Dot1qStaticMulticastStaticEgressPorts    []byte
@@ -1615,6 +1719,7 @@ func (r Dot1qStaticMulticastTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qStaticMulticastTableWalker streams selected columns of dot1qStaticMulticastTable.
+// The zero value is not usable; construct via Dot1qStaticMulticastTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qStaticMulticastTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1795,8 +1900,10 @@ var Dot1qVlanCreationTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // Dot1qVlanCurrentTableRow is one row of dot1qVlanCurrentTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qVlanCurrentTableRow.Observed to tell a reported zero from a column the
+// [Dot1qVlanCurrentTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qVlanCurrentTableRow struct {
 	Index                         snmp.OID
 	Dot1qVlanFdbId                uint32
@@ -1833,6 +1940,7 @@ func (r Dot1qVlanCurrentTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qVlanCurrentTableWalker streams selected columns of dot1qVlanCurrentTable.
+// The zero value is not usable; construct via Dot1qVlanCurrentTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qVlanCurrentTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2050,8 +2158,10 @@ var Dot1qVlanStaticRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3,
 // Dot1qVlanStaticTableRow is one row of dot1qVlanStaticTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qVlanStaticTableRow.Observed to tell a reported zero from a column the
+// [Dot1qVlanStaticTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qVlanStaticTableRow struct {
 	Index                         snmp.OID
 	Dot1qVlanStaticName           []byte
@@ -2088,6 +2198,7 @@ func (r Dot1qVlanStaticTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qVlanStaticTableWalker streams selected columns of dot1qVlanStaticTable.
+// The zero value is not usable; construct via Dot1qVlanStaticTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qVlanStaticTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2319,8 +2430,10 @@ var Dot1qPortRestrictedVlanRegistration = snmp.NewColumn[bool](snmp.MustOID(1, 3
 // Dot1qPortVlanTableRow is one row of dot1qPortVlanTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qPortVlanTableRow.Observed to tell a reported zero from a column the
+// [Dot1qPortVlanTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qPortVlanTableRow struct {
 	Index                               snmp.OID
 	Dot1qPvid                           uint32
@@ -2363,6 +2476,7 @@ func (r Dot1qPortVlanTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qPortVlanTableWalker streams selected columns of dot1qPortVlanTable.
+// The zero value is not usable; construct via Dot1qPortVlanTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qPortVlanTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2610,8 +2724,10 @@ var Dot1qTpVlanPortInOverflowDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3
 // Dot1qPortVlanStatisticsTableRow is one row of dot1qPortVlanStatisticsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qPortVlanStatisticsTableRow.Observed to tell a reported zero from a column the
+// [Dot1qPortVlanStatisticsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qPortVlanStatisticsTableRow struct {
 	Index                             snmp.OID
 	Dot1qTpVlanPortInFrames           uint32
@@ -2651,6 +2767,7 @@ func (r Dot1qPortVlanStatisticsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qPortVlanStatisticsTableWalker streams selected columns of dot1qPortVlanStatisticsTable.
+// The zero value is not usable; construct via Dot1qPortVlanStatisticsTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qPortVlanStatisticsTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2874,8 +2991,10 @@ var Dot1qTpVlanPortHCInDiscards = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1
 // Dot1qPortVlanHCStatisticsTableRow is one row of dot1qPortVlanHCStatisticsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qPortVlanHCStatisticsTableRow.Observed to tell a reported zero from a column the
+// [Dot1qPortVlanHCStatisticsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qPortVlanHCStatisticsTableRow struct {
 	Index                       snmp.OID
 	Dot1qTpVlanPortHCInFrames   uint64
@@ -2906,6 +3025,7 @@ func (r Dot1qPortVlanHCStatisticsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qPortVlanHCStatisticsTableWalker streams selected columns of dot1qPortVlanHCStatisticsTable.
+// The zero value is not usable; construct via Dot1qPortVlanHCStatisticsTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qPortVlanHCStatisticsTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -3066,8 +3186,10 @@ var Dot1qConstraintStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6,
 // Dot1qLearningConstraintsTableRow is one row of dot1qLearningConstraintsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1qLearningConstraintsTableRow.Observed to tell a reported zero from a column the
+// [Dot1qLearningConstraintsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1qLearningConstraintsTableRow struct {
 	Index                 snmp.OID
 	Dot1qConstraintType   Dot1qConstraintTypeValue
@@ -3095,6 +3217,7 @@ func (r Dot1qLearningConstraintsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1qLearningConstraintsTableWalker streams selected columns of dot1qLearningConstraintsTable.
+// The zero value is not usable; construct via Dot1qLearningConstraintsTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1qLearningConstraintsTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -3225,8 +3348,10 @@ var Dot1vProtocolGroupRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1,
 // Dot1vProtocolGroupTableRow is one row of dot1vProtocolGroupTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1vProtocolGroupTableRow.Observed to tell a reported zero from a column the
+// [Dot1vProtocolGroupTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1vProtocolGroupTableRow struct {
 	Index                       snmp.OID
 	Dot1vProtocolGroupId        int32
@@ -3254,6 +3379,7 @@ func (r Dot1vProtocolGroupTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1vProtocolGroupTableWalker streams selected columns of dot1vProtocolGroupTable.
+// The zero value is not usable; construct via Dot1vProtocolGroupTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1vProtocolGroupTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -3383,8 +3509,10 @@ var Dot1vProtocolPortRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 
 // Dot1vProtocolPortTableRow is one row of dot1vProtocolPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1vProtocolPortTableRow.Observed to tell a reported zero from a column the
+// [Dot1vProtocolPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1vProtocolPortTableRow struct {
 	Index                      snmp.OID
 	Dot1vProtocolPortGroupVid  int32
@@ -3412,6 +3540,7 @@ func (r Dot1vProtocolPortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1vProtocolPortTableWalker streams selected columns of dot1vProtocolPortTable.
+// The zero value is not usable; construct via Dot1vProtocolPortTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1vProtocolPortTableWalker struct {
 	rw   *snmp.ColumnWalker

@@ -693,8 +693,6 @@ func TestWatcher_NoCounterColumnsProbeNeverFires(t *testing.T) {
 	}
 }
 
-// --- Fallback tick behavior ----------------------------------------
-
 // TestWatcher_FallbackTick_UnconditionalFullWalk verifies that once
 // in fallback mode, every tick performs a full table walk and emits
 // diff events without consulting the indicator.

@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package entitystatemib binds the SMI objects declared by ENTITY-STATE-MIB.
 package entitystatemib
 
 import (
@@ -25,15 +26,23 @@ import (
 // current instances of use. A value of 'unlocked' means the resource is
 // not administratively prohibited from use. A value of 'unknown' means
 // that this resource is unable to report administrative state.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EntityAdminState int32
 
 const (
-	EntityAdminStateUnknown      EntityAdminState = 1
-	EntityAdminStateLocked       EntityAdminState = 2
+	// EntityAdminStateUnknown represents the SMI value unknown.
+	EntityAdminStateUnknown EntityAdminState = 1
+	// EntityAdminStateLocked represents the SMI value locked.
+	EntityAdminStateLocked EntityAdminState = 2
+	// EntityAdminStateShuttingDown represents the SMI value shuttingDown.
 	EntityAdminStateShuttingDown EntityAdminState = 3
-	EntityAdminStateUnlocked     EntityAdminState = 4
+	// EntityAdminStateUnlocked represents the SMI value unlocked.
+	EntityAdminStateUnlocked EntityAdminState = 4
 )
 
+// String returns the SMI label, or EntityAdminState(n) for an unrecognized value n.
 func (v EntityAdminState) String() string {
 	switch v {
 	case EntityAdminStateUnknown:
@@ -56,15 +65,23 @@ func (v EntityAdminState) String() string {
 // 'testing' means the resource is currently being tested and cannot
 // therefore report whether it is operational or not. A value of 'unknown'
 // means that this resource is unable to report operational state.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EntityOperState int32
 
 const (
-	EntityOperStateUnknown  EntityOperState = 1
+	// EntityOperStateUnknown represents the SMI value unknown.
+	EntityOperStateUnknown EntityOperState = 1
+	// EntityOperStateDisabled represents the SMI value disabled.
 	EntityOperStateDisabled EntityOperState = 2
-	EntityOperStateEnabled  EntityOperState = 3
-	EntityOperStateTesting  EntityOperState = 4
+	// EntityOperStateEnabled represents the SMI value enabled.
+	EntityOperStateEnabled EntityOperState = 3
+	// EntityOperStateTesting represents the SMI value testing.
+	EntityOperStateTesting EntityOperState = 4
 )
 
+// String returns the SMI label, or EntityOperState(n) for an unrecognized value n.
 func (v EntityOperState) String() string {
 	switch v {
 	case EntityOperStateUnknown:
@@ -91,15 +108,23 @@ func (v EntityOperState) String() string {
 // and will require some initialization activity. A value of
 // 'providingService' means the resource is providing service. A value of
 // 'unknown' means that this resource is unable to report standby state.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EntityStandbyStatus int32
 
 const (
-	EntityStandbyStatusUnknown          EntityStandbyStatus = 1
-	EntityStandbyStatusHotStandby       EntityStandbyStatus = 2
-	EntityStandbyStatusColdStandby      EntityStandbyStatus = 3
+	// EntityStandbyStatusUnknown represents the SMI value unknown.
+	EntityStandbyStatusUnknown EntityStandbyStatus = 1
+	// EntityStandbyStatusHotStandby represents the SMI value hotStandby.
+	EntityStandbyStatusHotStandby EntityStandbyStatus = 2
+	// EntityStandbyStatusColdStandby represents the SMI value coldStandby.
+	EntityStandbyStatusColdStandby EntityStandbyStatus = 3
+	// EntityStandbyStatusProvidingService represents the SMI value providingService.
 	EntityStandbyStatusProvidingService EntityStandbyStatus = 4
 )
 
+// String returns the SMI label, or EntityStandbyStatus(n) for an unrecognized value n.
 func (v EntityStandbyStatus) String() string {
 	switch v {
 	case EntityStandbyStatusUnknown:
@@ -123,15 +148,23 @@ func (v EntityStandbyStatus) String() string {
 // currently in use, but it currently has no spare capacity to provide for
 // additional users. A value of 'unknown' means that this resource is
 // unable to report usage state.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EntityUsageState int32
 
 const (
+	// EntityUsageStateUnknown represents the SMI value unknown.
 	EntityUsageStateUnknown EntityUsageState = 1
-	EntityUsageStateIdle    EntityUsageState = 2
-	EntityUsageStateActive  EntityUsageState = 3
-	EntityUsageStateBusy    EntityUsageState = 4
+	// EntityUsageStateIdle represents the SMI value idle.
+	EntityUsageStateIdle EntityUsageState = 2
+	// EntityUsageStateActive represents the SMI value active.
+	EntityUsageStateActive EntityUsageState = 3
+	// EntityUsageStateBusy represents the SMI value busy.
+	EntityUsageStateBusy EntityUsageState = 4
 )
 
+// String returns the SMI label, or EntityUsageState(n) for an unrecognized value n.
 func (v EntityUsageState) String() string {
 	switch v {
 	case EntityUsageStateUnknown:
@@ -165,12 +198,19 @@ func (v EntityUsageState) String() string {
 // are active against this resource. A value of 'unknown' means that this
 // resource is unable to report alarm state.
 const (
-	EntityAlarmStatusUnknown       snmp.BitPos = 0
-	EntityAlarmStatusUnderRepair   snmp.BitPos = 1
-	EntityAlarmStatusCritical      snmp.BitPos = 2
-	EntityAlarmStatusMajor         snmp.BitPos = 3
-	EntityAlarmStatusMinor         snmp.BitPos = 4
-	EntityAlarmStatusWarning       snmp.BitPos = 5
+	// EntityAlarmStatusUnknown is the position of the unknown bit.
+	EntityAlarmStatusUnknown snmp.BitPos = 0
+	// EntityAlarmStatusUnderRepair is the position of the underRepair bit.
+	EntityAlarmStatusUnderRepair snmp.BitPos = 1
+	// EntityAlarmStatusCritical is the position of the critical bit.
+	EntityAlarmStatusCritical snmp.BitPos = 2
+	// EntityAlarmStatusMajor is the position of the major bit.
+	EntityAlarmStatusMajor snmp.BitPos = 3
+	// EntityAlarmStatusMinor is the position of the minor bit.
+	EntityAlarmStatusMinor snmp.BitPos = 4
+	// EntityAlarmStatusWarning is the position of the warning bit.
+	EntityAlarmStatusWarning snmp.BitPos = 5
+	// EntityAlarmStatusIndeterminate is the position of the indeterminate bit.
 	EntityAlarmStatusIndeterminate snmp.BitPos = 6
 )
 
@@ -283,8 +323,10 @@ var EntStateStandby = snmp.NewColumn[EntityStandbyStatus](snmp.MustOID(1, 3, 6, 
 // EntStateTableRow is one row of entStateTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// EntStateTableRow.Observed to tell a reported zero from a column the
+// [EntStateTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type EntStateTableRow struct {
 	Index               snmp.OID
 	EntStateLastChanged time.Time
@@ -324,6 +366,7 @@ func (r EntStateTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // EntStateTableWalker streams selected columns of entStateTable.
+// The zero value is not usable; construct via EntStateTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntStateTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -640,7 +683,8 @@ func mergeEntStateTableRow(dst *EntStateTableRow, vbs []snmp.VarBind) {
 }
 
 // EntStateTableWatcher is a table-aware Watcher over EntStateTable.
-// Construct via EntStateTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via EntStateTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type EntStateTableWatcher struct {
 	w *snmp.Watcher[EntStateTableRow]
 }

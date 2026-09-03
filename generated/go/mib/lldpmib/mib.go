@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package lldpmib binds the SMI objects declared by LLDP-MIB.
 package lldpmib
 
 import (
@@ -15,7 +16,6 @@ import (
 
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // LldpChassisIdSubtype is the SMI enum LldpChassisIdSubtype.
@@ -42,18 +42,29 @@ import (
 // the value of ifName object (defined in IETF RFC 2863) for an interface
 // on the containing chassis. The enumeration 'local(7)' represents a
 // chassis identifier based on a locally defined value.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type LldpChassisIdSubtype int32
 
 const (
+	// LldpChassisIdSubtypeChassisComponent represents the SMI value chassisComponent.
 	LldpChassisIdSubtypeChassisComponent LldpChassisIdSubtype = 1
-	LldpChassisIdSubtypeInterfaceAlias   LldpChassisIdSubtype = 2
-	LldpChassisIdSubtypePortComponent    LldpChassisIdSubtype = 3
-	LldpChassisIdSubtypeMacAddress       LldpChassisIdSubtype = 4
-	LldpChassisIdSubtypeNetworkAddress   LldpChassisIdSubtype = 5
-	LldpChassisIdSubtypeInterfaceName    LldpChassisIdSubtype = 6
-	LldpChassisIdSubtypeLocal            LldpChassisIdSubtype = 7
+	// LldpChassisIdSubtypeInterfaceAlias represents the SMI value interfaceAlias.
+	LldpChassisIdSubtypeInterfaceAlias LldpChassisIdSubtype = 2
+	// LldpChassisIdSubtypePortComponent represents the SMI value portComponent.
+	LldpChassisIdSubtypePortComponent LldpChassisIdSubtype = 3
+	// LldpChassisIdSubtypeMacAddress represents the SMI value macAddress.
+	LldpChassisIdSubtypeMacAddress LldpChassisIdSubtype = 4
+	// LldpChassisIdSubtypeNetworkAddress represents the SMI value networkAddress.
+	LldpChassisIdSubtypeNetworkAddress LldpChassisIdSubtype = 5
+	// LldpChassisIdSubtypeInterfaceName represents the SMI value interfaceName.
+	LldpChassisIdSubtypeInterfaceName LldpChassisIdSubtype = 6
+	// LldpChassisIdSubtypeLocal represents the SMI value local.
+	LldpChassisIdSubtypeLocal LldpChassisIdSubtype = 7
 )
 
+// String returns the SMI label, or LldpChassisIdSubtype(n) for an unrecognized value n.
 func (v LldpChassisIdSubtype) String() string {
 	switch v {
 	case LldpChassisIdSubtypeChassisComponent:
@@ -82,14 +93,21 @@ func (v LldpChassisIdSubtype) String() string {
 // represents interface identifier based on the ifIndex MIB object. The
 // enumeration 'systemPortNumber(3)' represents interface identifier based
 // on the system port numbering convention.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type LldpManAddrIfSubtype int32
 
 const (
-	LldpManAddrIfSubtypeUnknown          LldpManAddrIfSubtype = 1
-	LldpManAddrIfSubtypeIfIndex          LldpManAddrIfSubtype = 2
+	// LldpManAddrIfSubtypeUnknown represents the SMI value unknown.
+	LldpManAddrIfSubtypeUnknown LldpManAddrIfSubtype = 1
+	// LldpManAddrIfSubtypeIfIndex represents the SMI value ifIndex.
+	LldpManAddrIfSubtypeIfIndex LldpManAddrIfSubtype = 2
+	// LldpManAddrIfSubtypeSystemPortNumber represents the SMI value systemPortNumber.
 	LldpManAddrIfSubtypeSystemPortNumber LldpManAddrIfSubtype = 3
 )
 
+// String returns the SMI label, or LldpManAddrIfSubtype(n) for an unrecognized value n.
 func (v LldpManAddrIfSubtype) String() string {
 	switch v {
 	case LldpManAddrIfSubtypeUnknown:
@@ -118,15 +136,23 @@ func (v LldpManAddrIfSubtype) String() string {
 // information which is received on this port and stored in other tables,
 // before the port's lldpPortConfigAdminStatus becomes disabled, then the
 // information will naturally age out.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type LldpPortConfigAdminStatusValue int32
 
 const (
-	LldpPortConfigAdminStatusValueTxOnly   LldpPortConfigAdminStatusValue = 1
-	LldpPortConfigAdminStatusValueRxOnly   LldpPortConfigAdminStatusValue = 2
-	LldpPortConfigAdminStatusValueTxAndRx  LldpPortConfigAdminStatusValue = 3
+	// LldpPortConfigAdminStatusValueTxOnly represents the SMI value txOnly.
+	LldpPortConfigAdminStatusValueTxOnly LldpPortConfigAdminStatusValue = 1
+	// LldpPortConfigAdminStatusValueRxOnly represents the SMI value rxOnly.
+	LldpPortConfigAdminStatusValueRxOnly LldpPortConfigAdminStatusValue = 2
+	// LldpPortConfigAdminStatusValueTxAndRx represents the SMI value txAndRx.
+	LldpPortConfigAdminStatusValueTxAndRx LldpPortConfigAdminStatusValue = 3
+	// LldpPortConfigAdminStatusValueDisabled represents the SMI value disabled.
 	LldpPortConfigAdminStatusValueDisabled LldpPortConfigAdminStatusValue = 4
 )
 
+// String returns the SMI label, or LldpPortConfigAdminStatusValue(n) for an unrecognized value n.
 func (v LldpPortConfigAdminStatusValue) String() string {
 	switch v {
 	case LldpPortConfigAdminStatusValueTxOnly:
@@ -162,18 +188,29 @@ func (v LldpPortConfigAdminStatusValue) String() string {
 // detected by the agent and associated with a particular port. The
 // enumeration 'local(7)' represents a port identifier based on a value
 // locally assigned.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type LldpPortIdSubtype int32
 
 const (
+	// LldpPortIdSubtypeInterfaceAlias represents the SMI value interfaceAlias.
 	LldpPortIdSubtypeInterfaceAlias LldpPortIdSubtype = 1
-	LldpPortIdSubtypePortComponent  LldpPortIdSubtype = 2
-	LldpPortIdSubtypeMacAddress     LldpPortIdSubtype = 3
+	// LldpPortIdSubtypePortComponent represents the SMI value portComponent.
+	LldpPortIdSubtypePortComponent LldpPortIdSubtype = 2
+	// LldpPortIdSubtypeMacAddress represents the SMI value macAddress.
+	LldpPortIdSubtypeMacAddress LldpPortIdSubtype = 3
+	// LldpPortIdSubtypeNetworkAddress represents the SMI value networkAddress.
 	LldpPortIdSubtypeNetworkAddress LldpPortIdSubtype = 4
-	LldpPortIdSubtypeInterfaceName  LldpPortIdSubtype = 5
+	// LldpPortIdSubtypeInterfaceName represents the SMI value interfaceName.
+	LldpPortIdSubtypeInterfaceName LldpPortIdSubtype = 5
+	// LldpPortIdSubtypeAgentCircuitId represents the SMI value agentCircuitId.
 	LldpPortIdSubtypeAgentCircuitId LldpPortIdSubtype = 6
-	LldpPortIdSubtypeLocal          LldpPortIdSubtype = 7
+	// LldpPortIdSubtypeLocal represents the SMI value local.
+	LldpPortIdSubtypeLocal LldpPortIdSubtype = 7
 )
 
+// String returns the SMI label, or LldpPortIdSubtype(n) for an unrecognized value n.
 func (v LldpPortIdSubtype) String() string {
 	switch v {
 	case LldpPortIdSubtypeInterfaceAlias:
@@ -218,10 +255,14 @@ func (v LldpPortIdSubtype) String() string {
 // from non-volatile storage after a re-initialization of the management
 // system.
 const (
+	// LldpPortConfigTLVsTxEnableBitPortDesc is the position of the portDesc bit.
 	LldpPortConfigTLVsTxEnableBitPortDesc snmp.BitPos = 0
-	LldpPortConfigTLVsTxEnableBitSysName  snmp.BitPos = 1
-	LldpPortConfigTLVsTxEnableBitSysDesc  snmp.BitPos = 2
-	LldpPortConfigTLVsTxEnableBitSysCap   snmp.BitPos = 3
+	// LldpPortConfigTLVsTxEnableBitSysName is the position of the sysName bit.
+	LldpPortConfigTLVsTxEnableBitSysName snmp.BitPos = 1
+	// LldpPortConfigTLVsTxEnableBitSysDesc is the position of the sysDesc bit.
+	LldpPortConfigTLVsTxEnableBitSysDesc snmp.BitPos = 2
+	// LldpPortConfigTLVsTxEnableBitSysCap is the position of the sysCap bit.
+	LldpPortConfigTLVsTxEnableBitSysCap snmp.BitPos = 3
 )
 
 // LldpSystemCapabilitiesMap names the bit positions of the SMI BITS type LldpSystemCapabilitiesMap.
@@ -238,17 +279,27 @@ const (
 // bit 'stationOnly(7)' indicates that the system has only station
 // capability and nothing else.
 const (
-	LldpSystemCapabilitiesMapOther             snmp.BitPos = 0
-	LldpSystemCapabilitiesMapRepeater          snmp.BitPos = 1
-	LldpSystemCapabilitiesMapBridge            snmp.BitPos = 2
-	LldpSystemCapabilitiesMapWlanAccessPoint   snmp.BitPos = 3
-	LldpSystemCapabilitiesMapRouter            snmp.BitPos = 4
-	LldpSystemCapabilitiesMapTelephone         snmp.BitPos = 5
+	// LldpSystemCapabilitiesMapOther is the position of the other bit.
+	LldpSystemCapabilitiesMapOther snmp.BitPos = 0
+	// LldpSystemCapabilitiesMapRepeater is the position of the repeater bit.
+	LldpSystemCapabilitiesMapRepeater snmp.BitPos = 1
+	// LldpSystemCapabilitiesMapBridge is the position of the bridge bit.
+	LldpSystemCapabilitiesMapBridge snmp.BitPos = 2
+	// LldpSystemCapabilitiesMapWlanAccessPoint is the position of the wlanAccessPoint bit.
+	LldpSystemCapabilitiesMapWlanAccessPoint snmp.BitPos = 3
+	// LldpSystemCapabilitiesMapRouter is the position of the router bit.
+	LldpSystemCapabilitiesMapRouter snmp.BitPos = 4
+	// LldpSystemCapabilitiesMapTelephone is the position of the telephone bit.
+	LldpSystemCapabilitiesMapTelephone snmp.BitPos = 5
+	// LldpSystemCapabilitiesMapDocsisCableDevice is the position of the docsisCableDevice bit.
 	LldpSystemCapabilitiesMapDocsisCableDevice snmp.BitPos = 6
-	LldpSystemCapabilitiesMapStationOnly       snmp.BitPos = 7
+	// LldpSystemCapabilitiesMapStationOnly is the position of the stationOnly bit.
+	LldpSystemCapabilitiesMapStationOnly snmp.BitPos = 7
 )
 
 // LldpMessageTxIntervalGet reads the SMIv2 scalar lldpMessageTxInterval.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The interval at which LLDP frames are transmitted on behalf of this LLDP
 // agent. The default value for lldpMessageTxInterval object is 30 seconds.
 // The value of this object must be restored from non-volatile storage
@@ -260,7 +311,7 @@ func LldpMessageTxIntervalGet(ctx context.Context, sess snmp.Session) (int32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpMessageTxInterval")
+		return 0, errs.Msg("empty Get response for lldpMessageTxInterval")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -269,6 +320,8 @@ func LldpMessageTxIntervalGet(ctx context.Context, sess snmp.Session) (int32, er
 }
 
 // LldpMessageTxHoldMultiplierGet reads the SMIv2 scalar lldpMessageTxHoldMultiplier.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The time-to-live value expressed as a multiple of the
 // lldpMessageTxInterval object. The actual time-to-live value used in LLDP
 // frames, transmitted on behalf of this LLDP agent, can be expressed by
@@ -287,7 +340,7 @@ func LldpMessageTxHoldMultiplierGet(ctx context.Context, sess snmp.Session) (int
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpMessageTxHoldMultiplier")
+		return 0, errs.Msg("empty Get response for lldpMessageTxHoldMultiplier")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -296,6 +349,8 @@ func LldpMessageTxHoldMultiplierGet(ctx context.Context, sess snmp.Session) (int
 }
 
 // LldpReinitDelayGet reads the SMIv2 scalar lldpReinitDelay.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The lldpReinitDelay indicates the delay (in units of seconds) from when
 // lldpPortConfigAdminStatus object of a particular port becomes 'disabled'
 // until re-initialization will be attempted. The default value for
@@ -309,7 +364,7 @@ func LldpReinitDelayGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpReinitDelay")
+		return 0, errs.Msg("empty Get response for lldpReinitDelay")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -318,6 +373,8 @@ func LldpReinitDelayGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // LldpTxDelayGet reads the SMIv2 scalar lldpTxDelay.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The lldpTxDelay indicates the delay (in units of seconds) between
 // successive LLDP frame transmissions initiated by value/status changes in
 // the LLDP local systems MIB. The recommended value for the lldpTxDelay is
@@ -332,7 +389,7 @@ func LldpTxDelayGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpTxDelay")
+		return 0, errs.Msg("empty Get response for lldpTxDelay")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -341,6 +398,8 @@ func LldpTxDelayGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // LldpNotificationIntervalGet reads the SMIv2 scalar lldpNotificationInterval.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // This object controls the transmission of LLDP notifications. the agent
 // must not generate more than one lldpRemTablesChange notification-event
 // in the indicated period, where a 'notification-event' is the
@@ -361,7 +420,7 @@ func LldpNotificationIntervalGet(ctx context.Context, sess snmp.Session) (int32,
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpNotificationInterval")
+		return 0, errs.Msg("empty Get response for lldpNotificationInterval")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -370,6 +429,8 @@ func LldpNotificationIntervalGet(ctx context.Context, sess snmp.Session) (int32,
 }
 
 // LldpStatsRemTablesLastChangeTimeGet reads the SMIv2 scalar lldpStatsRemTablesLastChangeTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime object (defined in IETF RFC 3418) at the time an
 // entry is created, modified, or deleted in the in tables associated with
 // the lldpRemoteSystemsData objects and all LLDP extension objects
@@ -382,7 +443,7 @@ func LldpStatsRemTablesLastChangeTimeGet(ctx context.Context, sess snmp.Session)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpStatsRemTablesLastChangeTime")
+		return 0, errs.Msg("empty Get response for lldpStatsRemTablesLastChangeTime")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -391,6 +452,8 @@ func LldpStatsRemTablesLastChangeTimeGet(ctx context.Context, sess snmp.Session)
 }
 
 // LldpStatsRemTablesInsertsGet reads the SMIv2 scalar lldpStatsRemTablesInserts.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of times the complete set of information advertised by a
 // particular MSAP has been inserted into tables contained in
 // lldpRemoteSystemsData and lldpExtensions objects. The complete set of
@@ -412,7 +475,7 @@ func LldpStatsRemTablesInsertsGet(ctx context.Context, sess snmp.Session) (uint3
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpStatsRemTablesInserts")
+		return 0, errs.Msg("empty Get response for lldpStatsRemTablesInserts")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -421,6 +484,8 @@ func LldpStatsRemTablesInsertsGet(ctx context.Context, sess snmp.Session) (uint3
 }
 
 // LldpStatsRemTablesDeletesGet reads the SMIv2 scalar lldpStatsRemTablesDeletes.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of times the complete set of information advertised by a
 // particular MSAP has been deleted from tables contained in
 // lldpRemoteSystemsData and lldpExtensions objects. This counter should be
@@ -436,7 +501,7 @@ func LldpStatsRemTablesDeletesGet(ctx context.Context, sess snmp.Session) (uint3
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpStatsRemTablesDeletes")
+		return 0, errs.Msg("empty Get response for lldpStatsRemTablesDeletes")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -445,6 +510,8 @@ func LldpStatsRemTablesDeletesGet(ctx context.Context, sess snmp.Session) (uint3
 }
 
 // LldpStatsRemTablesDropsGet reads the SMIv2 scalar lldpStatsRemTablesDrops.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of times the complete set of information advertised by a
 // particular MSAP could not be entered into tables contained in
 // lldpRemoteSystemsData and lldpExtensions objects because of insufficient
@@ -456,7 +523,7 @@ func LldpStatsRemTablesDropsGet(ctx context.Context, sess snmp.Session) (uint32,
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpStatsRemTablesDrops")
+		return 0, errs.Msg("empty Get response for lldpStatsRemTablesDrops")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -465,6 +532,8 @@ func LldpStatsRemTablesDropsGet(ctx context.Context, sess snmp.Session) (uint32,
 }
 
 // LldpStatsRemTablesAgeoutsGet reads the SMIv2 scalar lldpStatsRemTablesAgeouts.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of times the complete set of information advertised by a
 // particular MSAP has been deleted from tables contained in
 // lldpRemoteSystemsData and lldpExtensions objects because the information
@@ -480,7 +549,7 @@ func LldpStatsRemTablesAgeoutsGet(ctx context.Context, sess snmp.Session) (uint3
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for lldpStatsRemTablesAgeouts")
+		return 0, errs.Msg("empty Get response for lldpStatsRemTablesAgeouts")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -489,6 +558,8 @@ func LldpStatsRemTablesAgeoutsGet(ctx context.Context, sess snmp.Session) (uint3
 }
 
 // LldpLocChassisIdSubtypeGet reads the SMIv2 scalar lldpLocChassisIdSubtype.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The type of encoding used to identify the chassis associated with the
 // local system.
 func LldpLocChassisIdSubtypeGet(ctx context.Context, sess snmp.Session) (LldpChassisIdSubtype, error) {
@@ -498,7 +569,7 @@ func LldpLocChassisIdSubtypeGet(ctx context.Context, sess snmp.Session) (LldpCha
 	}
 
 	if len(vbs) == 0 {
-		return LldpChassisIdSubtype(0), ae.Msg("empty Get response for lldpLocChassisIdSubtype")
+		return LldpChassisIdSubtype(0), errs.Msg("empty Get response for lldpLocChassisIdSubtype")
 	}
 
 	return func(vb snmp.VarBind) (LldpChassisIdSubtype, error) {
@@ -511,6 +582,8 @@ func LldpLocChassisIdSubtypeGet(ctx context.Context, sess snmp.Session) (LldpCha
 }
 
 // LldpLocChassisIdGet reads the SMIv2 scalar lldpLocChassisId.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The string value used to identify the chassis component associated with
 // the local system.
 func LldpLocChassisIdGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
@@ -520,7 +593,7 @@ func LldpLocChassisIdGet(ctx context.Context, sess snmp.Session) ([]byte, error)
 	}
 
 	if len(vbs) == 0 {
-		return nil, ae.Msg("empty Get response for lldpLocChassisId")
+		return nil, errs.Msg("empty Get response for lldpLocChassisId")
 	}
 
 	return func(vb snmp.VarBind) ([]byte, error) {
@@ -529,6 +602,8 @@ func LldpLocChassisIdGet(ctx context.Context, sess snmp.Session) ([]byte, error)
 }
 
 // LldpLocSysNameGet reads the SMIv2 scalar lldpLocSysName.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The string value used to identify the system name of the local system.
 // If the local agent supports IETF RFC 3418, lldpLocSysName object should
 // have the same value of sysName object.
@@ -539,7 +614,7 @@ func LldpLocSysNameGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
 	}
 
 	if len(vbs) == 0 {
-		return nil, ae.Msg("empty Get response for lldpLocSysName")
+		return nil, errs.Msg("empty Get response for lldpLocSysName")
 	}
 
 	return func(vb snmp.VarBind) ([]byte, error) {
@@ -548,6 +623,8 @@ func LldpLocSysNameGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
 }
 
 // LldpLocSysDescGet reads the SMIv2 scalar lldpLocSysDesc.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The string value used to identify the system description of the local
 // system. If the local agent supports IETF RFC 3418, lldpLocSysDesc object
 // should have the same value of sysDesc object.
@@ -558,7 +635,7 @@ func LldpLocSysDescGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
 	}
 
 	if len(vbs) == 0 {
-		return nil, ae.Msg("empty Get response for lldpLocSysDesc")
+		return nil, errs.Msg("empty Get response for lldpLocSysDesc")
 	}
 
 	return func(vb snmp.VarBind) ([]byte, error) {
@@ -567,6 +644,8 @@ func LldpLocSysDescGet(ctx context.Context, sess snmp.Session) ([]byte, error) {
 }
 
 // LldpLocSysCapSupportedGet reads the SMIv2 scalar lldpLocSysCapSupported.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The bitmap value used to identify which system capabilities are
 // supported on the local system.
 func LldpLocSysCapSupportedGet(ctx context.Context, sess snmp.Session) (snmp.BitSet, error) {
@@ -576,7 +655,7 @@ func LldpLocSysCapSupportedGet(ctx context.Context, sess snmp.Session) (snmp.Bit
 	}
 
 	if len(vbs) == 0 {
-		return snmp.BitSet{}, ae.Msg("empty Get response for lldpLocSysCapSupported")
+		return snmp.BitSet{}, errs.Msg("empty Get response for lldpLocSysCapSupported")
 	}
 
 	return func(vb snmp.VarBind) (snmp.BitSet, error) {
@@ -585,6 +664,8 @@ func LldpLocSysCapSupportedGet(ctx context.Context, sess snmp.Session) (snmp.Bit
 }
 
 // LldpLocSysCapEnabledGet reads the SMIv2 scalar lldpLocSysCapEnabled.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The bitmap value used to identify which system capabilities are enabled
 // on the local system.
 func LldpLocSysCapEnabledGet(ctx context.Context, sess snmp.Session) (snmp.BitSet, error) {
@@ -594,7 +675,7 @@ func LldpLocSysCapEnabledGet(ctx context.Context, sess snmp.Session) (snmp.BitSe
 	}
 
 	if len(vbs) == 0 {
-		return snmp.BitSet{}, ae.Msg("empty Get response for lldpLocSysCapEnabled")
+		return snmp.BitSet{}, errs.Msg("empty Get response for lldpLocSysCapEnabled")
 	}
 
 	return func(vb snmp.VarBind) (snmp.BitSet, error) {
@@ -662,8 +743,10 @@ var LldpPortConfigTLVsTxEnable = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 0, 
 // LldpPortConfigTableRow is one row of lldpPortConfigTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpPortConfigTableRow.Observed to tell a reported zero from a column the
+// [LldpPortConfigTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpPortConfigTableRow struct {
 	Index                            snmp.OID
 	LldpPortConfigAdminStatus        LldpPortConfigAdminStatusValue
@@ -694,6 +777,7 @@ func (r LldpPortConfigTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpPortConfigTableWalker streams selected columns of lldpPortConfigTable.
+// The zero value is not usable; construct via LldpPortConfigTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpPortConfigTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -836,8 +920,10 @@ var LldpConfigManAddrPortsTxEnable = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8
 // LldpConfigManAddrTableRow is one row of lldpConfigManAddrTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpConfigManAddrTableRow.Observed to tell a reported zero from a column the
+// [LldpConfigManAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpConfigManAddrTableRow struct {
 	Index                          snmp.OID
 	LldpConfigManAddrPortsTxEnable []byte
@@ -862,6 +948,7 @@ func (r LldpConfigManAddrTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpConfigManAddrTableWalker streams selected columns of lldpConfigManAddrTable.
+// The zero value is not usable; construct via LldpConfigManAddrTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpConfigManAddrTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -968,8 +1055,10 @@ var LldpStatsTxPortFramesTotal = snmp.NewColumn[uint32](snmp.MustOID(1, 0, 8802,
 // LldpStatsTxPortTableRow is one row of lldpStatsTxPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpStatsTxPortTableRow.Observed to tell a reported zero from a column the
+// [LldpStatsTxPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpStatsTxPortTableRow struct {
 	Index                      snmp.OID
 	LldpStatsTxPortFramesTotal uint32
@@ -994,6 +1083,7 @@ func (r LldpStatsTxPortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpStatsTxPortTableWalker streams selected columns of lldpStatsTxPortTable.
+// The zero value is not usable; construct via LldpStatsTxPortTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpStatsTxPortTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1163,8 +1253,10 @@ var LldpStatsRxPortAgeoutsTotal = snmp.NewColumn[uint32](snmp.MustOID(1, 0, 8802
 // LldpStatsRxPortTableRow is one row of lldpStatsRxPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpStatsRxPortTableRow.Observed to tell a reported zero from a column the
+// [LldpStatsRxPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpStatsRxPortTableRow struct {
 	Index                                snmp.OID
 	LldpStatsRxPortFramesDiscardedTotal  uint32
@@ -1204,6 +1296,7 @@ func (r LldpStatsRxPortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpStatsRxPortTableWalker streams selected columns of lldpStatsRxPortTable.
+// The zero value is not usable; construct via LldpStatsRxPortTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpStatsRxPortTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1425,8 +1518,10 @@ var LldpLocPortDesc = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8802, 1, 1, 2, 1
 // LldpLocPortTableRow is one row of lldpLocPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpLocPortTableRow.Observed to tell a reported zero from a column the
+// [LldpLocPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpLocPortTableRow struct {
 	Index                snmp.OID
 	LldpLocPortIdSubtype LldpPortIdSubtype
@@ -1457,6 +1552,7 @@ func (r LldpLocPortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpLocPortTableWalker streams selected columns of lldpLocPortTable.
+// The zero value is not usable; construct via LldpLocPortTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpLocPortTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1625,8 +1721,10 @@ var LldpLocManAddrOID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 0, 8802, 1, 1, 
 // LldpLocManAddrTableRow is one row of lldpLocManAddrTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpLocManAddrTableRow.Observed to tell a reported zero from a column the
+// [LldpLocManAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpLocManAddrTableRow struct {
 	Index                   snmp.OID
 	LldpLocManAddrLen       int32
@@ -1660,6 +1758,7 @@ func (r LldpLocManAddrTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpLocManAddrTableWalker streams selected columns of lldpLocManAddrTable.
+// The zero value is not usable; construct via LldpLocManAddrTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpLocManAddrTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1883,8 +1982,10 @@ var LldpRemSysCapEnabled = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 0, 8802, 
 // LldpRemTableRow is one row of lldpRemTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpRemTableRow.Observed to tell a reported zero from a column the
+// [LldpRemTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpRemTableRow struct {
 	Index                   snmp.OID
 	LldpRemChassisIdSubtype LldpChassisIdSubtype
@@ -1933,6 +2034,7 @@ func (r LldpRemTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpRemTableWalker streams selected columns of lldpRemTable.
+// The zero value is not usable; construct via LldpRemTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpRemTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2173,8 +2275,10 @@ var LldpRemManAddrOID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 0, 8802, 1, 1, 
 // LldpRemManAddrTableRow is one row of lldpRemManAddrTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpRemManAddrTableRow.Observed to tell a reported zero from a column the
+// [LldpRemManAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpRemManAddrTableRow struct {
 	Index                   snmp.OID
 	LldpRemManAddrIfSubtype LldpManAddrIfSubtype
@@ -2205,6 +2309,7 @@ func (r LldpRemManAddrTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpRemManAddrTableWalker streams selected columns of lldpRemManAddrTable.
+// The zero value is not usable; construct via LldpRemManAddrTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpRemManAddrTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2347,8 +2452,10 @@ var LldpRemUnknownTLVInfo = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8802, 1, 1
 // LldpRemUnknownTLVTableRow is one row of lldpRemUnknownTLVTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpRemUnknownTLVTableRow.Observed to tell a reported zero from a column the
+// [LldpRemUnknownTLVTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpRemUnknownTLVTableRow struct {
 	Index                 snmp.OID
 	LldpRemUnknownTLVInfo []byte
@@ -2373,6 +2480,7 @@ func (r LldpRemUnknownTLVTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpRemUnknownTLVTableWalker streams selected columns of lldpRemUnknownTLVTable.
+// The zero value is not usable; construct via LldpRemUnknownTLVTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpRemUnknownTLVTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2480,8 +2588,10 @@ var LldpRemOrgDefInfo = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8802, 1, 1, 2,
 // LldpRemOrgDefInfoTableRow is one row of lldpRemOrgDefInfoTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// LldpRemOrgDefInfoTableRow.Observed to tell a reported zero from a column the
+// [LldpRemOrgDefInfoTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type LldpRemOrgDefInfoTableRow struct {
 	Index             snmp.OID
 	LldpRemOrgDefInfo []byte
@@ -2506,6 +2616,7 @@ func (r LldpRemOrgDefInfoTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // LldpRemOrgDefInfoTableWalker streams selected columns of lldpRemOrgDefInfoTable.
+// The zero value is not usable; construct via LldpRemOrgDefInfoTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type LldpRemOrgDefInfoTableWalker struct {
 	rw   *snmp.ColumnWalker

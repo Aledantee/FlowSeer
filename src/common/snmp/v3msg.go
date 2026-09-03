@@ -110,8 +110,6 @@ type v3Message struct {
 	ciphertext []byte
 }
 
-// --- Encode -----------------------------------------------------------
-
 // encodeScopedPDU encodes ScopedPDU { contextEngineID, contextName, data }.
 func encodeScopedPDU(sp *scopedPDU) ([]byte, error) {
 	pduBytes, err := encodePDU(&sp.pdu)
@@ -177,8 +175,6 @@ func encodeV3Message(m *v3Message) ([]byte, error) {
 	body = append(body, msgData...)
 	return appendSequence(tagSequence, body), nil
 }
-
-// --- Decode -----------------------------------------------------------
 
 // v3Decoded carries the decoded message plus the two byte-level facts the
 // crypto needs from the wire.
@@ -427,8 +423,6 @@ func decodeScopedPDU(buf []byte) (*scopedPDU, error) {
 	return decodeScopedPDUContent(content)
 }
 
-// --- Version dispatch -------------------------------------------------
-
 // decodeAnyMessage reads the version INTEGER of a datagram and routes to the
 // v1/v2c decoder or the v3 decoder. It is the single entry point the
 // reactor read-loop and the trap listener use so a v3 datagram is never fed
@@ -452,7 +446,6 @@ func decodeAnyMessage(datagram []byte) (v1v2 *message, v3 *v3Decoded, err error)
 	return m, nil, err
 }
 
-// --- Offset-tracking BER helpers --------------------------------------
 //
 // These mirror the pdu.go field readers but thread an absolute position so
 // decodeV3Message can report the msgAuthenticationParameters byte range.

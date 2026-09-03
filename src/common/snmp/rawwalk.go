@@ -77,9 +77,7 @@ func (rv RawVarBind) exceptionTag() byte {
 	return 0
 }
 
-// --- Fused typed decoders ---------------------------------------
-//
-// Each returns (value, true) only when rv carries exactly the expected
+// Fused raw decoders return (value, true) only when rv carries exactly the expected
 // wire tag with a cleanly-decodable in-range value. Every other case —
 // off-spec tag, exception, overflow, pre-decoded VB — returns ok=false,
 // and the caller must fall back to Decode() + the column's generic
@@ -143,8 +141,6 @@ func rawUint32(rv RawVarBind, tag byte) (uint32, bool) {
 	}
 	return uint32(v), true
 }
-
-// --- Raw OID helpers ----------------------------------------------------
 
 // RawFirstArc reads the first sub-identifier from a mid-OID byte suffix
 // (no X.690 first-octet folding — that applies only at the start of a
@@ -233,8 +229,6 @@ func base128Len(b []byte) int {
 	}
 	return len(b)
 }
-
-// --- RawWalker ----------------------------------------------------------
 
 // RawWalker is the raw-varbind counterpart of [Walker]: the streaming
 // result of [Session.BulkWalkRaw]. It shares the channel-pump state

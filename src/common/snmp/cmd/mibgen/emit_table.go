@@ -114,8 +114,10 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	f.Comment(rowTypeName + " is one row of " + table.Name + ". Index carries the OID")
 	f.Comment("suffix beyond the table-entry prefix; the remaining fields are")
 	f.Comment("populated only for columns the caller passed to Walk(). Use")
-	f.Comment(rowTypeName + ".Observed to tell a reported zero from a column the")
+	f.Comment("[" + rowTypeName + ".Observed] to tell a reported zero from a column the")
 	f.Comment("agent never answered.")
+	f.Comment("The zero value has no observed columns. Concurrent reads are safe;")
+	f.Comment("callers must synchronize mutation of the row or its referenced data.")
 	f.Type().Id(rowTypeName).StructFunc(func(g *jen.Group) {
 		g.Id("Index").Qual(snmpImport, "OID")
 		for _, c := range cols {
@@ -150,6 +152,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	)
 
 	f.Comment(walkerTypeName + " streams selected columns of " + table.Name + ".")
+	f.Comment("The zero value is not usable; construct via " + tableName + ".Walk(ctx, sess, cols...).")
 	f.Comment("Iteration is single-use and single-consumer; Close and Err are safe concurrently.")
 	f.Type().Id(walkerTypeName).Struct(
 		jen.Id("rw").Op("*").Qual(snmpImport, "ColumnWalker"),

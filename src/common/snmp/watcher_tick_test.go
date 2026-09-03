@@ -774,8 +774,6 @@ func TestWatcher_PerRow_ChunkingThresholdDisabled(t *testing.T) {
 	}
 }
 
-// --- indicatorVBEqual unit tests --------------------------------------
-
 func TestIndicatorVBEqual_NilBoth(t *testing.T) {
 	if !indicatorVBEqual(nil, nil) {
 		t.Error("nil == nil should be true")
@@ -831,11 +829,6 @@ func TestIndicatorVBEqual_ExceptionVariantUnequal(t *testing.T) {
 		t.Error("exception variant should be unequal to value variant")
 	}
 }
-
-// =====================================================================
-// Scripted-session fake — extends watcherFakeSession with per-call
-// programmable BulkWalk and Get responses.
-// =====================================================================
 
 // scriptedSession is a fake [Session] that scripts BulkWalk and Get
 // responses on a per-call basis. Differs from watcherFakeSession in
@@ -931,8 +924,6 @@ func (s *scriptedSession) Get(_ context.Context, oids []OID, _ ...CallOption) ([
 	return out, nil
 }
 
-// --- Test helpers ----------------------------------------------------
-
 type ifRow struct {
 	idx    uint32
 	descr  string
@@ -1021,8 +1012,6 @@ func drainEvents[Row any](t *testing.T, w *Watcher[Row], n int, deadline time.Du
 // Sanity check that the scriptedSession satisfies the Session
 // interface.
 var _ Session = (*scriptedSession)(nil)
-
-// --- Compile-time assertions -----------------------------------------
 
 // Pin that the lastTickErr field uses atomic.Pointer[error] semantics
 // the rest of the package depends on (catches a future refactor that

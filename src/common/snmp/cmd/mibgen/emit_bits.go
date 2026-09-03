@@ -94,6 +94,7 @@ func emitBitsConsts(f *jen.File, mod *smi.Module) {
 		}
 		f.Const().DefsFunc(func(g *jen.Group) {
 			for _, m := range d.Members {
+				g.Comment(d.GoName + camelCase(m.Name) + " is the position of the " + m.Name + " bit.")
 				g.Id(d.GoName+camelCase(m.Name)).Qual(snmpImport, "BitPos").Op("=").Lit(int(m.Number))
 			}
 		})

@@ -33,8 +33,10 @@ var (
 // marks, so the code and attributes stay discoverable.
 type fatalWalk struct{ err error }
 
+// Error preserves the failed walk's diagnostic message.
 func (f fatalWalk) Error() string { return f.err.Error() }
 
+// Unwrap exposes the walk error to errors.Is and errors.As.
 func (f fatalWalk) Unwrap() error { return f.err }
 
 // isFatalWalk reports whether err carries a [fatalWalk] mark.

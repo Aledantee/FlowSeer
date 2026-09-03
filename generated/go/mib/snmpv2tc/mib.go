@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package snmpv2tc binds the SMI objects declared by SNMPv2-TC.
 package snmpv2tc
 
 import "fmt"
@@ -22,16 +23,25 @@ import "fmt"
 // (All illegal modifications result in a 'wrongValue' error.) Every usage
 // of this textual convention is required to specify the columnar objects
 // which a permanent(4) row must at a minimum allow to be writable.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type StorageType int32
 
 const (
-	StorageTypeOther       StorageType = 1
-	StorageTypeVolatile    StorageType = 2
+	// StorageTypeOther represents the SMI value other.
+	StorageTypeOther StorageType = 1
+	// StorageTypeVolatile represents the SMI value volatile.
+	StorageTypeVolatile StorageType = 2
+	// StorageTypeNonVolatile represents the SMI value nonVolatile.
 	StorageTypeNonVolatile StorageType = 3
-	StorageTypePermanent   StorageType = 4
-	StorageTypeReadOnly    StorageType = 5
+	// StorageTypePermanent represents the SMI value permanent.
+	StorageTypePermanent StorageType = 4
+	// StorageTypeReadOnly represents the SMI value readOnly.
+	StorageTypeReadOnly StorageType = 5
 )
 
+// String returns the SMI label, or StorageType(n) for an unrecognized value n.
 func (v StorageType) String() string {
 	switch v {
 	case StorageTypeOther:

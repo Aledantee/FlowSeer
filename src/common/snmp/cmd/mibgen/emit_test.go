@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -19,7 +20,7 @@ import (
 // updateGolden refreshes the committed golden file under
 // testdata/golden/fakemib/mib.go. Run with
 //
-//	go test ./common/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden
+//	go test ./src/common/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden
 //
 // after intentional emitter changes. The flag is unbound by default so
 // the test asserts equality against the committed file.
@@ -110,8 +111,40 @@ func TestEmit_GeneratedParses(t *testing.T) {
 		t.Fatalf("renderModule: %v", err)
 	}
 	fset := token.NewFileSet()
-	if _, err := parser.ParseFile(fset, "fakemib_mib.go", out, parser.AllErrors|parser.ParseComments); err != nil {
+	f, err := parser.ParseFile(fset, "fakemib_mib.go", out, parser.AllErrors|parser.ParseComments)
+	if err != nil {
 		t.Fatalf("parse: %v\n--- emitted ---\n%s", err, string(out))
+	}
+	if f.Doc == nil || !strings.HasPrefix(f.Doc.Text(), "Package fakemib ") {
+		t.Error("generated package has no package doc comment")
+	}
+	for _, decl := range f.Decls {
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			if d.Name.IsExported() && d.Doc == nil {
+				t.Errorf("exported function %s has no doc comment", d.Name)
+			}
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				switch s := spec.(type) {
+				case *ast.TypeSpec:
+					if s.Name.IsExported() && s.Doc == nil && d.Doc == nil {
+						t.Errorf("exported type %s has no doc comment", s.Name)
+					}
+				case *ast.ValueSpec:
+					for _, name := range s.Names {
+						if name.IsExported() && s.Doc == nil && d.Doc == nil {
+							t.Errorf("exported value %s has no doc comment", name)
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, imp := range f.Imports {
+		if imp.Path.Value == `"go.aledante.io/ae"` {
+			t.Error("generated errors must use the repository errs package")
+		}
 	}
 }
 

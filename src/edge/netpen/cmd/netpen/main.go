@@ -88,7 +88,10 @@ type cmdFlags struct {
 // ackList is a repeatable --i-accept-permanent=<name>=<mode> flag.
 type ackList []runner.AttackRef
 
+// String formats the accumulated acknowledgments for flag help.
 func (a *ackList) String() string { return fmt.Sprint([]runner.AttackRef(*a)) }
+
+// Set appends a name=mode acknowledgment, or a mode with an empty name.
 func (a *ackList) Set(s string) error {
 	parts := strings.SplitN(s, "=", 2)
 	if len(parts) == 2 {

@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package entitymib binds the SMI objects declared by ENTITY-MIB.
 package entitymib
 
 import (
@@ -17,7 +18,6 @@ import (
 
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // PhysicalClass is the SMI enum PhysicalClass.
@@ -68,23 +68,39 @@ import (
 // chassis entities should be contained within a stack. The enumeration
 // 'cpu' is applicable if the physical entity class is some sort of central
 // processing unit.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type PhysicalClass int32
 
 const (
-	PhysicalClassOther       PhysicalClass = 1
-	PhysicalClassUnknown     PhysicalClass = 2
-	PhysicalClassChassis     PhysicalClass = 3
-	PhysicalClassBackplane   PhysicalClass = 4
-	PhysicalClassContainer   PhysicalClass = 5
+	// PhysicalClassOther represents the SMI value other.
+	PhysicalClassOther PhysicalClass = 1
+	// PhysicalClassUnknown represents the SMI value unknown.
+	PhysicalClassUnknown PhysicalClass = 2
+	// PhysicalClassChassis represents the SMI value chassis.
+	PhysicalClassChassis PhysicalClass = 3
+	// PhysicalClassBackplane represents the SMI value backplane.
+	PhysicalClassBackplane PhysicalClass = 4
+	// PhysicalClassContainer represents the SMI value container.
+	PhysicalClassContainer PhysicalClass = 5
+	// PhysicalClassPowerSupply represents the SMI value powerSupply.
 	PhysicalClassPowerSupply PhysicalClass = 6
-	PhysicalClassFan         PhysicalClass = 7
-	PhysicalClassSensor      PhysicalClass = 8
-	PhysicalClassModule      PhysicalClass = 9
-	PhysicalClassPort        PhysicalClass = 10
-	PhysicalClassStack       PhysicalClass = 11
-	PhysicalClassCpu         PhysicalClass = 12
+	// PhysicalClassFan represents the SMI value fan.
+	PhysicalClassFan PhysicalClass = 7
+	// PhysicalClassSensor represents the SMI value sensor.
+	PhysicalClassSensor PhysicalClass = 8
+	// PhysicalClassModule represents the SMI value module.
+	PhysicalClassModule PhysicalClass = 9
+	// PhysicalClassPort represents the SMI value port.
+	PhysicalClassPort PhysicalClass = 10
+	// PhysicalClassStack represents the SMI value stack.
+	PhysicalClassStack PhysicalClass = 11
+	// PhysicalClassCpu represents the SMI value cpu.
+	PhysicalClassCpu PhysicalClass = 12
 )
 
+// String returns the SMI label, or PhysicalClass(n) for an unrecognized value n.
 func (v PhysicalClass) String() string {
 	switch v {
 	case PhysicalClassOther:
@@ -117,6 +133,8 @@ func (v PhysicalClass) String() string {
 }
 
 // EntLastChangeTimeGet reads the SMIv2 scalar entLastChangeTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime at the time a conceptual row is created,
 // modified, or deleted in any of these tables: - entPhysicalTable -
 // entLogicalTable - entLPMappingTable - entAliasMappingTable -
@@ -128,7 +146,7 @@ func EntLastChangeTimeGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for entLastChangeTime")
+		return 0, errs.Msg("empty Get response for entLastChangeTime")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -413,8 +431,10 @@ var EntPhysicalUUID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 
 // EntPhysicalTableRow is one row of entPhysicalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// EntPhysicalTableRow.Observed to tell a reported zero from a column the
+// [EntPhysicalTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type EntPhysicalTableRow struct {
 	Index                   snmp.OID
 	EntPhysicalDescr        []byte
@@ -490,6 +510,7 @@ func (r EntPhysicalTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // EntPhysicalTableWalker streams selected columns of entPhysicalTable.
+// The zero value is not usable; construct via EntPhysicalTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntPhysicalTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1113,7 +1134,8 @@ func mergeEntPhysicalTableRow(dst *EntPhysicalTableRow, vbs []snmp.VarBind) {
 }
 
 // EntPhysicalTableWatcher is a table-aware Watcher over EntPhysicalTable.
-// Construct via EntPhysicalTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via EntPhysicalTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type EntPhysicalTableWatcher struct {
 	w *snmp.Watcher[EntPhysicalTableRow]
 }
@@ -1289,8 +1311,10 @@ var EntLogicalContextName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1
 // EntLogicalTableRow is one row of entLogicalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// EntLogicalTableRow.Observed to tell a reported zero from a column the
+// [EntLogicalTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type EntLogicalTableRow struct {
 	Index                     snmp.OID
 	EntLogicalDescr           []byte
@@ -1333,6 +1357,7 @@ func (r EntLogicalTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // EntLogicalTableWalker streams selected columns of entLogicalTable.
+// The zero value is not usable; construct via EntLogicalTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntLogicalTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1655,7 +1680,8 @@ func mergeEntLogicalTableRow(dst *EntLogicalTableRow, vbs []snmp.VarBind) {
 }
 
 // EntLogicalTableWatcher is a table-aware Watcher over EntLogicalTable.
-// Construct via EntLogicalTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via EntLogicalTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type EntLogicalTableWatcher struct {
 	w *snmp.Watcher[EntLogicalTableRow]
 }
@@ -1737,8 +1763,10 @@ var EntLPPhysicalIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47
 // EntLPMappingTableRow is one row of entLPMappingTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// EntLPMappingTableRow.Observed to tell a reported zero from a column the
+// [EntLPMappingTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type EntLPMappingTableRow struct {
 	Index              snmp.OID
 	EntLPPhysicalIndex int32
@@ -1763,6 +1791,7 @@ func (r EntLPMappingTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // EntLPMappingTableWalker streams selected columns of entLPMappingTable.
+// The zero value is not usable; construct via EntLPMappingTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntLPMappingTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1934,7 +1963,8 @@ func mergeEntLPMappingTableRow(dst *EntLPMappingTableRow, vbs []snmp.VarBind) {
 }
 
 // EntLPMappingTableWatcher is a table-aware Watcher over EntLPMappingTable.
-// Construct via EntLPMappingTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via EntLPMappingTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type EntLPMappingTableWatcher struct {
 	w *snmp.Watcher[EntLPMappingTableRow]
 }
@@ -2030,8 +2060,10 @@ var EntAliasMappingIdentifier = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1
 // EntAliasMappingTableRow is one row of entAliasMappingTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// EntAliasMappingTableRow.Observed to tell a reported zero from a column the
+// [EntAliasMappingTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type EntAliasMappingTableRow struct {
 	Index                     snmp.OID
 	EntAliasMappingIdentifier snmp.OID
@@ -2056,6 +2088,7 @@ func (r EntAliasMappingTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // EntAliasMappingTableWalker streams selected columns of entAliasMappingTable.
+// The zero value is not usable; construct via EntAliasMappingTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntAliasMappingTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2222,7 +2255,8 @@ func mergeEntAliasMappingTableRow(dst *EntAliasMappingTableRow, vbs []snmp.VarBi
 }
 
 // EntAliasMappingTableWatcher is a table-aware Watcher over EntAliasMappingTable.
-// Construct via EntAliasMappingTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via EntAliasMappingTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type EntAliasMappingTableWatcher struct {
 	w *snmp.Watcher[EntAliasMappingTableRow]
 }
@@ -2303,8 +2337,10 @@ var EntPhysicalChildIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // EntPhysicalContainsTableRow is one row of entPhysicalContainsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// EntPhysicalContainsTableRow.Observed to tell a reported zero from a column the
+// [EntPhysicalContainsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type EntPhysicalContainsTableRow struct {
 	Index                 snmp.OID
 	EntPhysicalChildIndex int32
@@ -2329,6 +2365,7 @@ func (r EntPhysicalContainsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // EntPhysicalContainsTableWalker streams selected columns of entPhysicalContainsTable.
+// The zero value is not usable; construct via EntPhysicalContainsTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntPhysicalContainsTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2500,7 +2537,8 @@ func mergeEntPhysicalContainsTableRow(dst *EntPhysicalContainsTableRow, vbs []sn
 }
 
 // EntPhysicalContainsTableWatcher is a table-aware Watcher over EntPhysicalContainsTable.
-// Construct via EntPhysicalContainsTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via EntPhysicalContainsTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type EntPhysicalContainsTableWatcher struct {
 	w *snmp.Watcher[EntPhysicalContainsTableRow]
 }

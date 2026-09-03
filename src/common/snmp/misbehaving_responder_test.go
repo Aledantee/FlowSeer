@@ -182,8 +182,6 @@ func bulkReq(oid OID, maxReps int) *message {
 	}
 }
 
-// --- Seam self-tests: prove the seam's mechanics independent of walk behavior ---
-
 func mibRoot() OID { return MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2) }
 
 func threeRowMIB() []kv {

@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package ifmib binds the SMI objects declared by IF-MIB.
 package ifmib
 
 import (
@@ -17,7 +18,6 @@ import (
 	ianaiftype "go.aledante.io/FlowSeer/generated/go/mib/ianaiftype"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // IfAdminStatusValue is the SMI enum ifAdminStatus (inline).
@@ -28,14 +28,21 @@ import (
 // information retained by the managed system, ifAdminStatus is then
 // changed to either the up(1) or testing(3) states (or remains in the
 // down(2) state).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IfAdminStatusValue int32
 
 const (
-	IfAdminStatusValueUp      IfAdminStatusValue = 1
-	IfAdminStatusValueDown    IfAdminStatusValue = 2
+	// IfAdminStatusValueUp represents the SMI value up.
+	IfAdminStatusValueUp IfAdminStatusValue = 1
+	// IfAdminStatusValueDown represents the SMI value down.
+	IfAdminStatusValueDown IfAdminStatusValue = 2
+	// IfAdminStatusValueTesting represents the SMI value testing.
 	IfAdminStatusValueTesting IfAdminStatusValue = 3
 )
 
+// String returns the SMI label, or IfAdminStatusValue(n) for an unrecognized value n.
 func (v IfAdminStatusValue) String() string {
 	switch v {
 	case IfAdminStatusValueUp:
@@ -54,13 +61,19 @@ func (v IfAdminStatusValue) String() string {
 // interface. By default, this object should have the value enabled(1) for
 // interfaces which do not operate on 'top' of any other interface (as
 // defined in the ifStackTable), and disabled(2) otherwise.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IfLinkUpDownTrapEnableValue int32
 
 const (
-	IfLinkUpDownTrapEnableValueEnabled  IfLinkUpDownTrapEnableValue = 1
+	// IfLinkUpDownTrapEnableValueEnabled represents the SMI value enabled.
+	IfLinkUpDownTrapEnableValueEnabled IfLinkUpDownTrapEnableValue = 1
+	// IfLinkUpDownTrapEnableValueDisabled represents the SMI value disabled.
 	IfLinkUpDownTrapEnableValueDisabled IfLinkUpDownTrapEnableValue = 2
 )
 
+// String returns the SMI label, or IfLinkUpDownTrapEnableValue(n) for an unrecognized value n.
 func (v IfLinkUpDownTrapEnableValue) String() string {
 	switch v {
 	case IfLinkUpDownTrapEnableValueEnabled:
@@ -83,18 +96,29 @@ func (v IfLinkUpDownTrapEnableValue) String() string {
 // down(2) state if and only if there is a fault that prevents it from
 // going to the up(1) state; it should remain in the notPresent(6) state if
 // the interface has missing (typically, hardware) components.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IfOperStatusValue int32
 
 const (
-	IfOperStatusValueUp             IfOperStatusValue = 1
-	IfOperStatusValueDown           IfOperStatusValue = 2
-	IfOperStatusValueTesting        IfOperStatusValue = 3
-	IfOperStatusValueUnknown        IfOperStatusValue = 4
-	IfOperStatusValueDormant        IfOperStatusValue = 5
-	IfOperStatusValueNotPresent     IfOperStatusValue = 6
+	// IfOperStatusValueUp represents the SMI value up.
+	IfOperStatusValueUp IfOperStatusValue = 1
+	// IfOperStatusValueDown represents the SMI value down.
+	IfOperStatusValueDown IfOperStatusValue = 2
+	// IfOperStatusValueTesting represents the SMI value testing.
+	IfOperStatusValueTesting IfOperStatusValue = 3
+	// IfOperStatusValueUnknown represents the SMI value unknown.
+	IfOperStatusValueUnknown IfOperStatusValue = 4
+	// IfOperStatusValueDormant represents the SMI value dormant.
+	IfOperStatusValueDormant IfOperStatusValue = 5
+	// IfOperStatusValueNotPresent represents the SMI value notPresent.
+	IfOperStatusValueNotPresent IfOperStatusValue = 6
+	// IfOperStatusValueLowerLayerDown represents the SMI value lowerLayerDown.
 	IfOperStatusValueLowerLayerDown IfOperStatusValue = 7
 )
 
+// String returns the SMI label, or IfOperStatusValue(n) for an unrecognized value n.
 func (v IfOperStatusValue) String() string {
 	switch v {
 	case IfOperStatusValueUp:
@@ -124,14 +148,21 @@ func (v IfOperStatusValue) String() string {
 // restart of the managed system. Entries having the value other(1) are
 // valid and exist but are not classified as to whether they will continue
 // to exist after the next restart.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IfRcvAddressTypeValue int32
 
 const (
-	IfRcvAddressTypeValueOther       IfRcvAddressTypeValue = 1
-	IfRcvAddressTypeValueVolatile    IfRcvAddressTypeValue = 2
+	// IfRcvAddressTypeValueOther represents the SMI value other.
+	IfRcvAddressTypeValueOther IfRcvAddressTypeValue = 1
+	// IfRcvAddressTypeValueVolatile represents the SMI value volatile.
+	IfRcvAddressTypeValueVolatile IfRcvAddressTypeValue = 2
+	// IfRcvAddressTypeValueNonVolatile represents the SMI value nonVolatile.
 	IfRcvAddressTypeValueNonVolatile IfRcvAddressTypeValue = 3
 )
 
+// String returns the SMI label, or IfRcvAddressTypeValue(n) for an unrecognized value n.
 func (v IfRcvAddressTypeValue) String() string {
 	switch v {
 	case IfRcvAddressTypeValueOther:
@@ -151,18 +182,29 @@ func (v IfRcvAddressTypeValue) String() string {
 // Note that this facility provides no provision for saving the results of
 // one test when starting another, as could be required if used by multiple
 // managers concurrently.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IfTestResultValue int32
 
 const (
-	IfTestResultValueNone         IfTestResultValue = 1
-	IfTestResultValueSuccess      IfTestResultValue = 2
-	IfTestResultValueInProgress   IfTestResultValue = 3
+	// IfTestResultValueNone represents the SMI value none.
+	IfTestResultValueNone IfTestResultValue = 1
+	// IfTestResultValueSuccess represents the SMI value success.
+	IfTestResultValueSuccess IfTestResultValue = 2
+	// IfTestResultValueInProgress represents the SMI value inProgress.
+	IfTestResultValueInProgress IfTestResultValue = 3
+	// IfTestResultValueNotSupported represents the SMI value notSupported.
 	IfTestResultValueNotSupported IfTestResultValue = 4
-	IfTestResultValueUnAbleToRun  IfTestResultValue = 5
-	IfTestResultValueAborted      IfTestResultValue = 6
-	IfTestResultValueFailed       IfTestResultValue = 7
+	// IfTestResultValueUnAbleToRun represents the SMI value unAbleToRun.
+	IfTestResultValueUnAbleToRun IfTestResultValue = 5
+	// IfTestResultValueAborted represents the SMI value aborted.
+	IfTestResultValueAborted IfTestResultValue = 6
+	// IfTestResultValueFailed represents the SMI value failed.
+	IfTestResultValueFailed IfTestResultValue = 7
 )
 
+// String returns the SMI label, or IfTestResultValue(n) for an unrecognized value n.
 func (v IfTestResultValue) String() string {
 	switch v {
 	case IfTestResultValueNone:
@@ -190,13 +232,19 @@ func (v IfTestResultValue) String() string {
 // write to this object is only successful when it changes its value from
 // 'notInUse(1)' to 'inUse(2)'. After completion of a test, the agent
 // resets the value back to 'notInUse(1)'.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IfTestStatusValue int32
 
 const (
+	// IfTestStatusValueNotInUse represents the SMI value notInUse.
 	IfTestStatusValueNotInUse IfTestStatusValue = 1
-	IfTestStatusValueInUse    IfTestStatusValue = 2
+	// IfTestStatusValueInUse represents the SMI value inUse.
+	IfTestStatusValueInUse IfTestStatusValue = 2
 )
 
+// String returns the SMI label, or IfTestStatusValue(n) for an unrecognized value n.
 func (v IfTestStatusValue) String() string {
 	switch v {
 	case IfTestStatusValueNotInUse:
@@ -209,6 +257,8 @@ func (v IfTestStatusValue) String() string {
 }
 
 // IfNumberGet reads the SMIv2 scalar ifNumber.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of network interfaces (regardless of their current state)
 // present on this system.
 func IfNumberGet(ctx context.Context, sess snmp.Session) (int32, error) {
@@ -218,7 +268,7 @@ func IfNumberGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ifNumber")
+		return 0, errs.Msg("empty Get response for ifNumber")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -227,6 +277,8 @@ func IfNumberGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // IfTableLastChangeGet reads the SMIv2 scalar ifTableLastChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime at the time of the last creation or deletion of
 // an entry in the ifTable. If the number of entries has been unchanged
 // since the last re-initialization of the local network management
@@ -238,7 +290,7 @@ func IfTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ifTableLastChange")
+		return 0, errs.Msg("empty Get response for ifTableLastChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -247,6 +299,8 @@ func IfTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error
 }
 
 // IfStackLastChangeGet reads the SMIv2 scalar ifStackLastChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime at the time of the last change of the (whole)
 // interface stack. A change of the interface stack is defined to be any
 // creation, deletion, or change in value of any instance of ifStackStatus.
@@ -260,7 +314,7 @@ func IfStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ifStackLastChange")
+		return 0, errs.Msg("empty Get response for ifStackLastChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -521,8 +575,10 @@ var IfSpecific = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1
 // IfTableRow is one row of ifTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IfTableRow.Observed to tell a reported zero from a column the
+// [IfTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IfTableRow struct {
 	Index             snmp.OID
 	IfIndex           int32
@@ -610,6 +666,7 @@ func (r IfTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IfTableWalker streams selected columns of ifTable.
+// The zero value is not usable; construct via IfTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IfTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -1417,7 +1474,8 @@ func mergeIfTableRow(dst *IfTableRow, vbs []snmp.VarBind) {
 }
 
 // IfTableWatcher is a table-aware Watcher over IfTable.
-// Construct via IfTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via IfTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type IfTableWatcher struct {
 	w *snmp.Watcher[IfTableRow]
 }
@@ -1723,8 +1781,10 @@ var IfCounterDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1,
 // IfXTableRow is one row of ifXTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IfXTableRow.Observed to tell a reported zero from a column the
+// [IfXTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IfXTableRow struct {
 	Index                      snmp.OID
 	IfName                     string
@@ -1803,6 +1863,7 @@ func (r IfXTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IfXTableWalker streams selected columns of ifXTable.
+// The zero value is not usable; construct via IfXTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IfXTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2222,8 +2283,10 @@ var IfStackStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1
 // IfStackTableRow is one row of ifStackTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IfStackTableRow.Observed to tell a reported zero from a column the
+// [IfStackTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IfStackTableRow struct {
 	Index         snmp.OID
 	IfStackStatus snmp.RowStatus
@@ -2248,6 +2311,7 @@ func (r IfStackTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IfStackTableWalker streams selected columns of ifStackTable.
+// The zero value is not usable; construct via IfStackTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IfStackTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2414,7 +2478,8 @@ func mergeIfStackTableRow(dst *IfStackTableRow, vbs []snmp.VarBind) {
 }
 
 // IfStackTableWatcher is a table-aware Watcher over IfStackTable.
-// Construct via IfStackTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via IfStackTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type IfStackTableWatcher struct {
 	w *snmp.Watcher[IfStackTableRow]
 }
@@ -2560,8 +2625,10 @@ var IfTestOwner = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3
 // IfTestTableRow is one row of ifTestTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IfTestTableRow.Observed to tell a reported zero from a column the
+// [IfTestTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IfTestTableRow struct {
 	Index        snmp.OID
 	IfTestId     uint32
@@ -2601,6 +2668,7 @@ func (r IfTestTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IfTestTableWalker streams selected columns of ifTestTable.
+// The zero value is not usable; construct via IfTestTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IfTestTableWalker struct {
 	rw   *snmp.ColumnWalker
@@ -2802,8 +2870,10 @@ var IfRcvAddressType = snmp.NewColumn[IfRcvAddressTypeValue](snmp.MustOID(1, 3, 
 // IfRcvAddressTableRow is one row of ifRcvAddressTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IfRcvAddressTableRow.Observed to tell a reported zero from a column the
+// [IfRcvAddressTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IfRcvAddressTableRow struct {
 	Index              snmp.OID
 	IfRcvAddressStatus snmp.RowStatus
@@ -2831,6 +2901,7 @@ func (r IfRcvAddressTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IfRcvAddressTableWalker streams selected columns of ifRcvAddressTable.
+// The zero value is not usable; construct via IfRcvAddressTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IfRcvAddressTableWalker struct {
 	rw   *snmp.ColumnWalker
