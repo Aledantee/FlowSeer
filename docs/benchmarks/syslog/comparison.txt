@@ -1,0 +1,26 @@
+goos: darwin
+goarch: arm64
+pkg: go.aledante.io/FlowSeer/src/common/syslog/bench
+cpu: Apple M4 Pro
+BenchmarkCommonSubset/flowseer-12         	  296329	       365.0 ns/op	 257.55 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  409474	       384.3 ns/op	 244.60 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  395148	       307.0 ns/op	 306.14 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  401678	       301.4 ns/op	 311.85 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  418951	       299.2 ns/op	 314.21 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  415218	       301.6 ns/op	 311.66 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  405764	       300.8 ns/op	 312.51 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  404880	       302.2 ns/op	 311.07 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  405171	       303.1 ns/op	 310.17 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/flowseer-12         	  395772	       303.7 ns/op	 309.54 MB/s	     376 B/op	      12 allocs/op
+BenchmarkCommonSubset/leodido-12          	  288582	       408.1 ns/op	 230.32 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  305806	       398.6 ns/op	 235.84 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  317666	       395.2 ns/op	 237.86 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  313888	       405.2 ns/op	 231.98 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  325434	       402.3 ns/op	 233.68 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  297855	       406.1 ns/op	 231.49 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  296167	       410.9 ns/op	 228.79 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  275935	       410.8 ns/op	 228.80 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  276202	       436.7 ns/op	 215.24 MB/s	     896 B/op	      15 allocs/op
+BenchmarkCommonSubset/leodido-12          	  293658	       429.1 ns/op	 219.06 MB/s	     896 B/op	      15 allocs/op
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/syslog/bench	2.780s

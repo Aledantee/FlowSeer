@@ -1,0 +1,46 @@
+goos: darwin
+goarch: arm64
+pkg: go.aledante.io/FlowSeer/src/common/syslog
+cpu: Apple M4 Pro
+BenchmarkParse/raw-off/cisco-ios-12         	  336573	       340.7 ns/op	 187.85 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  369828	       338.4 ns/op	 189.11 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  360188	       340.6 ns/op	 187.91 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  372487	       341.3 ns/op	 187.53 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  367538	       337.7 ns/op	 189.53 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  365148	       340.8 ns/op	 187.82 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  376371	       347.0 ns/op	 184.43 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  363026	       343.4 ns/op	 186.36 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  367783	       349.9 ns/op	 182.90 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/cisco-ios-12         	  354844	       345.2 ns/op	 185.37 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  389089	       316.3 ns/op	 177.05 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  393958	       320.0 ns/op	 175.00 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  391942	       321.1 ns/op	 174.40 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  398119	       323.0 ns/op	 173.40 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  378026	       323.9 ns/op	 172.87 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  386576	       325.0 ns/op	 172.32 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  312069	       341.5 ns/op	 163.97 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  384814	       331.7 ns/op	 168.80 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  379476	       324.1 ns/op	 172.78 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-off/mixed-12             	  393222	       326.2 ns/op	 171.65 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  352526	       350.9 ns/op	 182.39 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  349030	       352.9 ns/op	 181.35 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  362186	       363.8 ns/op	 175.90 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  324272	       372.8 ns/op	 171.69 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  354465	       357.9 ns/op	 178.80 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  361186	       365.1 ns/op	 175.29 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  350096	       350.3 ns/op	 182.69 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  349611	       352.9 ns/op	 181.33 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  359106	       349.5 ns/op	 183.12 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/cisco-ios-12          	  369286	       358.0 ns/op	 178.76 MB/s	     288 B/op	       7 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  379086	       330.0 ns/op	 169.71 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  370279	       325.9 ns/op	 171.81 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  375660	       324.0 ns/op	 172.86 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  389826	       323.5 ns/op	 173.13 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  387294	       334.4 ns/op	 167.45 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  381501	       334.7 ns/op	 167.30 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  366471	       343.1 ns/op	 163.21 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  367351	       328.7 ns/op	 170.37 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  376381	       326.0 ns/op	 171.79 MB/s	     239 B/op	       5 allocs/op
+BenchmarkParse/raw-on/mixed-12              	  377674	       333.9 ns/op	 167.71 MB/s	     239 B/op	       5 allocs/op
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/syslog	5.320s
