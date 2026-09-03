@@ -2,6 +2,7 @@
 package bench
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/leodido/go-syslog/v4/rfc5424"
@@ -23,6 +24,16 @@ func TestCommonSubset(t *testing.T) {
 	b, err := rfc5424.NewParser().Parse(standard)
 	if err != nil || b == nil {
 		t.Fatal(err)
+	}
+	other, ok := b.(*rfc5424.SyslogMessage)
+	if !ok {
+		t.Fatal("unexpected comparison record")
+	}
+	if other.Priority == nil || strconv.Itoa(int(*other.Priority)) != a.Priority.Value || other.Hostname == nil || *other.Hostname != a.Hostname.Value || other.Appname == nil || *other.Appname != a.Application.Value || other.ProcID == nil || *other.ProcID != a.ProcessID.Value || other.MsgID == nil || *other.MsgID != a.MessageID.Value || other.Message == nil || *other.Message != string(a.Content) || other.Timestamp == nil || !other.Timestamp.Equal(*a.DeviceTime.Instant) {
+		t.Fatal("common subset fields differ")
+	}
+	if other.StructuredData == nil || (*other.StructuredData)["origin@32473"]["ip"] != string(a.StructuredData[0].Parameters[0].Value) {
+		t.Fatal("common structured data differs")
 	}
 }
 
