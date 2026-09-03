@@ -26,10 +26,7 @@ import (
 // rename of the host package surfaces as a single-site change.
 const snmpImport = "go.aledante.io/FlowSeer/src/common/snmp"
 
-// aeImport is the import path for go.aledante.io/ae, the error
-// construction primitive every generated package uses for non-wrap
-// errors (generated code never calls raw fmt.Errorf).
-const aeImport = "go.aledante.io/ae"
+const errsImport = "go.aledante.io/FlowSeer/src/common/errs"
 
 const generatedGoVersion = "go1.26"
 
@@ -131,6 +128,7 @@ func renderModule(
 
 	f := jen.NewFilePathName(pkgPrefix+"/"+cm.Package, cm.Package)
 	writeHeader(f, mod, cm)
+	f.PackageComment("Package " + cm.Package + " binds the SMI objects declared by " + cm.Name + ".")
 
 	// Sort nodes by OID so the emitted file reads in walk order rather
 	// than in the order the MIB happens to declare things. We then
@@ -139,20 +137,10 @@ func renderModule(
 	nodes := slices.Clone(mod.Nodes)
 	sort.SliceStable(nodes, func(i, j int) bool { return nodes[i].OID.Compare(nodes[j].OID) < 0 })
 
-	// Pass 1: collect typed enums (named INTEGER {…} types) from the
-	// module's reusable type list and from individual nodes that
-	// declare an inline enum. The emitter de-duplicates by Go type
-	// name so multiple scalars referencing the same enum produce one
-	// declaration.
+	// Resolve enum names before scalars and columns reference their types.
 	emitEnums(f, ec, mod, nodes)
-
-	// Pass 1b: named bit positions for the module's BITS types. These
-	// are constants, not a Go type — BITS values decode to
-	// [snmp.BitSet] and the constants name the positions worth asking
-	// about.
 	emitBitsConsts(f, mod)
 
-	// Pass 2: scalars (read-accessible OBJECT-TYPEs with NodeScalar).
 	for _, n := range nodes {
 		if n.Kind != smi.NodeScalar {
 			continue
@@ -160,10 +148,6 @@ func renderModule(
 		emitScalar(f, ec, n)
 	}
 
-	// Pass 3: tables. emitTable also walks the table's row node and
-	// emits each column's Column[T] value and registers the column in
-	// the dispatch map. emitTable also records per-column tier
-	// classifications for the ColumnTiers map.
 	for _, n := range nodes {
 		if n.Kind != smi.NodeTable {
 			continue
@@ -171,8 +155,6 @@ func renderModule(
 		emitTable(f, ec, n)
 	}
 
-	// Tail: per-package OID dispatch map, ColumnTiers map (gated
-	// on hasIndicator), and ChangeIndicator vars.
 	emitDispatch(f, ec)
 	emitTierMap(f, ec)
 	emitIndicators(f, ec)

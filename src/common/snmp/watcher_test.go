@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-// --- Fakes shared across watcher tests --------------------------------
-
 // watcherFakeSession is a fake [Session]. It supports a
 // scripted sequence of BulkWalk responses; each call dequeues the
 // next scripted response. Get is supported for the interleaved-Get
@@ -148,8 +146,6 @@ func (s *watcherFakeSession) pushScriptErr(err error) {
 	s.bulkWalkScripts = append(s.bulkWalkScripts, bulkWalkScript{err: err})
 }
 
-// --- Test fixtures: a tiny "interface table" row -----------------------
-
 // ifEntry mirrors the SMIv2 conceptual ifTable.ifEntry OID
 // (1.3.6.1.2.1.2.2.1) but lives here so tests do not import the
 // generated mib packages.
@@ -255,8 +251,6 @@ func makeIfIndicator(t *testing.T) ChangeIndicator {
 	}
 	return ci
 }
-
-// --- NewWatcher validation tests --------------------------------------
 
 func TestNewWatcher_RejectsNilSession(t *testing.T) {
 	w, err := NewWatcher[testIfRow](
@@ -432,8 +426,6 @@ func TestNewWatcher_RejectsIndicatorColumnOverride(t *testing.T) {
 		t.Errorf("expected non-nil Watcher with latched Err(); got w=%v err=%v", w, err)
 	}
 }
-
-// --- Cold-start lifecycle tests ---------------------------------------
 
 func TestWatcher_ColdStartEmitsAddedForEveryRow(t *testing.T) {
 	s := &watcherFakeSession{}
@@ -650,8 +642,6 @@ func TestWatcher_ColdStartSessionClosedIsTerminal(t *testing.T) {
 	}
 }
 
-// --- Close & lifecycle ------------------------------------------------
-
 func TestWatcher_CloseIsIdempotent(t *testing.T) {
 	s := &watcherFakeSession{}
 	s.pushScript(makeIfRowVarBinds(1))
@@ -796,8 +786,6 @@ func TestWatcher_ContextCancelMidColdStart(t *testing.T) {
 	_ = w
 }
 
-// --- Goroutine hygiene: nested-Walker close discipline ----------------
-
 func TestWatcher_NestedWalkerNoLeakAcrossCycles(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 
@@ -882,8 +870,6 @@ func TestWatcher_InterleavedGetDoesNotDeadlock(t *testing.T) {
 	}
 }
 
-// --- rowIndex helper unit ---------------------------------------------
-
 // rawOID constructs an OID directly from sub-ids without running
 // SMIv2 root validation. Used here only to express expected row-index
 // suffixes (e.g., [5] for ifIndex=5) which legitimately violate the
@@ -932,8 +918,6 @@ func TestRowIndex_TooShort(t *testing.T) {
 		t.Errorf("rowIndex = %s, want empty", got)
 	}
 }
-
-// --- deriveTableRoot -------------------------------------------------
 
 func TestDeriveTableRoot_PerRow(t *testing.T) {
 	col := fakeColumn{oid: ifLastChange, kind: KindTimeTicks}

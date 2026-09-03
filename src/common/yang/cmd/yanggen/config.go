@@ -18,9 +18,8 @@ import (
 // Config is the parsed yanggen.yaml file.
 //
 // Unlike mibgen's per-module manifest, yanggen lists vendors: each
-// vendor entry includes every .yang file under its paths (KD5's
-// full-surface rule), subtracts an explicit skip-list (each skip
-// carrying a reason), and may override the derived Go package name
+// vendor entry includes every .yang file under its paths, subtracts an
+// explicit skip-list (each skip carrying a reason), and may override the Go package name
 // where the deterministic mangling collides. Strict decoding is
 // enforced at load time; unknown keys are an error.
 type Config struct {

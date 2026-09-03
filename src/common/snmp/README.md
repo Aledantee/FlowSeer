@@ -1,121 +1,99 @@
 # snmp
 
-FlowSeer's SNMP client library — a long-lived **collection framework**, not a
-thin RPC wrapper. The three first-class streaming primitives (`Walker`,
-`Watcher`, `TrapStream`) share a common channel-pump substrate and one set of
-lifecycle conventions: a constructor spawns the producer, an `iter.Seq2`-shaped
-range-over-func is the idiomatic consumer surface, `Close` is idempotent and
-terminates the producer within one PDU round-trip, and terminal errors latch
-via `Err()`.
+FlowSeer's SNMP client supports polling, table change streams, and trap
+reception. `NewSession` creates a session for one target; `ListenTraps` creates
+a listener. The package owns the wire implementation and supports concurrent
+requests on one session.
 
-The package is **pure types + USM + Walker + Watcher + TrapStream + the
-`Session` interface**; it has no I/O entry point and no public `Backend`
-abstraction. Backend selection is by *import* — you import a concrete backend
-package and call its top-level `Dial` / `ListenTraps`.
+For example, this function reads a device description through a generated MIB
+binding and closes the session before returning:
 
 ```go
-sess, err := gosnmp.Dial(ctx, "udp://10.0.0.1:161",
-    snmp.WithVersion(snmp.V2c), snmp.WithCommunity("public"))
+package example
+
+import (
+	"context"
+	"errors"
+
+	"go.aledante.io/FlowSeer/generated/go/mib/snmpv2mib"
+	"go.aledante.io/FlowSeer/src/common/snmp"
+)
+
+func description(ctx context.Context, target, community string) (string, error) {
+	sess, err := snmp.NewSession(ctx, target, snmp.V2c,
+		snmp.WithCommunity(community))
+	if err != nil {
+		return "", err
+	}
+
+	value, readErr := snmpv2mib.SysDescrGet(ctx, sess)
+	return value, errors.Join(readErr, sess.Close())
+}
 ```
 
-The package's own `doc.go` is the authoritative reference (including the
-Adaptive Watch conformance matrix); this README maps the surface.
+Pass a target such as `udp://10.0.0.1:161`. The version is a required argument;
+SNMPv3 uses `snmp.V3` with `snmp.WithUSM`. Construction does not exchange SNMP
+messages; USM discovery happens on the first operation.
 
-## Public surface
+## Reading and streaming
 
-**Session** (`session.go`) — the I/O interface every backend satisfies:
-`Get`, `GetNext`, `GetBulk`, `Walk`, `BulkWalk`, `Set`, `Close`. A `Session`
-is concurrency-safe but internally serialized (one wire connection per
-session, mutex-guarded) — for parallelism, dial one `Session` per target.
+`Session` exposes Get, GetNext, GetBulk, Set, and subtree walks. Its reactor
+matches replies by request ID, so concurrent operations do not require a
+separate connection for each request. Close the session when its owner stops.
 
-**OID** (`oid.go`) — the typed object identifier: `OID`, `NewOID(subs...)`,
-`MustOID(subs...)`, `ParseOID(string)`.
+A `Walker` offers range-over-function iteration and Scanner-style
+`Next`/`Current` methods. Use one iteration form and check `Err` after it ends.
+Generated table walkers decode only the requested columns. A row's `Observed`
+method distinguishes a reported zero from a column the device did not return.
+A column decode error terminates the generated walk; check `Err` even when
+some rows were returned.
 
-**VarBind** (`varbind.go`) — a **sealed sum type** over every SMIv2 base type
-plus the three exception variants. Concrete arms include `Integer32Var`,
-`Uinteger32Var`, `OctetStringVar`, `ObjectIDVar`, `Counter32Var`,
-`Gauge32Var`, `TimeTicksVar`, `Counter64Var`, `IPAddressVar`, `OpaqueVar`,
-`OpaqueFloatVar`, `OpaqueDoubleVar`, `NullVar`, and the exception variants
-`NoSuchObjectVar`, `NoSuchInstanceVar`, `EndOfMibViewVar`. `IsException(vb)`
-classifies the exception arms.
+A `Watcher` retains a table snapshot and uses a change indicator to decide when
+to fetch updates. It emits added, modified, and removed rows. Transient tick
+errors are available through `LastTickErr`; `Err` reports the terminal cause.
+Close a watcher when finished so its producer can stop.
 
-**Decode helpers** (`decode.go`) — `DecodeInt32`, `DecodeUint32`,
-`DecodeUint64`, `DecodeBytes`, `DecodeOID`, `DecodeIP`. Generated MIB
-accessors and SMIv2 textual conventions delegate here.
+`TrapStream` drops the oldest buffered trap when a consumer falls behind.
+`Dropped` reports the loss. Source filtering and rate limiting are advisory;
+use network controls when reception requires a stricter boundary.
 
-**Walker** (`walker.go`) — a Scanner-shaped subtree-walk consumer. Exposes
-both a range-over-func (`Walker.Iter`) and the Scanner triple (`Next` /
-`Current` / `Err`); pick one per loop and always check `Err` afterward.
+The [package documentation](doc.go) describes the API and lifecycle contracts.
 
-**Watcher** (`watcher.go`, `watch.go`) — `Watcher[Row]`, the long-lived
-counterpart to `Walker`: observes a per-(target, table) view over time,
-probing a declarative `ChangeIndicator` (`NewPerRowIndicator` /
-`NewScalarIndicator`) at an adaptive cadence and emitting typed
-`WatchEvent[Row]` values (`ChangeKind` added/modified/removed). Range-over-func
-only (`Watcher.Iter`); inspect degraded state via `Watcher.Fallback` and
-per-tick errors via `Watcher.LastTickErr`. Tunable through `WatchOption`s
-(`WithCadenceBounds`, `WithColumnTier`, `WithProbeWindow`,
-`WithForcedWalkInterval`, …).
+## Generating MIB bindings
 
-**TrapStream** (`trap.go`) — received-trap stream with drop-oldest
-backpressure and a monotonic `Dropped` counter. Configured via `TrapOption`s
-(`WithAllowedSources`, `WithMaxTrapsPerSecond`, `WithUSMTable`, …).
-
-**Options** (`options.go`) — `Option` / `CallOption` functional options:
-`WithVersion`, `WithCommunity`, `WithTimeout`, `WithRetries`, `WithMaxOIDs`,
-`WithUSM`, `WithMinSecurity`, and the per-call overrides.
-
-## gosnmp backend (`backend/gosnmp/`)
-
-The `github.com/gosnmp/gosnmp`-backed wire implementation, and the **single
-point in the FlowSeer tree** that imports gosnmp. All translation between
-gosnmp's wire types and `snmp.VarBind` happens at this seam; no gosnmp
-identifier escapes upward. Two top-level entry points: `Dial` (constructs an
-`snmp.Session`) and `ListenTraps` (binds a trap listener, returns a
-`*snmp.TrapStream`). Selection is by import — there is no init-time
-registration.
-
-## mibgen codegen tool (`cmd/mibgen/`)
-
-`mibgen` generates Go bindings for SMIv2 MIB modules; each module becomes one
-package under `generated/go/mib/<module>/`. The generated code consumes only
-`snmp`'s public API (typed scalar Get-accessors, columns via `snmp.NewColumn`,
-per-table row structs and Walkers, SMI enum types, an OID→dispatch map, and
-`snmp.Decode*` for well-known textual conventions). It is a one-shot CLI and
-is exempt from the `as.Service` rule (AGENTS.md R14).
+`mibgen` reads the repository-root `mibgen.yaml` and writes one package per
+configured module under `generated/go/mib/`. Bindings use the public SNMP API
+and the repository's `errs` package. Run these commands from the repository
+root:
 
 ```sh
-go run ./common/snmp/cmd/mibgen          # regenerate every MIB package
-go tool mibgen -verify                    # load-only; no codegen
-go tool mibgen -check                     # exit non-zero on output drift
+go generate .
+go run ./src/common/snmp/cmd/mibgen -verify
+go run ./src/common/snmp/cmd/mibgen -check
 ```
 
-Config defaults to `common/snmp/cmd/mibgen/mibgen.yaml` (search paths, module
-list with `depends_on` edges, per-OID type overrides). The emitter lives in
-`emit.go` and the per-shape `emit_*.go` companions.
+`-verify` resolves the configured MIBs without writing output. `-check`
+regenerates into a temporary directory and compares the result with the
+committed bindings. Change the emitter or schema source, then regenerate;
+hand edits to generated files are not retained.
 
-## Integration tests (`src/common/snmp/test/integration/`)
+The [generator documentation](cmd/mibgen/doc.go) explains the diagnostic
+baseline and golden-fixture update command.
 
-End-to-end tests against real SNMP agents, gated by build tags so bare
-`go test ./...` runs **zero** integration tests. Run via `task`, not `make`:
+## Tests and conventions
 
-| Command | Tier | Substrate |
-| --- | --- | --- |
-| `task snmp:t1` | t1 | Net-SNMP `snmpd` in Docker — USM auth/priv matrix + forged edge cases. |
-| `task snmp:t2` | t2 | Nokia SR Linux via containerlab — dense-row collector flow + real-NOS traps. |
-| `task snmp:t3` | t3 | `snmpsim` replay of committed `.snmprec` captures — vendor regression coverage. |
-| `SNMP_T4_TARGETS=… task snmp:t4` | t4 | Operator-supplied live device; opt-in, skips cleanly when unset. |
+Run the unit and conformance tests from the repository root:
 
-Each tier installs its own build-tag-guarded `TestMain` and owns its
-container/lab lifecycle (cleanup runs even on panic); selecting two tier tags
-at once is a deliberate compile error. All tiers dial through the
-`testenv.Dialer` / `testenv.TrapListener` seam so a future native backend
-swaps in with two lines. Prerequisites and per-tier walkthroughs are in
-[integration test guide](test/integration/README.md).
+```sh
+go test -race ./src/common/snmp/...
+```
 
-## Conventions
+Integration tiers require an explicit build tag. For example,
+`task --dir src/common/snmp/test/integration t1` runs the containerized
+Net-SNMP suite. The [integration guide](test/integration/README.md) covers the
+other tiers and their prerequisites.
 
-Style and behavioural rules are repo-wide; see
-[`docs/conventions/`](../../../docs/conventions/) (notably `go-style.md`,
-`naming.md`, `errors.md`). The `mibgen`-emitted MIB packages under
-`generated/go/mib/` are subject to the full lint set like hand-written code.
+[Go style](../../../docs/code-style.md) and
+[documentation style](../../../docs/doc-style.md) govern this package.
+Generated output is excluded from normal lint findings, so emitter tests and
+generation drift checks must cover it directly.

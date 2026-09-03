@@ -14,7 +14,7 @@ import (
 //	func <Scalar>Get(ctx context.Context, sess snmp.Session) (T, error) {
 //	    vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(<subs>...)})
 //	    if err != nil { return zero, err }
-//	    if len(vbs) == 0 { return zero, ae.Msg("empty Get response") }
+//	    if len(vbs) == 0 { return zero, errs.Msg("empty Get response") }
 //	    return decode(vbs[0])
 //	}
 //
@@ -30,6 +30,8 @@ func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) {
 	// reflown to 76-col-ish lines so the rendered file stays
 	// readable.
 	f.Comment(goName + "Get reads the SMIv2 scalar " + n.Name + ".")
+	f.Comment("It returns the session or decode error, or an error if the response is empty.")
+	f.Comment("")
 	for _, line := range splitDoc(n.Description) {
 		f.Comment(line)
 	}
@@ -48,7 +50,7 @@ func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) {
 		g.Line()
 
 		g.If(jen.Len(jen.Id("vbs")).Op("==").Lit(0)).Block(
-			jen.Return(r.ZeroExpr(), jen.Qual(aeImport, "Msg").Call(jen.Lit("empty Get response for "+n.Name))),
+			jen.Return(r.ZeroExpr(), jen.Qual(errsImport, "Msg").Call(jen.Lit("empty Get response for "+n.Name))),
 		)
 		g.Line()
 
@@ -57,7 +59,7 @@ func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) {
 }
 
 // splitDoc reflows an SMI DESCRIPTION clause into 1-line comment
-// fragments. The input is whitespace-collapsed first (libsmi preserves
+// fragments. The input is whitespace-collapsed first (SMI descriptions preserve
 // newlines and large indents from the source MIB which would otherwise
 // produce noisy comments).
 func splitDoc(s string) []string {

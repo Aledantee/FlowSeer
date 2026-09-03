@@ -4,9 +4,9 @@ import "context"
 
 // Session is the per-target SNMP operation surface. Concrete Sessions are
 // constructed by the [NewSession] function and
-// are concurrency-safe (calls are serialized internally). Every
+// are safe for concurrent use, with multiple requests in flight. Every
 // operation takes a [context.Context] as its first argument; the
-// context is never stored on the Session.
+// operation uses its context for cancellation and deadlines.
 //
 // Trap-send is intentionally absent — no FlowSeer actor sends
 // traps. Trap reception is exposed by the [ListenTraps] function

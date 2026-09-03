@@ -6,4 +6,5 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package snmpv2conf binds the SMI objects declared by SNMPv2-CONF.
 package snmpv2conf

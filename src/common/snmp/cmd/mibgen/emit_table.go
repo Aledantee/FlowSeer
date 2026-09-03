@@ -116,8 +116,10 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	f.Comment(rowTypeName + " is one row of " + table.Name + ". Index carries the OID")
 	f.Comment("suffix beyond the table-entry prefix; the remaining fields are")
 	f.Comment("populated only for columns the caller passed to Walk(). Use")
-	f.Comment(rowTypeName + ".Observed to tell a reported zero from a column the")
+	f.Comment("[" + rowTypeName + ".Observed] to tell a reported zero from a column the")
 	f.Comment("agent never answered.")
+	f.Comment("The zero value has no observed columns. Concurrent reads are safe;")
+	f.Comment("callers must synchronize mutation of the row or its referenced data.")
 	f.Type().Id(rowTypeName).StructFunc(func(g *jen.Group) {
 		g.Id("Index").Qual(snmpImport, "OID")
 		for _, c := range cols {
@@ -159,7 +161,8 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	// known-Kind values decode fused — the generic decode runs only as
 	// the per-varbind fallback.
 	f.Comment(walkerTypeName + " is a table-aware walker over " + table.Name + ".")
-	f.Comment("Construct via " + tableName + ".Walk(ctx, sess, cols...).")
+	f.Comment("The zero value is not usable; construct via " + tableName + ".Walk(ctx, sess, cols...).")
+	f.Comment("Use a single iterator. Err may be called concurrently with iteration.")
 	f.Type().Id(walkerTypeName).Struct(
 		jen.Id("rw").Op("*").Qual(snmpImport, "RawWalker"),
 		jen.Id("cols").Index().Qual(snmpImport, "AnyColumn"),
@@ -196,7 +199,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	f.Comment("Every column in cols must be a column of " + table.Name + ". A column")
 	f.Comment("of any other table is a caller bug, not a device quirk: no request")
 	f.Comment("is sent, the iterator yields nothing, and Err reports")
-	f.Comment("snmp.ErrForeignColumn.")
+	f.Comment("[snmp.ErrForeignColumn].")
 	f.Func().Params(jen.Id(descriptorTypeName)).Id("Walk").Params(
 		jen.Id("ctx").Qual("context", "Context"),
 		jen.Id("sess").Qual(snmpImport, "Session"),

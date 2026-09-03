@@ -1,7 +1,7 @@
 # SNMP Conformance Coverage Map
 
 Generated from `conformance_corpus_test.go`. Do not edit by hand —
-run `UPDATE_CONFORMANCE=1 go test ./common/snmp/ -run TestConformanceMatrixUpToDate`.
+run `UPDATE_CONFORMANCE=1 go test ./src/common/snmp/ -run TestConformanceMatrixUpToDate`.
 
 **Status:** 33 covered · 3 accepted-risk · 0 pending · 36 total
 

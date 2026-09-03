@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package pbridgemib binds the SMI objects declared by P-BRIDGE-MIB.
 package pbridgemib
 
 import (
@@ -15,19 +16,25 @@ import (
 	"iter"
 	"net"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // EnabledStatus is the SMI enum EnabledStatus.
 // A simple status value for the object.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EnabledStatus int32
 
 const (
-	EnabledStatusEnabled  EnabledStatus = 1
+	// EnabledStatusEnabled represents the SMI value enabled.
+	EnabledStatusEnabled EnabledStatus = 1
+	// EnabledStatusDisabled represents the SMI value disabled.
 	EnabledStatusDisabled EnabledStatus = 2
 )
 
+// String returns the SMI label, or EnabledStatus(n) for an unrecognized value n.
 func (v EnabledStatus) String() string {
 	switch v {
 	case EnabledStatusEnabled:
@@ -58,14 +65,22 @@ func (v EnabledStatus) String() string {
 // dot1dLocalVlanCapable(7) -- can support multiple local -- bridges,
 // outside of the scope -- of 802.1Q defined VLANs.
 const (
+	// Dot1dDeviceCapabilitiesBitDot1dExtendedFilteringServices is the position of the dot1dExtendedFilteringServices bit.
 	Dot1dDeviceCapabilitiesBitDot1dExtendedFilteringServices snmp.BitPos = 0
-	Dot1dDeviceCapabilitiesBitDot1dTrafficClasses            snmp.BitPos = 1
+	// Dot1dDeviceCapabilitiesBitDot1dTrafficClasses is the position of the dot1dTrafficClasses bit.
+	Dot1dDeviceCapabilitiesBitDot1dTrafficClasses snmp.BitPos = 1
+	// Dot1dDeviceCapabilitiesBitDot1qStaticEntryIndividualPort is the position of the dot1qStaticEntryIndividualPort bit.
 	Dot1dDeviceCapabilitiesBitDot1qStaticEntryIndividualPort snmp.BitPos = 2
-	Dot1dDeviceCapabilitiesBitDot1qIVLCapable                snmp.BitPos = 3
-	Dot1dDeviceCapabilitiesBitDot1qSVLCapable                snmp.BitPos = 4
-	Dot1dDeviceCapabilitiesBitDot1qHybridCapable             snmp.BitPos = 5
-	Dot1dDeviceCapabilitiesBitDot1qConfigurablePvidTagging   snmp.BitPos = 6
-	Dot1dDeviceCapabilitiesBitDot1dLocalVlanCapable          snmp.BitPos = 7
+	// Dot1dDeviceCapabilitiesBitDot1qIVLCapable is the position of the dot1qIVLCapable bit.
+	Dot1dDeviceCapabilitiesBitDot1qIVLCapable snmp.BitPos = 3
+	// Dot1dDeviceCapabilitiesBitDot1qSVLCapable is the position of the dot1qSVLCapable bit.
+	Dot1dDeviceCapabilitiesBitDot1qSVLCapable snmp.BitPos = 4
+	// Dot1dDeviceCapabilitiesBitDot1qHybridCapable is the position of the dot1qHybridCapable bit.
+	Dot1dDeviceCapabilitiesBitDot1qHybridCapable snmp.BitPos = 5
+	// Dot1dDeviceCapabilitiesBitDot1qConfigurablePvidTagging is the position of the dot1qConfigurablePvidTagging bit.
+	Dot1dDeviceCapabilitiesBitDot1qConfigurablePvidTagging snmp.BitPos = 6
+	// Dot1dDeviceCapabilitiesBitDot1dLocalVlanCapable is the position of the dot1dLocalVlanCapable bit.
+	Dot1dDeviceCapabilitiesBitDot1dLocalVlanCapable snmp.BitPos = 7
 )
 
 // Dot1dPortCapabilitiesBit names the bit positions of the SMI BITS type dot1dPortCapabilities (inline).
@@ -79,12 +94,17 @@ const (
 // the discarding of any -- frame received on a Port whose -- VLAN
 // classification does not -- include that Port in its Member -- set.
 const (
-	Dot1dPortCapabilitiesBitDot1qDot1qTagging                     snmp.BitPos = 0
+	// Dot1dPortCapabilitiesBitDot1qDot1qTagging is the position of the dot1qDot1qTagging bit.
+	Dot1dPortCapabilitiesBitDot1qDot1qTagging snmp.BitPos = 0
+	// Dot1dPortCapabilitiesBitDot1qConfigurableAcceptableFrameTypes is the position of the dot1qConfigurableAcceptableFrameTypes bit.
 	Dot1dPortCapabilitiesBitDot1qConfigurableAcceptableFrameTypes snmp.BitPos = 1
-	Dot1dPortCapabilitiesBitDot1qIngressFiltering                 snmp.BitPos = 2
+	// Dot1dPortCapabilitiesBitDot1qIngressFiltering is the position of the dot1qIngressFiltering bit.
+	Dot1dPortCapabilitiesBitDot1qIngressFiltering snmp.BitPos = 2
 )
 
 // Dot1dDeviceCapabilitiesGet reads the SMIv2 scalar dot1dDeviceCapabilities.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Indicates the optional parts of IEEE 802.1D and 802.1Q that are
 // implemented by this device and are manageable through this MIB.
 // Capabilities that are allowed on a per-port basis are indicated in
@@ -108,7 +128,7 @@ func Dot1dDeviceCapabilitiesGet(ctx context.Context, sess snmp.Session) (snmp.Bi
 	}
 
 	if len(vbs) == 0 {
-		return snmp.BitSet{}, ae.Msg("empty Get response for dot1dDeviceCapabilities")
+		return snmp.BitSet{}, errs.Msg("empty Get response for dot1dDeviceCapabilities")
 	}
 
 	return func(vb snmp.VarBind) (snmp.BitSet, error) {
@@ -117,6 +137,8 @@ func Dot1dDeviceCapabilitiesGet(ctx context.Context, sess snmp.Session) (snmp.Bi
 }
 
 // Dot1dTrafficClassesEnabledGet reads the SMIv2 scalar dot1dTrafficClassesEnabled.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value true(1) indicates that Traffic Classes are enabled on this
 // bridge. When false(2), the bridge operates with a single priority level
 // for all traffic. The value of this object MUST be retained across
@@ -128,7 +150,7 @@ func Dot1dTrafficClassesEnabledGet(ctx context.Context, sess snmp.Session) (bool
 	}
 
 	if len(vbs) == 0 {
-		return false, ae.Msg("empty Get response for dot1dTrafficClassesEnabled")
+		return false, errs.Msg("empty Get response for dot1dTrafficClassesEnabled")
 	}
 
 	return func(vb snmp.VarBind) (bool, error) {
@@ -137,6 +159,8 @@ func Dot1dTrafficClassesEnabledGet(ctx context.Context, sess snmp.Session) (bool
 }
 
 // Dot1dGmrpStatusGet reads the SMIv2 scalar dot1dGmrpStatus.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The administrative status requested by management for GMRP. The value
 // enabled(1) indicates that GMRP should be enabled on this device, in all
 // VLANs, on all ports for which it has not been specifically disabled.
@@ -153,7 +177,7 @@ func Dot1dGmrpStatusGet(ctx context.Context, sess snmp.Session) (EnabledStatus, 
 	}
 
 	if len(vbs) == 0 {
-		return EnabledStatus(0), ae.Msg("empty Get response for dot1dGmrpStatus")
+		return EnabledStatus(0), errs.Msg("empty Get response for dot1dGmrpStatus")
 	}
 
 	return func(vb snmp.VarBind) (EnabledStatus, error) {
@@ -195,8 +219,10 @@ var Dot1dTpHCPortInDiscards = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2,
 // Dot1dTpHCPortTableRow is one row of dot1dTpHCPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dTpHCPortTableRow.Observed to tell a reported zero from a column the
+// [Dot1dTpHCPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dTpHCPortTableRow struct {
 	Index                   snmp.OID
 	Dot1dTpHCPortInFrames   uint64
@@ -227,7 +253,8 @@ func (r Dot1dTpHCPortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dTpHCPortTableWalker is a table-aware walker over dot1dTpHCPortTable.
-// Construct via Dot1dTpHCPortTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dTpHCPortTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dTpHCPortTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -397,7 +424,7 @@ var Dot1dTpHCPortTable dot1dTpHCPortTableT
 // Every column in cols must be a column of dot1dTpHCPortTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dTpHCPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpHCPortTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -443,8 +470,10 @@ var Dot1dTpPortInOverflowDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6,
 // Dot1dTpPortOverflowTableRow is one row of dot1dTpPortOverflowTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dTpPortOverflowTableRow.Observed to tell a reported zero from a column the
+// [Dot1dTpPortOverflowTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dTpPortOverflowTableRow struct {
 	Index                         snmp.OID
 	Dot1dTpPortInOverflowFrames   uint32
@@ -475,7 +504,8 @@ func (r Dot1dTpPortOverflowTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dTpPortOverflowTableWalker is a table-aware walker over dot1dTpPortOverflowTable.
-// Construct via Dot1dTpPortOverflowTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dTpPortOverflowTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dTpPortOverflowTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -645,7 +675,7 @@ var Dot1dTpPortOverflowTable dot1dTpPortOverflowTableT
 // Every column in cols must be a column of dot1dTpPortOverflowTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dTpPortOverflowTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpPortOverflowTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 6, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -683,8 +713,10 @@ var Dot1dPortCapabilities = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1,
 // Dot1dPortCapabilitiesTableRow is one row of dot1dPortCapabilitiesTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dPortCapabilitiesTableRow.Observed to tell a reported zero from a column the
+// [Dot1dPortCapabilitiesTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dPortCapabilitiesTableRow struct {
 	Index                 snmp.OID
 	Dot1dPortCapabilities snmp.BitSet
@@ -709,7 +741,8 @@ func (r Dot1dPortCapabilitiesTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dPortCapabilitiesTableWalker is a table-aware walker over dot1dPortCapabilitiesTable.
-// Construct via Dot1dPortCapabilitiesTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dPortCapabilitiesTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dPortCapabilitiesTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -838,7 +871,7 @@ var Dot1dPortCapabilitiesTable dot1dPortCapabilitiesTableT
 // Every column in cols must be a column of dot1dPortCapabilitiesTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dPortCapabilitiesTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortCapabilitiesTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 1, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -880,8 +913,10 @@ var Dot1dPortNumTrafficClasses = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 
 // Dot1dPortPriorityTableRow is one row of dot1dPortPriorityTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dPortPriorityTableRow.Observed to tell a reported zero from a column the
+// [Dot1dPortPriorityTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dPortPriorityTableRow struct {
 	Index                        snmp.OID
 	Dot1dPortDefaultUserPriority int32
@@ -909,7 +944,8 @@ func (r Dot1dPortPriorityTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dPortPriorityTableWalker is a table-aware walker over dot1dPortPriorityTable.
-// Construct via Dot1dPortPriorityTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dPortPriorityTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dPortPriorityTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1061,7 +1097,7 @@ var Dot1dPortPriorityTable dot1dPortPriorityTableT
 // Every column in cols must be a column of dot1dPortPriorityTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dPortPriorityTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortPriorityTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1094,8 +1130,10 @@ var Dot1dRegenUserPriority = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // Dot1dUserPriorityRegenTableRow is one row of dot1dUserPriorityRegenTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dUserPriorityRegenTableRow.Observed to tell a reported zero from a column the
+// [Dot1dUserPriorityRegenTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dUserPriorityRegenTableRow struct {
 	Index                  snmp.OID
 	Dot1dRegenUserPriority int32
@@ -1120,7 +1158,8 @@ func (r Dot1dUserPriorityRegenTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dUserPriorityRegenTableWalker is a table-aware walker over dot1dUserPriorityRegenTable.
-// Construct via Dot1dUserPriorityRegenTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dUserPriorityRegenTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dUserPriorityRegenTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1254,7 +1293,7 @@ var Dot1dUserPriorityRegenTable dot1dUserPriorityRegenTableT
 // Every column in cols must be a column of dot1dUserPriorityRegenTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dUserPriorityRegenTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dUserPriorityRegenTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1287,8 +1326,10 @@ var Dot1dTrafficClass = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17,
 // Dot1dTrafficClassTableRow is one row of dot1dTrafficClassTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dTrafficClassTableRow.Observed to tell a reported zero from a column the
+// [Dot1dTrafficClassTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dTrafficClassTableRow struct {
 	Index             snmp.OID
 	Dot1dTrafficClass int32
@@ -1313,7 +1354,8 @@ func (r Dot1dTrafficClassTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dTrafficClassTableWalker is a table-aware walker over dot1dTrafficClassTable.
-// Construct via Dot1dTrafficClassTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dTrafficClassTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dTrafficClassTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1447,7 +1489,7 @@ var Dot1dTrafficClassTable dot1dTrafficClassTableT
 // Every column in cols must be a column of dot1dTrafficClassTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dTrafficClassTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTrafficClassTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1478,8 +1520,10 @@ var Dot1dPortOutboundAccessPriority = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6
 // Dot1dPortOutboundAccessPriorityTableRow is one row of dot1dPortOutboundAccessPriorityTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dPortOutboundAccessPriorityTableRow.Observed to tell a reported zero from a column the
+// [Dot1dPortOutboundAccessPriorityTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dPortOutboundAccessPriorityTableRow struct {
 	Index                           snmp.OID
 	Dot1dPortOutboundAccessPriority int32
@@ -1504,7 +1548,8 @@ func (r Dot1dPortOutboundAccessPriorityTableRow) Observed(col snmp.AnyColumn) bo
 }
 
 // Dot1dPortOutboundAccessPriorityTableWalker is a table-aware walker over dot1dPortOutboundAccessPriorityTable.
-// Construct via Dot1dPortOutboundAccessPriorityTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dPortOutboundAccessPriorityTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dPortOutboundAccessPriorityTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1638,7 +1683,7 @@ var Dot1dPortOutboundAccessPriorityTable dot1dPortOutboundAccessPriorityTableT
 // Every column in cols must be a column of dot1dPortOutboundAccessPriorityTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dPortOutboundAccessPriorityTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortOutboundAccessPriorityTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 2, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1684,8 +1729,10 @@ var Dot1dPortGarpLeaveAllTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 
 // Dot1dPortGarpTableRow is one row of dot1dPortGarpTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dPortGarpTableRow.Observed to tell a reported zero from a column the
+// [Dot1dPortGarpTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dPortGarpTableRow struct {
 	Index                     snmp.OID
 	Dot1dPortGarpJoinTime     uint32
@@ -1716,7 +1763,8 @@ func (r Dot1dPortGarpTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dPortGarpTableWalker is a table-aware walker over dot1dPortGarpTable.
-// Construct via Dot1dPortGarpTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dPortGarpTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dPortGarpTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1886,7 +1934,7 @@ var Dot1dPortGarpTable dot1dPortGarpTableT
 // Every column in cols must be a column of dot1dPortGarpTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dPortGarpTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortGarpTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 3, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1957,8 +2005,10 @@ var Dot1dPortRestrictedGroupRegistration = snmp.NewColumn[bool](snmp.MustOID(1, 
 // Dot1dPortGmrpTableRow is one row of dot1dPortGmrpTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dPortGmrpTableRow.Observed to tell a reported zero from a column the
+// [Dot1dPortGmrpTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dPortGmrpTableRow struct {
 	Index                                snmp.OID
 	Dot1dPortGmrpStatus                  EnabledStatus
@@ -1992,7 +2042,8 @@ func (r Dot1dPortGmrpTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dPortGmrpTableWalker is a table-aware walker over dot1dPortGmrpTable.
-// Construct via Dot1dPortGmrpTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dPortGmrpTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dPortGmrpTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2170,7 +2221,7 @@ var Dot1dPortGmrpTable dot1dPortGmrpTableT
 // Every column in cols must be a column of dot1dPortGmrpTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dPortGmrpTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dPortGmrpTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 6, 1, 4, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))

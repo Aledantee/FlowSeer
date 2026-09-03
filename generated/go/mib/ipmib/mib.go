@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package ipmib binds the SMI objects declared by IP-MIB.
 package ipmib
 
 import (
@@ -16,8 +17,8 @@ import (
 	"net"
 
 	snmpv2tc "go.aledante.io/FlowSeer/generated/go/mib/snmpv2tc"
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // IpAddressOriginTC is the SMI enum IpAddressOriginTC.
@@ -28,16 +29,25 @@ import (
 // auto-configuration. random(6) indicates an address chosen by the system
 // at random, e.g., an IPv4 address within 169.254/16, or an RFC 3041
 // privacy address.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpAddressOriginTC int32
 
 const (
-	IpAddressOriginTCOther     IpAddressOriginTC = 1
-	IpAddressOriginTCManual    IpAddressOriginTC = 2
-	IpAddressOriginTCDhcp      IpAddressOriginTC = 4
+	// IpAddressOriginTCOther represents the SMI value other.
+	IpAddressOriginTCOther IpAddressOriginTC = 1
+	// IpAddressOriginTCManual represents the SMI value manual.
+	IpAddressOriginTCManual IpAddressOriginTC = 2
+	// IpAddressOriginTCDhcp represents the SMI value dhcp.
+	IpAddressOriginTCDhcp IpAddressOriginTC = 4
+	// IpAddressOriginTCLinklayer represents the SMI value linklayer.
 	IpAddressOriginTCLinklayer IpAddressOriginTC = 5
-	IpAddressOriginTCRandom    IpAddressOriginTC = 6
+	// IpAddressOriginTCRandom represents the SMI value random.
+	IpAddressOriginTCRandom IpAddressOriginTC = 6
 )
 
+// String returns the SMI label, or IpAddressOriginTC(n) for an unrecognized value n.
 func (v IpAddressOriginTC) String() string {
 	switch v {
 	case IpAddressOriginTCOther:
@@ -66,16 +76,25 @@ func (v IpAddressOriginTC) String() string {
 // IpAddressOriginTC and IpAddressPrefixOriginTC are similar, they are not
 // identical. The first defines how an address was created, while the
 // second defines how a prefix was found.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpAddressPrefixOriginTC int32
 
 const (
-	IpAddressPrefixOriginTCOther     IpAddressPrefixOriginTC = 1
-	IpAddressPrefixOriginTCManual    IpAddressPrefixOriginTC = 2
+	// IpAddressPrefixOriginTCOther represents the SMI value other.
+	IpAddressPrefixOriginTCOther IpAddressPrefixOriginTC = 1
+	// IpAddressPrefixOriginTCManual represents the SMI value manual.
+	IpAddressPrefixOriginTCManual IpAddressPrefixOriginTC = 2
+	// IpAddressPrefixOriginTCWellknown represents the SMI value wellknown.
 	IpAddressPrefixOriginTCWellknown IpAddressPrefixOriginTC = 3
-	IpAddressPrefixOriginTCDhcp      IpAddressPrefixOriginTC = 4
+	// IpAddressPrefixOriginTCDhcp represents the SMI value dhcp.
+	IpAddressPrefixOriginTCDhcp IpAddressPrefixOriginTC = 4
+	// IpAddressPrefixOriginTCRouteradv represents the SMI value routeradv.
 	IpAddressPrefixOriginTCRouteradv IpAddressPrefixOriginTC = 5
 )
 
+// String returns the SMI label, or IpAddressPrefixOriginTC(n) for an unrecognized value n.
 func (v IpAddressPrefixOriginTC) String() string {
 	switch v {
 	case IpAddressPrefixOriginTCOther:
@@ -115,19 +134,31 @@ func (v IpAddressPrefixOriginTC) String() string {
 // use, subject to restrictions, while its uniqueness on a link is being
 // verified. In the absence of other information, an IPv4 address is always
 // preferred(1).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpAddressStatusTC int32
 
 const (
-	IpAddressStatusTCPreferred    IpAddressStatusTC = 1
-	IpAddressStatusTCDeprecated   IpAddressStatusTC = 2
-	IpAddressStatusTCInvalid      IpAddressStatusTC = 3
+	// IpAddressStatusTCPreferred represents the SMI value preferred.
+	IpAddressStatusTCPreferred IpAddressStatusTC = 1
+	// IpAddressStatusTCDeprecated represents the SMI value deprecated.
+	IpAddressStatusTCDeprecated IpAddressStatusTC = 2
+	// IpAddressStatusTCInvalid represents the SMI value invalid.
+	IpAddressStatusTCInvalid IpAddressStatusTC = 3
+	// IpAddressStatusTCInaccessible represents the SMI value inaccessible.
 	IpAddressStatusTCInaccessible IpAddressStatusTC = 4
-	IpAddressStatusTCUnknown      IpAddressStatusTC = 5
-	IpAddressStatusTCTentative    IpAddressStatusTC = 6
-	IpAddressStatusTCDuplicate    IpAddressStatusTC = 7
-	IpAddressStatusTCOptimistic   IpAddressStatusTC = 8
+	// IpAddressStatusTCUnknown represents the SMI value unknown.
+	IpAddressStatusTCUnknown IpAddressStatusTC = 5
+	// IpAddressStatusTCTentative represents the SMI value tentative.
+	IpAddressStatusTCTentative IpAddressStatusTC = 6
+	// IpAddressStatusTCDuplicate represents the SMI value duplicate.
+	IpAddressStatusTCDuplicate IpAddressStatusTC = 7
+	// IpAddressStatusTCOptimistic represents the SMI value optimistic.
+	IpAddressStatusTCOptimistic IpAddressStatusTC = 8
 )
 
+// String returns the SMI label, or IpAddressStatusTC(n) for an unrecognized value n.
 func (v IpAddressStatusTC) String() string {
 	switch v {
 	case IpAddressStatusTCPreferred:
@@ -154,14 +185,21 @@ func (v IpAddressStatusTC) String() string {
 // IpAddressTypeValue is the SMI enum ipAddressType (inline).
 // The type of address. broadcast(3) is not a valid value for IPv6
 // addresses (RFC 3513).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpAddressTypeValue int32
 
 const (
-	IpAddressTypeValueUnicast   IpAddressTypeValue = 1
-	IpAddressTypeValueAnycast   IpAddressTypeValue = 2
+	// IpAddressTypeValueUnicast represents the SMI value unicast.
+	IpAddressTypeValueUnicast IpAddressTypeValue = 1
+	// IpAddressTypeValueAnycast represents the SMI value anycast.
+	IpAddressTypeValueAnycast IpAddressTypeValue = 2
+	// IpAddressTypeValueBroadcast represents the SMI value broadcast.
 	IpAddressTypeValueBroadcast IpAddressTypeValue = 3
 )
 
+// String returns the SMI label, or IpAddressTypeValue(n) for an unrecognized value n.
 func (v IpAddressTypeValue) String() string {
 	switch v {
 	case IpAddressTypeValueUnicast:
@@ -181,15 +219,23 @@ func (v IpAddressTypeValue) String() string {
 // as a 2 bit signed integer allows for simple arithmetic comparisons. For
 // IPv4 routers or IPv6 routers that are not using the updated router
 // advertisement format, this object is set to medium (0).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpDefaultRouterPreferenceValue int32
 
 const (
+	// IpDefaultRouterPreferenceValueReserved represents the SMI value reserved.
 	IpDefaultRouterPreferenceValueReserved IpDefaultRouterPreferenceValue = -2
-	IpDefaultRouterPreferenceValueLow      IpDefaultRouterPreferenceValue = -1
-	IpDefaultRouterPreferenceValueMedium   IpDefaultRouterPreferenceValue = 0
-	IpDefaultRouterPreferenceValueHigh     IpDefaultRouterPreferenceValue = 1
+	// IpDefaultRouterPreferenceValueLow represents the SMI value low.
+	IpDefaultRouterPreferenceValueLow IpDefaultRouterPreferenceValue = -1
+	// IpDefaultRouterPreferenceValueMedium represents the SMI value medium.
+	IpDefaultRouterPreferenceValueMedium IpDefaultRouterPreferenceValue = 0
+	// IpDefaultRouterPreferenceValueHigh represents the SMI value high.
+	IpDefaultRouterPreferenceValueHigh IpDefaultRouterPreferenceValue = 1
 )
 
+// String returns the SMI label, or IpDefaultRouterPreferenceValue(n) for an unrecognized value n.
 func (v IpDefaultRouterPreferenceValue) String() string {
 	switch v {
 	case IpDefaultRouterPreferenceValueReserved:
@@ -214,13 +260,19 @@ func (v IpDefaultRouterPreferenceValue) String() string {
 // the object from non-volatile storage upon re-initialization of the
 // system. Note: a stronger requirement is not used because this object was
 // previously defined.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpForwardingValue int32
 
 const (
-	IpForwardingValueForwarding    IpForwardingValue = 1
+	// IpForwardingValueForwarding represents the SMI value forwarding.
+	IpForwardingValueForwarding IpForwardingValue = 1
+	// IpForwardingValueNotForwarding represents the SMI value notForwarding.
 	IpForwardingValueNotForwarding IpForwardingValue = 2
 )
 
+// String returns the SMI label, or IpForwardingValue(n) for an unrecognized value n.
 func (v IpForwardingValue) String() string {
 	switch v {
 	case IpForwardingValueForwarding:
@@ -246,15 +298,23 @@ func (v IpForwardingValue) String() string {
 // written the entity should not save the change to non-volatile storage.
 // Note: a stronger requirement is not used because this object was
 // previously defined.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpNetToMediaTypeValue int32
 
 const (
-	IpNetToMediaTypeValueOther   IpNetToMediaTypeValue = 1
+	// IpNetToMediaTypeValueOther represents the SMI value other.
+	IpNetToMediaTypeValueOther IpNetToMediaTypeValue = 1
+	// IpNetToMediaTypeValueInvalid represents the SMI value invalid.
 	IpNetToMediaTypeValueInvalid IpNetToMediaTypeValue = 2
+	// IpNetToMediaTypeValueDynamic represents the SMI value dynamic.
 	IpNetToMediaTypeValueDynamic IpNetToMediaTypeValue = 3
-	IpNetToMediaTypeValueStatic  IpNetToMediaTypeValue = 4
+	// IpNetToMediaTypeValueStatic represents the SMI value static.
+	IpNetToMediaTypeValueStatic IpNetToMediaTypeValue = 4
 )
 
+// String returns the SMI label, or IpNetToMediaTypeValue(n) for an unrecognized value n.
 func (v IpNetToMediaTypeValue) String() string {
 	switch v {
 	case IpNetToMediaTypeValueOther:
@@ -275,18 +335,29 @@ func (v IpNetToMediaTypeValue) String() string {
 // address mapping in this entry is used. If Neighbor Unreachability
 // Detection is not in use (e.g. for IPv4), this object is always
 // unknown(6).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpNetToPhysicalStateValue int32
 
 const (
-	IpNetToPhysicalStateValueReachable  IpNetToPhysicalStateValue = 1
-	IpNetToPhysicalStateValueStale      IpNetToPhysicalStateValue = 2
-	IpNetToPhysicalStateValueDelay      IpNetToPhysicalStateValue = 3
-	IpNetToPhysicalStateValueProbe      IpNetToPhysicalStateValue = 4
-	IpNetToPhysicalStateValueInvalid    IpNetToPhysicalStateValue = 5
-	IpNetToPhysicalStateValueUnknown    IpNetToPhysicalStateValue = 6
+	// IpNetToPhysicalStateValueReachable represents the SMI value reachable.
+	IpNetToPhysicalStateValueReachable IpNetToPhysicalStateValue = 1
+	// IpNetToPhysicalStateValueStale represents the SMI value stale.
+	IpNetToPhysicalStateValueStale IpNetToPhysicalStateValue = 2
+	// IpNetToPhysicalStateValueDelay represents the SMI value delay.
+	IpNetToPhysicalStateValueDelay IpNetToPhysicalStateValue = 3
+	// IpNetToPhysicalStateValueProbe represents the SMI value probe.
+	IpNetToPhysicalStateValueProbe IpNetToPhysicalStateValue = 4
+	// IpNetToPhysicalStateValueInvalid represents the SMI value invalid.
+	IpNetToPhysicalStateValueInvalid IpNetToPhysicalStateValue = 5
+	// IpNetToPhysicalStateValueUnknown represents the SMI value unknown.
+	IpNetToPhysicalStateValueUnknown IpNetToPhysicalStateValue = 6
+	// IpNetToPhysicalStateValueIncomplete represents the SMI value incomplete.
 	IpNetToPhysicalStateValueIncomplete IpNetToPhysicalStateValue = 7
 )
 
+// String returns the SMI label, or IpNetToPhysicalStateValue(n) for an unrecognized value n.
 func (v IpNetToPhysicalStateValue) String() string {
 	switch v {
 	case IpNetToPhysicalStateValueReachable:
@@ -327,16 +398,25 @@ func (v IpNetToPhysicalStateValue) String() string {
 // is provided for an entity's own interface address. As the entries in
 // this table are typically not persistent when this object is written the
 // entity SHOULD NOT save the change to non-volatile storage.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IpNetToPhysicalTypeValue int32
 
 const (
-	IpNetToPhysicalTypeValueOther   IpNetToPhysicalTypeValue = 1
+	// IpNetToPhysicalTypeValueOther represents the SMI value other.
+	IpNetToPhysicalTypeValueOther IpNetToPhysicalTypeValue = 1
+	// IpNetToPhysicalTypeValueInvalid represents the SMI value invalid.
 	IpNetToPhysicalTypeValueInvalid IpNetToPhysicalTypeValue = 2
+	// IpNetToPhysicalTypeValueDynamic represents the SMI value dynamic.
 	IpNetToPhysicalTypeValueDynamic IpNetToPhysicalTypeValue = 3
-	IpNetToPhysicalTypeValueStatic  IpNetToPhysicalTypeValue = 4
-	IpNetToPhysicalTypeValueLocal   IpNetToPhysicalTypeValue = 5
+	// IpNetToPhysicalTypeValueStatic represents the SMI value static.
+	IpNetToPhysicalTypeValueStatic IpNetToPhysicalTypeValue = 4
+	// IpNetToPhysicalTypeValueLocal represents the SMI value local.
+	IpNetToPhysicalTypeValueLocal IpNetToPhysicalTypeValue = 5
 )
 
+// String returns the SMI label, or IpNetToPhysicalTypeValue(n) for an unrecognized value n.
 func (v IpNetToPhysicalTypeValue) String() string {
 	switch v {
 	case IpNetToPhysicalTypeValueOther:
@@ -359,13 +439,19 @@ func (v IpNetToPhysicalTypeValue) String() string {
 // this interface. This object does not affect the state of the interface
 // itself, only its connection to an IPv4 stack. The IF-MIB should be used
 // to control the state of the interface.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Ipv4InterfaceEnableStatusValue int32
 
 const (
-	Ipv4InterfaceEnableStatusValueUp   Ipv4InterfaceEnableStatusValue = 1
+	// Ipv4InterfaceEnableStatusValueUp represents the SMI value up.
+	Ipv4InterfaceEnableStatusValueUp Ipv4InterfaceEnableStatusValue = 1
+	// Ipv4InterfaceEnableStatusValueDown represents the SMI value down.
 	Ipv4InterfaceEnableStatusValueDown Ipv4InterfaceEnableStatusValue = 2
 )
 
+// String returns the SMI label, or Ipv4InterfaceEnableStatusValue(n) for an unrecognized value n.
 func (v Ipv4InterfaceEnableStatusValue) String() string {
 	switch v {
 	case Ipv4InterfaceEnableStatusValueUp:
@@ -384,13 +470,19 @@ func (v Ipv4InterfaceEnableStatusValue) String() string {
 // to control the state of the interface. When this object is written, the
 // entity SHOULD save the change to non-volatile storage and restore the
 // object from non-volatile storage upon re-initialization of the system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Ipv6InterfaceEnableStatusValue int32
 
 const (
-	Ipv6InterfaceEnableStatusValueUp   Ipv6InterfaceEnableStatusValue = 1
+	// Ipv6InterfaceEnableStatusValueUp represents the SMI value up.
+	Ipv6InterfaceEnableStatusValueUp Ipv6InterfaceEnableStatusValue = 1
+	// Ipv6InterfaceEnableStatusValueDown represents the SMI value down.
 	Ipv6InterfaceEnableStatusValueDown Ipv6InterfaceEnableStatusValue = 2
 )
 
+// String returns the SMI label, or Ipv6InterfaceEnableStatusValue(n) for an unrecognized value n.
 func (v Ipv6InterfaceEnableStatusValue) String() string {
 	switch v {
 	case Ipv6InterfaceEnableStatusValueUp:
@@ -414,13 +506,19 @@ func (v Ipv6InterfaceEnableStatusValue) String() string {
 // forwarding capability. When this object is written, the entity SHOULD
 // save the change to non-volatile storage and restore the object from
 // non-volatile storage upon re-initialization of the system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Ipv6InterfaceForwardingValue int32
 
 const (
-	Ipv6InterfaceForwardingValueForwarding    Ipv6InterfaceForwardingValue = 1
+	// Ipv6InterfaceForwardingValueForwarding represents the SMI value forwarding.
+	Ipv6InterfaceForwardingValueForwarding Ipv6InterfaceForwardingValue = 1
+	// Ipv6InterfaceForwardingValueNotForwarding represents the SMI value notForwarding.
 	Ipv6InterfaceForwardingValueNotForwarding Ipv6InterfaceForwardingValue = 2
 )
 
+// String returns the SMI label, or Ipv6InterfaceForwardingValue(n) for an unrecognized value n.
 func (v Ipv6InterfaceForwardingValue) String() string {
 	switch v {
 	case Ipv6InterfaceForwardingValueForwarding:
@@ -440,13 +538,19 @@ func (v Ipv6InterfaceForwardingValue) String() string {
 // written, the entity SHOULD save the change to non-volatile storage and
 // restore the object from non-volatile storage upon re-initialization of
 // the system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Ipv6IpForwardingValue int32
 
 const (
-	Ipv6IpForwardingValueForwarding    Ipv6IpForwardingValue = 1
+	// Ipv6IpForwardingValueForwarding represents the SMI value forwarding.
+	Ipv6IpForwardingValueForwarding Ipv6IpForwardingValue = 1
+	// Ipv6IpForwardingValueNotForwarding represents the SMI value notForwarding.
 	Ipv6IpForwardingValueNotForwarding Ipv6IpForwardingValue = 2
 )
 
+// String returns the SMI label, or Ipv6IpForwardingValue(n) for an unrecognized value n.
 func (v Ipv6IpForwardingValue) String() string {
 	switch v {
 	case Ipv6IpForwardingValueForwarding:
@@ -459,6 +563,8 @@ func (v Ipv6IpForwardingValue) String() string {
 }
 
 // IpForwardingGet reads the SMIv2 scalar ipForwarding.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The indication of whether this entity is acting as an IPv4 router in
 // respect to the forwarding of datagrams received by, but not addressed
 // to, this entity. IPv4 routers forward datagrams. IPv4 hosts do not
@@ -474,7 +580,7 @@ func IpForwardingGet(ctx context.Context, sess snmp.Session) (IpForwardingValue,
 	}
 
 	if len(vbs) == 0 {
-		return IpForwardingValue(0), ae.Msg("empty Get response for ipForwarding")
+		return IpForwardingValue(0), errs.Msg("empty Get response for ipForwarding")
 	}
 
 	return func(vb snmp.VarBind) (IpForwardingValue, error) {
@@ -487,6 +593,8 @@ func IpForwardingGet(ctx context.Context, sess snmp.Session) (IpForwardingValue,
 }
 
 // IpDefaultTTLGet reads the SMIv2 scalar ipDefaultTTL.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The default value inserted into the Time-To-Live field of the IPv4
 // header of datagrams originated at this entity, whenever a TTL value is
 // not supplied by the transport layer protocol. When this object is
@@ -501,7 +609,7 @@ func IpDefaultTTLGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipDefaultTTL")
+		return 0, errs.Msg("empty Get response for ipDefaultTTL")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -510,6 +618,8 @@ func IpDefaultTTLGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // IpInReceivesGet reads the SMIv2 scalar ipInReceives.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The total number of input datagrams received from interfaces, including
 // those received in error. This object has been deprecated, as a new IP
 // version-neutral table has been added. It is loosely replaced by
@@ -521,7 +631,7 @@ func IpInReceivesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipInReceives")
+		return 0, errs.Msg("empty Get response for ipInReceives")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -530,6 +640,8 @@ func IpInReceivesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpInHdrErrorsGet reads the SMIv2 scalar ipInHdrErrors.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of input datagrams discarded due to errors in their IPv4
 // headers, including bad checksums, version number mismatch, other format
 // errors, time-to-live exceeded, errors discovered in processing their
@@ -543,7 +655,7 @@ func IpInHdrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipInHdrErrors")
+		return 0, errs.Msg("empty Get response for ipInHdrErrors")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -552,6 +664,8 @@ func IpInHdrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpInAddrErrorsGet reads the SMIv2 scalar ipInAddrErrors.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of input datagrams discarded because the IPv4 address in
 // their IPv4 header's destination field was not a valid address to be
 // received at this entity. This count includes invalid addresses (e.g.,
@@ -568,7 +682,7 @@ func IpInAddrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipInAddrErrors")
+		return 0, errs.Msg("empty Get response for ipInAddrErrors")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -577,6 +691,8 @@ func IpInAddrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpForwDatagramsGet reads the SMIv2 scalar ipForwDatagrams.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of input datagrams for which this entity was not their final
 // IPv4 destination, as a result of which an attempt was made to find a
 // route to forward them to that final destination. In entities which do
@@ -592,7 +708,7 @@ func IpForwDatagramsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipForwDatagrams")
+		return 0, errs.Msg("empty Get response for ipForwDatagrams")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -601,6 +717,8 @@ func IpForwDatagramsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // IpInUnknownProtosGet reads the SMIv2 scalar ipInUnknownProtos.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of locally-addressed datagrams received successfully but
 // discarded because of an unknown or unsupported protocol. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
@@ -612,7 +730,7 @@ func IpInUnknownProtosGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipInUnknownProtos")
+		return 0, errs.Msg("empty Get response for ipInUnknownProtos")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -621,6 +739,8 @@ func IpInUnknownProtosGet(ctx context.Context, sess snmp.Session) (uint32, error
 }
 
 // IpInDiscardsGet reads the SMIv2 scalar ipInDiscards.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of input IPv4 datagrams for which no problems were
 // encountered to prevent their continued processing, but which were
 // discarded (e.g., for lack of buffer space). Note that this counter does
@@ -634,7 +754,7 @@ func IpInDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipInDiscards")
+		return 0, errs.Msg("empty Get response for ipInDiscards")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -643,6 +763,8 @@ func IpInDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpInDeliversGet reads the SMIv2 scalar ipInDelivers.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The total number of input datagrams successfully delivered to IPv4
 // user-protocols (including ICMP). This object has been deprecated as a
 // new IP version neutral table has been added. It is loosely replaced by
@@ -654,7 +776,7 @@ func IpInDeliversGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipInDelivers")
+		return 0, errs.Msg("empty Get response for ipInDelivers")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -663,6 +785,8 @@ func IpInDeliversGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpOutRequestsGet reads the SMIv2 scalar ipOutRequests.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The total number of IPv4 datagrams which local IPv4 user protocols
 // (including ICMP) supplied to IPv4 in requests for transmission. Note
 // that this counter does not include any datagrams counted in
@@ -676,7 +800,7 @@ func IpOutRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipOutRequests")
+		return 0, errs.Msg("empty Get response for ipOutRequests")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -685,6 +809,8 @@ func IpOutRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpOutDiscardsGet reads the SMIv2 scalar ipOutDiscards.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of output IPv4 datagrams for which no problem was encountered
 // to prevent their transmission to their destination, but which were
 // discarded (e.g., for lack of buffer space). Note that this counter would
@@ -699,7 +825,7 @@ func IpOutDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipOutDiscards")
+		return 0, errs.Msg("empty Get response for ipOutDiscards")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -708,6 +834,8 @@ func IpOutDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpOutNoRoutesGet reads the SMIv2 scalar ipOutNoRoutes.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of IPv4 datagrams discarded because no route could be found
 // to transmit them to their destination. Note that this counter includes
 // any packets counted in ipForwDatagrams which meet this `no-route'
@@ -722,7 +850,7 @@ func IpOutNoRoutesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipOutNoRoutes")
+		return 0, errs.Msg("empty Get response for ipOutNoRoutes")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -731,6 +859,8 @@ func IpOutNoRoutesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpReasmTimeoutGet reads the SMIv2 scalar ipReasmTimeout.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The maximum number of seconds that received fragments are held while
 // they are awaiting reassembly at this entity.
 func IpReasmTimeoutGet(ctx context.Context, sess snmp.Session) (int32, error) {
@@ -740,7 +870,7 @@ func IpReasmTimeoutGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipReasmTimeout")
+		return 0, errs.Msg("empty Get response for ipReasmTimeout")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -749,6 +879,8 @@ func IpReasmTimeoutGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // IpReasmReqdsGet reads the SMIv2 scalar ipReasmReqds.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of IPv4 fragments received which needed to be reassembled at
 // this entity. This object has been deprecated, as a new IP
 // version-neutral table has been added. It is loosely replaced by
@@ -760,7 +892,7 @@ func IpReasmReqdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipReasmReqds")
+		return 0, errs.Msg("empty Get response for ipReasmReqds")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -769,6 +901,8 @@ func IpReasmReqdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpReasmOKsGet reads the SMIv2 scalar ipReasmOKs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of IPv4 datagrams successfully re-assembled. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by ipSystemStatsReasmOKs.
@@ -779,7 +913,7 @@ func IpReasmOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipReasmOKs")
+		return 0, errs.Msg("empty Get response for ipReasmOKs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -788,6 +922,8 @@ func IpReasmOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpReasmFailsGet reads the SMIv2 scalar ipReasmFails.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of failures detected by the IPv4 re-assembly algorithm (for
 // whatever reason: timed out, errors, etc). Note that this is not
 // necessarily a count of discarded IPv4 fragments since some algorithms
@@ -802,7 +938,7 @@ func IpReasmFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipReasmFails")
+		return 0, errs.Msg("empty Get response for ipReasmFails")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -811,6 +947,8 @@ func IpReasmFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpFragOKsGet reads the SMIv2 scalar ipFragOKs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of IPv4 datagrams that have been successfully fragmented at
 // this entity. This object has been deprecated, as a new IP
 // version-neutral table has been added. It is loosely replaced by
@@ -822,7 +960,7 @@ func IpFragOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipFragOKs")
+		return 0, errs.Msg("empty Get response for ipFragOKs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -831,6 +969,8 @@ func IpFragOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpFragFailsGet reads the SMIv2 scalar ipFragFails.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of IPv4 datagrams that have been discarded because they
 // needed to be fragmented at this entity but could not be, e.g., because
 // their Don't Fragment flag was set. This object has been deprecated, as a
@@ -843,7 +983,7 @@ func IpFragFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipFragFails")
+		return 0, errs.Msg("empty Get response for ipFragFails")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -852,6 +992,8 @@ func IpFragFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpFragCreatesGet reads the SMIv2 scalar ipFragCreates.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of IPv4 datagram fragments that have been generated as a
 // result of fragmentation at this entity. This object has been deprecated
 // as a new IP version neutral table has been added. It is loosely replaced
@@ -863,7 +1005,7 @@ func IpFragCreatesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipFragCreates")
+		return 0, errs.Msg("empty Get response for ipFragCreates")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -872,6 +1014,8 @@ func IpFragCreatesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IpRoutingDiscardsGet reads the SMIv2 scalar ipRoutingDiscards.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of routing entries which were chosen to be discarded even
 // though they are valid. One possible reason for discarding such an entry
 // could be to free-up buffer space for other routing entries. This object
@@ -887,7 +1031,7 @@ func IpRoutingDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipRoutingDiscards")
+		return 0, errs.Msg("empty Get response for ipRoutingDiscards")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -896,6 +1040,8 @@ func IpRoutingDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error
 }
 
 // Ipv6IpForwardingGet reads the SMIv2 scalar ipv6IpForwarding.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The indication of whether this entity is acting as an IPv6 router on any
 // interface in respect to the forwarding of datagrams received by, but not
 // addressed to, this entity. IPv6 routers forward datagrams. IPv6 hosts do
@@ -910,7 +1056,7 @@ func Ipv6IpForwardingGet(ctx context.Context, sess snmp.Session) (Ipv6IpForwardi
 	}
 
 	if len(vbs) == 0 {
-		return Ipv6IpForwardingValue(0), ae.Msg("empty Get response for ipv6IpForwarding")
+		return Ipv6IpForwardingValue(0), errs.Msg("empty Get response for ipv6IpForwarding")
 	}
 
 	return func(vb snmp.VarBind) (Ipv6IpForwardingValue, error) {
@@ -923,6 +1069,8 @@ func Ipv6IpForwardingGet(ctx context.Context, sess snmp.Session) (Ipv6IpForwardi
 }
 
 // Ipv6IpDefaultHopLimitGet reads the SMIv2 scalar ipv6IpDefaultHopLimit.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The default value inserted into the Hop Limit field of the IPv6 header
 // of datagrams originated at this entity whenever a Hop Limit value is not
 // supplied by the transport layer protocol. When this object is written,
@@ -936,7 +1084,7 @@ func Ipv6IpDefaultHopLimitGet(ctx context.Context, sess snmp.Session) (int32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipv6IpDefaultHopLimit")
+		return 0, errs.Msg("empty Get response for ipv6IpDefaultHopLimit")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -945,6 +1093,8 @@ func Ipv6IpDefaultHopLimitGet(ctx context.Context, sess snmp.Session) (int32, er
 }
 
 // Ipv4InterfaceTableLastChangeGet reads the SMIv2 scalar ipv4InterfaceTableLastChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime on the most recent occasion at which a row in the
 // ipv4InterfaceTable was added or deleted, or when an
 // ipv4InterfaceReasmMaxSize or an ipv4InterfaceEnableStatus object was
@@ -959,7 +1109,7 @@ func Ipv4InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipv4InterfaceTableLastChange")
+		return 0, errs.Msg("empty Get response for ipv4InterfaceTableLastChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -968,6 +1118,8 @@ func Ipv4InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 }
 
 // Ipv6InterfaceTableLastChangeGet reads the SMIv2 scalar ipv6InterfaceTableLastChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime on the most recent occasion at which a row in the
 // ipv6InterfaceTable was added or deleted or when an
 // ipv6InterfaceReasmMaxSize, ipv6InterfaceIdentifier,
@@ -984,7 +1136,7 @@ func Ipv6InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipv6InterfaceTableLastChange")
+		return 0, errs.Msg("empty Get response for ipv6InterfaceTableLastChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -993,6 +1145,8 @@ func Ipv6InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 }
 
 // IpIfStatsTableLastChangeGet reads the SMIv2 scalar ipIfStatsTableLastChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime on the most recent occasion at which a row in the
 // ipIfStatsTable was added or deleted. If new objects are added to the
 // ipIfStatsTable that require the ipIfStatsTableLastChange to be updated
@@ -1005,7 +1159,7 @@ func IpIfStatsTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipIfStatsTableLastChange")
+		return 0, errs.Msg("empty Get response for ipIfStatsTableLastChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1014,6 +1168,8 @@ func IpIfStatsTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32
 }
 
 // IpAddressSpinLockGet reads the SMIv2 scalar ipAddressSpinLock.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // An advisory lock used to allow cooperating SNMP managers to coordinate
 // their use of the set operation in creating or modifying rows within this
 // table. In order to use this lock to coordinate the use of set
@@ -1033,7 +1189,7 @@ func IpAddressSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipAddressSpinLock")
+		return 0, errs.Msg("empty Get response for ipAddressSpinLock")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1042,6 +1198,8 @@ func IpAddressSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error
 }
 
 // Ipv6RouterAdvertSpinLockGet reads the SMIv2 scalar ipv6RouterAdvertSpinLock.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // An advisory lock used to allow cooperating SNMP managers to coordinate
 // their use of the set operation in creating or modifying rows within this
 // table. In order to use this lock to coordinate the use of set
@@ -1062,7 +1220,7 @@ func Ipv6RouterAdvertSpinLockGet(ctx context.Context, sess snmp.Session) (uint32
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for ipv6RouterAdvertSpinLock")
+		return 0, errs.Msg("empty Get response for ipv6RouterAdvertSpinLock")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1071,6 +1229,8 @@ func Ipv6RouterAdvertSpinLockGet(ctx context.Context, sess snmp.Session) (uint32
 }
 
 // IcmpInMsgsGet reads the SMIv2 scalar icmpInMsgs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The total number of ICMP messages which the entity received. Note that
 // this counter includes all those counted by icmpInErrors. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
@@ -1082,7 +1242,7 @@ func IcmpInMsgsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInMsgs")
+		return 0, errs.Msg("empty Get response for icmpInMsgs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1091,6 +1251,8 @@ func IcmpInMsgsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IcmpInErrorsGet reads the SMIv2 scalar icmpInErrors.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP messages which the entity received but determined as
 // having ICMP-specific errors (bad ICMP checksums, bad length, etc.). This
 // object has been deprecated, as a new IP version-neutral table has been
@@ -1102,7 +1264,7 @@ func IcmpInErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInErrors")
+		return 0, errs.Msg("empty Get response for icmpInErrors")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1111,6 +1273,8 @@ func IcmpInErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IcmpInDestUnreachsGet reads the SMIv2 scalar icmpInDestUnreachs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Destination Unreachable messages received. This
 // object has been deprecated, as a new IP version-neutral table has been
 // added. It is loosely replaced by a column in the icmpMsgStatsTable.
@@ -1121,7 +1285,7 @@ func IcmpInDestUnreachsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInDestUnreachs")
+		return 0, errs.Msg("empty Get response for icmpInDestUnreachs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1130,6 +1294,8 @@ func IcmpInDestUnreachsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 }
 
 // IcmpInTimeExcdsGet reads the SMIv2 scalar icmpInTimeExcds.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Time Exceeded messages received. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1140,7 +1306,7 @@ func IcmpInTimeExcdsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInTimeExcds")
+		return 0, errs.Msg("empty Get response for icmpInTimeExcds")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1149,6 +1315,8 @@ func IcmpInTimeExcdsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // IcmpInParmProbsGet reads the SMIv2 scalar icmpInParmProbs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Parameter Problem messages received. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1159,7 +1327,7 @@ func IcmpInParmProbsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInParmProbs")
+		return 0, errs.Msg("empty Get response for icmpInParmProbs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1168,6 +1336,8 @@ func IcmpInParmProbsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // IcmpInSrcQuenchsGet reads the SMIv2 scalar icmpInSrcQuenchs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Source Quench messages received. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1178,7 +1348,7 @@ func IcmpInSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInSrcQuenchs")
+		return 0, errs.Msg("empty Get response for icmpInSrcQuenchs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1187,6 +1357,8 @@ func IcmpInSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // IcmpInRedirectsGet reads the SMIv2 scalar icmpInRedirects.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Redirect messages received. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1197,7 +1369,7 @@ func IcmpInRedirectsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInRedirects")
+		return 0, errs.Msg("empty Get response for icmpInRedirects")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1206,6 +1378,8 @@ func IcmpInRedirectsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // IcmpInEchosGet reads the SMIv2 scalar icmpInEchos.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Echo (request) messages received. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1216,7 +1390,7 @@ func IcmpInEchosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInEchos")
+		return 0, errs.Msg("empty Get response for icmpInEchos")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1225,6 +1399,8 @@ func IcmpInEchosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IcmpInEchoRepsGet reads the SMIv2 scalar icmpInEchoReps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Echo Reply messages received. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1235,7 +1411,7 @@ func IcmpInEchoRepsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInEchoReps")
+		return 0, errs.Msg("empty Get response for icmpInEchoReps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1244,6 +1420,8 @@ func IcmpInEchoRepsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IcmpInTimestampsGet reads the SMIv2 scalar icmpInTimestamps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Timestamp (request) messages received. This object
 // has been deprecated, as a new IP version-neutral table has been added.
 // It is loosely replaced by a column in the icmpMsgStatsTable.
@@ -1254,7 +1432,7 @@ func IcmpInTimestampsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInTimestamps")
+		return 0, errs.Msg("empty Get response for icmpInTimestamps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1263,6 +1441,8 @@ func IcmpInTimestampsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // IcmpInTimestampRepsGet reads the SMIv2 scalar icmpInTimestampReps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Timestamp Reply messages received. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1273,7 +1453,7 @@ func IcmpInTimestampRepsGet(ctx context.Context, sess snmp.Session) (uint32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInTimestampReps")
+		return 0, errs.Msg("empty Get response for icmpInTimestampReps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1282,6 +1462,8 @@ func IcmpInTimestampRepsGet(ctx context.Context, sess snmp.Session) (uint32, err
 }
 
 // IcmpInAddrMasksGet reads the SMIv2 scalar icmpInAddrMasks.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Address Mask Request messages received. This object
 // has been deprecated, as a new IP version-neutral table has been added.
 // It is loosely replaced by a column in the icmpMsgStatsTable.
@@ -1292,7 +1474,7 @@ func IcmpInAddrMasksGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInAddrMasks")
+		return 0, errs.Msg("empty Get response for icmpInAddrMasks")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1301,6 +1483,8 @@ func IcmpInAddrMasksGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // IcmpInAddrMaskRepsGet reads the SMIv2 scalar icmpInAddrMaskReps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Address Mask Reply messages received. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1311,7 +1495,7 @@ func IcmpInAddrMaskRepsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpInAddrMaskReps")
+		return 0, errs.Msg("empty Get response for icmpInAddrMaskReps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1320,6 +1504,8 @@ func IcmpInAddrMaskRepsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 }
 
 // IcmpOutMsgsGet reads the SMIv2 scalar icmpOutMsgs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The total number of ICMP messages which this entity attempted to send.
 // Note that this counter includes all those counted by icmpOutErrors. This
 // object has been deprecated, as a new IP version-neutral table has been
@@ -1331,7 +1517,7 @@ func IcmpOutMsgsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutMsgs")
+		return 0, errs.Msg("empty Get response for icmpOutMsgs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1340,6 +1526,8 @@ func IcmpOutMsgsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IcmpOutErrorsGet reads the SMIv2 scalar icmpOutErrors.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP messages which this entity did not send due to
 // problems discovered within ICMP, such as a lack of buffers. This value
 // should not include errors discovered outside the ICMP layer, such as the
@@ -1355,7 +1543,7 @@ func IcmpOutErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutErrors")
+		return 0, errs.Msg("empty Get response for icmpOutErrors")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1364,6 +1552,8 @@ func IcmpOutErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IcmpOutDestUnreachsGet reads the SMIv2 scalar icmpOutDestUnreachs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Destination Unreachable messages sent. This object
 // has been deprecated, as a new IP version-neutral table has been added.
 // It is loosely replaced by a column in the icmpMsgStatsTable.
@@ -1374,7 +1564,7 @@ func IcmpOutDestUnreachsGet(ctx context.Context, sess snmp.Session) (uint32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutDestUnreachs")
+		return 0, errs.Msg("empty Get response for icmpOutDestUnreachs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1383,6 +1573,8 @@ func IcmpOutDestUnreachsGet(ctx context.Context, sess snmp.Session) (uint32, err
 }
 
 // IcmpOutTimeExcdsGet reads the SMIv2 scalar icmpOutTimeExcds.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Time Exceeded messages sent. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1393,7 +1585,7 @@ func IcmpOutTimeExcdsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutTimeExcds")
+		return 0, errs.Msg("empty Get response for icmpOutTimeExcds")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1402,6 +1594,8 @@ func IcmpOutTimeExcdsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // IcmpOutParmProbsGet reads the SMIv2 scalar icmpOutParmProbs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Parameter Problem messages sent. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1412,7 +1606,7 @@ func IcmpOutParmProbsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutParmProbs")
+		return 0, errs.Msg("empty Get response for icmpOutParmProbs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1421,6 +1615,8 @@ func IcmpOutParmProbsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // IcmpOutSrcQuenchsGet reads the SMIv2 scalar icmpOutSrcQuenchs.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Source Quench messages sent. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1431,7 +1627,7 @@ func IcmpOutSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutSrcQuenchs")
+		return 0, errs.Msg("empty Get response for icmpOutSrcQuenchs")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1440,6 +1636,8 @@ func IcmpOutSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error
 }
 
 // IcmpOutRedirectsGet reads the SMIv2 scalar icmpOutRedirects.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Redirect messages sent. For a host, this object will
 // always be zero, since hosts do not send redirects. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
@@ -1451,7 +1649,7 @@ func IcmpOutRedirectsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutRedirects")
+		return 0, errs.Msg("empty Get response for icmpOutRedirects")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1460,6 +1658,8 @@ func IcmpOutRedirectsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // IcmpOutEchosGet reads the SMIv2 scalar icmpOutEchos.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Echo (request) messages sent. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1470,7 +1670,7 @@ func IcmpOutEchosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutEchos")
+		return 0, errs.Msg("empty Get response for icmpOutEchos")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1479,6 +1679,8 @@ func IcmpOutEchosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // IcmpOutEchoRepsGet reads the SMIv2 scalar icmpOutEchoReps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Echo Reply messages sent. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1489,7 +1691,7 @@ func IcmpOutEchoRepsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutEchoReps")
+		return 0, errs.Msg("empty Get response for icmpOutEchoReps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1498,6 +1700,8 @@ func IcmpOutEchoRepsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // IcmpOutTimestampsGet reads the SMIv2 scalar icmpOutTimestamps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Timestamp (request) messages sent. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1508,7 +1712,7 @@ func IcmpOutTimestampsGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutTimestamps")
+		return 0, errs.Msg("empty Get response for icmpOutTimestamps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1517,6 +1721,8 @@ func IcmpOutTimestampsGet(ctx context.Context, sess snmp.Session) (uint32, error
 }
 
 // IcmpOutTimestampRepsGet reads the SMIv2 scalar icmpOutTimestampReps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Timestamp Reply messages sent. This object has been
 // deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1527,7 +1733,7 @@ func IcmpOutTimestampRepsGet(ctx context.Context, sess snmp.Session) (uint32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutTimestampReps")
+		return 0, errs.Msg("empty Get response for icmpOutTimestampReps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1536,6 +1742,8 @@ func IcmpOutTimestampRepsGet(ctx context.Context, sess snmp.Session) (uint32, er
 }
 
 // IcmpOutAddrMasksGet reads the SMIv2 scalar icmpOutAddrMasks.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Address Mask Request messages sent. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1546,7 +1754,7 @@ func IcmpOutAddrMasksGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutAddrMasks")
+		return 0, errs.Msg("empty Get response for icmpOutAddrMasks")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1555,6 +1763,8 @@ func IcmpOutAddrMasksGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // IcmpOutAddrMaskRepsGet reads the SMIv2 scalar icmpOutAddrMaskReps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ICMP Address Mask Reply messages sent. This object has
 // been deprecated, as a new IP version-neutral table has been added. It is
 // loosely replaced by a column in the icmpMsgStatsTable.
@@ -1565,7 +1775,7 @@ func IcmpOutAddrMaskRepsGet(ctx context.Context, sess snmp.Session) (uint32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for icmpOutAddrMaskReps")
+		return 0, errs.Msg("empty Get response for icmpOutAddrMaskReps")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1617,8 +1827,10 @@ var IpAdEntReasmMaxSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4
 // IpAddrTableRow is one row of ipAddrTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpAddrTableRow.Observed to tell a reported zero from a column the
+// [IpAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpAddrTableRow struct {
 	Index               snmp.OID
 	IpAdEntAddr         net.IP
@@ -1655,7 +1867,8 @@ func (r IpAddrTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpAddrTableWalker is a table-aware walker over ipAddrTable.
-// Construct via IpAddrTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpAddrTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpAddrTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1851,7 +2064,7 @@ var IpAddrTable ipAddrTableT
 // Every column in cols must be a column of ipAddrTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddrTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1927,8 +2140,10 @@ var IpNetToMediaType = snmp.NewColumn[IpNetToMediaTypeValue](snmp.MustOID(1, 3, 
 // IpNetToMediaTableRow is one row of ipNetToMediaTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpNetToMediaTableRow.Observed to tell a reported zero from a column the
+// [IpNetToMediaTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpNetToMediaTableRow struct {
 	Index                   snmp.OID
 	IpNetToMediaIfIndex     uint32
@@ -1962,7 +2177,8 @@ func (r IpNetToMediaTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpNetToMediaTableWalker is a table-aware walker over ipNetToMediaTable.
-// Construct via IpNetToMediaTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpNetToMediaTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpNetToMediaTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2140,7 +2356,7 @@ var IpNetToMediaTable ipNetToMediaTableT
 // Every column in cols must be a column of ipNetToMediaTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipNetToMediaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToMediaTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2192,8 +2408,10 @@ var Ipv4InterfaceRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 // Ipv4InterfaceTableRow is one row of ipv4InterfaceTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Ipv4InterfaceTableRow.Observed to tell a reported zero from a column the
+// [Ipv4InterfaceTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Ipv4InterfaceTableRow struct {
 	Index                       snmp.OID
 	Ipv4InterfaceReasmMaxSize   int32
@@ -2224,7 +2442,8 @@ func (r Ipv4InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Ipv4InterfaceTableWalker is a table-aware walker over ipv4InterfaceTable.
-// Construct via Ipv4InterfaceTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Ipv4InterfaceTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Ipv4InterfaceTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2394,7 +2613,7 @@ var Ipv4InterfaceTable ipv4InterfaceTableT
 // Every column in cols must be a column of ipv4InterfaceTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipv4InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv4InterfaceTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2512,7 +2731,8 @@ func mergeIpv4InterfaceTableRow(dst *Ipv4InterfaceTableRow, vbs []snmp.VarBind) 
 }
 
 // Ipv4InterfaceTableWatcher is a table-aware Watcher over Ipv4InterfaceTable.
-// Construct via Ipv4InterfaceTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via Ipv4InterfaceTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type Ipv4InterfaceTableWatcher struct {
 	w *snmp.Watcher[Ipv4InterfaceTableRow]
 }
@@ -2655,8 +2875,10 @@ var Ipv6InterfaceForwarding = snmp.NewColumn[Ipv6InterfaceForwardingValue](snmp.
 // Ipv6InterfaceTableRow is one row of ipv6InterfaceTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Ipv6InterfaceTableRow.Observed to tell a reported zero from a column the
+// [Ipv6InterfaceTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Ipv6InterfaceTableRow struct {
 	Index                       snmp.OID
 	Ipv6InterfaceReasmMaxSize   uint32
@@ -2696,7 +2918,8 @@ func (r Ipv6InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Ipv6InterfaceTableWalker is a table-aware walker over ipv6InterfaceTable.
-// Construct via Ipv6InterfaceTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Ipv6InterfaceTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Ipv6InterfaceTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2915,7 +3138,7 @@ var Ipv6InterfaceTable ipv6InterfaceTableT
 // Every column in cols must be a column of ipv6InterfaceTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipv6InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6InterfaceTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -3072,7 +3295,8 @@ func mergeIpv6InterfaceTableRow(dst *Ipv6InterfaceTableRow, vbs []snmp.VarBind) 
 }
 
 // Ipv6InterfaceTableWatcher is a table-aware Watcher over Ipv6InterfaceTable.
-// Construct via Ipv6InterfaceTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via Ipv6InterfaceTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type Ipv6InterfaceTableWatcher struct {
 	w *snmp.Watcher[Ipv6InterfaceTableRow]
 }
@@ -3642,8 +3866,10 @@ var IpSystemStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2
 // IpSystemStatsTableRow is one row of ipSystemStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpSystemStatsTableRow.Observed to tell a reported zero from a column the
+// [IpSystemStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpSystemStatsTableRow struct {
 	Index                           snmp.OID
 	IpSystemStatsInReceives         uint32
@@ -3800,7 +4026,8 @@ func (r IpSystemStatsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpSystemStatsTableWalker is a table-aware walker over ipSystemStatsTable.
-// Construct via IpSystemStatsTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpSystemStatsTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpSystemStatsTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -4726,7 +4953,7 @@ var IpSystemStatsTable ipSystemStatsTableT
 // Every column in cols must be a column of ipSystemStatsTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipSystemStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpSystemStatsTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -5235,8 +5462,10 @@ var IpIfStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // IpIfStatsTableRow is one row of ipIfStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpIfStatsTableRow.Observed to tell a reported zero from a column the
+// [IpIfStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpIfStatsTableRow struct {
 	Index                       snmp.OID
 	IpIfStatsInReceives         uint32
@@ -5390,7 +5619,8 @@ func (r IpIfStatsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpIfStatsTableWalker is a table-aware walker over ipIfStatsTable.
-// Construct via IpIfStatsTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpIfStatsTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpIfStatsTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -6298,7 +6528,7 @@ var IpIfStatsTable ipIfStatsTableT
 // Every column in cols must be a column of ipIfStatsTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipIfStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpIfStatsTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -6949,7 +7179,8 @@ func mergeIpIfStatsTableRow(dst *IpIfStatsTableRow, vbs []snmp.VarBind) {
 }
 
 // IpIfStatsTableWatcher is a table-aware Watcher over IpIfStatsTable.
-// Construct via IpIfStatsTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via IpIfStatsTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type IpIfStatsTableWatcher struct {
 	w *snmp.Watcher[IpIfStatsTableRow]
 }
@@ -7073,8 +7304,10 @@ var IpAddressPrefixAdvValidLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 
 // IpAddressPrefixTableRow is one row of ipAddressPrefixTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpAddressPrefixTableRow.Observed to tell a reported zero from a column the
+// [IpAddressPrefixTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpAddressPrefixTableRow struct {
 	Index                               snmp.OID
 	IpAddressPrefixOrigin               IpAddressPrefixOriginTC
@@ -7111,7 +7344,8 @@ func (r IpAddressPrefixTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpAddressPrefixTableWalker is a table-aware walker over ipAddressPrefixTable.
-// Construct via IpAddressPrefixTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpAddressPrefixTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpAddressPrefixTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -7307,7 +7541,7 @@ var IpAddressPrefixTable ipAddressPrefixTableT
 // Every column in cols must be a column of ipAddressPrefixTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipAddressPrefixTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressPrefixTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -7420,8 +7654,10 @@ var IpAddressStorageType = snmp.NewColumn[snmpv2tc.StorageType](snmp.MustOID(1, 
 // IpAddressTableRow is one row of ipAddressTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpAddressTableRow.Observed to tell a reported zero from a column the
+// [IpAddressTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpAddressTableRow struct {
 	Index                snmp.OID
 	IpAddressIfIndex     int32
@@ -7470,7 +7706,8 @@ func (r IpAddressTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpAddressTableWalker is a table-aware walker over ipAddressTable.
-// Construct via IpAddressTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpAddressTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpAddressTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -7738,7 +7975,7 @@ var IpAddressTable ipAddressTableT
 // Every column in cols must be a column of ipAddressTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -7934,7 +8171,8 @@ func mergeIpAddressTableRow(dst *IpAddressTableRow, vbs []snmp.VarBind) {
 }
 
 // IpAddressTableWatcher is a table-aware Watcher over IpAddressTable.
-// Construct via IpAddressTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via IpAddressTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type IpAddressTableWatcher struct {
 	w *snmp.Watcher[IpAddressTableRow]
 }
@@ -8078,8 +8316,10 @@ var IpNetToPhysicalRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3,
 // IpNetToPhysicalTableRow is one row of ipNetToPhysicalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpNetToPhysicalTableRow.Observed to tell a reported zero from a column the
+// [IpNetToPhysicalTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpNetToPhysicalTableRow struct {
 	Index                      snmp.OID
 	IpNetToPhysicalPhysAddress []byte
@@ -8116,7 +8356,8 @@ func (r IpNetToPhysicalTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpNetToPhysicalTableWalker is a table-aware walker over ipNetToPhysicalTable.
-// Construct via IpNetToPhysicalTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpNetToPhysicalTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpNetToPhysicalTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -8312,7 +8553,7 @@ var IpNetToPhysicalTable ipNetToPhysicalTableT
 // Every column in cols must be a column of ipNetToPhysicalTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipNetToPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToPhysicalTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -8456,7 +8697,8 @@ func mergeIpNetToPhysicalTableRow(dst *IpNetToPhysicalTableRow, vbs []snmp.VarBi
 }
 
 // IpNetToPhysicalTableWatcher is a table-aware Watcher over IpNetToPhysicalTable.
-// Construct via IpNetToPhysicalTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via IpNetToPhysicalTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type IpNetToPhysicalTableWatcher struct {
 	w *snmp.Watcher[IpNetToPhysicalTableRow]
 }
@@ -8603,8 +8845,10 @@ var Ipv6ScopeZoneIndexD = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // Ipv6ScopeZoneIndexTableRow is one row of ipv6ScopeZoneIndexTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Ipv6ScopeZoneIndexTableRow.Observed to tell a reported zero from a column the
+// [Ipv6ScopeZoneIndexTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Ipv6ScopeZoneIndexTableRow struct {
 	Index                               snmp.OID
 	Ipv6ScopeZoneIndexLinkLocal         uint32
@@ -8662,7 +8906,8 @@ func (r Ipv6ScopeZoneIndexTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Ipv6ScopeZoneIndexTableWalker is a table-aware walker over ipv6ScopeZoneIndexTable.
-// Construct via Ipv6ScopeZoneIndexTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Ipv6ScopeZoneIndexTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Ipv6ScopeZoneIndexTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -8994,7 +9239,7 @@ var Ipv6ScopeZoneIndexTable ipv6ScopeZoneIndexTableT
 // Every column in cols must be a column of ipv6ScopeZoneIndexTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipv6ScopeZoneIndexTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6ScopeZoneIndexTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -9044,8 +9289,10 @@ var IpDefaultRouterPreference = snmp.NewColumn[IpDefaultRouterPreferenceValue](s
 // IpDefaultRouterTableRow is one row of ipDefaultRouterTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IpDefaultRouterTableRow.Observed to tell a reported zero from a column the
+// [IpDefaultRouterTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IpDefaultRouterTableRow struct {
 	Index                     snmp.OID
 	IpDefaultRouterLifetime   uint32
@@ -9073,7 +9320,8 @@ func (r IpDefaultRouterTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IpDefaultRouterTableWalker is a table-aware walker over ipDefaultRouterTable.
-// Construct via IpDefaultRouterTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IpDefaultRouterTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IpDefaultRouterTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -9225,7 +9473,7 @@ var IpDefaultRouterTable ipDefaultRouterTableT
 // Every column in cols must be a column of ipDefaultRouterTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipDefaultRouterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpDefaultRouterTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -9347,8 +9595,10 @@ var Ipv6RouterAdvertRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3
 // Ipv6RouterAdvertTableRow is one row of ipv6RouterAdvertTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Ipv6RouterAdvertTableRow.Observed to tell a reported zero from a column the
+// [Ipv6RouterAdvertTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Ipv6RouterAdvertTableRow struct {
 	Index                           snmp.OID
 	Ipv6RouterAdvertSendAdverts     bool
@@ -9403,7 +9653,8 @@ func (r Ipv6RouterAdvertTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Ipv6RouterAdvertTableWalker is a table-aware walker over ipv6RouterAdvertTable.
-// Construct via Ipv6RouterAdvertTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Ipv6RouterAdvertTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Ipv6RouterAdvertTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -9697,7 +9948,7 @@ var Ipv6RouterAdvertTable ipv6RouterAdvertTableT
 // Every column in cols must be a column of ipv6RouterAdvertTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (ipv6RouterAdvertTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6RouterAdvertTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -9754,8 +10005,10 @@ var IcmpStatsOutErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 5
 // IcmpStatsTableRow is one row of icmpStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IcmpStatsTableRow.Observed to tell a reported zero from a column the
+// [IcmpStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IcmpStatsTableRow struct {
 	Index              snmp.OID
 	IcmpStatsInMsgs    uint32
@@ -9789,7 +10042,8 @@ func (r IcmpStatsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IcmpStatsTableWalker is a table-aware walker over icmpStatsTable.
-// Construct via IcmpStatsTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IcmpStatsTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IcmpStatsTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -9977,7 +10231,7 @@ var IcmpStatsTable icmpStatsTableT
 // Every column in cols must be a column of icmpStatsTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (icmpStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IcmpStatsTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 29, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -10014,8 +10268,10 @@ var IcmpMsgStatsOutPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // IcmpMsgStatsTableRow is one row of icmpMsgStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// IcmpMsgStatsTableRow.Observed to tell a reported zero from a column the
+// [IcmpMsgStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type IcmpMsgStatsTableRow struct {
 	Index               snmp.OID
 	IcmpMsgStatsInPkts  uint32
@@ -10043,7 +10299,8 @@ func (r IcmpMsgStatsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // IcmpMsgStatsTableWalker is a table-aware walker over icmpMsgStatsTable.
-// Construct via IcmpMsgStatsTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via IcmpMsgStatsTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type IcmpMsgStatsTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -10195,7 +10452,7 @@ var IcmpMsgStatsTable icmpMsgStatsTableT
 // Every column in cols must be a column of icmpMsgStatsTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (icmpMsgStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IcmpMsgStatsTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 30, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))

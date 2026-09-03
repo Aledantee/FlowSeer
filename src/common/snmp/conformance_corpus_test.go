@@ -78,7 +78,6 @@ type corpusRow struct {
 //   - flip Status to "accepted-risk" only together with Accepted + an
 //     acceptedRiskAllowlist entry.
 var conformanceCorpus = []corpusRow{
-	// ---- Table 1: encoding / type conformance (vendor-agnostic) ----
 	{ID: "enc-counter64-v1", Clause: "RFC 2576 §3", Provenance: "gosnmp (no check)", Behavior: "Counter64 in a v1 response: decode + typed warning (data preserved), never panic/type-confusion", Adversarial: "SNMPv1 message carrying a Counter64 varbind", Unit: "U4", Status: statusCovered},
 	{ID: "enc-zerolen-int", Clause: "X.690 §8.3.1", Provenance: "gosnmp #241; RB11", Behavior: "zero-length signed INTEGER (02 00) errors; zero-length unsigned counter tolerated as 0 (recorded leniency)", Adversarial: "zero-length signed INTEGER TLV (02 00)", Unit: "U3/U4", Status: statusCovered},
 	{ID: "enc-nonminimal-int", Clause: "X.690 §8.3.2", Provenance: "gosnmp #371", Behavior: "encode minimal (-1 -> FF); decode tolerates non-minimal", Adversarial: "non-minimal 4-octet INTEGER 0xFFFFFFFF on decode", Unit: "U3", Status: statusCovered},
@@ -95,7 +94,6 @@ var conformanceCorpus = []corpusRow{
 	{ID: "enc-timeticks-range", Clause: "RFC 2578", Provenance: "RFC 2578", Behavior: "TimeTicks 5-byte unsigned / out-of-range masked to 32 bits (scoped to TimeTicks)", Adversarial: "5-octet TimeTicks content 0x01_00_00_00_2A (2^32+42)", Unit: "U4", Status: statusCovered},
 	{ID: "enc-v1trap-spectrap", Clause: "RFC 2576", Provenance: "gosnmp #182", Behavior: "SNMPv1 Trap specific-trap > 127 not byte-truncated in v1->v2c translation", Adversarial: "SNMPv1 enterpriseSpecific trap with specific-trap=200", Unit: "U4", Status: statusCovered},
 
-	// ---- Table 2: walk / transport behavioral ----
 	{ID: "walk-toobig-fallback", Clause: "RFC 3416", Provenance: "MikroTik(>50), Cisco/IOS-XR, Nokia, F5", Behavior: "tooBig -> halve max-repetitions -> fall back to GETNEXT-per-OID; full table, no abort", Adversarial: "agent returning tooBig above a max-rep threshold, and one rejecting GetBulk at every max-rep", Unit: "U5", Status: statusCovered},
 	{ID: "walk-mid-pdu-eomv", Clause: "RFC 3416", Provenance: "dense carrier tables", Behavior: "single-chain GETBULK: yield all preceding values, terminate at the EndOfMibView varbind (no data loss)", Adversarial: "GETBULK chain of N values followed by EndOfMibView in one PDU", Unit: "U10", Status: statusCovered},
 	{ID: "walk-nosuch-semantics", Clause: "RFC 3416", Provenance: "RFC 3416", Behavior: "noSuchInstance = skip & continue (advance cursor); noSuchObject on subtree root = abort that subtree; classified before the cycle guard", Adversarial: "MIB with noSuchInstance and noSuchObject varbinds interleaved with values", Unit: "U10", Status: statusCovered},
@@ -106,7 +104,6 @@ var conformanceCorpus = []corpusRow{
 	{ID: "txp-dup-response", Clause: "RFC 3416", Provenance: "gosnmp #417", Behavior: "duplicate/retransmitted response dropped by request-id demux; later genuine reply still resolves", Adversarial: "agent emitting a late duplicate of an already-delivered reply", Unit: "U6", Status: statusCovered},
 	{ID: "txp-subtree-exit", Clause: "RFC 3416", Provenance: "RFC 3416", Behavior: "returned OID outside requested subtree prefix -> normal (non-error) termination", Adversarial: "agent returning an OID in a sibling column outside the requested subtree", Unit: "U6", Status: statusCovered},
 
-	// ---- Table 3: SNMPv3 / USM ----
 	{ID: "usm-authbit-bypass", Clause: "RFC 3414 §3.2", Provenance: "gosnmp #496", Behavior: "auth/priv downgrade matrix: cleared auth/priv bit on a configured session -> ErrUSMDowngrade before HMAC; Report authNoPriv-on-authPriv allowed", Adversarial: "replies with the auth bit cleared at authNoPriv/authPriv and the priv bit cleared at authPriv; plus an authNoPriv Report on an authPriv session", Unit: "U7", Status: statusCovered},
 	{ID: "usm-report-randomid", Clause: "RFC 3414 §4", Provenance: "gosnmp #139", Behavior: "unsolicited/mismatched-id Report dropped-and-counted, never aborts a waiter; genuine reply still resolves", Adversarial: "agent injecting an authenticated Report with a mismatched msgID before the genuine reply", Unit: "U7", Status: statusCovered},
 	{ID: "usm-aes-keyext", Clause: "RFC 3826; draft-reeder", Provenance: "gosnmp #424; Cisco/Extreme", Behavior: "AES-192/256 Blumenthal vs Reeder (C) key-extension vectors; distinct AES192 vs AES192C keys (unit-level oracle; no net-snmp cell)", Adversarial: "external pysnmp/hashlib vectors for AES-192/256 across MD5/SHA auth, Blumenthal vs Reeder", Unit: "U8", Status: statusCovered},
@@ -114,11 +111,9 @@ var conformanceCorpus = []corpusRow{
 	{ID: "usm-3step-discovery", Clause: "RFC 3414 §4", Provenance: "gosnmp #511", Behavior: "initial discovery performs the authenticated boots/time resync before the first real request", Adversarial: "empty-EngineID session forced through probe -> unknownEngineID Report -> authenticated request", Unit: "U8", Status: statusCovered},
 	{ID: "usm-trap-reportable", Clause: "RFC 3412 §6.4", Provenance: "gosnmp #391", Behavior: "reportable-flag handling correct on received v3 traps vs informs", Adversarial: "decoded v3 trap (reportable clear) vs v3 inform (reportable set); tampered trap dropped with no Report", Unit: "U8", Status: statusCovered},
 
-	// ---- raw fast path (fused decode / generic fallback boundary) ----
 	{ID: "raw-wrong-typed-column", Clause: "RFC 2578 §7.1.6", Provenance: "telegraf #14598; snmp_exporter #338 (proprietary/buggy agents reporting types diverging from the MIB declaration)", Behavior: "column value whose wire tag diverges from the MIB-declared Kind: the fused arm declines (ok=false, never an error) and the generic decoder's coercion rules apply — values and errors identical to the pre-R25 path", Adversarial: "walk where a Counter32-declared column arrives Gauge32-tagged (coerces) and an Integer32-declared column arrives OctetString-tagged (typed mismatch error)", Unit: "R25", Status: statusCovered},
 	{ID: "raw-noncanonical-oid-arc", Clause: "X.690 §8.19.2", Provenance: "chemist/snmp #17 (agents emitting BER that is valid but not shortest-form)", Behavior: "response name OID carrying a zero-padded (0x80-prefixed) sub-identifier: mirror validation refuses raw delivery and the read loop decodes eagerly — the walk yields identical data via pre-decoded varbinds, and the byte-order walk guards never see a non-canonical arc", Adversarial: "GetResponse datagram whose varbind name encodes a sub-identifier with a redundant leading 0x80 continuation octet", Unit: "R25", Status: statusCovered},
 
-	// ---- Planning-discovered (deepening 2026-06-17/18, not in origin Tables) ----
 	{ID: "usm-timewindow-rollback", Clause: "RFC 3414 §2.2.3", Provenance: "deepening (security-lens)", Behavior: "polling-side engineBaseline.update rejects a boots/time pair that would decrease boots or move time backward", Adversarial: "resync Report with lower engineBoots, and backward engineTime at the same boots", Unit: "U7", Status: statusCovered},
 	{ID: "usm-msgid-predictability", Clause: "RFC 3412; KTD-6", Provenance: "deepening (security-lens)", Behavior: "msgID drawn fresh from the CSPRNG per message (not last+1), removing prediction in the unauthenticated window", Adversarial: "sample of consecutive msgIDs checked for previous+1 sequentiality", Unit: "U7", Status: statusCovered},
 	{ID: "usm-inform-timewindow", Clause: "RFC 3414 §3.2", Provenance: "deepening (security-lens)", Behavior: "authoritative-role authoritativeTimeOK enforces the ±150s engineTime window + post-restart quarantine; int32 boundary safe (int64 diff)", Adversarial: "informs at window edges, during quarantine, wrong boots, and forged math.MinInt32/MaxInt32 engineTime", Unit: "U8", Status: statusCovered},
@@ -364,8 +359,6 @@ func TestConformanceGate_RejectsBadRows(t *testing.T) {
 	}
 }
 
-// --- CONFORMANCE.md generation ---
-
 // conformanceFamilies partitions corpus rows into the rendered matrix's
 // sections by ID prefix. Every row MUST match exactly one prefix — the
 // integrity gate enforces this, because a row outside every family
@@ -386,7 +379,7 @@ func renderConformanceMatrix(rows []corpusRow) string {
 	var b strings.Builder
 	b.WriteString("# SNMP Conformance Coverage Map\n\n")
 	b.WriteString("Generated from `conformance_corpus_test.go`. Do not edit by hand —\n")
-	b.WriteString("run `UPDATE_CONFORMANCE=1 go test ./common/snmp/ -run TestConformanceMatrixUpToDate`.\n\n")
+	b.WriteString("run `UPDATE_CONFORMANCE=1 go test ./src/common/snmp/ -run TestConformanceMatrixUpToDate`.\n\n")
 
 	// Status tally.
 	var covered, pending, accepted int
@@ -457,6 +450,6 @@ func TestConformanceMatrixUpToDate(t *testing.T) {
 		t.Fatalf("reading CONFORMANCE.md (run UPDATE_CONFORMANCE=1 go test to generate): %v", err)
 	}
 	if string(got) != want {
-		t.Errorf("CONFORMANCE.md is stale — run `UPDATE_CONFORMANCE=1 go test ./common/snmp/ -run TestConformanceMatrixUpToDate`")
+		t.Errorf("CONFORMANCE.md is stale — run `UPDATE_CONFORMANCE=1 go test ./src/common/snmp/ -run TestConformanceMatrixUpToDate`")
 	}
 }

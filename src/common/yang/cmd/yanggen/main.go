@@ -38,7 +38,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	pkgPrefix := fs.String("pkg-prefix", defaultPkgPrefix, "Go import-path prefix for generated packages")
 	verify := fs.Bool("verify", false, "load-only: parse config and resolve all vendor trees, then exit 0 (no codegen)")
 	check := fs.Bool("check", false, "compare the committed lockfile against freshly-hashed sources; exit 1 on drift")
-	update := fs.Bool("update", false, "regenerate flagged modules and refresh the lockfile")
+	fs.Bool("update", false, "regenerate all configured modules and refresh the lockfile (the default)")
 
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: yanggen [flags]")
@@ -110,7 +110,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "OK: %d module(s) match the committed lockfile\n", total)
 		return 0
 	default:
-		_ = update // -update and the default path both regenerate; they diverge once emitters land.
 		if err := Emit(sets, *outDir, *pkgPrefix); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1

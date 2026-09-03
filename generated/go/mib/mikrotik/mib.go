@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package mikrotik binds the SMI objects declared by MIKROTIK-MIB.
 package mikrotik
 
 import (
@@ -16,19 +17,25 @@ import (
 	"net"
 	"time"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // BoolValue is the SMI enum BoolValue.
 // Boolean value.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type BoolValue int32
 
 const (
+	// BoolValueFalse represents the SMI value false.
 	BoolValueFalse BoolValue = 0
-	BoolValueTrue  BoolValue = 1
+	// BoolValueTrue represents the SMI value true.
+	BoolValueTrue BoolValue = 1
 )
 
+// String returns the SMI label, or BoolValue(n) for an unrecognized value n.
 func (v BoolValue) String() string {
 	switch v {
 	case BoolValueFalse:
@@ -42,13 +49,19 @@ func (v BoolValue) String() string {
 
 // MtxrAlarmSocketStatusValue is the SMI enum mtxrAlarmSocketStatus (inline).
 // Alarm socket status
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrAlarmSocketStatusValue int32
 
 const (
+	// MtxrAlarmSocketStatusValueInactive represents the SMI value inactive.
 	MtxrAlarmSocketStatusValueInactive MtxrAlarmSocketStatusValue = 0
-	MtxrAlarmSocketStatusValueActive   MtxrAlarmSocketStatusValue = 1
+	// MtxrAlarmSocketStatusValueActive represents the SMI value active.
+	MtxrAlarmSocketStatusValueActive MtxrAlarmSocketStatusValue = 1
 )
 
+// String returns the SMI label, or MtxrAlarmSocketStatusValue(n) for an unrecognized value n.
 func (v MtxrAlarmSocketStatusValue) String() string {
 	switch v {
 	case MtxrAlarmSocketStatusValueInactive:
@@ -62,17 +75,27 @@ func (v MtxrAlarmSocketStatusValue) String() string {
 
 // MtxrGaugeUnitValue is the SMI enum mtxrGaugeUnit (inline).
 // units
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrGaugeUnitValue int32
 
 const (
+	// MtxrGaugeUnitValueCelsius represents the SMI value celsius.
 	MtxrGaugeUnitValueCelsius MtxrGaugeUnitValue = 1
-	MtxrGaugeUnitValueRpm     MtxrGaugeUnitValue = 2
-	MtxrGaugeUnitValueDV      MtxrGaugeUnitValue = 3
-	MtxrGaugeUnitValueDA      MtxrGaugeUnitValue = 4
-	MtxrGaugeUnitValueDW      MtxrGaugeUnitValue = 5
-	MtxrGaugeUnitValueStatus  MtxrGaugeUnitValue = 6
+	// MtxrGaugeUnitValueRpm represents the SMI value rpm.
+	MtxrGaugeUnitValueRpm MtxrGaugeUnitValue = 2
+	// MtxrGaugeUnitValueDV represents the SMI value dV.
+	MtxrGaugeUnitValueDV MtxrGaugeUnitValue = 3
+	// MtxrGaugeUnitValueDA represents the SMI value dA.
+	MtxrGaugeUnitValueDA MtxrGaugeUnitValue = 4
+	// MtxrGaugeUnitValueDW represents the SMI value dW.
+	MtxrGaugeUnitValueDW MtxrGaugeUnitValue = 5
+	// MtxrGaugeUnitValueStatus represents the SMI value status.
+	MtxrGaugeUnitValueStatus MtxrGaugeUnitValue = 6
 )
 
+// String returns the SMI label, or MtxrGaugeUnitValue(n) for an unrecognized value n.
 func (v MtxrGaugeUnitValue) String() string {
 	switch v {
 	case MtxrGaugeUnitValueCelsius:
@@ -93,15 +116,23 @@ func (v MtxrGaugeUnitValue) String() string {
 }
 
 // MtxrIkeSAStateValue is the SMI enum mtxrIkeSAState (inline).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrIkeSAStateValue int32
 
 const (
-	MtxrIkeSAStateValueExchange    MtxrIkeSAStateValue = 1
+	// MtxrIkeSAStateValueExchange represents the SMI value exchange.
+	MtxrIkeSAStateValueExchange MtxrIkeSAStateValue = 1
+	// MtxrIkeSAStateValueEstablished represents the SMI value established.
 	MtxrIkeSAStateValueEstablished MtxrIkeSAStateValue = 2
-	MtxrIkeSAStateValueExpired     MtxrIkeSAStateValue = 3
-	MtxrIkeSAStateValueEap         MtxrIkeSAStateValue = 4
+	// MtxrIkeSAStateValueExpired represents the SMI value expired.
+	MtxrIkeSAStateValueExpired MtxrIkeSAStateValue = 3
+	// MtxrIkeSAStateValueEap represents the SMI value eap.
+	MtxrIkeSAStateValueEap MtxrIkeSAStateValue = 4
 )
 
+// String returns the SMI label, or MtxrIkeSAStateValue(n) for an unrecognized value n.
 func (v MtxrIkeSAStateValue) String() string {
 	switch v {
 	case MtxrIkeSAStateValueExchange:
@@ -119,22 +150,37 @@ func (v MtxrIkeSAStateValue) String() string {
 
 // MtxrLTEModemAccessTechnologyValue is the SMI enum mtxrLTEModemAccessTechnology (inline).
 // as reported by +CREG
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrLTEModemAccessTechnologyValue int32
 
 const (
-	MtxrLTEModemAccessTechnologyValueUnknown    MtxrLTEModemAccessTechnologyValue = -1
+	// MtxrLTEModemAccessTechnologyValueUnknown represents the SMI value unknown.
+	MtxrLTEModemAccessTechnologyValueUnknown MtxrLTEModemAccessTechnologyValue = -1
+	// MtxrLTEModemAccessTechnologyValueGsmcompact represents the SMI value gsmcompact.
 	MtxrLTEModemAccessTechnologyValueGsmcompact MtxrLTEModemAccessTechnologyValue = 0
-	MtxrLTEModemAccessTechnologyValueGsm        MtxrLTEModemAccessTechnologyValue = 1
-	MtxrLTEModemAccessTechnologyValueUtran      MtxrLTEModemAccessTechnologyValue = 2
-	MtxrLTEModemAccessTechnologyValueEgprs      MtxrLTEModemAccessTechnologyValue = 3
-	MtxrLTEModemAccessTechnologyValueHsdpa      MtxrLTEModemAccessTechnologyValue = 4
-	MtxrLTEModemAccessTechnologyValueHsupa      MtxrLTEModemAccessTechnologyValue = 5
+	// MtxrLTEModemAccessTechnologyValueGsm represents the SMI value gsm.
+	MtxrLTEModemAccessTechnologyValueGsm MtxrLTEModemAccessTechnologyValue = 1
+	// MtxrLTEModemAccessTechnologyValueUtran represents the SMI value utran.
+	MtxrLTEModemAccessTechnologyValueUtran MtxrLTEModemAccessTechnologyValue = 2
+	// MtxrLTEModemAccessTechnologyValueEgprs represents the SMI value egprs.
+	MtxrLTEModemAccessTechnologyValueEgprs MtxrLTEModemAccessTechnologyValue = 3
+	// MtxrLTEModemAccessTechnologyValueHsdpa represents the SMI value hsdpa.
+	MtxrLTEModemAccessTechnologyValueHsdpa MtxrLTEModemAccessTechnologyValue = 4
+	// MtxrLTEModemAccessTechnologyValueHsupa represents the SMI value hsupa.
+	MtxrLTEModemAccessTechnologyValueHsupa MtxrLTEModemAccessTechnologyValue = 5
+	// MtxrLTEModemAccessTechnologyValueHsdpahsupa represents the SMI value hsdpahsupa.
 	MtxrLTEModemAccessTechnologyValueHsdpahsupa MtxrLTEModemAccessTechnologyValue = 6
-	MtxrLTEModemAccessTechnologyValueEutran     MtxrLTEModemAccessTechnologyValue = 7
-	MtxrLTEModemAccessTechnologyValueNrSa       MtxrLTEModemAccessTechnologyValue = 11
-	MtxrLTEModemAccessTechnologyValueNrNsa      MtxrLTEModemAccessTechnologyValue = 13
+	// MtxrLTEModemAccessTechnologyValueEutran represents the SMI value eutran.
+	MtxrLTEModemAccessTechnologyValueEutran MtxrLTEModemAccessTechnologyValue = 7
+	// MtxrLTEModemAccessTechnologyValueNrSa represents the SMI value nr-sa.
+	MtxrLTEModemAccessTechnologyValueNrSa MtxrLTEModemAccessTechnologyValue = 11
+	// MtxrLTEModemAccessTechnologyValueNrNsa represents the SMI value nr-nsa.
+	MtxrLTEModemAccessTechnologyValueNrNsa MtxrLTEModemAccessTechnologyValue = 13
 )
 
+// String returns the SMI label, or MtxrLTEModemAccessTechnologyValue(n) for an unrecognized value n.
 func (v MtxrLTEModemAccessTechnologyValue) String() string {
 	switch v {
 	case MtxrLTEModemAccessTechnologyValueUnknown:
@@ -166,23 +212,39 @@ func (v MtxrLTEModemAccessTechnologyValue) String() string {
 
 // MtxrOpticalConnectorTypeValue is the SMI enum mtxrOpticalConnectorType (inline).
 // Transceiver connector type, SFF-8024 connector value
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrOpticalConnectorTypeValue int32
 
 const (
-	MtxrOpticalConnectorTypeValueUnknown              MtxrOpticalConnectorTypeValue = 0
-	MtxrOpticalConnectorTypeValueSc                   MtxrOpticalConnectorTypeValue = 1
-	MtxrOpticalConnectorTypeValueLc                   MtxrOpticalConnectorTypeValue = 7
-	MtxrOpticalConnectorTypeValueOpticalPigtail       MtxrOpticalConnectorTypeValue = 11
-	MtxrOpticalConnectorTypeValueMpo1x12              MtxrOpticalConnectorTypeValue = 12
-	MtxrOpticalConnectorTypeValueMpo2x16              MtxrOpticalConnectorTypeValue = 13
-	MtxrOpticalConnectorTypeValueHssdc2               MtxrOpticalConnectorTypeValue = 32
-	MtxrOpticalConnectorTypeValueCopperPigtail        MtxrOpticalConnectorTypeValue = 33
-	MtxrOpticalConnectorTypeValueRj45                 MtxrOpticalConnectorTypeValue = 34
+	// MtxrOpticalConnectorTypeValueUnknown represents the SMI value unknown.
+	MtxrOpticalConnectorTypeValueUnknown MtxrOpticalConnectorTypeValue = 0
+	// MtxrOpticalConnectorTypeValueSc represents the SMI value sc.
+	MtxrOpticalConnectorTypeValueSc MtxrOpticalConnectorTypeValue = 1
+	// MtxrOpticalConnectorTypeValueLc represents the SMI value lc.
+	MtxrOpticalConnectorTypeValueLc MtxrOpticalConnectorTypeValue = 7
+	// MtxrOpticalConnectorTypeValueOpticalPigtail represents the SMI value opticalPigtail.
+	MtxrOpticalConnectorTypeValueOpticalPigtail MtxrOpticalConnectorTypeValue = 11
+	// MtxrOpticalConnectorTypeValueMpo1x12 represents the SMI value mpo1x12.
+	MtxrOpticalConnectorTypeValueMpo1x12 MtxrOpticalConnectorTypeValue = 12
+	// MtxrOpticalConnectorTypeValueMpo2x16 represents the SMI value mpo2x16.
+	MtxrOpticalConnectorTypeValueMpo2x16 MtxrOpticalConnectorTypeValue = 13
+	// MtxrOpticalConnectorTypeValueHssdc2 represents the SMI value hssdc2.
+	MtxrOpticalConnectorTypeValueHssdc2 MtxrOpticalConnectorTypeValue = 32
+	// MtxrOpticalConnectorTypeValueCopperPigtail represents the SMI value copperPigtail.
+	MtxrOpticalConnectorTypeValueCopperPigtail MtxrOpticalConnectorTypeValue = 33
+	// MtxrOpticalConnectorTypeValueRj45 represents the SMI value rj45.
+	MtxrOpticalConnectorTypeValueRj45 MtxrOpticalConnectorTypeValue = 34
+	// MtxrOpticalConnectorTypeValueNoSeparableConnector represents the SMI value noSeparableConnector.
 	MtxrOpticalConnectorTypeValueNoSeparableConnector MtxrOpticalConnectorTypeValue = 35
-	MtxrOpticalConnectorTypeValueMpo2x12              MtxrOpticalConnectorTypeValue = 39
-	MtxrOpticalConnectorTypeValueMpo1x16              MtxrOpticalConnectorTypeValue = 40
+	// MtxrOpticalConnectorTypeValueMpo2x12 represents the SMI value mpo2x12.
+	MtxrOpticalConnectorTypeValueMpo2x12 MtxrOpticalConnectorTypeValue = 39
+	// MtxrOpticalConnectorTypeValueMpo1x16 represents the SMI value mpo1x16.
+	MtxrOpticalConnectorTypeValueMpo1x16 MtxrOpticalConnectorTypeValue = 40
 )
 
+// String returns the SMI label, or MtxrOpticalConnectorTypeValue(n) for an unrecognized value n.
 func (v MtxrOpticalConnectorTypeValue) String() string {
 	switch v {
 	case MtxrOpticalConnectorTypeValueUnknown:
@@ -216,21 +278,35 @@ func (v MtxrOpticalConnectorTypeValue) String() string {
 
 // MtxrOpticalTypeValue is the SMI enum mtxrOpticalType (inline).
 // Transceiver module type, SFF-8024 identifier value
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrOpticalTypeValue int32
 
 const (
-	MtxrOpticalTypeValueUnknown  MtxrOpticalTypeValue = 0
-	MtxrOpticalTypeValueGbic     MtxrOpticalTypeValue = 1
+	// MtxrOpticalTypeValueUnknown represents the SMI value unknown.
+	MtxrOpticalTypeValueUnknown MtxrOpticalTypeValue = 0
+	// MtxrOpticalTypeValueGbic represents the SMI value gbic.
+	MtxrOpticalTypeValueGbic MtxrOpticalTypeValue = 1
+	// MtxrOpticalTypeValueSoldered represents the SMI value soldered.
 	MtxrOpticalTypeValueSoldered MtxrOpticalTypeValue = 2
-	MtxrOpticalTypeValueSfp      MtxrOpticalTypeValue = 3
-	MtxrOpticalTypeValueDwdmSfp  MtxrOpticalTypeValue = 11
-	MtxrOpticalTypeValueQsfp     MtxrOpticalTypeValue = 12
+	// MtxrOpticalTypeValueSfp represents the SMI value sfp.
+	MtxrOpticalTypeValueSfp MtxrOpticalTypeValue = 3
+	// MtxrOpticalTypeValueDwdmSfp represents the SMI value dwdmSfp.
+	MtxrOpticalTypeValueDwdmSfp MtxrOpticalTypeValue = 11
+	// MtxrOpticalTypeValueQsfp represents the SMI value qsfp.
+	MtxrOpticalTypeValueQsfp MtxrOpticalTypeValue = 12
+	// MtxrOpticalTypeValueQsfpPlus represents the SMI value qsfpPlus.
 	MtxrOpticalTypeValueQsfpPlus MtxrOpticalTypeValue = 13
-	MtxrOpticalTypeValueQsfp28   MtxrOpticalTypeValue = 17
-	MtxrOpticalTypeValueQsfpDD   MtxrOpticalTypeValue = 24
+	// MtxrOpticalTypeValueQsfp28 represents the SMI value qsfp28.
+	MtxrOpticalTypeValueQsfp28 MtxrOpticalTypeValue = 17
+	// MtxrOpticalTypeValueQsfpDD represents the SMI value qsfpDD.
+	MtxrOpticalTypeValueQsfpDD MtxrOpticalTypeValue = 24
+	// MtxrOpticalTypeValueQsfpCmis represents the SMI value qsfpCmis.
 	MtxrOpticalTypeValueQsfpCmis MtxrOpticalTypeValue = 30
 )
 
+// String returns the SMI label, or MtxrOpticalTypeValue(n) for an unrecognized value n.
 func (v MtxrOpticalTypeValue) String() string {
 	switch v {
 	case MtxrOpticalTypeValueUnknown:
@@ -259,26 +335,45 @@ func (v MtxrOpticalTypeValue) String() string {
 }
 
 // MtxrPOEStatusValue is the SMI enum mtxrPOEStatus (inline).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrPOEStatusValue int32
 
 const (
-	MtxrPOEStatusValueDisabled          MtxrPOEStatusValue = 1
-	MtxrPOEStatusValueWaitingForLoad    MtxrPOEStatusValue = 2
-	MtxrPOEStatusValuePoweredOn         MtxrPOEStatusValue = 3
-	MtxrPOEStatusValueOverload          MtxrPOEStatusValue = 4
-	MtxrPOEStatusValueShortCircuit      MtxrPOEStatusValue = 5
-	MtxrPOEStatusValueVoltageTooLow     MtxrPOEStatusValue = 6
-	MtxrPOEStatusValueCurrentTooLow     MtxrPOEStatusValue = 7
-	MtxrPOEStatusValuePowerReset        MtxrPOEStatusValue = 8
-	MtxrPOEStatusValueVoltageTooHigh    MtxrPOEStatusValue = 9
-	MtxrPOEStatusValueControllerError   MtxrPOEStatusValue = 10
+	// MtxrPOEStatusValueDisabled represents the SMI value disabled.
+	MtxrPOEStatusValueDisabled MtxrPOEStatusValue = 1
+	// MtxrPOEStatusValueWaitingForLoad represents the SMI value waitingForLoad.
+	MtxrPOEStatusValueWaitingForLoad MtxrPOEStatusValue = 2
+	// MtxrPOEStatusValuePoweredOn represents the SMI value poweredOn.
+	MtxrPOEStatusValuePoweredOn MtxrPOEStatusValue = 3
+	// MtxrPOEStatusValueOverload represents the SMI value overload.
+	MtxrPOEStatusValueOverload MtxrPOEStatusValue = 4
+	// MtxrPOEStatusValueShortCircuit represents the SMI value shortCircuit.
+	MtxrPOEStatusValueShortCircuit MtxrPOEStatusValue = 5
+	// MtxrPOEStatusValueVoltageTooLow represents the SMI value voltageTooLow.
+	MtxrPOEStatusValueVoltageTooLow MtxrPOEStatusValue = 6
+	// MtxrPOEStatusValueCurrentTooLow represents the SMI value currentTooLow.
+	MtxrPOEStatusValueCurrentTooLow MtxrPOEStatusValue = 7
+	// MtxrPOEStatusValuePowerReset represents the SMI value powerReset.
+	MtxrPOEStatusValuePowerReset MtxrPOEStatusValue = 8
+	// MtxrPOEStatusValueVoltageTooHigh represents the SMI value voltageTooHigh.
+	MtxrPOEStatusValueVoltageTooHigh MtxrPOEStatusValue = 9
+	// MtxrPOEStatusValueControllerError represents the SMI value controllerError.
+	MtxrPOEStatusValueControllerError MtxrPOEStatusValue = 10
+	// MtxrPOEStatusValueControllerUpgrade represents the SMI value controllerUpgrade.
 	MtxrPOEStatusValueControllerUpgrade MtxrPOEStatusValue = 11
-	MtxrPOEStatusValuePoeInDetected     MtxrPOEStatusValue = 12
-	MtxrPOEStatusValueNoValidPsu        MtxrPOEStatusValue = 13
-	MtxrPOEStatusValueControllerInit    MtxrPOEStatusValue = 14
-	MtxrPOEStatusValueLowVoltageTooLow  MtxrPOEStatusValue = 15
+	// MtxrPOEStatusValuePoeInDetected represents the SMI value poeInDetected.
+	MtxrPOEStatusValuePoeInDetected MtxrPOEStatusValue = 12
+	// MtxrPOEStatusValueNoValidPsu represents the SMI value noValidPsu.
+	MtxrPOEStatusValueNoValidPsu MtxrPOEStatusValue = 13
+	// MtxrPOEStatusValueControllerInit represents the SMI value controllerInit.
+	MtxrPOEStatusValueControllerInit MtxrPOEStatusValue = 14
+	// MtxrPOEStatusValueLowVoltageTooLow represents the SMI value lowVoltageTooLow.
+	MtxrPOEStatusValueLowVoltageTooLow MtxrPOEStatusValue = 15
 )
 
+// String returns the SMI label, or MtxrPOEStatusValue(n) for an unrecognized value n.
 func (v MtxrPOEStatusValue) String() string {
 	switch v {
 	case MtxrPOEStatusValueDisabled:
@@ -317,15 +412,23 @@ func (v MtxrPOEStatusValue) String() string {
 }
 
 // MtxrWl60GModeValue is the SMI enum mtxrWl60GMode (inline).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type MtxrWl60GModeValue int32
 
 const (
-	MtxrWl60GModeValueApBridge      MtxrWl60GModeValue = 0
+	// MtxrWl60GModeValueApBridge represents the SMI value apBridge.
+	MtxrWl60GModeValueApBridge MtxrWl60GModeValue = 0
+	// MtxrWl60GModeValueStationBridge represents the SMI value stationBridge.
 	MtxrWl60GModeValueStationBridge MtxrWl60GModeValue = 1
-	MtxrWl60GModeValueSniff         MtxrWl60GModeValue = 2
-	MtxrWl60GModeValueBridge        MtxrWl60GModeValue = 3
+	// MtxrWl60GModeValueSniff represents the SMI value sniff.
+	MtxrWl60GModeValueSniff MtxrWl60GModeValue = 2
+	// MtxrWl60GModeValueBridge represents the SMI value bridge.
+	MtxrWl60GModeValueBridge MtxrWl60GModeValue = 3
 )
 
+// String returns the SMI label, or MtxrWl60GModeValue(n) for an unrecognized value n.
 func (v MtxrWl60GModeValue) String() string {
 	switch v {
 	case MtxrWl60GModeValueApBridge:
@@ -342,6 +445,8 @@ func (v MtxrWl60GModeValue) String() string {
 }
 
 // MtxrWlRtabEntryCountGet reads the SMIv2 scalar mtxrWlRtabEntryCount.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Wireless registration table entry count
 func MtxrWlRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 4, 0)})
@@ -350,7 +455,7 @@ func MtxrWlRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWlRtabEntryCount")
+		return 0, errs.Msg("empty Get response for mtxrWlRtabEntryCount")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -359,6 +464,8 @@ func MtxrWlRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, er
 }
 
 // MtxrWlCMRtabEntryCountGet reads the SMIv2 scalar mtxrWlCMRtabEntryCount.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Wireless CAPSMAN registration table entry count
 func MtxrWlCMRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 6, 0)})
@@ -367,7 +474,7 @@ func MtxrWlCMRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWlCMRtabEntryCount")
+		return 0, errs.Msg("empty Get response for mtxrWlCMRtabEntryCount")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -376,6 +483,8 @@ func MtxrWlCMRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, 
 }
 
 // MtxrWlCMREntryCountGet reads the SMIv2 scalar mtxrWlCMREntryCount.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Wireless CAPSMAN remote-cap entry count
 func MtxrWlCMREntryCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 10, 0)})
@@ -384,7 +493,7 @@ func MtxrWlCMREntryCountGet(ctx context.Context, sess snmp.Session) (uint32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWlCMREntryCount")
+		return 0, errs.Msg("empty Get response for mtxrWlCMREntryCount")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -393,6 +502,8 @@ func MtxrWlCMREntryCountGet(ctx context.Context, sess snmp.Session) (uint32, err
 }
 
 // MtxrHlCoreVoltageGet reads the SMIv2 scalar mtxrHlCoreVoltage.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // core voltage
 func MtxrHlCoreVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 1, 0)})
@@ -401,7 +512,7 @@ func MtxrHlCoreVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlCoreVoltage")
+		return 0, errs.Msg("empty Get response for mtxrHlCoreVoltage")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -410,6 +521,8 @@ func MtxrHlCoreVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 }
 
 // MtxrHlThreeDotThreeVoltageGet reads the SMIv2 scalar mtxrHlThreeDotThreeVoltage.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // 3.3V voltage
 func MtxrHlThreeDotThreeVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 2, 0)})
@@ -418,7 +531,7 @@ func MtxrHlThreeDotThreeVoltageGet(ctx context.Context, sess snmp.Session) (int3
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlThreeDotThreeVoltage")
+		return 0, errs.Msg("empty Get response for mtxrHlThreeDotThreeVoltage")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -427,6 +540,8 @@ func MtxrHlThreeDotThreeVoltageGet(ctx context.Context, sess snmp.Session) (int3
 }
 
 // MtxrHlFiveVoltageGet reads the SMIv2 scalar mtxrHlFiveVoltage.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // 5V voltage
 func MtxrHlFiveVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 3, 0)})
@@ -435,7 +550,7 @@ func MtxrHlFiveVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlFiveVoltage")
+		return 0, errs.Msg("empty Get response for mtxrHlFiveVoltage")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -444,6 +559,8 @@ func MtxrHlFiveVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 }
 
 // MtxrHlTwelveVoltageGet reads the SMIv2 scalar mtxrHlTwelveVoltage.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // 12V voltage
 func MtxrHlTwelveVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 4, 0)})
@@ -452,7 +569,7 @@ func MtxrHlTwelveVoltageGet(ctx context.Context, sess snmp.Session) (int32, erro
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlTwelveVoltage")
+		return 0, errs.Msg("empty Get response for mtxrHlTwelveVoltage")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -461,6 +578,8 @@ func MtxrHlTwelveVoltageGet(ctx context.Context, sess snmp.Session) (int32, erro
 }
 
 // MtxrHlSensorTemperatureGet reads the SMIv2 scalar mtxrHlSensorTemperature.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // temperature at sensor chip
 func MtxrHlSensorTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 5, 0)})
@@ -469,7 +588,7 @@ func MtxrHlSensorTemperatureGet(ctx context.Context, sess snmp.Session) (int32, 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlSensorTemperature")
+		return 0, errs.Msg("empty Get response for mtxrHlSensorTemperature")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -478,6 +597,8 @@ func MtxrHlSensorTemperatureGet(ctx context.Context, sess snmp.Session) (int32, 
 }
 
 // MtxrHlCpuTemperatureGet reads the SMIv2 scalar mtxrHlCpuTemperature.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // temperature near cpu
 func MtxrHlCpuTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 6, 0)})
@@ -486,7 +607,7 @@ func MtxrHlCpuTemperatureGet(ctx context.Context, sess snmp.Session) (int32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlCpuTemperature")
+		return 0, errs.Msg("empty Get response for mtxrHlCpuTemperature")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -495,6 +616,7 @@ func MtxrHlCpuTemperatureGet(ctx context.Context, sess snmp.Session) (int32, err
 }
 
 // MtxrHlBoardTemperatureGet reads the SMIv2 scalar mtxrHlBoardTemperature.
+// It returns the session or decode error, or an error if the response is empty.
 func MtxrHlBoardTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 7, 0)})
 	if err != nil {
@@ -502,7 +624,7 @@ func MtxrHlBoardTemperatureGet(ctx context.Context, sess snmp.Session) (int32, e
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlBoardTemperature")
+		return 0, errs.Msg("empty Get response for mtxrHlBoardTemperature")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -511,6 +633,7 @@ func MtxrHlBoardTemperatureGet(ctx context.Context, sess snmp.Session) (int32, e
 }
 
 // MtxrHlVoltageGet reads the SMIv2 scalar mtxrHlVoltage.
+// It returns the session or decode error, or an error if the response is empty.
 func MtxrHlVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 8, 0)})
 	if err != nil {
@@ -518,7 +641,7 @@ func MtxrHlVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlVoltage")
+		return 0, errs.Msg("empty Get response for mtxrHlVoltage")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -527,6 +650,7 @@ func MtxrHlVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // MtxrHlActiveFanGet reads the SMIv2 scalar mtxrHlActiveFan.
+// It returns the session or decode error, or an error if the response is empty.
 func MtxrHlActiveFanGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 9, 0)})
 	if err != nil {
@@ -534,7 +658,7 @@ func MtxrHlActiveFanGet(ctx context.Context, sess snmp.Session) (string, error) 
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrHlActiveFan")
+		return "", errs.Msg("empty Get response for mtxrHlActiveFan")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -543,6 +667,7 @@ func MtxrHlActiveFanGet(ctx context.Context, sess snmp.Session) (string, error) 
 }
 
 // MtxrHlTemperatureGet reads the SMIv2 scalar mtxrHlTemperature.
+// It returns the session or decode error, or an error if the response is empty.
 func MtxrHlTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 10, 0)})
 	if err != nil {
@@ -550,7 +675,7 @@ func MtxrHlTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlTemperature")
+		return 0, errs.Msg("empty Get response for mtxrHlTemperature")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -559,6 +684,7 @@ func MtxrHlTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error)
 }
 
 // MtxrHlProcessorTemperatureGet reads the SMIv2 scalar mtxrHlProcessorTemperature.
+// It returns the session or decode error, or an error if the response is empty.
 func MtxrHlProcessorTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 11, 0)})
 	if err != nil {
@@ -566,7 +692,7 @@ func MtxrHlProcessorTemperatureGet(ctx context.Context, sess snmp.Session) (int3
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlProcessorTemperature")
+		return 0, errs.Msg("empty Get response for mtxrHlProcessorTemperature")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -575,6 +701,8 @@ func MtxrHlProcessorTemperatureGet(ctx context.Context, sess snmp.Session) (int3
 }
 
 // MtxrHlPowerGet reads the SMIv2 scalar mtxrHlPower.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Watts
 func MtxrHlPowerGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 12, 0)})
@@ -583,7 +711,7 @@ func MtxrHlPowerGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlPower")
+		return 0, errs.Msg("empty Get response for mtxrHlPower")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -592,6 +720,8 @@ func MtxrHlPowerGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // MtxrHlCurrentGet reads the SMIv2 scalar mtxrHlCurrent.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // mA
 func MtxrHlCurrentGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 13, 0)})
@@ -600,7 +730,7 @@ func MtxrHlCurrentGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlCurrent")
+		return 0, errs.Msg("empty Get response for mtxrHlCurrent")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -609,6 +739,8 @@ func MtxrHlCurrentGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // MtxrHlProcessorFrequencyGet reads the SMIv2 scalar mtxrHlProcessorFrequency.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Mhz
 func MtxrHlProcessorFrequencyGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 14, 0)})
@@ -617,7 +749,7 @@ func MtxrHlProcessorFrequencyGet(ctx context.Context, sess snmp.Session) (int32,
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlProcessorFrequency")
+		return 0, errs.Msg("empty Get response for mtxrHlProcessorFrequency")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -626,6 +758,8 @@ func MtxrHlProcessorFrequencyGet(ctx context.Context, sess snmp.Session) (int32,
 }
 
 // MtxrHlPowerSupplyStateGet reads the SMIv2 scalar mtxrHlPowerSupplyState.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // PSU state ok
 func MtxrHlPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (BoolValue, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 15, 0)})
@@ -634,7 +768,7 @@ func MtxrHlPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (BoolValu
 	}
 
 	if len(vbs) == 0 {
-		return BoolValue(0), ae.Msg("empty Get response for mtxrHlPowerSupplyState")
+		return BoolValue(0), errs.Msg("empty Get response for mtxrHlPowerSupplyState")
 	}
 
 	return func(vb snmp.VarBind) (BoolValue, error) {
@@ -647,6 +781,8 @@ func MtxrHlPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (BoolValu
 }
 
 // MtxrHlBackupPowerSupplyStateGet reads the SMIv2 scalar mtxrHlBackupPowerSupplyState.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // backup PSU state ok
 func MtxrHlBackupPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (BoolValue, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 16, 0)})
@@ -655,7 +791,7 @@ func MtxrHlBackupPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (Bo
 	}
 
 	if len(vbs) == 0 {
-		return BoolValue(0), ae.Msg("empty Get response for mtxrHlBackupPowerSupplyState")
+		return BoolValue(0), errs.Msg("empty Get response for mtxrHlBackupPowerSupplyState")
 	}
 
 	return func(vb snmp.VarBind) (BoolValue, error) {
@@ -668,6 +804,8 @@ func MtxrHlBackupPowerSupplyStateGet(ctx context.Context, sess snmp.Session) (Bo
 }
 
 // MtxrHlFanSpeed1Get reads the SMIv2 scalar mtxrHlFanSpeed1.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // rpm
 func MtxrHlFanSpeed1Get(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 17, 0)})
@@ -676,7 +814,7 @@ func MtxrHlFanSpeed1Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlFanSpeed1")
+		return 0, errs.Msg("empty Get response for mtxrHlFanSpeed1")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -685,6 +823,8 @@ func MtxrHlFanSpeed1Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // MtxrHlFanSpeed2Get reads the SMIv2 scalar mtxrHlFanSpeed2.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // rpm
 func MtxrHlFanSpeed2Get(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 18, 0)})
@@ -693,7 +833,7 @@ func MtxrHlFanSpeed2Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHlFanSpeed2")
+		return 0, errs.Msg("empty Get response for mtxrHlFanSpeed2")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -702,6 +842,8 @@ func MtxrHlFanSpeed2Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 }
 
 // MtxrAlarmSocketStatusGet reads the SMIv2 scalar mtxrAlarmSocketStatus.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Alarm socket status
 func MtxrAlarmSocketStatusGet(ctx context.Context, sess snmp.Session) (MtxrAlarmSocketStatusValue, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 19, 0)})
@@ -710,7 +852,7 @@ func MtxrAlarmSocketStatusGet(ctx context.Context, sess snmp.Session) (MtxrAlarm
 	}
 
 	if len(vbs) == 0 {
-		return MtxrAlarmSocketStatusValue(0), ae.Msg("empty Get response for mtxrAlarmSocketStatus")
+		return MtxrAlarmSocketStatusValue(0), errs.Msg("empty Get response for mtxrAlarmSocketStatus")
 	}
 
 	return func(vb snmp.VarBind) (MtxrAlarmSocketStatusValue, error) {
@@ -723,6 +865,8 @@ func MtxrAlarmSocketStatusGet(ctx context.Context, sess snmp.Session) (MtxrAlarm
 }
 
 // MtxrLicSoftwareIdGet reads the SMIv2 scalar mtxrLicSoftwareId.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // software id
 func MtxrLicSoftwareIdGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 4, 1, 0)})
@@ -731,7 +875,7 @@ func MtxrLicSoftwareIdGet(ctx context.Context, sess snmp.Session) (string, error
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrLicSoftwareId")
+		return "", errs.Msg("empty Get response for mtxrLicSoftwareId")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -740,6 +884,8 @@ func MtxrLicSoftwareIdGet(ctx context.Context, sess snmp.Session) (string, error
 }
 
 // MtxrLicUpgrUntilGet reads the SMIv2 scalar mtxrLicUpgrUntil.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // current key allows upgrading until this date
 func MtxrLicUpgrUntilGet(ctx context.Context, sess snmp.Session) (time.Time, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 4, 2, 0)})
@@ -748,7 +894,7 @@ func MtxrLicUpgrUntilGet(ctx context.Context, sess snmp.Session) (time.Time, err
 	}
 
 	if len(vbs) == 0 {
-		return time.Time{}, ae.Msg("empty Get response for mtxrLicUpgrUntil")
+		return time.Time{}, errs.Msg("empty Get response for mtxrLicUpgrUntil")
 	}
 
 	return func(vb snmp.VarBind) (time.Time, error) {
@@ -757,6 +903,8 @@ func MtxrLicUpgrUntilGet(ctx context.Context, sess snmp.Session) (time.Time, err
 }
 
 // MtxrLicLevelGet reads the SMIv2 scalar mtxrLicLevel.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // current key level
 func MtxrLicLevelGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 4, 3, 0)})
@@ -765,7 +913,7 @@ func MtxrLicLevelGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrLicLevel")
+		return 0, errs.Msg("empty Get response for mtxrLicLevel")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -774,6 +922,8 @@ func MtxrLicLevelGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // MtxrLicVersionGet reads the SMIv2 scalar mtxrLicVersion.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // software version
 func MtxrLicVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 4, 4, 0)})
@@ -782,7 +932,7 @@ func MtxrLicVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrLicVersion")
+		return "", errs.Msg("empty Get response for mtxrLicVersion")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -791,6 +941,8 @@ func MtxrLicVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrLicUpgradableToGet reads the SMIv2 scalar mtxrLicUpgradableTo.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // upgradable to
 func MtxrLicUpgradableToGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 4, 5, 0)})
@@ -799,7 +951,7 @@ func MtxrLicUpgradableToGet(ctx context.Context, sess snmp.Session) (int32, erro
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrLicUpgradableTo")
+		return 0, errs.Msg("empty Get response for mtxrLicUpgradableTo")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -808,6 +960,8 @@ func MtxrLicUpgradableToGet(ctx context.Context, sess snmp.Session) (int32, erro
 }
 
 // MtxrHotspotActiveUserCountGet reads the SMIv2 scalar mtxrHotspotActiveUserCount.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Number of active (logged-in) HotSpot clients
 func MtxrHotspotActiveUserCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 2, 0)})
@@ -816,7 +970,7 @@ func MtxrHotspotActiveUserCountGet(ctx context.Context, sess snmp.Session) (uint
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHotspotActiveUserCount")
+		return 0, errs.Msg("empty Get response for mtxrHotspotActiveUserCount")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -825,6 +979,8 @@ func MtxrHotspotActiveUserCountGet(ctx context.Context, sess snmp.Session) (uint
 }
 
 // MtxrHotspotHostCountGet reads the SMIv2 scalar mtxrHotspotHostCount.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Number of HotSpot hosts
 func MtxrHotspotHostCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 3, 0)})
@@ -833,7 +989,7 @@ func MtxrHotspotHostCountGet(ctx context.Context, sess snmp.Session) (uint32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrHotspotHostCount")
+		return 0, errs.Msg("empty Get response for mtxrHotspotHostCount")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -842,6 +998,7 @@ func MtxrHotspotHostCountGet(ctx context.Context, sess snmp.Session) (uint32, er
 }
 
 // MtxrDHCPLeaseCountGet reads the SMIv2 scalar mtxrDHCPLeaseCount.
+// It returns the session or decode error, or an error if the response is empty.
 func MtxrDHCPLeaseCountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 6, 1, 0)})
 	if err != nil {
@@ -849,7 +1006,7 @@ func MtxrDHCPLeaseCountGet(ctx context.Context, sess snmp.Session) (uint32, erro
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrDHCPLeaseCount")
+		return 0, errs.Msg("empty Get response for mtxrDHCPLeaseCount")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -858,6 +1015,8 @@ func MtxrDHCPLeaseCountGet(ctx context.Context, sess snmp.Session) (uint32, erro
 }
 
 // MtxrSystemRebootGet reads the SMIv2 scalar mtxrSystemReboot.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // set non zero to reboot
 func MtxrSystemRebootGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 1, 0)})
@@ -866,7 +1025,7 @@ func MtxrSystemRebootGet(ctx context.Context, sess snmp.Session) (int32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrSystemReboot")
+		return 0, errs.Msg("empty Get response for mtxrSystemReboot")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -875,6 +1034,8 @@ func MtxrSystemRebootGet(ctx context.Context, sess snmp.Session) (int32, error) 
 }
 
 // MtxrUSBPowerResetGet reads the SMIv2 scalar mtxrUSBPowerReset.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // switches off usb power for specified amout of seconds
 func MtxrUSBPowerResetGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 2, 0)})
@@ -883,7 +1044,7 @@ func MtxrUSBPowerResetGet(ctx context.Context, sess snmp.Session) (int32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrUSBPowerReset")
+		return 0, errs.Msg("empty Get response for mtxrUSBPowerReset")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -892,6 +1053,8 @@ func MtxrUSBPowerResetGet(ctx context.Context, sess snmp.Session) (int32, error)
 }
 
 // MtxrSerialNumberGet reads the SMIv2 scalar mtxrSerialNumber.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // RouterBOARD serial number
 func MtxrSerialNumberGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 3, 0)})
@@ -900,7 +1063,7 @@ func MtxrSerialNumberGet(ctx context.Context, sess snmp.Session) (string, error)
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrSerialNumber")
+		return "", errs.Msg("empty Get response for mtxrSerialNumber")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -909,6 +1072,8 @@ func MtxrSerialNumberGet(ctx context.Context, sess snmp.Session) (string, error)
 }
 
 // MtxrFirmwareVersionGet reads the SMIv2 scalar mtxrFirmwareVersion.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Current firmware version
 func MtxrFirmwareVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 4, 0)})
@@ -917,7 +1082,7 @@ func MtxrFirmwareVersionGet(ctx context.Context, sess snmp.Session) (string, err
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrFirmwareVersion")
+		return "", errs.Msg("empty Get response for mtxrFirmwareVersion")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -926,6 +1091,8 @@ func MtxrFirmwareVersionGet(ctx context.Context, sess snmp.Session) (string, err
 }
 
 // MtxrNoteGet reads the SMIv2 scalar mtxrNote.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // note
 func MtxrNoteGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 5, 0)})
@@ -934,7 +1101,7 @@ func MtxrNoteGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrNote")
+		return "", errs.Msg("empty Get response for mtxrNote")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -943,6 +1110,8 @@ func MtxrNoteGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrBuildTimeGet reads the SMIv2 scalar mtxrBuildTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // build time
 func MtxrBuildTimeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 6, 0)})
@@ -951,7 +1120,7 @@ func MtxrBuildTimeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrBuildTime")
+		return "", errs.Msg("empty Get response for mtxrBuildTime")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -960,6 +1129,8 @@ func MtxrBuildTimeGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrFirmwareUpgradeVersionGet reads the SMIv2 scalar mtxrFirmwareUpgradeVersion.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Upgrade firmware version
 func MtxrFirmwareUpgradeVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 7, 0)})
@@ -968,7 +1139,7 @@ func MtxrFirmwareUpgradeVersionGet(ctx context.Context, sess snmp.Session) (stri
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrFirmwareUpgradeVersion")
+		return "", errs.Msg("empty Get response for mtxrFirmwareUpgradeVersion")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -977,6 +1148,8 @@ func MtxrFirmwareUpgradeVersionGet(ctx context.Context, sess snmp.Session) (stri
 }
 
 // MtxrDisplayNameGet reads the SMIv2 scalar mtxrDisplayName.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // display name
 func MtxrDisplayNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 8, 0)})
@@ -985,7 +1158,7 @@ func MtxrDisplayNameGet(ctx context.Context, sess snmp.Session) (string, error) 
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrDisplayName")
+		return "", errs.Msg("empty Get response for mtxrDisplayName")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -994,6 +1167,8 @@ func MtxrDisplayNameGet(ctx context.Context, sess snmp.Session) (string, error) 
 }
 
 // MtxrBoardNameGet reads the SMIv2 scalar mtxrBoardName.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // board name
 func MtxrBoardNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 7, 9, 0)})
@@ -1002,7 +1177,7 @@ func MtxrBoardNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrBoardName")
+		return "", errs.Msg("empty Get response for mtxrBoardName")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1011,6 +1186,8 @@ func MtxrBoardNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrDateGet reads the SMIv2 scalar mtxrDate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // UNIX time
 func MtxrDateGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 12, 1, 0)})
@@ -1019,7 +1196,7 @@ func MtxrDateGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrDate")
+		return 0, errs.Msg("empty Get response for mtxrDate")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1028,6 +1205,8 @@ func MtxrDateGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // MtxrLongtitudeGet reads the SMIv2 scalar mtxrLongtitude.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // longtitude
 func MtxrLongtitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 12, 2, 0)})
@@ -1036,7 +1215,7 @@ func MtxrLongtitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrLongtitude")
+		return "", errs.Msg("empty Get response for mtxrLongtitude")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1045,6 +1224,8 @@ func MtxrLongtitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrLatitudeGet reads the SMIv2 scalar mtxrLatitude.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // latitude
 func MtxrLatitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 12, 3, 0)})
@@ -1053,7 +1234,7 @@ func MtxrLatitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrLatitude")
+		return "", errs.Msg("empty Get response for mtxrLatitude")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1062,6 +1243,8 @@ func MtxrLatitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrAltitudeGet reads the SMIv2 scalar mtxrAltitude.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // altitude
 func MtxrAltitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 12, 4, 0)})
@@ -1070,7 +1253,7 @@ func MtxrAltitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrAltitude")
+		return "", errs.Msg("empty Get response for mtxrAltitude")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1079,6 +1262,8 @@ func MtxrAltitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrSpeedGet reads the SMIv2 scalar mtxrSpeed.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // speed
 func MtxrSpeedGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 12, 5, 0)})
@@ -1087,7 +1272,7 @@ func MtxrSpeedGet(ctx context.Context, sess snmp.Session) (string, error) {
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrSpeed")
+		return "", errs.Msg("empty Get response for mtxrSpeed")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1096,6 +1281,8 @@ func MtxrSpeedGet(ctx context.Context, sess snmp.Session) (string, error) {
 }
 
 // MtxrSattelitesGet reads the SMIv2 scalar mtxrSattelites.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // visible sattelite count
 func MtxrSattelitesGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 12, 6, 0)})
@@ -1104,7 +1291,7 @@ func MtxrSattelitesGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrSattelites")
+		return 0, errs.Msg("empty Get response for mtxrSattelites")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1113,6 +1300,8 @@ func MtxrSattelitesGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // MtxrValidGet reads the SMIv2 scalar mtxrValid.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // is the data valid
 func MtxrValidGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 12, 7, 0)})
@@ -1121,7 +1310,7 @@ func MtxrValidGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrValid")
+		return 0, errs.Msg("empty Get response for mtxrValid")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1130,6 +1319,8 @@ func MtxrValidGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // MtxrWirelessModemSignalStrengthGet reads the SMIv2 scalar mtxrWirelessModemSignalStrength.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // signal strength in dBm (if first ppp-client modem supports)
 func MtxrWirelessModemSignalStrengthGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 1, 0)})
@@ -1138,7 +1329,7 @@ func MtxrWirelessModemSignalStrengthGet(ctx context.Context, sess snmp.Session) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWirelessModemSignalStrength")
+		return 0, errs.Msg("empty Get response for mtxrWirelessModemSignalStrength")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1147,6 +1338,8 @@ func MtxrWirelessModemSignalStrengthGet(ctx context.Context, sess snmp.Session) 
 }
 
 // MtxrWirelessModemSignalECIOGet reads the SMIv2 scalar mtxrWirelessModemSignalECIO.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // signal EC/IO in dB (if first ppp-client modem supports)
 func MtxrWirelessModemSignalECIOGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 2, 0)})
@@ -1155,7 +1348,7 @@ func MtxrWirelessModemSignalECIOGet(ctx context.Context, sess snmp.Session) (int
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWirelessModemSignalECIO")
+		return 0, errs.Msg("empty Get response for mtxrWirelessModemSignalECIO")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1164,6 +1357,8 @@ func MtxrWirelessModemSignalECIOGet(ctx context.Context, sess snmp.Session) (int
 }
 
 // MtxrWirelessModemManufacturerGet reads the SMIv2 scalar mtxrWirelessModemManufacturer.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Modem manufacturer name
 func MtxrWirelessModemManufacturerGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 3, 0)})
@@ -1172,7 +1367,7 @@ func MtxrWirelessModemManufacturerGet(ctx context.Context, sess snmp.Session) (s
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemManufacturer")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemManufacturer")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1181,6 +1376,8 @@ func MtxrWirelessModemManufacturerGet(ctx context.Context, sess snmp.Session) (s
 }
 
 // MtxrWirelessModemModelGet reads the SMIv2 scalar mtxrWirelessModemModel.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Modem model name
 func MtxrWirelessModemModelGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 4, 0)})
@@ -1189,7 +1386,7 @@ func MtxrWirelessModemModelGet(ctx context.Context, sess snmp.Session) (string, 
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemModel")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemModel")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1198,6 +1395,8 @@ func MtxrWirelessModemModelGet(ctx context.Context, sess snmp.Session) (string, 
 }
 
 // MtxrWirelessModemRevisionGet reads the SMIv2 scalar mtxrWirelessModemRevision.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Modem firmware revision
 func MtxrWirelessModemRevisionGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 5, 0)})
@@ -1206,7 +1405,7 @@ func MtxrWirelessModemRevisionGet(ctx context.Context, sess snmp.Session) (strin
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemRevision")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemRevision")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1215,6 +1414,8 @@ func MtxrWirelessModemRevisionGet(ctx context.Context, sess snmp.Session) (strin
 }
 
 // MtxrWirelessModemIMEIGet reads the SMIv2 scalar mtxrWirelessModemIMEI.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Modem serial number
 func MtxrWirelessModemIMEIGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 6, 0)})
@@ -1223,7 +1424,7 @@ func MtxrWirelessModemIMEIGet(ctx context.Context, sess snmp.Session) (string, e
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemIMEI")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemIMEI")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1232,6 +1433,8 @@ func MtxrWirelessModemIMEIGet(ctx context.Context, sess snmp.Session) (string, e
 }
 
 // MtxrWirelessModemIMSIGet reads the SMIv2 scalar mtxrWirelessModemIMSI.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // International mobile subscriber identity
 func MtxrWirelessModemIMSIGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 7, 0)})
@@ -1240,7 +1443,7 @@ func MtxrWirelessModemIMSIGet(ctx context.Context, sess snmp.Session) (string, e
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemIMSI")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemIMSI")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1249,6 +1452,8 @@ func MtxrWirelessModemIMSIGet(ctx context.Context, sess snmp.Session) (string, e
 }
 
 // MtxrWirelessModemAccessTechnologyGet reads the SMIv2 scalar mtxrWirelessModemAccessTechnology.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Access technology
 func MtxrWirelessModemAccessTechnologyGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 8, 0)})
@@ -1257,7 +1462,7 @@ func MtxrWirelessModemAccessTechnologyGet(ctx context.Context, sess snmp.Session
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemAccessTechnology")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemAccessTechnology")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1266,6 +1471,8 @@ func MtxrWirelessModemAccessTechnologyGet(ctx context.Context, sess snmp.Session
 }
 
 // MtxrWirelessModemFrameErrorRateGet reads the SMIv2 scalar mtxrWirelessModemFrameErrorRate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Signal frame error rate
 func MtxrWirelessModemFrameErrorRateGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 9, 0)})
@@ -1274,7 +1481,7 @@ func MtxrWirelessModemFrameErrorRateGet(ctx context.Context, sess snmp.Session) 
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemFrameErrorRate")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemFrameErrorRate")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1283,6 +1490,8 @@ func MtxrWirelessModemFrameErrorRateGet(ctx context.Context, sess snmp.Session) 
 }
 
 // MtxrWirelessModemRSRPGet reads the SMIv2 scalar mtxrWirelessModemRSRP.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Reference Signal Receive Power
 func MtxrWirelessModemRSRPGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 10, 0)})
@@ -1291,7 +1500,7 @@ func MtxrWirelessModemRSRPGet(ctx context.Context, sess snmp.Session) (int32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWirelessModemRSRP")
+		return 0, errs.Msg("empty Get response for mtxrWirelessModemRSRP")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1300,6 +1509,8 @@ func MtxrWirelessModemRSRPGet(ctx context.Context, sess snmp.Session) (int32, er
 }
 
 // MtxrWirelessModemRSRQGet reads the SMIv2 scalar mtxrWirelessModemRSRQ.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Reference Signal Received Quality
 func MtxrWirelessModemRSRQGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 11, 0)})
@@ -1308,7 +1519,7 @@ func MtxrWirelessModemRSRQGet(ctx context.Context, sess snmp.Session) (int32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWirelessModemRSRQ")
+		return 0, errs.Msg("empty Get response for mtxrWirelessModemRSRQ")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1317,6 +1528,8 @@ func MtxrWirelessModemRSRQGet(ctx context.Context, sess snmp.Session) (int32, er
 }
 
 // MtxrWirelessModemSINRGet reads the SMIv2 scalar mtxrWirelessModemSINR.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Signal-to-Interference-plus-Noise Ratio
 func MtxrWirelessModemSINRGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 12, 0)})
@@ -1325,7 +1538,7 @@ func MtxrWirelessModemSINRGet(ctx context.Context, sess snmp.Session) (int32, er
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWirelessModemSINR")
+		return 0, errs.Msg("empty Get response for mtxrWirelessModemSINR")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1334,6 +1547,8 @@ func MtxrWirelessModemSINRGet(ctx context.Context, sess snmp.Session) (int32, er
 }
 
 // MtxrWirelessModemPinStatusGet reads the SMIv2 scalar mtxrWirelessModemPinStatus.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Pin status of the modem
 func MtxrWirelessModemPinStatusGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 13, 13, 0)})
@@ -1342,7 +1557,7 @@ func MtxrWirelessModemPinStatusGet(ctx context.Context, sess snmp.Session) (stri
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWirelessModemPinStatus")
+		return "", errs.Msg("empty Get response for mtxrWirelessModemPinStatus")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1351,6 +1566,8 @@ func MtxrWirelessModemPinStatusGet(ctx context.Context, sess snmp.Session) (stri
 }
 
 // MtxrLteFirmwareInstalledVersionGet reads the SMIv2 scalar mtxrLteFirmwareInstalledVersion.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Firmware version currently installed on the LTE modem.
 func MtxrLteFirmwareInstalledVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 1, 0)})
@@ -1359,7 +1576,7 @@ func MtxrLteFirmwareInstalledVersionGet(ctx context.Context, sess snmp.Session) 
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrLteFirmwareInstalledVersion")
+		return "", errs.Msg("empty Get response for mtxrLteFirmwareInstalledVersion")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1368,6 +1585,8 @@ func MtxrLteFirmwareInstalledVersionGet(ctx context.Context, sess snmp.Session) 
 }
 
 // MtxrLteFirmwareLatestVersionGet reads the SMIv2 scalar mtxrLteFirmwareLatestVersion.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Latest firmware version available for the LTE modem, as determined by
 // the most recent successful version check.
 func MtxrLteFirmwareLatestVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
@@ -1377,7 +1596,7 @@ func MtxrLteFirmwareLatestVersionGet(ctx context.Context, sess snmp.Session) (st
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrLteFirmwareLatestVersion")
+		return "", errs.Msg("empty Get response for mtxrLteFirmwareLatestVersion")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1386,6 +1605,7 @@ func MtxrLteFirmwareLatestVersionGet(ctx context.Context, sess snmp.Session) (st
 }
 
 // MtxrLteFirmwareStatusGet reads the SMIv2 scalar mtxrLteFirmwareStatus.
+// It returns the session or decode error, or an error if the response is empty.
 func MtxrLteFirmwareStatusGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 3, 3, 0)})
 	if err != nil {
@@ -1393,7 +1613,7 @@ func MtxrLteFirmwareStatusGet(ctx context.Context, sess snmp.Session) (string, e
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrLteFirmwareStatus")
+		return "", errs.Msg("empty Get response for mtxrLteFirmwareStatus")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1402,6 +1622,8 @@ func MtxrLteFirmwareStatusGet(ctx context.Context, sess snmp.Session) (string, e
 }
 
 // MtxrLteFirmwareLastCheckedGet reads the SMIv2 scalar mtxrLteFirmwareLastChecked.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Unix epoch timestamp indicating when the firmware version was last
 // successfully checked online.
 func MtxrLteFirmwareLastCheckedGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1411,7 +1633,7 @@ func MtxrLteFirmwareLastCheckedGet(ctx context.Context, sess snmp.Session) (uint
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrLteFirmwareLastChecked")
+		return 0, errs.Msg("empty Get response for mtxrLteFirmwareLastChecked")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1420,6 +1642,8 @@ func MtxrLteFirmwareLastCheckedGet(ctx context.Context, sess snmp.Session) (uint
 }
 
 // MtxrLteFirmwareCheckTriggerGet reads the SMIv2 scalar mtxrLteFirmwareCheckTrigger.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Write the LTE modem device ID to this object to initiate firmware
 // version check for that modem.
 func MtxrLteFirmwareCheckTriggerGet(ctx context.Context, sess snmp.Session) (int32, error) {
@@ -1429,7 +1653,7 @@ func MtxrLteFirmwareCheckTriggerGet(ctx context.Context, sess snmp.Session) (int
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrLteFirmwareCheckTrigger")
+		return 0, errs.Msg("empty Get response for mtxrLteFirmwareCheckTrigger")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1438,6 +1662,8 @@ func MtxrLteFirmwareCheckTriggerGet(ctx context.Context, sess snmp.Session) (int
 }
 
 // MtxrLteFirmwareInstallTriggerGet reads the SMIv2 scalar mtxrLteFirmwareInstallTrigger.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Write the LTE modem device ID to this object to initiate firmware
 // upgrade for that modem.
 func MtxrLteFirmwareInstallTriggerGet(ctx context.Context, sess snmp.Session) (int32, error) {
@@ -1447,7 +1673,7 @@ func MtxrLteFirmwareInstallTriggerGet(ctx context.Context, sess snmp.Session) (i
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrLteFirmwareInstallTrigger")
+		return 0, errs.Msg("empty Get response for mtxrLteFirmwareInstallTrigger")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1456,6 +1682,8 @@ func MtxrLteFirmwareInstallTriggerGet(ctx context.Context, sess snmp.Session) (i
 }
 
 // MtxrIkeSACountGet reads the SMIv2 scalar mtxrIkeSACount.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // IKE SA count
 func MtxrIkeSACountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 1, 0)})
@@ -1464,7 +1692,7 @@ func MtxrIkeSACountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrIkeSACount")
+		return 0, errs.Msg("empty Get response for mtxrIkeSACount")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1473,6 +1701,8 @@ func MtxrIkeSACountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // MtxrWifiCapsmanEnabledGet reads the SMIv2 scalar mtxrWifiCapsmanEnabled.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Indicates whether the Capsman is enabled.
 func MtxrWifiCapsmanEnabledGet(ctx context.Context, sess snmp.Session) (bool, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 1, 0)})
@@ -1481,7 +1711,7 @@ func MtxrWifiCapsmanEnabledGet(ctx context.Context, sess snmp.Session) (bool, er
 	}
 
 	if len(vbs) == 0 {
-		return false, ae.Msg("empty Get response for mtxrWifiCapsmanEnabled")
+		return false, errs.Msg("empty Get response for mtxrWifiCapsmanEnabled")
 	}
 
 	return func(vb snmp.VarBind) (bool, error) {
@@ -1490,6 +1720,8 @@ func MtxrWifiCapsmanEnabledGet(ctx context.Context, sess snmp.Session) (bool, er
 }
 
 // MtxrWifiCapsmanInterfacesGet reads the SMIv2 scalar mtxrWifiCapsmanInterfaces.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // List of interfaces associated with Capsman.
 func MtxrWifiCapsmanInterfacesGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 2, 0)})
@@ -1498,7 +1730,7 @@ func MtxrWifiCapsmanInterfacesGet(ctx context.Context, sess snmp.Session) (strin
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWifiCapsmanInterfaces")
+		return "", errs.Msg("empty Get response for mtxrWifiCapsmanInterfaces")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1507,6 +1739,8 @@ func MtxrWifiCapsmanInterfacesGet(ctx context.Context, sess snmp.Session) (strin
 }
 
 // MtxrWifiCapsmanCACertificateGet reads the SMIv2 scalar mtxrWifiCapsmanCACertificate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The CA certificate used by Capsman.
 func MtxrWifiCapsmanCACertificateGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 3, 0)})
@@ -1515,7 +1749,7 @@ func MtxrWifiCapsmanCACertificateGet(ctx context.Context, sess snmp.Session) (st
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWifiCapsmanCACertificate")
+		return "", errs.Msg("empty Get response for mtxrWifiCapsmanCACertificate")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1524,6 +1758,8 @@ func MtxrWifiCapsmanCACertificateGet(ctx context.Context, sess snmp.Session) (st
 }
 
 // MtxrWifiCapsmanCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanCertificate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The local certificate used by Capsman.
 func MtxrWifiCapsmanCertificateGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 4, 0)})
@@ -1532,7 +1768,7 @@ func MtxrWifiCapsmanCertificateGet(ctx context.Context, sess snmp.Session) (stri
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWifiCapsmanCertificate")
+		return "", errs.Msg("empty Get response for mtxrWifiCapsmanCertificate")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1541,6 +1777,8 @@ func MtxrWifiCapsmanCertificateGet(ctx context.Context, sess snmp.Session) (stri
 }
 
 // MtxrWifiCapsmanRequirePeerCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanRequirePeerCertificate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Whether a peer certificate is required.
 func MtxrWifiCapsmanRequirePeerCertificateGet(ctx context.Context, sess snmp.Session) (bool, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 5, 0)})
@@ -1549,7 +1787,7 @@ func MtxrWifiCapsmanRequirePeerCertificateGet(ctx context.Context, sess snmp.Ses
 	}
 
 	if len(vbs) == 0 {
-		return false, ae.Msg("empty Get response for mtxrWifiCapsmanRequirePeerCertificate")
+		return false, errs.Msg("empty Get response for mtxrWifiCapsmanRequirePeerCertificate")
 	}
 
 	return func(vb snmp.VarBind) (bool, error) {
@@ -1558,6 +1796,8 @@ func MtxrWifiCapsmanRequirePeerCertificateGet(ctx context.Context, sess snmp.Ses
 }
 
 // MtxrWifiCapsmanPackagePathGet reads the SMIv2 scalar mtxrWifiCapsmanPackagePath.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Path to the Capsman package directory.
 func MtxrWifiCapsmanPackagePathGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 6, 0)})
@@ -1566,7 +1806,7 @@ func MtxrWifiCapsmanPackagePathGet(ctx context.Context, sess snmp.Session) (stri
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWifiCapsmanPackagePath")
+		return "", errs.Msg("empty Get response for mtxrWifiCapsmanPackagePath")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1575,6 +1815,8 @@ func MtxrWifiCapsmanPackagePathGet(ctx context.Context, sess snmp.Session) (stri
 }
 
 // MtxrWifiCapsmanUpgradePolicyGet reads the SMIv2 scalar mtxrWifiCapsmanUpgradePolicy.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Capsman upgrade policy.
 func MtxrWifiCapsmanUpgradePolicyGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 7, 0)})
@@ -1583,7 +1825,7 @@ func MtxrWifiCapsmanUpgradePolicyGet(ctx context.Context, sess snmp.Session) (in
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrWifiCapsmanUpgradePolicy")
+		return 0, errs.Msg("empty Get response for mtxrWifiCapsmanUpgradePolicy")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -1592,6 +1834,8 @@ func MtxrWifiCapsmanUpgradePolicyGet(ctx context.Context, sess snmp.Session) (in
 }
 
 // MtxrWifiCapsmanGeneratedCaCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanGeneratedCaCertificate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Automatically generated CA certificate.
 func MtxrWifiCapsmanGeneratedCaCertificateGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 8, 0)})
@@ -1600,7 +1844,7 @@ func MtxrWifiCapsmanGeneratedCaCertificateGet(ctx context.Context, sess snmp.Ses
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWifiCapsmanGeneratedCaCertificate")
+		return "", errs.Msg("empty Get response for mtxrWifiCapsmanGeneratedCaCertificate")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1609,6 +1853,8 @@ func MtxrWifiCapsmanGeneratedCaCertificateGet(ctx context.Context, sess snmp.Ses
 }
 
 // MtxrWifiCapsmanGeneratedCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanGeneratedCertificate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Automatically generated local certificate.
 func MtxrWifiCapsmanGeneratedCertificateGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 1, 9, 0)})
@@ -1617,7 +1863,7 @@ func MtxrWifiCapsmanGeneratedCertificateGet(ctx context.Context, sess snmp.Sessi
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrWifiCapsmanGeneratedCertificate")
+		return "", errs.Msg("empty Get response for mtxrWifiCapsmanGeneratedCertificate")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1626,6 +1872,8 @@ func MtxrWifiCapsmanGeneratedCertificateGet(ctx context.Context, sess snmp.Sessi
 }
 
 // MtxrCapEnabledGet reads the SMIv2 scalar mtxrCapEnabled.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Indicates whether the CAP is enabled.
 func MtxrCapEnabledGet(ctx context.Context, sess snmp.Session) (bool, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 1, 0)})
@@ -1634,7 +1882,7 @@ func MtxrCapEnabledGet(ctx context.Context, sess snmp.Session) (bool, error) {
 	}
 
 	if len(vbs) == 0 {
-		return false, ae.Msg("empty Get response for mtxrCapEnabled")
+		return false, errs.Msg("empty Get response for mtxrCapEnabled")
 	}
 
 	return func(vb snmp.VarBind) (bool, error) {
@@ -1643,6 +1891,8 @@ func MtxrCapEnabledGet(ctx context.Context, sess snmp.Session) (bool, error) {
 }
 
 // MtxrCapInterfacesGet reads the SMIv2 scalar mtxrCapInterfaces.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // List of interfaces used by the CAP.
 func MtxrCapInterfacesGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 2, 0)})
@@ -1651,7 +1901,7 @@ func MtxrCapInterfacesGet(ctx context.Context, sess snmp.Session) (string, error
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapInterfaces")
+		return "", errs.Msg("empty Get response for mtxrCapInterfaces")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1660,6 +1910,8 @@ func MtxrCapInterfacesGet(ctx context.Context, sess snmp.Session) (string, error
 }
 
 // MtxrCapCertificateGet reads the SMIv2 scalar mtxrCapCertificate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The local certificate used by the CAP.
 func MtxrCapCertificateGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 3, 0)})
@@ -1668,7 +1920,7 @@ func MtxrCapCertificateGet(ctx context.Context, sess snmp.Session) (string, erro
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapCertificate")
+		return "", errs.Msg("empty Get response for mtxrCapCertificate")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1677,6 +1929,8 @@ func MtxrCapCertificateGet(ctx context.Context, sess snmp.Session) (string, erro
 }
 
 // MtxrCapCapsManAddressesGet reads the SMIv2 scalar mtxrCapCapsManAddresses.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Addresses of associated CapsMan controllers.
 func MtxrCapCapsManAddressesGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 4, 0)})
@@ -1685,7 +1939,7 @@ func MtxrCapCapsManAddressesGet(ctx context.Context, sess snmp.Session) (string,
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapCapsManAddresses")
+		return "", errs.Msg("empty Get response for mtxrCapCapsManAddresses")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1694,6 +1948,8 @@ func MtxrCapCapsManAddressesGet(ctx context.Context, sess snmp.Session) (string,
 }
 
 // MtxrCapCapsManNamesGet reads the SMIv2 scalar mtxrCapCapsManNames.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Names of associated CapsMan controllers.
 func MtxrCapCapsManNamesGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 5, 0)})
@@ -1702,7 +1958,7 @@ func MtxrCapCapsManNamesGet(ctx context.Context, sess snmp.Session) (string, err
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapCapsManNames")
+		return "", errs.Msg("empty Get response for mtxrCapCapsManNames")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1711,6 +1967,8 @@ func MtxrCapCapsManNamesGet(ctx context.Context, sess snmp.Session) (string, err
 }
 
 // MtxrCapCapsManCertificateCommonNamesGet reads the SMIv2 scalar mtxrCapCapsManCertificateCommonNames.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Common names of CapsMan certificates.
 func MtxrCapCapsManCertificateCommonNamesGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 6, 0)})
@@ -1719,7 +1977,7 @@ func MtxrCapCapsManCertificateCommonNamesGet(ctx context.Context, sess snmp.Sess
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapCapsManCertificateCommonNames")
+		return "", errs.Msg("empty Get response for mtxrCapCapsManCertificateCommonNames")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1728,6 +1986,8 @@ func MtxrCapCapsManCertificateCommonNamesGet(ctx context.Context, sess snmp.Sess
 }
 
 // MtxrCapLockToCapsManGet reads the SMIv2 scalar mtxrCapLockToCapsMan.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Indicates if the CAP is locked to a specific CapsMan.
 func MtxrCapLockToCapsManGet(ctx context.Context, sess snmp.Session) (bool, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 7, 0)})
@@ -1736,7 +1996,7 @@ func MtxrCapLockToCapsManGet(ctx context.Context, sess snmp.Session) (bool, erro
 	}
 
 	if len(vbs) == 0 {
-		return false, ae.Msg("empty Get response for mtxrCapLockToCapsMan")
+		return false, errs.Msg("empty Get response for mtxrCapLockToCapsMan")
 	}
 
 	return func(vb snmp.VarBind) (bool, error) {
@@ -1745,6 +2005,8 @@ func MtxrCapLockToCapsManGet(ctx context.Context, sess snmp.Session) (bool, erro
 }
 
 // MtxrCapSlavesStaticGet reads the SMIv2 scalar mtxrCapSlavesStatic.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Indicates if CAP slaves are set to static mode.
 func MtxrCapSlavesStaticGet(ctx context.Context, sess snmp.Session) (bool, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 8, 0)})
@@ -1753,7 +2015,7 @@ func MtxrCapSlavesStaticGet(ctx context.Context, sess snmp.Session) (bool, error
 	}
 
 	if len(vbs) == 0 {
-		return false, ae.Msg("empty Get response for mtxrCapSlavesStatic")
+		return false, errs.Msg("empty Get response for mtxrCapSlavesStatic")
 	}
 
 	return func(vb snmp.VarBind) (bool, error) {
@@ -1762,6 +2024,8 @@ func MtxrCapSlavesStaticGet(ctx context.Context, sess snmp.Session) (bool, error
 }
 
 // MtxrCapSlavesDatapathGet reads the SMIv2 scalar mtxrCapSlavesDatapath.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Datapath configuration of CAP slaves.
 func MtxrCapSlavesDatapathGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 9, 0)})
@@ -1770,7 +2034,7 @@ func MtxrCapSlavesDatapathGet(ctx context.Context, sess snmp.Session) (string, e
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapSlavesDatapath")
+		return "", errs.Msg("empty Get response for mtxrCapSlavesDatapath")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1779,6 +2043,8 @@ func MtxrCapSlavesDatapathGet(ctx context.Context, sess snmp.Session) (string, e
 }
 
 // MtxrCapRequestedCertificateGet reads the SMIv2 scalar mtxrCapRequestedCertificate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Requested certificate for the CAP.
 func MtxrCapRequestedCertificateGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 10, 0)})
@@ -1787,7 +2053,7 @@ func MtxrCapRequestedCertificateGet(ctx context.Context, sess snmp.Session) (str
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapRequestedCertificate")
+		return "", errs.Msg("empty Get response for mtxrCapRequestedCertificate")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1796,6 +2062,8 @@ func MtxrCapRequestedCertificateGet(ctx context.Context, sess snmp.Session) (str
 }
 
 // MtxrCapLockedCapsManCommonNameGet reads the SMIv2 scalar mtxrCapLockedCapsManCommonName.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Locked CapsMan common name.
 func MtxrCapLockedCapsManCommonNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 11, 0)})
@@ -1804,7 +2072,7 @@ func MtxrCapLockedCapsManCommonNameGet(ctx context.Context, sess snmp.Session) (
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapLockedCapsManCommonName")
+		return "", errs.Msg("empty Get response for mtxrCapLockedCapsManCommonName")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1813,6 +2081,8 @@ func MtxrCapLockedCapsManCommonNameGet(ctx context.Context, sess snmp.Session) (
 }
 
 // MtxrCapCurrentCapsManAddressGet reads the SMIv2 scalar mtxrCapCurrentCapsManAddress.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Current CapsMan address being used.
 func MtxrCapCurrentCapsManAddressGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 12, 0)})
@@ -1821,7 +2091,7 @@ func MtxrCapCurrentCapsManAddressGet(ctx context.Context, sess snmp.Session) (st
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapCurrentCapsManAddress")
+		return "", errs.Msg("empty Get response for mtxrCapCurrentCapsManAddress")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1830,6 +2100,8 @@ func MtxrCapCurrentCapsManAddressGet(ctx context.Context, sess snmp.Session) (st
 }
 
 // MtxrCapCurrentCapsManIdentityGet reads the SMIv2 scalar mtxrCapCurrentCapsManIdentity.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Current identity of the connected CapsMan.
 func MtxrCapCurrentCapsManIdentityGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 2, 13, 0)})
@@ -1838,7 +2110,7 @@ func MtxrCapCurrentCapsManIdentityGet(ctx context.Context, sess snmp.Session) (s
 	}
 
 	if len(vbs) == 0 {
-		return "", ae.Msg("empty Get response for mtxrCapCurrentCapsManIdentity")
+		return "", errs.Msg("empty Get response for mtxrCapCurrentCapsManIdentity")
 	}
 
 	return func(vb snmp.VarBind) (string, error) {
@@ -1847,6 +2119,8 @@ func MtxrCapCurrentCapsManIdentityGet(ctx context.Context, sess snmp.Session) (s
 }
 
 // MtxrCtTotalEntriesGet reads the SMIv2 scalar mtxrCtTotalEntries.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Total number of connections
 func MtxrCtTotalEntriesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 1, 0)})
@@ -1855,7 +2129,7 @@ func MtxrCtTotalEntriesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrCtTotalEntries")
+		return 0, errs.Msg("empty Get response for mtxrCtTotalEntries")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1864,6 +2138,8 @@ func MtxrCtTotalEntriesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 }
 
 // MtxrCtIP4EntriesGet reads the SMIv2 scalar mtxrCtIP4Entries.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Total number of ipv4 connections
 func MtxrCtIP4EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 2, 0)})
@@ -1872,7 +2148,7 @@ func MtxrCtIP4EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrCtIP4Entries")
+		return 0, errs.Msg("empty Get response for mtxrCtIP4Entries")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1881,6 +2157,8 @@ func MtxrCtIP4EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // MtxrCtIP6EntriesGet reads the SMIv2 scalar mtxrCtIP6Entries.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Total number of ipv6 connections
 func MtxrCtIP6EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 22, 3, 0)})
@@ -1889,7 +2167,7 @@ func MtxrCtIP6EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for mtxrCtIP6Entries")
+		return 0, errs.Msg("empty Get response for mtxrCtIP6Entries")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -1949,8 +2227,10 @@ var MtxrWlStatRxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 1498
 // MtxrWlStatTableRow is one row of mtxrWlStatTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWlStatTableRow.Observed to tell a reported zero from a column the
+// [MtxrWlStatTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWlStatTableRow struct {
 	Index              snmp.OID
 	MtxrWlStatTxRate   uint32
@@ -1999,7 +2279,8 @@ func (r MtxrWlStatTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWlStatTableWalker is a table-aware walker over mtxrWlStatTable.
-// Construct via MtxrWlStatTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWlStatTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWlStatTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2262,7 +2543,7 @@ var MtxrWlStatTable mtxrWlStatTableT
 // Every column in cols must be a column of mtxrWlStatTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWlStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlStatTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2383,8 +2664,10 @@ var MtxrWlRtabRadioName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 
 // MtxrWlRtabTableRow is one row of mtxrWlRtabTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWlRtabTableRow.Observed to tell a reported zero from a column the
+// [MtxrWlRtabTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWlRtabTableRow struct {
 	Index                     snmp.OID
 	MtxrWlRtabStrength        int32
@@ -2460,7 +2743,8 @@ func (r MtxrWlRtabTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWlRtabTableWalker is a table-aware walker over mtxrWlRtabTable.
-// Construct via MtxrWlRtabTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWlRtabTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWlRtabTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2890,7 +3174,7 @@ var MtxrWlRtabTable mtxrWlRtabTableT
 // Every column in cols must be a column of mtxrWlRtabTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWlRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlRtabTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2968,8 +3252,10 @@ var MtxrWlApAuthClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4,
 // MtxrWlApTableRow is one row of mtxrWlApTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWlApTableRow.Observed to tell a reported zero from a column the
+// [MtxrWlApTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWlApTableRow struct {
 	Index                   snmp.OID
 	MtxrWlApTxRate          uint32
@@ -3021,7 +3307,8 @@ func (r MtxrWlApTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWlApTableWalker is a table-aware walker over mtxrWlApTable.
-// Construct via MtxrWlApTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWlApTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWlApTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -3302,7 +3589,7 @@ var MtxrWlApTable mtxrWlApTableT
 // Every column in cols must be a column of mtxrWlApTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWlApTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlApTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -3390,8 +3677,10 @@ var MtxrWlCMRtabEapIdent = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1,
 // MtxrWlCMRtabTableRow is one row of mtxrWlCMRtabTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWlCMRtabTableRow.Observed to tell a reported zero from a column the
+// [MtxrWlCMRtabTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWlCMRtabTableRow struct {
 	Index                  snmp.OID
 	MtxrWlCMRtabAddr       net.HardwareAddr
@@ -3449,7 +3738,8 @@ func (r MtxrWlCMRtabTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWlCMRtabTableWalker is a table-aware walker over mtxrWlCMRtabTable.
-// Construct via MtxrWlCMRtabTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWlCMRtabTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWlCMRtabTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -3766,7 +4056,7 @@ var MtxrWlCMRtabTable mtxrWlCMRtabTableT
 // Every column in cols must be a column of mtxrWlCMRtabTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWlCMRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRtabTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -3812,8 +4102,10 @@ var MtxrWlCMChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 1498
 // MtxrWlCMTableRow is one row of mtxrWlCMTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWlCMTableRow.Observed to tell a reported zero from a column the
+// [MtxrWlCMTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWlCMTableRow struct {
 	Index                   snmp.OID
 	MtxrWlCMRegClientCount  uint32
@@ -3847,7 +4139,8 @@ func (r MtxrWlCMTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWlCMTableWalker is a table-aware walker over mtxrWlCMTable.
-// Construct via MtxrWlCMTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWlCMTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWlCMTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -4025,7 +4318,7 @@ var MtxrWlCMTable mtxrWlCMTableT
 // Every column in cols must be a column of mtxrWlCMTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWlCMTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -4114,8 +4407,10 @@ var MtxrWl60GPhyRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 149
 // MtxrWl60GTableRow is one row of mtxrWl60GTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWl60GTableRow.Observed to tell a reported zero from a column the
+// [MtxrWl60GTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWl60GTableRow struct {
 	Index                 snmp.OID
 	MtxrWl60GMode         MtxrWl60GModeValue
@@ -4170,7 +4465,8 @@ func (r MtxrWl60GTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWl60GTableWalker is a table-aware walker over mtxrWl60GTable.
-// Construct via MtxrWl60GTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWl60GTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWl60GTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -4469,7 +4765,7 @@ var MtxrWl60GTable mtxrWl60GTableT
 // Every column in cols must be a column of mtxrWl60GTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWl60GTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -4540,8 +4836,10 @@ var MtxrWl60GStaDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 
 // MtxrWl60GStaTableRow is one row of mtxrWl60GStaTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWl60GStaTableRow.Observed to tell a reported zero from a column the
+// [MtxrWl60GStaTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWl60GStaTableRow struct {
 	Index                 snmp.OID
 	MtxrWl60GStaConnected BoolValue
@@ -4587,7 +4885,8 @@ func (r MtxrWl60GStaTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWl60GStaTableWalker is a table-aware walker over mtxrWl60GStaTable.
-// Construct via MtxrWl60GStaTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWl60GStaTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWl60GStaTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -4842,7 +5141,7 @@ var MtxrWl60GStaTable mtxrWl60GStaTableT
 // Every column in cols must be a column of mtxrWl60GStaTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWl60GStaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GStaTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -4887,8 +5186,10 @@ var MtxrWlCMRemoteRadios = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1,
 // MtxrWlCMRemoteTableRow is one row of mtxrWlCMRemoteTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWlCMRemoteTableRow.Observed to tell a reported zero from a column the
+// [MtxrWlCMRemoteTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWlCMRemoteTableRow struct {
 	Index                 snmp.OID
 	MtxrWlCMRemoteName    string
@@ -4922,7 +5223,8 @@ func (r MtxrWlCMRemoteTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWlCMRemoteTableWalker is a table-aware walker over mtxrWlCMRemoteTable.
-// Construct via MtxrWlCMRemoteTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWlCMRemoteTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWlCMRemoteTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -5095,7 +5397,7 @@ var MtxrWlCMRemoteTable mtxrWlCMRemoteTableT
 // Every column in cols must be a column of mtxrWlCMRemoteTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWlCMRemoteTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRemoteTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -5191,8 +5493,10 @@ var MtxrQueueSimpleDroppedOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 
 // MtxrQueueSimpleTableRow is one row of mtxrQueueSimpleTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrQueueSimpleTableRow.Observed to tell a reported zero from a column the
+// [MtxrQueueSimpleTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrQueueSimpleTableRow struct {
 	Index                       snmp.OID
 	MtxrQueueSimpleName         string
@@ -5256,7 +5560,8 @@ func (r MtxrQueueSimpleTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrQueueSimpleTableWalker is a table-aware walker over mtxrQueueSimpleTable.
-// Construct via MtxrQueueSimpleTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrQueueSimpleTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrQueueSimpleTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -5599,7 +5904,7 @@ var MtxrQueueSimpleTable mtxrQueueSimpleTableT
 // Every column in cols must be a column of mtxrQueueSimpleTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrQueueSimpleTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueSimpleTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -5666,8 +5971,10 @@ var MtxrQueueTreeDropped = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1,
 // MtxrQueueTreeTableRow is one row of mtxrQueueTreeTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrQueueTreeTableRow.Observed to tell a reported zero from a column the
+// [MtxrQueueTreeTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrQueueTreeTableRow struct {
 	Index                    snmp.OID
 	MtxrQueueTreeName        string
@@ -5713,7 +6020,8 @@ func (r MtxrQueueTreeTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrQueueTreeTableWalker is a table-aware walker over mtxrQueueTreeTable.
-// Construct via MtxrQueueTreeTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrQueueTreeTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrQueueTreeTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -5963,7 +6271,7 @@ var MtxrQueueTreeTable mtxrQueueTreeTableT
 // Every column in cols must be a column of mtxrQueueTreeTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrQueueTreeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueTreeTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -6008,8 +6316,10 @@ var MtxrGaugeUnit = snmp.NewColumn[MtxrGaugeUnitValue](snmp.MustOID(1, 3, 6, 1, 
 // MtxrGaugeTableRow is one row of mtxrGaugeTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrGaugeTableRow.Observed to tell a reported zero from a column the
+// [MtxrGaugeTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrGaugeTableRow struct {
 	Index          snmp.OID
 	MtxrGaugeName  string
@@ -6040,7 +6350,8 @@ func (r MtxrGaugeTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrGaugeTableWalker is a table-aware walker over mtxrGaugeTable.
-// Construct via MtxrGaugeTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrGaugeTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrGaugeTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -6205,7 +6516,7 @@ var MtxrGaugeTable mtxrGaugeTableT
 // Every column in cols must be a column of mtxrGaugeTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrGaugeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrGaugeTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -6325,8 +6636,10 @@ var MtxrHotspotActiveUserBlockedByAdvert = snmp.NewColumn[int32](snmp.MustOID(1,
 // MtxrHotspotActiveUsersTableRow is one row of mtxrHotspotActiveUsersTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrHotspotActiveUsersTableRow.Observed to tell a reported zero from a column the
+// [MtxrHotspotActiveUsersTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrHotspotActiveUsersTableRow struct {
 	Index                                snmp.OID
 	MtxrHotspotActiveUserServerID        int32
@@ -6405,7 +6718,8 @@ func (r MtxrHotspotActiveUsersTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrHotspotActiveUsersTableWalker is a table-aware walker over mtxrHotspotActiveUsersTable.
-// Construct via MtxrHotspotActiveUsersTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrHotspotActiveUsersTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrHotspotActiveUsersTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -6843,7 +7157,7 @@ var MtxrHotspotActiveUsersTable mtxrHotspotActiveUsersTableT
 // Every column in cols must be a column of mtxrHotspotActiveUsersTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrHotspotActiveUsersTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrHotspotActiveUsersTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -6879,8 +7193,10 @@ var MtxrScriptRunCmd = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 1498
 // MtxrScriptTableRow is one row of mtxrScriptTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrScriptTableRow.Observed to tell a reported zero from a column the
+// [MtxrScriptTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrScriptTableRow struct {
 	Index            snmp.OID
 	MtxrScriptName   string
@@ -6908,7 +7224,8 @@ func (r MtxrScriptTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrScriptTableWalker is a table-aware walker over mtxrScriptTable.
-// Construct via MtxrScriptTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrScriptTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrScriptTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -7055,7 +7372,7 @@ var MtxrScriptTable mtxrScriptTableT
 // Every column in cols must be a column of mtxrScriptTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrScriptTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -7110,8 +7427,10 @@ var MtxrDnConnected = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988
 // MtxrDnStatTableRow is one row of mtxrDnStatTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrDnStatTableRow.Observed to tell a reported zero from a column the
+// [MtxrDnStatTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrDnStatTableRow struct {
 	Index                snmp.OID
 	MtxrDnStatTxRate     uint32
@@ -7148,7 +7467,8 @@ func (r MtxrDnStatTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrDnStatTableWalker is a table-aware walker over mtxrDnStatTable.
-// Construct via MtxrDnStatTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrDnStatTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrDnStatTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -7354,7 +7674,7 @@ var MtxrDnStatTable mtxrDnStatTableT
 // Every column in cols must be a column of mtxrDnStatTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrDnStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrDnStatTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -7414,8 +7734,10 @@ var MtxrNeighborInterfaceID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 
 // MtxrNeighborTableRow is one row of mtxrNeighborTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrNeighborTableRow.Observed to tell a reported zero from a column the
+// [MtxrNeighborTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrNeighborTableRow struct {
 	Index                   snmp.OID
 	MtxrNeighborIpAddress   net.IP
@@ -7458,7 +7780,8 @@ func (r MtxrNeighborTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrNeighborTableWalker is a table-aware walker over mtxrNeighborTable.
-// Construct via MtxrNeighborTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrNeighborTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrNeighborTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -7670,7 +7993,7 @@ var MtxrNeighborTable mtxrNeighborTableT
 // Every column in cols must be a column of mtxrNeighborTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrNeighborTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrNeighborTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -8035,8 +8358,10 @@ var MtxrInterfaceStatsTxRx1024ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 
 // MtxrInterfaceStatsTableRow is one row of mtxrInterfaceStatsTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrInterfaceStatsTableRow.Observed to tell a reported zero from a column the
+// [MtxrInterfaceStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrInterfaceStatsTableRow struct {
 	Index                                  snmp.OID
 	MtxrInterfaceStatsName                 string
@@ -8262,7 +8587,8 @@ func (r MtxrInterfaceStatsTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrInterfaceStatsTableWalker is a table-aware walker over mtxrInterfaceStatsTable.
-// Construct via MtxrInterfaceStatsTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrInterfaceStatsTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrInterfaceStatsTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -9597,7 +9923,7 @@ var MtxrInterfaceStatsTable mtxrInterfaceStatsTableT
 // Every column in cols must be a column of mtxrInterfaceStatsTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrInterfaceStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrInterfaceStatsTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -9654,8 +9980,10 @@ var MtxrPOEPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1
 // MtxrPOETableRow is one row of mtxrPOETable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrPOETableRow.Observed to tell a reported zero from a column the
+// [MtxrPOETableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrPOETableRow struct {
 	Index          snmp.OID
 	MtxrPOEName    string
@@ -9692,7 +10020,8 @@ func (r MtxrPOETableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrPOETableWalker is a table-aware walker over mtxrPOETable.
-// Construct via MtxrPOETable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrPOETable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrPOETableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -9893,7 +10222,7 @@ var MtxrPOETable mtxrPOETableT
 // Every column in cols must be a column of mtxrPOETable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrPOETableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPOETableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -10048,8 +10377,10 @@ var MtxrLTEModemSignalRSRQD10 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4
 // MtxrLTEModemTableRow is one row of mtxrLTEModemTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrLTEModemTableRow.Observed to tell a reported zero from a column the
+// [MtxrLTEModemTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrLTEModemTableRow struct {
 	Index                        snmp.OID
 	MtxrLTEModemSignalRSSI       int32
@@ -10143,7 +10474,8 @@ func (r MtxrLTEModemTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrLTEModemTableWalker is a table-aware walker over mtxrLTEModemTable.
-// Construct via MtxrLTEModemTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrLTEModemTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrLTEModemTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -10646,7 +10978,7 @@ var MtxrLTEModemTable mtxrLTEModemTableT
 // Every column in cols must be a column of mtxrLTEModemTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrLTEModemTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTEModemTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -10732,8 +11064,10 @@ var MtxrLTECarrierAggUplink = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1
 // MtxrLTECarrierAggTableRow is one row of mtxrLTECarrierAggTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrLTECarrierAggTableRow.Observed to tell a reported zero from a column the
+// [MtxrLTECarrierAggTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrLTECarrierAggTableRow struct {
 	Index                      snmp.OID
 	MtxrLTECarrierAggBand      int32
@@ -10788,7 +11122,8 @@ func (r MtxrLTECarrierAggTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrLTECarrierAggTableWalker is a table-aware walker over mtxrLTECarrierAggTable.
-// Construct via MtxrLTECarrierAggTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrLTECarrierAggTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrLTECarrierAggTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -11092,7 +11427,7 @@ var MtxrLTECarrierAggTable mtxrLTECarrierAggTableT
 // Every column in cols must be a column of mtxrLTECarrierAggTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrLTECarrierAggTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTECarrierAggTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -11151,8 +11486,10 @@ var MtxrPartitionRunning = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4,
 // MtxrPartitionTableRow is one row of mtxrPartitionTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrPartitionTableRow.Observed to tell a reported zero from a column the
+// [MtxrPartitionTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrPartitionTableRow struct {
 	Index                snmp.OID
 	MtxrPartitionName    string
@@ -11189,7 +11526,8 @@ func (r MtxrPartitionTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrPartitionTableWalker is a table-aware walker over mtxrPartitionTable.
-// Construct via MtxrPartitionTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrPartitionTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrPartitionTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -11385,7 +11723,7 @@ var MtxrPartitionTable mtxrPartitionTableT
 // Every column in cols must be a column of mtxrPartitionTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPartitionTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -11416,8 +11754,10 @@ var MtxrScriptRunOutput = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 
 // MtxrScriptRunTableRow is one row of mtxrScriptRunTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrScriptRunTableRow.Observed to tell a reported zero from a column the
+// [MtxrScriptRunTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrScriptRunTableRow struct {
 	Index               snmp.OID
 	MtxrScriptRunOutput string
@@ -11442,7 +11782,8 @@ func (r MtxrScriptRunTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrScriptRunTableWalker is a table-aware walker over mtxrScriptRunTable.
-// Construct via MtxrScriptRunTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrScriptRunTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrScriptRunTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -11571,7 +11912,7 @@ var MtxrScriptRunTable mtxrScriptRunTableT
 // Every column in cols must be a column of mtxrScriptRunTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrScriptRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptRunTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -11707,8 +12048,10 @@ var MtxrOpticalSupportedRates = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 
 // MtxrOpticalTableRow is one row of mtxrOpticalTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrOpticalTableRow.Observed to tell a reported zero from a column the
+// [MtxrOpticalTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrOpticalTableRow struct {
 	Index                          snmp.OID
 	MtxrOpticalName                string
@@ -11781,7 +12124,8 @@ func (r MtxrOpticalTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrOpticalTableWalker is a table-aware walker over mtxrOpticalTable.
-// Construct via MtxrOpticalTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrOpticalTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrOpticalTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -12178,7 +12522,7 @@ var MtxrOpticalTable mtxrOpticalTableT
 // Every column in cols must be a column of mtxrOpticalTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrOpticalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrOpticalTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -12338,8 +12682,10 @@ var MtxrIkeSARxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 1
 // MtxrIkeSATableRow is one row of mtxrIkeSATable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrIkeSATableRow.Observed to tell a reported zero from a column the
+// [MtxrIkeSATableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrIkeSATableRow struct {
 	Index                       snmp.OID
 	MtxrIkeSAInitiatorCookie    []byte
@@ -12427,7 +12773,8 @@ func (r MtxrIkeSATableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrIkeSATableWalker is a table-aware walker over mtxrIkeSATable.
-// Construct via MtxrIkeSATable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrIkeSATable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrIkeSATableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -12909,7 +13256,7 @@ var MtxrIkeSATable mtxrIkeSATableT
 // Every column in cols must be a column of mtxrIkeSATable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrIkeSATableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrIkeSATableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -12982,8 +13329,10 @@ var MtxrRemoteCapState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 1
 // MtxrRemoteCapTableRow is one row of mtxrRemoteCapTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrRemoteCapTableRow.Observed to tell a reported zero from a column the
+// [MtxrRemoteCapTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrRemoteCapTableRow struct {
 	Index                   snmp.OID
 	MtxrRemoteCapAddress    string
@@ -13029,7 +13378,8 @@ func (r MtxrRemoteCapTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrRemoteCapTableWalker is a table-aware walker over mtxrRemoteCapTable.
-// Construct via MtxrRemoteCapTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrRemoteCapTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrRemoteCapTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -13249,7 +13599,7 @@ var MtxrRemoteCapTable mtxrRemoteCapTableT
 // Every column in cols must be a column of mtxrRemoteCapTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrRemoteCapTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrRemoteCapTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -13376,8 +13726,10 @@ var MtxrWifiRegistrationAuthorized = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 
 // MtxrWifiRegistrationTableRow is one row of mtxrWifiRegistrationTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWifiRegistrationTableRow.Observed to tell a reported zero from a column the
+// [MtxrWifiRegistrationTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWifiRegistrationTableRow struct {
 	Index                               snmp.OID
 	MtxrWifiRegistrationMacAddress      net.HardwareAddr
@@ -13450,7 +13802,8 @@ func (r MtxrWifiRegistrationTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWifiRegistrationTableWalker is a table-aware walker over mtxrWifiRegistrationTable.
-// Construct via MtxrWifiRegistrationTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWifiRegistrationTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWifiRegistrationTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -13847,7 +14200,7 @@ var MtxrWifiRegistrationTable mtxrWifiRegistrationTableT
 // Every column in cols must be a column of mtxrWifiRegistrationTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWifiRegistrationTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiRegistrationTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -13897,8 +14250,10 @@ var MtxrWifiInterfacesCurrentChannel = snmp.NewColumn[string](snmp.MustOID(1, 3,
 // MtxrWifiInterfacesRow is one row of mtxrWifiInterfaces. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// MtxrWifiInterfacesRow.Observed to tell a reported zero from a column the
+// [MtxrWifiInterfacesRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type MtxrWifiInterfacesRow struct {
 	Index                            snmp.OID
 	MtxrWifiInterfacesName           string
@@ -13932,7 +14287,8 @@ func (r MtxrWifiInterfacesRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // MtxrWifiInterfacesWalker is a table-aware walker over mtxrWifiInterfaces.
-// Construct via MtxrWifiInterfaces.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via MtxrWifiInterfaces.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type MtxrWifiInterfacesWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -14100,7 +14456,7 @@ var MtxrWifiInterfaces mtxrWifiInterfacesT
 // Every column in cols must be a column of mtxrWifiInterfaces. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (mtxrWifiInterfacesT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiInterfacesWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))

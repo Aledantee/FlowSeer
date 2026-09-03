@@ -266,7 +266,8 @@ func renderGoType(s *jen.Statement) string {
 // its passthrough methods.
 func emitWatcherType(f *jen.File, _ *emitCtx, tw tableWalkContext, watcherTypeName string) {
 	f.Comment(watcherTypeName + " is a table-aware Watcher over " + tw.TableName + ".")
-	f.Comment("Construct via " + tw.TableName + ".Watch(ctx, sess, cols, opts...).")
+	f.Comment("The zero value is not usable; construct via " + tw.TableName + ".Watch(ctx, sess, cols, opts...).")
+	f.Comment("Use a single iterator. The other methods may be called concurrently.")
 	f.Type().Id(watcherTypeName).Struct(
 		jen.Id("w").Op("*").Qual(snmpImport, "Watcher").Types(jen.Id(tw.RowTypeName)),
 	)

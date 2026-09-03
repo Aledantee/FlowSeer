@@ -714,8 +714,6 @@ func cloneBytes(b []byte) []byte {
 	return out
 }
 
-// --- Encode -----------------------------------------------------------
-
 // encodeMessage encodes the structured model back to a v1/v2c datagram:
 // SEQUENCE { version, community, pdu }. It is used to build request PDUs
 // and is the inverse of [decodeMessage] for the round-trip tests and the

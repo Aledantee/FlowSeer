@@ -152,14 +152,19 @@ func writeEnumDecl(f *jen.File, goName, mibName, comment string, values []enumMe
 	} else {
 		f.Comment(goName + " is the SMI enum " + mibName + ".")
 	}
+	f.Comment("")
+	f.Comment("Values outside the named constants are preserved. Concurrent reads are safe;")
+	f.Comment("callers must synchronize writes to a shared value.")
 	f.Type().Id(goName).Int32()
 
 	f.Const().DefsFunc(func(g *jen.Group) {
 		for _, m := range values {
-			g.Id(goName + camelCase(m.MIBName)).Id(goName).Op("=").Lit(int(m.Value))
+			g.Comment(m.GoName + " represents the SMI value " + m.MIBName + ".")
+			g.Id(m.GoName).Id(goName).Op("=").Lit(int(m.Value))
 		}
 	})
 
+	f.Comment("String returns the SMI label, or " + goName + "(n) for an unrecognized value n.")
 	f.Func().Params(jen.Id("v").Id(goName)).Id("String").Params().String().BlockFunc(func(g *jen.Group) {
 		g.Switch(jen.Id("v")).BlockFunc(func(cg *jen.Group) {
 			for _, m := range values {

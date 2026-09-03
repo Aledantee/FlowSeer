@@ -19,8 +19,6 @@ func nodeFor(name string, tcName string) *smi.Node {
 	return &smi.Node{Name: name, Type: t}
 }
 
-// --- classifyTier ----------------------------------------------------
-
 func TestClassifyTier_Counter32(t *testing.T) {
 	got := classifyTier(nodeFor("ifInOctets", ""), "Counter32Var")
 	if got != "snmp.TierCounter" {
@@ -104,8 +102,6 @@ func TestClassifyTier_StaticNeverAuto(t *testing.T) {
 	}
 }
 
-// --- matchesIndicatorNameSuffix -------------------------------------
-
 func TestMatchesIndicatorNameSuffix_Cases(t *testing.T) {
 	for _, name := range []string{
 		"ifLastChange",
@@ -130,8 +126,6 @@ func TestMatchesIndicatorNameSuffix_Cases(t *testing.T) {
 		}
 	}
 }
-
-// --- discoverNamePrefixScalarIndicator ------------------------------
 
 func TestDiscoverNamePrefixScalar_BaseForm(t *testing.T) {
 	// ifStackLastChange = "ifStack" (table name minus "Table") + suffix.
@@ -202,8 +196,6 @@ func TestDiscoverNamePrefixScalar_NoMatch(t *testing.T) {
 		t.Error("no scalar should bind fooTable")
 	}
 }
-
-// --- Discovery integration ------------------------------------------
 
 // TestDiscoverIndicators_FakeMIB exercises both structural discovery
 // rules end-to-end against a real resolved module: fakeTable binds

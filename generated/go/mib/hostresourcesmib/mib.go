@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package hostresourcesmib binds the SMI objects declared by HOST-RESOURCES-MIB.
 package hostresourcesmib
 
 import (
@@ -15,8 +16,8 @@ import (
 	"iter"
 	"time"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // HrDeviceStatusValue is the SMI enum hrDeviceStatus (inline).
@@ -31,16 +32,25 @@ import (
 // not available for use because it is in the testing state. The state of
 // down(5) is used only when the agent has been informed that the device is
 // not available for any use.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrDeviceStatusValue int32
 
 const (
+	// HrDeviceStatusValueUnknown represents the SMI value unknown.
 	HrDeviceStatusValueUnknown HrDeviceStatusValue = 1
+	// HrDeviceStatusValueRunning represents the SMI value running.
 	HrDeviceStatusValueRunning HrDeviceStatusValue = 2
+	// HrDeviceStatusValueWarning represents the SMI value warning.
 	HrDeviceStatusValueWarning HrDeviceStatusValue = 3
+	// HrDeviceStatusValueTesting represents the SMI value testing.
 	HrDeviceStatusValueTesting HrDeviceStatusValue = 4
-	HrDeviceStatusValueDown    HrDeviceStatusValue = 5
+	// HrDeviceStatusValueDown represents the SMI value down.
+	HrDeviceStatusValueDown HrDeviceStatusValue = 5
 )
 
+// String returns the SMI label, or HrDeviceStatusValue(n) for an unrecognized value n.
 func (v HrDeviceStatusValue) String() string {
 	switch v {
 	case HrDeviceStatusValueUnknown:
@@ -62,13 +72,19 @@ func (v HrDeviceStatusValue) String() string {
 // An indication if this long-term storage device is readable and writable
 // or only readable. This should reflect the media type, any write-protect
 // mechanism, and any device configuration that affects the entire device.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrDiskStorageAccessValue int32
 
 const (
+	// HrDiskStorageAccessValueReadWrite represents the SMI value readWrite.
 	HrDiskStorageAccessValueReadWrite HrDiskStorageAccessValue = 1
-	HrDiskStorageAccessValueReadOnly  HrDiskStorageAccessValue = 2
+	// HrDiskStorageAccessValueReadOnly represents the SMI value readOnly.
+	HrDiskStorageAccessValueReadOnly HrDiskStorageAccessValue = 2
 )
 
+// String returns the SMI label, or HrDiskStorageAccessValue(n) for an unrecognized value n.
 func (v HrDiskStorageAccessValue) String() string {
 	switch v {
 	case HrDiskStorageAccessValueReadWrite:
@@ -83,19 +99,31 @@ func (v HrDiskStorageAccessValue) String() string {
 // HrDiskStorageMediaValue is the SMI enum hrDiskStorageMedia (inline).
 // An indication of the type of media used in this long- term storage
 // device.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrDiskStorageMediaValue int32
 
 const (
-	HrDiskStorageMediaValueOther           HrDiskStorageMediaValue = 1
-	HrDiskStorageMediaValueUnknown         HrDiskStorageMediaValue = 2
-	HrDiskStorageMediaValueHardDisk        HrDiskStorageMediaValue = 3
-	HrDiskStorageMediaValueFloppyDisk      HrDiskStorageMediaValue = 4
-	HrDiskStorageMediaValueOpticalDiskROM  HrDiskStorageMediaValue = 5
+	// HrDiskStorageMediaValueOther represents the SMI value other.
+	HrDiskStorageMediaValueOther HrDiskStorageMediaValue = 1
+	// HrDiskStorageMediaValueUnknown represents the SMI value unknown.
+	HrDiskStorageMediaValueUnknown HrDiskStorageMediaValue = 2
+	// HrDiskStorageMediaValueHardDisk represents the SMI value hardDisk.
+	HrDiskStorageMediaValueHardDisk HrDiskStorageMediaValue = 3
+	// HrDiskStorageMediaValueFloppyDisk represents the SMI value floppyDisk.
+	HrDiskStorageMediaValueFloppyDisk HrDiskStorageMediaValue = 4
+	// HrDiskStorageMediaValueOpticalDiskROM represents the SMI value opticalDiskROM.
+	HrDiskStorageMediaValueOpticalDiskROM HrDiskStorageMediaValue = 5
+	// HrDiskStorageMediaValueOpticalDiskWORM represents the SMI value opticalDiskWORM.
 	HrDiskStorageMediaValueOpticalDiskWORM HrDiskStorageMediaValue = 6
-	HrDiskStorageMediaValueOpticalDiskRW   HrDiskStorageMediaValue = 7
-	HrDiskStorageMediaValueRamDisk         HrDiskStorageMediaValue = 8
+	// HrDiskStorageMediaValueOpticalDiskRW represents the SMI value opticalDiskRW.
+	HrDiskStorageMediaValueOpticalDiskRW HrDiskStorageMediaValue = 7
+	// HrDiskStorageMediaValueRamDisk represents the SMI value ramDisk.
+	HrDiskStorageMediaValueRamDisk HrDiskStorageMediaValue = 8
 )
 
+// String returns the SMI label, or HrDiskStorageMediaValue(n) for an unrecognized value n.
 func (v HrDiskStorageMediaValue) String() string {
 	switch v {
 	case HrDiskStorageMediaValueOther:
@@ -124,13 +152,19 @@ func (v HrDiskStorageMediaValue) String() string {
 // operating system to be readable and writable or only readable. This does
 // not represent any local access-control policy, except one that is
 // applied to the file system as a whole.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrFSAccessValue int32
 
 const (
+	// HrFSAccessValueReadWrite represents the SMI value readWrite.
 	HrFSAccessValueReadWrite HrFSAccessValue = 1
-	HrFSAccessValueReadOnly  HrFSAccessValue = 2
+	// HrFSAccessValueReadOnly represents the SMI value readOnly.
+	HrFSAccessValueReadOnly HrFSAccessValue = 2
 )
 
+// String returns the SMI label, or HrFSAccessValue(n) for an unrecognized value n.
 func (v HrFSAccessValue) String() string {
 	switch v {
 	case HrFSAccessValueReadWrite:
@@ -144,16 +178,25 @@ func (v HrFSAccessValue) String() string {
 
 // HrPrinterStatusValue is the SMI enum hrPrinterStatus (inline).
 // The current status of this printer device.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrPrinterStatusValue int32
 
 const (
-	HrPrinterStatusValueOther    HrPrinterStatusValue = 1
-	HrPrinterStatusValueUnknown  HrPrinterStatusValue = 2
-	HrPrinterStatusValueIdle     HrPrinterStatusValue = 3
+	// HrPrinterStatusValueOther represents the SMI value other.
+	HrPrinterStatusValueOther HrPrinterStatusValue = 1
+	// HrPrinterStatusValueUnknown represents the SMI value unknown.
+	HrPrinterStatusValueUnknown HrPrinterStatusValue = 2
+	// HrPrinterStatusValueIdle represents the SMI value idle.
+	HrPrinterStatusValueIdle HrPrinterStatusValue = 3
+	// HrPrinterStatusValuePrinting represents the SMI value printing.
 	HrPrinterStatusValuePrinting HrPrinterStatusValue = 4
-	HrPrinterStatusValueWarmup   HrPrinterStatusValue = 5
+	// HrPrinterStatusValueWarmup represents the SMI value warmup.
+	HrPrinterStatusValueWarmup HrPrinterStatusValue = 5
 )
 
+// String returns the SMI label, or HrPrinterStatusValue(n) for an unrecognized value n.
 func (v HrPrinterStatusValue) String() string {
 	switch v {
 	case HrPrinterStatusValueOther:
@@ -173,15 +216,23 @@ func (v HrPrinterStatusValue) String() string {
 
 // HrSWInstalledTypeValue is the SMI enum hrSWInstalledType (inline).
 // The type of this software.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrSWInstalledTypeValue int32
 
 const (
-	HrSWInstalledTypeValueUnknown         HrSWInstalledTypeValue = 1
+	// HrSWInstalledTypeValueUnknown represents the SMI value unknown.
+	HrSWInstalledTypeValueUnknown HrSWInstalledTypeValue = 1
+	// HrSWInstalledTypeValueOperatingSystem represents the SMI value operatingSystem.
 	HrSWInstalledTypeValueOperatingSystem HrSWInstalledTypeValue = 2
-	HrSWInstalledTypeValueDeviceDriver    HrSWInstalledTypeValue = 3
-	HrSWInstalledTypeValueApplication     HrSWInstalledTypeValue = 4
+	// HrSWInstalledTypeValueDeviceDriver represents the SMI value deviceDriver.
+	HrSWInstalledTypeValueDeviceDriver HrSWInstalledTypeValue = 3
+	// HrSWInstalledTypeValueApplication represents the SMI value application.
+	HrSWInstalledTypeValueApplication HrSWInstalledTypeValue = 4
 )
 
+// String returns the SMI label, or HrSWInstalledTypeValue(n) for an unrecognized value n.
 func (v HrSWInstalledTypeValue) String() string {
 	switch v {
 	case HrSWInstalledTypeValueUnknown:
@@ -201,15 +252,23 @@ func (v HrSWInstalledTypeValue) String() string {
 // The status of this running piece of software. Setting this value to
 // invalid(4) shall cause this software to stop running and to be unloaded.
 // Sets to other values are not valid.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrSWRunStatusValue int32
 
 const (
-	HrSWRunStatusValueRunning     HrSWRunStatusValue = 1
-	HrSWRunStatusValueRunnable    HrSWRunStatusValue = 2
+	// HrSWRunStatusValueRunning represents the SMI value running.
+	HrSWRunStatusValueRunning HrSWRunStatusValue = 1
+	// HrSWRunStatusValueRunnable represents the SMI value runnable.
+	HrSWRunStatusValueRunnable HrSWRunStatusValue = 2
+	// HrSWRunStatusValueNotRunnable represents the SMI value notRunnable.
 	HrSWRunStatusValueNotRunnable HrSWRunStatusValue = 3
-	HrSWRunStatusValueInvalid     HrSWRunStatusValue = 4
+	// HrSWRunStatusValueInvalid represents the SMI value invalid.
+	HrSWRunStatusValueInvalid HrSWRunStatusValue = 4
 )
 
+// String returns the SMI label, or HrSWRunStatusValue(n) for an unrecognized value n.
 func (v HrSWRunStatusValue) String() string {
 	switch v {
 	case HrSWRunStatusValueRunning:
@@ -227,15 +286,23 @@ func (v HrSWRunStatusValue) String() string {
 
 // HrSWRunTypeValue is the SMI enum hrSWRunType (inline).
 // The type of this software.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type HrSWRunTypeValue int32
 
 const (
-	HrSWRunTypeValueUnknown         HrSWRunTypeValue = 1
+	// HrSWRunTypeValueUnknown represents the SMI value unknown.
+	HrSWRunTypeValueUnknown HrSWRunTypeValue = 1
+	// HrSWRunTypeValueOperatingSystem represents the SMI value operatingSystem.
 	HrSWRunTypeValueOperatingSystem HrSWRunTypeValue = 2
-	HrSWRunTypeValueDeviceDriver    HrSWRunTypeValue = 3
-	HrSWRunTypeValueApplication     HrSWRunTypeValue = 4
+	// HrSWRunTypeValueDeviceDriver represents the SMI value deviceDriver.
+	HrSWRunTypeValueDeviceDriver HrSWRunTypeValue = 3
+	// HrSWRunTypeValueApplication represents the SMI value application.
+	HrSWRunTypeValueApplication HrSWRunTypeValue = 4
 )
 
+// String returns the SMI label, or HrSWRunTypeValue(n) for an unrecognized value n.
 func (v HrSWRunTypeValue) String() string {
 	switch v {
 	case HrSWRunTypeValueUnknown:
@@ -252,6 +319,8 @@ func (v HrSWRunTypeValue) String() string {
 }
 
 // HrSystemUptimeGet reads the SMIv2 scalar hrSystemUptime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The amount of time since this host was last initialized. Note that this
 // is different from sysUpTime in the SNMPv2-MIB [RFC1907] because
 // sysUpTime is the uptime of the network management portion of the system.
@@ -262,7 +331,7 @@ func HrSystemUptimeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSystemUptime")
+		return 0, errs.Msg("empty Get response for hrSystemUptime")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -271,6 +340,8 @@ func HrSystemUptimeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 }
 
 // HrSystemDateGet reads the SMIv2 scalar hrSystemDate.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The host's notion of the local date and time of day.
 func HrSystemDateGet(ctx context.Context, sess snmp.Session) (time.Time, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 1, 2, 0)})
@@ -279,7 +350,7 @@ func HrSystemDateGet(ctx context.Context, sess snmp.Session) (time.Time, error) 
 	}
 
 	if len(vbs) == 0 {
-		return time.Time{}, ae.Msg("empty Get response for hrSystemDate")
+		return time.Time{}, errs.Msg("empty Get response for hrSystemDate")
 	}
 
 	return func(vb snmp.VarBind) (time.Time, error) {
@@ -288,6 +359,8 @@ func HrSystemDateGet(ctx context.Context, sess snmp.Session) (time.Time, error) 
 }
 
 // HrSystemInitialLoadDeviceGet reads the SMIv2 scalar hrSystemInitialLoadDevice.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The index of the hrDeviceEntry for the device from which this host is
 // configured to load its initial operating system configuration (i.e.,
 // which operating system code and/or boot parameters). Note that writing
@@ -301,7 +374,7 @@ func HrSystemInitialLoadDeviceGet(ctx context.Context, sess snmp.Session) (int32
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSystemInitialLoadDevice")
+		return 0, errs.Msg("empty Get response for hrSystemInitialLoadDevice")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -310,6 +383,8 @@ func HrSystemInitialLoadDeviceGet(ctx context.Context, sess snmp.Session) (int32
 }
 
 // HrSystemInitialLoadParametersGet reads the SMIv2 scalar hrSystemInitialLoadParameters.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // This object contains the parameters (e.g. a pathname and parameter)
 // supplied to the load device when requesting the initial operating system
 // configuration from that device. Note that writing to this object just
@@ -322,7 +397,7 @@ func HrSystemInitialLoadParametersGet(ctx context.Context, sess snmp.Session) ([
 	}
 
 	if len(vbs) == 0 {
-		return nil, ae.Msg("empty Get response for hrSystemInitialLoadParameters")
+		return nil, errs.Msg("empty Get response for hrSystemInitialLoadParameters")
 	}
 
 	return func(vb snmp.VarBind) ([]byte, error) {
@@ -331,6 +406,8 @@ func HrSystemInitialLoadParametersGet(ctx context.Context, sess snmp.Session) ([
 }
 
 // HrSystemNumUsersGet reads the SMIv2 scalar hrSystemNumUsers.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of user sessions for which this host is storing state
 // information. A session is a collection of processes requiring a single
 // act of user authentication and possibly subject to collective job
@@ -342,7 +419,7 @@ func HrSystemNumUsersGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSystemNumUsers")
+		return 0, errs.Msg("empty Get response for hrSystemNumUsers")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -351,6 +428,8 @@ func HrSystemNumUsersGet(ctx context.Context, sess snmp.Session) (uint32, error)
 }
 
 // HrSystemProcessesGet reads the SMIv2 scalar hrSystemProcesses.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of process contexts currently loaded or running on this
 // system.
 func HrSystemProcessesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -360,7 +439,7 @@ func HrSystemProcessesGet(ctx context.Context, sess snmp.Session) (uint32, error
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSystemProcesses")
+		return 0, errs.Msg("empty Get response for hrSystemProcesses")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -369,6 +448,8 @@ func HrSystemProcessesGet(ctx context.Context, sess snmp.Session) (uint32, error
 }
 
 // HrSystemMaxProcessesGet reads the SMIv2 scalar hrSystemMaxProcesses.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The maximum number of process contexts this system can support. If there
 // is no fixed maximum, the value should be zero. On systems that have a
 // fixed maximum, this object can help diagnose failures that occur when
@@ -380,7 +461,7 @@ func HrSystemMaxProcessesGet(ctx context.Context, sess snmp.Session) (int32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSystemMaxProcesses")
+		return 0, errs.Msg("empty Get response for hrSystemMaxProcesses")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -389,6 +470,8 @@ func HrSystemMaxProcessesGet(ctx context.Context, sess snmp.Session) (int32, err
 }
 
 // HrMemorySizeGet reads the SMIv2 scalar hrMemorySize.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The amount of physical read-write main memory, typically RAM, contained
 // by the host.
 func HrMemorySizeGet(ctx context.Context, sess snmp.Session) (int32, error) {
@@ -398,7 +481,7 @@ func HrMemorySizeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrMemorySize")
+		return 0, errs.Msg("empty Get response for hrMemorySize")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -407,6 +490,8 @@ func HrMemorySizeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // HrSWOSIndexGet reads the SMIv2 scalar hrSWOSIndex.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of the hrSWRunIndex for the hrSWRunEntry that represents the
 // primary operating system running on this host. This object is useful for
 // quickly and uniquely identifying that primary operating system.
@@ -417,7 +502,7 @@ func HrSWOSIndexGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSWOSIndex")
+		return 0, errs.Msg("empty Get response for hrSWOSIndex")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -426,6 +511,8 @@ func HrSWOSIndexGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // HrSWInstalledLastChangeGet reads the SMIv2 scalar hrSWInstalledLastChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime when an entry in the hrSWInstalledTable was last
 // added, renamed, or deleted. Because this table is likely to contain many
 // entries, polling of this object allows a management station to determine
@@ -437,7 +524,7 @@ func HrSWInstalledLastChangeGet(ctx context.Context, sess snmp.Session) (uint32,
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSWInstalledLastChange")
+		return 0, errs.Msg("empty Get response for hrSWInstalledLastChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -446,6 +533,8 @@ func HrSWInstalledLastChangeGet(ctx context.Context, sess snmp.Session) (uint32,
 }
 
 // HrSWInstalledLastUpdateTimeGet reads the SMIv2 scalar hrSWInstalledLastUpdateTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of sysUpTime when the hrSWInstalledTable was last completely
 // updated. Because caching of this data will be a popular implementation
 // strategy, retrieval of this object allows a management station to obtain
@@ -457,7 +546,7 @@ func HrSWInstalledLastUpdateTimeGet(ctx context.Context, sess snmp.Session) (uin
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for hrSWInstalledLastUpdateTime")
+		return 0, errs.Msg("empty Get response for hrSWInstalledLastUpdateTime")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -526,8 +615,10 @@ var HrStorageAllocationFailures = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 // HrStorageTableRow is one row of hrStorageTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrStorageTableRow.Observed to tell a reported zero from a column the
+// [HrStorageTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrStorageTableRow struct {
 	Index                       snmp.OID
 	HrStorageIndex              int32
@@ -570,7 +661,8 @@ func (r HrStorageTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrStorageTableWalker is a table-aware walker over hrStorageTable.
-// Construct via HrStorageTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrStorageTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrStorageTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -802,7 +894,7 @@ var HrStorageTable hrStorageTableT
 // Every column in cols must be a column of hrStorageTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrStorageTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -892,8 +984,10 @@ var HrDeviceErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3
 // HrDeviceTableRow is one row of hrDeviceTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrDeviceTableRow.Observed to tell a reported zero from a column the
+// [HrDeviceTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrDeviceTableRow struct {
 	Index          snmp.OID
 	HrDeviceIndex  int32
@@ -933,7 +1027,8 @@ func (r HrDeviceTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrDeviceTableWalker is a table-aware walker over hrDeviceTable.
-// Construct via HrDeviceTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrDeviceTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrDeviceTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1142,7 +1237,7 @@ var HrDeviceTable hrDeviceTableT
 // Every column in cols must be a column of hrDeviceTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrDeviceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1181,8 +1276,10 @@ var HrProcessorLoad = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3
 // HrProcessorTableRow is one row of hrProcessorTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrProcessorTableRow.Observed to tell a reported zero from a column the
+// [HrProcessorTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrProcessorTableRow struct {
 	Index            snmp.OID
 	HrProcessorFrwID snmp.OID
@@ -1210,7 +1307,8 @@ func (r HrProcessorTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrProcessorTableWalker is a table-aware walker over hrProcessorTable.
-// Construct via HrProcessorTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrProcessorTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrProcessorTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1357,7 +1455,7 @@ var HrProcessorTable hrProcessorTableT
 // Every column in cols must be a column of hrProcessorTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrProcessorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1389,8 +1487,10 @@ var HrNetworkIfIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 
 // HrNetworkTableRow is one row of hrNetworkTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrNetworkTableRow.Observed to tell a reported zero from a column the
+// [HrNetworkTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrNetworkTableRow struct {
 	Index            snmp.OID
 	HrNetworkIfIndex int32
@@ -1415,7 +1515,8 @@ func (r HrNetworkTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrNetworkTableWalker is a table-aware walker over hrNetworkTable.
-// Construct via HrNetworkTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrNetworkTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrNetworkTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1549,7 +1650,7 @@ var HrNetworkTable hrNetworkTableT
 // Every column in cols must be a column of hrNetworkTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrNetworkTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1602,8 +1703,10 @@ var HrPrinterDetectedErrorState = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1
 // HrPrinterTableRow is one row of hrPrinterTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrPrinterTableRow.Observed to tell a reported zero from a column the
+// [HrPrinterTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrPrinterTableRow struct {
 	Index                       snmp.OID
 	HrPrinterStatus             HrPrinterStatusValue
@@ -1631,7 +1734,8 @@ func (r HrPrinterTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrPrinterTableWalker is a table-aware walker over hrPrinterTable.
-// Construct via HrPrinterTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrPrinterTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrPrinterTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1778,7 +1882,7 @@ var HrPrinterTable hrPrinterTableT
 // Every column in cols must be a column of hrPrinterTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrPrinterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1839,8 +1943,10 @@ var HrDiskStorageCapacity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // HrDiskStorageTableRow is one row of hrDiskStorageTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrDiskStorageTableRow.Observed to tell a reported zero from a column the
+// [HrDiskStorageTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrDiskStorageTableRow struct {
 	Index                  snmp.OID
 	HrDiskStorageAccess    HrDiskStorageAccessValue
@@ -1874,7 +1980,8 @@ func (r HrDiskStorageTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrDiskStorageTableWalker is a table-aware walker over hrDiskStorageTable.
-// Construct via HrDiskStorageTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrDiskStorageTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrDiskStorageTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2057,7 +2164,7 @@ var HrDiskStorageTable hrDiskStorageTableT
 // Every column in cols must be a column of hrDiskStorageTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrDiskStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2120,8 +2227,10 @@ var HrPartitionFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25
 // HrPartitionTableRow is one row of hrPartitionTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrPartitionTableRow.Observed to tell a reported zero from a column the
+// [HrPartitionTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrPartitionTableRow struct {
 	Index              snmp.OID
 	HrPartitionIndex   int32
@@ -2158,7 +2267,8 @@ func (r HrPartitionTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrPartitionTableWalker is a table-aware walker over hrPartitionTable.
-// Construct via HrPartitionTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrPartitionTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrPartitionTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2354,7 +2464,7 @@ var HrPartitionTable hrPartitionTableT
 // Every column in cols must be a column of hrPartitionTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2458,8 +2568,10 @@ var HrFSLastPartialBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 
 // HrFSTableRow is one row of hrFSTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrFSTableRow.Observed to tell a reported zero from a column the
+// [HrFSTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrFSTableRow struct {
 	Index                     snmp.OID
 	HrFSIndex                 int32
@@ -2508,7 +2620,8 @@ func (r HrFSTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrFSTableWalker is a table-aware walker over hrFSTable.
-// Construct via HrFSTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrFSTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrFSTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2756,7 +2869,7 @@ var HrFSTable hrFSTableT
 // Every column in cols must be a column of hrFSTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrFSTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrFSTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2840,8 +2953,10 @@ var HrSWRunStatus = snmp.NewColumn[HrSWRunStatusValue](snmp.MustOID(1, 3, 6, 1, 
 // HrSWRunTableRow is one row of hrSWRunTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrSWRunTableRow.Observed to tell a reported zero from a column the
+// [HrSWRunTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrSWRunTableRow struct {
 	Index             snmp.OID
 	HrSWRunIndex      int32
@@ -2884,7 +2999,8 @@ func (r HrSWRunTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrSWRunTableWalker is a table-aware walker over hrSWRunTable.
-// Construct via HrSWRunTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrSWRunTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrSWRunTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -3106,7 +3222,7 @@ var HrSWRunTable hrSWRunTableT
 // Every column in cols must be a column of hrSWRunTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrSWRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -3146,8 +3262,10 @@ var HrSWRunPerfMem = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5,
 // HrSWRunPerfTableRow is one row of hrSWRunPerfTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrSWRunPerfTableRow.Observed to tell a reported zero from a column the
+// [HrSWRunPerfTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrSWRunPerfTableRow struct {
 	Index          snmp.OID
 	HrSWRunPerfCPU int32
@@ -3175,7 +3293,8 @@ func (r HrSWRunPerfTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrSWRunPerfTableWalker is a table-aware walker over hrSWRunPerfTable.
-// Construct via HrSWRunPerfTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrSWRunPerfTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrSWRunPerfTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -3327,7 +3446,7 @@ var HrSWRunPerfTable hrSWRunPerfTableT
 // Every column in cols must be a column of hrSWRunPerfTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrSWRunPerfTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -3393,8 +3512,10 @@ var HrSWInstalledDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // HrSWInstalledTableRow is one row of hrSWInstalledTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// HrSWInstalledTableRow.Observed to tell a reported zero from a column the
+// [HrSWInstalledTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type HrSWInstalledTableRow struct {
 	Index              snmp.OID
 	HrSWInstalledIndex int32
@@ -3431,7 +3552,8 @@ func (r HrSWInstalledTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // HrSWInstalledTableWalker is a table-aware walker over hrSWInstalledTable.
-// Construct via HrSWInstalledTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via HrSWInstalledTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type HrSWInstalledTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -3622,7 +3744,7 @@ var HrSWInstalledTable hrSWInstalledTableT
 // Every column in cols must be a column of hrSWInstalledTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (hrSWInstalledTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -3766,7 +3888,8 @@ func mergeHrSWInstalledTableRow(dst *HrSWInstalledTableRow, vbs []snmp.VarBind) 
 }
 
 // HrSWInstalledTableWatcher is a table-aware Watcher over HrSWInstalledTable.
-// Construct via HrSWInstalledTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via HrSWInstalledTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type HrSWInstalledTableWatcher struct {
 	w *snmp.Watcher[HrSWInstalledTableRow]
 }

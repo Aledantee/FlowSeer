@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package entitysensormib binds the SMI objects declared by ENTITY-SENSOR-MIB.
 package entitysensormib
 
 import (
@@ -26,28 +27,49 @@ import (
 // EntitySensorDataType and EntitySensorPrecision. Together, associated
 // objects of these three types are used to identify the semantics of an
 // object of type EntitySensorValue.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EntitySensorDataScale int32
 
 const (
+	// EntitySensorDataScaleYocto represents the SMI value yocto.
 	EntitySensorDataScaleYocto EntitySensorDataScale = 1
+	// EntitySensorDataScaleZepto represents the SMI value zepto.
 	EntitySensorDataScaleZepto EntitySensorDataScale = 2
-	EntitySensorDataScaleAtto  EntitySensorDataScale = 3
+	// EntitySensorDataScaleAtto represents the SMI value atto.
+	EntitySensorDataScaleAtto EntitySensorDataScale = 3
+	// EntitySensorDataScaleFemto represents the SMI value femto.
 	EntitySensorDataScaleFemto EntitySensorDataScale = 4
-	EntitySensorDataScalePico  EntitySensorDataScale = 5
-	EntitySensorDataScaleNano  EntitySensorDataScale = 6
+	// EntitySensorDataScalePico represents the SMI value pico.
+	EntitySensorDataScalePico EntitySensorDataScale = 5
+	// EntitySensorDataScaleNano represents the SMI value nano.
+	EntitySensorDataScaleNano EntitySensorDataScale = 6
+	// EntitySensorDataScaleMicro represents the SMI value micro.
 	EntitySensorDataScaleMicro EntitySensorDataScale = 7
+	// EntitySensorDataScaleMilli represents the SMI value milli.
 	EntitySensorDataScaleMilli EntitySensorDataScale = 8
+	// EntitySensorDataScaleUnits represents the SMI value units.
 	EntitySensorDataScaleUnits EntitySensorDataScale = 9
-	EntitySensorDataScaleKilo  EntitySensorDataScale = 10
-	EntitySensorDataScaleMega  EntitySensorDataScale = 11
-	EntitySensorDataScaleGiga  EntitySensorDataScale = 12
-	EntitySensorDataScaleTera  EntitySensorDataScale = 13
-	EntitySensorDataScaleExa   EntitySensorDataScale = 14
-	EntitySensorDataScalePeta  EntitySensorDataScale = 15
+	// EntitySensorDataScaleKilo represents the SMI value kilo.
+	EntitySensorDataScaleKilo EntitySensorDataScale = 10
+	// EntitySensorDataScaleMega represents the SMI value mega.
+	EntitySensorDataScaleMega EntitySensorDataScale = 11
+	// EntitySensorDataScaleGiga represents the SMI value giga.
+	EntitySensorDataScaleGiga EntitySensorDataScale = 12
+	// EntitySensorDataScaleTera represents the SMI value tera.
+	EntitySensorDataScaleTera EntitySensorDataScale = 13
+	// EntitySensorDataScaleExa represents the SMI value exa.
+	EntitySensorDataScaleExa EntitySensorDataScale = 14
+	// EntitySensorDataScalePeta represents the SMI value peta.
+	EntitySensorDataScalePeta EntitySensorDataScale = 15
+	// EntitySensorDataScaleZetta represents the SMI value zetta.
 	EntitySensorDataScaleZetta EntitySensorDataScale = 16
+	// EntitySensorDataScaleYotta represents the SMI value yotta.
 	EntitySensorDataScaleYotta EntitySensorDataScale = 17
 )
 
+// String returns the SMI label, or EntitySensorDataScale(n) for an unrecognized value n.
 func (v EntitySensorDataScale) String() string {
 	switch v {
 	case EntitySensorDataScaleYocto:
@@ -104,23 +126,39 @@ func (v EntitySensorDataScale) String() string {
 // frequency celsius(8): temperature percentRH(9): percent relative
 // humidity rpm(10): shaft revolutions per minute cmm(11),: cubic meters
 // per minute (airflow) truthvalue(12): value takes { true(1), false(2) }
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EntitySensorDataType int32
 
 const (
-	EntitySensorDataTypeOther      EntitySensorDataType = 1
-	EntitySensorDataTypeUnknown    EntitySensorDataType = 2
-	EntitySensorDataTypeVoltsAC    EntitySensorDataType = 3
-	EntitySensorDataTypeVoltsDC    EntitySensorDataType = 4
-	EntitySensorDataTypeAmperes    EntitySensorDataType = 5
-	EntitySensorDataTypeWatts      EntitySensorDataType = 6
-	EntitySensorDataTypeHertz      EntitySensorDataType = 7
-	EntitySensorDataTypeCelsius    EntitySensorDataType = 8
-	EntitySensorDataTypePercentRH  EntitySensorDataType = 9
-	EntitySensorDataTypeRpm        EntitySensorDataType = 10
-	EntitySensorDataTypeCmm        EntitySensorDataType = 11
+	// EntitySensorDataTypeOther represents the SMI value other.
+	EntitySensorDataTypeOther EntitySensorDataType = 1
+	// EntitySensorDataTypeUnknown represents the SMI value unknown.
+	EntitySensorDataTypeUnknown EntitySensorDataType = 2
+	// EntitySensorDataTypeVoltsAC represents the SMI value voltsAC.
+	EntitySensorDataTypeVoltsAC EntitySensorDataType = 3
+	// EntitySensorDataTypeVoltsDC represents the SMI value voltsDC.
+	EntitySensorDataTypeVoltsDC EntitySensorDataType = 4
+	// EntitySensorDataTypeAmperes represents the SMI value amperes.
+	EntitySensorDataTypeAmperes EntitySensorDataType = 5
+	// EntitySensorDataTypeWatts represents the SMI value watts.
+	EntitySensorDataTypeWatts EntitySensorDataType = 6
+	// EntitySensorDataTypeHertz represents the SMI value hertz.
+	EntitySensorDataTypeHertz EntitySensorDataType = 7
+	// EntitySensorDataTypeCelsius represents the SMI value celsius.
+	EntitySensorDataTypeCelsius EntitySensorDataType = 8
+	// EntitySensorDataTypePercentRH represents the SMI value percentRH.
+	EntitySensorDataTypePercentRH EntitySensorDataType = 9
+	// EntitySensorDataTypeRpm represents the SMI value rpm.
+	EntitySensorDataTypeRpm EntitySensorDataType = 10
+	// EntitySensorDataTypeCmm represents the SMI value cmm.
+	EntitySensorDataTypeCmm EntitySensorDataType = 11
+	// EntitySensorDataTypeTruthvalue represents the SMI value truthvalue.
 	EntitySensorDataTypeTruthvalue EntitySensorDataType = 12
 )
 
+// String returns the SMI label, or EntitySensorDataType(n) for an unrecognized value n.
 func (v EntitySensorDataType) String() string {
 	switch v {
 	case EntitySensorDataTypeOther:
@@ -160,14 +198,21 @@ func (v EntitySensorDataType) String() string {
 // indicates that the agent believes the sensor is broken. The sensor could
 // have a hard failure (disconnected wire), or a soft failure such as out-
 // of-range, jittery, or wildly fluctuating readings.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type EntitySensorStatus int32
 
 const (
-	EntitySensorStatusOk             EntitySensorStatus = 1
-	EntitySensorStatusUnavailable    EntitySensorStatus = 2
+	// EntitySensorStatusOk represents the SMI value ok.
+	EntitySensorStatusOk EntitySensorStatus = 1
+	// EntitySensorStatusUnavailable represents the SMI value unavailable.
+	EntitySensorStatusUnavailable EntitySensorStatus = 2
+	// EntitySensorStatusNonoperational represents the SMI value nonoperational.
 	EntitySensorStatusNonoperational EntitySensorStatus = 3
 )
 
+// String returns the SMI label, or EntitySensorStatus(n) for an unrecognized value n.
 func (v EntitySensorStatus) String() string {
 	switch v {
 	case EntitySensorStatusOk:
@@ -263,8 +308,10 @@ var EntPhySensorValueUpdateRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 // EntPhySensorTableRow is one row of entPhySensorTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// EntPhySensorTableRow.Observed to tell a reported zero from a column the
+// [EntPhySensorTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type EntPhySensorTableRow struct {
 	Index                       snmp.OID
 	EntPhySensorType            EntitySensorDataType
@@ -310,7 +357,8 @@ func (r EntPhySensorTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // EntPhySensorTableWalker is a table-aware walker over entPhySensorTable.
-// Construct via EntPhySensorTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via EntPhySensorTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type EntPhySensorTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -565,7 +613,7 @@ var EntPhySensorTable entPhySensorTableT
 // Every column in cols must be a column of entPhySensorTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (entPhySensorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhySensorTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))

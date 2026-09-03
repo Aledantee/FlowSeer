@@ -36,8 +36,6 @@ func oidParts(t *testing.T, parts ...uint32) OID {
 	return o
 }
 
-// --- Tier --------------------------------------------------------------
-
 func TestTier_AllValuesStringed(t *testing.T) {
 	// Closed-enum convention pin: every Tier constant has a non-empty
 	// String() that doesn't fall through to the numeric fallback.
@@ -67,8 +65,6 @@ func TestTier_UnknownValueFallback(t *testing.T) {
 	}
 }
 
-// --- ChangeKind --------------------------------------------------------
-
 func TestChangeKind_AllValuesStringed(t *testing.T) {
 	for _, tc := range []struct {
 		k    ChangeKind
@@ -93,8 +89,6 @@ func TestChangeKind_UnknownValueFallback(t *testing.T) {
 		t.Errorf("ChangeKind(99).String() = %q, want fallback", got)
 	}
 }
-
-// --- ChangeIndicator --------------------------------------------------
 
 func TestNewPerRowIndicator_Happy(t *testing.T) {
 	tableRoot := oidParts(t, 1, 3, 6, 1, 2, 1, 2, 2)
@@ -295,8 +289,6 @@ func TestChangeIndicator_ZeroValueDetected(t *testing.T) {
 		t.Error("constructed per-row indicator reported isZero=true")
 	}
 }
-
-// --- WatchConfig + WithXxx options ------------------------------------
 
 func TestWatchConfig_AllWithXxxApply(t *testing.T) {
 	col := fakeColumn{oid: oidParts(t, 1, 3, 6, 1, 2, 1, 2, 2, 1, 10)}
@@ -580,8 +572,6 @@ func TestWatchConfig_NilReceiverHelpers(t *testing.T) {
 	}
 }
 
-// --- Logger -----------------------------------------------------------
-
 // countingLogger is a test [Logger] used by both this file's tests
 // and the Watcher fallback-transition tests.
 type countingLogger struct {
@@ -635,8 +625,6 @@ func toStr(v any) string {
 // interface at compile time.
 var _ Logger = (*countingLogger)(nil)
 
-// --- WatchEvent ------------------------------------------------------
-
 func TestWatchEvent_ZeroValuePrevIsNil(t *testing.T) {
 	var e WatchEvent[int]
 	if e.Prev != nil {
@@ -646,8 +634,6 @@ func TestWatchEvent_ZeroValuePrevIsNil(t *testing.T) {
 		t.Errorf("zero WatchEvent.Kind = %v, want Unknown", e.Kind)
 	}
 }
-
-// --- Misc ------------------------------------------------------------
 
 // TestWatchConfig_ValidationErrorIsWrappable pins that the returned
 // error participates in errors.Is so callers can match against

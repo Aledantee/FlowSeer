@@ -155,11 +155,9 @@ var ErrTypeMismatch = errs.Msg("VarBind variant does not match decoder")
 // class can tell "agent emitted the wrong type" apart from "agent
 // emitted a value that would truncate or change sign".
 //
-// Callers that previously branched only on [ErrTypeMismatch] should
-// also branch on this sentinel — the leniency helpers now surface
-// out-of-range values as ErrLossyConversion rather than rejecting them
-// as ErrTypeMismatch, so the pre-leniency catch-all branch is
-// incomplete on its own.
+// Callers handling all decode failures must check both [ErrTypeMismatch]
+// and ErrLossyConversion: either a wrong variant or an unrepresentable
+// value prevents decoding.
 //
 // The error message carries both the source variant (%T) and the
 // offending value so operators can see exactly what came off the wire.

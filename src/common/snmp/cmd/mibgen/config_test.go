@@ -316,8 +316,6 @@ func TestLoadConfig_RelativeSearchPathResolution(t *testing.T) {
 	}
 }
 
-// --- IndicatorDecl validation ----------------------------------
-
 func TestLoadConfig_IndicatorScalarValid(t *testing.T) {
 	src := []byte(`
 search_paths: [mibs]

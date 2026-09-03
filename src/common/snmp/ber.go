@@ -380,7 +380,6 @@ func opaqueReal(content []byte) (isDouble, ok bool, f float64, err error) {
 	}
 }
 
-// --- Encoders ---------------------------------------------------------
 //
 // Each appendX appends a complete TLV (identifier + length + content) to
 // dst and returns the extended slice. Content is encoded minimally so the

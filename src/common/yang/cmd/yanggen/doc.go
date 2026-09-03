@@ -21,4 +21,14 @@
 // Flags: -config, -out, -pkg-prefix, -verify (load-only), -check
 // (drift gate), -update. Exit codes: 0 success, 1 load/check/runtime
 // failure, 2 flag misuse.
+//
+// Run from the repository root:
+//
+//	go run ./src/common/yang/cmd/yanggen -update
+//	go run ./src/common/yang/cmd/yanggen -check
+//
+// The default invocation and -update both rebuild every configured vendor's
+// output directory. A failed run may leave partial output; rerun generation
+// after correcting the error. -check verifies source hashes and the generator
+// version, so it does not detect edited or missing generated Go files.
 package main

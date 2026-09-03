@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package ianaiftype binds the SMI objects declared by IANAifType-MIB.
 package ianaiftype
 
 import "fmt"
@@ -27,306 +28,605 @@ import "fmt"
 // the same as its ifType value. However, in some circumstances this will
 // not be the case, and implementors must not pre-assume any specific
 // relationship between ifType values and transmission subtree OIDs.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IANAifType int32
 
 const (
-	IANAifTypeOther                         IANAifType = 1
-	IANAifTypeRegular1822                   IANAifType = 2
-	IANAifTypeHdh1822                       IANAifType = 3
-	IANAifTypeDdnX25                        IANAifType = 4
-	IANAifTypeRfc877x25                     IANAifType = 5
-	IANAifTypeEthernetCsmacd                IANAifType = 6
-	IANAifTypeIso88023Csmacd                IANAifType = 7
-	IANAifTypeIso88024TokenBus              IANAifType = 8
-	IANAifTypeIso88025TokenRing             IANAifType = 9
-	IANAifTypeIso88026Man                   IANAifType = 10
-	IANAifTypeStarLan                       IANAifType = 11
-	IANAifTypeProteon10Mbit                 IANAifType = 12
-	IANAifTypeProteon80Mbit                 IANAifType = 13
-	IANAifTypeHyperchannel                  IANAifType = 14
-	IANAifTypeFddi                          IANAifType = 15
-	IANAifTypeLapb                          IANAifType = 16
-	IANAifTypeSdlc                          IANAifType = 17
-	IANAifTypeDs1                           IANAifType = 18
-	IANAifTypeE1                            IANAifType = 19
-	IANAifTypeBasicISDN                     IANAifType = 20
-	IANAifTypePrimaryISDN                   IANAifType = 21
-	IANAifTypePropPointToPointSerial        IANAifType = 22
-	IANAifTypePpp                           IANAifType = 23
-	IANAifTypeSoftwareLoopback              IANAifType = 24
-	IANAifTypeEon                           IANAifType = 25
-	IANAifTypeEthernet3Mbit                 IANAifType = 26
-	IANAifTypeNsip                          IANAifType = 27
-	IANAifTypeSlip                          IANAifType = 28
-	IANAifTypeUltra                         IANAifType = 29
-	IANAifTypeDs3                           IANAifType = 30
-	IANAifTypeSip                           IANAifType = 31
-	IANAifTypeFrameRelay                    IANAifType = 32
-	IANAifTypeRs232                         IANAifType = 33
-	IANAifTypePara                          IANAifType = 34
-	IANAifTypeArcnet                        IANAifType = 35
-	IANAifTypeArcnetPlus                    IANAifType = 36
-	IANAifTypeAtm                           IANAifType = 37
-	IANAifTypeMiox25                        IANAifType = 38
-	IANAifTypeSonet                         IANAifType = 39
-	IANAifTypeX25ple                        IANAifType = 40
-	IANAifTypeIso88022llc                   IANAifType = 41
-	IANAifTypeLocalTalk                     IANAifType = 42
-	IANAifTypeSmdsDxi                       IANAifType = 43
-	IANAifTypeFrameRelayService             IANAifType = 44
-	IANAifTypeV35                           IANAifType = 45
-	IANAifTypeHssi                          IANAifType = 46
-	IANAifTypeHippi                         IANAifType = 47
-	IANAifTypeModem                         IANAifType = 48
-	IANAifTypeAal5                          IANAifType = 49
-	IANAifTypeSonetPath                     IANAifType = 50
-	IANAifTypeSonetVT                       IANAifType = 51
-	IANAifTypeSmdsIcip                      IANAifType = 52
-	IANAifTypePropVirtual                   IANAifType = 53
-	IANAifTypePropMultiplexor               IANAifType = 54
-	IANAifTypeIeee80212                     IANAifType = 55
-	IANAifTypeFibreChannel                  IANAifType = 56
-	IANAifTypeHippiInterface                IANAifType = 57
-	IANAifTypeFrameRelayInterconnect        IANAifType = 58
-	IANAifTypeAflane8023                    IANAifType = 59
-	IANAifTypeAflane8025                    IANAifType = 60
-	IANAifTypeCctEmul                       IANAifType = 61
-	IANAifTypeFastEther                     IANAifType = 62
-	IANAifTypeIsdn                          IANAifType = 63
-	IANAifTypeV11                           IANAifType = 64
-	IANAifTypeV36                           IANAifType = 65
-	IANAifTypeG703at64k                     IANAifType = 66
-	IANAifTypeG703at2mb                     IANAifType = 67
-	IANAifTypeQllc                          IANAifType = 68
-	IANAifTypeFastEtherFX                   IANAifType = 69
-	IANAifTypeChannel                       IANAifType = 70
-	IANAifTypeIeee80211                     IANAifType = 71
-	IANAifTypeIbm370parChan                 IANAifType = 72
-	IANAifTypeEscon                         IANAifType = 73
-	IANAifTypeDlsw                          IANAifType = 74
-	IANAifTypeIsdns                         IANAifType = 75
-	IANAifTypeIsdnu                         IANAifType = 76
-	IANAifTypeLapd                          IANAifType = 77
-	IANAifTypeIpSwitch                      IANAifType = 78
-	IANAifTypeRsrb                          IANAifType = 79
-	IANAifTypeAtmLogical                    IANAifType = 80
-	IANAifTypeDs0                           IANAifType = 81
-	IANAifTypeDs0Bundle                     IANAifType = 82
-	IANAifTypeBsc                           IANAifType = 83
-	IANAifTypeAsync                         IANAifType = 84
-	IANAifTypeCnr                           IANAifType = 85
-	IANAifTypeIso88025Dtr                   IANAifType = 86
-	IANAifTypeEplrs                         IANAifType = 87
-	IANAifTypeArap                          IANAifType = 88
-	IANAifTypePropCnls                      IANAifType = 89
-	IANAifTypeHostPad                       IANAifType = 90
-	IANAifTypeTermPad                       IANAifType = 91
-	IANAifTypeFrameRelayMPI                 IANAifType = 92
-	IANAifTypeX213                          IANAifType = 93
-	IANAifTypeAdsl                          IANAifType = 94
-	IANAifTypeRadsl                         IANAifType = 95
-	IANAifTypeSdsl                          IANAifType = 96
-	IANAifTypeVdsl                          IANAifType = 97
-	IANAifTypeIso88025CRFPInt               IANAifType = 98
-	IANAifTypeMyrinet                       IANAifType = 99
-	IANAifTypeVoiceEM                       IANAifType = 100
-	IANAifTypeVoiceFXO                      IANAifType = 101
-	IANAifTypeVoiceFXS                      IANAifType = 102
-	IANAifTypeVoiceEncap                    IANAifType = 103
-	IANAifTypeVoiceOverIp                   IANAifType = 104
-	IANAifTypeAtmDxi                        IANAifType = 105
-	IANAifTypeAtmFuni                       IANAifType = 106
-	IANAifTypeAtmIma                        IANAifType = 107
-	IANAifTypePppMultilinkBundle            IANAifType = 108
-	IANAifTypeIpOverCdlc                    IANAifType = 109
-	IANAifTypeIpOverClaw                    IANAifType = 110
-	IANAifTypeStackToStack                  IANAifType = 111
-	IANAifTypeVirtualIpAddress              IANAifType = 112
-	IANAifTypeMpc                           IANAifType = 113
-	IANAifTypeIpOverAtm                     IANAifType = 114
-	IANAifTypeIso88025Fiber                 IANAifType = 115
-	IANAifTypeTdlc                          IANAifType = 116
-	IANAifTypeGigabitEthernet               IANAifType = 117
-	IANAifTypeHdlc                          IANAifType = 118
-	IANAifTypeLapf                          IANAifType = 119
-	IANAifTypeV37                           IANAifType = 120
-	IANAifTypeX25mlp                        IANAifType = 121
-	IANAifTypeX25huntGroup                  IANAifType = 122
-	IANAifTypeTranspHdlc                    IANAifType = 123
-	IANAifTypeInterleave                    IANAifType = 124
-	IANAifTypeFast                          IANAifType = 125
-	IANAifTypeIp                            IANAifType = 126
-	IANAifTypeDocsCableMaclayer             IANAifType = 127
-	IANAifTypeDocsCableDownstream           IANAifType = 128
-	IANAifTypeDocsCableUpstream             IANAifType = 129
-	IANAifTypeA12MppSwitch                  IANAifType = 130
-	IANAifTypeTunnel                        IANAifType = 131
-	IANAifTypeCoffee                        IANAifType = 132
-	IANAifTypeCes                           IANAifType = 133
-	IANAifTypeAtmSubInterface               IANAifType = 134
-	IANAifTypeL2vlan                        IANAifType = 135
-	IANAifTypeL3ipvlan                      IANAifType = 136
-	IANAifTypeL3ipxvlan                     IANAifType = 137
-	IANAifTypeDigitalPowerline              IANAifType = 138
-	IANAifTypeMediaMailOverIp               IANAifType = 139
-	IANAifTypeDtm                           IANAifType = 140
-	IANAifTypeDcn                           IANAifType = 141
-	IANAifTypeIpForward                     IANAifType = 142
-	IANAifTypeMsdsl                         IANAifType = 143
-	IANAifTypeIeee1394                      IANAifType = 144
-	IANAifTypeIfGsn                         IANAifType = 145
-	IANAifTypeDvbRccMacLayer                IANAifType = 146
-	IANAifTypeDvbRccDownstream              IANAifType = 147
-	IANAifTypeDvbRccUpstream                IANAifType = 148
-	IANAifTypeAtmVirtual                    IANAifType = 149
-	IANAifTypeMplsTunnel                    IANAifType = 150
-	IANAifTypeSrp                           IANAifType = 151
-	IANAifTypeVoiceOverAtm                  IANAifType = 152
-	IANAifTypeVoiceOverFrameRelay           IANAifType = 153
-	IANAifTypeIdsl                          IANAifType = 154
-	IANAifTypeCompositeLink                 IANAifType = 155
-	IANAifTypeSs7SigLink                    IANAifType = 156
-	IANAifTypePropWirelessP2P               IANAifType = 157
-	IANAifTypeFrForward                     IANAifType = 158
-	IANAifTypeRfc1483                       IANAifType = 159
-	IANAifTypeUsb                           IANAifType = 160
-	IANAifTypeIeee8023adLag                 IANAifType = 161
-	IANAifTypeBgppolicyaccounting           IANAifType = 162
-	IANAifTypeFrf16MfrBundle                IANAifType = 163
-	IANAifTypeH323Gatekeeper                IANAifType = 164
-	IANAifTypeH323Proxy                     IANAifType = 165
-	IANAifTypeMpls                          IANAifType = 166
-	IANAifTypeMfSigLink                     IANAifType = 167
-	IANAifTypeHdsl2                         IANAifType = 168
-	IANAifTypeShdsl                         IANAifType = 169
-	IANAifTypeDs1FDL                        IANAifType = 170
-	IANAifTypePos                           IANAifType = 171
-	IANAifTypeDvbAsiIn                      IANAifType = 172
-	IANAifTypeDvbAsiOut                     IANAifType = 173
-	IANAifTypePlc                           IANAifType = 174
-	IANAifTypeNfas                          IANAifType = 175
-	IANAifTypeTr008                         IANAifType = 176
-	IANAifTypeGr303RDT                      IANAifType = 177
-	IANAifTypeGr303IDT                      IANAifType = 178
-	IANAifTypeIsup                          IANAifType = 179
-	IANAifTypePropDocsWirelessMaclayer      IANAifType = 180
-	IANAifTypePropDocsWirelessDownstream    IANAifType = 181
-	IANAifTypePropDocsWirelessUpstream      IANAifType = 182
-	IANAifTypeHiperlan2                     IANAifType = 183
-	IANAifTypePropBWAp2Mp                   IANAifType = 184
-	IANAifTypeSonetOverheadChannel          IANAifType = 185
+	// IANAifTypeOther represents the SMI value other.
+	IANAifTypeOther IANAifType = 1
+	// IANAifTypeRegular1822 represents the SMI value regular1822.
+	IANAifTypeRegular1822 IANAifType = 2
+	// IANAifTypeHdh1822 represents the SMI value hdh1822.
+	IANAifTypeHdh1822 IANAifType = 3
+	// IANAifTypeDdnX25 represents the SMI value ddnX25.
+	IANAifTypeDdnX25 IANAifType = 4
+	// IANAifTypeRfc877x25 represents the SMI value rfc877x25.
+	IANAifTypeRfc877x25 IANAifType = 5
+	// IANAifTypeEthernetCsmacd represents the SMI value ethernetCsmacd.
+	IANAifTypeEthernetCsmacd IANAifType = 6
+	// IANAifTypeIso88023Csmacd represents the SMI value iso88023Csmacd.
+	IANAifTypeIso88023Csmacd IANAifType = 7
+	// IANAifTypeIso88024TokenBus represents the SMI value iso88024TokenBus.
+	IANAifTypeIso88024TokenBus IANAifType = 8
+	// IANAifTypeIso88025TokenRing represents the SMI value iso88025TokenRing.
+	IANAifTypeIso88025TokenRing IANAifType = 9
+	// IANAifTypeIso88026Man represents the SMI value iso88026Man.
+	IANAifTypeIso88026Man IANAifType = 10
+	// IANAifTypeStarLan represents the SMI value starLan.
+	IANAifTypeStarLan IANAifType = 11
+	// IANAifTypeProteon10Mbit represents the SMI value proteon10Mbit.
+	IANAifTypeProteon10Mbit IANAifType = 12
+	// IANAifTypeProteon80Mbit represents the SMI value proteon80Mbit.
+	IANAifTypeProteon80Mbit IANAifType = 13
+	// IANAifTypeHyperchannel represents the SMI value hyperchannel.
+	IANAifTypeHyperchannel IANAifType = 14
+	// IANAifTypeFddi represents the SMI value fddi.
+	IANAifTypeFddi IANAifType = 15
+	// IANAifTypeLapb represents the SMI value lapb.
+	IANAifTypeLapb IANAifType = 16
+	// IANAifTypeSdlc represents the SMI value sdlc.
+	IANAifTypeSdlc IANAifType = 17
+	// IANAifTypeDs1 represents the SMI value ds1.
+	IANAifTypeDs1 IANAifType = 18
+	// IANAifTypeE1 represents the SMI value e1.
+	IANAifTypeE1 IANAifType = 19
+	// IANAifTypeBasicISDN represents the SMI value basicISDN.
+	IANAifTypeBasicISDN IANAifType = 20
+	// IANAifTypePrimaryISDN represents the SMI value primaryISDN.
+	IANAifTypePrimaryISDN IANAifType = 21
+	// IANAifTypePropPointToPointSerial represents the SMI value propPointToPointSerial.
+	IANAifTypePropPointToPointSerial IANAifType = 22
+	// IANAifTypePpp represents the SMI value ppp.
+	IANAifTypePpp IANAifType = 23
+	// IANAifTypeSoftwareLoopback represents the SMI value softwareLoopback.
+	IANAifTypeSoftwareLoopback IANAifType = 24
+	// IANAifTypeEon represents the SMI value eon.
+	IANAifTypeEon IANAifType = 25
+	// IANAifTypeEthernet3Mbit represents the SMI value ethernet3Mbit.
+	IANAifTypeEthernet3Mbit IANAifType = 26
+	// IANAifTypeNsip represents the SMI value nsip.
+	IANAifTypeNsip IANAifType = 27
+	// IANAifTypeSlip represents the SMI value slip.
+	IANAifTypeSlip IANAifType = 28
+	// IANAifTypeUltra represents the SMI value ultra.
+	IANAifTypeUltra IANAifType = 29
+	// IANAifTypeDs3 represents the SMI value ds3.
+	IANAifTypeDs3 IANAifType = 30
+	// IANAifTypeSip represents the SMI value sip.
+	IANAifTypeSip IANAifType = 31
+	// IANAifTypeFrameRelay represents the SMI value frameRelay.
+	IANAifTypeFrameRelay IANAifType = 32
+	// IANAifTypeRs232 represents the SMI value rs232.
+	IANAifTypeRs232 IANAifType = 33
+	// IANAifTypePara represents the SMI value para.
+	IANAifTypePara IANAifType = 34
+	// IANAifTypeArcnet represents the SMI value arcnet.
+	IANAifTypeArcnet IANAifType = 35
+	// IANAifTypeArcnetPlus represents the SMI value arcnetPlus.
+	IANAifTypeArcnetPlus IANAifType = 36
+	// IANAifTypeAtm represents the SMI value atm.
+	IANAifTypeAtm IANAifType = 37
+	// IANAifTypeMiox25 represents the SMI value miox25.
+	IANAifTypeMiox25 IANAifType = 38
+	// IANAifTypeSonet represents the SMI value sonet.
+	IANAifTypeSonet IANAifType = 39
+	// IANAifTypeX25ple represents the SMI value x25ple.
+	IANAifTypeX25ple IANAifType = 40
+	// IANAifTypeIso88022llc represents the SMI value iso88022llc.
+	IANAifTypeIso88022llc IANAifType = 41
+	// IANAifTypeLocalTalk represents the SMI value localTalk.
+	IANAifTypeLocalTalk IANAifType = 42
+	// IANAifTypeSmdsDxi represents the SMI value smdsDxi.
+	IANAifTypeSmdsDxi IANAifType = 43
+	// IANAifTypeFrameRelayService represents the SMI value frameRelayService.
+	IANAifTypeFrameRelayService IANAifType = 44
+	// IANAifTypeV35 represents the SMI value v35.
+	IANAifTypeV35 IANAifType = 45
+	// IANAifTypeHssi represents the SMI value hssi.
+	IANAifTypeHssi IANAifType = 46
+	// IANAifTypeHippi represents the SMI value hippi.
+	IANAifTypeHippi IANAifType = 47
+	// IANAifTypeModem represents the SMI value modem.
+	IANAifTypeModem IANAifType = 48
+	// IANAifTypeAal5 represents the SMI value aal5.
+	IANAifTypeAal5 IANAifType = 49
+	// IANAifTypeSonetPath represents the SMI value sonetPath.
+	IANAifTypeSonetPath IANAifType = 50
+	// IANAifTypeSonetVT represents the SMI value sonetVT.
+	IANAifTypeSonetVT IANAifType = 51
+	// IANAifTypeSmdsIcip represents the SMI value smdsIcip.
+	IANAifTypeSmdsIcip IANAifType = 52
+	// IANAifTypePropVirtual represents the SMI value propVirtual.
+	IANAifTypePropVirtual IANAifType = 53
+	// IANAifTypePropMultiplexor represents the SMI value propMultiplexor.
+	IANAifTypePropMultiplexor IANAifType = 54
+	// IANAifTypeIeee80212 represents the SMI value ieee80212.
+	IANAifTypeIeee80212 IANAifType = 55
+	// IANAifTypeFibreChannel represents the SMI value fibreChannel.
+	IANAifTypeFibreChannel IANAifType = 56
+	// IANAifTypeHippiInterface represents the SMI value hippiInterface.
+	IANAifTypeHippiInterface IANAifType = 57
+	// IANAifTypeFrameRelayInterconnect represents the SMI value frameRelayInterconnect.
+	IANAifTypeFrameRelayInterconnect IANAifType = 58
+	// IANAifTypeAflane8023 represents the SMI value aflane8023.
+	IANAifTypeAflane8023 IANAifType = 59
+	// IANAifTypeAflane8025 represents the SMI value aflane8025.
+	IANAifTypeAflane8025 IANAifType = 60
+	// IANAifTypeCctEmul represents the SMI value cctEmul.
+	IANAifTypeCctEmul IANAifType = 61
+	// IANAifTypeFastEther represents the SMI value fastEther.
+	IANAifTypeFastEther IANAifType = 62
+	// IANAifTypeIsdn represents the SMI value isdn.
+	IANAifTypeIsdn IANAifType = 63
+	// IANAifTypeV11 represents the SMI value v11.
+	IANAifTypeV11 IANAifType = 64
+	// IANAifTypeV36 represents the SMI value v36.
+	IANAifTypeV36 IANAifType = 65
+	// IANAifTypeG703at64k represents the SMI value g703at64k.
+	IANAifTypeG703at64k IANAifType = 66
+	// IANAifTypeG703at2mb represents the SMI value g703at2mb.
+	IANAifTypeG703at2mb IANAifType = 67
+	// IANAifTypeQllc represents the SMI value qllc.
+	IANAifTypeQllc IANAifType = 68
+	// IANAifTypeFastEtherFX represents the SMI value fastEtherFX.
+	IANAifTypeFastEtherFX IANAifType = 69
+	// IANAifTypeChannel represents the SMI value channel.
+	IANAifTypeChannel IANAifType = 70
+	// IANAifTypeIeee80211 represents the SMI value ieee80211.
+	IANAifTypeIeee80211 IANAifType = 71
+	// IANAifTypeIbm370parChan represents the SMI value ibm370parChan.
+	IANAifTypeIbm370parChan IANAifType = 72
+	// IANAifTypeEscon represents the SMI value escon.
+	IANAifTypeEscon IANAifType = 73
+	// IANAifTypeDlsw represents the SMI value dlsw.
+	IANAifTypeDlsw IANAifType = 74
+	// IANAifTypeIsdns represents the SMI value isdns.
+	IANAifTypeIsdns IANAifType = 75
+	// IANAifTypeIsdnu represents the SMI value isdnu.
+	IANAifTypeIsdnu IANAifType = 76
+	// IANAifTypeLapd represents the SMI value lapd.
+	IANAifTypeLapd IANAifType = 77
+	// IANAifTypeIpSwitch represents the SMI value ipSwitch.
+	IANAifTypeIpSwitch IANAifType = 78
+	// IANAifTypeRsrb represents the SMI value rsrb.
+	IANAifTypeRsrb IANAifType = 79
+	// IANAifTypeAtmLogical represents the SMI value atmLogical.
+	IANAifTypeAtmLogical IANAifType = 80
+	// IANAifTypeDs0 represents the SMI value ds0.
+	IANAifTypeDs0 IANAifType = 81
+	// IANAifTypeDs0Bundle represents the SMI value ds0Bundle.
+	IANAifTypeDs0Bundle IANAifType = 82
+	// IANAifTypeBsc represents the SMI value bsc.
+	IANAifTypeBsc IANAifType = 83
+	// IANAifTypeAsync represents the SMI value async.
+	IANAifTypeAsync IANAifType = 84
+	// IANAifTypeCnr represents the SMI value cnr.
+	IANAifTypeCnr IANAifType = 85
+	// IANAifTypeIso88025Dtr represents the SMI value iso88025Dtr.
+	IANAifTypeIso88025Dtr IANAifType = 86
+	// IANAifTypeEplrs represents the SMI value eplrs.
+	IANAifTypeEplrs IANAifType = 87
+	// IANAifTypeArap represents the SMI value arap.
+	IANAifTypeArap IANAifType = 88
+	// IANAifTypePropCnls represents the SMI value propCnls.
+	IANAifTypePropCnls IANAifType = 89
+	// IANAifTypeHostPad represents the SMI value hostPad.
+	IANAifTypeHostPad IANAifType = 90
+	// IANAifTypeTermPad represents the SMI value termPad.
+	IANAifTypeTermPad IANAifType = 91
+	// IANAifTypeFrameRelayMPI represents the SMI value frameRelayMPI.
+	IANAifTypeFrameRelayMPI IANAifType = 92
+	// IANAifTypeX213 represents the SMI value x213.
+	IANAifTypeX213 IANAifType = 93
+	// IANAifTypeAdsl represents the SMI value adsl.
+	IANAifTypeAdsl IANAifType = 94
+	// IANAifTypeRadsl represents the SMI value radsl.
+	IANAifTypeRadsl IANAifType = 95
+	// IANAifTypeSdsl represents the SMI value sdsl.
+	IANAifTypeSdsl IANAifType = 96
+	// IANAifTypeVdsl represents the SMI value vdsl.
+	IANAifTypeVdsl IANAifType = 97
+	// IANAifTypeIso88025CRFPInt represents the SMI value iso88025CRFPInt.
+	IANAifTypeIso88025CRFPInt IANAifType = 98
+	// IANAifTypeMyrinet represents the SMI value myrinet.
+	IANAifTypeMyrinet IANAifType = 99
+	// IANAifTypeVoiceEM represents the SMI value voiceEM.
+	IANAifTypeVoiceEM IANAifType = 100
+	// IANAifTypeVoiceFXO represents the SMI value voiceFXO.
+	IANAifTypeVoiceFXO IANAifType = 101
+	// IANAifTypeVoiceFXS represents the SMI value voiceFXS.
+	IANAifTypeVoiceFXS IANAifType = 102
+	// IANAifTypeVoiceEncap represents the SMI value voiceEncap.
+	IANAifTypeVoiceEncap IANAifType = 103
+	// IANAifTypeVoiceOverIp represents the SMI value voiceOverIp.
+	IANAifTypeVoiceOverIp IANAifType = 104
+	// IANAifTypeAtmDxi represents the SMI value atmDxi.
+	IANAifTypeAtmDxi IANAifType = 105
+	// IANAifTypeAtmFuni represents the SMI value atmFuni.
+	IANAifTypeAtmFuni IANAifType = 106
+	// IANAifTypeAtmIma represents the SMI value atmIma.
+	IANAifTypeAtmIma IANAifType = 107
+	// IANAifTypePppMultilinkBundle represents the SMI value pppMultilinkBundle.
+	IANAifTypePppMultilinkBundle IANAifType = 108
+	// IANAifTypeIpOverCdlc represents the SMI value ipOverCdlc.
+	IANAifTypeIpOverCdlc IANAifType = 109
+	// IANAifTypeIpOverClaw represents the SMI value ipOverClaw.
+	IANAifTypeIpOverClaw IANAifType = 110
+	// IANAifTypeStackToStack represents the SMI value stackToStack.
+	IANAifTypeStackToStack IANAifType = 111
+	// IANAifTypeVirtualIpAddress represents the SMI value virtualIpAddress.
+	IANAifTypeVirtualIpAddress IANAifType = 112
+	// IANAifTypeMpc represents the SMI value mpc.
+	IANAifTypeMpc IANAifType = 113
+	// IANAifTypeIpOverAtm represents the SMI value ipOverAtm.
+	IANAifTypeIpOverAtm IANAifType = 114
+	// IANAifTypeIso88025Fiber represents the SMI value iso88025Fiber.
+	IANAifTypeIso88025Fiber IANAifType = 115
+	// IANAifTypeTdlc represents the SMI value tdlc.
+	IANAifTypeTdlc IANAifType = 116
+	// IANAifTypeGigabitEthernet represents the SMI value gigabitEthernet.
+	IANAifTypeGigabitEthernet IANAifType = 117
+	// IANAifTypeHdlc represents the SMI value hdlc.
+	IANAifTypeHdlc IANAifType = 118
+	// IANAifTypeLapf represents the SMI value lapf.
+	IANAifTypeLapf IANAifType = 119
+	// IANAifTypeV37 represents the SMI value v37.
+	IANAifTypeV37 IANAifType = 120
+	// IANAifTypeX25mlp represents the SMI value x25mlp.
+	IANAifTypeX25mlp IANAifType = 121
+	// IANAifTypeX25huntGroup represents the SMI value x25huntGroup.
+	IANAifTypeX25huntGroup IANAifType = 122
+	// IANAifTypeTranspHdlc represents the SMI value transpHdlc.
+	IANAifTypeTranspHdlc IANAifType = 123
+	// IANAifTypeInterleave represents the SMI value interleave.
+	IANAifTypeInterleave IANAifType = 124
+	// IANAifTypeFast represents the SMI value fast.
+	IANAifTypeFast IANAifType = 125
+	// IANAifTypeIp represents the SMI value ip.
+	IANAifTypeIp IANAifType = 126
+	// IANAifTypeDocsCableMaclayer represents the SMI value docsCableMaclayer.
+	IANAifTypeDocsCableMaclayer IANAifType = 127
+	// IANAifTypeDocsCableDownstream represents the SMI value docsCableDownstream.
+	IANAifTypeDocsCableDownstream IANAifType = 128
+	// IANAifTypeDocsCableUpstream represents the SMI value docsCableUpstream.
+	IANAifTypeDocsCableUpstream IANAifType = 129
+	// IANAifTypeA12MppSwitch represents the SMI value a12MppSwitch.
+	IANAifTypeA12MppSwitch IANAifType = 130
+	// IANAifTypeTunnel represents the SMI value tunnel.
+	IANAifTypeTunnel IANAifType = 131
+	// IANAifTypeCoffee represents the SMI value coffee.
+	IANAifTypeCoffee IANAifType = 132
+	// IANAifTypeCes represents the SMI value ces.
+	IANAifTypeCes IANAifType = 133
+	// IANAifTypeAtmSubInterface represents the SMI value atmSubInterface.
+	IANAifTypeAtmSubInterface IANAifType = 134
+	// IANAifTypeL2vlan represents the SMI value l2vlan.
+	IANAifTypeL2vlan IANAifType = 135
+	// IANAifTypeL3ipvlan represents the SMI value l3ipvlan.
+	IANAifTypeL3ipvlan IANAifType = 136
+	// IANAifTypeL3ipxvlan represents the SMI value l3ipxvlan.
+	IANAifTypeL3ipxvlan IANAifType = 137
+	// IANAifTypeDigitalPowerline represents the SMI value digitalPowerline.
+	IANAifTypeDigitalPowerline IANAifType = 138
+	// IANAifTypeMediaMailOverIp represents the SMI value mediaMailOverIp.
+	IANAifTypeMediaMailOverIp IANAifType = 139
+	// IANAifTypeDtm represents the SMI value dtm.
+	IANAifTypeDtm IANAifType = 140
+	// IANAifTypeDcn represents the SMI value dcn.
+	IANAifTypeDcn IANAifType = 141
+	// IANAifTypeIpForward represents the SMI value ipForward.
+	IANAifTypeIpForward IANAifType = 142
+	// IANAifTypeMsdsl represents the SMI value msdsl.
+	IANAifTypeMsdsl IANAifType = 143
+	// IANAifTypeIeee1394 represents the SMI value ieee1394.
+	IANAifTypeIeee1394 IANAifType = 144
+	// IANAifTypeIfGsn represents the SMI value if-gsn.
+	IANAifTypeIfGsn IANAifType = 145
+	// IANAifTypeDvbRccMacLayer represents the SMI value dvbRccMacLayer.
+	IANAifTypeDvbRccMacLayer IANAifType = 146
+	// IANAifTypeDvbRccDownstream represents the SMI value dvbRccDownstream.
+	IANAifTypeDvbRccDownstream IANAifType = 147
+	// IANAifTypeDvbRccUpstream represents the SMI value dvbRccUpstream.
+	IANAifTypeDvbRccUpstream IANAifType = 148
+	// IANAifTypeAtmVirtual represents the SMI value atmVirtual.
+	IANAifTypeAtmVirtual IANAifType = 149
+	// IANAifTypeMplsTunnel represents the SMI value mplsTunnel.
+	IANAifTypeMplsTunnel IANAifType = 150
+	// IANAifTypeSrp represents the SMI value srp.
+	IANAifTypeSrp IANAifType = 151
+	// IANAifTypeVoiceOverAtm represents the SMI value voiceOverAtm.
+	IANAifTypeVoiceOverAtm IANAifType = 152
+	// IANAifTypeVoiceOverFrameRelay represents the SMI value voiceOverFrameRelay.
+	IANAifTypeVoiceOverFrameRelay IANAifType = 153
+	// IANAifTypeIdsl represents the SMI value idsl.
+	IANAifTypeIdsl IANAifType = 154
+	// IANAifTypeCompositeLink represents the SMI value compositeLink.
+	IANAifTypeCompositeLink IANAifType = 155
+	// IANAifTypeSs7SigLink represents the SMI value ss7SigLink.
+	IANAifTypeSs7SigLink IANAifType = 156
+	// IANAifTypePropWirelessP2P represents the SMI value propWirelessP2P.
+	IANAifTypePropWirelessP2P IANAifType = 157
+	// IANAifTypeFrForward represents the SMI value frForward.
+	IANAifTypeFrForward IANAifType = 158
+	// IANAifTypeRfc1483 represents the SMI value rfc1483.
+	IANAifTypeRfc1483 IANAifType = 159
+	// IANAifTypeUsb represents the SMI value usb.
+	IANAifTypeUsb IANAifType = 160
+	// IANAifTypeIeee8023adLag represents the SMI value ieee8023adLag.
+	IANAifTypeIeee8023adLag IANAifType = 161
+	// IANAifTypeBgppolicyaccounting represents the SMI value bgppolicyaccounting.
+	IANAifTypeBgppolicyaccounting IANAifType = 162
+	// IANAifTypeFrf16MfrBundle represents the SMI value frf16MfrBundle.
+	IANAifTypeFrf16MfrBundle IANAifType = 163
+	// IANAifTypeH323Gatekeeper represents the SMI value h323Gatekeeper.
+	IANAifTypeH323Gatekeeper IANAifType = 164
+	// IANAifTypeH323Proxy represents the SMI value h323Proxy.
+	IANAifTypeH323Proxy IANAifType = 165
+	// IANAifTypeMpls represents the SMI value mpls.
+	IANAifTypeMpls IANAifType = 166
+	// IANAifTypeMfSigLink represents the SMI value mfSigLink.
+	IANAifTypeMfSigLink IANAifType = 167
+	// IANAifTypeHdsl2 represents the SMI value hdsl2.
+	IANAifTypeHdsl2 IANAifType = 168
+	// IANAifTypeShdsl represents the SMI value shdsl.
+	IANAifTypeShdsl IANAifType = 169
+	// IANAifTypeDs1FDL represents the SMI value ds1FDL.
+	IANAifTypeDs1FDL IANAifType = 170
+	// IANAifTypePos represents the SMI value pos.
+	IANAifTypePos IANAifType = 171
+	// IANAifTypeDvbAsiIn represents the SMI value dvbAsiIn.
+	IANAifTypeDvbAsiIn IANAifType = 172
+	// IANAifTypeDvbAsiOut represents the SMI value dvbAsiOut.
+	IANAifTypeDvbAsiOut IANAifType = 173
+	// IANAifTypePlc represents the SMI value plc.
+	IANAifTypePlc IANAifType = 174
+	// IANAifTypeNfas represents the SMI value nfas.
+	IANAifTypeNfas IANAifType = 175
+	// IANAifTypeTr008 represents the SMI value tr008.
+	IANAifTypeTr008 IANAifType = 176
+	// IANAifTypeGr303RDT represents the SMI value gr303RDT.
+	IANAifTypeGr303RDT IANAifType = 177
+	// IANAifTypeGr303IDT represents the SMI value gr303IDT.
+	IANAifTypeGr303IDT IANAifType = 178
+	// IANAifTypeIsup represents the SMI value isup.
+	IANAifTypeIsup IANAifType = 179
+	// IANAifTypePropDocsWirelessMaclayer represents the SMI value propDocsWirelessMaclayer.
+	IANAifTypePropDocsWirelessMaclayer IANAifType = 180
+	// IANAifTypePropDocsWirelessDownstream represents the SMI value propDocsWirelessDownstream.
+	IANAifTypePropDocsWirelessDownstream IANAifType = 181
+	// IANAifTypePropDocsWirelessUpstream represents the SMI value propDocsWirelessUpstream.
+	IANAifTypePropDocsWirelessUpstream IANAifType = 182
+	// IANAifTypeHiperlan2 represents the SMI value hiperlan2.
+	IANAifTypeHiperlan2 IANAifType = 183
+	// IANAifTypePropBWAp2Mp represents the SMI value propBWAp2Mp.
+	IANAifTypePropBWAp2Mp IANAifType = 184
+	// IANAifTypeSonetOverheadChannel represents the SMI value sonetOverheadChannel.
+	IANAifTypeSonetOverheadChannel IANAifType = 185
+	// IANAifTypeDigitalWrapperOverheadChannel represents the SMI value digitalWrapperOverheadChannel.
 	IANAifTypeDigitalWrapperOverheadChannel IANAifType = 186
-	IANAifTypeAal2                          IANAifType = 187
-	IANAifTypeRadioMAC                      IANAifType = 188
-	IANAifTypeAtmRadio                      IANAifType = 189
-	IANAifTypeImt                           IANAifType = 190
-	IANAifTypeMvl                           IANAifType = 191
-	IANAifTypeReachDSL                      IANAifType = 192
-	IANAifTypeFrDlciEndPt                   IANAifType = 193
-	IANAifTypeAtmVciEndPt                   IANAifType = 194
-	IANAifTypeOpticalChannel                IANAifType = 195
-	IANAifTypeOpticalTransport              IANAifType = 196
-	IANAifTypePropAtm                       IANAifType = 197
-	IANAifTypeVoiceOverCable                IANAifType = 198
-	IANAifTypeInfiniband                    IANAifType = 199
-	IANAifTypeTeLink                        IANAifType = 200
-	IANAifTypeQ2931                         IANAifType = 201
-	IANAifTypeVirtualTg                     IANAifType = 202
-	IANAifTypeSipTg                         IANAifType = 203
-	IANAifTypeSipSig                        IANAifType = 204
-	IANAifTypeDocsCableUpstreamChannel      IANAifType = 205
-	IANAifTypeEconet                        IANAifType = 206
-	IANAifTypePon155                        IANAifType = 207
-	IANAifTypePon622                        IANAifType = 208
-	IANAifTypeBridge                        IANAifType = 209
-	IANAifTypeLinegroup                     IANAifType = 210
-	IANAifTypeVoiceEMFGD                    IANAifType = 211
-	IANAifTypeVoiceFGDEANA                  IANAifType = 212
-	IANAifTypeVoiceDID                      IANAifType = 213
-	IANAifTypeMpegTransport                 IANAifType = 214
-	IANAifTypeSixToFour                     IANAifType = 215
-	IANAifTypeGtp                           IANAifType = 216
-	IANAifTypePdnEtherLoop1                 IANAifType = 217
-	IANAifTypePdnEtherLoop2                 IANAifType = 218
-	IANAifTypeOpticalChannelGroup           IANAifType = 219
-	IANAifTypeHomepna                       IANAifType = 220
-	IANAifTypeGfp                           IANAifType = 221
-	IANAifTypeCiscoISLvlan                  IANAifType = 222
-	IANAifTypeActelisMetaLOOP               IANAifType = 223
-	IANAifTypeFcipLink                      IANAifType = 224
-	IANAifTypeRpr                           IANAifType = 225
-	IANAifTypeQam                           IANAifType = 226
-	IANAifTypeLmp                           IANAifType = 227
-	IANAifTypeCblVectaStar                  IANAifType = 228
-	IANAifTypeDocsCableMCmtsDownstream      IANAifType = 229
-	IANAifTypeAdsl2                         IANAifType = 230
-	IANAifTypeMacSecControlledIF            IANAifType = 231
-	IANAifTypeMacSecUncontrolledIF          IANAifType = 232
-	IANAifTypeAviciOpticalEther             IANAifType = 233
-	IANAifTypeAtmbond                       IANAifType = 234
-	IANAifTypeVoiceFGDOS                    IANAifType = 235
-	IANAifTypeMocaVersion1                  IANAifType = 236
-	IANAifTypeIeee80216WMAN                 IANAifType = 237
-	IANAifTypeAdsl2plus                     IANAifType = 238
-	IANAifTypeDvbRcsMacLayer                IANAifType = 239
-	IANAifTypeDvbTdm                        IANAifType = 240
-	IANAifTypeDvbRcsTdma                    IANAifType = 241
-	IANAifTypeX86Laps                       IANAifType = 242
-	IANAifTypeWwanPP                        IANAifType = 243
-	IANAifTypeWwanPP2                       IANAifType = 244
-	IANAifTypeVoiceEBS                      IANAifType = 245
-	IANAifTypeIfPwType                      IANAifType = 246
-	IANAifTypeIlan                          IANAifType = 247
-	IANAifTypePip                           IANAifType = 248
-	IANAifTypeAluELP                        IANAifType = 249
-	IANAifTypeGpon                          IANAifType = 250
-	IANAifTypeVdsl2                         IANAifType = 251
-	IANAifTypeCapwapDot11Profile            IANAifType = 252
-	IANAifTypeCapwapDot11Bss                IANAifType = 253
-	IANAifTypeCapwapWtpVirtualRadio         IANAifType = 254
-	IANAifTypeBits                          IANAifType = 255
-	IANAifTypeDocsCableUpstreamRfPort       IANAifType = 256
-	IANAifTypeCableDownstreamRfPort         IANAifType = 257
-	IANAifTypeVmwareVirtualNic              IANAifType = 258
-	IANAifTypeIeee802154                    IANAifType = 259
-	IANAifTypeOtnOdu                        IANAifType = 260
-	IANAifTypeOtnOtu                        IANAifType = 261
-	IANAifTypeIfVfiType                     IANAifType = 262
-	IANAifTypeG9981                         IANAifType = 263
-	IANAifTypeG9982                         IANAifType = 264
-	IANAifTypeG9983                         IANAifType = 265
-	IANAifTypeAluEpon                       IANAifType = 266
-	IANAifTypeAluEponOnu                    IANAifType = 267
-	IANAifTypeAluEponPhysicalUni            IANAifType = 268
-	IANAifTypeAluEponLogicalLink            IANAifType = 269
-	IANAifTypeAluGponOnu                    IANAifType = 270
-	IANAifTypeAluGponPhysicalUni            IANAifType = 271
-	IANAifTypeVmwareNicTeam                 IANAifType = 272
-	IANAifTypeDocsOfdmDownstream            IANAifType = 277
-	IANAifTypeDocsOfdmaUpstream             IANAifType = 278
-	IANAifTypeGfast                         IANAifType = 279
-	IANAifTypeSdci                          IANAifType = 280
-	IANAifTypeXboxWireless                  IANAifType = 281
-	IANAifTypeFastdsl                       IANAifType = 282
-	IANAifTypeDocsCableScte55d1FwdOob       IANAifType = 283
-	IANAifTypeDocsCableScte55d1RetOob       IANAifType = 284
-	IANAifTypeDocsCableScte55d2DsOob        IANAifType = 285
-	IANAifTypeDocsCableScte55d2UsOob        IANAifType = 286
-	IANAifTypeDocsCableNdf                  IANAifType = 287
-	IANAifTypeDocsCableNdr                  IANAifType = 288
-	IANAifTypePtm                           IANAifType = 289
-	IANAifTypeGhn                           IANAifType = 290
-	IANAifTypeOtnOtsi                       IANAifType = 291
-	IANAifTypeOtnOtuc                       IANAifType = 292
-	IANAifTypeOtnOduc                       IANAifType = 293
-	IANAifTypeOtnOtsig                      IANAifType = 294
-	IANAifTypeMicrowaveCarrierTermination   IANAifType = 295
-	IANAifTypeMicrowaveRadioLinkTerminal    IANAifType = 296
-	IANAifTypeIeee8021axDrni                IANAifType = 297
-	IANAifTypeAx25                          IANAifType = 298
-	IANAifTypeIeee19061nanocom              IANAifType = 299
+	// IANAifTypeAal2 represents the SMI value aal2.
+	IANAifTypeAal2 IANAifType = 187
+	// IANAifTypeRadioMAC represents the SMI value radioMAC.
+	IANAifTypeRadioMAC IANAifType = 188
+	// IANAifTypeAtmRadio represents the SMI value atmRadio.
+	IANAifTypeAtmRadio IANAifType = 189
+	// IANAifTypeImt represents the SMI value imt.
+	IANAifTypeImt IANAifType = 190
+	// IANAifTypeMvl represents the SMI value mvl.
+	IANAifTypeMvl IANAifType = 191
+	// IANAifTypeReachDSL represents the SMI value reachDSL.
+	IANAifTypeReachDSL IANAifType = 192
+	// IANAifTypeFrDlciEndPt represents the SMI value frDlciEndPt.
+	IANAifTypeFrDlciEndPt IANAifType = 193
+	// IANAifTypeAtmVciEndPt represents the SMI value atmVciEndPt.
+	IANAifTypeAtmVciEndPt IANAifType = 194
+	// IANAifTypeOpticalChannel represents the SMI value opticalChannel.
+	IANAifTypeOpticalChannel IANAifType = 195
+	// IANAifTypeOpticalTransport represents the SMI value opticalTransport.
+	IANAifTypeOpticalTransport IANAifType = 196
+	// IANAifTypePropAtm represents the SMI value propAtm.
+	IANAifTypePropAtm IANAifType = 197
+	// IANAifTypeVoiceOverCable represents the SMI value voiceOverCable.
+	IANAifTypeVoiceOverCable IANAifType = 198
+	// IANAifTypeInfiniband represents the SMI value infiniband.
+	IANAifTypeInfiniband IANAifType = 199
+	// IANAifTypeTeLink represents the SMI value teLink.
+	IANAifTypeTeLink IANAifType = 200
+	// IANAifTypeQ2931 represents the SMI value q2931.
+	IANAifTypeQ2931 IANAifType = 201
+	// IANAifTypeVirtualTg represents the SMI value virtualTg.
+	IANAifTypeVirtualTg IANAifType = 202
+	// IANAifTypeSipTg represents the SMI value sipTg.
+	IANAifTypeSipTg IANAifType = 203
+	// IANAifTypeSipSig represents the SMI value sipSig.
+	IANAifTypeSipSig IANAifType = 204
+	// IANAifTypeDocsCableUpstreamChannel represents the SMI value docsCableUpstreamChannel.
+	IANAifTypeDocsCableUpstreamChannel IANAifType = 205
+	// IANAifTypeEconet represents the SMI value econet.
+	IANAifTypeEconet IANAifType = 206
+	// IANAifTypePon155 represents the SMI value pon155.
+	IANAifTypePon155 IANAifType = 207
+	// IANAifTypePon622 represents the SMI value pon622.
+	IANAifTypePon622 IANAifType = 208
+	// IANAifTypeBridge represents the SMI value bridge.
+	IANAifTypeBridge IANAifType = 209
+	// IANAifTypeLinegroup represents the SMI value linegroup.
+	IANAifTypeLinegroup IANAifType = 210
+	// IANAifTypeVoiceEMFGD represents the SMI value voiceEMFGD.
+	IANAifTypeVoiceEMFGD IANAifType = 211
+	// IANAifTypeVoiceFGDEANA represents the SMI value voiceFGDEANA.
+	IANAifTypeVoiceFGDEANA IANAifType = 212
+	// IANAifTypeVoiceDID represents the SMI value voiceDID.
+	IANAifTypeVoiceDID IANAifType = 213
+	// IANAifTypeMpegTransport represents the SMI value mpegTransport.
+	IANAifTypeMpegTransport IANAifType = 214
+	// IANAifTypeSixToFour represents the SMI value sixToFour.
+	IANAifTypeSixToFour IANAifType = 215
+	// IANAifTypeGtp represents the SMI value gtp.
+	IANAifTypeGtp IANAifType = 216
+	// IANAifTypePdnEtherLoop1 represents the SMI value pdnEtherLoop1.
+	IANAifTypePdnEtherLoop1 IANAifType = 217
+	// IANAifTypePdnEtherLoop2 represents the SMI value pdnEtherLoop2.
+	IANAifTypePdnEtherLoop2 IANAifType = 218
+	// IANAifTypeOpticalChannelGroup represents the SMI value opticalChannelGroup.
+	IANAifTypeOpticalChannelGroup IANAifType = 219
+	// IANAifTypeHomepna represents the SMI value homepna.
+	IANAifTypeHomepna IANAifType = 220
+	// IANAifTypeGfp represents the SMI value gfp.
+	IANAifTypeGfp IANAifType = 221
+	// IANAifTypeCiscoISLvlan represents the SMI value ciscoISLvlan.
+	IANAifTypeCiscoISLvlan IANAifType = 222
+	// IANAifTypeActelisMetaLOOP represents the SMI value actelisMetaLOOP.
+	IANAifTypeActelisMetaLOOP IANAifType = 223
+	// IANAifTypeFcipLink represents the SMI value fcipLink.
+	IANAifTypeFcipLink IANAifType = 224
+	// IANAifTypeRpr represents the SMI value rpr.
+	IANAifTypeRpr IANAifType = 225
+	// IANAifTypeQam represents the SMI value qam.
+	IANAifTypeQam IANAifType = 226
+	// IANAifTypeLmp represents the SMI value lmp.
+	IANAifTypeLmp IANAifType = 227
+	// IANAifTypeCblVectaStar represents the SMI value cblVectaStar.
+	IANAifTypeCblVectaStar IANAifType = 228
+	// IANAifTypeDocsCableMCmtsDownstream represents the SMI value docsCableMCmtsDownstream.
+	IANAifTypeDocsCableMCmtsDownstream IANAifType = 229
+	// IANAifTypeAdsl2 represents the SMI value adsl2.
+	IANAifTypeAdsl2 IANAifType = 230
+	// IANAifTypeMacSecControlledIF represents the SMI value macSecControlledIF.
+	IANAifTypeMacSecControlledIF IANAifType = 231
+	// IANAifTypeMacSecUncontrolledIF represents the SMI value macSecUncontrolledIF.
+	IANAifTypeMacSecUncontrolledIF IANAifType = 232
+	// IANAifTypeAviciOpticalEther represents the SMI value aviciOpticalEther.
+	IANAifTypeAviciOpticalEther IANAifType = 233
+	// IANAifTypeAtmbond represents the SMI value atmbond.
+	IANAifTypeAtmbond IANAifType = 234
+	// IANAifTypeVoiceFGDOS represents the SMI value voiceFGDOS.
+	IANAifTypeVoiceFGDOS IANAifType = 235
+	// IANAifTypeMocaVersion1 represents the SMI value mocaVersion1.
+	IANAifTypeMocaVersion1 IANAifType = 236
+	// IANAifTypeIeee80216WMAN represents the SMI value ieee80216WMAN.
+	IANAifTypeIeee80216WMAN IANAifType = 237
+	// IANAifTypeAdsl2plus represents the SMI value adsl2plus.
+	IANAifTypeAdsl2plus IANAifType = 238
+	// IANAifTypeDvbRcsMacLayer represents the SMI value dvbRcsMacLayer.
+	IANAifTypeDvbRcsMacLayer IANAifType = 239
+	// IANAifTypeDvbTdm represents the SMI value dvbTdm.
+	IANAifTypeDvbTdm IANAifType = 240
+	// IANAifTypeDvbRcsTdma represents the SMI value dvbRcsTdma.
+	IANAifTypeDvbRcsTdma IANAifType = 241
+	// IANAifTypeX86Laps represents the SMI value x86Laps.
+	IANAifTypeX86Laps IANAifType = 242
+	// IANAifTypeWwanPP represents the SMI value wwanPP.
+	IANAifTypeWwanPP IANAifType = 243
+	// IANAifTypeWwanPP2 represents the SMI value wwanPP2.
+	IANAifTypeWwanPP2 IANAifType = 244
+	// IANAifTypeVoiceEBS represents the SMI value voiceEBS.
+	IANAifTypeVoiceEBS IANAifType = 245
+	// IANAifTypeIfPwType represents the SMI value ifPwType.
+	IANAifTypeIfPwType IANAifType = 246
+	// IANAifTypeIlan represents the SMI value ilan.
+	IANAifTypeIlan IANAifType = 247
+	// IANAifTypePip represents the SMI value pip.
+	IANAifTypePip IANAifType = 248
+	// IANAifTypeAluELP represents the SMI value aluELP.
+	IANAifTypeAluELP IANAifType = 249
+	// IANAifTypeGpon represents the SMI value gpon.
+	IANAifTypeGpon IANAifType = 250
+	// IANAifTypeVdsl2 represents the SMI value vdsl2.
+	IANAifTypeVdsl2 IANAifType = 251
+	// IANAifTypeCapwapDot11Profile represents the SMI value capwapDot11Profile.
+	IANAifTypeCapwapDot11Profile IANAifType = 252
+	// IANAifTypeCapwapDot11Bss represents the SMI value capwapDot11Bss.
+	IANAifTypeCapwapDot11Bss IANAifType = 253
+	// IANAifTypeCapwapWtpVirtualRadio represents the SMI value capwapWtpVirtualRadio.
+	IANAifTypeCapwapWtpVirtualRadio IANAifType = 254
+	// IANAifTypeBits represents the SMI value bits.
+	IANAifTypeBits IANAifType = 255
+	// IANAifTypeDocsCableUpstreamRfPort represents the SMI value docsCableUpstreamRfPort.
+	IANAifTypeDocsCableUpstreamRfPort IANAifType = 256
+	// IANAifTypeCableDownstreamRfPort represents the SMI value cableDownstreamRfPort.
+	IANAifTypeCableDownstreamRfPort IANAifType = 257
+	// IANAifTypeVmwareVirtualNic represents the SMI value vmwareVirtualNic.
+	IANAifTypeVmwareVirtualNic IANAifType = 258
+	// IANAifTypeIeee802154 represents the SMI value ieee802154.
+	IANAifTypeIeee802154 IANAifType = 259
+	// IANAifTypeOtnOdu represents the SMI value otnOdu.
+	IANAifTypeOtnOdu IANAifType = 260
+	// IANAifTypeOtnOtu represents the SMI value otnOtu.
+	IANAifTypeOtnOtu IANAifType = 261
+	// IANAifTypeIfVfiType represents the SMI value ifVfiType.
+	IANAifTypeIfVfiType IANAifType = 262
+	// IANAifTypeG9981 represents the SMI value g9981.
+	IANAifTypeG9981 IANAifType = 263
+	// IANAifTypeG9982 represents the SMI value g9982.
+	IANAifTypeG9982 IANAifType = 264
+	// IANAifTypeG9983 represents the SMI value g9983.
+	IANAifTypeG9983 IANAifType = 265
+	// IANAifTypeAluEpon represents the SMI value aluEpon.
+	IANAifTypeAluEpon IANAifType = 266
+	// IANAifTypeAluEponOnu represents the SMI value aluEponOnu.
+	IANAifTypeAluEponOnu IANAifType = 267
+	// IANAifTypeAluEponPhysicalUni represents the SMI value aluEponPhysicalUni.
+	IANAifTypeAluEponPhysicalUni IANAifType = 268
+	// IANAifTypeAluEponLogicalLink represents the SMI value aluEponLogicalLink.
+	IANAifTypeAluEponLogicalLink IANAifType = 269
+	// IANAifTypeAluGponOnu represents the SMI value aluGponOnu.
+	IANAifTypeAluGponOnu IANAifType = 270
+	// IANAifTypeAluGponPhysicalUni represents the SMI value aluGponPhysicalUni.
+	IANAifTypeAluGponPhysicalUni IANAifType = 271
+	// IANAifTypeVmwareNicTeam represents the SMI value vmwareNicTeam.
+	IANAifTypeVmwareNicTeam IANAifType = 272
+	// IANAifTypeDocsOfdmDownstream represents the SMI value docsOfdmDownstream.
+	IANAifTypeDocsOfdmDownstream IANAifType = 277
+	// IANAifTypeDocsOfdmaUpstream represents the SMI value docsOfdmaUpstream.
+	IANAifTypeDocsOfdmaUpstream IANAifType = 278
+	// IANAifTypeGfast represents the SMI value gfast.
+	IANAifTypeGfast IANAifType = 279
+	// IANAifTypeSdci represents the SMI value sdci.
+	IANAifTypeSdci IANAifType = 280
+	// IANAifTypeXboxWireless represents the SMI value xboxWireless.
+	IANAifTypeXboxWireless IANAifType = 281
+	// IANAifTypeFastdsl represents the SMI value fastdsl.
+	IANAifTypeFastdsl IANAifType = 282
+	// IANAifTypeDocsCableScte55d1FwdOob represents the SMI value docsCableScte55d1FwdOob.
+	IANAifTypeDocsCableScte55d1FwdOob IANAifType = 283
+	// IANAifTypeDocsCableScte55d1RetOob represents the SMI value docsCableScte55d1RetOob.
+	IANAifTypeDocsCableScte55d1RetOob IANAifType = 284
+	// IANAifTypeDocsCableScte55d2DsOob represents the SMI value docsCableScte55d2DsOob.
+	IANAifTypeDocsCableScte55d2DsOob IANAifType = 285
+	// IANAifTypeDocsCableScte55d2UsOob represents the SMI value docsCableScte55d2UsOob.
+	IANAifTypeDocsCableScte55d2UsOob IANAifType = 286
+	// IANAifTypeDocsCableNdf represents the SMI value docsCableNdf.
+	IANAifTypeDocsCableNdf IANAifType = 287
+	// IANAifTypeDocsCableNdr represents the SMI value docsCableNdr.
+	IANAifTypeDocsCableNdr IANAifType = 288
+	// IANAifTypePtm represents the SMI value ptm.
+	IANAifTypePtm IANAifType = 289
+	// IANAifTypeGhn represents the SMI value ghn.
+	IANAifTypeGhn IANAifType = 290
+	// IANAifTypeOtnOtsi represents the SMI value otnOtsi.
+	IANAifTypeOtnOtsi IANAifType = 291
+	// IANAifTypeOtnOtuc represents the SMI value otnOtuc.
+	IANAifTypeOtnOtuc IANAifType = 292
+	// IANAifTypeOtnOduc represents the SMI value otnOduc.
+	IANAifTypeOtnOduc IANAifType = 293
+	// IANAifTypeOtnOtsig represents the SMI value otnOtsig.
+	IANAifTypeOtnOtsig IANAifType = 294
+	// IANAifTypeMicrowaveCarrierTermination represents the SMI value microwaveCarrierTermination.
+	IANAifTypeMicrowaveCarrierTermination IANAifType = 295
+	// IANAifTypeMicrowaveRadioLinkTerminal represents the SMI value microwaveRadioLinkTerminal.
+	IANAifTypeMicrowaveRadioLinkTerminal IANAifType = 296
+	// IANAifTypeIeee8021axDrni represents the SMI value ieee8021axDrni.
+	IANAifTypeIeee8021axDrni IANAifType = 297
+	// IANAifTypeAx25 represents the SMI value ax25.
+	IANAifTypeAx25 IANAifType = 298
+	// IANAifTypeIeee19061nanocom represents the SMI value ieee19061nanocom.
+	IANAifTypeIeee19061nanocom IANAifType = 299
 )
 
+// String returns the SMI label, or IANAifType(n) for an unrecognized value n.
 func (v IANAifType) String() string {
 	switch v {
 	case IANAifTypeOther:
@@ -945,29 +1245,51 @@ func (v IANAifType) String() string {
 // point-to-point tunnels. So, it needs to define a new tunnel type for
 // DS-Lite. The assignment policy for IANAtunnelType values is identical to
 // the policy for assigning IANAifType values.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type IANAtunnelType int32
 
 const (
-	IANAtunnelTypeOther        IANAtunnelType = 1
-	IANAtunnelTypeDirect       IANAtunnelType = 2
-	IANAtunnelTypeGre          IANAtunnelType = 3
-	IANAtunnelTypeMinimal      IANAtunnelType = 4
-	IANAtunnelTypeL2tp         IANAtunnelType = 5
-	IANAtunnelTypePptp         IANAtunnelType = 6
-	IANAtunnelTypeL2f          IANAtunnelType = 7
-	IANAtunnelTypeUdp          IANAtunnelType = 8
-	IANAtunnelTypeAtmp         IANAtunnelType = 9
-	IANAtunnelTypeMsdp         IANAtunnelType = 10
-	IANAtunnelTypeSixToFour    IANAtunnelType = 11
-	IANAtunnelTypeSixOverFour  IANAtunnelType = 12
-	IANAtunnelTypeIsatap       IANAtunnelType = 13
-	IANAtunnelTypeTeredo       IANAtunnelType = 14
-	IANAtunnelTypeIpHttps      IANAtunnelType = 15
+	// IANAtunnelTypeOther represents the SMI value other.
+	IANAtunnelTypeOther IANAtunnelType = 1
+	// IANAtunnelTypeDirect represents the SMI value direct.
+	IANAtunnelTypeDirect IANAtunnelType = 2
+	// IANAtunnelTypeGre represents the SMI value gre.
+	IANAtunnelTypeGre IANAtunnelType = 3
+	// IANAtunnelTypeMinimal represents the SMI value minimal.
+	IANAtunnelTypeMinimal IANAtunnelType = 4
+	// IANAtunnelTypeL2tp represents the SMI value l2tp.
+	IANAtunnelTypeL2tp IANAtunnelType = 5
+	// IANAtunnelTypePptp represents the SMI value pptp.
+	IANAtunnelTypePptp IANAtunnelType = 6
+	// IANAtunnelTypeL2f represents the SMI value l2f.
+	IANAtunnelTypeL2f IANAtunnelType = 7
+	// IANAtunnelTypeUdp represents the SMI value udp.
+	IANAtunnelTypeUdp IANAtunnelType = 8
+	// IANAtunnelTypeAtmp represents the SMI value atmp.
+	IANAtunnelTypeAtmp IANAtunnelType = 9
+	// IANAtunnelTypeMsdp represents the SMI value msdp.
+	IANAtunnelTypeMsdp IANAtunnelType = 10
+	// IANAtunnelTypeSixToFour represents the SMI value sixToFour.
+	IANAtunnelTypeSixToFour IANAtunnelType = 11
+	// IANAtunnelTypeSixOverFour represents the SMI value sixOverFour.
+	IANAtunnelTypeSixOverFour IANAtunnelType = 12
+	// IANAtunnelTypeIsatap represents the SMI value isatap.
+	IANAtunnelTypeIsatap IANAtunnelType = 13
+	// IANAtunnelTypeTeredo represents the SMI value teredo.
+	IANAtunnelTypeTeredo IANAtunnelType = 14
+	// IANAtunnelTypeIpHttps represents the SMI value ipHttps.
+	IANAtunnelTypeIpHttps IANAtunnelType = 15
+	// IANAtunnelTypeSoftwireMesh represents the SMI value softwireMesh.
 	IANAtunnelTypeSoftwireMesh IANAtunnelType = 16
-	IANAtunnelTypeDsLite       IANAtunnelType = 17
-	IANAtunnelTypeAplusp       IANAtunnelType = 18
+	// IANAtunnelTypeDsLite represents the SMI value dsLite.
+	IANAtunnelTypeDsLite IANAtunnelType = 17
+	// IANAtunnelTypeAplusp represents the SMI value aplusp.
+	IANAtunnelTypeAplusp IANAtunnelType = 18
 )
 
+// String returns the SMI label, or IANAtunnelType(n) for an unrecognized value n.
 func (v IANAtunnelType) String() string {
 	switch v {
 	case IANAtunnelTypeOther:

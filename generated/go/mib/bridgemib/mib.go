@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package bridgemib binds the SMI objects declared by BRIDGE-MIB.
 package bridgemib
 
 import (
@@ -15,23 +16,31 @@ import (
 	"iter"
 	"net"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // Dot1dBaseTypeValue is the SMI enum dot1dBaseType (inline).
 // Indicates what type of bridging this bridge can perform. If a bridge is
 // actually performing a certain type of bridging, this will be indicated
 // by entries in the port table for the given type.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1dBaseTypeValue int32
 
 const (
-	Dot1dBaseTypeValueUnknown         Dot1dBaseTypeValue = 1
+	// Dot1dBaseTypeValueUnknown represents the SMI value unknown.
+	Dot1dBaseTypeValueUnknown Dot1dBaseTypeValue = 1
+	// Dot1dBaseTypeValueTransparentOnly represents the SMI value transparent-only.
 	Dot1dBaseTypeValueTransparentOnly Dot1dBaseTypeValue = 2
+	// Dot1dBaseTypeValueSourcerouteOnly represents the SMI value sourceroute-only.
 	Dot1dBaseTypeValueSourcerouteOnly Dot1dBaseTypeValue = 3
-	Dot1dBaseTypeValueSrt             Dot1dBaseTypeValue = 4
+	// Dot1dBaseTypeValueSrt represents the SMI value srt.
+	Dot1dBaseTypeValueSrt Dot1dBaseTypeValue = 4
 )
 
+// String returns the SMI label, or Dot1dBaseTypeValue(n) for an unrecognized value n.
 func (v Dot1dBaseTypeValue) String() string {
 	switch v {
 	case Dot1dBaseTypeValueUnknown:
@@ -57,16 +66,25 @@ func (v Dot1dBaseTypeValue) String() string {
 // - this entry is currently in use and will remain so until the next reset
 // of the bridge. deleteOnTimeout(5) - this entry is currently in use and
 // will remain so until it is aged out.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1dStaticStatusValue int32
 
 const (
-	Dot1dStaticStatusValueOther           Dot1dStaticStatusValue = 1
-	Dot1dStaticStatusValueInvalid         Dot1dStaticStatusValue = 2
-	Dot1dStaticStatusValuePermanent       Dot1dStaticStatusValue = 3
-	Dot1dStaticStatusValueDeleteOnReset   Dot1dStaticStatusValue = 4
+	// Dot1dStaticStatusValueOther represents the SMI value other.
+	Dot1dStaticStatusValueOther Dot1dStaticStatusValue = 1
+	// Dot1dStaticStatusValueInvalid represents the SMI value invalid.
+	Dot1dStaticStatusValueInvalid Dot1dStaticStatusValue = 2
+	// Dot1dStaticStatusValuePermanent represents the SMI value permanent.
+	Dot1dStaticStatusValuePermanent Dot1dStaticStatusValue = 3
+	// Dot1dStaticStatusValueDeleteOnReset represents the SMI value deleteOnReset.
+	Dot1dStaticStatusValueDeleteOnReset Dot1dStaticStatusValue = 4
+	// Dot1dStaticStatusValueDeleteOnTimeout represents the SMI value deleteOnTimeout.
 	Dot1dStaticStatusValueDeleteOnTimeout Dot1dStaticStatusValue = 5
 )
 
+// String returns the SMI label, or Dot1dStaticStatusValue(n) for an unrecognized value n.
 func (v Dot1dStaticStatusValue) String() string {
 	switch v {
 	case Dot1dStaticStatusValueOther:
@@ -86,13 +104,19 @@ func (v Dot1dStaticStatusValue) String() string {
 
 // Dot1dStpPortEnableValue is the SMI enum dot1dStpPortEnable (inline).
 // The enabled/disabled status of the port.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1dStpPortEnableValue int32
 
 const (
-	Dot1dStpPortEnableValueEnabled  Dot1dStpPortEnableValue = 1
+	// Dot1dStpPortEnableValueEnabled represents the SMI value enabled.
+	Dot1dStpPortEnableValueEnabled Dot1dStpPortEnableValue = 1
+	// Dot1dStpPortEnableValueDisabled represents the SMI value disabled.
 	Dot1dStpPortEnableValueDisabled Dot1dStpPortEnableValue = 2
 )
 
+// String returns the SMI label, or Dot1dStpPortEnableValue(n) for an unrecognized value n.
 func (v Dot1dStpPortEnableValue) String() string {
 	switch v {
 	case Dot1dStpPortEnableValueEnabled:
@@ -110,17 +134,27 @@ func (v Dot1dStpPortEnableValue) String() string {
 // frame. If the bridge has detected a port that is malfunctioning, it will
 // place that port into the broken(6) state. For ports that are disabled
 // (see dot1dStpPortEnable), this object will have a value of disabled(1).
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1dStpPortStateValue int32
 
 const (
-	Dot1dStpPortStateValueDisabled   Dot1dStpPortStateValue = 1
-	Dot1dStpPortStateValueBlocking   Dot1dStpPortStateValue = 2
-	Dot1dStpPortStateValueListening  Dot1dStpPortStateValue = 3
-	Dot1dStpPortStateValueLearning   Dot1dStpPortStateValue = 4
+	// Dot1dStpPortStateValueDisabled represents the SMI value disabled.
+	Dot1dStpPortStateValueDisabled Dot1dStpPortStateValue = 1
+	// Dot1dStpPortStateValueBlocking represents the SMI value blocking.
+	Dot1dStpPortStateValueBlocking Dot1dStpPortStateValue = 2
+	// Dot1dStpPortStateValueListening represents the SMI value listening.
+	Dot1dStpPortStateValueListening Dot1dStpPortStateValue = 3
+	// Dot1dStpPortStateValueLearning represents the SMI value learning.
+	Dot1dStpPortStateValueLearning Dot1dStpPortStateValue = 4
+	// Dot1dStpPortStateValueForwarding represents the SMI value forwarding.
 	Dot1dStpPortStateValueForwarding Dot1dStpPortStateValue = 5
-	Dot1dStpPortStateValueBroken     Dot1dStpPortStateValue = 6
+	// Dot1dStpPortStateValueBroken represents the SMI value broken.
+	Dot1dStpPortStateValueBroken Dot1dStpPortStateValue = 6
 )
 
+// String returns the SMI label, or Dot1dStpPortStateValue(n) for an unrecognized value n.
 func (v Dot1dStpPortStateValue) String() string {
 	switch v {
 	case Dot1dStpPortStateValueDisabled:
@@ -147,14 +181,21 @@ func (v Dot1dStpPortStateValue) String() string {
 // If future versions of the IEEE Spanning Tree Protocol that are
 // incompatible with the current version are released a new value will be
 // defined.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1dStpProtocolSpecificationValue int32
 
 const (
-	Dot1dStpProtocolSpecificationValueUnknown   Dot1dStpProtocolSpecificationValue = 1
-	Dot1dStpProtocolSpecificationValueDecLb100  Dot1dStpProtocolSpecificationValue = 2
+	// Dot1dStpProtocolSpecificationValueUnknown represents the SMI value unknown.
+	Dot1dStpProtocolSpecificationValueUnknown Dot1dStpProtocolSpecificationValue = 1
+	// Dot1dStpProtocolSpecificationValueDecLb100 represents the SMI value decLb100.
+	Dot1dStpProtocolSpecificationValueDecLb100 Dot1dStpProtocolSpecificationValue = 2
+	// Dot1dStpProtocolSpecificationValueIeee8021d represents the SMI value ieee8021d.
 	Dot1dStpProtocolSpecificationValueIeee8021d Dot1dStpProtocolSpecificationValue = 3
 )
 
+// String returns the SMI label, or Dot1dStpProtocolSpecificationValue(n) for an unrecognized value n.
 func (v Dot1dStpProtocolSpecificationValue) String() string {
 	switch v {
 	case Dot1dStpProtocolSpecificationValueUnknown:
@@ -183,16 +224,25 @@ func (v Dot1dStpProtocolSpecificationValue) String() string {
 // dot1dTpFdbPort indicates which of the bridge's ports has this address.
 // mgmt(5) - the value of the corresponding instance of dot1dTpFdbAddress
 // is also the value of an existing instance of dot1dStaticAddress.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type Dot1dTpFdbStatusValue int32
 
 const (
-	Dot1dTpFdbStatusValueOther   Dot1dTpFdbStatusValue = 1
+	// Dot1dTpFdbStatusValueOther represents the SMI value other.
+	Dot1dTpFdbStatusValueOther Dot1dTpFdbStatusValue = 1
+	// Dot1dTpFdbStatusValueInvalid represents the SMI value invalid.
 	Dot1dTpFdbStatusValueInvalid Dot1dTpFdbStatusValue = 2
+	// Dot1dTpFdbStatusValueLearned represents the SMI value learned.
 	Dot1dTpFdbStatusValueLearned Dot1dTpFdbStatusValue = 3
-	Dot1dTpFdbStatusValueSelf    Dot1dTpFdbStatusValue = 4
-	Dot1dTpFdbStatusValueMgmt    Dot1dTpFdbStatusValue = 5
+	// Dot1dTpFdbStatusValueSelf represents the SMI value self.
+	Dot1dTpFdbStatusValueSelf Dot1dTpFdbStatusValue = 4
+	// Dot1dTpFdbStatusValueMgmt represents the SMI value mgmt.
+	Dot1dTpFdbStatusValueMgmt Dot1dTpFdbStatusValue = 5
 )
 
+// String returns the SMI label, or Dot1dTpFdbStatusValue(n) for an unrecognized value n.
 func (v Dot1dTpFdbStatusValue) String() string {
 	switch v {
 	case Dot1dTpFdbStatusValueOther:
@@ -211,6 +261,8 @@ func (v Dot1dTpFdbStatusValue) String() string {
 }
 
 // Dot1dBaseBridgeAddressGet reads the SMIv2 scalar dot1dBaseBridgeAddress.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The MAC address used by this bridge when it must be referred to in a
 // unique fashion. It is recommended that this be the numerically smallest
 // MAC address of all ports that belong to this bridge. However, it is only
@@ -223,7 +275,7 @@ func Dot1dBaseBridgeAddressGet(ctx context.Context, sess snmp.Session) (net.Hard
 	}
 
 	if len(vbs) == 0 {
-		return nil, ae.Msg("empty Get response for dot1dBaseBridgeAddress")
+		return nil, errs.Msg("empty Get response for dot1dBaseBridgeAddress")
 	}
 
 	return func(vb snmp.VarBind) (net.HardwareAddr, error) {
@@ -232,6 +284,8 @@ func Dot1dBaseBridgeAddressGet(ctx context.Context, sess snmp.Session) (net.Hard
 }
 
 // Dot1dBaseNumPortsGet reads the SMIv2 scalar dot1dBaseNumPorts.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The number of ports controlled by this bridging entity.
 func Dot1dBaseNumPortsGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 2, 0)})
@@ -240,7 +294,7 @@ func Dot1dBaseNumPortsGet(ctx context.Context, sess snmp.Session) (int32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dBaseNumPorts")
+		return 0, errs.Msg("empty Get response for dot1dBaseNumPorts")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -249,6 +303,8 @@ func Dot1dBaseNumPortsGet(ctx context.Context, sess snmp.Session) (int32, error)
 }
 
 // Dot1dBaseTypeGet reads the SMIv2 scalar dot1dBaseType.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Indicates what type of bridging this bridge can perform. If a bridge is
 // actually performing a certain type of bridging, this will be indicated
 // by entries in the port table for the given type.
@@ -259,7 +315,7 @@ func Dot1dBaseTypeGet(ctx context.Context, sess snmp.Session) (Dot1dBaseTypeValu
 	}
 
 	if len(vbs) == 0 {
-		return Dot1dBaseTypeValue(0), ae.Msg("empty Get response for dot1dBaseType")
+		return Dot1dBaseTypeValue(0), errs.Msg("empty Get response for dot1dBaseType")
 	}
 
 	return func(vb snmp.VarBind) (Dot1dBaseTypeValue, error) {
@@ -272,6 +328,8 @@ func Dot1dBaseTypeGet(ctx context.Context, sess snmp.Session) (Dot1dBaseTypeValu
 }
 
 // Dot1dStpProtocolSpecificationGet reads the SMIv2 scalar dot1dStpProtocolSpecification.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // An indication of what version of the Spanning Tree Protocol is being
 // run. The value 'decLb100(2)' indicates the DEC LANbridge 100 Spanning
 // Tree protocol. IEEE 802.1D implementations will return 'ieee8021d(3)'.
@@ -285,7 +343,7 @@ func Dot1dStpProtocolSpecificationGet(ctx context.Context, sess snmp.Session) (D
 	}
 
 	if len(vbs) == 0 {
-		return Dot1dStpProtocolSpecificationValue(0), ae.Msg("empty Get response for dot1dStpProtocolSpecification")
+		return Dot1dStpProtocolSpecificationValue(0), errs.Msg("empty Get response for dot1dStpProtocolSpecification")
 	}
 
 	return func(vb snmp.VarBind) (Dot1dStpProtocolSpecificationValue, error) {
@@ -298,6 +356,8 @@ func Dot1dStpProtocolSpecificationGet(ctx context.Context, sess snmp.Session) (D
 }
 
 // Dot1dStpPriorityGet reads the SMIv2 scalar dot1dStpPriority.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value of the write-able portion of the Bridge ID (i.e., the first
 // two octets of the (8 octet long) Bridge ID). The other (last) 6 octets
 // of the Bridge ID are given by the value of dot1dBaseBridgeAddress. On
@@ -310,7 +370,7 @@ func Dot1dStpPriorityGet(ctx context.Context, sess snmp.Session) (int32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpPriority")
+		return 0, errs.Msg("empty Get response for dot1dStpPriority")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -319,6 +379,8 @@ func Dot1dStpPriorityGet(ctx context.Context, sess snmp.Session) (int32, error) 
 }
 
 // Dot1dStpTimeSinceTopologyChangeGet reads the SMIv2 scalar dot1dStpTimeSinceTopologyChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The time (in hundredths of a second) since the last time a topology
 // change was detected by the bridge entity. For RSTP, this reports the
 // time since the tcWhile timer for any port on this Bridge was nonzero.
@@ -329,7 +391,7 @@ func Dot1dStpTimeSinceTopologyChangeGet(ctx context.Context, sess snmp.Session) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpTimeSinceTopologyChange")
+		return 0, errs.Msg("empty Get response for dot1dStpTimeSinceTopologyChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -338,6 +400,8 @@ func Dot1dStpTimeSinceTopologyChangeGet(ctx context.Context, sess snmp.Session) 
 }
 
 // Dot1dStpTopChangesGet reads the SMIv2 scalar dot1dStpTopChanges.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The total number of topology changes detected by this bridge since the
 // management entity was last reset or initialized.
 func Dot1dStpTopChangesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -347,7 +411,7 @@ func Dot1dStpTopChangesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpTopChanges")
+		return 0, errs.Msg("empty Get response for dot1dStpTopChanges")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -356,6 +420,8 @@ func Dot1dStpTopChangesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 }
 
 // Dot1dStpDesignatedRootGet reads the SMIv2 scalar dot1dStpDesignatedRoot.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The bridge identifier of the root of the spanning tree, as determined by
 // the Spanning Tree Protocol, as executed by this node. This value is used
 // as the Root Identifier parameter in all Configuration Bridge PDUs
@@ -367,7 +433,7 @@ func Dot1dStpDesignatedRootGet(ctx context.Context, sess snmp.Session) ([]byte, 
 	}
 
 	if len(vbs) == 0 {
-		return nil, ae.Msg("empty Get response for dot1dStpDesignatedRoot")
+		return nil, errs.Msg("empty Get response for dot1dStpDesignatedRoot")
 	}
 
 	return func(vb snmp.VarBind) ([]byte, error) {
@@ -376,6 +442,8 @@ func Dot1dStpDesignatedRootGet(ctx context.Context, sess snmp.Session) ([]byte, 
 }
 
 // Dot1dStpRootCostGet reads the SMIv2 scalar dot1dStpRootCost.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The cost of the path to the root as seen from this bridge.
 func Dot1dStpRootCostGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 6, 0)})
@@ -384,7 +452,7 @@ func Dot1dStpRootCostGet(ctx context.Context, sess snmp.Session) (int32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpRootCost")
+		return 0, errs.Msg("empty Get response for dot1dStpRootCost")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -393,6 +461,8 @@ func Dot1dStpRootCostGet(ctx context.Context, sess snmp.Session) (int32, error) 
 }
 
 // Dot1dStpRootPortGet reads the SMIv2 scalar dot1dStpRootPort.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The port number of the port that offers the lowest cost path from this
 // bridge to the root bridge.
 func Dot1dStpRootPortGet(ctx context.Context, sess snmp.Session) (int32, error) {
@@ -402,7 +472,7 @@ func Dot1dStpRootPortGet(ctx context.Context, sess snmp.Session) (int32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpRootPort")
+		return 0, errs.Msg("empty Get response for dot1dStpRootPort")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -411,6 +481,8 @@ func Dot1dStpRootPortGet(ctx context.Context, sess snmp.Session) (int32, error) 
 }
 
 // Dot1dStpMaxAgeGet reads the SMIv2 scalar dot1dStpMaxAge.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The maximum age of Spanning Tree Protocol information learned from the
 // network on any port before it is discarded, in units of hundredths of a
 // second. This is the actual value that this bridge is currently using.
@@ -421,7 +493,7 @@ func Dot1dStpMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpMaxAge")
+		return 0, errs.Msg("empty Get response for dot1dStpMaxAge")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -430,6 +502,8 @@ func Dot1dStpMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // Dot1dStpHelloTimeGet reads the SMIv2 scalar dot1dStpHelloTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The amount of time between the transmission of Configuration bridge PDUs
 // by this node on any port when it is the root of the spanning tree, or
 // trying to become so, in units of hundredths of a second. This is the
@@ -441,7 +515,7 @@ func Dot1dStpHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, error)
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpHelloTime")
+		return 0, errs.Msg("empty Get response for dot1dStpHelloTime")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -450,6 +524,8 @@ func Dot1dStpHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, error)
 }
 
 // Dot1dStpHoldTimeGet reads the SMIv2 scalar dot1dStpHoldTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // This time value determines the interval length during which no more than
 // two Configuration bridge PDUs shall be transmitted by this node, in
 // units of hundredths of a second.
@@ -460,7 +536,7 @@ func Dot1dStpHoldTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpHoldTime")
+		return 0, errs.Msg("empty Get response for dot1dStpHoldTime")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -469,6 +545,8 @@ func Dot1dStpHoldTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 }
 
 // Dot1dStpForwardDelayGet reads the SMIv2 scalar dot1dStpForwardDelay.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // This time value, measured in units of hundredths of a second, controls
 // how fast a port changes its spanning state when moving towards the
 // Forwarding state. The value determines how long the port stays in each
@@ -486,7 +564,7 @@ func Dot1dStpForwardDelayGet(ctx context.Context, sess snmp.Session) (int32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpForwardDelay")
+		return 0, errs.Msg("empty Get response for dot1dStpForwardDelay")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -495,6 +573,8 @@ func Dot1dStpForwardDelayGet(ctx context.Context, sess snmp.Session) (int32, err
 }
 
 // Dot1dStpBridgeMaxAgeGet reads the SMIv2 scalar dot1dStpBridgeMaxAge.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value that all bridges use for MaxAge when this bridge is acting as
 // the root. Note that 802.1D-1998 specifies that the range for this
 // parameter is related to the value of dot1dStpBridgeHelloTime. The
@@ -508,7 +588,7 @@ func Dot1dStpBridgeMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpBridgeMaxAge")
+		return 0, errs.Msg("empty Get response for dot1dStpBridgeMaxAge")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -517,6 +597,8 @@ func Dot1dStpBridgeMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, err
 }
 
 // Dot1dStpBridgeHelloTimeGet reads the SMIv2 scalar dot1dStpBridgeHelloTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value that all bridges use for HelloTime when this bridge is acting
 // as the root. The granularity of this timer is specified by 802.1D-1998
 // to be 1 second. An agent may return a badValue error if a set is
@@ -528,7 +610,7 @@ func Dot1dStpBridgeHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpBridgeHelloTime")
+		return 0, errs.Msg("empty Get response for dot1dStpBridgeHelloTime")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -537,6 +619,8 @@ func Dot1dStpBridgeHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, 
 }
 
 // Dot1dStpBridgeForwardDelayGet reads the SMIv2 scalar dot1dStpBridgeForwardDelay.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The value that all bridges use for ForwardDelay when this bridge is
 // acting as the root. Note that 802.1D-1998 specifies that the range for
 // this parameter is related to the value of dot1dStpBridgeMaxAge. The
@@ -550,7 +634,7 @@ func Dot1dStpBridgeForwardDelayGet(ctx context.Context, sess snmp.Session) (int3
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dStpBridgeForwardDelay")
+		return 0, errs.Msg("empty Get response for dot1dStpBridgeForwardDelay")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -559,6 +643,8 @@ func Dot1dStpBridgeForwardDelayGet(ctx context.Context, sess snmp.Session) (int3
 }
 
 // Dot1dTpLearnedEntryDiscardsGet reads the SMIv2 scalar dot1dTpLearnedEntryDiscards.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The total number of Forwarding Database entries that have been or would
 // have been learned, but have been discarded due to a lack of storage
 // space in the Forwarding Database. If this counter is increasing, it
@@ -573,7 +659,7 @@ func Dot1dTpLearnedEntryDiscardsGet(ctx context.Context, sess snmp.Session) (uin
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dTpLearnedEntryDiscards")
+		return 0, errs.Msg("empty Get response for dot1dTpLearnedEntryDiscards")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -582,6 +668,8 @@ func Dot1dTpLearnedEntryDiscardsGet(ctx context.Context, sess snmp.Session) (uin
 }
 
 // Dot1dTpAgingTimeGet reads the SMIv2 scalar dot1dTpAgingTime.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // The timeout period in seconds for aging out dynamically-learned
 // forwarding information. 802.1D-1998 recommends a default of 300 seconds.
 func Dot1dTpAgingTimeGet(ctx context.Context, sess snmp.Session) (int32, error) {
@@ -591,7 +679,7 @@ func Dot1dTpAgingTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for dot1dTpAgingTime")
+		return 0, errs.Msg("empty Get response for dot1dTpAgingTime")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -644,8 +732,10 @@ var Dot1dBasePortMtuExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3,
 // Dot1dBasePortTableRow is one row of dot1dBasePortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dBasePortTableRow.Observed to tell a reported zero from a column the
+// [Dot1dBasePortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dBasePortTableRow struct {
 	Index                              snmp.OID
 	Dot1dBasePort                      int32
@@ -682,7 +772,8 @@ func (r Dot1dBasePortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dBasePortTableWalker is a table-aware walker over dot1dBasePortTable.
-// Construct via Dot1dBasePortTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dBasePortTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dBasePortTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -883,7 +974,7 @@ var Dot1dBasePortTable dot1dBasePortTableT
 // Every column in cols must be a column of dot1dBasePortTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dBasePortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dBasePortTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1009,8 +1100,10 @@ var Dot1dStpPortPathCost32 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // Dot1dStpPortTableRow is one row of dot1dStpPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dStpPortTableRow.Observed to tell a reported zero from a column the
+// [Dot1dStpPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dStpPortTableRow struct {
 	Index                          snmp.OID
 	Dot1dStpPort                   int32
@@ -1065,7 +1158,8 @@ func (r Dot1dStpPortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dStpPortTableWalker is a table-aware walker over dot1dStpPortTable.
-// Construct via Dot1dStpPortTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dStpPortTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dStpPortTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1364,7 +1458,7 @@ var Dot1dStpPortTable dot1dStpPortTableT
 // Every column in cols must be a column of dot1dStpPortTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dStpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStpPortTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1432,8 +1526,10 @@ var Dot1dTpFdbStatus = snmp.NewColumn[Dot1dTpFdbStatusValue](snmp.MustOID(1, 3, 
 // Dot1dTpFdbTableRow is one row of dot1dTpFdbTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dTpFdbTableRow.Observed to tell a reported zero from a column the
+// [Dot1dTpFdbTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dTpFdbTableRow struct {
 	Index             snmp.OID
 	Dot1dTpFdbAddress net.HardwareAddr
@@ -1464,7 +1560,8 @@ func (r Dot1dTpFdbTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dTpFdbTableWalker is a table-aware walker over dot1dTpFdbTable.
-// Construct via Dot1dTpFdbTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dTpFdbTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dTpFdbTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1629,7 +1726,7 @@ var Dot1dTpFdbTable dot1dTpFdbTableT
 // Every column in cols must be a column of dot1dTpFdbTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dTpFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpFdbTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -1695,8 +1792,10 @@ var Dot1dTpPortInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // Dot1dTpPortTableRow is one row of dot1dTpPortTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dTpPortTableRow.Observed to tell a reported zero from a column the
+// [Dot1dTpPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dTpPortTableRow struct {
 	Index                 snmp.OID
 	Dot1dTpPort           int32
@@ -1733,7 +1832,8 @@ func (r Dot1dTpPortTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dTpPortTableWalker is a table-aware walker over dot1dTpPortTable.
-// Construct via Dot1dTpPortTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dTpPortTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dTpPortTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -1939,7 +2039,7 @@ var Dot1dTpPortTable dot1dTpPortTableT
 // Every column in cols must be a column of dot1dTpPortTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dTpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpPortTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -2021,8 +2121,10 @@ var Dot1dStaticStatus = snmp.NewColumn[Dot1dStaticStatusValue](snmp.MustOID(1, 3
 // Dot1dStaticTableRow is one row of dot1dStaticTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// Dot1dStaticTableRow.Observed to tell a reported zero from a column the
+// [Dot1dStaticTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type Dot1dStaticTableRow struct {
 	Index                    snmp.OID
 	Dot1dStaticAddress       net.HardwareAddr
@@ -2056,7 +2158,8 @@ func (r Dot1dStaticTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // Dot1dStaticTableWalker is a table-aware walker over dot1dStaticTable.
-// Construct via Dot1dStaticTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via Dot1dStaticTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type Dot1dStaticTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -2234,7 +2337,7 @@ var Dot1dStaticTable dot1dStaticTableT
 // Every column in cols must be a column of dot1dStaticTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (dot1dStaticTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStaticTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))

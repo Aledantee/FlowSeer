@@ -6,6 +6,7 @@
 //
 // Regenerate with `go generate .` at the repository root.
 
+// Package fakemib binds the SMI objects declared by FAKE-MIB.
 package fakemib
 
 import (
@@ -15,20 +16,27 @@ import (
 	"iter"
 	"net"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
-	ae "go.aledante.io/ae"
 )
 
 // FakeStatusValue is the SMI enum fakeStatus (inline).
 // An enum-typed scalar.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
 type FakeStatusValue int32
 
 const (
-	FakeStatusValueUp      FakeStatusValue = 1
-	FakeStatusValueDown    FakeStatusValue = 2
+	// FakeStatusValueUp represents the SMI value up.
+	FakeStatusValueUp FakeStatusValue = 1
+	// FakeStatusValueDown represents the SMI value down.
+	FakeStatusValueDown FakeStatusValue = 2
+	// FakeStatusValueTesting represents the SMI value testing.
 	FakeStatusValueTesting FakeStatusValue = 3
 )
 
+// String returns the SMI label, or FakeStatusValue(n) for an unrecognized value n.
 func (v FakeStatusValue) String() string {
 	switch v {
 	case FakeStatusValueUp:
@@ -48,12 +56,17 @@ func (v FakeStatusValue) String() string {
 // emitter names each one as an snmp.BitPos constant and decodes values of
 // this type to an snmp.BitSet.
 const (
+	// FakeCapabilitiesAlpha is the position of the alpha bit.
 	FakeCapabilitiesAlpha snmp.BitPos = 0
-	FakeCapabilitiesBeta  snmp.BitPos = 1
+	// FakeCapabilitiesBeta is the position of the beta bit.
+	FakeCapabilitiesBeta snmp.BitPos = 1
+	// FakeCapabilitiesGamma is the position of the gamma bit.
 	FakeCapabilitiesGamma snmp.BitPos = 2
 )
 
 // FakeScalarGet reads the SMIv2 scalar fakeScalar.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // A simple scalar.
 func FakeScalarGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 1, 0)})
@@ -62,7 +75,7 @@ func FakeScalarGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for fakeScalar")
+		return 0, errs.Msg("empty Get response for fakeScalar")
 	}
 
 	return func(vb snmp.VarBind) (int32, error) {
@@ -71,6 +84,8 @@ func FakeScalarGet(ctx context.Context, sess snmp.Session) (int32, error) {
 }
 
 // FakeStatusGet reads the SMIv2 scalar fakeStatus.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // An enum-typed scalar.
 func FakeStatusGet(ctx context.Context, sess snmp.Session) (FakeStatusValue, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 2, 0)})
@@ -79,7 +94,7 @@ func FakeStatusGet(ctx context.Context, sess snmp.Session) (FakeStatusValue, err
 	}
 
 	if len(vbs) == 0 {
-		return FakeStatusValue(0), ae.Msg("empty Get response for fakeStatus")
+		return FakeStatusValue(0), errs.Msg("empty Get response for fakeStatus")
 	}
 
 	return func(vb snmp.VarBind) (FakeStatusValue, error) {
@@ -92,6 +107,8 @@ func FakeStatusGet(ctx context.Context, sess snmp.Session) (FakeStatusValue, err
 }
 
 // FakeStackLastChangeGet reads the SMIv2 scalar fakeStackLastChange.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // Scalar change indicator covering fakeStackTable. Bound by the
 // name-prefix structural rule, not by per-row discovery.
 func FakeStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -101,7 +118,7 @@ func FakeStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, err
 	}
 
 	if len(vbs) == 0 {
-		return 0, ae.Msg("empty Get response for fakeStackLastChange")
+		return 0, errs.Msg("empty Get response for fakeStackLastChange")
 	}
 
 	return func(vb snmp.VarBind) (uint32, error) {
@@ -110,6 +127,8 @@ func FakeStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, err
 }
 
 // FakeCapsGet reads the SMIv2 scalar fakeCaps.
+// It returns the session or decode error, or an error if the response is empty.
+//
 // A BITS-typed scalar.
 func FakeCapsGet(ctx context.Context, sess snmp.Session) (snmp.BitSet, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 6, 0)})
@@ -118,7 +137,7 @@ func FakeCapsGet(ctx context.Context, sess snmp.Session) (snmp.BitSet, error) {
 	}
 
 	if len(vbs) == 0 {
-		return snmp.BitSet{}, ae.Msg("empty Get response for fakeCaps")
+		return snmp.BitSet{}, errs.Msg("empty Get response for fakeCaps")
 	}
 
 	return func(vb snmp.VarBind) (snmp.BitSet, error) {
@@ -162,8 +181,10 @@ var FakeFlags = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999
 // FakeTableRow is one row of fakeTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// FakeTableRow.Observed to tell a reported zero from a column the
+// [FakeTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type FakeTableRow struct {
 	Index          snmp.OID
 	FakeName       string
@@ -200,7 +221,8 @@ func (r FakeTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // FakeTableWalker is a table-aware walker over fakeTable.
-// Construct via FakeTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via FakeTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type FakeTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -391,7 +413,7 @@ var FakeTable fakeTableT
 // Every column in cols must be a column of fakeTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (fakeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -535,7 +557,8 @@ func mergeFakeTableRow(dst *FakeTableRow, vbs []snmp.VarBind) {
 }
 
 // FakeTableWatcher is a table-aware Watcher over FakeTable.
-// Construct via FakeTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via FakeTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type FakeTableWatcher struct {
 	w *snmp.Watcher[FakeTableRow]
 }
@@ -616,8 +639,10 @@ var FakeStackName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999,
 // FakeStackTableRow is one row of fakeStackTable. Index carries the OID
 // suffix beyond the table-entry prefix; the remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// FakeStackTableRow.Observed to tell a reported zero from a column the
+// [FakeStackTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
 type FakeStackTableRow struct {
 	Index         snmp.OID
 	FakeStackName string
@@ -642,7 +667,8 @@ func (r FakeStackTableRow) Observed(col snmp.AnyColumn) bool {
 }
 
 // FakeStackTableWalker is a table-aware walker over fakeStackTable.
-// Construct via FakeStackTable.Walk(ctx, sess, cols...).
+// The zero value is not usable; construct via FakeStackTable.Walk(ctx, sess, cols...).
+// Use a single iterator. Err may be called concurrently with iteration.
 type FakeStackTableWalker struct {
 	rw    *snmp.RawWalker
 	cols  []snmp.AnyColumn
@@ -771,7 +797,7 @@ var FakeStackTable fakeStackTableT
 // Every column in cols must be a column of fakeStackTable. A column
 // of any other table is a caller bug, not a device quirk: no request
 // is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
+// [snmp.ErrForeignColumn].
 func (fakeStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeStackTableWalker {
 	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4, 1)
 	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
@@ -863,7 +889,8 @@ func mergeFakeStackTableRow(dst *FakeStackTableRow, vbs []snmp.VarBind) {
 }
 
 // FakeStackTableWatcher is a table-aware Watcher over FakeStackTable.
-// Construct via FakeStackTable.Watch(ctx, sess, cols, opts...).
+// The zero value is not usable; construct via FakeStackTable.Watch(ctx, sess, cols, opts...).
+// Use a single iterator. The other methods may be called concurrently.
 type FakeStackTableWatcher struct {
 	w *snmp.Watcher[FakeStackTableRow]
 }
