@@ -14,15 +14,8 @@ type vbFixture struct {
 	vb  snmp.VarBind
 }
 
-// fakeSession is an snmp.Session whose BulkWalk returns a Walker
-// preloaded with caller-supplied VarBinds. Only the Walk/BulkWalk paths
-// are populated; the assertion helpers in this package exercise no
-// other Session method.
-//
-// The pattern is re-declared here rather than imported from
-// generated/go/mib/walker_codegen_test.go because that test lives in
-// package mib_test and Go does not allow cross-package fakes from
-// _test.go files.
+// fakeSession answers lexicographic GetBulk/GetNext requests from fixtures and
+// retains the replay walk path used by watcher tests.
 type fakeSession struct {
 	vbs []vbFixture
 }
@@ -31,12 +24,34 @@ func (s *fakeSession) Get(context.Context, []snmp.OID, ...snmp.CallOption) ([]sn
 	return nil, nil
 }
 
-func (s *fakeSession) GetNext(context.Context, []snmp.OID, ...snmp.CallOption) ([]snmp.VarBind, error) {
-	return nil, nil
+func (s *fakeSession) GetNext(ctx context.Context, oids []snmp.OID, opts ...snmp.CallOption) ([]snmp.VarBind, error) {
+	return s.GetBulk(ctx, 0, 1, oids, opts...)
 }
 
-func (s *fakeSession) GetBulk(context.Context, uint8, uint8, []snmp.OID, ...snmp.CallOption) ([]snmp.VarBind, error) {
-	return nil, nil
+func (s *fakeSession) GetBulk(ctx context.Context, _ uint8, reps uint8, oids []snmp.OID, _ ...snmp.CallOption) ([]snmp.VarBind, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	cur := append([]snmp.OID(nil), oids...)
+	var out []snmp.VarBind
+	for range reps {
+		for i, o := range cur {
+			var next *vbFixture
+			for j := range s.vbs {
+				f := &s.vbs[j]
+				if f.oid.Compare(o) > 0 && (next == nil || f.oid.Compare(next.oid) < 0) {
+					next = f
+				}
+			}
+			if next == nil {
+				out = append(out, snmp.EndOfMibViewVar{Header: snmp.Header{OID: o, Kind: snmp.KindEndOfMibView}})
+			} else {
+				out = append(out, next.vb)
+				cur[i] = next.oid
+			}
+		}
+	}
+	return out, nil
 }
 
 func (s *fakeSession) Set(context.Context, []snmp.VarBind, ...snmp.CallOption) ([]snmp.VarBind, error) {

@@ -191,10 +191,17 @@ package (`emit_dispatch.go:15`, `emit_tier.go:61`). New hot-path lookups key on
 `mibgen` emits one package per MIB module using only `snmp`'s exported surface:
 typed scalar accessors, `snmp.NewColumn`, row structs and Walkers, SMI enums, the
 dispatch map, `snmp.Decode*` for textual conventions
-(`src/common/snmp/cmd/mibgen/doc.go:1`). The generated fused table walker rides
-`Session.BulkWalkRaw` (`emit_table.go:168`; interface method at
-`src/common/snmp/session.go:53`) and emits per column a fused arm with a generic
-`else` (`emit_table.go:359`) — Convention 1 expressed in the emitter.
+(`src/common/snmp/cmd/mibgen/doc.go:1`). Generated table walkers use the exported
+`snmp.WalkColumns` bounded merge. Native sessions supply raw batches through a
+package-private capability; alternate sessions use `GetBulk` and `GetNext`
+without an expanded `Session` interface. Each typed column still has a fused arm
+with a generic fallback in `emit_table.go`.
+
+The merge requests selected columns, retains one batch per column, and joins by
+numeric index suffix before decoding a row. `Walk` is lazy and empty selection
+means no retrieval. `WalkWithOptions` exposes request bounds and per-call options.
+`Watch` remains a separate full-table collector with a persistent snapshot; do not
+apply the generated-walk memory bound to it.
 
 - CLI is `go run ./src/common/snmp/cmd/mibgen`, with `-verify`, `-check` (fail on
   output drift), and `-update` (`src/common/snmp/cmd/mibgen/main.go:41`; defaults

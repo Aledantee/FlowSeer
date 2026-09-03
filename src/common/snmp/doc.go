@@ -66,6 +66,38 @@
 // both in a single loop is undefined behavior. Always check
 // [Walker.Err] after the loop.
 //
+// # Generated table walks
+//
+// Generated Walk methods retrieve only selected columns through [WalkColumns].
+// Rows are a sorted union of indexes with selected values; selecting no columns
+// performs no I/O. Select an identity column explicitly when a row census matters.
+// Numeric index arcs determine order, including composite indexes. Duplicate
+// selections are ignored; foreign or unknown columns report [ErrForeignColumn].
+//
+// WalkWithOptions accepts [TableWalkOptions]. For example, in a caller importing
+// generated/go/mib/ifmib:
+//
+//	w := ifmib.IfTable.WalkWithOptions(ctx, sess,
+//	    snmp.TableWalkOptions{MaxRepetitions: 25, MaxColumns: 2},
+//	    ifmib.IfDescr, ifmib.IfOperStatus)
+//	defer w.Close()
+//	for index, row := range w.Iter() {
+//	    fmt.Println(index, row.IfDescr, row.Observed(ifmib.IfOperStatus))
+//	}
+//	if err := w.Err(); err != nil { return err }
+//
+// Construction is lazy. Iteration is single-use and single-consumer; Close and
+// Err are safe concurrently. Breaking iteration stops further requests. Parent
+// cancellation remains an error, while consumer stop alone succeeds. A later
+// decoder or transport failure preserves rows already delivered; it does not
+// imply that the scan completed. Tables changing during retrieval are not atomic
+// snapshots. SNMPv1 remains unsupported for generated table walks.
+//
+// Queues retain at most one batch per selected column, independent of table size.
+// Response frames and caller-retained values also consume memory. Watch has a
+// separate full-table assembly and persistent snapshot; this bound applies to
+// Walk, not Watch.
+//
 // # Watcher iteration
 //
 // [Watcher][Row] is the long-lived counterpart to Walker: it

@@ -89,36 +89,17 @@ func TestIfTableRow_ObservedDistinguishesZeroFromAbsent(t *testing.T) {
 	}
 }
 
-// TestIfTableRow_ObservedOnUnrequestedColumnRow covers the walker's
-// row-presence rule: an index seen only through a column the caller did
-// not request still yields a row, and every requested column on it
-// reads unobserved.
-func TestIfTableRow_ObservedOnUnrequestedColumnRow(t *testing.T) {
+func TestIfTableWalkExcludesUnselectedOnlyRows(t *testing.T) {
 	sess := &fakeSession{vbs: []vbFixture{{
 		oid: ifEntry.Append(16, 7),
 		vb:  snmp.Counter32Var{Header: snmp.Header{OID: ifEntry.Append(16, 7), Kind: snmp.KindCounter32}, Value: 4242},
 	}}}
-
 	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr, ifmib.IfOperStatus)
-	n := 0
-	for idx, row := range tw.Iter() {
-		n++
-		if !row.Index.Equal(idx) {
-			t.Errorf("unrequested-column Row.Index = %v, want %v", row.Index, idx)
-		}
-		if row.Observed(ifmib.IfDescr) || row.Observed(ifmib.IfOperStatus) {
-			t.Error("requested column reads observed on a row assembled from an unrequested column")
-		}
-		// A column the walk never asked for is never observed either.
-		if row.Observed(ifmib.IfOutOctets) {
-			t.Error("unrequested IfOutOctets reads observed")
-		}
+	for range tw.Iter() {
+		t.Fatal("unselected-only row yielded")
 	}
 	if err := tw.Err(); err != nil {
-		t.Fatalf("walk: %v", err)
-	}
-	if n != 1 {
-		t.Fatalf("walk yielded %d rows, want 1", n)
+		t.Fatal(err)
 	}
 }
 

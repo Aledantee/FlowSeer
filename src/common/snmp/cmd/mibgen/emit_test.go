@@ -179,10 +179,10 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"func (tw *FakeTableWalker) Iter()",
 		"func (tw *FakeTableWalker) Err()",
 		"func (fakeTableT) Walk",
-		// Walk's foreign-column guard: a column from another table
-		// must not be keyed into byCol by its bare last sub-id, where
-		// it would enable whichever local column shares that arc.
-		"snmp.ForeignColumnWalk(ctx, \"fakeTable\", c)",
+		"func (fakeTableT) WalkWithOptions",
+		"func (tw *FakeTableWalker) Close()",
+		"snmp.WalkColumns(ctx, sess, roots, options)",
+		"snmp.ErrForeignColumn",
 		"var FakeTable fakeTableT",
 		// Module-prefixed dispatch map: FAKE-MIB → fAKEMIBOIDDispatch
 		// (camelCase upper-cases letters following hyphens, then the

@@ -9,11 +9,11 @@
 package snmpv2mib
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"iter"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	ae "go.aledante.io/ae"
 )
@@ -904,139 +904,76 @@ func (r SysORTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// SysORTableWalker is a table-aware walker over sysORTable.
-// Construct via SysORTable.Walk(ctx, sess, cols...).
+// SysORTableWalker streams selected columns of sysORTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type SysORTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
 	return func(yield func(snmp.OID, SysORTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1).WireBytes()
-		buffer := make(map[string]*SysORTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &SysORTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := SysORID.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.SysORID = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := SysORDescr.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.SysORDescr = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-					row.SysORUpTime = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := SysORTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case SysORID.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := SysORUpTime.Decode(vb)
+						dv, dErr := SysORID.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.SysORUpTime = dv
-							row.observed[0] |= 1 << 2
+							row.SysORID = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case SysORDescr.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := SysORDescr.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.SysORDescr = dv
+							row.observed[0] |= 1 << 1
+						}
+					}
+				case SysORUpTime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.SysORUpTime = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := SysORUpTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.SysORUpTime = dv
+								row.observed[0] |= 1 << 2
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -1055,35 +992,43 @@ type sysORTableT struct{}
 // SysORTable is the descriptor for the sysORTable table.
 var SysORTable sysORTableT
 
-// Walk launches a BulkWalk over sysORTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of sysORTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (sysORTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *SysORTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *SysORTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t sysORTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *SysORTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (sysORTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *SysORTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &SysORTableWalker{rw: snmp.ForeignColumnWalk(ctx, "sysORTable", c)}
+		switch c.Key() {
+		case SysORID.Key(), SysORDescr.Key(), SysORUpTime.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "sysORTable.Walk: column %s", c.OID()))
+			return &SysORTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9))
-
 	return &SysORTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

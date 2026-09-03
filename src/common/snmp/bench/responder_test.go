@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -284,26 +286,38 @@ func handle(mib []mibEntry, pkt []byte) []byte {
 	case 0xA5: // GetBulkRequest
 		nonRep := decodeUint(f1)
 		maxRep := decodeUint(f2)
-		for i, o := range reqOIDs {
-			if i < nonRep {
-				vbs = append(vbs, getNext(mib, o))
-				continue
-			}
-			cur := o
-			for r := 0; r < maxRep; r++ {
+		nonRep = min(nonRep, len(reqOIDs))
+		for _, o := range reqOIDs[:nonRep] {
+			vbs = append(vbs, getNext(mib, o))
+		}
+		cursors := append([][]uint32(nil), reqOIDs[nonRep:]...)
+		for range maxRep {
+			for i, cur := range cursors {
 				idx := firstGreater(mib, cur)
 				if idx < 0 {
 					vbs = append(vbs, varbind(cur, endOfMibView))
-					break
+				} else {
+					vbs = append(vbs, mib[idx].vb)
+					cursors[i] = mib[idx].oid
 				}
-				vbs = append(vbs, mib[idx].vb)
-				cur = mib[idx].oid
 			}
 		}
 	default:
 		return nil
 	}
 
+	// Keep responses below macOS's default UDP datagram send limit. GETBULK
+	// permits truncation at any varbind boundary, including a partial repetition.
+	if pduTag == 0xA5 {
+		size := 0
+		for i, vb := range vbs {
+			size += len(vb)
+			if size > 7000 {
+				vbs = vbs[:i]
+				break
+			}
+		}
+	}
 	reqID := decodeUint(ridBytes)
 	pduContent := concat(intTLV(reqID), intTLV(0), intTLV(0), tlv(0x30, concat(vbs...)))
 	return tlv(0x30, concat(intTLV(1), tlv(0x04, community), tlv(0xA2, pduContent)))
@@ -346,7 +360,14 @@ func firstGreater(mib []mibEntry, o []uint32) int {
 // socket, which unblocks the read loop).
 func startResponder(b testing.TB) string {
 	b.Helper()
-	mib := buildMIB(benchRows)
+	addr, _ := startResponderMIB(b, buildMIB(benchRows))
+	return addr
+}
+
+type wireCounts struct{ requests, bytes atomic.Int64 }
+
+func startResponderMIB(b testing.TB, mib []mibEntry) (string, *wireCounts) {
+	counts := &wireCounts{}
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	if err != nil {
 		b.Fatalf("listen: %v", err)
@@ -365,10 +386,47 @@ func startResponder(b testing.TB) string {
 			// WriteToUDP copies before returning, so buf is safe to reuse
 			// without a per-datagram copy.
 			if resp := handle(mib, buf[:n]); resp != nil {
+				counts.requests.Add(1)
+				counts.bytes.Add(int64(n + len(resp)))
 				_, _ = conn.WriteToUDP(resp, addr)
 			}
 		}
 	}()
 
-	return conn.LocalAddr().String()
+	return conn.LocalAddr().String(), counts
+}
+
+// buildScaleMIB constructs twenty readable ifTable columns before measurement.
+// Sparse mode separates the counters' indexes and leaves ifOutErrors absent.
+func buildScaleMIB(rows int, sparse bool, payload int) []mibEntry {
+	var entries []mibEntry
+	for col := uint32(1); col <= 22; col++ {
+		if col == 6 || col == 22 || (sparse && col == 20) {
+			continue
+		}
+		for row := 1; row <= rows; row++ {
+			idx := row
+			if sparse && col == 16 {
+				idx += rows
+			}
+			if sparse && col == 10 && row == 1 {
+				continue
+			}
+			oid := []uint32{1, 3, 6, 1, 2, 1, 2, 2, 1, col, uint32(idx)}
+			value := intTLV(1)
+			switch {
+			case col == 2:
+				value = octetTLV(strings.Repeat("x", payload))
+			case col == 5 || col == 21:
+				value = tlv(0x42, []byte{1})
+			case col == 9:
+				value = tlv(0x43, []byte{1})
+			case col >= 10 && col <= 20:
+				value = counter32TLV(uint32(row))
+			}
+			entries = append(entries, mibEntry{oid: oid, vb: varbind(oid, value)})
+		}
+	}
+	entries = append(entries, mibEntry{oid: []uint32{1, 3, 6, 1, 2, 1, 4, 1, 0}, vb: varbind([]uint32{1, 3, 6, 1, 2, 1, 4, 1, 0}, intTLV(1))})
+	return entries
 }

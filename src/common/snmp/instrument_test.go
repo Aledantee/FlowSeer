@@ -16,7 +16,7 @@ import (
 // (test-only — production code imports only the API) to capture spans
 // and metrics emitted by a native session and verify their shape.
 
-func dialInstrumented(t *testing.T, agent *mockAgent, version Version, opts ...Option) (Session, *tracetest.SpanRecorder, *sdkmetric.ManualReader) {
+func dialInstrumented(t *testing.T, agent *mockAgent, opts ...Option) (Session, *tracetest.SpanRecorder, *sdkmetric.ManualReader) {
 	t.Helper()
 	sr := tracetest.NewSpanRecorder()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
@@ -30,7 +30,7 @@ func dialInstrumented(t *testing.T, agent *mockAgent, version Version, opts ...O
 		WithTracerProvider(tp),
 		WithMeterProvider(mp),
 	}
-	sess, err := NewSession(context.Background(), agent.addr.String(), version, append(base, opts...)...)
+	sess, err := NewSession(context.Background(), agent.addr.String(), V2c, append(base, opts...)...)
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
@@ -74,7 +74,7 @@ func metricNames(t *testing.T, reader *sdkmetric.ManualReader) map[string]bool {
 func TestInstrument_GetEmitsSpanAndMetrics(t *testing.T) {
 	oid := MustOID(1, 3, 6, 1, 2, 1, 1, 1, 0)
 	agent := startMIBAgent(t, []mibEntry{{oid, octet(oid, "Router X")}}, mibBehavior{})
-	sess, sr, reader := dialInstrumented(t, agent, V2c)
+	sess, sr, reader := dialInstrumented(t, agent)
 
 	if _, err := sess.Get(context.Background(), []OID{oid}); err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestInstrument_GetEmitsSpanAndMetrics(t *testing.T) {
 func TestInstrument_WalkEmitsSpan(t *testing.T) {
 	root, entries := ifTable(3)
 	agent := startMIBAgent(t, entries, mibBehavior{})
-	sess, sr, _ := dialInstrumented(t, agent, V2c)
+	sess, sr, _ := dialInstrumented(t, agent)
 
 	w := sess.Walk(context.Background(), root)
 	for range w.Iter() {
@@ -137,7 +137,7 @@ func TestInstrument_PDUErrorRecordsStatus(t *testing.T) {
 			},
 		})
 	})
-	sess, sr, reader := dialInstrumented(t, agent, V2c)
+	sess, sr, reader := dialInstrumented(t, agent)
 
 	oid := MustOID(1, 3, 6, 1, 2, 1, 1, 1, 0)
 	if _, err := sess.Get(context.Background(), []OID{oid}); err == nil {

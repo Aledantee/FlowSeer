@@ -32,9 +32,28 @@
 //
 // # Running
 //
-//	cd common/snmp/bench
+//	cd src/common/snmp/bench
 //	go test -bench . -benchmem            # Tier 1 micro
 //	go test -bench Get -benchmem -count 10 | tee new.txt && benchstat new.txt
+//
+// BenchmarkTableWalkScale measures typed row assembly at 50 through 100,000
+// rows, selecting 2 or 20 columns and stopping after 1, 100, or all rows. Its
+// wire-B/op includes requests and responses; B/op also includes local responder
+// work, but excludes fixture construction. Responses truncate at 7,000 varbind
+// bytes to fit the host's UDP limit, exercising partial repetitions.
+//
+// BenchmarkBulkWalkStreaming compares raw traversal with GoSNMP's callback API;
+// BenchmarkBulkWalk retains the GoSNMP collection comparison. Neither assembles
+// typed rows. Net-SNMP's optional cgo traversal also counts varbinds; its C heap
+// allocations are outside Go's benchmark memory accounting.
+//
+// Isolate the responder in a child process to measure client retained memory:
+//
+//	FLOWSEER_MEASURE_HEAP=1 go test -run '^TestStreamingRetainedHeap$' -v
+//
+// This opt-in test subtracts a warmed session's post-GC HeapAlloc from samples
+// during the walk. It excludes fixture and consumer storage, and checks that
+// the 100,000-row peak is no more than twice the 1,000-row peak.
 //
 // # Profiling (profile-first workflow)
 //

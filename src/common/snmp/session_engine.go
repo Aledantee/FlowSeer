@@ -31,6 +31,7 @@ type session struct {
 
 	ignoreNonIncreasing bool
 	maxWalkVars         int
+	maxOIDs             int
 }
 
 // Get performs an SNMP Get for the supplied OIDs, returning one VarBind
@@ -414,13 +415,24 @@ func (it rawWalkItem) rv() RawVarBind {
 // fallback) materializes each varbind's canonical name octets so the
 // byte-level guards stay uniform across both sources.
 func rawItemsOf(p *pdu) ([]rawWalkItem, error) {
+	return rawItemsOfLimit(p, 0)
+}
+
+func rawItemsOfLimit(p *pdu, limit int) ([]rawWalkItem, error) {
 	if p.rawVBL != nil {
 		listContent, _, err := parseSequence(p.rawVBL, tagSequence, 1)
 		if err != nil {
 			return nil, errs.Wrap(err, "decode varbind list")
 		}
-		items := make([]rawWalkItem, 0, max(1, len(listContent)/10))
+		capacity := max(1, len(listContent)/10)
+		if limit > 0 {
+			capacity = min(capacity, limit)
+		}
+		items := make([]rawWalkItem, 0, capacity)
 		for len(listContent) > 0 {
+			if limit > 0 && len(items) == limit {
+				return nil, errs.Msg("table walk response exceeds requested varbind count")
+			}
 			vbContent, consumed, err := parseSequence(listContent, tagSequence, 2)
 			if err != nil {
 				return nil, errs.Wrap(err, "decode varbind")
@@ -437,6 +449,9 @@ func rawItemsOf(p *pdu) ([]rawWalkItem, error) {
 			listContent = listContent[consumed:]
 		}
 		return items, nil
+	}
+	if limit > 0 && len(p.varbinds) > limit {
+		return nil, errs.Msg("table walk response exceeds requested varbind count")
 	}
 	items := make([]rawWalkItem, 0, len(p.varbinds))
 	for _, vb := range p.varbinds {

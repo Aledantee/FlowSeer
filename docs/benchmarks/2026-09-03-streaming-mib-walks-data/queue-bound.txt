@@ -1,0 +1,10 @@
+=== RUN   TestColumnWalkScaleBound
+    column_walk_test.go:299: rows=2000 queued-cell-high-water=14 bound=21
+    column_walk_test.go:299: rows=200000 queued-cell-high-water=14 bound=21
+--- PASS: TestColumnWalkScaleBound (0.38s)
+=== RUN   TestColumnWalkNativeInterleavedGet
+--- PASS: TestColumnWalkNativeInterleavedGet (0.00s)
+=== RUN   TestColumnWalkLateFailurePrefix
+--- PASS: TestColumnWalkLateFailurePrefix (0.00s)
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/snmp	1.845s

@@ -1,0 +1,10 @@
+=== RUN   TestStreamingRetainedHeap
+=== RUN   TestStreamingRetainedHeap/1000
+    streaming_memory_test.go:100: rows=1000 peak-retained-delta=30016 bytes
+=== RUN   TestStreamingRetainedHeap/100000
+    streaming_memory_test.go:100: rows=100000 peak-retained-delta=19496 bytes
+--- PASS: TestStreamingRetainedHeap (0.86s)
+    --- PASS: TestStreamingRetainedHeap/1000 (0.05s)
+    --- PASS: TestStreamingRetainedHeap/100000 (0.81s)
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/snmp/bench	1.391s

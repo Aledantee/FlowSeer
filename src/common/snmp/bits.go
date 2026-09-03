@@ -69,8 +69,8 @@ const MaxBitSetOctets = 32
 // than declined: no MIB here names a position past it, so nothing
 // meaningful is lost, and an error would cost far more than the octets
 // do. A column decode error ends the whole table walk, so declining one
-// malformed capability bitmap on one row would void every row of the
-// table — and with it every fact the caller was collecting.
+// malformed capability bitmap on one row can prevent delivery of that row
+// and all later rows; a fatal caller may discard earlier facts too.
 func DecodeBitSet(vb VarBind) (BitSet, error) {
 	raw, err := DecodeBITS(vb)
 	if err != nil {

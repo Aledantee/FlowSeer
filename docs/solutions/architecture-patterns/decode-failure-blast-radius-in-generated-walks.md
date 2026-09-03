@@ -43,7 +43,7 @@ different behaviors in this library:
 | Layer | On a decode failure | Cost |
 |---|---|---|
 | Fused fast path (`Raw*` primitives) | Falls through to the generic decoder | Nothing — there is always a fallback |
-| Generic decode inside a generated `Iter` | `RawWalker.Fail(derr)`, iteration stops | **The whole table** |
+| Generic decode inside a generated `Iter` | `ColumnWalker.Fail(derr)`, iteration stops | Failing row and later rows; caller may discard earlier facts |
 | Watcher partial-fetch merge | Silently skipped | A stale field, no error |
 
 Only the first is costless, and it is the one the existing conventions doc
@@ -58,8 +58,8 @@ this reason, and says so at `src/common/snmp/bits.go:68-73`:
 // than declined: no MIB here names a position past it, so nothing
 // meaningful is lost, and an error would cost far more than the octets
 // do. A column decode error ends the whole table walk, so declining one
-// malformed capability bitmap on one row would void every row of the
-// table — and with it every fact the caller was collecting.
+// malformed capability bitmap on one row can prevent delivery of that row
+// and all later rows; a fatal caller may discard earlier facts too.
 ```
 
 Reserve an error for a value whose meaning genuinely cannot be recovered — a
@@ -67,21 +67,17 @@ wrong wire variant, an exception marker. `DecodeBitSet` still declines on those.
 
 ## Why This Matters
 
-The mechanism is in the emitter, so it applies to every generated table in the
-tree. `src/common/snmp/cmd/mibgen/emit_table.go:425-440` flushes rows before the
-failing index and then stops:
+The mechanism is in `src/common/snmp/cmd/mibgen/emit_table.go`, so it applies
+to every generated table. The selected-column merge assembles the next complete
+row; the generated iterator decodes that row immediately before yielding it.
+A decoder error calls `ColumnWalker.Fail`, omits the failing row, and stops.
+Earlier delivered rows remain available to the caller. There is no full-table
+buffer or partial flush in this path.
 
-```go
-// Decode error: flush rows strictly before this index in
-// appearance order, then surface the error and stop.
-```
-
-Two consequences that are easy to miss:
-
-**A failure on an early row yields nothing at all.** The walk buffers the whole
-table before its first yield, and the flush covers only indexes strictly before
-the failing one. A bad value on the first row means the caller sees zero rows,
-not "all rows but one."
+A bad value on the first row still yields zero rows. A bad value on row 3
+preserves rows 1 and 2, even if all three arrived in one GETBULK response.
+`TestGeneratedWalkDecodeErrorPrefix` exercises this distinction. Raw response
+validation can fail before any of that response's rows are delivered.
 
 **A fatal table can void unrelated data.** In the LLDP mapper, an
 `lldpRemTable` walk error is marked fatal (`src/common/snmpmap/lldp.go:382-386`),
@@ -114,9 +110,9 @@ wire-level failure also sets `derr` and kills the walk.
 and out-of-range fields, so three separate odd values from one agent can each
 void a whole table.
 
-Not in scope: a malformed **index** arc skips only its row
-(`emit_table.go:373-374`), and an unrequested varbind is skipped outright. Those
-are already non-terminal by design.
+Malformed selected-column indexes, including an empty suffix, terminate the
+streaming walk. Spillover outside a selected column is discarded and ends that
+column. No rows are discovered solely through unselected columns.
 
 ## Examples
 

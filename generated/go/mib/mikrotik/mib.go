@@ -9,13 +9,13 @@
 package mikrotik
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"iter"
 	"net"
 	"time"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 	ae "go.aledante.io/ae"
 )
@@ -1998,242 +1998,179 @@ func (r MtxrWlStatTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWlStatTableWalker is a table-aware walker over mtxrWlStatTable.
-// Construct via MtxrWlStatTable.Walk(ctx, sess, cols...).
+// MtxrWlStatTableWalker streams selected columns of mtxrWlStatTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWlStatTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] {
 	return func(yield func(snmp.OID, MtxrWlStatTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrWlStatTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWlStatTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlStatTxRate = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWlStatTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWlStatTxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlStatTxRate = uint32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlStatTxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlStatTxRate = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrWlStatRxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlStatRxRate = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlStatRxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlStatRxRate = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrWlStatStrength.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlStatStrength = int32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlStatStrength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlStatStrength = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrWlStatSsid.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlStatTxRate.Decode(vb)
+						dv, dErr := MtxrWlStatSsid.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlStatTxRate = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrWlStatSsid = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlStatRxRate = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case MtxrWlStatBssid.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlStatRxRate.Decode(vb)
+						dv, dErr := MtxrWlStatBssid.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlStatRxRate = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrWlStatBssid = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlStatStrength = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case MtxrWlStatFreq.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlStatFreq = int32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlStatFreq.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlStatFreq = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrWlStatBand.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlStatStrength.Decode(vb)
+						dv, dErr := MtxrWlStatBand.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlStatStrength = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrWlStatBand = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlStatSsid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWlStatTxCCQ.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlStatTxCCQ = uint32(v)
+						row.observed[0] |= 1 << 7
 					} else {
-						row.MtxrWlStatSsid = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlStatBssid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlStatBssid = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlStatFreq = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlStatFreq.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrWlStatFreq = dv
-							row.observed[0] |= 1 << 5
+							dv, dErr := MtxrWlStatTxCCQ.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlStatTxCCQ = dv
+								row.observed[0] |= 1 << 7
+							}
 						}
 					}
-				}
-			case 8:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlStatBand.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWlStatRxCCQ.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlStatRxCCQ = uint32(v)
+						row.observed[0] |= 1 << 8
 					} else {
-						row.MtxrWlStatBand = dv
-						row.observed[0] |= 1 << 6
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlStatTxCCQ = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlStatTxCCQ.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrWlStatTxCCQ = dv
-							row.observed[0] |= 1 << 7
+							dv, dErr := MtxrWlStatRxCCQ.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlStatRxCCQ = dv
+								row.observed[0] |= 1 << 8
+							}
 						}
 					}
 				}
-			case 10:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlStatRxCCQ = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlStatRxCCQ.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlStatRxCCQ = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2252,35 +2189,43 @@ type mtxrWlStatTableT struct{}
 // MtxrWlStatTable is the descriptor for the mtxrWlStatTable table.
 var MtxrWlStatTable mtxrWlStatTableT
 
-// Walk launches a BulkWalk over mtxrWlStatTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWlStatTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWlStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlStatTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWlStatTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWlStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlStatTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWlStatTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlStatTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWlStatTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWlStatTable", c)}
+		switch c.Key() {
+		case MtxrWlStatTxRate.Key(), MtxrWlStatRxRate.Key(), MtxrWlStatStrength.Key(), MtxrWlStatSsid.Key(), MtxrWlStatBssid.Key(), MtxrWlStatFreq.Key(), MtxrWlStatBand.Key(), MtxrWlStatTxCCQ.Key(), MtxrWlStatRxCCQ.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlStatTable.Walk: column %s", c.OID()))
+			return &MtxrWlStatTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1))
-
 	return &MtxrWlStatTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2459,409 +2404,346 @@ func (r MtxrWlRtabTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWlRtabTableWalker is a table-aware walker over mtxrWlRtabTable.
-// Construct via MtxrWlRtabTable.Walk(ctx, sess, cols...).
+// MtxrWlRtabTableWalker streams selected columns of mtxrWlRtabTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWlRtabTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] {
 	return func(yield func(snmp.OID, MtxrWlRtabTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1).WireBytes()
-		buffer := make(map[string]*MtxrWlRtabTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWlRtabTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabStrength = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWlRtabTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWlRtabStrength.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabStrength = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabStrength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabStrength = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrWlRtabTxBytes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlRtabTxBytes = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabTxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabTxBytes = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrWlRtabRxBytes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlRtabRxBytes = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabRxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabRxBytes = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrWlRtabTxPackets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlRtabTxPackets = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabTxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabTxPackets = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrWlRtabRxPackets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlRtabRxPackets = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabRxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabRxPackets = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrWlRtabTxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlRtabTxRate = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabTxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabTxRate = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrWlRtabRxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlRtabRxRate = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabRxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabRxRate = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrWlRtabRouterOSVersion.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlRtabStrength.Decode(vb)
+						dv, dErr := MtxrWlRtabRouterOSVersion.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlRtabStrength = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrWlRtabRouterOSVersion = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlRtabTxBytes = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case MtxrWlRtabUptime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.MtxrWlRtabUptime = uint32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabUptime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabUptime = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrWlRtabSignalToNoise.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabSignalToNoise = int32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabSignalToNoise.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabSignalToNoise = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case MtxrWlRtabTxStrengthCh0.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabTxStrengthCh0 = int32(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabTxStrengthCh0.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabTxStrengthCh0 = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case MtxrWlRtabRxStrengthCh0.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabRxStrengthCh0 = int32(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabRxStrengthCh0.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabRxStrengthCh0 = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case MtxrWlRtabTxStrengthCh1.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabTxStrengthCh1 = int32(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabTxStrengthCh1.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabTxStrengthCh1 = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case MtxrWlRtabRxStrengthCh1.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabRxStrengthCh1 = int32(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabRxStrengthCh1.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabRxStrengthCh1 = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case MtxrWlRtabTxStrengthCh2.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabTxStrengthCh2 = int32(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabTxStrengthCh2.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabTxStrengthCh2 = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case MtxrWlRtabRxStrengthCh2.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabRxStrengthCh2 = int32(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabRxStrengthCh2.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabRxStrengthCh2 = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case MtxrWlRtabTxStrength.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlRtabTxStrength = int32(v)
+						row.observed[0] |= 1 << 16
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlRtabTxStrength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlRtabTxStrength = dv
+								row.observed[0] |= 1 << 16
+							}
+						}
+					}
+				case MtxrWlRtabRadioName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlRtabTxBytes.Decode(vb)
+						dv, dErr := MtxrWlRtabRadioName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlRtabTxBytes = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrWlRtabRadioName = dv
+							row.observed[0] |= 1 << 17
 						}
 					}
 				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlRtabRxBytes = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRxBytes = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlRtabTxPackets = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabTxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabTxPackets = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlRtabRxPackets = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRxPackets = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlRtabTxRate = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabTxRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabTxRate = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlRtabRxRate = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRxRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRxRate = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 10:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlRtabRouterOSVersion.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlRtabRouterOSVersion = dv
-						row.observed[0] |= 1 << 7
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-					row.MtxrWlRtabUptime = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabUptime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabUptime = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabSignalToNoise = int32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabSignalToNoise.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabSignalToNoise = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabTxStrengthCh0 = int32(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabTxStrengthCh0.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabTxStrengthCh0 = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabRxStrengthCh0 = int32(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRxStrengthCh0.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRxStrengthCh0 = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabTxStrengthCh1 = int32(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabTxStrengthCh1.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabTxStrengthCh1 = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabRxStrengthCh1 = int32(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRxStrengthCh1.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRxStrengthCh1 = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabTxStrengthCh2 = int32(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabTxStrengthCh2.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabTxStrengthCh2 = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				}
-			case 18:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabRxStrengthCh2 = int32(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRxStrengthCh2.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRxStrengthCh2 = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 19:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlRtabTxStrength = int32(v)
-					row.observed[0] |= 1 << 16
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabTxStrength.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabTxStrength = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-			case 20:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlRtabRadioName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlRtabRadioName = dv
-						row.observed[0] |= 1 << 17
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2880,35 +2762,43 @@ type mtxrWlRtabTableT struct{}
 // MtxrWlRtabTable is the descriptor for the mtxrWlRtabTable table.
 var MtxrWlRtabTable mtxrWlRtabTableT
 
-// Walk launches a BulkWalk over mtxrWlRtabTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWlRtabTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWlRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlRtabTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWlRtabTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWlRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlRtabTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWlRtabTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlRtabTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWlRtabTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWlRtabTable", c)}
+		switch c.Key() {
+		case MtxrWlRtabStrength.Key(), MtxrWlRtabTxBytes.Key(), MtxrWlRtabRxBytes.Key(), MtxrWlRtabTxPackets.Key(), MtxrWlRtabRxPackets.Key(), MtxrWlRtabTxRate.Key(), MtxrWlRtabRxRate.Key(), MtxrWlRtabRouterOSVersion.Key(), MtxrWlRtabUptime.Key(), MtxrWlRtabSignalToNoise.Key(), MtxrWlRtabTxStrengthCh0.Key(), MtxrWlRtabRxStrengthCh0.Key(), MtxrWlRtabTxStrengthCh1.Key(), MtxrWlRtabRxStrengthCh1.Key(), MtxrWlRtabTxStrengthCh2.Key(), MtxrWlRtabRxStrengthCh2.Key(), MtxrWlRtabTxStrength.Key(), MtxrWlRtabRadioName.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlRtabTable.Walk: column %s", c.OID()))
+			return &MtxrWlRtabTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2))
-
 	return &MtxrWlRtabTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -3020,260 +2910,197 @@ func (r MtxrWlApTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWlApTableWalker is a table-aware walker over mtxrWlApTable.
-// Construct via MtxrWlApTable.Walk(ctx, sess, cols...).
+// MtxrWlApTableWalker streams selected columns of mtxrWlApTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWlApTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 	return func(yield func(snmp.OID, MtxrWlApTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1).WireBytes()
-		buffer := make(map[string]*MtxrWlApTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWlApTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlApTxRate = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWlApTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWlApTxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlApTxRate = uint32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlApTxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlApTxRate = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrWlApRxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlApRxRate = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlApRxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlApRxRate = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrWlApSsid.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlApTxRate.Decode(vb)
+						dv, dErr := MtxrWlApSsid.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlApTxRate = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrWlApSsid = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlApRxRate = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case MtxrWlApBssid.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlApRxRate.Decode(vb)
+						dv, dErr := MtxrWlApBssid.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlApRxRate = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrWlApBssid = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlApSsid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWlApClientCount.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlApClientCount = uint32(v)
+						row.observed[0] |= 1 << 4
 					} else {
-						row.MtxrWlApSsid = dv
-						row.observed[0] |= 1 << 2
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlApClientCount.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlApClientCount = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
 					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlApBssid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWlApFreq.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlApFreq = int32(v)
+						row.observed[0] |= 1 << 5
 					} else {
-						row.MtxrWlApBssid = dv
-						row.observed[0] |= 1 << 3
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlApFreq.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlApFreq = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlApClientCount = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case MtxrWlApBand.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlApClientCount.Decode(vb)
+						dv, dErr := MtxrWlApBand.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlApClientCount = dv
-							row.observed[0] |= 1 << 4
+							row.MtxrWlApBand = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlApFreq = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrWlApNoiseFloor.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlApNoiseFloor = int32(v)
+						row.observed[0] |= 1 << 7
 					} else {
-						dv, dErr := MtxrWlApFreq.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrWlApFreq = dv
-							row.observed[0] |= 1 << 5
+							dv, dErr := MtxrWlApNoiseFloor.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlApNoiseFloor = dv
+								row.observed[0] |= 1 << 7
+							}
 						}
 					}
-				}
-			case 8:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlApBand.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWlApOverallTxCCQ.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlApOverallTxCCQ = uint32(v)
+						row.observed[0] |= 1 << 8
 					} else {
-						row.MtxrWlApBand = dv
-						row.observed[0] |= 1 << 6
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlApNoiseFloor = int32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlApNoiseFloor.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrWlApNoiseFloor = dv
-							row.observed[0] |= 1 << 7
+							dv, dErr := MtxrWlApOverallTxCCQ.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlApOverallTxCCQ = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrWlApAuthClientCount.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlApAuthClientCount = uint32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlApAuthClientCount.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlApAuthClientCount = dv
+								row.observed[0] |= 1 << 9
+							}
 						}
 					}
 				}
-			case 10:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlApOverallTxCCQ = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlApOverallTxCCQ.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlApOverallTxCCQ = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlApAuthClientCount = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlApAuthClientCount.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlApAuthClientCount = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -3292,35 +3119,43 @@ type mtxrWlApTableT struct{}
 // MtxrWlApTable is the descriptor for the mtxrWlApTable table.
 var MtxrWlApTable mtxrWlApTableT
 
-// Walk launches a BulkWalk over mtxrWlApTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWlApTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWlApTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlApTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWlApTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWlApTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlApTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWlApTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlApTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWlApTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWlApTable", c)}
+		switch c.Key() {
+		case MtxrWlApTxRate.Key(), MtxrWlApRxRate.Key(), MtxrWlApSsid.Key(), MtxrWlApBssid.Key(), MtxrWlApClientCount.Key(), MtxrWlApFreq.Key(), MtxrWlApBand.Key(), MtxrWlApNoiseFloor.Key(), MtxrWlApOverallTxCCQ.Key(), MtxrWlApAuthClientCount.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlApTable.Walk: column %s", c.OID()))
+			return &MtxrWlApTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3))
-
 	return &MtxrWlApTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -3448,296 +3283,233 @@ func (r MtxrWlCMRtabTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWlCMRtabTableWalker is a table-aware walker over mtxrWlCMRtabTable.
-// Construct via MtxrWlCMRtabTable.Walk(ctx, sess, cols...).
+// MtxrWlCMRtabTableWalker streams selected columns of mtxrWlCMRtabTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWlCMRtabTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableRow] {
 	return func(yield func(snmp.OID, MtxrWlCMRtabTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1).WireBytes()
-		buffer := make(map[string]*MtxrWlCMRtabTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWlCMRtabTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMRtabAddr.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMRtabAddr = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-					row.MtxrWlCMRtabUptime = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWlCMRtabTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWlCMRtabAddr.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlCMRtabUptime.Decode(vb)
+						dv, dErr := MtxrWlCMRtabAddr.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlCMRtabUptime = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrWlCMRtabAddr = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlCMRtabTxBytes = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case MtxrWlCMRtabUptime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.MtxrWlCMRtabUptime = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabUptime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabUptime = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrWlCMRtabTxBytes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlCMRtabTxBytes = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabTxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabTxBytes = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrWlCMRtabRxBytes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlCMRtabRxBytes = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabRxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabRxBytes = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrWlCMRtabTxPackets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlCMRtabTxPackets = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabTxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabTxPackets = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrWlCMRtabRxPackets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlCMRtabRxPackets = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabRxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabRxPackets = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrWlCMRtabTxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlCMRtabTxRate = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabTxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabTxRate = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrWlCMRtabRxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWlCMRtabRxRate = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabRxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabRxRate = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrWlCMRtabTxStrength.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlCMRtabTxStrength = int32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabTxStrength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabTxStrength = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrWlCMRtabRxStrength.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWlCMRtabRxStrength = int32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRtabRxStrength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRtabRxStrength = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case MtxrWlCMRtabSsid.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlCMRtabTxBytes.Decode(vb)
+						dv, dErr := MtxrWlCMRtabSsid.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlCMRtabTxBytes = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrWlCMRtabSsid = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlCMRtabRxBytes = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case MtxrWlCMRtabEapIdent.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlCMRtabRxBytes.Decode(vb)
+						dv, dErr := MtxrWlCMRtabEapIdent.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlCMRtabRxBytes = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrWlCMRtabEapIdent = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
 				}
-			case 6:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlCMRtabTxPackets = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabTxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabTxPackets = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlCMRtabRxPackets = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabRxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabRxPackets = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlCMRtabTxRate = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabTxRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabTxRate = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWlCMRtabRxRate = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabRxRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabRxRate = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlCMRtabTxStrength = int32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabTxStrength.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabTxStrength = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWlCMRtabRxStrength = int32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabRxStrength.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabRxStrength = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 12:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMRtabSsid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMRtabSsid = dv
-						row.observed[0] |= 1 << 10
-					}
-				}
-			case 13:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMRtabEapIdent.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMRtabEapIdent = dv
-						row.observed[0] |= 1 << 11
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -3756,35 +3528,43 @@ type mtxrWlCMRtabTableT struct{}
 // MtxrWlCMRtabTable is the descriptor for the mtxrWlCMRtabTable table.
 var MtxrWlCMRtabTable mtxrWlCMRtabTableT
 
-// Walk launches a BulkWalk over mtxrWlCMRtabTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWlCMRtabTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWlCMRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRtabTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWlCMRtabTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWlCMRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRtabTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWlCMRtabTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlCMRtabTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWlCMRtabTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWlCMRtabTable", c)}
+		switch c.Key() {
+		case MtxrWlCMRtabAddr.Key(), MtxrWlCMRtabUptime.Key(), MtxrWlCMRtabTxBytes.Key(), MtxrWlCMRtabRxBytes.Key(), MtxrWlCMRtabTxPackets.Key(), MtxrWlCMRtabRxPackets.Key(), MtxrWlCMRtabTxRate.Key(), MtxrWlCMRtabRxRate.Key(), MtxrWlCMRtabTxStrength.Key(), MtxrWlCMRtabRxStrength.Key(), MtxrWlCMRtabSsid.Key(), MtxrWlCMRtabEapIdent.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlCMRtabTable.Walk: column %s", c.OID()))
+			return &MtxrWlCMRtabTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5))
-
 	return &MtxrWlCMRtabTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -3846,157 +3626,94 @@ func (r MtxrWlCMTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWlCMTableWalker is a table-aware walker over mtxrWlCMTable.
-// Construct via MtxrWlCMTable.Walk(ctx, sess, cols...).
+// MtxrWlCMTableWalker streams selected columns of mtxrWlCMTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWlCMTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWlCMTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMTableRow] {
 	return func(yield func(snmp.OID, MtxrWlCMTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1).WireBytes()
-		buffer := make(map[string]*MtxrWlCMTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWlCMTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlCMRegClientCount = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWlCMTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWlCMRegClientCount.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlCMRegClientCount = uint32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRegClientCount.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRegClientCount = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrWlCMAuthClientCount.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlCMAuthClientCount = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMAuthClientCount.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMAuthClientCount = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrWlCMState.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlCMRegClientCount.Decode(vb)
+						dv, dErr := MtxrWlCMState.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlCMRegClientCount = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrWlCMState = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlCMAuthClientCount = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case MtxrWlCMChannel.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlCMAuthClientCount.Decode(vb)
+						dv, dErr := MtxrWlCMChannel.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlCMAuthClientCount = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrWlCMChannel = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
 				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMState.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMState = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMChannel.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMChannel = dv
-						row.observed[0] |= 1 << 3
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -4015,35 +3732,43 @@ type mtxrWlCMTableT struct{}
 // MtxrWlCMTable is the descriptor for the mtxrWlCMTable table.
 var MtxrWlCMTable mtxrWlCMTableT
 
-// Walk launches a BulkWalk over mtxrWlCMTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWlCMTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWlCMTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWlCMTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWlCMTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWlCMTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlCMTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWlCMTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWlCMTable", c)}
+		switch c.Key() {
+		case MtxrWlCMRegClientCount.Key(), MtxrWlCMAuthClientCount.Key(), MtxrWlCMState.Key(), MtxrWlCMChannel.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlCMTable.Walk: column %s", c.OID()))
+			return &MtxrWlCMTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7))
-
 	return &MtxrWlCMTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -4169,278 +3894,215 @@ func (r MtxrWl60GTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWl60GTableWalker is a table-aware walker over mtxrWl60GTable.
-// Construct via MtxrWl60GTable.Walk(ctx, sess, cols...).
+// MtxrWl60GTableWalker streams selected columns of mtxrWl60GTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWl60GTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 	return func(yield func(snmp.OID, MtxrWl60GTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1).WireBytes()
-		buffer := make(map[string]*MtxrWl60GTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWl60GTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GMode = MtxrWl60GModeValue(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWl60GTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWl60GMode.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GMode = MtxrWl60GModeValue(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GMode.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GMode = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrWl60GSsid.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWl60GMode.Decode(vb)
+						dv, dErr := MtxrWl60GSsid.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWl60GMode = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrWl60GSsid = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWl60GSsid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWl60GConnected.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GConnected = BoolValue(v)
+						row.observed[0] |= 1 << 2
 					} else {
-						row.MtxrWl60GSsid = dv
-						row.observed[0] |= 1 << 1
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GConnected.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GConnected = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GConnected = BoolValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case MtxrWl60GRemote.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWl60GConnected.Decode(vb)
+						dv, dErr := MtxrWl60GRemote.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWl60GConnected = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrWl60GRemote = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWl60GRemote.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWl60GFreq.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GFreq = int32(v)
+						row.observed[0] |= 1 << 4
 					} else {
-						row.MtxrWl60GRemote = dv
-						row.observed[0] |= 1 << 3
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GFreq.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GFreq = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GFreq = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case MtxrWl60GMcs.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GMcs = int32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GMcs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GMcs = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrWl60GSignal.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GSignal = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GSignal.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GSignal = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrWl60GTxSector.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GTxSector = int32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GTxSector.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GTxSector = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrWl60GTxSectorInfo.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWl60GFreq.Decode(vb)
+						dv, dErr := MtxrWl60GTxSectorInfo.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWl60GFreq = dv
-							row.observed[0] |= 1 << 4
+							row.MtxrWl60GTxSectorInfo = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GMcs = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrWl60GRssi.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GRssi = int32(v)
+						row.observed[0] |= 1 << 9
 					} else {
-						dv, dErr := MtxrWl60GMcs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrWl60GMcs = dv
-							row.observed[0] |= 1 << 5
+							dv, dErr := MtxrWl60GRssi.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GRssi = dv
+								row.observed[0] |= 1 << 9
+							}
 						}
 					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GSignal = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrWl60GPhyRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWl60GPhyRate = uint32(v)
+						row.observed[0] |= 1 << 10
 					} else {
-						dv, dErr := MtxrWl60GSignal.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrWl60GSignal = dv
-							row.observed[0] |= 1 << 6
+							dv, dErr := MtxrWl60GPhyRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GPhyRate = dv
+								row.observed[0] |= 1 << 10
+							}
 						}
 					}
 				}
-			case 9:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GTxSector = int32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GTxSector.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GTxSector = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 11:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWl60GTxSectorInfo.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWl60GTxSectorInfo = dv
-						row.observed[0] |= 1 << 8
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GRssi = int32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GRssi.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GRssi = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWl60GPhyRate = uint32(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GPhyRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GPhyRate = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -4459,35 +4121,43 @@ type mtxrWl60GTableT struct{}
 // MtxrWl60GTable is the descriptor for the mtxrWl60GTable table.
 var MtxrWl60GTable mtxrWl60GTableT
 
-// Walk launches a BulkWalk over mtxrWl60GTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWl60GTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWl60GTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWl60GTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWl60GTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWl60GTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWl60GTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWl60GTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWl60GTable", c)}
+		switch c.Key() {
+		case MtxrWl60GMode.Key(), MtxrWl60GSsid.Key(), MtxrWl60GConnected.Key(), MtxrWl60GRemote.Key(), MtxrWl60GFreq.Key(), MtxrWl60GMcs.Key(), MtxrWl60GSignal.Key(), MtxrWl60GTxSector.Key(), MtxrWl60GTxSectorInfo.Key(), MtxrWl60GRssi.Key(), MtxrWl60GPhyRate.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWl60GTable.Walk: column %s", c.OID()))
+			return &MtxrWl60GTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8))
-
 	return &MtxrWl60GTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -4586,234 +4256,171 @@ func (r MtxrWl60GStaTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWl60GStaTableWalker is a table-aware walker over mtxrWl60GStaTable.
-// Construct via MtxrWl60GStaTable.Walk(ctx, sess, cols...).
+// MtxrWl60GStaTableWalker streams selected columns of mtxrWl60GStaTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWl60GStaTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableRow] {
 	return func(yield func(snmp.OID, MtxrWl60GStaTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1).WireBytes()
-		buffer := make(map[string]*MtxrWl60GStaTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWl60GStaTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GStaConnected = BoolValue(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWl60GStaTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWl60GStaConnected.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GStaConnected = BoolValue(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GStaConnected.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GStaConnected = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrWl60GStaRemote.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWl60GStaConnected.Decode(vb)
+						dv, dErr := MtxrWl60GStaRemote.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWl60GStaConnected = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrWl60GStaRemote = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWl60GStaRemote.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrWl60GStaMcs.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GStaMcs = int32(v)
+						row.observed[0] |= 1 << 2
 					} else {
-						row.MtxrWl60GStaRemote = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GStaMcs = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GStaMcs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrWl60GStaMcs = dv
-							row.observed[0] |= 1 << 2
+							dv, dErr := MtxrWl60GStaMcs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GStaMcs = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrWl60GStaSignal.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GStaSignal = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GStaSignal.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GStaSignal = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrWl60GStaTxSector.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GStaTxSector = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GStaTxSector.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GStaTxSector = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrWl60GStaPhyRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWl60GStaPhyRate = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GStaPhyRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GStaPhyRate = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrWl60GStaRssi.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GStaRssi = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GStaRssi.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GStaRssi = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrWl60GStaDistance.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWl60GStaDistance = int32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWl60GStaDistance.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWl60GStaDistance = dv
+								row.observed[0] |= 1 << 7
+							}
 						}
 					}
 				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GStaSignal = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GStaSignal.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GStaSignal = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GStaTxSector = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GStaTxSector.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GStaTxSector = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWl60GStaPhyRate = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GStaPhyRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GStaPhyRate = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GStaRssi = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GStaRssi.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GStaRssi = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWl60GStaDistance = int32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GStaDistance.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GStaDistance = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -4832,35 +4439,43 @@ type mtxrWl60GStaTableT struct{}
 // MtxrWl60GStaTable is the descriptor for the mtxrWl60GStaTable table.
 var MtxrWl60GStaTable mtxrWl60GStaTableT
 
-// Walk launches a BulkWalk over mtxrWl60GStaTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWl60GStaTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWl60GStaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GStaTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWl60GStaTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWl60GStaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GStaTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWl60GStaTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWl60GStaTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWl60GStaTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWl60GStaTable", c)}
+		switch c.Key() {
+		case MtxrWl60GStaConnected.Key(), MtxrWl60GStaRemote.Key(), MtxrWl60GStaMcs.Key(), MtxrWl60GStaSignal.Key(), MtxrWl60GStaTxSector.Key(), MtxrWl60GStaPhyRate.Key(), MtxrWl60GStaRssi.Key(), MtxrWl60GStaDistance.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWl60GStaTable.Walk: column %s", c.OID()))
+			return &MtxrWl60GStaTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9))
-
 	return &MtxrWl60GStaTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -4921,152 +4536,89 @@ func (r MtxrWlCMRemoteTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWlCMRemoteTableWalker is a table-aware walker over mtxrWlCMRemoteTable.
-// Construct via MtxrWlCMRemoteTable.Walk(ctx, sess, cols...).
+// MtxrWlCMRemoteTableWalker streams selected columns of mtxrWlCMRemoteTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWlCMRemoteTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWlCMRemoteTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRemoteTableRow] {
 	return func(yield func(snmp.OID, MtxrWlCMRemoteTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1).WireBytes()
-		buffer := make(map[string]*MtxrWlCMRemoteTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWlCMRemoteTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMRemoteName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMRemoteName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMRemoteState.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMRemoteState = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWlCMRemoteAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWlCMRemoteAddress = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrWlCMRemoteRadios = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWlCMRemoteTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWlCMRemoteName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWlCMRemoteRadios.Decode(vb)
+						dv, dErr := MtxrWlCMRemoteName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWlCMRemoteRadios = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrWlCMRemoteName = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case MtxrWlCMRemoteState.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrWlCMRemoteState.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrWlCMRemoteState = dv
+							row.observed[0] |= 1 << 1
+						}
+					}
+				case MtxrWlCMRemoteAddress.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrWlCMRemoteAddress.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrWlCMRemoteAddress = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case MtxrWlCMRemoteRadios.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrWlCMRemoteRadios = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWlCMRemoteRadios.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWlCMRemoteRadios = dv
+								row.observed[0] |= 1 << 3
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -5085,35 +4637,43 @@ type mtxrWlCMRemoteTableT struct{}
 // MtxrWlCMRemoteTable is the descriptor for the mtxrWlCMRemoteTable table.
 var MtxrWlCMRemoteTable mtxrWlCMRemoteTableT
 
-// Walk launches a BulkWalk over mtxrWlCMRemoteTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWlCMRemoteTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWlCMRemoteTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRemoteTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWlCMRemoteTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWlCMRemoteTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRemoteTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWlCMRemoteTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlCMRemoteTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWlCMRemoteTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWlCMRemoteTable", c)}
+		switch c.Key() {
+		case MtxrWlCMRemoteName.Key(), MtxrWlCMRemoteState.Key(), MtxrWlCMRemoteAddress.Key(), MtxrWlCMRemoteRadios.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlCMRemoteTable.Walk: column %s", c.OID()))
+			return &MtxrWlCMRemoteTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11))
-
 	return &MtxrWlCMRemoteTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -5255,322 +4815,259 @@ func (r MtxrQueueSimpleTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrQueueSimpleTableWalker is a table-aware walker over mtxrQueueSimpleTable.
-// Construct via MtxrQueueSimpleTable.Walk(ctx, sess, cols...).
+// MtxrQueueSimpleTableWalker streams selected columns of mtxrQueueSimpleTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrQueueSimpleTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimpleTableRow] {
 	return func(yield func(snmp.OID, MtxrQueueSimpleTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrQueueSimpleTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrQueueSimpleTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrQueueSimpleName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrQueueSimpleName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrQueueSimpleSrcAddr.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrQueueSimpleSrcAddr = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrQueueSimpleSrcMask.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrQueueSimpleSrcMask = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrQueueSimpleDstAddr.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrQueueSimpleDstAddr = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrQueueSimpleDstMask.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrQueueSimpleDstMask = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrQueueSimpleIface = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrQueueSimpleTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrQueueSimpleName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrQueueSimpleIface.Decode(vb)
+						dv, dErr := MtxrQueueSimpleName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrQueueSimpleIface = dv
-							row.observed[0] |= 1 << 5
+							row.MtxrQueueSimpleName = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrQueueSimpleBytesIn = uint64(v)
-					row.observed[0] |= 1 << 6
-				} else {
+				case MtxrQueueSimpleSrcAddr.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrQueueSimpleBytesIn.Decode(vb)
+						dv, dErr := MtxrQueueSimpleSrcAddr.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrQueueSimpleBytesIn = dv
-							row.observed[0] |= 1 << 6
+							row.MtxrQueueSimpleSrcAddr = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrQueueSimpleBytesOut = uint64(v)
-					row.observed[0] |= 1 << 7
-				} else {
+				case MtxrQueueSimpleSrcMask.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrQueueSimpleBytesOut.Decode(vb)
+						dv, dErr := MtxrQueueSimpleSrcMask.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrQueueSimpleBytesOut = dv
-							row.observed[0] |= 1 << 7
+							row.MtxrQueueSimpleSrcMask = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueSimplePacketsIn = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
+				case MtxrQueueSimpleDstAddr.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrQueueSimplePacketsIn.Decode(vb)
+						dv, dErr := MtxrQueueSimpleDstAddr.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrQueueSimplePacketsIn = dv
-							row.observed[0] |= 1 << 8
+							row.MtxrQueueSimpleDstAddr = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueSimplePacketsOut = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
+				case MtxrQueueSimpleDstMask.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrQueueSimplePacketsOut.Decode(vb)
+						dv, dErr := MtxrQueueSimpleDstMask.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrQueueSimplePacketsOut = dv
-							row.observed[0] |= 1 << 9
+							row.MtxrQueueSimpleDstMask = dv
+							row.observed[0] |= 1 << 4
+						}
+					}
+				case MtxrQueueSimpleIface.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrQueueSimpleIface = int32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimpleIface.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimpleIface = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrQueueSimpleBytesIn.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrQueueSimpleBytesIn = uint64(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimpleBytesIn.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimpleBytesIn = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrQueueSimpleBytesOut.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrQueueSimpleBytesOut = uint64(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimpleBytesOut.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimpleBytesOut = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrQueueSimplePacketsIn.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueSimplePacketsIn = uint32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimplePacketsIn.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimplePacketsIn = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrQueueSimplePacketsOut.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueSimplePacketsOut = uint32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimplePacketsOut.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimplePacketsOut = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case MtxrQueueSimplePCQQueuesIn.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueSimplePCQQueuesIn = uint32(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimplePCQQueuesIn.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimplePCQQueuesIn = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case MtxrQueueSimplePCQQueuesOut.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueSimplePCQQueuesOut = uint32(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimplePCQQueuesOut.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimplePCQQueuesOut = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case MtxrQueueSimpleDroppedIn.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueSimpleDroppedIn = uint32(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimpleDroppedIn.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimpleDroppedIn = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case MtxrQueueSimpleDroppedOut.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueSimpleDroppedOut = uint32(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueSimpleDroppedOut.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueSimpleDroppedOut = dv
+								row.observed[0] |= 1 << 13
+							}
 						}
 					}
 				}
-			case 12:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueSimplePCQQueuesIn = uint32(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimplePCQQueuesIn.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimplePCQQueuesIn = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueSimplePCQQueuesOut = uint32(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimplePCQQueuesOut.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimplePCQQueuesOut = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueSimpleDroppedIn = uint32(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimpleDroppedIn.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimpleDroppedIn = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueSimpleDroppedOut = uint32(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimpleDroppedOut.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimpleDroppedOut = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -5589,35 +5086,43 @@ type mtxrQueueSimpleTableT struct{}
 // MtxrQueueSimpleTable is the descriptor for the mtxrQueueSimpleTable table.
 var MtxrQueueSimpleTable mtxrQueueSimpleTableT
 
-// Walk launches a BulkWalk over mtxrQueueSimpleTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrQueueSimpleTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrQueueSimpleTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueSimpleTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrQueueSimpleTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrQueueSimpleTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueSimpleTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrQueueSimpleTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrQueueSimpleTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrQueueSimpleTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrQueueSimpleTable", c)}
+		switch c.Key() {
+		case MtxrQueueSimpleName.Key(), MtxrQueueSimpleSrcAddr.Key(), MtxrQueueSimpleSrcMask.Key(), MtxrQueueSimpleDstAddr.Key(), MtxrQueueSimpleDstMask.Key(), MtxrQueueSimpleIface.Key(), MtxrQueueSimpleBytesIn.Key(), MtxrQueueSimpleBytesOut.Key(), MtxrQueueSimplePacketsIn.Key(), MtxrQueueSimplePacketsOut.Key(), MtxrQueueSimplePCQQueuesIn.Key(), MtxrQueueSimplePCQQueuesOut.Key(), MtxrQueueSimpleDroppedIn.Key(), MtxrQueueSimpleDroppedOut.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrQueueSimpleTable.Walk: column %s", c.OID()))
+			return &MtxrQueueSimpleTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1))
-
 	return &MtxrQueueSimpleTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -5712,229 +5217,166 @@ func (r MtxrQueueTreeTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrQueueTreeTableWalker is a table-aware walker over mtxrQueueTreeTable.
-// Construct via MtxrQueueTreeTable.Walk(ctx, sess, cols...).
+// MtxrQueueTreeTableWalker streams selected columns of mtxrQueueTreeTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrQueueTreeTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTableRow] {
 	return func(yield func(snmp.OID, MtxrQueueTreeTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1).WireBytes()
-		buffer := make(map[string]*MtxrQueueTreeTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrQueueTreeTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrQueueTreeName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrQueueTreeName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrQueueTreeFlow.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrQueueTreeFlow = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrQueueTreeParentIndex = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrQueueTreeTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrQueueTreeName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrQueueTreeParentIndex.Decode(vb)
+						dv, dErr := MtxrQueueTreeName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrQueueTreeParentIndex = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrQueueTreeName = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueTreeBytes = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case MtxrQueueTreeFlow.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrQueueTreeBytes.Decode(vb)
+						dv, dErr := MtxrQueueTreeFlow.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrQueueTreeBytes = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrQueueTreeFlow = dv
+							row.observed[0] |= 1 << 1
+						}
+					}
+				case MtxrQueueTreeParentIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrQueueTreeParentIndex = int32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueTreeParentIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueTreeParentIndex = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrQueueTreeBytes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueTreeBytes = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueTreeBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueTreeBytes = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrQueueTreePackets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueTreePackets = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueTreePackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueTreePackets = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrQueueTreeHCBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrQueueTreeHCBytes = uint64(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueTreeHCBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueTreeHCBytes = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrQueueTreePCQQueues.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueTreePCQQueues = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueTreePCQQueues.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueTreePCQQueues = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrQueueTreeDropped.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrQueueTreeDropped = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrQueueTreeDropped.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrQueueTreeDropped = dv
+								row.observed[0] |= 1 << 7
+							}
 						}
 					}
 				}
-			case 6:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueTreePackets = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueTreePackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueTreePackets = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrQueueTreeHCBytes = uint64(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueTreeHCBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueTreeHCBytes = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueTreePCQQueues = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueTreePCQQueues.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueTreePCQQueues = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrQueueTreeDropped = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueTreeDropped.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueTreeDropped = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -5953,35 +5395,43 @@ type mtxrQueueTreeTableT struct{}
 // MtxrQueueTreeTable is the descriptor for the mtxrQueueTreeTable table.
 var MtxrQueueTreeTable mtxrQueueTreeTableT
 
-// Walk launches a BulkWalk over mtxrQueueTreeTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrQueueTreeTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrQueueTreeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueTreeTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrQueueTreeTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrQueueTreeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueTreeTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrQueueTreeTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrQueueTreeTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrQueueTreeTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrQueueTreeTable", c)}
+		switch c.Key() {
+		case MtxrQueueTreeName.Key(), MtxrQueueTreeFlow.Key(), MtxrQueueTreeParentIndex.Key(), MtxrQueueTreeBytes.Key(), MtxrQueueTreePackets.Key(), MtxrQueueTreeHCBytes.Key(), MtxrQueueTreePCQQueues.Key(), MtxrQueueTreeDropped.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrQueueTreeTable.Walk: column %s", c.OID()))
+			return &MtxrQueueTreeTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2))
-
 	return &MtxrQueueTreeTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -6039,144 +5489,81 @@ func (r MtxrGaugeTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrGaugeTableWalker is a table-aware walker over mtxrGaugeTable.
-// Construct via MtxrGaugeTable.Walk(ctx, sess, cols...).
+// MtxrGaugeTableWalker streams selected columns of mtxrGaugeTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrGaugeTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrGaugeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrGaugeTableRow] {
 	return func(yield func(snmp.OID, MtxrGaugeTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1).WireBytes()
-		buffer := make(map[string]*MtxrGaugeTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrGaugeTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrGaugeName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrGaugeName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrGaugeValue = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrGaugeTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrGaugeName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrGaugeValue.Decode(vb)
+						dv, dErr := MtxrGaugeName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrGaugeValue = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrGaugeName = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrGaugeUnit = MtxrGaugeUnitValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrGaugeValue.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrGaugeValue = int32(v)
+						row.observed[0] |= 1 << 1
 					} else {
-						dv, dErr := MtxrGaugeUnit.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrGaugeUnit = dv
-							row.observed[0] |= 1 << 2
+							dv, dErr := MtxrGaugeValue.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrGaugeValue = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrGaugeUnit.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrGaugeUnit = MtxrGaugeUnitValue(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrGaugeUnit.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrGaugeUnit = dv
+								row.observed[0] |= 1 << 2
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -6195,35 +5582,43 @@ type mtxrGaugeTableT struct{}
 // MtxrGaugeTable is the descriptor for the mtxrGaugeTable table.
 var MtxrGaugeTable mtxrGaugeTableT
 
-// Walk launches a BulkWalk over mtxrGaugeTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrGaugeTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrGaugeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrGaugeTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrGaugeTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrGaugeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrGaugeTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrGaugeTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrGaugeTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrGaugeTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrGaugeTable", c)}
+		switch c.Key() {
+		case MtxrGaugeName.Key(), MtxrGaugeValue.Key(), MtxrGaugeUnit.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrGaugeTable.Walk: column %s", c.OID()))
+			return &MtxrGaugeTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100))
-
 	return &MtxrGaugeTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -6404,417 +5799,354 @@ func (r MtxrHotspotActiveUsersTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrHotspotActiveUsersTableWalker is a table-aware walker over mtxrHotspotActiveUsersTable.
-// Construct via MtxrHotspotActiveUsersTable.Walk(ctx, sess, cols...).
+// MtxrHotspotActiveUsersTableWalker streams selected columns of mtxrHotspotActiveUsersTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrHotspotActiveUsersTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHotspotActiveUsersTableRow] {
 	return func(yield func(snmp.OID, MtxrHotspotActiveUsersTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrHotspotActiveUsersTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrHotspotActiveUsersTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserServerID = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrHotspotActiveUsersTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrHotspotActiveUserServerID.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserServerID = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserServerID.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserServerID = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrHotspotActiveUserName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrHotspotActiveUserServerID.Decode(vb)
+						dv, dErr := MtxrHotspotActiveUserName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrHotspotActiveUserServerID = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrHotspotActiveUserName = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrHotspotActiveUserName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrHotspotActiveUserName = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrHotspotActiveUserDomain.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrHotspotActiveUserDomain = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrHotspotActiveUserIP.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrHotspotActiveUserIP = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrHotspotActiveUserMAC.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrHotspotActiveUserMAC = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserConnectTime = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
+				case MtxrHotspotActiveUserDomain.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrHotspotActiveUserConnectTime.Decode(vb)
+						dv, dErr := MtxrHotspotActiveUserDomain.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrHotspotActiveUserConnectTime = dv
-							row.observed[0] |= 1 << 5
+							row.MtxrHotspotActiveUserDomain = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserValidTillTime = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
+				case MtxrHotspotActiveUserIP.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrHotspotActiveUserValidTillTime.Decode(vb)
+						dv, dErr := MtxrHotspotActiveUserIP.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrHotspotActiveUserValidTillTime = dv
-							row.observed[0] |= 1 << 6
+							row.MtxrHotspotActiveUserIP = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserIdleStartTime = int32(v)
-					row.observed[0] |= 1 << 7
-				} else {
+				case MtxrHotspotActiveUserMAC.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrHotspotActiveUserIdleStartTime.Decode(vb)
+						dv, dErr := MtxrHotspotActiveUserMAC.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrHotspotActiveUserIdleStartTime = dv
-							row.observed[0] |= 1 << 7
+							row.MtxrHotspotActiveUserMAC = dv
+							row.observed[0] |= 1 << 4
+						}
+					}
+				case MtxrHotspotActiveUserConnectTime.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserConnectTime = int32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserConnectTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserConnectTime = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrHotspotActiveUserValidTillTime.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserValidTillTime = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserValidTillTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserValidTillTime = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrHotspotActiveUserIdleStartTime.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserIdleStartTime = int32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserIdleStartTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserIdleStartTime = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrHotspotActiveUserIdleTimeout.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserIdleTimeout = int32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserIdleTimeout.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserIdleTimeout = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrHotspotActiveUserPingTimeout.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserPingTimeout = int32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserPingTimeout.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserPingTimeout = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case MtxrHotspotActiveUserBytesIn.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrHotspotActiveUserBytesIn = uint64(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserBytesIn.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserBytesIn = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case MtxrHotspotActiveUserBytesOut.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrHotspotActiveUserBytesOut = uint64(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserBytesOut.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserBytesOut = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case MtxrHotspotActiveUserPacketsIn.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrHotspotActiveUserPacketsIn = uint64(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserPacketsIn.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserPacketsIn = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case MtxrHotspotActiveUserPacketsOut.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrHotspotActiveUserPacketsOut = uint64(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserPacketsOut.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserPacketsOut = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case MtxrHotspotActiveUserLimitBytesIn.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrHotspotActiveUserLimitBytesIn = uint64(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserLimitBytesIn.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserLimitBytesIn = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case MtxrHotspotActiveUserLimitBytesOut.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrHotspotActiveUserLimitBytesOut = uint64(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserLimitBytesOut.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserLimitBytesOut = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case MtxrHotspotActiveUserAdvertStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserAdvertStatus = int32(v)
+						row.observed[0] |= 1 << 16
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserAdvertStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserAdvertStatus = dv
+								row.observed[0] |= 1 << 16
+							}
+						}
+					}
+				case MtxrHotspotActiveUserRadius.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserRadius = int32(v)
+						row.observed[0] |= 1 << 17
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserRadius.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserRadius = dv
+								row.observed[0] |= 1 << 17
+							}
+						}
+					}
+				case MtxrHotspotActiveUserBlockedByAdvert.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrHotspotActiveUserBlockedByAdvert = int32(v)
+						row.observed[0] |= 1 << 18
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrHotspotActiveUserBlockedByAdvert.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrHotspotActiveUserBlockedByAdvert = dv
+								row.observed[0] |= 1 << 18
+							}
 						}
 					}
 				}
-			case 10:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserIdleTimeout = int32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserIdleTimeout.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserIdleTimeout = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserPingTimeout = int32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserPingTimeout.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserPingTimeout = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrHotspotActiveUserBytesIn = uint64(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserBytesIn.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserBytesIn = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrHotspotActiveUserBytesOut = uint64(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserBytesOut.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserBytesOut = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrHotspotActiveUserPacketsIn = uint64(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserPacketsIn.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserPacketsIn = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrHotspotActiveUserPacketsOut = uint64(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserPacketsOut.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserPacketsOut = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrHotspotActiveUserLimitBytesIn = uint64(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserLimitBytesIn.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserLimitBytesIn = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrHotspotActiveUserLimitBytesOut = uint64(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserLimitBytesOut.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserLimitBytesOut = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 18:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserAdvertStatus = int32(v)
-					row.observed[0] |= 1 << 16
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserAdvertStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserAdvertStatus = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-			case 19:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserRadius = int32(v)
-					row.observed[0] |= 1 << 17
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserRadius.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserRadius = dv
-							row.observed[0] |= 1 << 17
-						}
-					}
-				}
-			case 20:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrHotspotActiveUserBlockedByAdvert = int32(v)
-					row.observed[0] |= 1 << 18
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserBlockedByAdvert.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserBlockedByAdvert = dv
-							row.observed[0] |= 1 << 18
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -6833,35 +6165,43 @@ type mtxrHotspotActiveUsersTableT struct{}
 // MtxrHotspotActiveUsersTable is the descriptor for the mtxrHotspotActiveUsersTable table.
 var MtxrHotspotActiveUsersTable mtxrHotspotActiveUsersTableT
 
-// Walk launches a BulkWalk over mtxrHotspotActiveUsersTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrHotspotActiveUsersTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrHotspotActiveUsersTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrHotspotActiveUsersTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrHotspotActiveUsersTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrHotspotActiveUsersTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrHotspotActiveUsersTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrHotspotActiveUsersTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrHotspotActiveUsersTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrHotspotActiveUsersTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrHotspotActiveUsersTable", c)}
+		switch c.Key() {
+		case MtxrHotspotActiveUserServerID.Key(), MtxrHotspotActiveUserName.Key(), MtxrHotspotActiveUserDomain.Key(), MtxrHotspotActiveUserIP.Key(), MtxrHotspotActiveUserMAC.Key(), MtxrHotspotActiveUserConnectTime.Key(), MtxrHotspotActiveUserValidTillTime.Key(), MtxrHotspotActiveUserIdleStartTime.Key(), MtxrHotspotActiveUserIdleTimeout.Key(), MtxrHotspotActiveUserPingTimeout.Key(), MtxrHotspotActiveUserBytesIn.Key(), MtxrHotspotActiveUserBytesOut.Key(), MtxrHotspotActiveUserPacketsIn.Key(), MtxrHotspotActiveUserPacketsOut.Key(), MtxrHotspotActiveUserLimitBytesIn.Key(), MtxrHotspotActiveUserLimitBytesOut.Key(), MtxrHotspotActiveUserAdvertStatus.Key(), MtxrHotspotActiveUserRadius.Key(), MtxrHotspotActiveUserBlockedByAdvert.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrHotspotActiveUsersTable.Walk: column %s", c.OID()))
+			return &MtxrHotspotActiveUsersTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1))
-
 	return &MtxrHotspotActiveUsersTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -6907,126 +6247,63 @@ func (r MtxrScriptTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrScriptTableWalker is a table-aware walker over mtxrScriptTable.
-// Construct via MtxrScriptTable.Walk(ctx, sess, cols...).
+// MtxrScriptTableWalker streams selected columns of mtxrScriptTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrScriptTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrScriptTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptTableRow] {
 	return func(yield func(snmp.OID, MtxrScriptTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrScriptTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrScriptTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrScriptName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrScriptName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrScriptRunCmd = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrScriptTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrScriptName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrScriptRunCmd.Decode(vb)
+						dv, dErr := MtxrScriptName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrScriptRunCmd = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrScriptName = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case MtxrScriptRunCmd.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrScriptRunCmd = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrScriptRunCmd.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrScriptRunCmd = dv
+								row.observed[0] |= 1 << 1
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -7045,35 +6322,43 @@ type mtxrScriptTableT struct{}
 // MtxrScriptTable is the descriptor for the mtxrScriptTable table.
 var MtxrScriptTable mtxrScriptTableT
 
-// Walk launches a BulkWalk over mtxrScriptTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrScriptTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrScriptTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrScriptTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrScriptTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrScriptTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrScriptTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrScriptTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrScriptTable", c)}
+		switch c.Key() {
+		case MtxrScriptName.Key(), MtxrScriptRunCmd.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrScriptTable.Walk: column %s", c.OID()))
+			return &MtxrScriptTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1))
-
 	return &MtxrScriptTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -7147,185 +6432,122 @@ func (r MtxrDnStatTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrDnStatTableWalker is a table-aware walker over mtxrDnStatTable.
-// Construct via MtxrDnStatTable.Walk(ctx, sess, cols...).
+// MtxrDnStatTableWalker streams selected columns of mtxrDnStatTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrDnStatTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] {
 	return func(yield func(snmp.OID, MtxrDnStatTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrDnStatTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrDnStatTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrDnStatTxRate = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrDnStatTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrDnStatTxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrDnStatTxRate = uint32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := MtxrDnStatTxRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrDnStatTxRate = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := MtxrDnStatTxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrDnStatTxRate = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrDnStatRxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrDnStatRxRate = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrDnStatRxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrDnStatRxRate = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrDnStatTxStrength.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrDnStatTxStrength = int32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrDnStatTxStrength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrDnStatTxStrength = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrDnStatRxStrength.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrDnStatRxStrength = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrDnStatRxStrength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrDnStatRxStrength = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrDnConnected.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrDnConnected = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrDnConnected.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrDnConnected = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			case 3:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrDnStatRxRate = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrDnStatRxRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrDnStatRxRate = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrDnStatTxStrength = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrDnStatTxStrength.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrDnStatTxStrength = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrDnStatRxStrength = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrDnStatRxStrength.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrDnStatRxStrength = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrDnConnected = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrDnConnected.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrDnConnected = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -7344,35 +6566,43 @@ type mtxrDnStatTableT struct{}
 // MtxrDnStatTable is the descriptor for the mtxrDnStatTable table.
 var MtxrDnStatTable mtxrDnStatTableT
 
-// Walk launches a BulkWalk over mtxrDnStatTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrDnStatTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrDnStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrDnStatTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrDnStatTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrDnStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrDnStatTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrDnStatTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrDnStatTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrDnStatTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrDnStatTable", c)}
+		switch c.Key() {
+		case MtxrDnStatTxRate.Key(), MtxrDnStatRxRate.Key(), MtxrDnStatTxStrength.Key(), MtxrDnStatRxStrength.Key(), MtxrDnConnected.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrDnStatTable.Walk: column %s", c.OID()))
+			return &MtxrDnStatTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1))
-
 	return &MtxrDnStatTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -7457,191 +6687,128 @@ func (r MtxrNeighborTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrNeighborTableWalker is a table-aware walker over mtxrNeighborTable.
-// Construct via MtxrNeighborTable.Walk(ctx, sess, cols...).
+// MtxrNeighborTableWalker streams selected columns of mtxrNeighborTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrNeighborTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrNeighborTableWalker) Iter() iter.Seq2[snmp.OID, MtxrNeighborTableRow] {
 	return func(yield func(snmp.OID, MtxrNeighborTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrNeighborTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrNeighborTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrNeighborIpAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrNeighborIpAddress = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrNeighborMacAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrNeighborMacAddress = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrNeighborVersion.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrNeighborVersion = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrNeighborPlatform.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrNeighborPlatform = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrNeighborIdentity.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrNeighborIdentity = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 7:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrNeighborSoftwareID.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrNeighborSoftwareID = dv
-						row.observed[0] |= 1 << 5
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrNeighborInterfaceID = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrNeighborTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrNeighborIpAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrNeighborInterfaceID.Decode(vb)
+						dv, dErr := MtxrNeighborIpAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrNeighborInterfaceID = dv
-							row.observed[0] |= 1 << 6
+							row.MtxrNeighborIpAddress = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case MtxrNeighborMacAddress.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrNeighborMacAddress.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrNeighborMacAddress = dv
+							row.observed[0] |= 1 << 1
+						}
+					}
+				case MtxrNeighborVersion.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrNeighborVersion.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrNeighborVersion = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case MtxrNeighborPlatform.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrNeighborPlatform.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrNeighborPlatform = dv
+							row.observed[0] |= 1 << 3
+						}
+					}
+				case MtxrNeighborIdentity.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrNeighborIdentity.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrNeighborIdentity = dv
+							row.observed[0] |= 1 << 4
+						}
+					}
+				case MtxrNeighborSoftwareID.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrNeighborSoftwareID.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrNeighborSoftwareID = dv
+							row.observed[0] |= 1 << 5
+						}
+					}
+				case MtxrNeighborInterfaceID.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrNeighborInterfaceID = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrNeighborInterfaceID.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrNeighborInterfaceID = dv
+								row.observed[0] |= 1 << 6
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -7660,35 +6827,43 @@ type mtxrNeighborTableT struct{}
 // MtxrNeighborTable is the descriptor for the mtxrNeighborTable table.
 var MtxrNeighborTable mtxrNeighborTableT
 
-// Walk launches a BulkWalk over mtxrNeighborTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrNeighborTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrNeighborTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrNeighborTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrNeighborTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrNeighborTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrNeighborTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrNeighborTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrNeighborTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrNeighborTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrNeighborTable", c)}
+		switch c.Key() {
+		case MtxrNeighborIpAddress.Key(), MtxrNeighborMacAddress.Key(), MtxrNeighborVersion.Key(), MtxrNeighborPlatform.Key(), MtxrNeighborIdentity.Key(), MtxrNeighborSoftwareID.Key(), MtxrNeighborInterfaceID.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrNeighborTable.Walk: column %s", c.OID()))
+			return &MtxrNeighborTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1))
-
 	return &MtxrNeighborTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -8261,1314 +7436,1251 @@ func (r MtxrInterfaceStatsTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrInterfaceStatsTableWalker is a table-aware walker over mtxrInterfaceStatsTable.
-// Construct via MtxrInterfaceStatsTable.Walk(ctx, sess, cols...).
+// MtxrInterfaceStatsTableWalker streams selected columns of mtxrInterfaceStatsTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrInterfaceStatsTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfaceStatsTableRow] {
 	return func(yield func(snmp.OID, MtxrInterfaceStatsTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrInterfaceStatsTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrInterfaceStatsTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrInterfaceStatsName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrInterfaceStatsName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsDriverRxBytes = uint64(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsDriverRxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsDriverRxBytes = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsDriverRxPackets = uint64(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsDriverRxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsDriverRxPackets = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsDriverTxBytes = uint64(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsDriverTxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsDriverTxBytes = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsDriverTxPackets = uint64(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsDriverTxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsDriverTxPackets = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx64 = uint64(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx64.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxRx64 = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx65To127 = uint64(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx65To127.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxRx65To127 = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx128To255 = uint64(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx128To255.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxRx128To255 = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 18:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx256To511 = uint64(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx256To511.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxRx256To511 = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 19:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx512To1023 = uint64(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx512To1023.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxRx512To1023 = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 20:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx1024To1518 = uint64(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx1024To1518.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxRx1024To1518 = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 21:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx1519ToMax = uint64(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx1519ToMax.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxRx1519ToMax = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 31:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxBytes = uint64(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxBytes = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				}
-			case 32:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxPackets = uint64(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxPackets = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				}
-			case 33:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxTooShort = uint64(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxTooShort.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxTooShort = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				}
-			case 34:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRx64 = uint64(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRx64.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRx64 = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 35:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRx65To127 = uint64(v)
-					row.observed[0] |= 1 << 16
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRx65To127.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRx65To127 = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-			case 36:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRx128To255 = uint64(v)
-					row.observed[0] |= 1 << 17
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRx128To255.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRx128To255 = dv
-							row.observed[0] |= 1 << 17
-						}
-					}
-				}
-			case 37:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRx256To511 = uint64(v)
-					row.observed[0] |= 1 << 18
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRx256To511.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRx256To511 = dv
-							row.observed[0] |= 1 << 18
-						}
-					}
-				}
-			case 38:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRx512To1023 = uint64(v)
-					row.observed[0] |= 1 << 19
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRx512To1023.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRx512To1023 = dv
-							row.observed[0] |= 1 << 19
-						}
-					}
-				}
-			case 39:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRx1024To1518 = uint64(v)
-					row.observed[0] |= 1 << 20
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRx1024To1518.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRx1024To1518 = dv
-							row.observed[0] |= 1 << 20
-						}
-					}
-				}
-			case 40:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRx1519ToMax = uint64(v)
-					row.observed[0] |= 1 << 21
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRx1519ToMax.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRx1519ToMax = dv
-							row.observed[0] |= 1 << 21
-						}
-					}
-				}
-			case 41:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxTooLong = uint64(v)
-					row.observed[0] |= 1 << 22
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxTooLong.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxTooLong = dv
-							row.observed[0] |= 1 << 22
-						}
-					}
-				}
-			case 42:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxBroadcast = uint64(v)
-					row.observed[0] |= 1 << 23
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxBroadcast.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxBroadcast = dv
-							row.observed[0] |= 1 << 23
-						}
-					}
-				}
-			case 43:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxPause = uint64(v)
-					row.observed[0] |= 1 << 24
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxPause.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxPause = dv
-							row.observed[0] |= 1 << 24
-						}
-					}
-				}
-			case 44:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxMulticast = uint64(v)
-					row.observed[0] |= 1 << 25
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxMulticast.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxMulticast = dv
-							row.observed[0] |= 1 << 25
-						}
-					}
-				}
-			case 45:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxFCSError = uint64(v)
-					row.observed[0] |= 1 << 26
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxFCSError.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxFCSError = dv
-							row.observed[0] |= 1 << 26
-						}
-					}
-				}
-			case 46:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxAlignError = uint64(v)
-					row.observed[0] |= 1 << 27
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxAlignError.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxAlignError = dv
-							row.observed[0] |= 1 << 27
-						}
-					}
-				}
-			case 47:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxFragment = uint64(v)
-					row.observed[0] |= 1 << 28
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxFragment.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxFragment = dv
-							row.observed[0] |= 1 << 28
-						}
-					}
-				}
-			case 48:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxOverflow = uint64(v)
-					row.observed[0] |= 1 << 29
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxOverflow.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxOverflow = dv
-							row.observed[0] |= 1 << 29
-						}
-					}
-				}
-			case 49:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxControl = uint64(v)
-					row.observed[0] |= 1 << 30
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxControl.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxControl = dv
-							row.observed[0] |= 1 << 30
-						}
-					}
-				}
-			case 50:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxUnknownOp = uint64(v)
-					row.observed[0] |= 1 << 31
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxUnknownOp.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxUnknownOp = dv
-							row.observed[0] |= 1 << 31
-						}
-					}
-				}
-			case 51:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxLengthError = uint64(v)
-					row.observed[0] |= 1 << 32
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxLengthError.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxLengthError = dv
-							row.observed[0] |= 1 << 32
-						}
-					}
-				}
-			case 52:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxCodeError = uint64(v)
-					row.observed[0] |= 1 << 33
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxCodeError.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxCodeError = dv
-							row.observed[0] |= 1 << 33
-						}
-					}
-				}
-			case 53:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxCarrierError = uint64(v)
-					row.observed[0] |= 1 << 34
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxCarrierError.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxCarrierError = dv
-							row.observed[0] |= 1 << 34
-						}
-					}
-				}
-			case 54:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxJabber = uint64(v)
-					row.observed[0] |= 1 << 35
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxJabber.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxJabber = dv
-							row.observed[0] |= 1 << 35
-						}
-					}
-				}
-			case 55:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsRxDrop = uint64(v)
-					row.observed[0] |= 1 << 36
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsRxDrop.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsRxDrop = dv
-							row.observed[0] |= 1 << 36
-						}
-					}
-				}
-			case 61:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxBytes = uint64(v)
-					row.observed[0] |= 1 << 37
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxBytes = dv
-							row.observed[0] |= 1 << 37
-						}
-					}
-				}
-			case 62:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxPackets = uint64(v)
-					row.observed[0] |= 1 << 38
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxPackets = dv
-							row.observed[0] |= 1 << 38
-						}
-					}
-				}
-			case 63:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxTooShort = uint64(v)
-					row.observed[0] |= 1 << 39
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxTooShort.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxTooShort = dv
-							row.observed[0] |= 1 << 39
-						}
-					}
-				}
-			case 64:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTx64 = uint64(v)
-					row.observed[0] |= 1 << 40
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTx64.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTx64 = dv
-							row.observed[0] |= 1 << 40
-						}
-					}
-				}
-			case 65:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTx65To127 = uint64(v)
-					row.observed[0] |= 1 << 41
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTx65To127.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTx65To127 = dv
-							row.observed[0] |= 1 << 41
-						}
-					}
-				}
-			case 66:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTx128To255 = uint64(v)
-					row.observed[0] |= 1 << 42
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTx128To255.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTx128To255 = dv
-							row.observed[0] |= 1 << 42
-						}
-					}
-				}
-			case 67:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTx256To511 = uint64(v)
-					row.observed[0] |= 1 << 43
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTx256To511.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTx256To511 = dv
-							row.observed[0] |= 1 << 43
-						}
-					}
-				}
-			case 68:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTx512To1023 = uint64(v)
-					row.observed[0] |= 1 << 44
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTx512To1023.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTx512To1023 = dv
-							row.observed[0] |= 1 << 44
-						}
-					}
-				}
-			case 69:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTx1024To1518 = uint64(v)
-					row.observed[0] |= 1 << 45
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTx1024To1518.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTx1024To1518 = dv
-							row.observed[0] |= 1 << 45
-						}
-					}
-				}
-			case 70:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTx1519ToMax = uint64(v)
-					row.observed[0] |= 1 << 46
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTx1519ToMax.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTx1519ToMax = dv
-							row.observed[0] |= 1 << 46
-						}
-					}
-				}
-			case 71:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxTooLong = uint64(v)
-					row.observed[0] |= 1 << 47
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxTooLong.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxTooLong = dv
-							row.observed[0] |= 1 << 47
-						}
-					}
-				}
-			case 72:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxBroadcast = uint64(v)
-					row.observed[0] |= 1 << 48
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxBroadcast.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxBroadcast = dv
-							row.observed[0] |= 1 << 48
-						}
-					}
-				}
-			case 73:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxPause = uint64(v)
-					row.observed[0] |= 1 << 49
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxPause.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxPause = dv
-							row.observed[0] |= 1 << 49
-						}
-					}
-				}
-			case 74:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxMulticast = uint64(v)
-					row.observed[0] |= 1 << 50
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxMulticast.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxMulticast = dv
-							row.observed[0] |= 1 << 50
-						}
-					}
-				}
-			case 75:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxUnderrun = uint64(v)
-					row.observed[0] |= 1 << 51
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxUnderrun.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxUnderrun = dv
-							row.observed[0] |= 1 << 51
-						}
-					}
-				}
-			case 76:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxCollision = uint64(v)
-					row.observed[0] |= 1 << 52
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxCollision.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxCollision = dv
-							row.observed[0] |= 1 << 52
-						}
-					}
-				}
-			case 77:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxExcessiveCollision = uint64(v)
-					row.observed[0] |= 1 << 53
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxExcessiveCollision.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxExcessiveCollision = dv
-							row.observed[0] |= 1 << 53
-						}
-					}
-				}
-			case 78:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxMultipleCollision = uint64(v)
-					row.observed[0] |= 1 << 54
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxMultipleCollision.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxMultipleCollision = dv
-							row.observed[0] |= 1 << 54
-						}
-					}
-				}
-			case 79:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxSingleCollision = uint64(v)
-					row.observed[0] |= 1 << 55
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxSingleCollision.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxSingleCollision = dv
-							row.observed[0] |= 1 << 55
-						}
-					}
-				}
-			case 80:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxExcessiveDeferred = uint64(v)
-					row.observed[0] |= 1 << 56
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxExcessiveDeferred.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxExcessiveDeferred = dv
-							row.observed[0] |= 1 << 56
-						}
-					}
-				}
-			case 81:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxDeferred = uint64(v)
-					row.observed[0] |= 1 << 57
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxDeferred.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxDeferred = dv
-							row.observed[0] |= 1 << 57
-						}
-					}
-				}
-			case 82:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxLateCollision = uint64(v)
-					row.observed[0] |= 1 << 58
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxLateCollision.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxLateCollision = dv
-							row.observed[0] |= 1 << 58
-						}
-					}
-				}
-			case 83:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxTotalCollision = uint64(v)
-					row.observed[0] |= 1 << 59
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxTotalCollision.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxTotalCollision = dv
-							row.observed[0] |= 1 << 59
-						}
-					}
-				}
-			case 84:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxPauseHonored = uint64(v)
-					row.observed[0] |= 1 << 60
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxPauseHonored.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxPauseHonored = dv
-							row.observed[0] |= 1 << 60
-						}
-					}
-				}
-			case 85:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxDrop = uint64(v)
-					row.observed[0] |= 1 << 61
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxDrop.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxDrop = dv
-							row.observed[0] |= 1 << 61
-						}
-					}
-				}
-			case 86:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxJabber = uint64(v)
-					row.observed[0] |= 1 << 62
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxJabber.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxJabber = dv
-							row.observed[0] |= 1 << 62
-						}
-					}
-				}
-			case 87:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxFCSError = uint64(v)
-					row.observed[0] |= 1 << 63
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxFCSError.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsTxFCSError = dv
-							row.observed[0] |= 1 << 63
-						}
-					}
-				}
-			case 88:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxControl = uint64(v)
-					row.observed[1] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrInterfaceStatsTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrInterfaceStatsName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrInterfaceStatsTxControl.Decode(vb)
+						dv, dErr := MtxrInterfaceStatsName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrInterfaceStatsTxControl = dv
-							row.observed[1] |= 1 << 0
+							row.MtxrInterfaceStatsName = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 89:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxFragment = uint64(v)
-					row.observed[1] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrInterfaceStatsDriverRxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsDriverRxBytes = uint64(v)
+						row.observed[0] |= 1 << 1
 					} else {
-						dv, dErr := MtxrInterfaceStatsTxFragment.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrInterfaceStatsTxFragment = dv
-							row.observed[1] |= 1 << 1
+							dv, dErr := MtxrInterfaceStatsDriverRxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsDriverRxBytes = dv
+								row.observed[0] |= 1 << 1
+							}
 						}
 					}
-				}
-			case 90:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.MtxrInterfaceStatsLinkDowns = uint32(v)
-					row.observed[1] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsLinkDowns.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+				case MtxrInterfaceStatsDriverRxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsDriverRxPackets = uint64(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrInterfaceStatsLinkDowns = dv
-							row.observed[1] |= 1 << 2
-						}
+							dv, dErr := MtxrInterfaceStatsDriverRxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsDriverRxPackets = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
 					}
-				}
-			case 91:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrInterfaceStatsTxRx1024ToMax = uint64(v)
-					row.observed[1] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsTxRx1024ToMax.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+				case MtxrInterfaceStatsDriverTxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsDriverTxBytes = uint64(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrInterfaceStatsTxRx1024ToMax = dv
-							row.observed[1] |= 1 << 3
-						}
+							dv, dErr := MtxrInterfaceStatsDriverTxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsDriverTxBytes = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
 					}
+				case MtxrInterfaceStatsDriverTxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsDriverTxPackets = uint64(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsDriverTxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsDriverTxPackets = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx64.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx64 = uint64(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx64.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx64 = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx65To127.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx65To127 = uint64(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx65To127.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx65To127 = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx128To255.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx128To255 = uint64(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx128To255.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx128To255 = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx256To511.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx256To511 = uint64(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx256To511.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx256To511 = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx512To1023.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx512To1023 = uint64(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx512To1023.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx512To1023 = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx1024To1518.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx1024To1518 = uint64(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx1024To1518.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx1024To1518 = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx1519ToMax.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx1519ToMax = uint64(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx1519ToMax.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx1519ToMax = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxBytes = uint64(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxBytes = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxPackets = uint64(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxPackets = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxTooShort.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxTooShort = uint64(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxTooShort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxTooShort = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case MtxrInterfaceStatsRx64.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRx64 = uint64(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRx64.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRx64 = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case MtxrInterfaceStatsRx65To127.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRx65To127 = uint64(v)
+						row.observed[0] |= 1 << 16
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRx65To127.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRx65To127 = dv
+								row.observed[0] |= 1 << 16
+							}
+						}
+					}
+				case MtxrInterfaceStatsRx128To255.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRx128To255 = uint64(v)
+						row.observed[0] |= 1 << 17
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRx128To255.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRx128To255 = dv
+								row.observed[0] |= 1 << 17
+							}
+						}
+					}
+				case MtxrInterfaceStatsRx256To511.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRx256To511 = uint64(v)
+						row.observed[0] |= 1 << 18
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRx256To511.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRx256To511 = dv
+								row.observed[0] |= 1 << 18
+							}
+						}
+					}
+				case MtxrInterfaceStatsRx512To1023.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRx512To1023 = uint64(v)
+						row.observed[0] |= 1 << 19
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRx512To1023.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRx512To1023 = dv
+								row.observed[0] |= 1 << 19
+							}
+						}
+					}
+				case MtxrInterfaceStatsRx1024To1518.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRx1024To1518 = uint64(v)
+						row.observed[0] |= 1 << 20
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRx1024To1518.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRx1024To1518 = dv
+								row.observed[0] |= 1 << 20
+							}
+						}
+					}
+				case MtxrInterfaceStatsRx1519ToMax.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRx1519ToMax = uint64(v)
+						row.observed[0] |= 1 << 21
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRx1519ToMax.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRx1519ToMax = dv
+								row.observed[0] |= 1 << 21
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxTooLong.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxTooLong = uint64(v)
+						row.observed[0] |= 1 << 22
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxTooLong.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxTooLong = dv
+								row.observed[0] |= 1 << 22
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxBroadcast.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxBroadcast = uint64(v)
+						row.observed[0] |= 1 << 23
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxBroadcast.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxBroadcast = dv
+								row.observed[0] |= 1 << 23
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxPause.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxPause = uint64(v)
+						row.observed[0] |= 1 << 24
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxPause.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxPause = dv
+								row.observed[0] |= 1 << 24
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxMulticast.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxMulticast = uint64(v)
+						row.observed[0] |= 1 << 25
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxMulticast.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxMulticast = dv
+								row.observed[0] |= 1 << 25
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxFCSError.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxFCSError = uint64(v)
+						row.observed[0] |= 1 << 26
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxFCSError.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxFCSError = dv
+								row.observed[0] |= 1 << 26
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxAlignError.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxAlignError = uint64(v)
+						row.observed[0] |= 1 << 27
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxAlignError.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxAlignError = dv
+								row.observed[0] |= 1 << 27
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxFragment.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxFragment = uint64(v)
+						row.observed[0] |= 1 << 28
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxFragment.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxFragment = dv
+								row.observed[0] |= 1 << 28
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxOverflow.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxOverflow = uint64(v)
+						row.observed[0] |= 1 << 29
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxOverflow.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxOverflow = dv
+								row.observed[0] |= 1 << 29
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxControl.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxControl = uint64(v)
+						row.observed[0] |= 1 << 30
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxControl.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxControl = dv
+								row.observed[0] |= 1 << 30
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxUnknownOp.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxUnknownOp = uint64(v)
+						row.observed[0] |= 1 << 31
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxUnknownOp.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxUnknownOp = dv
+								row.observed[0] |= 1 << 31
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxLengthError.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxLengthError = uint64(v)
+						row.observed[0] |= 1 << 32
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxLengthError.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxLengthError = dv
+								row.observed[0] |= 1 << 32
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxCodeError.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxCodeError = uint64(v)
+						row.observed[0] |= 1 << 33
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxCodeError.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxCodeError = dv
+								row.observed[0] |= 1 << 33
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxCarrierError.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxCarrierError = uint64(v)
+						row.observed[0] |= 1 << 34
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxCarrierError.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxCarrierError = dv
+								row.observed[0] |= 1 << 34
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxJabber.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxJabber = uint64(v)
+						row.observed[0] |= 1 << 35
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxJabber.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxJabber = dv
+								row.observed[0] |= 1 << 35
+							}
+						}
+					}
+				case MtxrInterfaceStatsRxDrop.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsRxDrop = uint64(v)
+						row.observed[0] |= 1 << 36
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsRxDrop.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsRxDrop = dv
+								row.observed[0] |= 1 << 36
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxBytes = uint64(v)
+						row.observed[0] |= 1 << 37
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxBytes = dv
+								row.observed[0] |= 1 << 37
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxPackets = uint64(v)
+						row.observed[0] |= 1 << 38
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxPackets = dv
+								row.observed[0] |= 1 << 38
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxTooShort.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxTooShort = uint64(v)
+						row.observed[0] |= 1 << 39
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxTooShort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxTooShort = dv
+								row.observed[0] |= 1 << 39
+							}
+						}
+					}
+				case MtxrInterfaceStatsTx64.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTx64 = uint64(v)
+						row.observed[0] |= 1 << 40
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTx64.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTx64 = dv
+								row.observed[0] |= 1 << 40
+							}
+						}
+					}
+				case MtxrInterfaceStatsTx65To127.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTx65To127 = uint64(v)
+						row.observed[0] |= 1 << 41
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTx65To127.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTx65To127 = dv
+								row.observed[0] |= 1 << 41
+							}
+						}
+					}
+				case MtxrInterfaceStatsTx128To255.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTx128To255 = uint64(v)
+						row.observed[0] |= 1 << 42
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTx128To255.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTx128To255 = dv
+								row.observed[0] |= 1 << 42
+							}
+						}
+					}
+				case MtxrInterfaceStatsTx256To511.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTx256To511 = uint64(v)
+						row.observed[0] |= 1 << 43
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTx256To511.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTx256To511 = dv
+								row.observed[0] |= 1 << 43
+							}
+						}
+					}
+				case MtxrInterfaceStatsTx512To1023.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTx512To1023 = uint64(v)
+						row.observed[0] |= 1 << 44
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTx512To1023.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTx512To1023 = dv
+								row.observed[0] |= 1 << 44
+							}
+						}
+					}
+				case MtxrInterfaceStatsTx1024To1518.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTx1024To1518 = uint64(v)
+						row.observed[0] |= 1 << 45
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTx1024To1518.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTx1024To1518 = dv
+								row.observed[0] |= 1 << 45
+							}
+						}
+					}
+				case MtxrInterfaceStatsTx1519ToMax.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTx1519ToMax = uint64(v)
+						row.observed[0] |= 1 << 46
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTx1519ToMax.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTx1519ToMax = dv
+								row.observed[0] |= 1 << 46
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxTooLong.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxTooLong = uint64(v)
+						row.observed[0] |= 1 << 47
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxTooLong.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxTooLong = dv
+								row.observed[0] |= 1 << 47
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxBroadcast.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxBroadcast = uint64(v)
+						row.observed[0] |= 1 << 48
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxBroadcast.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxBroadcast = dv
+								row.observed[0] |= 1 << 48
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxPause.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxPause = uint64(v)
+						row.observed[0] |= 1 << 49
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxPause.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxPause = dv
+								row.observed[0] |= 1 << 49
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxMulticast.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxMulticast = uint64(v)
+						row.observed[0] |= 1 << 50
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxMulticast.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxMulticast = dv
+								row.observed[0] |= 1 << 50
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxUnderrun.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxUnderrun = uint64(v)
+						row.observed[0] |= 1 << 51
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxUnderrun.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxUnderrun = dv
+								row.observed[0] |= 1 << 51
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxCollision.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxCollision = uint64(v)
+						row.observed[0] |= 1 << 52
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxCollision.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxCollision = dv
+								row.observed[0] |= 1 << 52
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxExcessiveCollision.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxExcessiveCollision = uint64(v)
+						row.observed[0] |= 1 << 53
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxExcessiveCollision.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxExcessiveCollision = dv
+								row.observed[0] |= 1 << 53
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxMultipleCollision.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxMultipleCollision = uint64(v)
+						row.observed[0] |= 1 << 54
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxMultipleCollision.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxMultipleCollision = dv
+								row.observed[0] |= 1 << 54
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxSingleCollision.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxSingleCollision = uint64(v)
+						row.observed[0] |= 1 << 55
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxSingleCollision.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxSingleCollision = dv
+								row.observed[0] |= 1 << 55
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxExcessiveDeferred.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxExcessiveDeferred = uint64(v)
+						row.observed[0] |= 1 << 56
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxExcessiveDeferred.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxExcessiveDeferred = dv
+								row.observed[0] |= 1 << 56
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxDeferred.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxDeferred = uint64(v)
+						row.observed[0] |= 1 << 57
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxDeferred.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxDeferred = dv
+								row.observed[0] |= 1 << 57
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxLateCollision.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxLateCollision = uint64(v)
+						row.observed[0] |= 1 << 58
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxLateCollision.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxLateCollision = dv
+								row.observed[0] |= 1 << 58
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxTotalCollision.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxTotalCollision = uint64(v)
+						row.observed[0] |= 1 << 59
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxTotalCollision.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxTotalCollision = dv
+								row.observed[0] |= 1 << 59
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxPauseHonored.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxPauseHonored = uint64(v)
+						row.observed[0] |= 1 << 60
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxPauseHonored.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxPauseHonored = dv
+								row.observed[0] |= 1 << 60
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxDrop.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxDrop = uint64(v)
+						row.observed[0] |= 1 << 61
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxDrop.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxDrop = dv
+								row.observed[0] |= 1 << 61
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxJabber.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxJabber = uint64(v)
+						row.observed[0] |= 1 << 62
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxJabber.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxJabber = dv
+								row.observed[0] |= 1 << 62
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxFCSError.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxFCSError = uint64(v)
+						row.observed[0] |= 1 << 63
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxFCSError.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxFCSError = dv
+								row.observed[0] |= 1 << 63
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxControl.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxControl = uint64(v)
+						row.observed[1] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxControl.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxControl = dv
+								row.observed[1] |= 1 << 0
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxFragment.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxFragment = uint64(v)
+						row.observed[1] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxFragment.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxFragment = dv
+								row.observed[1] |= 1 << 1
+							}
+						}
+					}
+				case MtxrInterfaceStatsLinkDowns.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.MtxrInterfaceStatsLinkDowns = uint32(v)
+						row.observed[1] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsLinkDowns.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsLinkDowns = dv
+								row.observed[1] |= 1 << 2
+							}
+						}
+					}
+				case MtxrInterfaceStatsTxRx1024ToMax.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrInterfaceStatsTxRx1024ToMax = uint64(v)
+						row.observed[1] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrInterfaceStatsTxRx1024ToMax.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrInterfaceStatsTxRx1024ToMax = dv
+								row.observed[1] |= 1 << 3
+							}
+						}
+					}
+				}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -9587,35 +8699,43 @@ type mtxrInterfaceStatsTableT struct{}
 // MtxrInterfaceStatsTable is the descriptor for the mtxrInterfaceStatsTable table.
 var MtxrInterfaceStatsTable mtxrInterfaceStatsTableT
 
-// Walk launches a BulkWalk over mtxrInterfaceStatsTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrInterfaceStatsTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrInterfaceStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrInterfaceStatsTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrInterfaceStatsTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrInterfaceStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrInterfaceStatsTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrInterfaceStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrInterfaceStatsTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrInterfaceStatsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrInterfaceStatsTable", c)}
+		switch c.Key() {
+		case MtxrInterfaceStatsName.Key(), MtxrInterfaceStatsDriverRxBytes.Key(), MtxrInterfaceStatsDriverRxPackets.Key(), MtxrInterfaceStatsDriverTxBytes.Key(), MtxrInterfaceStatsDriverTxPackets.Key(), MtxrInterfaceStatsTxRx64.Key(), MtxrInterfaceStatsTxRx65To127.Key(), MtxrInterfaceStatsTxRx128To255.Key(), MtxrInterfaceStatsTxRx256To511.Key(), MtxrInterfaceStatsTxRx512To1023.Key(), MtxrInterfaceStatsTxRx1024To1518.Key(), MtxrInterfaceStatsTxRx1519ToMax.Key(), MtxrInterfaceStatsRxBytes.Key(), MtxrInterfaceStatsRxPackets.Key(), MtxrInterfaceStatsRxTooShort.Key(), MtxrInterfaceStatsRx64.Key(), MtxrInterfaceStatsRx65To127.Key(), MtxrInterfaceStatsRx128To255.Key(), MtxrInterfaceStatsRx256To511.Key(), MtxrInterfaceStatsRx512To1023.Key(), MtxrInterfaceStatsRx1024To1518.Key(), MtxrInterfaceStatsRx1519ToMax.Key(), MtxrInterfaceStatsRxTooLong.Key(), MtxrInterfaceStatsRxBroadcast.Key(), MtxrInterfaceStatsRxPause.Key(), MtxrInterfaceStatsRxMulticast.Key(), MtxrInterfaceStatsRxFCSError.Key(), MtxrInterfaceStatsRxAlignError.Key(), MtxrInterfaceStatsRxFragment.Key(), MtxrInterfaceStatsRxOverflow.Key(), MtxrInterfaceStatsRxControl.Key(), MtxrInterfaceStatsRxUnknownOp.Key(), MtxrInterfaceStatsRxLengthError.Key(), MtxrInterfaceStatsRxCodeError.Key(), MtxrInterfaceStatsRxCarrierError.Key(), MtxrInterfaceStatsRxJabber.Key(), MtxrInterfaceStatsRxDrop.Key(), MtxrInterfaceStatsTxBytes.Key(), MtxrInterfaceStatsTxPackets.Key(), MtxrInterfaceStatsTxTooShort.Key(), MtxrInterfaceStatsTx64.Key(), MtxrInterfaceStatsTx65To127.Key(), MtxrInterfaceStatsTx128To255.Key(), MtxrInterfaceStatsTx256To511.Key(), MtxrInterfaceStatsTx512To1023.Key(), MtxrInterfaceStatsTx1024To1518.Key(), MtxrInterfaceStatsTx1519ToMax.Key(), MtxrInterfaceStatsTxTooLong.Key(), MtxrInterfaceStatsTxBroadcast.Key(), MtxrInterfaceStatsTxPause.Key(), MtxrInterfaceStatsTxMulticast.Key(), MtxrInterfaceStatsTxUnderrun.Key(), MtxrInterfaceStatsTxCollision.Key(), MtxrInterfaceStatsTxExcessiveCollision.Key(), MtxrInterfaceStatsTxMultipleCollision.Key(), MtxrInterfaceStatsTxSingleCollision.Key(), MtxrInterfaceStatsTxExcessiveDeferred.Key(), MtxrInterfaceStatsTxDeferred.Key(), MtxrInterfaceStatsTxLateCollision.Key(), MtxrInterfaceStatsTxTotalCollision.Key(), MtxrInterfaceStatsTxPauseHonored.Key(), MtxrInterfaceStatsTxDrop.Key(), MtxrInterfaceStatsTxJabber.Key(), MtxrInterfaceStatsTxFCSError.Key(), MtxrInterfaceStatsTxControl.Key(), MtxrInterfaceStatsTxFragment.Key(), MtxrInterfaceStatsLinkDowns.Key(), MtxrInterfaceStatsTxRx1024ToMax.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrInterfaceStatsTable.Walk: column %s", c.OID()))
+			return &MtxrInterfaceStatsTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1))
-
 	return &MtxrInterfaceStatsTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -9691,180 +8811,117 @@ func (r MtxrPOETableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrPOETableWalker is a table-aware walker over mtxrPOETable.
-// Construct via MtxrPOETable.Walk(ctx, sess, cols...).
+// MtxrPOETableWalker streams selected columns of mtxrPOETable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrPOETableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrPOETableWalker) Iter() iter.Seq2[snmp.OID, MtxrPOETableRow] {
 	return func(yield func(snmp.OID, MtxrPOETableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrPOETableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrPOETableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrPOEName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrPOEName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrPOEStatus = MtxrPOEStatusValue(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrPOETableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrPOEName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrPOEStatus.Decode(vb)
+						dv, dErr := MtxrPOEName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrPOEStatus = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrPOEName = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case MtxrPOEStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrPOEStatus = MtxrPOEStatusValue(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrPOEStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrPOEStatus = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrPOEVoltage.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrPOEVoltage = int32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrPOEVoltage.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrPOEVoltage = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrPOECurrent.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrPOECurrent = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrPOECurrent.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrPOECurrent = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrPOEPower.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrPOEPower = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrPOEPower.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrPOEPower = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrPOEVoltage = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrPOEVoltage.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrPOEVoltage = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrPOECurrent = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrPOECurrent.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrPOECurrent = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrPOEPower = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrPOEPower.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrPOEPower = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -9883,35 +8940,43 @@ type mtxrPOETableT struct{}
 // MtxrPOETable is the descriptor for the mtxrPOETable table.
 var MtxrPOETable mtxrPOETableT
 
-// Walk launches a BulkWalk over mtxrPOETable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrPOETable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrPOETableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPOETableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrPOETableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrPOETableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPOETableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrPOETableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrPOETableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrPOETableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrPOETable", c)}
+		switch c.Key() {
+		case MtxrPOEName.Key(), MtxrPOEStatus.Key(), MtxrPOEVoltage.Key(), MtxrPOECurrent.Key(), MtxrPOEPower.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrPOETable.Walk: column %s", c.OID()))
+			return &MtxrPOETableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1))
-
 	return &MtxrPOETableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -10142,482 +9207,419 @@ func (r MtxrLTEModemTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrLTEModemTableWalker is a table-aware walker over mtxrLTEModemTable.
-// Construct via MtxrLTEModemTable.Walk(ctx, sess, cols...).
+// MtxrLTEModemTableWalker streams selected columns of mtxrLTEModemTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrLTEModemTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableRow] {
 	return func(yield func(snmp.OID, MtxrLTEModemTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrLTEModemTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrLTEModemTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemSignalRSSI = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrLTEModemTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrLTEModemSignalRSSI.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemSignalRSSI = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemSignalRSSI.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemSignalRSSI = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrLTEModemSignalRSRQ.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemSignalRSRQ = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemSignalRSRQ.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemSignalRSRQ = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrLTEModemSignalRSRP.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemSignalRSRP = int32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemSignalRSRP.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemSignalRSRP = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrLTEModemCellId.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemCellId = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemCellId.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemCellId = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrLTEModemAccessTechnology.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemAccessTechnology = MtxrLTEModemAccessTechnologyValue(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemAccessTechnology.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemAccessTechnology = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrLTEModemSignalSINR.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemSignalSINR = int32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemSignalSINR.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemSignalSINR = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrLTEModemEnbId.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemEnbId = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemEnbId.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemEnbId = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrLTEModemSectorId.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemSectorId = int32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemSectorId.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemSectorId = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrLTEModemLac.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemLac = int32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemLac.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemLac = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrLTEModemIMEI.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemSignalRSSI.Decode(vb)
+						dv, dErr := MtxrLTEModemIMEI.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemSignalRSSI = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrLTEModemIMEI = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemSignalRSRQ = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case MtxrLTEModemIMSI.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemSignalRSRQ.Decode(vb)
+						dv, dErr := MtxrLTEModemIMSI.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemSignalRSRQ = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrLTEModemIMSI = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemSignalRSRP = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case MtxrLTEModemUICC.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemSignalRSRP.Decode(vb)
+						dv, dErr := MtxrLTEModemUICC.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemSignalRSRP = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrLTEModemUICC = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemCellId = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case MtxrLTEModemRAT.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemCellId.Decode(vb)
+						dv, dErr := MtxrLTEModemRAT.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemCellId = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrLTEModemRAT = dv
+							row.observed[0] |= 1 << 12
 						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemAccessTechnology = MtxrLTEModemAccessTechnologyValue(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case MtxrLTEModemPrimaryBand.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemAccessTechnology.Decode(vb)
+						dv, dErr := MtxrLTEModemPrimaryBand.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemAccessTechnology = dv
-							row.observed[0] |= 1 << 4
+							row.MtxrLTEModemPrimaryBand = dv
+							row.observed[0] |= 1 << 13
 						}
 					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemSignalSINR = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
+				case MtxrLTEModemSessionUptime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.MtxrLTEModemSessionUptime = uint32(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemSessionUptime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemSessionUptime = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case MtxrLTEModemRegStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemSignalSINR.Decode(vb)
+						dv, dErr := MtxrLTEModemRegStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemSignalSINR = dv
-							row.observed[0] |= 1 << 5
+							row.MtxrLTEModemRegStatus = dv
+							row.observed[0] |= 1 << 15
 						}
 					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemEnbId = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
+				case MtxrLTEModemPinStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemEnbId.Decode(vb)
+						dv, dErr := MtxrLTEModemPinStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemEnbId = dv
-							row.observed[0] |= 1 << 6
+							row.MtxrLTEModemPinStatus = dv
+							row.observed[0] |= 1 << 16
 						}
 					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemSectorId = int32(v)
-					row.observed[0] |= 1 << 7
-				} else {
+				case MtxrLTEModemModel.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemSectorId.Decode(vb)
+						dv, dErr := MtxrLTEModemModel.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemSectorId = dv
-							row.observed[0] |= 1 << 7
+							row.MtxrLTEModemModel = dv
+							row.observed[0] |= 1 << 17
 						}
 					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemLac = int32(v)
-					row.observed[0] |= 1 << 8
-				} else {
+				case MtxrLTEModemFirmware.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTEModemLac.Decode(vb)
+						dv, dErr := MtxrLTEModemFirmware.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTEModemLac = dv
-							row.observed[0] |= 1 << 8
+							row.MtxrLTEModemFirmware = dv
+							row.observed[0] |= 1 << 18
 						}
 					}
-				}
-			case 11:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemIMEI.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrLTEModemCQI.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemCQI = int32(v)
+						row.observed[0] |= 1 << 19
 					} else {
-						row.MtxrLTEModemIMEI = dv
-						row.observed[0] |= 1 << 9
-					}
-				}
-			case 12:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemIMSI.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTEModemIMSI = dv
-						row.observed[0] |= 1 << 10
-					}
-				}
-			case 13:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemUICC.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTEModemUICC = dv
-						row.observed[0] |= 1 << 11
-					}
-				}
-			case 14:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemRAT.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTEModemRAT = dv
-						row.observed[0] |= 1 << 12
-					}
-				}
-			case 15:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemPrimaryBand.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTEModemPrimaryBand = dv
-						row.observed[0] |= 1 << 13
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-					row.MtxrLTEModemSessionUptime = uint32(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemSessionUptime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrLTEModemSessionUptime = dv
-							row.observed[0] |= 1 << 14
+							dv, dErr := MtxrLTEModemCQI.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemCQI = dv
+								row.observed[0] |= 1 << 19
+							}
 						}
 					}
-				}
-			case 17:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemRegStatus.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrLTEModemNrRSRP.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemNrRSRP = int32(v)
+						row.observed[0] |= 1 << 20
 					} else {
-						row.MtxrLTEModemRegStatus = dv
-						row.observed[0] |= 1 << 15
-					}
-				}
-			case 18:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemPinStatus.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTEModemPinStatus = dv
-						row.observed[0] |= 1 << 16
-					}
-				}
-			case 19:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemModel.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTEModemModel = dv
-						row.observed[0] |= 1 << 17
-					}
-				}
-			case 20:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTEModemFirmware.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTEModemFirmware = dv
-						row.observed[0] |= 1 << 18
-					}
-				}
-			case 21:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemCQI = int32(v)
-					row.observed[0] |= 1 << 19
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemCQI.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrLTEModemCQI = dv
-							row.observed[0] |= 1 << 19
+							dv, dErr := MtxrLTEModemNrRSRP.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemNrRSRP = dv
+								row.observed[0] |= 1 << 20
+							}
+						}
+					}
+				case MtxrLTEModemNrRSRQ.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemNrRSRQ = int32(v)
+						row.observed[0] |= 1 << 21
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemNrRSRQ.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemNrRSRQ = dv
+								row.observed[0] |= 1 << 21
+							}
+						}
+					}
+				case MtxrLTEModemNrSINR.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemNrSINR = int32(v)
+						row.observed[0] |= 1 << 22
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemNrSINR.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemNrSINR = dv
+								row.observed[0] |= 1 << 22
+							}
+						}
+					}
+				case MtxrLTEModemSignalRSRQD10.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTEModemSignalRSRQD10 = int32(v)
+						row.observed[0] |= 1 << 23
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTEModemSignalRSRQD10.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTEModemSignalRSRQD10 = dv
+								row.observed[0] |= 1 << 23
+							}
 						}
 					}
 				}
-			case 22:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemNrRSRP = int32(v)
-					row.observed[0] |= 1 << 20
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemNrRSRP.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemNrRSRP = dv
-							row.observed[0] |= 1 << 20
-						}
-					}
-				}
-			case 23:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemNrRSRQ = int32(v)
-					row.observed[0] |= 1 << 21
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemNrRSRQ.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemNrRSRQ = dv
-							row.observed[0] |= 1 << 21
-						}
-					}
-				}
-			case 24:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemNrSINR = int32(v)
-					row.observed[0] |= 1 << 22
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemNrSINR.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemNrSINR = dv
-							row.observed[0] |= 1 << 22
-						}
-					}
-				}
-			case 25:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTEModemSignalRSRQD10 = int32(v)
-					row.observed[0] |= 1 << 23
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemSignalRSRQD10.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemSignalRSRQD10 = dv
-							row.observed[0] |= 1 << 23
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -10636,35 +9638,43 @@ type mtxrLTEModemTableT struct{}
 // MtxrLTEModemTable is the descriptor for the mtxrLTEModemTable table.
 var MtxrLTEModemTable mtxrLTEModemTableT
 
-// Walk launches a BulkWalk over mtxrLTEModemTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrLTEModemTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrLTEModemTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTEModemTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrLTEModemTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrLTEModemTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTEModemTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrLTEModemTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrLTEModemTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrLTEModemTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrLTEModemTable", c)}
+		switch c.Key() {
+		case MtxrLTEModemSignalRSSI.Key(), MtxrLTEModemSignalRSRQ.Key(), MtxrLTEModemSignalRSRP.Key(), MtxrLTEModemCellId.Key(), MtxrLTEModemAccessTechnology.Key(), MtxrLTEModemSignalSINR.Key(), MtxrLTEModemEnbId.Key(), MtxrLTEModemSectorId.Key(), MtxrLTEModemLac.Key(), MtxrLTEModemIMEI.Key(), MtxrLTEModemIMSI.Key(), MtxrLTEModemUICC.Key(), MtxrLTEModemRAT.Key(), MtxrLTEModemPrimaryBand.Key(), MtxrLTEModemSessionUptime.Key(), MtxrLTEModemRegStatus.Key(), MtxrLTEModemPinStatus.Key(), MtxrLTEModemModel.Key(), MtxrLTEModemFirmware.Key(), MtxrLTEModemCQI.Key(), MtxrLTEModemNrRSRP.Key(), MtxrLTEModemNrRSRQ.Key(), MtxrLTEModemNrSINR.Key(), MtxrLTEModemSignalRSRQD10.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrLTEModemTable.Walk: column %s", c.OID()))
+			return &MtxrLTEModemTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1))
-
 	return &MtxrLTEModemTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -10787,283 +9797,220 @@ func (r MtxrLTECarrierAggTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrLTECarrierAggTableWalker is a table-aware walker over mtxrLTECarrierAggTable.
-// Construct via MtxrLTECarrierAggTable.Walk(ctx, sess, cols...).
+// MtxrLTECarrierAggTableWalker streams selected columns of mtxrLTECarrierAggTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrLTECarrierAggTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrierAggTableRow] {
 	return func(yield func(snmp.OID, MtxrLTECarrierAggTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrLTECarrierAggTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrLTECarrierAggTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggBand = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrLTECarrierAggTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrLTECarrierAggBand.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggBand = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggBand.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggBand = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case MtxrLTECarrierAggEARFCN.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggEARFCN = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggEARFCN.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggEARFCN = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrLTECarrierAggBandwidth.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggBandwidth = int32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggBandwidth.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggBandwidth = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrLTECarrierAggPhyCellId.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggPhyCellId = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggPhyCellId.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggPhyCellId = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrLTECarrierAggRSSI.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggRSSI = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggRSSI.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggRSSI = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrLTECarrierAggRSRP.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggRSRP = int32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggRSRP.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggRSRP = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrLTECarrierAggRSRQ.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggRSRQ = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggRSRQ.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggRSRQ = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrLTECarrierAggSINR.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggSINR = int32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggSINR.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggSINR = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrLTECarrierAggSNR.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrLTECarrierAggSNR = int32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrLTECarrierAggSNR.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrLTECarrierAggSNR = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrLTECarrierAggNR.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTECarrierAggBand.Decode(vb)
+						dv, dErr := MtxrLTECarrierAggNR.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTECarrierAggBand = dv
-							row.observed[0] |= 1 << 0
+							row.MtxrLTECarrierAggNR = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggEARFCN = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case MtxrLTECarrierAggUplink.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrLTECarrierAggEARFCN.Decode(vb)
+						dv, dErr := MtxrLTECarrierAggUplink.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrLTECarrierAggEARFCN = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrLTECarrierAggUplink = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
 				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggBandwidth = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggBandwidth.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggBandwidth = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggPhyCellId = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggPhyCellId.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggPhyCellId = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggRSSI = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggRSSI.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggRSSI = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggRSRP = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggRSRP.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggRSRP = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggRSRQ = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggRSRQ.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggRSRQ = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggSINR = int32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggSINR.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggSINR = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrLTECarrierAggSNR = int32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggSNR.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggSNR = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 12:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTECarrierAggNR.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTECarrierAggNR = dv
-						row.observed[0] |= 1 << 9
-					}
-				}
-			case 13:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrLTECarrierAggUplink.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrLTECarrierAggUplink = dv
-						row.observed[0] |= 1 << 10
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -11082,35 +10029,43 @@ type mtxrLTECarrierAggTableT struct{}
 // MtxrLTECarrierAggTable is the descriptor for the mtxrLTECarrierAggTable table.
 var MtxrLTECarrierAggTable mtxrLTECarrierAggTableT
 
-// Walk launches a BulkWalk over mtxrLTECarrierAggTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrLTECarrierAggTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrLTECarrierAggTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTECarrierAggTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrLTECarrierAggTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrLTECarrierAggTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTECarrierAggTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrLTECarrierAggTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrLTECarrierAggTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrLTECarrierAggTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrLTECarrierAggTable", c)}
+		switch c.Key() {
+		case MtxrLTECarrierAggBand.Key(), MtxrLTECarrierAggEARFCN.Key(), MtxrLTECarrierAggBandwidth.Key(), MtxrLTECarrierAggPhyCellId.Key(), MtxrLTECarrierAggRSSI.Key(), MtxrLTECarrierAggRSRP.Key(), MtxrLTECarrierAggRSRQ.Key(), MtxrLTECarrierAggSINR.Key(), MtxrLTECarrierAggSNR.Key(), MtxrLTECarrierAggNR.Key(), MtxrLTECarrierAggUplink.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrLTECarrierAggTable.Walk: column %s", c.OID()))
+			return &MtxrLTECarrierAggTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1))
-
 	return &MtxrLTECarrierAggTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -11188,175 +10143,112 @@ func (r MtxrPartitionTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrPartitionTableWalker is a table-aware walker over mtxrPartitionTable.
-// Construct via MtxrPartitionTable.Walk(ctx, sess, cols...).
+// MtxrPartitionTableWalker streams selected columns of mtxrPartitionTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrPartitionTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, MtxrPartitionTableRow] {
 	return func(yield func(snmp.OID, MtxrPartitionTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrPartitionTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrPartitionTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrPartitionName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrPartitionName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrPartitionSize = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrPartitionTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrPartitionName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrPartitionSize.Decode(vb)
+						dv, dErr := MtxrPartitionName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrPartitionSize = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrPartitionName = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrPartitionVersion.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrPartitionSize.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrPartitionSize = int32(v)
+						row.observed[0] |= 1 << 1
 					} else {
-						row.MtxrPartitionVersion = dv
-						row.observed[0] |= 1 << 2
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrPartitionSize.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrPartitionSize = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrPartitionActive = BoolValue(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case MtxrPartitionVersion.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrPartitionActive.Decode(vb)
+						dv, dErr := MtxrPartitionVersion.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrPartitionActive = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrPartitionVersion = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrPartitionRunning = BoolValue(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrPartitionActive.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrPartitionActive = BoolValue(v)
+						row.observed[0] |= 1 << 3
 					} else {
-						dv, dErr := MtxrPartitionRunning.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrPartitionRunning = dv
-							row.observed[0] |= 1 << 4
+							dv, dErr := MtxrPartitionActive.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrPartitionActive = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrPartitionRunning.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrPartitionRunning = BoolValue(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrPartitionRunning.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrPartitionRunning = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -11375,35 +10267,43 @@ type mtxrPartitionTableT struct{}
 // MtxrPartitionTable is the descriptor for the mtxrPartitionTable table.
 var MtxrPartitionTable mtxrPartitionTableT
 
-// Walk launches a BulkWalk over mtxrPartitionTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrPartitionTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPartitionTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrPartitionTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPartitionTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrPartitionTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrPartitionTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrPartitionTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrPartitionTable", c)}
+		switch c.Key() {
+		case MtxrPartitionName.Key(), MtxrPartitionSize.Key(), MtxrPartitionVersion.Key(), MtxrPartitionActive.Key(), MtxrPartitionRunning.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrPartitionTable.Walk: column %s", c.OID()))
+			return &MtxrPartitionTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1))
-
 	return &MtxrPartitionTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -11441,108 +10341,45 @@ func (r MtxrScriptRunTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrScriptRunTableWalker is a table-aware walker over mtxrScriptRunTable.
-// Construct via MtxrScriptRunTable.Walk(ctx, sess, cols...).
+// MtxrScriptRunTableWalker streams selected columns of mtxrScriptRunTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrScriptRunTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrScriptRunTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptRunTableRow] {
 	return func(yield func(snmp.OID, MtxrScriptRunTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrScriptRunTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrScriptRunTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrScriptRunOutput.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrScriptRunTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrScriptRunOutput.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
 					} else {
-						row.MtxrScriptRunOutput = dv
-						row.observed[0] |= 1 << 0
+						dv, dErr := MtxrScriptRunOutput.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrScriptRunOutput = dv
+							row.observed[0] |= 1 << 0
+						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -11561,35 +10398,43 @@ type mtxrScriptRunTableT struct{}
 // MtxrScriptRunTable is the descriptor for the mtxrScriptRunTable table.
 var MtxrScriptRunTable mtxrScriptRunTableT
 
-// Walk launches a BulkWalk over mtxrScriptRunTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrScriptRunTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrScriptRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptRunTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrScriptRunTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrScriptRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptRunTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrScriptRunTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrScriptRunTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrScriptRunTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrScriptRunTable", c)}
+		switch c.Key() {
+		case MtxrScriptRunOutput.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrScriptRunTable.Walk: column %s", c.OID()))
+			return &MtxrScriptRunTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1))
-
 	return &MtxrScriptRunTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -11780,376 +10625,313 @@ func (r MtxrOpticalTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrOpticalTableWalker is a table-aware walker over mtxrOpticalTable.
-// Construct via MtxrOpticalTable.Walk(ctx, sess, cols...).
+// MtxrOpticalTableWalker streams selected columns of mtxrOpticalTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrOpticalTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow] {
 	return func(yield func(snmp.OID, MtxrOpticalTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1).WireBytes()
-		buffer := make(map[string]*MtxrOpticalTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrOpticalTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrOpticalName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrOpticalName = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrOpticalRxLoss = BoolValue(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrOpticalTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrOpticalName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrOpticalRxLoss.Decode(vb)
+						dv, dErr := MtxrOpticalName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrOpticalRxLoss = dv
-							row.observed[0] |= 1 << 1
+							row.MtxrOpticalName = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrOpticalTxFault = BoolValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case MtxrOpticalRxLoss.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrOpticalRxLoss = BoolValue(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalRxLoss.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalRxLoss = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case MtxrOpticalTxFault.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrOpticalTxFault = BoolValue(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalTxFault.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalTxFault = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrOpticalWavelength.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrOpticalWavelength = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalWavelength.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalWavelength = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrOpticalTemperature.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrOpticalTemperature = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalTemperature.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalTemperature = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrOpticalSupplyVoltage.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrOpticalSupplyVoltage = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalSupplyVoltage.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalSupplyVoltage = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrOpticalTxBiasCurrent.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrOpticalTxBiasCurrent = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalTxBiasCurrent.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalTxBiasCurrent = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrOpticalTxPower.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrOpticalTxPower = int32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalTxPower.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalTxPower = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrOpticalRxPower.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrOpticalRxPower = int32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalRxPower.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalRxPower = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrOpticalVendorName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrOpticalTxFault.Decode(vb)
+						dv, dErr := MtxrOpticalVendorName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrOpticalTxFault = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrOpticalVendorName = dv
+							row.observed[0] |= 1 << 9
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrOpticalWavelength = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case MtxrOpticalVendorSerial.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrOpticalWavelength.Decode(vb)
+						dv, dErr := MtxrOpticalVendorSerial.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrOpticalWavelength = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrOpticalVendorSerial = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrOpticalTemperature = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case MtxrOpticalModulePresent.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrOpticalModulePresent = BoolValue(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalModulePresent.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalModulePresent = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case MtxrOpticalVendorPartNumber.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrOpticalTemperature.Decode(vb)
+						dv, dErr := MtxrOpticalVendorPartNumber.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrOpticalTemperature = dv
-							row.observed[0] |= 1 << 4
+							row.MtxrOpticalVendorPartNumber = dv
+							row.observed[0] |= 1 << 12
 						}
 					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrOpticalSupplyVoltage = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
+				case MtxrOpticalType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrOpticalType = MtxrOpticalTypeValue(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalType = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case MtxrOpticalConnectorType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrOpticalConnectorType = MtxrOpticalConnectorTypeValue(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalConnectorType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalConnectorType = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case MtxrOpticalLinkLengthCopperOM4.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrOpticalLinkLengthCopperOM4 = uint32(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrOpticalLinkLengthCopperOM4.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrOpticalLinkLengthCopperOM4 = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case MtxrOpticalSupportedRates.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrOpticalSupplyVoltage.Decode(vb)
+						dv, dErr := MtxrOpticalSupportedRates.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrOpticalSupplyVoltage = dv
-							row.observed[0] |= 1 << 5
+							row.MtxrOpticalSupportedRates = dv
+							row.observed[0] |= 1 << 16
 						}
 					}
 				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrOpticalTxBiasCurrent = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalTxBiasCurrent.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalTxBiasCurrent = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrOpticalTxPower = int32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalTxPower.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalTxPower = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrOpticalRxPower = int32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalRxPower.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalRxPower = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 11:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrOpticalVendorName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrOpticalVendorName = dv
-						row.observed[0] |= 1 << 9
-					}
-				}
-			case 12:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrOpticalVendorSerial.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrOpticalVendorSerial = dv
-						row.observed[0] |= 1 << 10
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrOpticalModulePresent = BoolValue(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalModulePresent.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalModulePresent = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 14:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrOpticalVendorPartNumber.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrOpticalVendorPartNumber = dv
-						row.observed[0] |= 1 << 12
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrOpticalType = MtxrOpticalTypeValue(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalType = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrOpticalConnectorType = MtxrOpticalConnectorTypeValue(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalConnectorType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalConnectorType = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrOpticalLinkLengthCopperOM4 = uint32(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalLinkLengthCopperOM4.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalLinkLengthCopperOM4 = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 18:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrOpticalSupportedRates.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrOpticalSupportedRates = dv
-						row.observed[0] |= 1 << 16
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -12168,35 +10950,43 @@ type mtxrOpticalTableT struct{}
 // MtxrOpticalTable is the descriptor for the mtxrOpticalTable table.
 var MtxrOpticalTable mtxrOpticalTableT
 
-// Walk launches a BulkWalk over mtxrOpticalTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrOpticalTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrOpticalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrOpticalTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrOpticalTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrOpticalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrOpticalTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrOpticalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrOpticalTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrOpticalTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrOpticalTable", c)}
+		switch c.Key() {
+		case MtxrOpticalName.Key(), MtxrOpticalRxLoss.Key(), MtxrOpticalTxFault.Key(), MtxrOpticalWavelength.Key(), MtxrOpticalTemperature.Key(), MtxrOpticalSupplyVoltage.Key(), MtxrOpticalTxBiasCurrent.Key(), MtxrOpticalTxPower.Key(), MtxrOpticalRxPower.Key(), MtxrOpticalVendorName.Key(), MtxrOpticalVendorSerial.Key(), MtxrOpticalModulePresent.Key(), MtxrOpticalVendorPartNumber.Key(), MtxrOpticalType.Key(), MtxrOpticalConnectorType.Key(), MtxrOpticalLinkLengthCopperOM4.Key(), MtxrOpticalSupportedRates.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrOpticalTable.Walk: column %s", c.OID()))
+			return &MtxrOpticalTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1))
-
 	return &MtxrOpticalTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -12426,461 +11216,398 @@ func (r MtxrIkeSATableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrIkeSATableWalker is a table-aware walker over mtxrIkeSATable.
-// Construct via MtxrIkeSATable.Walk(ctx, sess, cols...).
+// MtxrIkeSATableWalker streams selected columns of mtxrIkeSATable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrIkeSATableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 	return func(yield func(snmp.OID, MtxrIkeSATableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1).WireBytes()
-		buffer := make(map[string]*MtxrIkeSATableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrIkeSATableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrIkeSAInitiatorCookie.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrIkeSAInitiatorCookie = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrIkeSAResponderCookie.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrIkeSAResponderCookie = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrIkeSAResponder = BoolValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrIkeSATableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrIkeSAInitiatorCookie.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrIkeSAResponder.Decode(vb)
+						dv, dErr := MtxrIkeSAInitiatorCookie.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrIkeSAResponder = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrIkeSAInitiatorCookie = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrIkeSANatt = BoolValue(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case MtxrIkeSAResponderCookie.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrIkeSANatt.Decode(vb)
+						dv, dErr := MtxrIkeSAResponderCookie.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrIkeSANatt = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrIkeSAResponderCookie = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrIkeSAVersion = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case MtxrIkeSAResponder.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrIkeSAResponder = BoolValue(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSAResponder.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSAResponder = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrIkeSANatt.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrIkeSANatt = BoolValue(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSANatt.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSANatt = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrIkeSAVersion.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrIkeSAVersion = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSAVersion.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSAVersion = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrIkeSAState.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrIkeSAState = MtxrIkeSAStateValue(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSAState.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSAState = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case MtxrIkeSAUptime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.MtxrIkeSAUptime = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSAUptime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSAUptime = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case MtxrIkeSASeen.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.MtxrIkeSASeen = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSASeen.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSASeen = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrIkeSAIdentity.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrIkeSAVersion.Decode(vb)
+						dv, dErr := MtxrIkeSAIdentity.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrIkeSAVersion = dv
-							row.observed[0] |= 1 << 4
+							row.MtxrIkeSAIdentity = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrIkeSAState = MtxrIkeSAStateValue(v)
-					row.observed[0] |= 1 << 5
-				} else {
+				case MtxrIkeSAPh2Count.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrIkeSAPh2Count = uint32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSAPh2Count.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSAPh2Count = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case MtxrIkeSALocalAddressType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrIkeSALocalAddressType = int32(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSALocalAddressType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSALocalAddressType = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case MtxrIkeSALocalAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrIkeSAState.Decode(vb)
+						dv, dErr := MtxrIkeSALocalAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrIkeSAState = dv
-							row.observed[0] |= 1 << 5
+							row.MtxrIkeSALocalAddress = dv
+							row.observed[0] |= 1 << 11
 						}
 					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-					row.MtxrIkeSAUptime = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
+				case MtxrIkeSALocalPort.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrIkeSALocalPort = uint32(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSALocalPort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSALocalPort = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case MtxrIkeSAPeerAddressType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrIkeSAPeerAddressType = int32(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSAPeerAddressType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSAPeerAddressType = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case MtxrIkeSAPeerAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrIkeSAUptime.Decode(vb)
+						dv, dErr := MtxrIkeSAPeerAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrIkeSAUptime = dv
-							row.observed[0] |= 1 << 6
+							row.MtxrIkeSAPeerAddress = dv
+							row.observed[0] |= 1 << 14
 						}
 					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-					row.MtxrIkeSASeen = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
+				case MtxrIkeSAPeerPort.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrIkeSAPeerPort = uint32(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSAPeerPort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSAPeerPort = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case MtxrIkeSADynamicAddressType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrIkeSADynamicAddressType = int32(v)
+						row.observed[0] |= 1 << 16
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrIkeSADynamicAddressType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSADynamicAddressType = dv
+								row.observed[0] |= 1 << 16
+							}
+						}
+					}
+				case MtxrIkeSADynamicAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrIkeSASeen.Decode(vb)
+						dv, dErr := MtxrIkeSADynamicAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrIkeSASeen = dv
-							row.observed[0] |= 1 << 7
+							row.MtxrIkeSADynamicAddress = dv
+							row.observed[0] |= 1 << 17
 						}
 					}
-				}
-			case 10:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrIkeSAIdentity.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrIkeSATxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrIkeSATxBytes = uint64(v)
+						row.observed[0] |= 1 << 18
 					} else {
-						row.MtxrIkeSAIdentity = dv
-						row.observed[0] |= 1 << 8
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrIkeSAPh2Count = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSAPh2Count.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrIkeSAPh2Count = dv
-							row.observed[0] |= 1 << 9
+							dv, dErr := MtxrIkeSATxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSATxBytes = dv
+								row.observed[0] |= 1 << 18
+							}
 						}
 					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrIkeSALocalAddressType = int32(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrIkeSARxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrIkeSARxBytes = uint64(v)
+						row.observed[0] |= 1 << 19
 					} else {
-						dv, dErr := MtxrIkeSALocalAddressType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrIkeSALocalAddressType = dv
-							row.observed[0] |= 1 << 10
+							dv, dErr := MtxrIkeSARxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSARxBytes = dv
+								row.observed[0] |= 1 << 19
+							}
 						}
 					}
-				}
-			case 13:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrIkeSALocalAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case MtxrIkeSATxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrIkeSATxPackets = uint64(v)
+						row.observed[0] |= 1 << 20
 					} else {
-						row.MtxrIkeSALocalAddress = dv
-						row.observed[0] |= 1 << 11
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrIkeSALocalPort = uint32(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSALocalPort.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrIkeSALocalPort = dv
-							row.observed[0] |= 1 << 12
+							dv, dErr := MtxrIkeSATxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSATxPackets = dv
+								row.observed[0] |= 1 << 20
+							}
 						}
 					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrIkeSAPeerAddressType = int32(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case MtxrIkeSARxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrIkeSARxPackets = uint64(v)
+						row.observed[0] |= 1 << 21
 					} else {
-						dv, dErr := MtxrIkeSAPeerAddressType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.MtxrIkeSAPeerAddressType = dv
-							row.observed[0] |= 1 << 13
+							dv, dErr := MtxrIkeSARxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrIkeSARxPackets = dv
+								row.observed[0] |= 1 << 21
+							}
 						}
 					}
 				}
-			case 16:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrIkeSAPeerAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrIkeSAPeerAddress = dv
-						row.observed[0] |= 1 << 14
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrIkeSAPeerPort = uint32(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSAPeerPort.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSAPeerPort = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 18:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrIkeSADynamicAddressType = int32(v)
-					row.observed[0] |= 1 << 16
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSADynamicAddressType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSADynamicAddressType = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-			case 19:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrIkeSADynamicAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrIkeSADynamicAddress = dv
-						row.observed[0] |= 1 << 17
-					}
-				}
-			case 20:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrIkeSATxBytes = uint64(v)
-					row.observed[0] |= 1 << 18
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSATxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSATxBytes = dv
-							row.observed[0] |= 1 << 18
-						}
-					}
-				}
-			case 21:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrIkeSARxBytes = uint64(v)
-					row.observed[0] |= 1 << 19
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSARxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSARxBytes = dv
-							row.observed[0] |= 1 << 19
-						}
-					}
-				}
-			case 22:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrIkeSATxPackets = uint64(v)
-					row.observed[0] |= 1 << 20
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSATxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSATxPackets = dv
-							row.observed[0] |= 1 << 20
-						}
-					}
-				}
-			case 23:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrIkeSARxPackets = uint64(v)
-					row.observed[0] |= 1 << 21
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSARxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSARxPackets = dv
-							row.observed[0] |= 1 << 21
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -12899,35 +11626,43 @@ type mtxrIkeSATableT struct{}
 // MtxrIkeSATable is the descriptor for the mtxrIkeSATable table.
 var MtxrIkeSATable mtxrIkeSATableT
 
-// Walk launches a BulkWalk over mtxrIkeSATable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrIkeSATable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrIkeSATableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrIkeSATableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrIkeSATableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrIkeSATableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrIkeSATableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrIkeSATableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrIkeSATableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrIkeSATableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrIkeSATable", c)}
+		switch c.Key() {
+		case MtxrIkeSAInitiatorCookie.Key(), MtxrIkeSAResponderCookie.Key(), MtxrIkeSAResponder.Key(), MtxrIkeSANatt.Key(), MtxrIkeSAVersion.Key(), MtxrIkeSAState.Key(), MtxrIkeSAUptime.Key(), MtxrIkeSASeen.Key(), MtxrIkeSAIdentity.Key(), MtxrIkeSAPh2Count.Key(), MtxrIkeSALocalAddressType.Key(), MtxrIkeSALocalAddress.Key(), MtxrIkeSALocalPort.Key(), MtxrIkeSAPeerAddressType.Key(), MtxrIkeSAPeerAddress.Key(), MtxrIkeSAPeerPort.Key(), MtxrIkeSADynamicAddressType.Key(), MtxrIkeSADynamicAddress.Key(), MtxrIkeSATxBytes.Key(), MtxrIkeSARxBytes.Key(), MtxrIkeSATxPackets.Key(), MtxrIkeSARxPackets.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrIkeSATable.Walk: column %s", c.OID()))
+			return &MtxrIkeSATableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2))
-
 	return &MtxrIkeSATableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -13028,199 +11763,136 @@ func (r MtxrRemoteCapTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrRemoteCapTableWalker is a table-aware walker over mtxrRemoteCapTable.
-// Construct via MtxrRemoteCapTable.Walk(ctx, sess, cols...).
+// MtxrRemoteCapTableWalker streams selected columns of mtxrRemoteCapTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrRemoteCapTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrRemoteCapTableWalker) Iter() iter.Seq2[snmp.OID, MtxrRemoteCapTableRow] {
 	return func(yield func(snmp.OID, MtxrRemoteCapTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1).WireBytes()
-		buffer := make(map[string]*MtxrRemoteCapTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrRemoteCapTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrRemoteCapTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrRemoteCapAddress.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
 					} else {
-						row.MtxrRemoteCapAddress = dv
-						row.observed[0] |= 1 << 0
+						dv, dErr := MtxrRemoteCapAddress.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapAddress = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case MtxrRemoteCapIdentity.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrRemoteCapIdentity.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapIdentity = dv
+							row.observed[0] |= 1 << 1
+						}
+					}
+				case MtxrRemoteCapBoardName.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrRemoteCapBoardName.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapBoardName = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case MtxrRemoteCapSerial.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrRemoteCapSerial.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapSerial = dv
+							row.observed[0] |= 1 << 3
+						}
+					}
+				case MtxrRemoteCapVersion.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrRemoteCapVersion.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapVersion = dv
+							row.observed[0] |= 1 << 4
+						}
+					}
+				case MtxrRemoteCapBaseMac.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrRemoteCapBaseMac.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapBaseMac = dv
+							row.observed[0] |= 1 << 5
+						}
+					}
+				case MtxrRemoteCapCommonName.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrRemoteCapCommonName.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapCommonName = dv
+							row.observed[0] |= 1 << 6
+						}
+					}
+				case MtxrRemoteCapState.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrRemoteCapState.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrRemoteCapState = dv
+							row.observed[0] |= 1 << 7
+						}
 					}
 				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapIdentity.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrRemoteCapIdentity = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapBoardName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrRemoteCapBoardName = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapSerial.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrRemoteCapSerial = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapVersion.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrRemoteCapVersion = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 7:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapBaseMac.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrRemoteCapBaseMac = dv
-						row.observed[0] |= 1 << 5
-					}
-				}
-			case 8:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapCommonName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrRemoteCapCommonName = dv
-						row.observed[0] |= 1 << 6
-					}
-				}
-			case 9:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrRemoteCapState.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrRemoteCapState = dv
-						row.observed[0] |= 1 << 7
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -13239,35 +11911,43 @@ type mtxrRemoteCapTableT struct{}
 // MtxrRemoteCapTable is the descriptor for the mtxrRemoteCapTable table.
 var MtxrRemoteCapTable mtxrRemoteCapTableT
 
-// Walk launches a BulkWalk over mtxrRemoteCapTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrRemoteCapTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrRemoteCapTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrRemoteCapTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrRemoteCapTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrRemoteCapTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrRemoteCapTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrRemoteCapTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrRemoteCapTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrRemoteCapTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrRemoteCapTable", c)}
+		switch c.Key() {
+		case MtxrRemoteCapAddress.Key(), MtxrRemoteCapIdentity.Key(), MtxrRemoteCapBoardName.Key(), MtxrRemoteCapSerial.Key(), MtxrRemoteCapVersion.Key(), MtxrRemoteCapBaseMac.Key(), MtxrRemoteCapCommonName.Key(), MtxrRemoteCapState.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrRemoteCapTable.Walk: column %s", c.OID()))
+			return &MtxrRemoteCapTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3))
-
 	return &MtxrRemoteCapTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -13449,376 +12129,313 @@ func (r MtxrWifiRegistrationTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWifiRegistrationTableWalker is a table-aware walker over mtxrWifiRegistrationTable.
-// Construct via MtxrWifiRegistrationTable.Walk(ctx, sess, cols...).
+// MtxrWifiRegistrationTableWalker streams selected columns of mtxrWifiRegistrationTable.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWifiRegistrationTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRegistrationTableRow] {
 	return func(yield func(snmp.OID, MtxrWifiRegistrationTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1).WireBytes()
-		buffer := make(map[string]*MtxrWifiRegistrationTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWifiRegistrationTableRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiRegistrationMacAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiRegistrationMacAddress = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiRegistrationSsid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiRegistrationSsid = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-					row.MtxrWifiRegistrationUptime = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWifiRegistrationTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWifiRegistrationMacAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWifiRegistrationUptime.Decode(vb)
+						dv, dErr := MtxrWifiRegistrationMacAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWifiRegistrationUptime = dv
-							row.observed[0] |= 1 << 2
+							row.MtxrWifiRegistrationMacAddress = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWifiRegistrationLastActivity = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case MtxrWifiRegistrationSsid.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWifiRegistrationLastActivity.Decode(vb)
+						dv, dErr := MtxrWifiRegistrationSsid.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWifiRegistrationLastActivity = dv
-							row.observed[0] |= 1 << 3
+							row.MtxrWifiRegistrationSsid = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWifiRegistrationSignal = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case MtxrWifiRegistrationUptime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.MtxrWifiRegistrationUptime = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationUptime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationUptime = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case MtxrWifiRegistrationLastActivity.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWifiRegistrationLastActivity = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationLastActivity.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationLastActivity = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case MtxrWifiRegistrationSignal.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWifiRegistrationSignal = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationSignal.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationSignal = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case MtxrWifiRegistrationAuthType.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWifiRegistrationSignal.Decode(vb)
+						dv, dErr := MtxrWifiRegistrationAuthType.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWifiRegistrationSignal = dv
-							row.observed[0] |= 1 << 4
+							row.MtxrWifiRegistrationAuthType = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
-				}
-			case 7:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiRegistrationAuthType.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiRegistrationAuthType = dv
-						row.observed[0] |= 1 << 5
-					}
-				}
-			case 8:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiRegistrationBand.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiRegistrationBand = dv
-						row.observed[0] |= 1 << 6
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWifiRegistrationTxRate = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
+				case MtxrWifiRegistrationBand.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWifiRegistrationTxRate.Decode(vb)
+						dv, dErr := MtxrWifiRegistrationBand.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWifiRegistrationTxRate = dv
-							row.observed[0] |= 1 << 7
+							row.MtxrWifiRegistrationBand = dv
+							row.observed[0] |= 1 << 6
 						}
 					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.MtxrWifiRegistrationRxRate = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
+				case MtxrWifiRegistrationTxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWifiRegistrationTxRate = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationTxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationTxRate = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case MtxrWifiRegistrationRxRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.MtxrWifiRegistrationRxRate = uint32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationRxRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationRxRate = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case MtxrWifiRegistrationTxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrWifiRegistrationTxPackets = uint64(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationTxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationTxPackets = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case MtxrWifiRegistrationRxPackets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrWifiRegistrationRxPackets = uint64(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationRxPackets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationRxPackets = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case MtxrWifiRegistrationTxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrWifiRegistrationTxBytes = uint64(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationTxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationTxBytes = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case MtxrWifiRegistrationRxBytes.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.MtxrWifiRegistrationRxBytes = uint64(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationRxBytes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationRxBytes = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case MtxrWifiRegistrationTxBitsPerSecond.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWifiRegistrationTxBitsPerSecond = int32(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationTxBitsPerSecond.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationTxBitsPerSecond = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case MtxrWifiRegistrationRxBitsPerSecond.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWifiRegistrationRxBitsPerSecond = int32(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationRxBitsPerSecond.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationRxBitsPerSecond = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case MtxrWifiRegistrationVlanId.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.MtxrWifiRegistrationVlanId = int32(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := MtxrWifiRegistrationVlanId.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.MtxrWifiRegistrationVlanId = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case MtxrWifiRegistrationAuthorized.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWifiRegistrationRxRate.Decode(vb)
+						dv, dErr := MtxrWifiRegistrationAuthorized.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWifiRegistrationRxRate = dv
-							row.observed[0] |= 1 << 8
+							row.MtxrWifiRegistrationAuthorized = dv
+							row.observed[0] |= 1 << 16
 						}
 					}
 				}
-			case 11:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrWifiRegistrationTxPackets = uint64(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationTxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationTxPackets = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrWifiRegistrationRxPackets = uint64(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationRxPackets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationRxPackets = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrWifiRegistrationTxBytes = uint64(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationTxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationTxBytes = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.MtxrWifiRegistrationRxBytes = uint64(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationRxBytes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationRxBytes = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWifiRegistrationTxBitsPerSecond = int32(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationTxBitsPerSecond.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationTxBitsPerSecond = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWifiRegistrationRxBitsPerSecond = int32(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationRxBitsPerSecond.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationRxBitsPerSecond = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.MtxrWifiRegistrationVlanId = int32(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationVlanId.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationVlanId = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 18:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiRegistrationAuthorized.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiRegistrationAuthorized = dv
-						row.observed[0] |= 1 << 16
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -13837,35 +12454,43 @@ type mtxrWifiRegistrationTableT struct{}
 // MtxrWifiRegistrationTable is the descriptor for the mtxrWifiRegistrationTable table.
 var MtxrWifiRegistrationTable mtxrWifiRegistrationTableT
 
-// Walk launches a BulkWalk over mtxrWifiRegistrationTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWifiRegistrationTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWifiRegistrationTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiRegistrationTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWifiRegistrationTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWifiRegistrationTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiRegistrationTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWifiRegistrationTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWifiRegistrationTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWifiRegistrationTableWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWifiRegistrationTable", c)}
+		switch c.Key() {
+		case MtxrWifiRegistrationMacAddress.Key(), MtxrWifiRegistrationSsid.Key(), MtxrWifiRegistrationUptime.Key(), MtxrWifiRegistrationLastActivity.Key(), MtxrWifiRegistrationSignal.Key(), MtxrWifiRegistrationAuthType.Key(), MtxrWifiRegistrationBand.Key(), MtxrWifiRegistrationTxRate.Key(), MtxrWifiRegistrationRxRate.Key(), MtxrWifiRegistrationTxPackets.Key(), MtxrWifiRegistrationRxPackets.Key(), MtxrWifiRegistrationTxBytes.Key(), MtxrWifiRegistrationRxBytes.Key(), MtxrWifiRegistrationTxBitsPerSecond.Key(), MtxrWifiRegistrationRxBitsPerSecond.Key(), MtxrWifiRegistrationVlanId.Key(), MtxrWifiRegistrationAuthorized.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWifiRegistrationTable.Walk: column %s", c.OID()))
+			return &MtxrWifiRegistrationTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4))
-
 	return &MtxrWifiRegistrationTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -13931,147 +12556,84 @@ func (r MtxrWifiInterfacesRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// MtxrWifiInterfacesWalker is a table-aware walker over mtxrWifiInterfaces.
-// Construct via MtxrWifiInterfaces.Walk(ctx, sess, cols...).
+// MtxrWifiInterfacesWalker streams selected columns of mtxrWifiInterfaces.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type MtxrWifiInterfacesWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *MtxrWifiInterfacesWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiInterfacesRow] {
 	return func(yield func(snmp.OID, MtxrWifiInterfacesRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1).WireBytes()
-		buffer := make(map[string]*MtxrWifiInterfacesRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &MtxrWifiInterfacesRow{Index: idx}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiInterfacesName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+		for idx, cells := range tw.rw.Iter() {
+			row := MtxrWifiInterfacesRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case MtxrWifiInterfacesName.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
 					} else {
-						row.MtxrWifiInterfacesName = dv
-						row.observed[0] |= 1 << 0
+						dv, dErr := MtxrWifiInterfacesName.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrWifiInterfacesName = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case MtxrWifiInterfacesSsid.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrWifiInterfacesSsid.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrWifiInterfacesSsid = dv
+							row.observed[0] |= 1 << 1
+						}
+					}
+				case MtxrWifiInterfacesFreq.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrWifiInterfacesFreq.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrWifiInterfacesFreq = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case MtxrWifiInterfacesCurrentChannel.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := MtxrWifiInterfacesCurrentChannel.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.MtxrWifiInterfacesCurrentChannel = dv
+							row.observed[0] |= 1 << 3
+						}
 					}
 				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiInterfacesSsid.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiInterfacesSsid = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiInterfacesFreq.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiInterfacesFreq = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := MtxrWifiInterfacesCurrentChannel.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.MtxrWifiInterfacesCurrentChannel = dv
-						row.observed[0] |= 1 << 3
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -14090,35 +12652,43 @@ type mtxrWifiInterfacesT struct{}
 // MtxrWifiInterfaces is the descriptor for the mtxrWifiInterfaces table.
 var MtxrWifiInterfaces mtxrWifiInterfacesT
 
-// Walk launches a BulkWalk over mtxrWifiInterfaces and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of mtxrWifiInterfaces. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// snmp.ErrForeignColumn.
-func (mtxrWifiInterfacesT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiInterfacesWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *MtxrWifiInterfacesWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+func (t mtxrWifiInterfacesT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiInterfacesWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (mtxrWifiInterfacesT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWifiInterfacesWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &MtxrWifiInterfacesWalker{rw: snmp.ForeignColumnWalk(ctx, "mtxrWifiInterfaces", c)}
+		switch c.Key() {
+		case MtxrWifiInterfacesName.Key(), MtxrWifiInterfacesSsid.Key(), MtxrWifiInterfacesFreq.Key(), MtxrWifiInterfacesCurrentChannel.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWifiInterfaces.Walk: column %s", c.OID()))
+			return &MtxrWifiInterfacesWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5))
-
 	return &MtxrWifiInterfacesWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

@@ -1,0 +1,18 @@
+goos: darwin
+goarch: arm64
+pkg: go.aledante.io/FlowSeer/src/common/snmp/bench
+cpu: Apple M4 Pro
+BenchmarkBulkWalk/impl=flowseer-12         	     100	    248003 ns/op	   63131 B/op	    1274 allocs/op
+BenchmarkBulkWalk/impl=flowseer-12         	     100	    180671 ns/op	   63138 B/op	    1274 allocs/op
+BenchmarkBulkWalk/impl=flowseer-12         	     100	    127523 ns/op	   63129 B/op	    1274 allocs/op
+BenchmarkBulkWalk/impl=gosnmp-12           	     100	    133897 ns/op	  111486 B/op	    2566 allocs/op
+BenchmarkBulkWalk/impl=gosnmp-12           	     100	    132962 ns/op	  111496 B/op	    2566 allocs/op
+BenchmarkBulkWalk/impl=gosnmp-12           	     100	    126234 ns/op	  111473 B/op	    2566 allocs/op
+BenchmarkBulkWalkStreaming/impl=flowseer-raw-12         	     100	    127139 ns/op	   69530 B/op	     931 allocs/op
+BenchmarkBulkWalkStreaming/impl=flowseer-raw-12         	     100	    128287 ns/op	   69525 B/op	     931 allocs/op
+BenchmarkBulkWalkStreaming/impl=flowseer-raw-12         	     100	    124819 ns/op	   69524 B/op	     931 allocs/op
+BenchmarkBulkWalkStreaming/impl=gosnmp-callback-12      	     100	    119553 ns/op	   99526 B/op	    2558 allocs/op
+BenchmarkBulkWalkStreaming/impl=gosnmp-callback-12      	     100	    121359 ns/op	   99535 B/op	    2558 allocs/op
+BenchmarkBulkWalkStreaming/impl=gosnmp-callback-12      	     100	    119833 ns/op	   99548 B/op	    2558 allocs/op
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/snmp/bench	0.458s

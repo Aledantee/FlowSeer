@@ -137,6 +137,7 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 		retries:             retries,
 		ignoreNonIncreasing: cfg.IgnoreNonIncreasing,
 		maxWalkVars:         cfg.MaxWalkVars,
+		maxOIDs:             cfg.MaxOIDs,
 	}, nil
 }
 
