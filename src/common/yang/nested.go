@@ -125,7 +125,19 @@ func scanXMLAncestor[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyVa
 				if err != nil {
 					return errs.Wrapf(err, "%s key %s", level.Name, t.Name.Local)
 				}
-				keys = append(keys, KeyValue{Name: t.Name.Local, Value: text})
+				field := findFieldByName(level, t.Name.Local)
+				if field == nil || field.Type == nil {
+					continue
+				}
+				value, err := ParseCanonical(*field.Type, text)
+				if err != nil {
+					return errs.Wrapf(err, "%s key %s", level.Name, t.Name.Local)
+				}
+				canonical, err := value.Canonical()
+				if err != nil {
+					return errs.Wrapf(err, "%s key %s", level.Name, t.Name.Local)
+				}
+				keys = append(keys, KeyValue{Name: t.Name.Local, Value: canonical})
 				continue
 			}
 			next := chain[1]
@@ -227,7 +239,7 @@ func DecodeJSONNested[Inner any](chain []*Schema, data []byte) ([]NestedEntry[In
 		return out, nil
 	}
 	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(data, &obj); err != nil {
+	if err := json.Unmarshal(data, &obj); err != nil || obj == nil {
 		return nil, errs.From(err).Code(ErrCodeValueParse).Msgf("nested %s payload is not a JSON object", chain[0].Name)
 	}
 	arr, ok := lookupMember(obj, chain[0].Module, chain[0].Name)
@@ -244,7 +256,7 @@ func DecodeJSONNested[Inner any](chain []*Schema, data []byte) ([]NestedEntry[In
 func walkJSONLevel[Inner any](chain []*Schema, arr json.RawMessage, anc [][]KeyValue, out *[]NestedEntry[Inner]) error {
 	level := chain[0]
 	var rawRows []json.RawMessage
-	if err := json.Unmarshal(arr, &rawRows); err != nil {
+	if err := json.Unmarshal(arr, &rawRows); err != nil || rawRows == nil {
 		return errs.From(err).Code(ErrCodeValueParse).Msgf("list %s is not a JSON array", level.Name)
 	}
 	for _, raw := range rawRows {
@@ -257,7 +269,7 @@ func walkJSONLevel[Inner any](chain []*Schema, arr json.RawMessage, anc [][]KeyV
 			continue
 		}
 		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &obj); err != nil {
+		if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
 			return errs.From(err).Code(ErrCodeValueParse).Msgf("list %s entry is not a JSON object", level.Name)
 		}
 		keys, err := jsonLevelKeys(level, obj)

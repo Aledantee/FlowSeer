@@ -2,10 +2,10 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
@@ -18,55 +18,17 @@ var ErrTrapWaitTimeout = errs.Msg("timeout before matching trap arrived")
 // trap arrives — e.g., the listener was closed or its pump failed.
 var ErrTrapStreamClosed = errs.Msg("stream closed before matching trap arrived")
 
-// WaitForTrap consumes traps from ts via the Scanner-style
-// [snmp.TrapStream.Next] / [snmp.TrapStream.Current] surface until
-// match returns true, ctx expires, the timeout deadline elapses, or
-// the stream itself ends — whichever happens first.
+// WaitForTrap consumes and discards nonmatching traps until match succeeds,
+// timeout expires, ctx is canceled, or ts ends. It returns the matched trap on
+// success and leaves ts open for another sequential call. ts and match must be
+// non-nil; match must return promptly. The caller must not consume ts concurrently.
 //
-// On success returns the first matching trap and a nil error. On any
-// terminal condition before a match the returned trap is the zero
-// value and the error indicates which condition fired:
-//
-//   - [ErrTrapWaitTimeout] for the deadline.
-//   - [ErrTrapStreamClosed] when the stream's iteration finishes
-//     without yielding a match.
-//   - The context's error when ctx fires before the others.
-//
-// Non-matching traps are silently discarded.
-//
-// # Multi-call safety
-//
-// WaitForTrap MUST use the Scanner-style [snmp.TrapStream.Next]
-// surface rather than [snmp.TrapStream.Iter]. The Iter contract
-// signals the producer to stop and drain when the consumer breaks
-// out of the range loop (trap.go's Iter calls signalStop() + drains
-// the channel as soon as yield returns false), which would
-// permanently kill the stream after the first match. Callers
-// frequently invoke WaitForTrap multiple times against a single
-// long-lived stream (e.g., linkDown then linkUp from the same SR
-// Linux trap-receiver), so an early-return consumer cannot afford to
-// take down the producer.
-//
-// The Scanner-style triple [snmp.TrapStream.Next] /
-// [snmp.TrapStream.Current] / [snmp.TrapStream.Err] does not signal
-// stop on consumer exit, so the stream survives across calls.
-//
-// # Goroutine lifecycle
-//
-// The implementation spawns a background goroutine that blocks on
-// [snmp.TrapStream.Next] until a matching trap arrives, the stream
-// closes, or the test process exits. On timeout / ctx cancellation
-// the goroutine remains blocked on the next Next() call until one of
-// those terminal conditions fires — by design, since the typical
-// pattern is "wait for one trap, then continue, then wait for
-// another", and a leak-on-timeout goroutine consumes one extra trap
-// at most (which is then matched or discarded by the next caller).
-// Test process lifetime bounds this; t.Cleanup-registered Close()
-// at end-of-test unblocks any lingering goroutine.
-//
-// The implementation reaches only through TrapStream's public
-// Scanner surface; the waiter therefore survives a Backend swap
-// unchanged.
+// On timeout or cancellation it closes ts and joins its reader before returning
+// a zero trap and [ErrTrapWaitTimeout] or ctx.Err(). TrapStream.Next cannot be
+// interrupted independently, so closing prevents a leftover reader from stealing
+// subsequent traps. The caller must create a new stream after these errors.
+// Stream termination returns [ErrTrapStreamClosed], joined with ts.Err() when
+// present. A match already buffered when cancellation fires takes precedence.
 func WaitForTrap(ctx context.Context, ts *snmp.TrapStream, match func(snmp.Trap) bool, timeout time.Duration) (snmp.Trap, error) {
 	if ts == nil {
 		return snmp.Trap{}, errs.Msg("nil TrapStream")
@@ -92,6 +54,7 @@ func WaitForTrap(ctx context.Context, ts *snmp.TrapStream, match func(snmp.Trap)
 			return
 		}
 	}()
+	defer func() { <-done }()
 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -109,20 +72,20 @@ func WaitForTrap(ctx context.Context, ts *snmp.TrapStream, match func(snmp.Trap)
 			return trap, nil
 		default:
 		}
-		return snmp.Trap{}, ErrTrapWaitTimeout
+		return snmp.Trap{}, errors.Join(ErrTrapWaitTimeout, ts.Close())
 	case <-done:
 		select {
 		case trap := <-hits:
 			return trap, nil
 		default:
 		}
-		return snmp.Trap{}, ErrTrapStreamClosed
+		return snmp.Trap{}, errors.Join(ErrTrapStreamClosed, ts.Err())
 	case <-ctx.Done():
 		select {
 		case trap := <-hits:
 			return trap, nil
 		default:
 		}
-		return snmp.Trap{}, ctx.Err()
+		return snmp.Trap{}, errors.Join(ctx.Err(), ts.Close())
 	}
 }

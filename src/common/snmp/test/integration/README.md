@@ -1,19 +1,27 @@
 # SNMP integration testing
 
-Four independent tiers exercise the FlowSeer SNMP library against
-real SNMP agents on the wire. Tests in this package and tier-tagged
-subpackages reach only through the public `snmp.Session` /
-`snmp.TrapStream` / `snmp.Walker` surface; no fake `Session` is
-constructed in tier code.
+Default tests check harness helpers and generated MIB bindings with in-process
+sessions and trap streams. Four opt-in tiers exercise the public `snmp.Session`,
+`snmp.TrapStream`, and `snmp.Walker` APIs against external agents.
 
 | Tier | Build tag | Agent | Owns |
 |------|-----------|-------|------|
 | T1 | `snmp_integration_t1` | Net-SNMP `snmpd` in Docker | Full USM auth/priv matrix; forged-edge wire shapes (NoSuchObject, EndOfMibView, oversized OCTET STRINGs, malformed `DateAndTime`, mid-table truncation). |
-| T2 | `snmp_integration_t2` | Nokia SR Linux via `containerlab` | End-to-end dense-row collector flow and real-NOS trap reception (`coldStart`, `linkUp`/`linkDown`). |
+| T2 | `snmp_integration_t2` | Nokia SR Linux via `containerlab` | Dense-row collector flow and `linkUp`/`linkDown` traps; cold-start and NOS v3 trap tests remain placeholders. |
 | T3 | `snmp_integration_t3` | `lextudio/snmpsim` replay | Vendor regression coverage — adding a vendor is one `.snmprec` plus one manifest entry, no Go code. |
 | T4 | `snmp_integration_t4` | Operator-supplied live device | Manual acceptance gate for the decoder-leniency + walker-buffer fixes. Pins each prior bug class (`MtxrHlFanSpeed1/2`, `MtxrOpticalSupplyVoltage`, `sysServices`, `ipAddrTable` composite-index walk, table row counts) as a named subtest. |
 
 ## Quick start
+
+Run the offline checks from the repository root:
+
+```sh
+go test -race ./src/common/snmp/test/integration
+go test -race -short -tags=snmp_integration_t1 ./src/common/snmp/test/integration
+```
+
+Every tier honors `-short` before external setup or target parsing. To run an
+external tier, choose its operator command:
 
 ```sh
 task --dir src/common/snmp/test/integration t1   # Net-SNMP snmpd smoke / USM matrix / forged-edge wire
@@ -22,13 +30,13 @@ task --dir src/common/snmp/test/integration t3   # snmpsim replay against commit
 SNMP_T4_TARGETS=host[:port]@community,... task --dir src/common/snmp/test/integration t4   # live MikroTik / vendor device
 ```
 
-Each `task --dir src/common/snmp/test/integration t<N>` invocation builds a Docker image or deploys
-a containerlab topology, runs the tier's tests, and tears
-everything down. Container lifecycle is owned by each tier's
-`TestMain` — there is no separate `task lab-up`.
+T1 through T3 build a Docker image or deploy a containerlab topology, run tests,
+and tear down on normal completion. T4 uses operator-supplied devices and owns
+no containers. Container lifecycle lives in each tier's `TestMain`; there is no
+separate `task lab-up`.
 
-Bare `go test ./...` runs zero integration tests; selecting exactly
-one tier tag is the contract. Selecting two tier tags simultaneously
+Bare `go test ./...` includes the offline harness tests. Select exactly
+one tag for an external tier. Selecting two tier tags simultaneously
 produces a compile error (`multiple definitions of TestMain`) — by
 design.
 
@@ -77,8 +85,9 @@ The harness:
    `src/common/snmp/test/integration/t1_*_test.go`:
    - **Wire smoke**: `Get`, `GetNext`, `GetBulk` against seeded MIBs.
    - **USM matrix**: every supported `(AuthProtocol, PrivProtocol)`
-     pair Dials and runs a `Get sysUpTime.0`. `Priv3DES` asserts a
-     typed `ErrUSMProtocolUnsupported` rejection.
+     pair dials and runs a `Get sysUpTime.0`. The native `Priv3DES` cell
+     attempts a request but currently skips on any Get error; a skipped cell
+     supplies no evidence that the agent supports that privacy protocol.
    - **Dense-row walk**: the shared `AssertIfTableDenseRows` helper.
    - **Forged-edge cases**: `NoSuchInstance`, `NoSuchObject`,
      `EndOfMibView`, Counter32 boundary, malformed `DateAndTime`,
@@ -112,12 +121,15 @@ Tests in `src/common/snmp/test/integration/t2_*_test.go` exercise:
 - **`linkUp` / `linkDown` traps** triggered by an admin-state toggle
   through the `containerlab exec` callback. The trap listener is
   bound on the host port and SR Linux is configured (via CLI exec)
-  to send v2c traps to that address.
+  to send v2c traps to that address. An enable cleanup is registered before
+  disabling the interface so a failed wait still attempts to restore the test's
+  intended enabled state. Failed waits close their trap stream and join the
+  reader; successful waits leave it open for the next trap.
 - **`coldStart`** is currently skipped — it fires at SR Linux boot
   before tests set up the listener; capturing it requires moving
   trap-listener setup into T2's `TestMain` (planned follow-up).
-- **v3 trap reception** is skipped per `common/snmp/trap.go`'s note
-  that the upstream Backend's v3-trap path is currently unreliable.
+- **NOS-sourced v3 trap reception** remains unimplemented in this tier. The
+  SNMP package has separate v3 trap/inform tests against the Net-SNMP CLI.
 
 ### T3 — `lextudio/snmpsim` replay
 
@@ -204,11 +216,13 @@ SNMP_T4_TARGETS = entry ("," entry)*
 entry           = host [":" port] "@" community
 ```
 
-Each prior bug-class assertion accepts `ErrException`
+Scalar assertions accept `ErrException`
 (NoSuchObject / NoSuchInstance — the device legitimately doesn't
 expose that OID, e.g. a router lacking `mtxrHlFanSpeed1`) but fails
-on `ErrTypeMismatch` or `ErrLossyConversion`, which would mean the
-decoder leniency policy regressed.
+on every other error, including transport failures. Table checks require a
+clean walk; the interface table must be nonempty. These tests do not currently
+assert uniqueness of the yielded indexes, so their names alone do not establish
+one-row-per-entity behavior.
 
 The device classes T4 was built against:
 

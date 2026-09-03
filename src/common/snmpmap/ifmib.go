@@ -71,19 +71,24 @@ var ifXTableColumns = []snmp.AnyColumn{
 // IfRow is one walked ifTable row and the ifIndex its walk key carried.
 // The index is kept beside the row because a row a walk yields does not
 // populate its own Index field — only the change-watch path does.
+// Concurrent reads are safe; callers must synchronize mutations of the
+// row or its referenced data.
 type IfRow struct {
 	IfIndex uint32
 	Row     ifmib.IfTableRow
 }
 
 // IfXRow is one walked ifXTable row and the ifIndex it belongs to.
+// Concurrent reads are safe; callers must synchronize mutations of the
+// row or its referenced data.
 type IfXRow struct {
 	IfIndex uint32
 	Row     ifmib.IfXTableRow
 }
 
-// IfStackRow is one layering relationship of ifStackTable: Higher runs
-// over Lower, both named by ifIndex.
+// IfStackRow is one active layering relationship of ifStackTable: Higher
+// runs over Lower, both named by ifIndex. Concurrent reads are safe;
+// callers must synchronize mutations.
 type IfStackRow struct {
 	Higher uint32
 	Lower  uint32
@@ -92,12 +97,14 @@ type IfStackRow struct {
 // IfMIBRows are the walked IF-MIB rows one interface set is built from.
 // ifXTable and ifStackTable are optional: a device that implements
 // neither still yields interfaces, with fewer facts on them.
+// The zero value maps to an empty interface set. Concurrent reads are
+// safe; callers must synchronize mutations of the slices or their rows.
 type IfMIBRows struct {
 	// If are the ifTable rows, in the order the mapped interfaces appear.
 	If []IfRow
 	// IfX are the ifXTable rows, joined to If by ifIndex.
 	IfX []IfXRow
-	// Stack are the layering relationships of ifStackTable.
+	// Stack are the active layering relationships of ifStackTable.
 	Stack []IfStackRow
 }
 
@@ -129,7 +136,8 @@ func Interfaces(ctx context.Context, sess snmp.Session) ([]*interfacev1.Interfac
 // valid message at all — one with no name, or with no type — is reported
 // through the joined error while every other row is still returned, so a
 // caller that ignores the error still sees a truthful, if incomplete,
-// interface set.
+// interface set. It does not modify rows, but returned messages may share
+// byte slices with them; callers must synchronize mutations of shared data.
 func InterfacesFromRows(rows IfMIBRows) ([]*interfacev1.Interface, error) {
 	byIndex := make(map[uint32]ifmib.IfXTableRow, len(rows.IfX))
 
@@ -208,11 +216,11 @@ func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifXTable"))
 	}
 
-	// ifStackTable's whole payload is its index; the status column is
-	// requested only because a walk needs a column to ask for.
+	// A stored relationship may be inactive; only active rows describe
+	// the layering currently in use.
 	stackWalk := ifmib.IfStackTable.Walk(ctx, sess, ifmib.IfStackStatus)
-	for idx := range stackWalk.Iter() {
-		if idx.Len() != 2 {
+	for idx, row := range stackWalk.Iter() {
+		if idx.Len() != 2 || !row.Observed(ifmib.IfStackStatus) || row.IfStackStatus != snmp.RowStatusActive {
 			continue
 		}
 

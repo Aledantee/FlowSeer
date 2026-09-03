@@ -22,6 +22,7 @@ const (
 // metadata, the TLS posture, and timeouts. Required parameters (the
 // target address) are positional on Dial. Exactly one TLS posture
 // must be chosen — there is no permissive default.
+// Fields must not be modified concurrently with [Dial] or [NewSession].
 type Options struct {
 	// Username and Password travel as gNMI metadata on every RPC,
 	// the convention AOS-CX and IOS-XE gNMI use.
@@ -43,10 +44,10 @@ type Options struct {
 	Plaintext bool
 
 	// DialTimeout bounds channel establishment plus the Capabilities
-	// exchange. Zero means 30s.
+	// exchange. Nonpositive values mean 30s.
 	DialTimeout time.Duration
 	// RPCTimeout bounds unary RPCs when the caller's context has no
-	// earlier deadline. Zero means 60s. Subscribe streams are bounded
+	// earlier deadline. Nonpositive values mean 60s. Subscribe streams are bounded
 	// only by their context.
 	RPCTimeout time.Duration
 

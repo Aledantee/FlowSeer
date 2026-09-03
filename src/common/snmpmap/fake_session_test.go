@@ -16,8 +16,7 @@ type vbFixture struct {
 // fakeSession is an snmp.Session whose walks replay caller-supplied
 // VarBinds, filtered to the walked subtree so one fixture set can serve
 // the ifTable, ifXTable, and ifStackTable walks of a single mapper call.
-// Only the walk paths are populated; the mapper issues no other Session
-// call.
+// Scalar getters read from the same fixtures.
 //
 // The pattern is re-declared here rather than imported from
 // src/common/snmp/test/integration, where the same fake lives in a _test.go
@@ -27,20 +26,23 @@ type fakeSession struct {
 }
 
 // Get answers from the same fixtures the walks replay, matched on the
-// exact instance OID. A scalar with no fixture is simply left out of the
-// response, which is how an agent that does not implement it reads to
-// the generated getter.
+// exact instance OID. A scalar with no fixture returns noSuchObject, as
+// an agent that does not implement it would.
 func (s *fakeSession) Get(_ context.Context, oids []snmp.OID, _ ...snmp.CallOption) ([]snmp.VarBind, error) {
 	out := make([]snmp.VarBind, 0, len(oids))
 
 	for _, o := range oids {
+		var vb snmp.VarBind = snmp.NoSuchObjectVar{
+			Header: snmp.Header{OID: o, Kind: snmp.KindNoSuchObject},
+		}
 		for _, f := range s.vbs {
 			if f.oid.Compare(o) == 0 {
-				out = append(out, f.vb)
+				vb = f.vb
 
 				break
 			}
 		}
+		out = append(out, vb)
 	}
 
 	return out, nil

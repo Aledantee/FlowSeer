@@ -16,7 +16,8 @@ import (
 // caller's action; a re-created Watcher cold-starts and never
 // double-emits modifies.
 
-// WatchOptions tunes the stream-fed primitives.
+// WatchOptions tunes the stream-fed primitives. Values can be reused
+// concurrently while unmodified.
 type WatchOptions struct {
 	// SampleInterval requests SAMPLE cadence when > 0; zero leaves
 	// the cadence to the device (TARGET_DEFINED / ON_CHANGE).
@@ -74,9 +75,11 @@ func Walk[Row any, Key comparable](ctx context.Context, sess *Session, desc yang
 
 // Watcher is the stream-fed change watcher. Consume via
 // [Watcher.Iter]; check [Watcher.Err] after the loop; Close
-// terminates.
+// terminates. The zero value is unusable. One goroutine may iterate
+// while other goroutines call [Watcher.Close] or [Watcher.Err].
 type Watcher[Row any, Key comparable] struct {
-	pump *pump.Pump[yang.WatchEvent[Row, Key]]
+	pump   *pump.Pump[yang.WatchEvent[Row, Key]]
+	stream *Stream
 }
 
 // Watch subscribes STREAM to desc's subtree and emits row-granular
@@ -99,7 +102,7 @@ func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yan
 	if buf <= 0 {
 		buf = 256
 	}
-	w := &Watcher[Row, Key]{pump: pump.New[yang.WatchEvent[Row, Key]](ctx, buf)}
+	w := &Watcher[Row, Key]{pump: pump.New[yang.WatchEvent[Row, Key]](ctx, buf), stream: stream}
 	go w.run(stream, desc)
 	return w, nil
 }
@@ -107,6 +110,7 @@ func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yan
 // run consumes the stream and translates batches into row events.
 func (w *Watcher[Row, Key]) run(stream *Stream, desc yang.ListDescriptor[Row, Key]) {
 	defer func() { _ = stream.Close() }()
+	defer w.pump.Cancel()
 	defer w.pump.CloseData()
 
 	store := newRowStore(desc)
@@ -212,12 +216,13 @@ func sortedIDs(set map[string]bool) []string {
 }
 
 // Iter yields events until the Watcher terminates. Check
-// [Watcher.Err] after the loop.
+// [Watcher.Err] after the loop. Breaking iteration closes the
+// subscription and waits for the producer to finish.
 func (w *Watcher[Row, Key]) Iter() func(yield func(yang.WatchEvent[Row, Key]) bool) {
 	return func(yield func(yang.WatchEvent[Row, Key]) bool) {
 		for ev := range w.pump.Data() {
 			if !yield(ev) {
-				w.pump.SignalStop()
+				_ = w.Close()
 				for range w.pump.Data() { //nolint:revive // drain so the producer never blocks
 				}
 				return
@@ -233,5 +238,5 @@ func (w *Watcher[Row, Key]) Err() error { return w.pump.Err() }
 func (w *Watcher[Row, Key]) Close() error {
 	w.pump.SignalStop()
 	w.pump.Cancel()
-	return nil
+	return w.stream.Close()
 }

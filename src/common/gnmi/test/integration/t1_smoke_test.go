@@ -124,6 +124,18 @@ func TestT1SetRoundTrips(t *testing.T) {
 		{Name: "server", Keys: []yang.KeyValue{{Name: "name", Value: "edge-2"}}},
 		{Name: "port"},
 	}}
+	restore, err := snapshotRestore(ctx, s, target)
+	if err != nil {
+		t.Fatalf("capture fixture port: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.Set(cleanCtx, restore); err != nil {
+			t.Errorf("restore fixture port: %v", err)
+		}
+	})
+
 	if err := s.Set(ctx, gnmi.SetRequest{Updates: []gnmi.PathValue{{Path: target, JSON: []byte("7777")}}}); err != nil {
 		t.Fatalf("Set: %v", err)
 	}

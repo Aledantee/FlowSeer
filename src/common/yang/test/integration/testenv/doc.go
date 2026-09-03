@@ -6,7 +6,10 @@
 // under testdata/ and probed for protocol-level readiness through the
 // libraries' public constructors before tests run.
 //
-// Helpers are guarded by the yang_integration_t1 build tag so bare
-// `go test ./...` never touches Docker; the always-built portion of
-// this package is the fixture-copy drift gate.
+// Container startup helpers are guarded by the yang_integration_t1 build
+// tag. Default tests check fixture-copy drift and readiness cancellation
+// without Docker; tagged package tests also exercise startup cleanup with
+// fake containers. Readiness is bounded by the caller's context and a
+// 60-second deadline. Returned cleanup callbacks attempt termination with
+// an independent 60-second deadline and return any termination error.
 package testenv

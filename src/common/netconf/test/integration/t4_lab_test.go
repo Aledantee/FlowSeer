@@ -5,7 +5,6 @@ package integration
 import (
 	"context"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,9 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/yang"
 )
 
-// dialT4 opens one lab session. Every t4 write is a small reversible
-// change with explicit cleanup; devices are never left modified, even
-// on failure paths.
+// dialT4 opens a lab session and closes it after fixture cleanup completes.
 func dialT4(t *testing.T, target t4Target) *netconf.Session {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -32,8 +29,39 @@ func dialT4(t *testing.T, target t4Target) *netconf.Session {
 	if err != nil {
 		t.Fatalf("dial %s: %v", target.Addr, err)
 	}
-	t.Cleanup(func() { _ = s.Close(context.Background()) })
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.Close(ctx); err != nil {
+			t.Errorf("close session: %v", err)
+		}
+	})
 	return s
+}
+
+func checkNativeUser(t *testing.T, config []byte, name string, want bool) {
+	t.Helper()
+	exists, err := nativeUserExists(config, name)
+	if err != nil {
+		t.Fatalf("decode native usernames: %v", err)
+	}
+	if exists != want {
+		t.Fatalf("username %q exists = %t, want %t", name, exists, want)
+	}
+}
+
+func cleanupNativeUser(t *testing.T, s *netconf.Session, name string) {
+	t.Helper()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		remove := []byte(`<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">` +
+			`<username xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" nc:operation="remove">` +
+			`<name>` + name + `</name></username></native>`)
+		if err := s.Apply(ctx, remove); err != nil {
+			t.Errorf("remove fixture username %q: %v", name, err)
+		}
+	})
 }
 
 // TestT4IdentityRead reads hostname, OS version, and — via the
@@ -110,17 +138,14 @@ func TestT4InvalidEditRollback(t *testing.T) {
 			if err != nil {
 				t.Fatalf("get-config before: %v", err)
 			}
+			checkNativeUser(t, before, "flowseer-t4-invalid", false)
+			cleanupNativeUser(t, s, "flowseer-t4-invalid")
 
 			// privilege is uint8 range 0..15; 99 must fail validation.
 			bad := []byte(`<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">` +
 				`<username><name>flowseer-t4-invalid</name><privilege>99</privilege></username></native>`)
 			err = s.Apply(ctx, bad)
 			if err == nil {
-				// The device accepted it — clean up and fail loudly.
-				cleanup := []byte(`<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">` +
-					`<username xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" nc:operation="delete">` +
-					`<name>flowseer-t4-invalid</name></username></native>`)
-				_ = s.Apply(ctx, cleanup)
 				t.Fatal("device accepted privilege 99; expected a validation rejection")
 			}
 			if code, ok := errs.CodeOf(err); !ok || code != netconf.ErrCodeRPC {
@@ -140,8 +165,7 @@ func TestT4InvalidEditRollback(t *testing.T) {
 }
 
 // TestT4ReversibleEditCycle applies a small change, proves it by
-// read-back, reverts it, and proves the revert — the lab-hardware
-// write-validation half of v1 acceptance for the NETCONF family.
+// read-back, reverts it, and proves the fixture username is absent again.
 //
 // Covers conformance matrix row: nc-t4-reversible-edit
 func TestT4ReversibleEditCycle(t *testing.T) {
@@ -150,6 +174,12 @@ func TestT4ReversibleEditCycle(t *testing.T) {
 			s := dialT4(t, target)
 			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 			defer cancel()
+			before, err := s.GetConfig(ctx, netconf.Running, native.NativeDescriptor().Path)
+			if err != nil {
+				t.Fatalf("get-config before: %v", err)
+			}
+			checkNativeUser(t, before, "flowseer-t4", false)
+			cleanupNativeUser(t, s, "flowseer-t4")
 
 			create := []byte(`<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">` +
 				`<username><name>flowseer-t4</name><privilege>1</privilege></username></native>`)
@@ -160,19 +190,11 @@ func TestT4ReversibleEditCycle(t *testing.T) {
 			if err := s.Apply(ctx, create); err != nil {
 				t.Fatalf("apply create: %v", err)
 			}
-			t.Cleanup(func() {
-				cleanCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-				defer cancel()
-				_ = s.Apply(cleanCtx, remove)
-			})
-
 			cfg, err := s.GetConfig(ctx, netconf.Running, native.NativeDescriptor().Path)
 			if err != nil {
 				t.Fatalf("read back: %v", err)
 			}
-			if !strings.Contains(string(cfg), "flowseer-t4") {
-				t.Fatal("created user missing from read-back")
-			}
+			checkNativeUser(t, cfg, "flowseer-t4", true)
 
 			if err := s.Apply(ctx, remove); err != nil {
 				t.Fatalf("apply delete: %v", err)
@@ -181,9 +203,7 @@ func TestT4ReversibleEditCycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read back after delete: %v", err)
 			}
-			if strings.Contains(string(cfg), "flowseer-t4") {
-				t.Fatal("user survived the revert")
-			}
+			checkNativeUser(t, cfg, "flowseer-t4", false)
 		})
 	}
 }

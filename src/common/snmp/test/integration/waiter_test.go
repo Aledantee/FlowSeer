@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/snmp"
@@ -205,4 +206,56 @@ func TestWaitForTrap_Guard_NilMatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected non-nil error for nil match func")
 	}
+}
+
+func TestWaitForTrapTimeoutStopsReader(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ts := snmp.NewTrapStream(context.Background(), 4)
+		defer func() { _ = ts.Close() }()
+		called := make(chan struct{}, 1)
+		_, err := WaitForTrap(context.Background(), ts, func(snmp.Trap) bool {
+			called <- struct{}{}
+			return true
+		}, time.Second)
+		if !errors.Is(err, ErrTrapWaitTimeout) {
+			t.Fatalf("got %v, want ErrTrapWaitTimeout", err)
+		}
+		ts.Push(snmp.Trap{})
+		synctest.Wait()
+		select {
+		case <-called:
+			t.Error("matcher called after WaitForTrap returned on timeout")
+		default:
+		}
+	})
+}
+
+func TestWaitForTrapCancellationStopsReader(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ts := snmp.NewTrapStream(context.Background(), 4)
+		defer func() { _ = ts.Close() }()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		called := make(chan struct{}, 1)
+		result := make(chan error, 1)
+		go func() {
+			_, err := WaitForTrap(ctx, ts, func(snmp.Trap) bool {
+				called <- struct{}{}
+				return true
+			}, time.Minute)
+			result <- err
+		}()
+		synctest.Wait()
+		cancel()
+		if err := <-result; !errors.Is(err, context.Canceled) {
+			t.Fatalf("got %v, want context.Canceled", err)
+		}
+		ts.Push(snmp.Trap{})
+		synctest.Wait()
+		select {
+		case <-called:
+			t.Error("matcher called after WaitForTrap returned on cancellation")
+		default:
+		}
+	})
 }

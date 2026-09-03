@@ -260,8 +260,8 @@ src/
   common/      # shared libraries (e.g. snmp)
   edge/        # edge agents
   frontend/    # UI (own toolchain; this document does not govern it)
-generated/     # buf-generated code — never edited by hand
-spec/          # protobuf + MIB sources of truth
+generated/     # generated bindings — never edited by hand
+spec/          # protobuf, MIB, and YANG sources of truth
 ```
 
 - Packages are organized by **what they provide**, not by layer (`snmp`, not
@@ -269,8 +269,14 @@ spec/          # protobuf + MIB sources of truth
   find the domain the code belongs to.
 - Code that must not be imported from outside its subtree goes under an `internal/`
   directory; the compiler then enforces the boundary.
-- Anything under `generated/` is regenerated with `buf generate`; a hand edit there
-  is always a bug.
+- Regenerate bindings with their owning generator; a hand edit under `generated/`
+  is always a bug. From the repository root, use `buf generate` for
+  `generated/go/proto/`, `go generate .` for `generated/go/mib/`, and
+  `go run ./src/common/yang/cmd/yanggen -update` for `generated/go/yang/`.
+  The [protobuf workflow](code-style-proto.md),
+  [MIB generator](../src/common/snmp/cmd/mibgen/doc.go), and
+  [YANG generator](../src/common/yang/cmd/yanggen/doc.go) describe their inputs
+  and checks.
 
 ## Testing
 

@@ -11,21 +11,30 @@ import (
 // terminator, that names a declaration: several forms end at "::= { … }",
 // one ends at a bare integer, one at a semicolon, and three end nowhere
 // at all, so a framer that keys on the terminator mis-cuts most of the
-// corpus.
+// corpus. Values may be copied and read concurrently.
 type Kind uint8
 
 // The head kinds. [KindUnrecognized] is the zero value and covers a run
 // of tokens no form claimed, which is kept as a frame so the file still
 // tiles and so a corpus sweep can count what the taxonomy missed.
 const (
+	// KindUnrecognized preserves tokens whose declaration head is unknown.
 	KindUnrecognized Kind = iota
+	// KindImports names an IMPORTS list terminated by a semicolon.
 	KindImports
+	// KindExports names a skipped EXPORTS list terminated by a semicolon.
 	KindExports
+	// KindMacroDefinition names a skipped ASN.1 MACRO body ending at END.
 	KindMacroDefinition
+	// KindChoice names a skipped CHOICE type with a brace-delimited body.
 	KindChoice
+	// KindMacroInvocation names an SMI macro invocation with an assigned OID.
 	KindMacroInvocation
+	// KindTrapType names a TRAP-TYPE invocation with an assigned trap number.
 	KindTrapType
+	// KindValueAssignment names an OBJECT IDENTIFIER value assignment.
 	KindValueAssignment
+	// KindTypeAssignment names a type definition ending at the next head.
 	KindTypeAssignment
 )
 

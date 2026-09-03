@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -30,6 +31,11 @@ type t4Target struct {
 var t4Targets []t4Target
 
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(0)
+	}
+
 	raw := strings.TrimSpace(os.Getenv(gnmiT4TargetsEnv))
 	if raw == "" {
 		fmt.Fprintf(os.Stderr, "[yang_integration_t4] %s unset; skipping tier (set to host:port@user:password,... to enable)\n", gnmiT4TargetsEnv)
@@ -48,18 +54,18 @@ func TestMain(m *testing.M) {
 // parseT4Targets parses the env contract.
 func parseT4Targets(raw string) ([]t4Target, error) {
 	var out []t4Target
-	for _, entry := range strings.Split(raw, ",") {
+	for i, entry := range strings.Split(raw, ",") {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
 		}
 		addr, creds, ok := strings.Cut(entry, "@")
 		if !ok || addr == "" {
-			return nil, fmt.Errorf("entry %q: want host:port@user:password", entry)
+			return nil, fmt.Errorf("entry %d: want host:port@user:password", i+1)
 		}
 		user, pass, ok := strings.Cut(creds, ":")
 		if !ok || user == "" || pass == "" {
-			return nil, fmt.Errorf("entry %q: want host:port@user:password", entry)
+			return nil, fmt.Errorf("entry %d: want host:port@user:password", i+1)
 		}
 		out = append(out, t4Target{Addr: addr, User: user, Password: pass})
 	}

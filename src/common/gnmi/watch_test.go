@@ -248,3 +248,65 @@ func TestRecreatedWatcherColdStarts(t *testing.T) {
 		_ = w.Close()
 	}
 }
+
+func TestWatcherStopsQuietSubscription(t *testing.T) {
+	for _, closeExplicitly := range []bool{false, true} {
+		name := "iterator break"
+		if closeExplicitly {
+			name = "Close"
+		}
+		t.Run(name, func(t *testing.T) {
+			stopped := make(chan struct{})
+			f := &fakeServer{
+				encodings: []gpb.Encoding{gpb.Encoding_JSON_IETF},
+				subscribe: func(srv gpb.GNMI_SubscribeServer) error {
+					defer close(stopped)
+					if _, err := srv.Recv(); err != nil {
+						return err
+					}
+					if err := srv.Send(notif(leafUpdate("a", "name", `"a"`))); err != nil {
+						return err
+					}
+					if err := srv.Send(syncResp()); err != nil {
+						return err
+					}
+					<-srv.Context().Done()
+					return srv.Context().Err()
+				},
+			}
+			s := dialFake(t, f)
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			w, err := gnmi.Watch(ctx, s, fixturemain.Servers_ServerDescriptor(), gnmi.WatchOptions{})
+			if err != nil {
+				t.Fatalf("Watch: %v", err)
+			}
+			t.Cleanup(func() { _ = w.Close() })
+			finished := make(chan struct{})
+			go func() {
+				defer close(finished)
+				for range w.Iter() {
+					if closeExplicitly {
+						_ = w.Close()
+						continue
+					}
+					break
+				}
+			}()
+
+			select {
+			case <-finished:
+			case <-time.After(time.Second):
+				t.Fatal("watcher iteration did not finish after consumer stopped")
+			}
+			select {
+			case <-stopped:
+			case <-time.After(time.Second):
+				t.Fatal("watcher left its quiet subscription running")
+			}
+			if err := w.Err(); err != nil {
+				t.Errorf("watcher error = %v, want nil after consumer stopped", err)
+			}
+		})
+	}
+}

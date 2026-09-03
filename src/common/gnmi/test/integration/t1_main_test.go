@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -17,6 +18,11 @@ import (
 var t1Target string
 
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(0)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	target, cleanup, err := testenv.StartGNMITarget(ctx, "../../../yang/test/integration/testenv/testdata/gnmitarget")
 	cancel()
@@ -26,7 +32,10 @@ func TestMain(m *testing.M) {
 	}
 	t1Target = target
 	code := m.Run()
-	cleanup()
+	if err := cleanup(); err != nil {
+		fmt.Fprintln(os.Stderr, "t1 cleanup:", err)
+		code = 1
+	}
 	os.Exit(code)
 }
 

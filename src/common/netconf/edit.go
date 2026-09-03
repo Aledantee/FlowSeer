@@ -6,25 +6,22 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// edit.go: the config write path. Apply is the F2 orchestration —
-// lock, edit-config, validate, commit, unlock, with discard-changes
-// plus unlock on any failure — and the primitives underneath are
-// exported for callers that need finer control (induced-failure lab
-// tests, staged multi-edit transactions).
-
 // Apply submits config XML (a yanggen-rendered subtree, wrapped by
 // the library in <config>) through the peer's capability-selected
 // edit flow:
 //
 //   - candidate peer: lock candidate → edit-config → validate (when
 //     the peer supports it) → commit → unlock. On any failure after
-//     the lock, changes are discarded and the lock released before
-//     the device's error is surfaced, so the running config is
-//     provably untouched.
+//     the lock, discard and unlock are attempted before returning
+//     the error. A lost commit reply leaves its outcome unknown.
 //   - writable-running peer: lock running → edit-config
 //     (rollback-on-error when advertised) → unlock.
 //
 // A peer with neither capability fails with [ErrCodeUnsupported].
+// Cleanup runs independently of caller cancellation; each cleanup RPC
+// is bounded by [Options.RPCTimeout]. Cleanup failures are attached as
+// error attributes. A running edit can partially apply when the peer
+// lacks rollback-on-error.
 func (s *Session) Apply(ctx context.Context, config []byte) error {
 	target, ok := s.caps.editTarget()
 	if !ok {
@@ -33,23 +30,24 @@ func (s *Session) Apply(ctx context.Context, config []byte) error {
 	if err := s.Lock(ctx, target); err != nil {
 		return err
 	}
+	cleanupCtx := context.WithoutCancel(ctx)
 
 	if err := s.applyLocked(ctx, target, config); err != nil {
 		// Best-effort cleanup: the device's original error is the one
 		// the caller needs; discard/unlock failures ride along as
 		// attributes rather than replacing it.
 		if target == Candidate {
-			if derr := s.DiscardChanges(ctx); derr != nil {
+			if derr := s.DiscardChanges(cleanupCtx); derr != nil {
 				err = errs.From(err).Attr("discard_error", derr.Error()).Msg("edit failed and discard-changes also failed")
 			}
 		}
-		if uerr := s.Unlock(ctx, target); uerr != nil {
+		if uerr := s.Unlock(cleanupCtx, target); uerr != nil {
 			err = errs.From(err).Attr("unlock_error", uerr.Error()).Msg("edit failed and unlock also failed")
 		}
 		return err
 	}
 
-	return s.Unlock(ctx, target)
+	return s.Unlock(cleanupCtx, target)
 }
 
 // applyLocked runs the edit sequence that assumes the target lock is
@@ -77,17 +75,26 @@ func (s *Session) applyLocked(ctx context.Context, target Datastore, config []by
 // commit orchestration — the building block for callers staging
 // multiple edits under one [Session.Lock].
 func (s *Session) EditConfig(ctx context.Context, target Datastore, config []byte) error {
+	if err := target.validate(); err != nil {
+		return err
+	}
 	return s.exec(ctx, "edit-config", &editConfigOp{Target: dsElem(target), Config: editConfig{Inner: config}}, nil)
 }
 
 // Lock takes the datastore lock. A lock held elsewhere surfaces as
 // the retryable [ErrCodeLockDenied].
 func (s *Session) Lock(ctx context.Context, target Datastore) error {
+	if err := target.validate(); err != nil {
+		return err
+	}
 	return s.exec(ctx, "lock", &lockOp{Target: dsElem(target)}, nil)
 }
 
 // Unlock releases the datastore lock.
 func (s *Session) Unlock(ctx context.Context, target Datastore) error {
+	if err := target.validate(); err != nil {
+		return err
+	}
 	return s.exec(ctx, "unlock", &unlockOp{Target: dsElem(target)}, nil)
 }
 
@@ -95,6 +102,9 @@ func (s *Session) Unlock(ctx context.Context, target Datastore) error {
 // without the validate capability reject it with
 // [ErrCodeUnsupported] client-side.
 func (s *Session) Validate(ctx context.Context, source Datastore) error {
+	if err := source.validate(); err != nil {
+		return err
+	}
 	if !s.caps.validate {
 		return errs.New().Code(ErrCodeUnsupported).Msg("peer does not advertise the validate capability")
 	}

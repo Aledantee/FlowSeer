@@ -18,9 +18,8 @@
 // one file, so every gosmi call in this package runs under
 // [LoadWithGosmi]'s recovery.
 //
-// gosmi keeps its module universe in package-level state, so a load is
-// not safe for concurrent use and this package runs its corpus pass on
-// one goroutine. That is also why every load gets a fresh Init/Exit
+// gosmi keeps its module universe in package-level state, so
+// [LoadWithGosmi] serializes loads. Every load gets a fresh Init/Exit
 // pair: a file must not see the modules the previous file pulled in, or
 // two vendors that ship a module under the same name would silently
 // share one definition.
@@ -179,9 +178,8 @@ var gosmiState sync.Mutex
 // every call, so a file that panicked halfway through a build cannot
 // leave its wreckage where the next file will read it.
 //
-// LoadWithGosmi is not safe for concurrent use: it takes a
-// package-level lock for the whole call, because what it manipulates is
-// gosmi's package-level state.
+// LoadWithGosmi serializes concurrent calls with a package-level lock.
+// Callers must not access gosmi directly while a load is running.
 func LoadWithGosmi(path string, searchPaths []string) (p *Projection, outcome Outcome, detail string) {
 	gosmiState.Lock()
 	defer gosmiState.Unlock()
@@ -225,7 +223,8 @@ func PanicDetail(detail string) string {
 	return detail
 }
 
-// VendorCensus counts one vendor's corpus files by outcome.
+// VendorCensus counts one vendor's corpus files by outcome. Its zero value
+// is empty. Concurrent use requires external synchronization when modified.
 type VendorCensus struct {
 	Loaded   int
 	Failed   int
@@ -254,7 +253,9 @@ func (v *VendorCensus) Record(o Outcome) {
 	}
 }
 
-// Census is the per-vendor outcome count for a whole corpus pass.
+// Census is the per-vendor outcome count for a whole corpus pass. Allocate
+// it before calling Record. Concurrent use requires external synchronization
+// when any vendor's counts are modified.
 type Census map[string]*VendorCensus
 
 // Record counts one file.

@@ -68,7 +68,8 @@ const (
 	MaxDiagnostics = diag.MaxDiagnostics
 )
 
-// Span is a half-open byte range in the source it was cut from.
+// Span is a half-open byte range in the source it was cut from. Its zero
+// value is an empty range. Values may be copied and read concurrently.
 type Span struct {
 	Start int32
 	End   int32
@@ -84,6 +85,8 @@ func (s Span) Len() int { return int(s.End - s.Start) }
 // costs a header and nothing else. Name is the declared descriptor, the
 // empty string for the heads that name nothing, and the offending
 // token's spelling for [KindUnrecognized].
+// Frames are safe for concurrent reads when their token slices are not
+// modified. The zero value holds no declaration.
 type Frame struct {
 	Kind   Kind
 	Name   string
@@ -93,7 +96,8 @@ type Frame struct {
 
 // Module is one DEFINITIONS ::= BEGIN … END block and the frames cut
 // from it. Span runs from the module's name to its END, or to the last
-// token framed when the END is missing.
+// token framed when the END is missing. The zero value holds no module.
+// A Module is safe for concurrent reads when its frames are not modified.
 type Module struct {
 	Name   string
 	Span   Span
@@ -102,12 +106,17 @@ type Module struct {
 
 // File is one source cut into modules.
 //
-// A File is always usable. Modules is empty when a fatal condition cost
-// the file, and Diagnostics then says which one; every other condition
+// Cut always returns a usable File. Modules is empty when a fatal condition
+// cost the file, and Diagnostics then says which one; every other condition
 // leaves the modules that were framed in place. Comments records which
 // comment-termination rule produced this result, which matters because
 // the two rules disagree about where several declarations in the corpus
 // begin.
+//
+// The zero value has no modules or source. File methods are safe for
+// concurrent reads when its fields and the source bytes are not modified.
+// Calling [lex.Result.Text] through Source requires exclusive access
+// because it updates the token text cache.
 type File struct {
 	Name        string
 	Modules     []Module
@@ -128,7 +137,8 @@ func (f *File) Text(s Span) string { return string(f.src[s.Start:s.End]) }
 
 // Frames returns every frame in the file, across all its modules. It is
 // for reporting and for corpus sweeps; a pass that cares which module a
-// declaration belongs to walks Modules instead.
+// declaration belongs to walks Modules instead. The returned slice is
+// independent, but each frame's Tokens still aliases the source tokens.
 func (f *File) Frames() []Frame {
 	var out []Frame
 	for _, m := range f.Modules {
@@ -138,7 +148,8 @@ func (f *File) Frames() []Frame {
 	return out
 }
 
-// Options configure one call to [Cut].
+// Options configure one call to [Cut]. The zero value uses an empty file
+// name in diagnostics. Values may be copied and read concurrently.
 type Options struct {
 	// File is the name diagnostics are reported against.
 	File string
@@ -176,22 +187,20 @@ func Cut(src []byte, opts Options) *File {
 
 	paired := cutIn(src, opts, lex.CommentPaired)
 
-	// A file written for the end-of-line rule usually has an odd number
-	// of "--" runs in it, so reading it under the paired rule folds the
-	// rest of the file into one comment. That reads as an improvement by
-	// diagnostic count — one missing header beats a dozen unrecognized
-	// declarations — and it throws the whole module away, so a reading
-	// that costs the file never wins.
-	if fatal(paired) && !fatal(byLine) {
-		return byLine
-	}
-
 	if resolved := broken - countSevere(paired); resolved > 0 {
-		paired.Diagnostics = append(paired.Diagnostics, diag.Raise(
-			diag.Position{File: opts.File},
-			diag.ErrCodePairedCommentMode,
-			diag.ArgInt(resolved),
-		))
+		c := cutter{file: opts.File, out: paired}
+		c.raise(0, diag.ErrCodePairedCommentMode, diag.ArgInt(resolved))
+		if c.stopped {
+			paired.Modules = nil
+		}
+
+		// An unmatched "--" can hide the rest of an end-of-line file
+		// under the paired rule. Fewer diagnostics cannot justify losing
+		// a file the first reading kept, including when the mode notice
+		// itself exceeds the diagnostic cap.
+		if fatal(paired) && !fatal(byLine) {
+			return byLine
+		}
 
 		return paired
 	}
@@ -650,7 +659,10 @@ func (c *cutter) limit(what string, bound, offset int) {
 
 func (c *cutter) raise(offset int, code errs.Code, args ...diag.Arg) {
 	if len(c.out.Diagnostics) >= MaxDiagnostics {
-		c.limit("diagnostics", MaxDiagnostics, offset)
+		if len(c.out.Diagnostics) == MaxDiagnostics {
+			c.limit("diagnostics", MaxDiagnostics, offset)
+		}
+		c.stopped = true
 
 		return
 	}

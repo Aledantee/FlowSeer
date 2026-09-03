@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -35,6 +36,10 @@ var t4Targets []t4Target
 // a diagnostic — that is a misconfiguration the operator should fix,
 // not a soft skip.
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(m.Run())
+	}
 	raw := strings.TrimSpace(os.Getenv(snmpT4TargetsEnv))
 	if raw == "" {
 		fmt.Fprintf(os.Stderr, "[snmp_integration_t4] %s unset; skipping tier (set to host[:port]@community,... to enable)\n", snmpT4TargetsEnv)

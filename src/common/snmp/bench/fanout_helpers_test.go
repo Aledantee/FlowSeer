@@ -67,7 +67,7 @@ func dialWarmed(tb testing.TB, addr string, warmup func(snmp.Session) error) snm
 // instance, and registers their cleanup. One responder per session is the
 // honest fleet-polling model: N independent client→device pipes. A single
 // shared responder would funnel every datagram through one UDP socket (the
-// kernel serialises recv on a socket), making the responder — not the client
+// kernel serializes recv on a socket), making the responder — not the client
 // fan-out — the throughput ceiling.
 func fanoutSessions(b *testing.B, conc int, warmup func(snmp.Session) error) []snmp.Session {
 	sessions := make([]snmp.Session, conc)

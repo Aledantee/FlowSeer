@@ -19,8 +19,6 @@ import (
 // standalone and ensures the responder is not co-tuned with the client
 // under test.
 
-// --- canned MIB -------------------------------------------------------
-
 // scalarOID is sysDescr.0 — the target of the Get / cold-start benchmarks.
 var scalarOID = []uint32{1, 3, 6, 1, 2, 1, 1, 1, 0}
 
@@ -59,8 +57,6 @@ func buildMIB(rows int) []mibEntry {
 	sort.Slice(es, func(i, j int) bool { return compareOID(es[i].oid, es[j].oid) < 0 })
 	return es
 }
-
-// --- BER encoding helpers --------------------------------------------
 
 func encLen(n int) []byte {
 	if n < 0x80 {
@@ -150,8 +146,6 @@ var endOfMibView = []byte{0x82, 0x00}
 // noSuchObject is the v2c [0] IMPLICIT NULL exception value TLV.
 var noSuchObject = []byte{0x80, 0x00}
 
-// --- BER decoding helpers --------------------------------------------
-
 func parseTLV(b []byte) (tag byte, content, rest []byte, ok bool) {
 	if len(b) < 2 {
 		return 0, nil, nil, false
@@ -217,8 +211,6 @@ func compareOID(a, b []uint32) int {
 	}
 	return 0
 }
-
-// --- request handling -------------------------------------------------
 
 // handle decodes one request datagram and returns the response datagram,
 // or nil if the packet is unparseable (the responder drops it silently).
@@ -339,21 +331,29 @@ func firstGreater(mib []mibEntry, o []uint32) int {
 	return -1
 }
 
-// --- UDP server -------------------------------------------------------
-
 // startResponder launches the loopback responder and returns its
 // host:port. It stops when the benchmark ends (b.Cleanup closes the
 // socket, which unblocks the read loop).
 func startResponder(b testing.TB) string {
 	b.Helper()
 	mib := buildMIB(benchRows)
+	return startResponderWithHandler(b, func(pkt []byte) []byte { return handle(mib, pkt) })
+}
+
+func startResponderWithHandler(b testing.TB, respond func([]byte) []byte) string {
+	b.Helper()
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	if err != nil {
 		b.Fatalf("listen: %v", err)
 	}
-	b.Cleanup(func() { _ = conn.Close() })
+	done := make(chan struct{})
+	b.Cleanup(func() {
+		_ = conn.Close()
+		<-done
+	})
 
 	go func() {
+		defer close(done)
 		buf := make([]byte, 65535)
 		for {
 			n, addr, err := conn.ReadFromUDP(buf)
@@ -364,7 +364,7 @@ func startResponder(b testing.TB) string {
 			// come from the MIB, community is copied into the response), and
 			// WriteToUDP copies before returning, so buf is safe to reuse
 			// without a per-datagram copy.
-			if resp := handle(mib, buf[:n]); resp != nil {
+			if resp := respond(buf[:n]); resp != nil {
 				_, _ = conn.WriteToUDP(resp, addr)
 			}
 		}

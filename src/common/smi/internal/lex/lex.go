@@ -59,6 +59,7 @@ import (
 
 // CommentMode selects how a comment ends. See the package overview for
 // why the choice is a per-file option rather than a fixed rule.
+// Values may be copied and read concurrently.
 type CommentMode uint8
 
 const (
@@ -74,7 +75,7 @@ const (
 )
 
 // Options configure one call to [Lex]. The zero value lexes an unnamed
-// file with end-of-line comments.
+// file with end-of-line comments. Values may be copied and read concurrently.
 type Options struct {
 	// File is the name diagnostics are reported against. It is never
 	// opened or interpreted; the caller has already read the bytes.
@@ -136,6 +137,8 @@ func (r *Result) Text(t Token) string {
 // The result aliases the source, so the bytes of a DESCRIPTION written
 // in some vendor's local encoding survive byte for byte. Use
 // [Result.StringValue] when a Go string is wanted instead.
+// The token must have come from this Result; the caller must not modify
+// the returned bytes.
 func (r *Result) Content(t Token) []byte {
 	b := r.src[t.Offset:t.End()]
 
@@ -470,6 +473,11 @@ func (l *lexer) scanQuoted(start int, closing byte) bool {
 	for l.pos < len(l.src) {
 		switch b := l.src[l.pos]; b {
 		case closing:
+			if closing == curlyCloseQuote && continuesRune(l.src, l.pos) {
+				l.pos++
+
+				continue
+			}
 			l.pos++
 
 			return l.emit(start, Token{Kind: KindQuotedString})
@@ -592,6 +600,7 @@ const (
 //
 // It is exported because a later pass keeps spans rather than tokens
 // and still has to strip the same pair, the curly one included.
+// The result aliases b; concurrent calls require that b remain unchanged.
 func Unquote(b []byte) []byte {
 	if len(b) == 0 {
 		return b
@@ -607,7 +616,8 @@ func Unquote(b []byte) []byte {
 	}
 
 	b = b[1:]
-	if n := len(b); n > 0 && b[n-1] == closing {
+	if n := len(b); n > 0 && b[n-1] == closing &&
+		(closing != curlyCloseQuote || !continuesRune(b, n-1)) {
 		b = b[:n-1]
 	}
 

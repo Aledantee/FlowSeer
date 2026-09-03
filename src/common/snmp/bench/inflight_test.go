@@ -39,9 +39,16 @@ func startConcurrentResponder(tb testing.TB, rows int) string {
 	if err != nil {
 		tb.Fatalf("listen: %v", err)
 	}
-	tb.Cleanup(func() { _ = conn.Close() })
+	done := make(chan struct{})
+	tb.Cleanup(func() {
+		_ = conn.Close()
+		<-done
+	})
 
 	go func() {
+		defer close(done)
+		var replies sync.WaitGroup
+		defer replies.Wait()
 		buf := make([]byte, 65535)
 		for {
 			n, addr, err := conn.ReadFromUDP(buf)
@@ -49,7 +56,9 @@ func startConcurrentResponder(tb testing.TB, rows int) string {
 				return // socket closed at cleanup
 			}
 			pkt := append([]byte(nil), buf[:n]...) // copy: buf is reused next read
+			replies.Add(1)
 			go func(pkt []byte, addr *net.UDPAddr) {
+				defer replies.Done()
 				if resp := handle(mib, pkt); resp != nil {
 					_, _ = conn.WriteToUDP(resp, addr)
 				}
@@ -110,7 +119,7 @@ func TestInFlightScaling(t *testing.T) {
 
 	t.Run("flowseer-1session-1socket", func(t *testing.T) {
 		sess := dialNative(t, addr)
-		defer sess.Close()
+		closeOnCleanup(t, sess)
 		if _, err := sess.Get(ctx, []snmp.OID{scalarSnmpOID}); err != nil { // warm
 			t.Fatalf("warmup: %v", err)
 		}
@@ -154,7 +163,7 @@ func TestInFlightScaling(t *testing.T) {
 		// the request-id and the socket read), so its single-socket ceiling is
 		// one in-flight request: a single serial loop.
 		c := dialGosnmp(t, addr)
-		defer c.Conn.Close()
+		closeOnCleanup(t, c.Conn)
 		if _, err := c.Get([]string{scalarStr}); err != nil {
 			t.Fatalf("warmup: %v", err)
 		}

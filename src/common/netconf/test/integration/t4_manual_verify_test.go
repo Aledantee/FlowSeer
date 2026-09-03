@@ -26,7 +26,7 @@ import (
 // Covers the induced-change watch (hardware leg). Covers conformance matrix row: nc-t4-watch-induced
 func TestT4WatcherObservesInducedChange(t *testing.T) {
 	if os.Getenv("YANG_T4_INDUCE") != "1" {
-		t.Skip("set YANG_T4_INDUCE=1 and toggle an interface during the window to run the AE4 hardware check")
+		t.Skip("set YANG_T4_INDUCE=1 and change one interface during the observation window")
 	}
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -35,16 +35,26 @@ func TestT4WatcherObservesInducedChange(t *testing.T) {
 			defer cancel()
 
 			w := netconf.Watch(ctx, s, ietfif.Interfaces_InterfaceDescriptor(), yang.WatchConfig{Interval: 10 * time.Second})
-			defer func() { _ = w.Close() }()
 
-			t.Log("watching /interfaces — toggle an interface (shut / no shut) now; window is 3 minutes")
+			t.Log("watching /interfaces; change one interface once during the 3 minute window")
 			deadline := time.After(3 * time.Minute)
 			modified := map[string]int{}
 			ch := make(chan yang.WatchEvent[ietfif.Interfaces_Interface, ietfif.Interfaces_InterfaceKey], 128)
+			done := make(chan struct{})
+			defer func() {
+				cancel()
+				_ = w.Close()
+				<-done
+			}()
 			go func() {
+				defer close(done)
 				defer close(ch)
 				for ev := range w.Iter() {
-					ch <- ev
+					select {
+					case ch <- ev:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}()
 			for {
@@ -60,6 +70,11 @@ func TestT4WatcherObservesInducedChange(t *testing.T) {
 				case <-deadline:
 					if len(modified) == 0 {
 						t.Fatal("no Modified events observed — was an interface toggled?")
+					}
+					for name, count := range modified {
+						if count != 1 {
+							t.Errorf("interface %s emitted %d Modified events, want 1", name, count)
+						}
 					}
 					return
 				}

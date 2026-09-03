@@ -24,13 +24,15 @@ import (
 // Transport is the RPC transport seam: the envelope layer the
 // session drives. The production implementation wraps
 // nemith.io/netconf; tests script a fake; a house transport can
-// replace the dependency without touching callers.
+// replace the dependency without touching callers. Implementations
+// must support concurrent Exec and Close calls and honor contexts.
 type Transport interface {
 	// Exec sends one RPC operation and decodes the reply body into
 	// reply (which may be nil for ok-only operations). A device
 	// <rpc-error> surfaces as an error.
 	Exec(ctx context.Context, op, reply any) error
 	// Capabilities returns the server's advertised capability URIs.
+	// The returned slice must remain unchanged for the session's lifetime.
 	Capabilities() []string
 	// Close tears the transport down.
 	Close(ctx context.Context) error
@@ -45,8 +47,8 @@ type Session struct {
 	opts   Options
 	tracer trace.Tracer
 
-	mu     sync.Mutex
-	err    error // first latched terminal error
+	mu     sync.Mutex // guards err and closed
+	err    error      // first latched terminal error
 	closed bool
 
 	stop     chan struct{}
@@ -168,8 +170,9 @@ func (t *nemithTransport) Close(ctx context.Context) error {
 	return t.s.Close(ctx)
 }
 
-// NewSession wraps an established transport: it parses the
-// capability set and starts the keepalive guard when configured.
+// NewSession takes ownership of an established, non-nil transport:
+// it parses the capability set and starts the keepalive guard when
+// configured. Call [Session.Close] to release the transport and guard.
 func NewSession(t Transport, opts Options) *Session {
 	opts = opts.withDefaults()
 	tp := opts.TracerProvider
@@ -191,6 +194,7 @@ func NewSession(t Transport, opts Options) *Session {
 }
 
 // Capabilities returns the server's advertised capability URIs.
+// The returned slice is borrowed and must not be modified.
 func (s *Session) Capabilities() []string { return s.caps.all }
 
 // EditTarget returns the datastore this peer's edits address
@@ -272,11 +276,8 @@ func (s *Session) exec(ctx context.Context, name string, op, reply any) error {
 	}
 	s.mu.Unlock()
 
-	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.opts.RPCTimeout)
-		defer cancel()
-	}
+	ctx, cancel := context.WithTimeout(ctx, s.opts.RPCTimeout)
+	defer cancel()
 
 	ctx, span := s.tracer.Start(ctx, "netconf."+name,
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -379,6 +380,9 @@ func (s *Session) Get(ctx context.Context, filter yang.Path) ([]byte, error) {
 // GetConfig reads one datastore's configuration under an optional
 // subtree filter.
 func (s *Session) GetConfig(ctx context.Context, ds Datastore, filter yang.Path) ([]byte, error) {
+	if err := ds.validate(); err != nil {
+		return nil, err
+	}
 	inner, err := renderFilter(filter)
 	if err != nil {
 		return nil, err

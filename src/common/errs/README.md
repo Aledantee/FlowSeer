@@ -36,6 +36,8 @@ The wrapped error comes first, and both return nil for a nil error.
 `.UserMsg(msg)`, `.Hint(hint)`, `.ExitCode(n)`, `.Retryable()`, and `.Fatal()`
 chain; `.Msg(msg)` and `.Msgf(format, args...)` terminate and return the
 error. A partially built `Builder` is reusable as the base of several errors.
+Attribute values and causes are retained by reference, so concurrent use of
+the builder or error requires them to be safe for concurrent reads.
 
 **Codes** (`code.go`) — `NewCode("<package>/<name>")` registers a `Code` and
 panics on a duplicate or malformed name; `Codes()` enumerates the registry;

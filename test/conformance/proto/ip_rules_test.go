@@ -241,10 +241,8 @@ func TestIpPrimitiveRules(t *testing.T) {
 	runValidationCases(t, tests)
 }
 
-func TestAddressOriginRenumberedValues(t *testing.T) {
-	// The pre-release reserved-tombstone collapse renumbered the values that
-	// followed the removed SLAAC slot; pin the highest surviving value so an
-	// accidental re-renumber cannot land silently.
+func TestAddressOriginWireValues(t *testing.T) {
+	// Readers depend on these wire numbers retaining their meanings.
 	if got := int32(ipv1.AddressOrigin_ADDRESS_ORIGIN_LINK_LAYER); got != 4 {
 		t.Fatalf("ADDRESS_ORIGIN_LINK_LAYER = %d, want 4", got)
 	}

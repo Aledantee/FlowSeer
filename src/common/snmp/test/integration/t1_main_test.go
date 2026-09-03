@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -25,29 +26,32 @@ const snmpdStartupBudget = 5 * time.Minute
 // TestMain owns the T1 snmpd container lifecycle: build, start, probe,
 // run tests, terminate. When Docker is unavailable the entire tier is
 // skipped (exit 0); when container start fails the tier fails with a
-// diagnostic (exit 1). Cleanup is registered before m.Run so a
-// panicking test still tears the container down.
+// diagnostic (exit 1). Short mode runs offline tests before any Docker setup.
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(m.Run())
+	}
 	if !testenv.HasDocker() {
 		fmt.Fprintln(os.Stderr, "[snmp_integration_t1] docker not on PATH; skipping tier")
 		os.Exit(0)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), snmpdStartupBudget)
-	defer cancel()
 
 	target, cleanup, err := testenv.StartSnmpd(ctx, snmpdContextDir)
+	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[snmp_integration_t1] StartSnmpd: %v\n", err)
-		if cleanup != nil {
-			cleanup()
-		}
 		os.Exit(1)
 	}
 	testenv.SetTarget(target)
 	fmt.Fprintf(os.Stderr, "[snmp_integration_t1] snmpd up at %s\n", target)
 
 	code := m.Run()
-	cleanup()
+	if err := cleanup(); err != nil {
+		fmt.Fprintf(os.Stderr, "[snmp_integration_t1] cleanup: %v\n", err)
+		code = 1
+	}
 	os.Exit(code)
 }

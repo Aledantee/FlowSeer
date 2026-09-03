@@ -1,6 +1,7 @@
 package diag_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -49,6 +50,70 @@ func TestLineTableZeroValueIsOneLine(t *testing.T) {
 	line, col := table.LineColumn(7)
 	if line != 1 || col != 8 {
 		t.Errorf("LineColumn(7) on the zero table = %d:%d, want 1:8", line, col)
+	}
+}
+
+func TestNewLineTableTerminators(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{name: "LF", src: "a\nb"},
+		{name: "CR", src: "a\rb"},
+		{name: "CRLF", src: "a\r\nb"},
+		{name: "LFCR", src: "a\n\rb"},
+		{name: "mixed", src: "a\nb\r\nc\rd\n\re"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			table := diag.NewLineTable([]byte(tc.src))
+			wantLine := 0
+			for offset, b := range []byte(tc.src) {
+				if b == '\r' || b == '\n' {
+					continue
+				}
+				wantLine++
+				line, column := table.LineColumn(offset)
+				if line != wantLine || column != 1 {
+					t.Errorf("LineColumn(%d) = %d:%d, want %d:1", offset, line, column, wantLine)
+				}
+			}
+			if got := table.Lines(); got != wantLine {
+				t.Errorf("Lines() = %d, want %d", got, wantLine)
+			}
+		})
+	}
+}
+
+func TestLineTableLargeOffsets(t *testing.T) {
+	boundary := int64(1 << 31)
+	if strconv.IntSize == 32 {
+		boundary = 1 << 30
+	}
+	large := int(boundary)
+	tests := []struct {
+		name   string
+		starts []int
+		offset int
+		line   int
+		column int
+	}{
+		{name: "lookup before boundary", starts: []int{10}, offset: large - 1, line: 2, column: large - 10},
+		{name: "lookup at boundary", starts: []int{10}, offset: large, line: 2, column: large - 9},
+		{name: "line beyond boundary", starts: []int{10, large}, offset: large + 2, line: 3, column: 3},
+		{name: "earlier line after large addition", starts: []int{10, large}, offset: 12, line: 2, column: 3},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var table diag.LineTable
+			for _, offset := range tc.starts {
+				table.AddLine(offset)
+			}
+			line, column := table.LineColumn(tc.offset)
+			if line != tc.line || column != tc.column {
+				t.Errorf("LineColumn(%d) = %d:%d, want %d:%d", tc.offset, line, column, tc.line, tc.column)
+			}
+		})
 	}
 }
 

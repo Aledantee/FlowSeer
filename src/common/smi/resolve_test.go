@@ -52,6 +52,30 @@ func codeCount(set *smi.ModuleSet, code errs.Code) int {
 
 func hasCode(set *smi.ModuleSet, code errs.Code) bool { return codeCount(set, code) > 0 }
 
+func TestOIDAssignmentComments(t *testing.T) {
+	for _, tc := range []struct{ name, assignment string }{
+		{"plain", "{ iso 3 6 1 }"},
+		{"line comment", "{ iso 3 -- ignored arc words\n 6 1 }"},
+		{"named arc comment", "{ iso org -- ignored words\n (3) 6 1 }"},
+		{"parenthesized comment", "{ iso org( -- ignored words\n 3 ) 6 1 }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeMIB(t, dir, "COMMENT-MIB", "COMMENT-MIB DEFINITIONS ::= BEGIN\nroot OBJECT IDENTIFIER ::= "+tc.assignment+"\nchild OBJECT IDENTIFIER ::= { root 7 }\nEND\n")
+			set := loadIn(t, dir, "COMMENT-MIB")
+			for name, want := range map[string]string{"root": "1.3.6.1", "child": "1.3.6.1.7"} {
+				n := node(t, set, "COMMENT-MIB", name)
+				if n.Unresolved || n.OID.String() != want {
+					t.Errorf("%s: got OID %s, unresolved %v; want %s, false", name, n.OID, n.Unresolved, want)
+				}
+			}
+			if n := codeCount(set, smi.ErrCodeUnresolvedDeclaration); n != 0 {
+				t.Errorf("got %d unresolved diagnostics, want 0", n)
+			}
+		})
+	}
+}
+
 // node fails the test rather than returning a nil that would panic three
 // assertions later.
 func node(t *testing.T, set *smi.ModuleSet, module, name string) *smi.Node {
@@ -108,6 +132,49 @@ func TestResolveAcrossFilesWhateverOrderTheyLoadIn(t *testing.T) {
 		if acme.Unresolved {
 			t.Error("acme is marked unresolved")
 		}
+	}
+}
+
+func TestTrapOIDLengthIncludesNotificationSuffix(t *testing.T) {
+	for _, enterpriseLength := range []int{smi.MaxOIDLength - 2, smi.MaxOIDLength - 1, smi.MaxOIDLength} {
+		t.Run(fmt.Sprintf("enterprise-arcs-%d", enterpriseLength), func(t *testing.T) {
+			dir := t.TempDir()
+			writeMIB(t, dir, "TRAP-MIB", "TRAP-MIB DEFINITIONS ::= BEGIN\n"+
+				"enterprise OBJECT IDENTIFIER ::= { iso"+strings.Repeat(" 1", enterpriseLength-1)+" }\n"+
+				"alarm TRAP-TYPE\n"+
+				"    ENTERPRISE enterprise\n"+
+				"    DESCRIPTION \"An enterprise notification.\"\n"+
+				"    ::= 1\nEND\n")
+
+			set := loadIn(t, dir, "TRAP-MIB")
+			enterprise := node(t, set, "TRAP-MIB", "enterprise")
+			if enterprise.Unresolved || enterprise.OID.Len() != enterpriseLength {
+				t.Fatalf("enterprise length = %d, unresolved = %v; want %d, false",
+					enterprise.OID.Len(), enterprise.Unresolved, enterpriseLength)
+			}
+
+			alarm := node(t, set, "TRAP-MIB", "alarm")
+			if enterpriseLength+2 > smi.MaxOIDLength {
+				if !alarm.Unresolved || alarm.OID.Len() != 0 {
+					t.Errorf("alarm length = %d, unresolved = %v; want 0, true",
+						alarm.OID.Len(), alarm.Unresolved)
+				}
+				if got := codeCount(set, smi.ErrCodeUnresolvedDeclaration); got != 1 {
+					t.Errorf("unresolved diagnostics = %d, want 1", got)
+				}
+
+				return
+			}
+
+			want := enterprise.OID.Child(0).Child(1)
+			if alarm.Unresolved || alarm.OID.Compare(want) != 0 {
+				t.Errorf("alarm OID = %s, unresolved = %v; want %s, false",
+					alarm.OID, alarm.Unresolved, want)
+			}
+			if got := len(set.Diagnostics()); got != 0 {
+				t.Errorf("diagnostics = %d, want 0", got)
+			}
+		})
 	}
 }
 

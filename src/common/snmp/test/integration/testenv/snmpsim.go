@@ -4,15 +4,17 @@ package testenv
 
 import (
 	"context"
+	"errors"
 	"net"
 	"path/filepath"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/errs"
-
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
@@ -30,6 +32,8 @@ const snmpsimProbeBackoff = 500 * time.Millisecond
 // target.
 const snmpsimContainerPort = "1024/udp"
 
+var startSnmpsimContainer = testcontainers.GenericContainer
+
 // StartSnmpsim builds the FlowSeer T3 snmpsim image and launches it
 // with dataDir bind-mounted as the replay corpus. The container
 // exposes UDP/1024 randomly mapped to a host port; readiness is
@@ -46,9 +50,12 @@ const snmpsimContainerPort = "1024/udp"
 // files; it's bind-mounted at /usr/local/snmpsim/data inside the
 // container.
 //
-// Returns target, a cleanup callback that terminates the container,
-// and any error. Probe failure runs cleanup before returning.
-func StartSnmpsim(ctx context.Context, contextDir, dataDir, probeCommunity string) (target string, cleanup func(), err error) {
+// Failed startup terminates any partial container and joins cleanup errors with
+// the startup cause. On success, callers must invoke cleanup before exiting.
+// Cleanup uses a fresh 30-second context and returns any termination error.
+// Call it once. The startup context can be canceled
+// once this function returns; cleanup does not depend on it.
+func StartSnmpsim(ctx context.Context, contextDir, dataDir, probeCommunity string) (target string, cleanup func() error, err error) {
 	absData, err := filepath.Abs(dataDir)
 	if err != nil {
 		return "", nil, errs.Wrapf(err, "resolve data dir %s", dataDir)
@@ -62,39 +69,35 @@ func StartSnmpsim(ctx context.Context, contextDir, dataDir, probeCommunity strin
 				KeepImage:  true,
 			},
 			ExposedPorts: []string{snmpsimContainerPort},
-			Mounts: testcontainers.ContainerMounts{
-				{
-					Source: testcontainers.GenericBindMountSource{HostPath: absData},
+			HostConfigModifier: func(hc *container.HostConfig) {
+				hc.Mounts = append(hc.Mounts, mount.Mount{
+					Type:   mount.TypeBind,
+					Source: absData,
 					Target: "/usr/local/snmpsim/data",
-				},
+				})
 			},
 			WaitingFor: wait.ForLog("Listening at UDP/IPv4 endpoint").WithStartupTimeout(2 * time.Minute),
 		},
 		Started: true,
 	}
-	ctr, err := testcontainers.GenericContainer(ctx, req)
+	ctr, err := startSnmpsimContainer(ctx, req)
 	if err != nil {
-		return "", nil, errs.Wrap(err, "start snmpsim container")
+		return "", nil, errors.Join(errs.Wrap(err, "start snmpsim container"), terminateContainer(ctr))
 	}
-	cleanup = func() {
-		_ = ctr.Terminate(context.Background())
-	}
+	cleanup = func() error { return terminateContainer(ctr) }
 
 	host, err := ctr.Host(ctx)
 	if err != nil {
-		cleanup()
-		return "", nil, errs.Wrap(err, "snmpsim container host")
+		return "", nil, errors.Join(errs.Wrap(err, "snmpsim container host"), terminateContainer(ctr))
 	}
 	port, err := ctr.MappedPort(ctx, snmpsimContainerPort)
 	if err != nil {
-		cleanup()
-		return "", nil, errs.Wrap(err, "snmpsim container mapped port")
+		return "", nil, errors.Join(errs.Wrap(err, "snmpsim container mapped port"), terminateContainer(ctr))
 	}
 	target = net.JoinHostPort(host, port.Port())
 
 	if err := waitForSnmpsimReady(ctx, target, probeCommunity); err != nil {
-		cleanup()
-		return "", nil, errs.Wrapf(err, "snmpsim readiness probe at %s", target)
+		return "", nil, errors.Join(errs.Wrapf(err, "snmpsim readiness probe at %s", target), terminateContainer(ctr))
 	}
 	return target, cleanup, nil
 }
@@ -111,6 +114,9 @@ func waitForSnmpsimReady(ctx context.Context, target, community string) error {
 	sysUpTime := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 3, 0)
 	var lastErr error
 	for {
+		if err := probeCtx.Err(); err != nil {
+			return err
+		}
 		sess, err := snmp.NewSession(probeCtx, target, snmp.V2c,
 			snmp.WithCommunity(community),
 			snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
@@ -135,7 +141,7 @@ func waitForSnmpsimReady(ctx context.Context, target, community string) error {
 			if lastErr == nil {
 				return probeCtx.Err()
 			}
-			return errs.Wrap(lastErr, "probe exhausted")
+			return errors.Join(probeCtx.Err(), errs.Wrap(lastErr, "probe exhausted"))
 		}
 	}
 }

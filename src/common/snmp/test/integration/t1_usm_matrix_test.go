@@ -123,6 +123,9 @@ var t1NativeExtraCells = []struct {
 // [snmp.NewSession] constructor. It reuses the rows shared with the
 // reference gosnmp matrix plus the native-only extra cells.
 func TestT1_USMMatrix_Native(t *testing.T) {
+	if testing.Short() {
+		t.Skip("live snmpd disabled in short mode")
+	}
 	sysUpTime := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 3, 0)
 	run := func(name, user string, auth snmp.AuthProtocol, authPass string, priv snmp.PrivProtocol, privPass string, tolerateAgentGap bool) {
 		t.Run(name, func(t *testing.T) {

@@ -11,7 +11,7 @@
 // (CA pin, mTLS, plaintext, or the documented insecure opt-in; there
 // is no permissive default) — and issues Capabilities to record the
 // peer's models and negotiate the encoding: JSON_IETF preferred,
-// PROTO fallback. Close is idempotent. A Session is safe for
+// then PROTO, then JSON. Close is idempotent. A Session is safe for
 // concurrent use.
 //
 // # Reads and streams
@@ -21,7 +21,7 @@
 // bounded traversals, STREAM backs the Watcher — the device owns the
 // cadence, the sync_response marker surfaces as a [SubscribeEvent]
 // with Sync set (the Watcher's cold-start-complete signal), and
-// server stream termination latches [Stream.Err]. POLL is deferred.
+// server stream failures latch [Stream.Err]. POLL is unsupported.
 // Reconnect is the caller's action; a re-created stream cold-starts.
 //
 // # Values and paths
@@ -30,7 +30,7 @@
 // yanggen-generated codecs) or scalar TypedValues mapped onto
 // [yang.Value]. [yang.Path] maps segment-for-PathElem onto the gNMI
 // Path proto; module qualifiers do not travel (gNMI paths are
-// name-based), and an explicit origin can be set per request.
+// name-based), and an explicit origin can be set for subscriptions.
 //
 // # Errors
 //

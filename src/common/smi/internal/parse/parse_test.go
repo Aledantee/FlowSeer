@@ -1,10 +1,66 @@
 package parse
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/smi/internal/frame"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 )
+
+func TestTokensPreserveCommentMode(t *testing.T) {
+	src := []byte("{ iso -- ignored -- 3\n 6 }")
+	for _, tc := range []struct {
+		name string
+		mode lex.CommentMode
+		want []string
+	}{
+		{"end of line", lex.CommentEndOfLine, []string{"{", "iso", "6", "}"}},
+		{"paired", lex.CommentPaired, []string{"{", "iso", "3", "6", "}"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Parse(&frame.File{Source: lex.Lex(src, lex.Options{Comments: tc.mode})})
+			var got []string
+			for _, tok := range r.Tokens(Span{End: int32(len(src))}) {
+				got = append(got, r.Text(Span{Start: tok.Offset, End: tok.End()}))
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("got tokens %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTokensRespectSpanBoundaries(t *testing.T) {
+	src := []byte("{ iso 3 }")
+	r := Parse(&frame.File{Source: lex.Lex(src, lex.Options{})})
+	for _, tc := range []struct {
+		name string
+		span Span
+		want []string
+	}{
+		{"whole tokens", Span{Start: 2, End: 7}, []string{"iso", "3"}},
+		{"partial first token", Span{Start: 3, End: 7}, []string{"3"}},
+		{"partial last token", Span{Start: 0, End: 4}, []string{"{"}},
+		{"trivia", Span{Start: 1, End: 2}, nil},
+		{"empty", Span{Start: 2, End: 2}, nil},
+		{"negative", Span{Start: -1, End: 7}, nil},
+		{"reversed", Span{Start: 7, End: 2}, nil},
+		{"past file", Span{End: int32(len(src) + 1)}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			for _, tok := range r.Tokens(tc.span) {
+				got = append(got, r.Text(Span{Start: tok.Offset, End: tok.End()}))
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("got tokens %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
 
 // squeeze collapses runs of whitespace so a span's text can be compared
 // against a one-line expectation while the fixture keeps its line breaks.

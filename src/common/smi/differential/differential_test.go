@@ -280,17 +280,13 @@ func TestPanickingModuleIsRecordedAndTheRunContinues(t *testing.T) {
 	}
 }
 
-// TestConfiguredModulesHaveNoBitsNumberingGap checks the assumption the
-// generator's current output rests on.
+// TestConfiguredModulesFitGosmiBitsReconstruction checks which configured
+// modules' BITS positions can be reconstructed from gosmi's member lists.
 //
-// The generator compensates for gosmi's discarded BITS numbers by
-// assigning positions from declaration order. That is right for every
-// BITS type it renders today only because all of them number
-// consecutively from zero. A gap anywhere in the configured modules
-// would mean the committed output is already wrong, and that a cutover
-// producing byte-identical output would be preserving the error rather
-// than proving the replacement.
-func TestConfiguredModulesHaveNoBitsNumberingGap(t *testing.T) {
+// gosmi discards the numbers, so consecutive positions from zero are a
+// prerequisite for reconstructing them. This bounds comparisons with the
+// reference parser. mibgen emits the numbers retained by smi and supports gaps.
+func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
 	modules, searchPaths := mibgenModules(t)
 
 	set, err := smi.Load(modules, smi.Options{SearchPaths: searchPaths})
@@ -313,9 +309,8 @@ func TestConfiguredModulesHaveNoBitsNumberingGap(t *testing.T) {
 			}
 			checked++
 			if gap := numberingGap(ty.Members); gap != "" {
-				t.Errorf("%s.%s: %s. The generator assigns BITS positions from declaration order, "+
-					"so the committed output for this type is wrong and byte-identical output would "+
-					"preserve the error", name, ty.Name, gap)
+				t.Errorf("%s.%s: %s; gosmi's member list cannot reconstruct these declared positions",
+					name, ty.Name, gap)
 			}
 		}
 
@@ -325,9 +320,8 @@ func TestConfiguredModulesHaveNoBitsNumberingGap(t *testing.T) {
 			}
 			checked++
 			if gap := numberingGap(n.Type.Members); gap != "" {
-				t.Errorf("%s.%s: %s. The generator assigns BITS positions from declaration order, "+
-					"so the committed output for this object is wrong and byte-identical output "+
-					"would preserve the error", name, n.Name, gap)
+				t.Errorf("%s.%s: %s; gosmi's member list cannot reconstruct these declared positions",
+					name, n.Name, gap)
 			}
 		}
 	}
@@ -359,12 +353,8 @@ func numberingGap(members []smi.Member) string {
 // TestParserPackageGraphDoesNotReachGosmi requires the parser and
 // everything it imports to be free of gosmi.
 //
-// The check is deliberately scoped to src/common/smi/... rather than to
-// the whole main module, and the scope is the honest one for today: the
-// generator under src/common/snmp/cmd/mibgen still renders through gosmi
-// and still carries the import. What this test can assert now is that
-// the replacement itself never took the dependency on, so the generator
-// is the only thing left holding it.
+// The standalone differential module owns the reference dependency;
+// importing it into the parser would make production builds depend on gosmi.
 func TestParserPackageGraphDoesNotReachGosmi(t *testing.T) {
 	cmd := exec.Command("go", "list", "-deps", "./src/common/smi/...")
 	cmd.Dir = repoRoot
@@ -431,7 +421,7 @@ func corpusPass(t *testing.T) *pass {
 
 	p, err := corpusOnce()
 	if err != nil {
-		t.Skipf("%v", err)
+		t.Fatalf("%v", err)
 	}
 
 	return p

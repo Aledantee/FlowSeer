@@ -17,7 +17,9 @@ const defaultTimeout = 30 * time.Second
 
 // Options is the plain options struct for [Dial]: the basic
 // auth credential surface, the TLS posture, and timeouts. Required
-// parameters (the base URL) are positional on Dial.
+// parameters (the base URL) are positional on Dial. Configure Options
+// before sharing it with concurrent Dial calls; an HTTPClient override
+// and its transport must also support concurrent use.
 type Options struct {
 	// Username and Password enable HTTP basic auth, the scheme ICX
 	// and IOS-XE RESTCONF use.
@@ -35,7 +37,7 @@ type Options struct {
 	InsecureSkipTLSVerify bool
 
 	// Timeout bounds each request when the caller's context has no
-	// earlier deadline. Zero means 30s.
+	// earlier deadline. Nonpositive values mean 30s.
 	Timeout time.Duration
 
 	// HTTPClient overrides the transport entirely (the test seam and

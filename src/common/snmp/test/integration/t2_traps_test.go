@@ -41,7 +41,7 @@ func t2TrapHostFromContainer() string {
 	return "host.docker.internal"
 }
 
-// t2TrapPortResolved returns the configured trap port, honouring the
+// t2TrapPortResolved returns the configured trap port, honoring the
 // testenv.EnvT2TrapPort override. A malformed override surfaces via
 // t.Logf so a misconfigured CI env is visible in test output —
 // silently falling back to the default would mask the override
@@ -75,6 +75,9 @@ func t2TrapPortResolved(t testing.TB) int {
 // follow-up to a static-CIDR override.
 func t2StartTrapListener(t *testing.T) (ts *snmp.TrapStream, srLinuxTrapTargetAddr string) {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("live SR Linux traps disabled in short mode")
+	}
 	port := t2TrapPortResolved(t)
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	stream, err := snmp.ListenTraps(context.Background(), addr)
@@ -112,10 +115,8 @@ func assertSRLinuxCliOK(t *testing.T, op, out string) {
 }
 
 // t2ConfigureTrapTarget points SR Linux at the host's trap listener
-// via the containerlab exec callback. Uses v2c traps with community
-// "public" — per common/snmp/trap.go's doc, v3-trap reception is
-// documented as currently unreliable in the upstream Backend, so v3
-// traps are excluded from T2.
+// via the containerlab exec callback. This fixture uses v2c traps with community
+// "public"; the SR Linux v3 trap-target scenario is not implemented here.
 //
 // The SR Linux CLI syntax targets the 24.x release line; if the
 // commands are rejected, this function is the iteration target.
@@ -175,13 +176,29 @@ func TestT2_Trap_ColdStart(t *testing.T) {
 // The two WaitForTrap calls share one TrapStream. This works because
 // WaitForTrap uses the Scanner-style Next()/Current() surface which
 // does not signal-stop the stream on consumer exit. See waiter.go's
-// "Multi-call safety" doc.
+// ownership contract. A failed wait closes the stream and fails this test.
 func TestT2_Trap_LinkDownLinkUp(t *testing.T) {
 	ts, srLinuxTrapTarget := t2StartTrapListener(t)
 	t2ConfigureTrapTarget(t, srLinuxTrapTarget)
 
 	execFn := testenv.T2Exec()
 	const iface = "ethernet-1/1"
+	enable := fmt.Sprintf(`enter candidate
+/ interface %s admin-state enable
+commit save
+`, iface)
+	restored := false
+	t.Cleanup(func() {
+		if restored {
+			return
+		}
+		out, err := execFn(enable)
+		if err != nil {
+			t.Errorf("restore admin-state enable: %v\noutput: %s", err, out)
+			return
+		}
+		assertSRLinuxCliOK(t, "restore admin-state enable", out)
+	})
 
 	disable := fmt.Sprintf(`enter candidate
 / interface %s admin-state disable
@@ -198,15 +215,12 @@ commit save
 		t.Fatalf("linkDown wait: %v", err)
 	}
 
-	enable := fmt.Sprintf(`enter candidate
-/ interface %s admin-state enable
-commit save
-`, iface)
 	out, err = execFn(enable)
 	if err != nil {
 		t.Fatalf("admin-state enable: %v\noutput: %s", err, out)
 	}
 	assertSRLinuxCliOK(t, "admin-state enable", out)
+	restored = true
 
 	linkUpOID := snmp.MustOID(1, 3, 6, 1, 6, 3, 1, 1, 5, 4)
 	if _, err := WaitForTrap(context.Background(), ts, hasTrapOID(linkUpOID), 30*time.Second); err != nil {

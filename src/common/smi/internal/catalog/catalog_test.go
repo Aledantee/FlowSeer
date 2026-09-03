@@ -1,6 +1,7 @@
 package catalog_test
 
 import (
+	"bytes"
 	"slices"
 	"strings"
 	"testing"
@@ -136,11 +137,65 @@ func TestCountVerbs(t *testing.T) {
 		{"100%% done", 0},
 		{"100%% done with %q", 1},
 		{"%-8s%+d", 2},
+		{"%#08x %.2f % .0d", 3},
+		{"%[1]s", -1},
+		{"%*s", -1},
+		{"%.*s", -1},
+		{"%z", -1},
+		{"trailing %", -1},
 	}
 
 	for _, tc := range tests {
-		if got := catalog.CountVerbs(tc.format); got != tc.want {
-			t.Errorf("CountVerbs(%q) = %d, want %d", tc.format, got, tc.want)
-		}
+		t.Run(tc.format, func(t *testing.T) {
+			if got := catalog.CountVerbs(tc.format); got != tc.want {
+				t.Errorf("CountVerbs(%q) = %d, want %d", tc.format, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestUnsupportedFormatsCannotGenerateCodes(t *testing.T) {
+	for _, format := range []string{"%[1]s", "%*s", "%.*s", "%z", "trailing %"} {
+		t.Run(format, func(t *testing.T) {
+			rows := []catalog.Entry{{Code: "smi/probe", Tag: "Probe", Format: format, Arity: 1, Description: "a malformed format"}}
+			if err := catalog.Validate(rows); err == nil {
+				t.Errorf("Validate accepted unsupported format %q", format)
+			}
+			if _, err := catalog.RenderCodes(rows); err == nil {
+				t.Errorf("RenderCodes accepted unsupported format %q", format)
+			}
+			if _, err := catalog.RenderAliases(rows); err == nil {
+				t.Errorf("RenderAliases accepted unsupported format %q", format)
+			}
+		})
+	}
+}
+
+func TestRenderersAreDeterministic(t *testing.T) {
+	for _, renderer := range []struct {
+		name   string
+		render func([]catalog.Entry) ([]byte, error)
+	}{
+		{"codes", catalog.RenderCodes},
+		{"aliases", catalog.RenderAliases},
+	} {
+		t.Run(renderer.name, func(t *testing.T) {
+			rows := catalog.Entries()
+			original := slices.Clone(rows)
+			first, err := renderer.render(rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			second, err := renderer.render(rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(first, second) {
+				t.Error("repeated rendering changed the generated source")
+			}
+			if !slices.Equal(rows, original) {
+				t.Error("rendering changed the input rows")
+			}
+		})
 	}
 }

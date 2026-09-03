@@ -16,6 +16,9 @@ type attr struct {
 // the same key on its cause. Errors from other packages are traversed
 // through but contribute nothing. [LogValue] uses the same traversal, so
 // logs and this map never disagree.
+//
+// The returned map is new, but its values are not copied. Mutating an attached
+// map, slice, or pointer changes the value seen by later extractions and logs.
 func Attributes(err error) map[string]any {
 	return collect(err, false)
 }
@@ -72,12 +75,13 @@ func eachAttr(err error, fn func(attr)) {
 
 // walk visits every [Error] in err's tree outermost first, joined branches
 // left to right, and stops early when fn returns false. Errors from other
-// packages are unwrapped through but not visited.
-func walk(err error, fn func(*Error) bool) {
+// packages are unwrapped through but not visited. It reports whether the
+// traversal completed without fn stopping it.
+func walk(err error, fn func(*Error) bool) bool {
 	for err != nil {
 		//goland:noinspection GoTypeAssertionOnErrors
 		if e, ok := err.(*Error); ok && e != nil && !fn(e) {
-			return
+			return false
 		}
 
 		switch u := err.(type) {
@@ -85,32 +89,16 @@ func walk(err error, fn func(*Error) bool) {
 			err = u.Unwrap()
 		case interface{ Unwrap() []error }:
 			for _, branch := range u.Unwrap() {
-				if !walkBranch(branch, fn) {
-					return
+				if !walk(branch, fn) {
+					return false
 				}
 			}
 
-			return
+			return true
 		default:
-			return
-		}
-	}
-}
-
-// walkBranch walks one branch of a joined tree and reports whether the
-// traversal should continue.
-func walkBranch(err error, fn func(*Error) bool) bool {
-	stopped := false
-
-	walk(err, func(e *Error) bool {
-		if fn(e) {
 			return true
 		}
+	}
 
-		stopped = true
-
-		return false
-	})
-
-	return !stopped
+	return true
 }

@@ -15,7 +15,6 @@ import (
 // the library is expected to surface to the caller.
 var (
 	forgedNoSuchInstance     = snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 0)
-	forgedEndOfMibViewLeaf   = snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 0)
 	forgedCounter32Boundary  = snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 3, 0)
 	forgedMalformedDateTime  = snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 4, 0)
 	forgedOversizedOctet     = snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 5, 0)
@@ -179,7 +178,7 @@ func TestT1_Forged_OversizedOctetString(t *testing.T) {
 }
 
 // TestT1_Forged_MidTableTruncation pins the walk-with-typed-error
-// behaviour. The pass-script registered at .99999.6 returns three
+// behavior. The pass-script registered at .99999.6 returns three
 // rows as OCTET STRINGs followed by a fourth row with a wire type
 // mismatching the column's declared kind (Counter32 where the
 // caller expects OctetString). The Walker yields the first three

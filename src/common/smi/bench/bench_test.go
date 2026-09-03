@@ -77,7 +77,8 @@ func BenchmarkFrame(b *testing.B) {
 	}
 }
 
-// BenchmarkParseDecl measures parsing one declaration, per macro kind.
+// BenchmarkParseDecl measures parsing one declaration and its fixed OID
+// anchor, per macro kind.
 //
 // The macros do not cost the same: an OBJECT-TYPE reads a SYNTAX and its
 // constraints, a MODULE-COMPLIANCE walks a nested group structure, and a
@@ -177,11 +178,9 @@ func TestRecoveryModuleIsMalformed(t *testing.T) {
 // BenchmarkPipeline measures reading, framing and parsing a file without
 // resolving it.
 //
-// It exists to give resolution a number. The resolve pass is unexported
-// and this module is outside package smi, so resolution cannot be timed
-// directly; its cost is BenchmarkLoad minus this. Keeping both means a
-// regression in resolution moves Load while Pipeline holds still, which
-// is enough to name the stage.
+// Comparing it with BenchmarkLoad helps locate loading overhead. The
+// difference includes module discovery and parsing imports as well as
+// resolution, whose unexported entry point cannot be timed directly here.
 func BenchmarkPipeline(b *testing.B) {
 	for _, f := range corpusFixtures {
 		path := fixturePath(b, f)
@@ -234,6 +233,8 @@ func BenchmarkLoad(b *testing.B) {
 // here a developer feels directly. It reads the config rather than
 // hardcoding the module list, so adding a module moves this benchmark
 // instead of leaving it reporting a stale set.
+// SetBytes uses the size of files directly under the search paths; it is
+// a relative throughput denominator, not the number of bytes Load reads.
 func BenchmarkEndToEnd(b *testing.B) {
 	names, paths := loadMibgenConfig(b)
 	opts := smi.Options{SearchPaths: paths}

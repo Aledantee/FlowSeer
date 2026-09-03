@@ -80,7 +80,9 @@ func (s *Session) authorize(req *http.Request) {
 	}
 }
 
-// GetOptions tunes one read.
+// GetOptions selects server-side filtering for one read. Its zero value
+// requests the full subtree. It may be shared between concurrent reads
+// if it is not modified.
 type GetOptions struct {
 	// Depth bounds subtree depth via the RFC 8040 depth query
 	// parameter when > 0. Peers that ignore it return the full
@@ -124,7 +126,7 @@ func (s *Session) dataURL(p yang.Path) string {
 // resource yields (nil, nil): an absent optional subtree is data, not
 // an error — the Watcher turns it into row removal.
 func (s *Session) Get(ctx context.Context, p yang.Path, opts GetOptions) ([]byte, error) {
-	body, status, err := s.do(ctx, http.MethodGet, s.dataURL(p)+opts.query(), nil, nil)
+	body, status, _, err := s.do(ctx, http.MethodGet, s.dataURL(p)+opts.query(), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +140,8 @@ func (s *Session) Get(ctx context.Context, p yang.Path, opts GetOptions) ([]byte
 }
 
 // WriteResult reports how a write was performed and what the peer
-// holds afterwards.
+// holds afterwards. It is safe for concurrent reads if ReadBack is not
+// modified.
 type WriteResult struct {
 	// UsedIfMatch reports whether the peer supplied an ETag and the
 	// write was conditional. False means the peer offered no
@@ -151,8 +154,9 @@ type WriteResult struct {
 	ReadBack []byte
 }
 
-// Put replaces a data resource (ETag capture, conditional
-// write, read-back).
+// Put replaces a data resource after capturing its ETag and returns
+// the read-back body. Capture failures other than 404 stop the edit;
+// a missing ETag permits an unconditional write.
 func (s *Session) Put(ctx context.Context, p yang.Path, body []byte) (WriteResult, error) {
 	return s.write(ctx, http.MethodPut, p, body)
 }
@@ -165,14 +169,18 @@ func (s *Session) Patch(ctx context.Context, p yang.Path, body []byte) (WriteRes
 }
 
 // Delete removes a data resource, verified by a read-back that the
-// resource is gone.
+// resource is gone. It captures the ETag before editing and stops on
+// capture failures other than 404. An already absent resource succeeds.
 func (s *Session) Delete(ctx context.Context, p yang.Path) error {
-	etag, _ := s.captureETag(ctx, p)
+	etag, err := s.captureETag(ctx, p)
+	if err != nil {
+		return err
+	}
 	headers := map[string]string{}
 	if etag != "" {
 		headers["If-Match"] = etag
 	}
-	body, status, err := s.do(ctx, http.MethodDelete, s.dataURL(p), nil, headers)
+	body, status, _, err := s.do(ctx, http.MethodDelete, s.dataURL(p), nil, headers)
 	if err != nil {
 		return err
 	}
@@ -192,12 +200,15 @@ func (s *Session) Delete(ctx context.Context, p yang.Path) error {
 // write is the shared conditional-write path: ETag capture, If-Match
 // when available, read-back after the edit.
 func (s *Session) write(ctx context.Context, method string, p yang.Path, body []byte) (WriteResult, error) {
-	etag, _ := s.captureETag(ctx, p)
+	etag, err := s.captureETag(ctx, p)
+	if err != nil {
+		return WriteResult{}, err
+	}
 	headers := map[string]string{"Content-Type": yangDataJSON}
 	if etag != "" {
 		headers["If-Match"] = etag
 	}
-	respBody, status, err := s.do(ctx, method, s.dataURL(p), body, headers)
+	respBody, status, _, err := s.do(ctx, method, s.dataURL(p), body, headers)
 	if err != nil {
 		return WriteResult{}, err
 	}
@@ -211,32 +222,27 @@ func (s *Session) write(ctx context.Context, method string, p yang.Path, body []
 	return WriteResult{UsedIfMatch: etag != "", ReadBack: readBack}, nil
 }
 
-// captureETag reads the resource's current ETag; peers without ETag
-// support yield "".
+// A missing resource can be created without an ETag; other read failures
+// must stop the write because they cannot establish the current version.
 func (s *Session) captureETag(ctx context.Context, p yang.Path) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.dataURL(p), nil)
+	body, status, headers, err := s.do(ctx, http.MethodGet, s.dataURL(p), nil, nil)
 	if err != nil {
-		return "", errs.From(err).Code(ErrCodeTransport).Msg("build etag request")
+		return "", err
 	}
-	req.Header.Set("Accept", yangDataJSON)
-	s.authorize(req)
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return "", s.transportError("GET", err)
+	if status == http.StatusNotFound {
+		return "", nil
 	}
-	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, resp.Body)
-	return resp.Header.Get("ETag"), nil
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return "", deviceError("capture ETag for "+p.RESTCONFURI(), status, body)
+	}
+	return headers.Get("ETag"), nil
 }
 
 // do performs one HTTP round trip with timeout defaulting, tracing,
 // auth, and body capture.
-func (s *Session) do(ctx context.Context, method, url string, body []byte, headers map[string]string) (respBody []byte, status int, err error) {
-	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.opts.Timeout)
-		defer cancel()
-	}
+func (s *Session) do(ctx context.Context, method, url string, body []byte, headers map[string]string) (respBody []byte, status int, responseHeaders http.Header, err error) {
+	ctx, cancel := context.WithTimeout(ctx, s.opts.Timeout)
+	defer cancel()
 
 	ctx, span := s.tracer.Start(ctx, "restconf."+method,
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -249,7 +255,7 @@ func (s *Session) do(ctx context.Context, method, url string, body []byte, heade
 	}
 	req, err := http.NewRequestWithContext(ctx, method, url, reader)
 	if err != nil {
-		return nil, 0, errs.From(err).Code(ErrCodeTransport).Msgf("build %s request", method)
+		return nil, 0, nil, errs.From(err).Code(ErrCodeTransport).Msgf("build %s request", method)
 	}
 	req.Header.Set("Accept", yangDataJSON)
 	for k, v := range headers {
@@ -260,25 +266,28 @@ func (s *Session) do(ctx context.Context, method, url string, body []byte, heade
 	resp, err := s.client.Do(req)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
-		return nil, 0, s.transportError(method, err)
+		return nil, 0, nil, s.transportError(method, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	respBody, err = io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
-		return nil, 0, errs.From(err).Code(ErrCodeTransport).Msgf("read %s response", method)
+		return nil, 0, nil, s.transportError("read "+method+" response", err)
 	}
 	if resp.StatusCode >= 400 {
 		span.SetStatus(codes.Error, resp.Status)
 	}
-	return respBody, resp.StatusCode, nil
+	return respBody, resp.StatusCode, resp.Header, nil
 }
 
 // transportError maps client-level failures, keeping caller context
 // cancellation unwrapped.
 func (s *Session) transportError(method string, err error) error {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return err
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
 	}
 	return errs.From(err).Code(ErrCodeTransport).Msgf("%s transport failed", method)
 }

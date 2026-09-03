@@ -11,11 +11,11 @@ import (
 // client-facing user message and hint, a process exit code, and a retry
 // disposition. The captured stack is diagnostic only and never payload.
 //
-// An Error is immutable once built and safe for concurrent use, provided
-// callers honor the one aliasing rule this package shares with the standard
-// library: the slice [Error.Unwrap] returns must not be modified. Build one
-// with [New], [From], [Msg], [Msgf], [Wrap], or [Wrapf] — the zero value
-// renders as an empty message and carries nothing.
+// An Error's own fields are immutable once built. Concurrent use requires
+// its causes and attribute values to be safe for concurrent reads; they are
+// retained by reference. Callers must not modify the slice [Error.Unwrap]
+// returns. Build one with [New], [From], [Msg], [Msgf], [Wrap], or [Wrapf].
+// The zero value renders as an empty message and carries nothing.
 type Error struct {
 	msg      string
 	code     Code
@@ -90,11 +90,11 @@ func (e *Error) Unwrap() []error {
 	return e.causes
 }
 
-// Is reports whether target is this error, or an [Error] carrying the same
+// Is reports whether target is an [Error] carrying the same nonempty
 // [Code]. Code equality is the cross-boundary identity rule (see [NewCode]):
 // an error reconstructed from the wire shares no pointer identity with the
 // sentinel it stands for, but it does share its code. Errors without a code
-// match by identity only.
+// match by identity through [errors.Is], which checks identity before calling Is.
 func (e *Error) Is(target error) bool {
 	if e == nil || target == nil {
 		return false

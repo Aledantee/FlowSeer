@@ -18,7 +18,7 @@ package bench
 //   - single-session high-rate — the conc=1 point of the throughput benches.
 //   - massive concurrent fan-out — the high conc points (64, 256).
 //   - bursty / idle — BenchmarkFanoutBurst alternates active bursts with idle
-//     gaps; its allocation/GC behaviour at the cycle boundary is instrumented
+//     gaps; its allocation/GC behavior at the cycle boundary is instrumented
 //     by the gcprofile harness.
 
 import (
@@ -145,7 +145,7 @@ func TestFanoutNoCrossDelivery(t *testing.T) {
 		go func() {
 			defer outer.Done()
 			sess := dialNative(t, addr)
-			defer sess.Close()
+			closeOnCleanup(t, sess)
 			if _, err := sess.Get(ctx, []snmp.OID{scalarSnmpOID}); err != nil {
 				errs <- fmt.Errorf("warmup: %w", err)
 				return

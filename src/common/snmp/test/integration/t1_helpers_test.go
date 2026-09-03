@@ -12,11 +12,12 @@ import (
 )
 
 // t1DialV2c dials the live T1 snmpd agent via snmp.NewSession with
-// SNMPv2c credentials and a t.Cleanup-registered Close. Extra opts
-// are appended to the base set so callers can override timeouts or
-// add per-test overrides.
-func t1DialV2c(t *testing.T, opts ...snmp.Option) snmp.Session {
+// SNMPv2c credentials and a t.Cleanup-registered Close.
+func t1DialV2c(t *testing.T) snmp.Session {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("live snmpd disabled in short mode")
+	}
 	if testenv.Target() == "" {
 		t.Fatal("testenv.Target() is empty; t1 TestMain did not seed the target")
 	}
@@ -26,7 +27,7 @@ func t1DialV2c(t *testing.T, opts ...snmp.Option) snmp.Session {
 		snmp.WithTimeout(2 * time.Second),
 		snmp.WithRetries(2),
 	}
-	sess, err := snmp.NewSession(context.Background(), testenv.Target(), snmp.V2c, append(base, opts...)...)
+	sess, err := snmp.NewSession(context.Background(), testenv.Target(), snmp.V2c, base...)
 	if err != nil {
 		t.Fatalf("t1DialV2c: %v", err)
 	}
@@ -43,6 +44,9 @@ func t1DialV2c(t *testing.T, opts ...snmp.Option) snmp.Session {
 // not have to manage session lifetime themselves.
 func t1DialV3(t *testing.T, usm snmp.USMConfig, opts ...snmp.Option) (snmp.Session, error) {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("live snmpd disabled in short mode")
+	}
 	if testenv.Target() == "" {
 		t.Fatal("testenv.Target() is empty; t1 TestMain did not seed the target")
 	}

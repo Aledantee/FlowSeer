@@ -5,15 +5,13 @@ package testenv
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
@@ -38,7 +36,8 @@ const srlinuxProbeBackoff = 2 * time.Second
 // test-file headers.
 //
 // Passphrases are non-secret integration-test values pinned here so
-// the startup config and the readiness probe agree.
+// the startup config and the readiness probe agree. Treat this value as read-only
+// once startup begins; concurrent writes are not supported.
 var SRLinuxUSMConfig = snmp.USMConfig{
 	Username:       "flowseer",
 	AuthProtocol:   snmp.AuthSHA256,
@@ -51,8 +50,9 @@ var SRLinuxUSMConfig = snmp.USMConfig{
 // StartSRLinux. Callers pass a CLI command string; the function runs
 // it inside the SR Linux node and returns combined stdout+stderr.
 //
-// Used by T2's admin-state toggle test, where toggling an interface
-// is the trigger for linkUp / linkDown trap emission.
+// Callbacks returned by [StartSRLinux] use an independent 30-second deadline and
+// preserve context.DeadlineExceeded on timeout. They report process errors; the
+// caller must also inspect CLI output for rejected commands that exit zero.
 type ExecFn func(cmd string) (output string, err error)
 
 // t2Exec holds the containerlab exec callback the t2 TestMain seeds
@@ -61,13 +61,14 @@ type ExecFn func(cmd string) (output string, err error)
 var t2Exec ExecFn
 
 // SetT2Exec records the containerlab exec callback returned by
-// [StartSRLinux]. Called once by the t2 TestMain before m.Run.
+// [StartSRLinux]. Call it before m.Run; it must not overlap calls to [T2Exec].
 func SetT2Exec(fn ExecFn) { t2Exec = fn }
 
 // T2Exec returns the containerlab exec callback recorded by
 // [SetT2Exec], or nil if no t2 TestMain has run. Tests use the
-// callback to drive CLI operations inside the SR Linux node
-// (admin-state toggle for the link-trap test, etc.).
+// callback to drive CLI operations inside the SR Linux node. Concurrent reads
+// are safe after SetT2Exec completes; replacing the callback requires exclusive
+// access.
 func T2Exec() ExecFn { return t2Exec }
 
 // StartSRLinux deploys the FlowSeer T2 single-node SR Linux topology
@@ -83,60 +84,50 @@ func T2Exec() ExecFn { return t2Exec }
 //     node (used by the link-trap test for admin-state toggle).
 //   - cleanup: deferred teardown via `containerlab destroy --cleanup`.
 //
-// Cleanup runs containerlab destroy even when probe failures occur,
-// so a botched run does not leave a lab behind.
-func StartSRLinux(ctx context.Context, topologyPath string) (target string, execFn ExecFn, cleanup func(), err error) {
+// Failed startup attempts cleanup and joins its errors with the startup cause.
+// On success the caller must invoke cleanup before exiting. Cleanup has a fresh
+// two-minute context and returns any destroy error. Call it once.
+// The startup context can be canceled after return without
+// disabling the exec callback or cleanup.
+func StartSRLinux(ctx context.Context, topologyPath string) (target string, execFn ExecFn, cleanup func() error, err error) {
 	deployCtx, cancel := context.WithTimeout(ctx, srlinuxDeployTimeout)
 	defer cancel()
 
-	// Assign cleanup BEFORE invoking `containerlab deploy`. A
-	// partial deploy that times out mid-provision still leaves
-	// container/CNI state behind, and containerlab has no
-	// Ryuk-equivalent — so the cleanup MUST be reachable even on
-	// the deploy-error path.
-	cleanup = func() {
+	// A partial deployment can leave container/CNI state behind; destroy
+	// remains available when deployment fails because containerlab has no reaper.
+	destroyLab := func() error {
 		c, ccancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer ccancel()
 		destroy := exec.CommandContext(c, "containerlab", "destroy", "-t", topologyPath, "--cleanup")
 		if out, derr := destroy.CombinedOutput(); derr != nil {
-			// Log to stderr so a hung Docker daemon or removed
-			// topology file is visible at next-run. A silent
-			// swallowed error here means a developer finds stale
-			// lab state on their next `make t2` invocation with
-			// no breadcrumb.
-			fmt.Fprintf(os.Stderr,
-				"[snmp_integration_t2] containerlab destroy failed: %v\n  output: %s\n",
-				derr, strings.TrimSpace(string(out)))
+			return errors.Join(c.Err(), errs.Wrapf(derr, "containerlab destroy: %s", strings.TrimSpace(string(out))))
 		}
+		return nil
 	}
+	cleanup = destroyLab
 
 	cmd := exec.CommandContext(deployCtx, "containerlab", "deploy",
 		"-t", topologyPath, "--reconfigure")
 	if out, deployErr := cmd.CombinedOutput(); deployErr != nil {
-		cleanup()
-		return "", nil, nil, errs.Wrapf(deployErr, "containerlab deploy: %s", strings.TrimSpace(string(out)))
+		return "", nil, nil, errors.Join(deployCtx.Err(), errs.Wrapf(deployErr, "containerlab deploy: %s", strings.TrimSpace(string(out))), destroyLab())
 	}
 
 	inspectCmd := exec.CommandContext(deployCtx, "containerlab", "inspect", "-t", topologyPath, "--format", "json")
 	inspectOut, inspectErr := inspectCmd.CombinedOutput()
 	if inspectErr != nil {
-		cleanup()
-		return "", nil, nil, errs.Wrapf(inspectErr, "containerlab inspect: %s", strings.TrimSpace(string(inspectOut)))
+		return "", nil, nil, errors.Join(deployCtx.Err(), errs.Wrapf(inspectErr, "containerlab inspect: %s", strings.TrimSpace(string(inspectOut))), destroyLab())
 	}
 
 	nodes, err := parseClabInspect(inspectOut)
 	if err != nil {
-		cleanup()
-		return "", nil, nil, errs.Wrap(err, "parse inspect JSON")
+		return "", nil, nil, errors.Join(errs.Wrap(err, "parse inspect JSON"), destroyLab())
 	}
 	if len(nodes) == 0 {
-		cleanup()
-		return "", nil, nil, errs.Msg("containerlab inspect returned zero nodes")
+		return "", nil, nil, errors.Join(errs.Msg("containerlab inspect returned zero nodes"), destroyLab())
 	}
 	node := nodes[0]
 	if node.IPv4 == "" {
-		cleanup()
-		return "", nil, nil, errs.New().Attr("node", node.Name).Msg("node has no IPv4 address")
+		return "", nil, nil, errors.Join(errs.New().Attr("node", node.Name).Msg("node has no IPv4 address"), destroyLab())
 	}
 	target = net.JoinHostPort(node.IPv4, "161")
 
@@ -148,12 +139,11 @@ func StartSRLinux(ctx context.Context, topologyPath string) (target string, exec
 			"--label", "clab-node-name="+node.Name,
 			"--cmd", c)
 		out, err := ex.CombinedOutput()
-		return string(out), err
+		return string(out), errors.Join(ec.Err(), err)
 	}
 
 	if err := waitForSRLinuxReady(ctx, target); err != nil {
-		cleanup()
-		return "", nil, nil, errs.Wrapf(err, "SR Linux readiness probe at %s", target)
+		return "", nil, nil, errors.Join(errs.Wrapf(err, "SR Linux readiness probe at %s", target), destroyLab())
 	}
 	return target, execFn, cleanup, nil
 }
@@ -173,7 +163,7 @@ type clabInspectV050 struct {
 
 // parseClabInspect parses the JSON output of `containerlab inspect
 // --format json`. It tolerates the v0.50+ "containers" envelope and
-// the older bare-array shape, returning a normalised node list with
+// the older bare-array shape, returning a normalized node list with
 // CIDR suffixes stripped from IPv4 addresses.
 func parseClabInspect(data []byte) ([]clabInspectNode, error) {
 	var nodes []clabInspectNode
@@ -206,6 +196,9 @@ func waitForSRLinuxReady(ctx context.Context, target string) error {
 	sysUpTime := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 3, 0)
 	var lastErr error
 	for {
+		if err := probeCtx.Err(); err != nil {
+			return err
+		}
 		sess, err := snmp.NewSession(probeCtx, target, snmp.V3,
 			snmp.WithUSM(SRLinuxUSMConfig),
 			snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
@@ -232,7 +225,7 @@ func waitForSRLinuxReady(ctx context.Context, target string) error {
 			if lastErr == nil {
 				return probeCtx.Err()
 			}
-			return errs.Wrap(lastErr, "probe exhausted")
+			return errors.Join(probeCtx.Err(), errs.Wrap(lastErr, "probe exhausted"))
 		}
 	}
 }

@@ -51,14 +51,14 @@ func placementRef() *inventoryv1.PlacementGlobalRef {
 	}.Build()
 }
 
-func validBindingState() *inventoryv1.BindingState_builder {
-	return &inventoryv1.BindingState_builder{
+func validBindingState() *inventoryv1.BindingState {
+	return inventoryv1.BindingState_builder{
 		Ref:         bindingRef(bindingID),
 		Device:      deviceRef(deviceID),
 		Integration: integrationRef(integrationID),
 		Status:      inventoryv1.BindingStatus_BINDING_STATUS_VERIFIED.Enum(),
 		PlatformId:  proto.String("sw-1"),
-	}
+	}.Build()
 }
 
 func TestBindingStateHealthRules(t *testing.T) {
@@ -66,15 +66,15 @@ func TestBindingStateHealthRules(t *testing.T) {
 	tests := []validationCase{
 		{
 			name:      "verified with no failure metadata is valid",
-			message:   validBindingState().Build(),
+			message:   validBindingState(),
 			wantValid: true,
 		},
 		{
 			name: "verified must not carry unreachable_since",
 			message: func() proto.Message {
 				b := validBindingState()
-				b.UnreachableSince = since
-				return b.Build()
+				b.SetUnreachableSince(since)
+				return b
 			}(),
 			wantValid: false,
 		},
@@ -82,8 +82,8 @@ func TestBindingStateHealthRules(t *testing.T) {
 			name: "verified must not carry a failure kind",
 			message: func() proto.Message {
 				b := validBindingState()
-				b.FailureKind = inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_TIMEOUT.Enum()
-				return b.Build()
+				b.SetFailureKind(inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_TIMEOUT)
+				return b
 			}(),
 			wantValid: false,
 		},
@@ -91,8 +91,8 @@ func TestBindingStateHealthRules(t *testing.T) {
 			name: "degraded must name its failure kind",
 			message: func() proto.Message {
 				b := validBindingState()
-				b.Status = inventoryv1.BindingStatus_BINDING_STATUS_DEGRADED.Enum()
-				return b.Build()
+				b.SetStatus(inventoryv1.BindingStatus_BINDING_STATUS_DEGRADED)
+				return b
 			}(),
 			wantValid: false,
 		},
@@ -100,9 +100,9 @@ func TestBindingStateHealthRules(t *testing.T) {
 			name: "degraded with a failure kind is valid",
 			message: func() proto.Message {
 				b := validBindingState()
-				b.Status = inventoryv1.BindingStatus_BINDING_STATUS_DEGRADED.Enum()
-				b.FailureKind = inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_AUTH_FAILED.Enum()
-				return b.Build()
+				b.SetStatus(inventoryv1.BindingStatus_BINDING_STATUS_DEGRADED)
+				b.SetFailureKind(inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_AUTH_FAILED)
+				return b
 			}(),
 			wantValid: true,
 		},
@@ -110,9 +110,9 @@ func TestBindingStateHealthRules(t *testing.T) {
 			name: "unreachable needs its start and failure kind",
 			message: func() proto.Message {
 				b := validBindingState()
-				b.Status = inventoryv1.BindingStatus_BINDING_STATUS_UNREACHABLE.Enum()
-				b.FailureKind = inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_TIMEOUT.Enum()
-				return b.Build()
+				b.SetStatus(inventoryv1.BindingStatus_BINDING_STATUS_UNREACHABLE)
+				b.SetFailureKind(inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_TIMEOUT)
+				return b
 			}(),
 			wantValid: false,
 		},
@@ -120,10 +120,10 @@ func TestBindingStateHealthRules(t *testing.T) {
 			name: "unreachable with start and failure kind is valid",
 			message: func() proto.Message {
 				b := validBindingState()
-				b.Status = inventoryv1.BindingStatus_BINDING_STATUS_UNREACHABLE.Enum()
-				b.UnreachableSince = since
-				b.FailureKind = inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_TIMEOUT.Enum()
-				return b.Build()
+				b.SetStatus(inventoryv1.BindingStatus_BINDING_STATUS_UNREACHABLE)
+				b.SetUnreachableSince(since)
+				b.SetFailureKind(inventoryv1.BindingFailureKind_BINDING_FAILURE_KIND_TIMEOUT)
+				return b
 			}(),
 			wantValid: true,
 		},
@@ -137,11 +137,11 @@ func TestBindingEventImmutableRelations(t *testing.T) {
 			name: "a transition keeping device and integration is valid",
 			message: inventoryv1.BindingEvent_builder{
 				Ref:    bindingRef(bindingID),
-				Before: validBindingState().Build(),
+				Before: validBindingState(),
 				After: func() *inventoryv1.BindingState {
 					b := validBindingState()
-					b.Status = inventoryv1.BindingStatus_BINDING_STATUS_RETIRED.Enum()
-					return b.Build()
+					b.SetStatus(inventoryv1.BindingStatus_BINDING_STATUS_RETIRED)
+					return b
 				}(),
 			}.Build(),
 			wantValid: true,
@@ -150,11 +150,11 @@ func TestBindingEventImmutableRelations(t *testing.T) {
 			name: "a transition may not retarget the device",
 			message: inventoryv1.BindingEvent_builder{
 				Ref:    bindingRef(bindingID),
-				Before: validBindingState().Build(),
+				Before: validBindingState(),
 				After: func() *inventoryv1.BindingState {
 					b := validBindingState()
-					b.Device = deviceRef(deviceID2)
-					return b.Build()
+					b.SetDevice(deviceRef(deviceID2))
+					return b
 				}(),
 			}.Build(),
 			wantValid: false,

@@ -14,6 +14,7 @@ import (
 //
 // Codes are a wire contract: append-only, never renamed, never reused for a
 // different meaning. Declare them with [NewCode].
+// The zero value means no code. Code values are safe for concurrent use.
 type Code string
 
 // String returns the code's wire form, "<package>/<name>".

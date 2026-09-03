@@ -27,6 +27,9 @@ import (
 // depth; the in-package pin in conformance_rawpath_test.go is the
 // gate-cited coverage).
 func TestT3_Replay_OffSpecWrongTypes_FusedFallback(t *testing.T) {
+	if testing.Short() {
+		t.Skip("snmpsim replay disabled in short mode")
+	}
 	var entry *ManifestEntry
 	for i := range t3Manifest.Entries {
 		if t3Manifest.Entries[i].Vendor == "offspec" && t3Manifest.Entries[i].Device == "wrong-types" {

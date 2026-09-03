@@ -2,6 +2,7 @@ package bench
 
 import (
 	"context"
+	"io"
 	"net"
 	"strconv"
 	"testing"
@@ -11,6 +12,15 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
+
+func closeOnCleanup(tb testing.TB, client io.Closer) {
+	tb.Helper()
+	tb.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			tb.Errorf("close client: %v", err)
+		}
+	})
+}
 
 // micro_test.go — Tier 1 in-process micro-benchmarks. Each operation is
 // run by both the FlowSeer client (snmp.NewSession) and the gosnmp client
@@ -85,7 +95,7 @@ func dialGosnmp(tb testing.TB, addr string) *g.GoSNMP {
 func benchPaired(b *testing.B, addr string, nativeOp func(snmp.Session) error, gosnmpOp func(*g.GoSNMP) error) {
 	b.Run("impl=flowseer", func(b *testing.B) {
 		sess := dialNative(b, addr)
-		defer func() { _ = sess.Close() }()
+		closeOnCleanup(b, sess)
 		if err := nativeOp(sess); err != nil {
 			b.Fatalf("warmup: %v", err)
 		}
@@ -99,7 +109,7 @@ func benchPaired(b *testing.B, addr string, nativeOp func(snmp.Session) error, g
 	})
 	b.Run("impl=gosnmp", func(b *testing.B) {
 		client := dialGosnmp(b, addr)
-		defer func() { _ = client.Conn.Close() }()
+		closeOnCleanup(b, client.Conn)
 		if err := gosnmpOp(client); err != nil {
 			b.Fatalf("warmup: %v", err)
 		}
@@ -149,7 +159,7 @@ func BenchmarkBulkWalk(b *testing.B) {
 	b.Run("impl=flowseer", func(b *testing.B) {
 		ctx := context.Background()
 		sess := dialNative(b, addr)
-		defer func() { _ = sess.Close() }()
+		closeOnCleanup(b, sess)
 		walkNative := func() int {
 			n := 0
 			w := sess.BulkWalk(ctx, ifTableSnmp)
@@ -173,7 +183,7 @@ func BenchmarkBulkWalk(b *testing.B) {
 
 	b.Run("impl=gosnmp", func(b *testing.B) {
 		client := dialGosnmp(b, addr)
-		defer func() { _ = client.Conn.Close() }()
+		closeOnCleanup(b, client.Conn)
 		walkGosnmp := func() int {
 			res, err := client.BulkWalkAll(ifTableStr)
 			if err != nil {

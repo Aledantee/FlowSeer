@@ -1,16 +1,30 @@
 package netconf
 
-import "strings"
+import (
+	"strings"
 
-// Datastore names an RFC 6241 configuration datastore.
+	"go.aledante.io/FlowSeer/src/common/errs"
+)
+
+// Datastore names an RFC 6241 configuration datastore. Use [Running]
+// or [Candidate]; other values, including zero, are rejected with
+// [ErrCodeUnsupported] before sending an RPC. Values are safe for concurrent reads.
 type Datastore string
 
-// The datastores the library addresses. :startup is out of scope for
-// v1.
 const (
-	Running   Datastore = "running"
+	// Running holds the device's active configuration.
+	Running Datastore = "running"
+	// Candidate stages configuration until [Session.Commit]. It
+	// requires the peer's candidate capability.
 	Candidate Datastore = "candidate"
 )
+
+func (ds Datastore) validate() error {
+	if ds != Running && ds != Candidate {
+		return errs.New().Code(ErrCodeUnsupported).Attr("datastore", ds).Msg("unsupported datastore")
+	}
+	return nil
+}
 
 // Capability URN prefixes (RFC 6241 §8; URNs may carry query
 // parameters, so matching is prefix-based).

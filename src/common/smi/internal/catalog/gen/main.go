@@ -7,11 +7,13 @@
 //
 //	go generate ./src/common/smi/...
 //
+// The output directories must exist. A write failure exits with status 1
+// and may leave the first output updated; rerun after correcting the error.
+//
 // The generator exists so that every errs.NewCode call reaches the source
 // with a string literal. The repo-wide uniqueness scan in package errs
 // reads NewCode arguments out of the AST and fails on anything it cannot
-// read, so a code assembled at runtime from the table would silently
-// leave that gate.
+// read, so a code assembled at runtime from the table would fail that gate.
 package main
 
 import (

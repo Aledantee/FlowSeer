@@ -9,6 +9,7 @@ import "strconv"
 // The set is fixed and shared by every file the process lexes, which is
 // what lets a token name a reserved word without carrying a string.
 // Identifiers, which vary per file, go through the interner instead.
+// Values may be copied and read concurrently.
 type Keyword uint8
 
 // The reserved words. RFC 2578 §3.7 is the core of the list; the SMIv1

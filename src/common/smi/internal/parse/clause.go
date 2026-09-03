@@ -410,7 +410,10 @@ func (p *parser) readClause(kind DeclKind, c Clause) {
 		quote := p.tok()
 		span := p.quoted()
 		if span.End > span.Start {
-			p.d.hint = p.parseDisplayHint(span, p.res.StringValue(quote))
+			hint := p.parseDisplayHint(span, p.res.StringValue(quote))
+			if !p.d.present.Has(c) {
+				p.d.hint = hint
+			}
 		}
 		p.recordIf(c, span)
 
@@ -421,14 +424,20 @@ func (p *parser) readClause(kind DeclKind, c Clause) {
 		from := p.pos
 		span := p.typeSpan(allowedClauses[kind])
 		if c == ClauseSyntax {
-			p.d.syntax = p.parseType(p.toks[from:p.pos])
+			syntax := p.parseType(p.toks[from:p.pos])
+			if !p.d.present.Has(c) {
+				p.d.syntax = syntax
+			}
 		}
 		p.recordIf(c, span)
 
 	case ClauseDefval:
 		from := p.pos
 		span := p.group()
-		p.d.defval = p.parseDefault(p.toks[from:p.pos], p.d.syntax.Base)
+		defval := p.parseDefault(p.toks[from:p.pos], p.d.syntax.Base)
+		if !p.d.present.Has(c) {
+			p.d.defval = defval
+		}
 		p.recordIf(c, span)
 
 	case ClauseIndex:
@@ -439,17 +448,23 @@ func (p *parser) readClause(kind DeclKind, c Clause) {
 
 	case ClauseObjects:
 		span, names := p.nameList()
-		p.d.objects = names
+		if !p.d.present.Has(c) {
+			p.d.objects = names
+		}
 		p.recordIf(c, span)
 
 	case ClauseNotifications:
 		span, names := p.nameList()
-		p.d.notifications = names
+		if !p.d.present.Has(c) {
+			p.d.notifications = names
+		}
 		p.recordIf(c, span)
 
 	case ClauseVariables:
 		span, names := p.nameList()
-		p.d.variables = names
+		if !p.d.present.Has(c) {
+			p.d.variables = names
+		}
 		p.recordIf(c, span)
 
 	case ClauseEnterprise:
@@ -685,7 +700,9 @@ func (p *parser) readIndex() {
 	}
 
 	idx.Span = Span{Start: start, End: end}
-	p.d.index = idx
+	if !p.d.present.Has(ClauseIndex) {
+		p.d.index = idx
+	}
 	p.record(ClauseIndex, idx.Span)
 }
 

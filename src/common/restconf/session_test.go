@@ -2,10 +2,14 @@ package restconf_test
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/restconf"
@@ -165,6 +169,106 @@ func TestPutWithoutETagDegradesToUnconditional(t *testing.T) {
 	}
 	if readBacks < 2 { // ETag capture GET + verification GET
 		t.Errorf("expected capture and read-back GETs, saw %d", readBacks)
+	}
+}
+
+func TestWritesStopWhenETagCaptureFails(t *testing.T) {
+	for _, method := range []string{http.MethodPut, http.MethodPatch, http.MethodDelete} {
+		t.Run(method, func(t *testing.T) {
+			for _, failure := range []string{"error status", "truncated body"} {
+				t.Run(failure, func(t *testing.T) {
+					var mutations atomic.Int32
+					s := dialTest(t, hostMetaHandler("/restconf", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.Method != http.MethodGet {
+							mutations.Add(1)
+							w.WriteHeader(http.StatusNoContent)
+							return
+						}
+						if failure == "error status" {
+							w.WriteHeader(http.StatusServiceUnavailable)
+						} else {
+							w.Header().Set("Content-Length", "100")
+						}
+						_, _ = w.Write([]byte(`{}`))
+					})))
+
+					var err error
+					switch method {
+					case http.MethodPut:
+						_, err = s.Put(t.Context(), serverPath(), []byte(`{}`))
+					case http.MethodPatch:
+						_, err = s.Patch(t.Context(), serverPath(), []byte(`{}`))
+					case http.MethodDelete:
+						err = s.Delete(t.Context(), serverPath())
+					}
+					if err == nil {
+						t.Error("write succeeded after ETag capture failed")
+					}
+					if got := mutations.Load(); got != 0 {
+						t.Errorf("mutations = %d, want 0 after ETag capture failed", got)
+					}
+				})
+			}
+		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestRequestTimeoutBoundsReadsAndETagCapture(t *testing.T) {
+	const timeout = 10 * time.Millisecond
+	for _, method := range []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+		t.Run(method, func(t *testing.T) {
+			for _, parentDeadline := range []bool{false, true} {
+				name := "without caller deadline"
+				if parentDeadline {
+					name = "with later caller deadline"
+				}
+				t.Run(name, func(t *testing.T) {
+					client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+						if r.URL.Path == "/.well-known/host-meta" {
+							return &http.Response{
+								StatusCode: http.StatusOK,
+								Header:     make(http.Header),
+								Body:       io.NopCloser(strings.NewReader(`<XRD><Link rel="restconf" href="/restconf"/></XRD>`)),
+							}, nil
+						}
+						deadline, ok := r.Context().Deadline()
+						if !ok || time.Until(deadline) > timeout {
+							return nil, errors.New("request exceeds configured timeout")
+						}
+						<-r.Context().Done()
+						return nil, r.Context().Err()
+					})}
+					s, err := restconf.Dial(t.Context(), "http://fixture.invalid", restconf.Options{HTTPClient: client, Timeout: timeout})
+					if err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(func() { _ = s.Close() })
+					ctx := t.Context()
+					if parentDeadline {
+						var cancel context.CancelFunc
+						ctx, cancel = context.WithTimeout(ctx, time.Minute)
+						defer cancel()
+					}
+					switch method {
+					case http.MethodGet:
+						_, err = s.Get(ctx, serverPath(), restconf.GetOptions{})
+					case http.MethodPut:
+						_, err = s.Put(ctx, serverPath(), []byte(`{}`))
+					case http.MethodPatch:
+						_, err = s.Patch(ctx, serverPath(), []byte(`{}`))
+					case http.MethodDelete:
+						err = s.Delete(ctx, serverPath())
+					}
+					if err != context.DeadlineExceeded {
+						t.Errorf("request error = %v, want unwrapped context.DeadlineExceeded", err)
+					}
+				})
+			}
+		})
 	}
 }
 

@@ -6,6 +6,17 @@
 // messages under generated/go/proto, which speak the network model. Both
 // are consumed through their public API only.
 //
+// Keep partial results together with their error. For example, a caller
+// with a context ctx and an open [snmp.Session] sess can collect names even
+// when an optional table fails:
+//
+//	ifaces, err := snmpmap.Interfaces(ctx, sess)
+//	names := make([]string, 0, len(ifaces))
+//	for _, iface := range ifaces {
+//		names = append(names, iface.GetName())
+//	}
+//	return names, err
+//
 // # Presence
 //
 // The model draws a hard line between "the device reported zero" and "the

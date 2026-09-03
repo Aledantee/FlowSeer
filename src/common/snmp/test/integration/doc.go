@@ -1,47 +1,28 @@
-// Package integration drives the FlowSeer SNMP library against real SNMP
-// agents. Tests in this package and its subdirectories exercise the
-// public [snmp.Session] / [snmp.TrapStream] / [snmp.Walker] surface end
-// to end on the wire; no fake [snmp.Session] is constructed here.
+// Package integration checks the SNMP library and generated MIB bindings.
+// Default tests use in-process sessions and trap streams to verify harness
+// assertions, manifest validation, and generated row presence and BITS decoding.
 //
-// # Tiers
+// Four opt-in tiers exercise the public snmp.Session, snmp.TrapStream, and
+// snmp.Walker APIs against external agents:
 //
-// Three independent tiers are gated by build tags so bare `go test ./...`
-// runs zero integration tests:
+//   - snmp_integration_t1: Net-SNMP snmpd in Docker provides a USM matrix,
+//     forged wire shapes, dense-row walks, and a subset of Watch scenarios.
+//   - snmp_integration_t2: Nokia SR Linux via containerlab provides dense-row
+//     walks and linkUp/linkDown trap reception. Cold-start and NOS-sourced v3
+//     trap tests remain placeholders.
+//   - snmp_integration_t3: snmpsim replays committed .snmprec fixtures, including
+//     wrong-type values checked through the generated walker's fallback decoder.
+//   - snmp_integration_t4: operator-supplied devices provide scalar and table
+//     regression checks. This tier does not provision or modify those devices.
 //
-//   - snmp_integration_t1: Net-SNMP snmpd in Docker. Owns the USM
-//     auth/priv matrix and the forged-edge cases (NoSuchObject,
-//     EndOfMibView, oversized OCTET STRINGs, malformed DateAndTime,
-//     mid-table truncation) that real switches cannot produce on demand.
-//   - snmp_integration_t2: Nokia SR Linux deployed via containerlab.
-//     Owns the end-to-end dense-row collector flow and real-NOS trap
-//     reception (coldStart, linkUp/linkDown via admin-state toggle).
-//   - snmp_integration_t3: lextudio/snmpsim replay of committed .snmprec
-//     captures. Owns vendor regression coverage; adding a new vendor is
-//     a .snmprec file plus a manifest entry, no Go code.
+// Select exactly one tier tag; each defines TestMain, so selecting two produces
+// a compile error. Short mode runs offline tests and skips external setup,
+// regardless of installed tools or configured targets. For example:
 //
-// # Tag selection
+//	go test -race -short -tags=snmp_integration_t1 ./src/common/snmp/test/integration
 //
-// Each tier installs its own TestMain in a build-tag-guarded file under
-// this package. Setting two tier tags at the same invocation produces a
-// compile error ("multiple definitions of TestMain") — by design. There
-// is no runtime guard with a friendlier message because the offending
-// invocation never produces a runnable test binary; the failure surfaces
-// at `go test` compile time. Always select exactly one tier tag:
-//
-//	go test -tags=snmp_integration_t1 ./src/common/snmp/test/integration/...
-//	go test -tags=snmp_integration_t2 ./src/common/snmp/test/integration/...
-//	go test -tags=snmp_integration_t3 ./src/common/snmp/test/integration/...
-//
-// # Dialing
-//
-// Every tier reaches the wire through the public [snmp.NewSession] and
-// [snmp.ListenTraps] constructors. There is no backend-swap seam: the
-// SNMP implementation lives in package snmp itself, and tiers point it
-// at their agent via [testenv.SetTarget] / [testenv.Target].
-//
-// # Operator entry points
-//
-// See src/common/snmp/test/integration/README.md and its Taskfile.yml for
-// the per-tier developer commands. Each tier owns container/lab
-// lifecycle inside its TestMain so cleanup runs even on panic.
+// Without -short, T1 through T3 own container startup and normal teardown in
+// TestMain. T2 changes an interface's admin state in its ephemeral lab and
+// registers an enable cleanup before disabling it. T4 requires SNMP_T4_TARGETS.
+// See README.md and Taskfile.yml for the live tier commands and prerequisites.
 package integration

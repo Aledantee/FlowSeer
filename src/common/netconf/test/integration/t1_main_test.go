@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -16,9 +17,14 @@ import (
 // t1Target is the running netopeer2 container's host:port.
 var t1Target string
 
-// TestMain owns the container lifecycle so cleanup runs even when a
-// test panics (testcontainers' reaper backstops a dying process).
+// TestMain owns normal container cleanup; testcontainers' reaper handles a
+// process that exits before cleanup, such as after a test panic.
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		fmt.Fprintln(os.Stderr, "[yang_integration_t1] skipping container tier in short mode")
+		os.Exit(0)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	target, cleanup, err := testenv.StartNetopeer2(ctx, "../../../yang/test/integration/testenv/testdata/netopeer2")
 	cancel()
@@ -28,7 +34,10 @@ func TestMain(m *testing.M) {
 	}
 	t1Target = target
 	code := m.Run()
-	cleanup()
+	if err := cleanup(); err != nil {
+		fmt.Fprintln(os.Stderr, "t1 cleanup:", err)
+		code = 1
+	}
 	os.Exit(code)
 }
 
@@ -45,6 +54,12 @@ func dialT1(t *testing.T) *netconf.Session {
 	if err != nil {
 		t.Fatalf("dial %s: %v", t1Target, err)
 	}
-	t.Cleanup(func() { _ = s.Close(context.Background()) })
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.Close(ctx); err != nil {
+			t.Errorf("close session: %v", err)
+		}
+	})
 	return s
 }

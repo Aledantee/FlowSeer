@@ -12,9 +12,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/yang"
 )
 
-// dialT4 opens one lab session. Every t4 write is a small reversible
-// change with explicit cleanup; devices are never left modified, even
-// on failure paths.
 func dialT4(t *testing.T, target t4Target) *gnmi.Session {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -84,14 +81,11 @@ func TestT4CapabilitiesAndIdentity(t *testing.T) {
 	}
 }
 
-// TestT4ArubaSetCapability is the early write-capability
-// verification: a small reversible config change via Set either
-// round-trips (recorded), or the incapacity is recorded and the Aruba
-// write-acceptance criterion converts to a documented gap with the
-// fallback path recorded — this test then reports the verdict without
-// failing the tier for the other families.
+// TestT4ArubaSetCapability restores the login banner after checking Set.
+// A rejected write is recorded as unsupported; a failed restoration fails
+// the test because the device may still carry the test banner.
 //
-// Covers the reversible-Set acceptance check. Covers conformance matrix row: gn-t4-set-verdict
+// Covers conformance matrix row: gn-t4-set-verdict
 func TestT4ArubaSetCapability(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -103,29 +97,22 @@ func TestT4ArubaSetCapability(t *testing.T) {
 				{Name: "system"}, {Name: "config"}, {Name: "login-banner"},
 			}}
 
-			// Capture the current value for restoration.
-			var original []byte
-			if updates, err := s.Get(ctx, banner); err == nil && len(updates) > 0 {
-				original = updates[0].JSON
+			restore, err := snapshotRestore(ctx, s, banner)
+			if err != nil {
+				t.Fatalf("capture login banner: %v", err)
 			}
-			restore := func() {
+			t.Cleanup(func() {
 				cleanCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 				defer cancel()
-				if original == nil {
-					_ = s.Set(cleanCtx, gnmi.SetRequest{Deletes: []yang.Path{banner}})
-					return
+				if err := s.Set(cleanCtx, restore); err != nil {
+					t.Errorf("restore login banner: %v", err)
 				}
-				_ = s.Set(cleanCtx, gnmi.SetRequest{Updates: []gnmi.PathValue{{Path: banner, JSON: original}}})
-			}
-			t.Cleanup(restore)
+			})
 
-			err := s.Set(ctx, gnmi.SetRequest{Updates: []gnmi.PathValue{{Path: banner, JSON: []byte(`"flowseer-t4"`)}}})
+			err = s.Set(ctx, gnmi.SetRequest{Updates: []gnmi.PathValue{{Path: banner, JSON: []byte(`"flowseer-t4"`)}}})
 			if err != nil {
-				// The documented escape hatch: record the incapacity;
-				// the corpus row and write-criterion conversion are
-				// the follow-up.
-				t.Logf("R14 VERDICT: gNMI Set rejected on %s: %v — convert the Aruba write criterion per R14", target.Addr, err)
-				t.Skip("Set unsupported; R14 conversion applies")
+				t.Logf("gNMI Set rejected on %s: %v", target.Addr, err)
+				t.Skip("Set unsupported")
 			}
 
 			updates, err := s.Get(ctx, banner)
@@ -134,14 +121,15 @@ func TestT4ArubaSetCapability(t *testing.T) {
 			}
 			verified := false
 			for _, u := range updates {
-				if string(u.JSON) == `"flowseer-t4"` {
+				if u.Path.String() == banner.String() && (string(u.JSON) == `"flowseer-t4"` ||
+					u.Value != nil && u.Value.Type.Kind == yang.TypeString && u.Value.String == "flowseer-t4") {
 					verified = true
 				}
 			}
 			if !verified {
 				t.Errorf("Set reported success but read-back does not show the change: %+v", updates)
 			} else {
-				t.Log("R14 VERDICT: gNMI Set round-trips on this device")
+				t.Log("gNMI Set round-trips on this device")
 			}
 		})
 	}
@@ -156,7 +144,7 @@ func TestT4SubscribeStream(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
 			s := dialT4(t, target)
-			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
 
 			stream, err := s.Subscribe(ctx, gnmi.SubscribeOptions{
@@ -170,29 +158,25 @@ func TestT4SubscribeStream(t *testing.T) {
 			defer func() { _ = stream.Close() }()
 
 			sawSync, updates := false, 0
-			deadline := time.After(60 * time.Second)
-		loop:
-			for {
-				select {
-				case <-deadline:
-					break loop
-				default:
+			for ev := range stream.Iter() {
+				if ev.Sync {
+					sawSync = true
+					continue
 				}
-				for ev := range stream.Iter() {
-					if ev.Sync {
-						sawSync = true
-					}
+				if sawSync {
 					updates += len(ev.Updates)
-					if sawSync && updates > 0 {
-						break loop
+					if updates > 0 {
+						break
 					}
 				}
-				break loop
 			}
 			if !sawSync {
 				t.Errorf("no sync_response observed (stream err: %v)", stream.Err())
 			}
-			t.Logf("observed sync=%v with %d updates", sawSync, updates)
+			if updates == 0 {
+				t.Errorf("no updates after sync_response (stream err: %v)", stream.Err())
+			}
+			t.Logf("observed sync=%v with %d updates after sync", sawSync, updates)
 		})
 	}
 }

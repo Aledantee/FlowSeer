@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -43,6 +44,10 @@ var t3Manifest Manifest
 // is broken or container start fails, the tier exits 1 with a
 // diagnostic; cleanup runs in either case.
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(m.Run())
+	}
 	if !testenv.HasDocker() {
 		fmt.Fprintln(os.Stderr, "[snmp_integration_t3] docker not on PATH; skipping tier")
 		os.Exit(0)
@@ -61,20 +66,20 @@ func TestMain(m *testing.M) {
 	probeCommunity := manifest.Entries[0].SnmpsimContext
 
 	ctx, cancel := context.WithTimeout(context.Background(), snmpsimStartupBudget)
-	defer cancel()
 
 	target, cleanup, err := testenv.StartSnmpsim(ctx, snmpsimContextDir, snmprecDataDir, probeCommunity)
+	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[snmp_integration_t3] StartSnmpsim: %v\n", err)
-		if cleanup != nil {
-			cleanup()
-		}
 		os.Exit(1)
 	}
 	testenv.SetTarget(target)
 	fmt.Fprintf(os.Stderr, "[snmp_integration_t3] snmpsim up at %s (%d manifest entries)\n", target, len(manifest.Entries))
 
 	code := m.Run()
-	cleanup()
+	if err := cleanup(); err != nil {
+		fmt.Fprintf(os.Stderr, "[snmp_integration_t3] cleanup: %v\n", err)
+		code = 1
+	}
 	os.Exit(code)
 }

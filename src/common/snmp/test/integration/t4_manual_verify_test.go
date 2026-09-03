@@ -23,7 +23,7 @@ import (
 // (RouterOS 7.20.6) becomes a named subtest so a regression names
 // itself.
 //
-// Subtests are organised by bug class. Each scalar regression check
+// Subtests are organized by bug class. Each scalar regression check
 // tolerates ErrException (the device legitimately doesn't expose that
 // OID — common when running against a router for the AP-only Mtxr
 // optical OIDs) but fails on ErrTypeMismatch or ErrLossyConversion —
@@ -40,6 +40,9 @@ import (
 //   - MikroTik SwOS 2.18 (CRS-series industrial switches)
 //   - MikroTik RouterOS 7.20.6 (hAP / CCR / CRS-routers)
 func TestT4_LiveDeviceVerify(t *testing.T) {
+	if testing.Short() {
+		t.Skip("live-device verification disabled in short mode")
+	}
 	if len(t4Targets) == 0 {
 		t.Fatal("t4Targets empty; TestMain should have populated this or skipped the tier")
 	}
@@ -50,8 +53,8 @@ func TestT4_LiveDeviceVerify(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			runScalarRegressions(t, ctx, sess)
-			runTableWalkRegressions(t, ctx, sess)
+			runScalarRegressions(ctx, t, sess)
+			runTableWalkRegressions(ctx, t, sess)
 		})
 	}
 }
@@ -60,7 +63,7 @@ func TestT4_LiveDeviceVerify(t *testing.T) {
 // manual verification surfaced. Each is named after the specific
 // lossless-coercion that DecodeUint32 / DecodeInt32 has to honor for
 // the agent's natural emission shape.
-func runScalarRegressions(t *testing.T, ctx context.Context, sess snmp.Session) {
+func runScalarRegressions(ctx context.Context, t *testing.T, sess snmp.Session) {
 	t.Helper()
 
 	t.Run("sysServices_Integer32_into_Uinteger32", func(t *testing.T) {
@@ -94,7 +97,7 @@ func runScalarRegressions(t *testing.T, ctx context.Context, sess snmp.Session) 
 // plus the per-row decode contracts. Each subtest names the
 // device-class invariant it pins so a future regression points at the
 // right line in the contract.
-func runTableWalkRegressions(t *testing.T, ctx context.Context, sess snmp.Session) {
+func runTableWalkRegressions(ctx context.Context, t *testing.T, sess snmp.Session) {
 	t.Helper()
 
 	t.Run("ifTable_walk_one_row_per_interface", func(t *testing.T) {
@@ -233,8 +236,8 @@ func runTableWalkRegressions(t *testing.T, ctx context.Context, sess snmp.Sessio
 	})
 }
 
-// assertDecoderLeniency fails the test only if the error indicates
-// the decoder leniency policy or emitter rewiring regressed. ErrException
+// assertDecoderLeniency requires a successful request or ErrException.
+// Transport and wire failures cannot establish decoder behavior. ErrException
 // (NoSuchObject / NoSuchInstance — the device legitimately doesn't
 // expose this OID) is reported via t.Logf and accepted. The two
 // regression-class errors are ErrTypeMismatch (decoder rejected a
@@ -255,7 +258,5 @@ func assertDecoderLeniency(t *testing.T, err error, label string) {
 	if errors.Is(err, snmp.ErrLossyConversion) {
 		t.Fatalf("%s: REGRESSION — ErrLossyConversion implies the agent emitted a value outside the target type's range (this may also be a real agent bug): %v", label, err)
 	}
-	// Anything else (network timeout, wire error, etc.) is not a
-	// decoder or walker regression specifically — log it and continue.
-	t.Logf("%s: non-decode error (likely transport): %v", label, err)
+	t.Fatalf("%s: request failed before decoder verification: %v", label, err)
 }

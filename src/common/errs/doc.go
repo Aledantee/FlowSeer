@@ -115,6 +115,9 @@
 // wrapper's attribute overrides the same key on its cause. [Attributes]
 // and [Error.LogValue] share that traversal and therefore cannot disagree.
 // Errors from other packages are traversed through but contribute nothing.
+// Attribute values and causes are retained by reference. Concurrent use of
+// an error requires those values and causes to support concurrent reads;
+// extraction returns a new map without copying its values.
 //
 // Attributes are internal by default. [Builder.PubAttr] marks one
 // client-safe, and [SafeAttributes] returns exactly that subset — safety is

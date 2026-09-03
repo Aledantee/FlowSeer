@@ -36,7 +36,7 @@ import (
 const mib = 1 << 20
 
 // maxRSSBytes returns the process's peak resident set size. ru_maxrss is in
-// bytes on darwin and in kilobytes on linux; normalise to bytes. It is a
+// bytes on darwin and in kilobytes on linux; normalize to bytes. It is a
 // high-water mark, not the instantaneous RSS, so it is reported only as an
 // advisory gauge alongside the runtime heap deltas that actually drive the
 // pooling decision.
@@ -100,7 +100,7 @@ func TestIdleFootprintScaling(t *testing.T) {
 	}
 
 	last := len(counts) - 1
-	perSession := float64(heaps[last]-heaps[last-1]) / float64(counts[last]-counts[last-1])
+	perSession := (float64(heaps[last]) - float64(heaps[last-1])) / float64(counts[last]-counts[last-1])
 	t.Logf("marginal idle heap ≈ %.0f B/session (N=%d→%d)", perSession, counts[last-1], counts[last])
 	if perSession <= 0 {
 		t.Errorf("marginal per-session idle heap not positive: %.0f B", perSession)
@@ -168,17 +168,25 @@ func TestBurstyAllocRate(t *testing.T) {
 	// Active burst window.
 	a0 := alloc()
 	burstStart := time.Now()
-	done := make(chan struct{}, conc)
+	done := make(chan error, conc)
 	for _, s := range sessions {
 		go func(s snmp.Session) {
 			for j := 0; j < burstOps; j++ {
-				_ = walkOp(s)
+				if err := walkOp(s); err != nil {
+					done <- err
+					return
+				}
 			}
-			done <- struct{}{}
+			done <- nil
 		}(s)
 	}
 	for range sessions {
-		<-done
+		if err := <-done; err != nil {
+			t.Errorf("burst walk: %v", err)
+		}
+	}
+	if t.Failed() {
+		t.FailNow()
 	}
 	burstRate := float64(alloc()-a0) / time.Since(burstStart).Seconds()
 

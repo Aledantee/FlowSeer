@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -26,10 +27,9 @@ func serverConfigXML(t *testing.T, name string, port uint16) []byte {
 	return xmlBytes
 }
 
-// deleteServerXML renders a delete edit for one server entry.
-func deleteServerXML(name string) []byte {
+func removeServerXML(name string) []byte {
 	return []byte(`<servers xmlns="urn:flowseer:fixture-main">` +
-		`<server xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" nc:operation="delete">` +
+		`<server xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" nc:operation="remove">` +
 		`<name>` + name + `</name></server></servers>`)
 }
 
@@ -80,7 +80,7 @@ func TestT1GetConfig(t *testing.T) {
 	}
 }
 
-// TestT1CandidateEditCommitCycle drives the full F2 write path against
+// TestT1CandidateEditCommitCycle drives the candidate write path against
 // the real candidate datastore and proves it by read-back.
 //
 // Covers conformance matrix row: nc-candidate-edit-cycle
@@ -89,14 +89,19 @@ func TestT1CandidateEditCommitCycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := s.Apply(ctx, serverConfigXML(t, "t1-edge", 4242)); err != nil {
-		t.Fatalf("Apply: %v", err)
+	if _, exists := readServers(t, s)["t1-edge"]; exists {
+		t.Fatal("fixture server t1-edge already exists")
 	}
 	t.Cleanup(func() {
 		cleanCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		_ = s.Apply(cleanCtx, deleteServerXML("t1-edge"))
+		if err := s.Apply(cleanCtx, removeServerXML("t1-edge")); err != nil {
+			t.Errorf("remove fixture server: %v", err)
+		}
 	})
+	if err := s.Apply(ctx, serverConfigXML(t, "t1-edge", 4242)); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
 
 	rows := readServers(t, s)
 	if rows["t1-edge"] != 4242 {
@@ -104,10 +109,11 @@ func TestT1CandidateEditCommitCycle(t *testing.T) {
 	}
 
 	// Delete and prove removal by read-back too.
-	if err := s.Apply(ctx, deleteServerXML("t1-edge")); err != nil {
+	if err := s.Apply(ctx, removeServerXML("t1-edge")); err != nil {
 		t.Fatalf("Apply delete: %v", err)
 	}
-	if rows := readServers(t, s); rows["t1-edge"] != 0 {
+	rows = readServers(t, s)
+	if _, exists := rows["t1-edge"]; exists {
 		t.Fatalf("row survived delete: %v", rows)
 	}
 }
@@ -124,6 +130,16 @@ func TestT1InvalidEditIsRejectedAndDiscarded(t *testing.T) {
 	defer cancel()
 
 	before := readServers(t, s)
+	if _, exists := before["bad"]; exists {
+		t.Fatal("fixture server bad already exists")
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.Apply(ctx, removeServerXML("bad")); err != nil {
+			t.Errorf("remove invalid fixture server: %v", err)
+		}
+	})
 
 	// port 0 violates fixture-types port-number's range 1..65535.
 	bad := []byte(`<servers xmlns="urn:flowseer:fixture-main">` +
@@ -142,7 +158,7 @@ func TestT1InvalidEditIsRejectedAndDiscarded(t *testing.T) {
 	}
 
 	after := readServers(t, s)
-	if len(after) != len(before) {
+	if !maps.Equal(after, before) {
 		t.Fatalf("running config changed after rejected edit: before %v, after %v", before, after)
 	}
 	// A fresh session must be able to lock: the failed Apply released
@@ -151,5 +167,7 @@ func TestT1InvalidEditIsRejectedAndDiscarded(t *testing.T) {
 	if err := s2.Lock(ctx, netconf.Candidate); err != nil {
 		t.Fatalf("candidate still locked after failed Apply: %v", err)
 	}
-	_ = s2.Unlock(ctx, netconf.Candidate)
+	if err := s2.Unlock(ctx, netconf.Candidate); err != nil {
+		t.Fatalf("unlock candidate: %v", err)
+	}
 }

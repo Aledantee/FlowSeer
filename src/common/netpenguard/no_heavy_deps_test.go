@@ -1,18 +1,15 @@
-// Package netpenguard pins the quarantine boundary: the netpen module's
-// heavy dependency family (gopacket, bubbletea) never enters the main
-// module's dependency graph. The test walks from the repo root (the repoRoot
-// pattern from src/common/errs/code_test.go) and asserts zero charm.land/ or
-// github.com/gopacket/ imports outside src/edge/netpen, the sole exempt
-// directory.
+// Package netpenguard checks Go source imports for the netpen module's heavy
+// dependencies. Only src/edge/netpen may import charm.land/ or
+// github.com/gopacket/ packages; dot-directories and testdata are not scanned.
 package netpenguard
 
 import (
-	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -33,18 +30,26 @@ var exemptDirs = []string{
 
 // TestNoHeavyDepsOutsideNetpen walks the repo from its root and asserts that
 // no .go file outside src/edge/netpen imports a forbidden heavy dependency. The
-// walk skips dot-directories and testdata; this test file itself is exempted
-// because it names the forbidden prefixes by necessity.
+// walk skips dot-directories and testdata.
 func TestNoHeavyDepsOutsideNetpen(t *testing.T) {
 	root := repoRoot(t)
-
-	const selfFile = "no_heavy_deps_test.go"
-
-	type leak struct {
-		path   string
-		reason string
+	leaks, err := scanHeavyDeps(root)
+	if err != nil {
+		t.Fatalf("walking %s: %v", root, err)
 	}
-	var leaks []leak
+
+	for _, l := range leaks {
+		t.Errorf("heavy dependency leak in %s: %s", l.path, l.reason)
+	}
+}
+
+type dependencyLeak struct {
+	path   string
+	reason string
+}
+
+func scanHeavyDeps(root string) ([]dependencyLeak, error) {
+	var leaks []dependencyLeak
 
 	fset := token.NewFileSet()
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -68,9 +73,6 @@ func TestNoHeavyDepsOutsideNetpen(t *testing.T) {
 			return nil
 		}
 
-		if filepath.Base(path) == selfFile {
-			return nil
-		}
 		if !strings.HasSuffix(path, ".go") {
 			return nil
 		}
@@ -85,25 +87,21 @@ func TestNoHeavyDepsOutsideNetpen(t *testing.T) {
 		rel, _ := filepath.Rel(root, path)
 
 		for _, imp := range f.Imports {
-			lit := imp.Path.Value
+			importPath, err := strconv.Unquote(imp.Path.Value)
+			if err != nil {
+				return err
+			}
+
 			for _, forbidden := range forbiddenImports {
-				if strings.Contains(lit, forbidden) {
-					leaks = append(leaks, leak{rel, "import " + lit})
+				if strings.Contains(importPath, forbidden) {
+					leaks = append(leaks, dependencyLeak{rel, "import " + imp.Path.Value})
 				}
 			}
 		}
 
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("walking %s: %v", root, err)
-	}
-
-	if len(leaks) > 0 {
-		for _, l := range leaks {
-			t.Errorf("heavy dependency leak in %s: %s", l.path, l.reason)
-		}
-	}
+	return leaks, err
 }
 
 // repoRoot finds the repository root by walking up from the working directory
@@ -131,6 +129,3 @@ func repoRoot(t *testing.T) string {
 		dir = parent
 	}
 }
-
-// silence unused import in case the AST path changes.
-var _ = ast.IsExported

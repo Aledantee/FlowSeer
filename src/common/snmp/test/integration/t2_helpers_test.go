@@ -17,6 +17,9 @@ import (
 // t.Cleanup.
 func t2DialV3(t *testing.T, opts ...snmp.Option) snmp.Session {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("live SR Linux disabled in short mode")
+	}
 	if testenv.Target() == "" {
 		t.Fatal("testenv.Target() is empty; t2 TestMain did not seed the target")
 	}

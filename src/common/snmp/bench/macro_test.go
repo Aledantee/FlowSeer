@@ -25,7 +25,7 @@ import (
 // Run:
 //
 //	FLOWSEER_BENCH_AGENT=10.20.0.1:161 \
-//	  go test -tags snmp_bench_macro -bench Macro -benchmem -run '^$' -v ./common/snmp/bench/
+//	  go test -tags snmp_bench_macro -bench Macro -benchmem -run TestMacro -v .
 //
 // Env knobs:
 //
@@ -95,17 +95,14 @@ func dialGosnmpV2c(tb testing.TB, c macroCfg) *g.GoSNMP {
 	return client
 }
 
-func walkNative(tb testing.TB, sess snmp.Session, root snmp.OID) int {
+func walkNative(tb testing.TB, sess snmp.Session, root snmp.OID) {
 	tb.Helper()
-	n := 0
 	w := sess.BulkWalk(context.Background(), root)
 	for range w.Iter() {
-		n++
 	}
 	if err := w.Err(); err != nil {
 		tb.Fatalf("native BulkWalk: %v", err)
 	}
-	return n
 }
 
 // mustRoot parses the configured walk root once, so the dotted-string
@@ -119,13 +116,12 @@ func mustRoot(tb testing.TB, c macroCfg) snmp.OID {
 	return root
 }
 
-func walkGosnmp(tb testing.TB, client *g.GoSNMP, root string) int {
+func walkGosnmp(tb testing.TB, client *g.GoSNMP, root string) {
 	tb.Helper()
-	res, err := client.BulkWalkAll(root)
+	_, err := client.BulkWalkAll(root)
 	if err != nil {
 		tb.Fatalf("gosnmp BulkWalkAll: %v", err)
 	}
-	return len(res)
 }
 
 // BenchmarkMacroWalk — steady-state full-table walk against the live agent.
@@ -135,7 +131,7 @@ func BenchmarkMacroWalk(b *testing.B) {
 	b.Run("impl=flowseer", func(b *testing.B) {
 		root := mustRoot(b, c)
 		sess := dialNativeV2c(b, c)
-		defer sess.Close()
+		closeOnCleanup(b, sess)
 		walkNative(b, sess, root) // warmup
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -145,7 +141,7 @@ func BenchmarkMacroWalk(b *testing.B) {
 
 	b.Run("impl=gosnmp", func(b *testing.B) {
 		client := dialGosnmpV2c(b, c)
-		defer client.Conn.Close()
+		closeOnCleanup(b, client.Conn)
 		walkGosnmp(b, client, c.walkRoot) // warmup
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -261,9 +257,9 @@ func BenchmarkMacroColdStartV3USM(b *testing.B) {
 func TestMacroDifferential(t *testing.T) {
 	c := macroEnv(t)
 	sess := dialNativeV2c(t, c)
-	defer sess.Close()
+	closeOnCleanup(t, sess)
 	client := dialGosnmpV2c(t, c)
-	defer client.Conn.Close()
+	closeOnCleanup(t, client.Conn)
 
 	native := collectNativeRows(t, sess, mustRoot(t, c))
 	gosnmp := collectGosnmpRows(t, client, c.walkRoot)
@@ -396,8 +392,6 @@ func TestMacroNetSnmp(t *testing.T) {
 		"not per-op latency)",
 		defaultScalarOID, get.MeanMs, get.MedianMs, get.P95Ms, get.MinMs, get.Runs)
 }
-
-// --- v3/USM env parsing + gosnmp mapping ------------------------------
 
 // benchUSM wraps snmp.USMConfig with the protocol names so the gosnmp
 // client (which uses its own constant set) can be configured identically.

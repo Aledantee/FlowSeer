@@ -16,6 +16,8 @@ import (
 // threshold, never stops early because a level was reached, and offers no
 // knob to make it do so. Deciding that a given file's diagnostics are
 // acceptable is the caller's judgment, recorded in the caller's baseline.
+// Severity values are safe for concurrent use; their methods do not mutate
+// shared state. The zero value is [SeverityInternal].
 type Severity uint8
 
 // The severity scale. Each level says what a caller should conclude, not
@@ -100,9 +102,9 @@ func (s Severity) String() string {
 	return severityTags[s]
 }
 
-// ParseSeverity returns the severity written as tag, which is the inverse
-// of [Severity.String]. It exists so a baseline file committed by one
-// release is still readable by the next.
+// ParseSeverity returns the severity for an exact stable tag such as
+// "error". It returns an error for any other spelling, including the
+// off-scale form of [Severity.String].
 func ParseSeverity(tag string) (Severity, error) {
 	for level, name := range severityTags {
 		if name == tag {

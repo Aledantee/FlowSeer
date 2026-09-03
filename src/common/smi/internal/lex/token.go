@@ -5,6 +5,7 @@ import "strconv"
 // Kind classifies a token. Reserved words all share [KindKeyword] and
 // are told apart by [Token.Keyword], so this set stays small enough to
 // switch on in a parser without a hundred-arm statement.
+// Values may be copied and read concurrently.
 type Kind uint8
 
 // The token kinds. [KindInvalid] is the zero value and the lexer never
@@ -90,7 +91,7 @@ func (k Kind) String() string {
 // puts a leading byte-order mark or comment in its gap.
 //
 // Keyword is meaningful only when Kind is [KindKeyword]; it is
-// [KeywordNone] otherwise.
+// [KeywordNone] otherwise. Values may be copied and read concurrently.
 type Token struct {
 	Kind    Kind
 	Keyword Keyword

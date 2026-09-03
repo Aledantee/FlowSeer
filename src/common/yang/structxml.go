@@ -126,7 +126,8 @@ func openXML(b *strings.Builder, name, ns, parentNS string) {
 // UnmarshalXMLStruct locates the first element matching s in data
 // (at any depth, by local name, and by namespace when both sides
 // declare one) and decodes it into v, a pointer to the schema's Go
-// struct. Unknown child elements are skipped.
+// struct, replacing its content. Unknown child elements are skipped.
+// A decode error may leave v partially populated.
 func UnmarshalXMLStruct(s *Schema, data []byte, v any) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() || rv.Elem().Kind() != reflect.Struct {
@@ -136,6 +137,7 @@ func UnmarshalXMLStruct(s *Schema, data []byte, v any) error {
 	if err := findXMLElement(dec, s); err != nil {
 		return err
 	}
+	rv.Elem().SetZero()
 	return decodeXMLInto(dec, s, rv.Elem())
 }
 

@@ -37,6 +37,8 @@ const MaxSeverity = 6
 // smi imports this one. Code is the diagnostic's identity across
 // releases: append-only, never renamed, never reused for a different
 // condition.
+// The zero value is invalid. An Entry is safe for concurrent reads;
+// callers must synchronize mutations.
 type Entry struct {
 	Severity    uint8  // 0 (most severe) through MaxSeverity
 	Code        string // "smi/<name>", the stable identity
@@ -340,8 +342,9 @@ func Entries() []Entry {
 // the table, a severity on the scale, and an arity that agrees with the
 // format string.
 //
-// It takes rows as an argument rather than reading the table directly so
-// that its own tests can prove each check bites.
+// Formats allow ordinary verbs with fixed flags, width and precision,
+// plus %% escapes. Argument indexes and dynamic width or precision are
+// rejected because each verb must consume exactly one argument.
 func Validate(rows []Entry) error {
 	codes := make(map[string]struct{}, len(rows))
 	tags := make(map[string]struct{}, len(rows))
@@ -372,7 +375,11 @@ func Validate(rows []Entry) error {
 		if r.Description == "" {
 			return fmt.Errorf("%s: description is empty", r.Code)
 		}
-		if verbs := CountVerbs(r.Format); r.Arity != verbs {
+		verbs := CountVerbs(r.Format)
+		if verbs < 0 {
+			return fmt.Errorf("%s: format %q contains an unsupported directive", r.Code, r.Format)
+		}
+		if r.Arity != verbs {
 			return fmt.Errorf("%s: arity %d but format %q consumes %d", r.Code, r.Arity, r.Format, verbs)
 		}
 		if r.Arity > MaxArgs {
@@ -383,13 +390,10 @@ func Validate(rows []Entry) error {
 	return nil
 }
 
-// CountVerbs returns the number of arguments format consumes. A doubled
-// percent is an escape and consumes none.
-//
-// The count is deliberately naive: it reads a verb as a percent, any run
-// of flag, width and precision bytes, then a letter. Table formats use
-// plain verbs, and an argument-index verb such as %[1]d would defeat the
-// arity check rather than merely miscount, so it is not accepted.
+// CountVerbs returns the number of arguments format consumes, or -1 for
+// an unsupported directive. It accepts ordinary fmt verbs with fixed
+// flags, width and precision, and %% escapes that consume no argument.
+// Argument indexes and dynamic width or precision are unsupported.
 func CountVerbs(format string) int {
 	count := 0
 
@@ -403,18 +407,26 @@ func CountVerbs(format string) int {
 			continue
 		}
 
-		for i < len(format) && !isVerbLetter(format[i]) {
+		for i < len(format) && strings.IndexByte("#0+- ", format[i]) >= 0 {
 			i++
+		}
+		for i < len(format) && format[i] >= '0' && format[i] <= '9' {
+			i++
+		}
+		if i < len(format) && format[i] == '.' {
+			i++
+			for i < len(format) && format[i] >= '0' && format[i] <= '9' {
+				i++
+			}
+		}
+		if i == len(format) || strings.IndexByte("vTtbcdoOqxXUeEfFgGsp", format[i]) < 0 {
+			return -1
 		}
 
 		count++
 	}
 
 	return count
-}
-
-func isVerbLetter(b byte) bool {
-	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 // validateCode enforces the namespace and the spelling errs.NewCode will

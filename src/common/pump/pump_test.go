@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -92,6 +93,56 @@ func TestSendAfterDoneReturnsFalse(t *testing.T) {
 	if delivered, dropped := p.TrySendDropOldest(1); delivered || dropped != 0 {
 		t.Fatalf("TrySendDropOldest after Done = (%v, %d), want (false, 0)", delivered, dropped)
 	}
+}
+
+func TestSendAfterCloseDataReturnsFalse(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"Send", "TrySendDropOldest"} {
+		t.Run(name, func(t *testing.T) {
+			p := New[int](context.Background(), 1)
+			t.Cleanup(p.Cancel)
+			p.CloseData()
+			defer func() {
+				if got := recover(); got != nil {
+					t.Errorf("send after CloseData panicked: %v", got)
+				}
+			}()
+			if name == "TrySendDropOldest" {
+				if delivered, dropped := p.TrySendDropOldest(1); delivered || dropped != 0 {
+					t.Errorf("TrySendDropOldest() = (%v, %d), want (false, 0)", delivered, dropped)
+				}
+				return
+			}
+			if p.Send(1) {
+				t.Error("Send succeeded after CloseData")
+			}
+		})
+	}
+}
+
+func TestCloseDataUnblocksSend(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		p := New[int](context.Background(), 1)
+		t.Cleanup(p.Cancel)
+		if !p.Send(1) {
+			t.Fatal("initial Send failed")
+		}
+
+		result := make(chan bool, 1)
+		go func() { result <- p.Send(2) }()
+		synctest.Wait()
+		p.CloseData()
+		if <-result {
+			t.Error("blocked Send succeeded after CloseData")
+		}
+		if got, ok := p.Recv(); !ok || got != 1 {
+			t.Errorf("Recv() = (%d, %v), want (1, true)", got, ok)
+		}
+		if _, ok := p.Recv(); ok {
+			t.Error("Recv succeeded after draining the closed pump")
+		}
+	})
 }
 
 func TestTrySendDropOldestFullBuffer(t *testing.T) {

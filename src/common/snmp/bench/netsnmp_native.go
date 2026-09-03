@@ -21,7 +21,7 @@ package bench
 //
 // Caveat for -benchmem: Go's allocator only counts Go-heap allocations, so the
 // reported allocs/op and B/op for the Net-SNMP arm reflect only the thin cgo
-// marshalling, not Net-SNMP's (substantial) C-side malloc traffic. Compare the
+// marshaling, not Net-SNMP's (substantial) C-side malloc traffic. Compare the
 // Net-SNMP arm on throughput (ops/s, ns/op) only; the allocation columns are
 // meaningful for the two Go clients.
 
@@ -33,7 +33,7 @@ package bench
 #include <stdlib.h>
 #include <string.h>
 
-// ns_init initialises the library once. MIB file parsing is disabled (we use
+// ns_init initializes the library once. MIB file parsing is disabled (we use
 // numeric OIDs only) to keep startup fast and deterministic.
 static void ns_init(void) {
     setenv("MIBS", "", 1);
@@ -69,7 +69,7 @@ static void ns_close(void *sessp) {
 static long ns_bulkwalk(void *sessp, oid *root, size_t rootLen, int maxrep) {
     oid cur[MAX_OID_LEN];
     size_t curLen = rootLen;
-    if (rootLen > MAX_OID_LEN) {
+    if (rootLen == 0 || rootLen > MAX_OID_LEN || maxrep <= 0) {
         return -1;
     }
     memcpy(cur, root, rootLen * sizeof(oid));
@@ -83,7 +83,10 @@ static long ns_bulkwalk(void *sessp, oid *root, size_t rootLen, int maxrep) {
         }
         pdu->non_repeaters = 0;
         pdu->max_repetitions = maxrep;
-        snmp_add_null_var(pdu, cur, curLen);
+        if (snmp_add_null_var(pdu, cur, curLen) == NULL) {
+            snmp_free_pdu(pdu);
+            return -1;
+        }
 
         netsnmp_pdu *resp = NULL;
         int status = snmp_sess_synch_response(sessp, pdu, &resp);
@@ -93,7 +96,7 @@ static long ns_bulkwalk(void *sessp, oid *root, size_t rootLen, int maxrep) {
             }
             return -1;
         }
-        if (resp->errstat != SNMP_ERR_NOERROR) {
+        if (resp->errstat != SNMP_ERR_NOERROR || resp->variables == NULL) {
             snmp_free_pdu(resp);
             return -1;
         }
@@ -112,11 +115,13 @@ static long ns_bulkwalk(void *sessp, oid *root, size_t rootLen, int maxrep) {
                 running = 0;
                 break;
             }
-            count++;
-            if (vb->name_length > MAX_OID_LEN) { // defensive
-                running = 0;
-                break;
+            // A non-advancing cursor would otherwise repeat requests forever.
+            if (vb->name_length > MAX_OID_LEN ||
+                snmp_oid_compare(vb->name, vb->name_length, cur, curLen) <= 0) {
+                snmp_free_pdu(resp);
+                return -1;
             }
+            count++;
             memcpy(cur, vb->name, vb->name_length * sizeof(oid));
             curLen = vb->name_length;
         }
@@ -136,7 +141,7 @@ import (
 )
 
 // nsInitOnce runs the one-time library init. snmp_sess_open touches global
-// state during setup, so opens are also serialised (see nsOpen).
+// state during setup, so opens are also serialized (see nsOpen).
 var (
 	nsInitOnce sync.Once
 	nsOpenMu   sync.Mutex

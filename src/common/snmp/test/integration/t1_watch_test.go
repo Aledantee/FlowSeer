@@ -4,7 +4,7 @@ package integration
 
 import (
 	"context"
-	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,9 +48,13 @@ func TestT1_Watch_ColdStartEmitsAddedForEveryInterface(t *testing.T) {
 		snmp.WithCadenceBounds(500*time.Millisecond, 5*time.Second),
 		snmp.WithForcedWalkInterval(1*time.Hour),
 	)
-	defer tw.Close()
+	t.Cleanup(func() {
+		if err := tw.Close(); err != nil {
+			t.Errorf("close watcher: %v", err)
+		}
+	})
 
-	events := drainColdStart(t, tw, ctx, 8*time.Second)
+	events := drainColdStart(ctx, t, tw, 8*time.Second)
 	if len(events) == 0 {
 		t.Fatalf("cold-start produced 0 events; expected >= 1 from snmpd")
 	}
@@ -93,11 +97,15 @@ func TestT1_Watch_QuietDeviceNoEventsAfterColdStart(t *testing.T) {
 		snmp.WithCadenceBounds(300*time.Millisecond, 2*time.Second),
 		snmp.WithForcedWalkInterval(1*time.Hour),
 	)
-	defer tw.Close()
+	t.Cleanup(func() {
+		if err := tw.Close(); err != nil {
+			t.Errorf("close watcher: %v", err)
+		}
+	})
 
-	coldStart := drainColdStart(t, tw, ctx, 4*time.Second)
+	coldStart := drainColdStart(ctx, t, tw, 4*time.Second)
 	if len(coldStart) == 0 {
-		t.Skip("no cold-start events from snmpd — fixture has no interfaces?")
+		t.Fatal("no cold-start events from snmpd; expected at least loopback")
 	}
 
 	events := forwardIfTableEvents(tw)
@@ -178,7 +186,7 @@ func TestT1_Watch_FallbackOnMissingIndicator(t *testing.T) {
 	}
 
 	logger := &slogLogger{t: t}
-	w, _ := snmp.NewWatcher[row](
+	w, err := snmp.NewWatcher[row](
 		ctx, sess, indicator,
 		[]snmp.AnyColumn{ifmib.IfDescr},
 		decode, equal, merge,
@@ -186,7 +194,14 @@ func TestT1_Watch_FallbackOnMissingIndicator(t *testing.T) {
 		snmp.WithForcedWalkInterval(1*time.Hour),
 		snmp.WithLogger(logger),
 	)
-	defer w.Close()
+	if err != nil {
+		t.Fatalf("NewWatcher: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := w.Close(); err != nil {
+			t.Errorf("close watcher: %v", err)
+		}
+	})
 
 	// Wait for fallback to engage. The scalar probe runs at
 	// cold-start, so within a second or two the transition should
@@ -195,7 +210,7 @@ func TestT1_Watch_FallbackOnMissingIndicator(t *testing.T) {
 	for !w.Fallback() {
 		select {
 		case <-deadline:
-			t.Fatalf("Fallback never engaged within 5s; logger calls=%d", logger.calls)
+			t.Fatalf("Fallback never engaged within 5s; logger calls=%d", logger.calls.Load())
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
@@ -203,8 +218,8 @@ func TestT1_Watch_FallbackOnMissingIndicator(t *testing.T) {
 	if w.Err() != nil {
 		t.Errorf("Err() = %v, want nil (fallback is not terminal)", w.Err())
 	}
-	if logger.calls != 1 {
-		t.Errorf("logger calls = %d, want 1 (one-time fallback log)", logger.calls)
+	if calls := logger.calls.Load(); calls != 1 {
+		t.Errorf("logger calls = %d, want 1 (one-time fallback log)", calls)
 	}
 
 	// Range over events for a bounded window — fallback mode still
@@ -248,7 +263,7 @@ func TestT1_Watch_RowRemoval(t *testing.T) {
 // drainColdStart consumes events from the Watcher's iterator until
 // the channel quiets (no event within idleWindow) or the parent ctx
 // fires. Returns the events collected.
-func drainColdStart(t *testing.T, tw *ifmib.IfTableWatcher, ctx context.Context, idleWindow time.Duration) []snmp.WatchEvent[ifmib.IfTableRow] {
+func drainColdStart(ctx context.Context, t *testing.T, tw *ifmib.IfTableWatcher, idleWindow time.Duration) []snmp.WatchEvent[ifmib.IfTableRow] {
 	t.Helper()
 	events := forwardIfTableEvents(tw)
 	var got []snmp.WatchEvent[ifmib.IfTableRow]
@@ -307,19 +322,14 @@ func forwardEvents[Row any](w *snmp.Watcher[Row]) <-chan snmp.WatchEvent[Row] {
 // one-time fallback transition log during the integration test.
 type slogLogger struct {
 	t     *testing.T
-	calls int
+	calls atomic.Int64
 }
 
 func (l *slogLogger) Warn(format string, args ...any) {
-	l.calls++
+	l.calls.Add(1)
 	l.t.Logf("[watcher.fallback] "+format, args...)
 }
 
 // Pin that the slogLogger satisfies the snmp.Logger interface at
 // compile time.
 var _ snmp.Logger = (*slogLogger)(nil)
-
-// Pin that an unused-error path stays alive across refactors. errors
-// is imported by the fallback test but only via wrapped checks; this
-// ensures go vet sees the import as needed.
-var _ = errors.Is

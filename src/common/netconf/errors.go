@@ -22,6 +22,6 @@ var (
 	ErrCodeTransport = errs.NewCode("netconf/transport")
 )
 
-// ErrSessionClosed is the sentinel every method returns after
-// [Session.Close]; distinguish with errors.Is.
+// ErrSessionClosed marks an RPC attempted after [Session.Close],
+// once local validation passes; distinguish with errors.Is.
 var ErrSessionClosed = errs.New().Code(ErrCodeSessionClosed).Msg("netconf session is closed")

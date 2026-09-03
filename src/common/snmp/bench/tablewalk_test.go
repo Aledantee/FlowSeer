@@ -17,7 +17,7 @@ func BenchmarkTableWalk(b *testing.B) {
 	b.Run("impl=flowseer", func(b *testing.B) {
 		ctx := context.Background()
 		sess := dialNative(b, addr)
-		defer func() { _ = sess.Close() }()
+		closeOnCleanup(b, sess)
 
 		walkTable := func() int {
 			n := 0

@@ -40,6 +40,9 @@ func t3DialReplay(t *testing.T, e ManifestEntry) snmp.Session {
 // snmpsim-replayed corpus — three different agents, one assertion
 // path, zero divergence.
 func TestT3_Replay_DenseRows(t *testing.T) {
+	if testing.Short() {
+		t.Skip("snmpsim replay disabled in short mode")
+	}
 	if len(t3Manifest.Entries) == 0 {
 		t.Fatal("t3Manifest is empty; TestMain did not seed it")
 	}

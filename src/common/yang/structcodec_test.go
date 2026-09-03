@@ -255,3 +255,44 @@ func TestStructRowCodec(t *testing.T) {
 		t.Errorf("merged = %+v", merged)
 	}
 }
+
+func TestUnmarshalStructReplacesContent(t *testing.T) {
+	tests := []struct {
+		name   string
+		data   string
+		decode func(*yang.Schema, []byte, any) error
+	}{
+		{name: "XML", data: `<server><name>new</name><tags>only</tags><extra/></server>`, decode: yang.UnmarshalXMLStruct},
+		{name: "JSON", data: `{"name":"new","tags":["only"],"extra":{}}`, decode: yang.UnmarshalJSON7951Struct},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := sampleServer()
+			if err := tc.decode(serverSchema(), []byte(tc.data), &got); err != nil {
+				t.Fatal(err)
+			}
+			want := testServer{Name: str("new"), Tags: []string{"only"}, Extra: &testExtra{}}
+			if !yang.EqualStructs(got, want) {
+				t.Errorf("got %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestUnmarshalJSON7951RejectsNullStructure(t *testing.T) {
+	for _, data := range []string{`null`, `{"extra":null}`, `{"tags":null}`} {
+		t.Run(data, func(t *testing.T) {
+			var row testServer
+			if err := yang.UnmarshalJSON7951Struct(serverSchema(), []byte(data), &row); err == nil {
+				t.Errorf("UnmarshalJSON7951Struct(%s) succeeded, want error", data)
+			}
+		})
+	}
+	for _, data := range []string{`null`, `[null]`, `{"server":null}`} {
+		t.Run("list "+data, func(t *testing.T) {
+			if _, err := yang.DecodeJSONList[testServer](serverSchema(), []byte(data)); err == nil {
+				t.Errorf("DecodeJSONList(%s) succeeded, want error", data)
+			}
+		})
+	}
+}

@@ -28,15 +28,15 @@ func assignmentRef(id string) *inventoryv1.AttributeValueGlobalRef {
 	}.Build()
 }
 
-func validAttribute(id string) *inventoryv1.Attribute_builder {
-	return &inventoryv1.Attribute_builder{
+func validAttribute(id string) *inventoryv1.Attribute {
+	return inventoryv1.Attribute_builder{
 		Ref:        attributeRef(id),
 		Name:       proto.String("Rack position"),
 		Targets:    []inventoryv1.EntityType{inventoryv1.EntityType_ENTITY_TYPE_DEVICE},
 		MinItems:   proto.Uint32(1),
 		MaxItems:   proto.Uint32(1),
 		StringType: &inventoryv1.StringType{},
-	}
+	}.Build()
 }
 
 func TestEntityRefRules(t *testing.T) {
@@ -79,95 +79,95 @@ func TestEntityRefRules(t *testing.T) {
 
 func TestAttributeRules(t *testing.T) {
 	missingLowerBound := validAttribute(attributeID)
-	missingLowerBound.MinItems = nil
+	missingLowerBound.ClearMinItems()
 
 	missingUpperBound := validAttribute(attributeID)
-	missingUpperBound.MaxItems = nil
+	missingUpperBound.ClearMaxItems()
 
 	emptyTargets := validAttribute(attributeID)
-	emptyTargets.Targets = nil
+	emptyTargets.SetTargets(nil)
 
 	duplicateTargets := validAttribute(attributeID)
-	duplicateTargets.Targets = []inventoryv1.EntityType{
+	duplicateTargets.SetTargets([]inventoryv1.EntityType{
 		inventoryv1.EntityType_ENTITY_TYPE_DEVICE,
 		inventoryv1.EntityType_ENTITY_TYPE_DEVICE,
-	}
+	})
 
 	noTypeArm := validAttribute(attributeID)
-	noTypeArm.StringType = nil
+	noTypeArm.ClearStringType()
 
 	emptyDescription := validAttribute(attributeID)
-	emptyDescription.Description = proto.String("")
+	emptyDescription.SetDescription("")
 
 	invertedBounds := validAttribute(attributeID)
-	invertedBounds.MinItems = proto.Uint32(3)
-	invertedBounds.MaxItems = proto.Uint32(2)
+	invertedBounds.SetMinItems(3)
+	invertedBounds.SetMaxItems(2)
 
 	zeroLowerBound := validAttribute(attributeID)
-	zeroLowerBound.MinItems = proto.Uint32(0)
+	zeroLowerBound.SetMinItems(0)
 
 	// 128 mirrors the AttributeValue.values max_items literal; these cases
 	// keep the two from drifting apart.
 	upperBoundAtValuesCap := validAttribute(attributeID)
-	upperBoundAtValuesCap.MaxItems = proto.Uint32(128)
+	upperBoundAtValuesCap.SetMaxItems(128)
 
 	upperBoundOverValuesCap := validAttribute(attributeID)
-	upperBoundOverValuesCap.MaxItems = proto.Uint32(129)
+	upperBoundOverValuesCap.SetMaxItems(129)
 
 	tests := []validationCase{
 		{
 			name:      "a full definition is valid",
-			message:   validAttribute(attributeID).Build(),
+			message:   validAttribute(attributeID),
 			wantValid: true,
 		},
 		{
 			name:      "the lower cardinality bound must be declared",
-			message:   missingLowerBound.Build(),
+			message:   missingLowerBound,
 			wantValid: false,
 		},
 		{
 			name:      "the upper cardinality bound must be declared",
-			message:   missingUpperBound.Build(),
+			message:   missingUpperBound,
 			wantValid: false,
 		},
 		{
 			name:      "inverted cardinality bounds are rejected",
-			message:   invertedBounds.Build(),
+			message:   invertedBounds,
 			wantValid: false,
 		},
 		{
 			name:      "a zero lower bound is rejected",
-			message:   zeroLowerBound.Build(),
+			message:   zeroLowerBound,
 			wantValid: false,
 		},
 		{
 			name:      "an upper bound at the values cap is valid",
-			message:   upperBoundAtValuesCap.Build(),
+			message:   upperBoundAtValuesCap,
 			wantValid: true,
 		},
 		{
 			name:      "an upper bound over the values cap is rejected",
-			message:   upperBoundOverValuesCap.Build(),
+			message:   upperBoundOverValuesCap,
 			wantValid: false,
 		},
 		{
 			name:      "at least one target kind is required",
-			message:   emptyTargets.Build(),
+			message:   emptyTargets,
 			wantValid: false,
 		},
 		{
 			name:      "duplicate target kinds are rejected",
-			message:   duplicateTargets.Build(),
+			message:   duplicateTargets,
 			wantValid: false,
 		},
 		{
 			name:      "a definition without a type arm is rejected",
-			message:   noTypeArm.Build(),
+			message:   noTypeArm,
 			wantValid: false,
 		},
 		{
 			name:      "an empty description is rejected",
-			message:   emptyDescription.Build(),
+			message:   emptyDescription,
 			wantValid: false,
 		},
 		{
@@ -285,14 +285,14 @@ func TestAttributeValuePayloadRules(t *testing.T) {
 
 func TestAttributeEventRules(t *testing.T) {
 	sideWithoutRef := validAttribute(attributeID)
-	sideWithoutRef.Ref = nil
+	sideWithoutRef.ClearRef()
 
 	tests := []validationCase{
 		{
 			name: "a create event with matching refs is valid",
 			message: inventoryv1.AttributeEvent_builder{
 				Ref:   attributeRef(attributeID),
-				After: validAttribute(attributeID).Build(),
+				After: validAttribute(attributeID),
 			}.Build(),
 			wantValid: true,
 		},
@@ -307,7 +307,7 @@ func TestAttributeEventRules(t *testing.T) {
 			name: "a side describing a different definition is rejected",
 			message: inventoryv1.AttributeEvent_builder{
 				Ref:   attributeRef(attributeID),
-				After: validAttribute(attributeID2).Build(),
+				After: validAttribute(attributeID2),
 			}.Build(),
 			wantValid: false,
 		},
@@ -315,7 +315,7 @@ func TestAttributeEventRules(t *testing.T) {
 			name: "a side without its own ref is rejected by recursion",
 			message: inventoryv1.AttributeEvent_builder{
 				Ref:   attributeRef(attributeID),
-				After: sideWithoutRef.Build(),
+				After: sideWithoutRef,
 			}.Build(),
 			wantValid: false,
 		},

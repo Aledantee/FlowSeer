@@ -79,8 +79,8 @@ package flowseer.device.v1;
 - Never use `import public` — it is still legal grammar in edition 2024, and still
   forbidden here. `weak` imports no longer exist at all. Use `import option` for a
   file imported solely to bring custom options into scope.
-- Never edit anything under `generated/` — it is `buf generate` output, regenerated
-  from these sources.
+- Never hand-edit anything under `generated/`. Protobuf bindings under
+  `generated/go/proto/` are regenerated from these sources with `buf generate`.
 - Do not set file-level feature overrides casually. A feature set at file scope
   silently retunes every field below it; when a single field needs different
   behaviour, override on that field.
@@ -392,24 +392,24 @@ it buys — no accidental zero-vs-unset conflation, no pointer-identity comparis
 are worth more here than familiar syntax. `HasX` is generated only for fields with
 explicit presence, which is another reason `IMPLICIT` needs justification.
 
-**TypeScript.** Protobuf-ES v2 (`buf.build/bufbuild/es`) supports editions fully; the
-generated TS surface is unchanged by the migration. Web-side rules live in
-[`code-style-web.md`](code-style-web.md).
+**TypeScript.** The checked-in generation template does not emit TypeScript.
+Web-side rules live in [`code-style-web.md`](code-style-web.md).
 
 ## Workflow
 
 `buf lint` and `buf generate` run in CI; a schema change and its regenerated code
 land in the same commit so `generated/` never drifts from `spec/proto/`.
 
-Bare `buf generate` uses `buf.gen.yaml`, which includes the TypeScript leg and
-writes it under `frontend/web/generated/proto/`. `--path` narrows the *inputs*,
-not the plugins, and buf creates a missing output directory — so a scoped run
-with the default template still emits TS into a web tree that may not exist in
-your checkout. To regenerate only the owned Go output:
+Run generation from the repository root. `buf.gen.yaml` emits Go messages and
+Connect bindings under `generated/go/proto/`:
 
 ```
-buf generate --template buf.gen.go.yaml --path spec/proto/flowseer
+buf generate
 ```
+
+The template sets `clean: true`, so regeneration replaces its output directories.
+Use the full input set: narrowing inputs with `--path` can remove generated files
+for the schemas omitted from that run.
 
 Toolchain floor for edition 2024 — below any of these, the schemas do not build:
 

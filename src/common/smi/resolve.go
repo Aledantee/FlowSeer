@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/frame"
+	"go.aledante.io/FlowSeer/src/common/smi/internal/lex"
 	"go.aledante.io/FlowSeer/src/common/smi/internal/parse"
 )
 
@@ -364,7 +365,7 @@ func (r *resolver) computeOID(b *modBuild, name string) (OID, string, bool) {
 		return OID{}, "its ::= value", false
 	}
 
-	arcs, ok := parseArcs(b.src.Text(span))
+	arcs, ok := parseArcs(b.src, span)
 	if !ok || len(arcs) == 0 {
 		return OID{}, "its ::= value", false
 	}
@@ -449,6 +450,9 @@ func (r *resolver) trapOID(b *modBuild, ref parse.Ref) (OID, string, bool) {
 	if !ok {
 		return OID{}, fail, false
 	}
+	if base.Len()+len(t.Notification.Suffix) > MaxOIDLength {
+		return OID{}, "its notification OID", false
+	}
 
 	subs := slices.Clone(base.Subs())
 	for _, s := range t.Notification.Suffix {
@@ -475,11 +479,18 @@ type arc struct {
 
 // parseArcs reads an assignment's brace group.
 //
-// It reads the source text rather than tokens because the parser keeps
-// an assignment as the span it covers: what a "::=" value means depends
-// on names this file may not define, which is exactly the question this
-// pass exists to answer.
-func parseArcs(text string) ([]arc, bool) {
+// Token gaps remove comments under the file's original lexer mode while
+// preserving adjacent vendor spellings such as "802dot3".
+func parseArcs(src *parse.Result, span parse.Span) ([]arc, bool) {
+	tokens := src.Tokens(span)
+	var significant strings.Builder
+	for i, tok := range tokens {
+		if i > 0 && tok.Offset > tokens[i-1].End() && tokens[i-1].Kind != lex.KindLeftParen && tok.Kind != lex.KindRightParen {
+			significant.WriteByte(' ')
+		}
+		significant.WriteString(src.Text(parse.Span{Start: tok.Offset, End: tok.End()}))
+	}
+	text := significant.String()
 	var out []arc
 
 	for i := 0; i < len(text); {

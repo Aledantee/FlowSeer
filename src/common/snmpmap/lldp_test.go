@@ -658,3 +658,93 @@ func TestLLDP_NoLocalSystemReported(t *testing.T) {
 		t.Errorf("got local system %v, want absent", local)
 	}
 }
+
+type scalarResponseSession struct {
+	*fakeSession
+	oid snmp.OID
+	vbs []snmp.VarBind
+	err error
+}
+
+func (s *scalarResponseSession) Get(ctx context.Context, oids []snmp.OID, opts ...snmp.CallOption) ([]snmp.VarBind, error) {
+	if len(oids) == 1 && oids[0].Equal(s.oid) {
+		return s.vbs, s.err
+	}
+
+	return s.fakeSession.Get(ctx, oids, opts...)
+}
+
+func TestLLDP_ScalarFailureKeepsFacts(t *testing.T) {
+	transportErr := errs.Msg("scalar request timed out")
+	tests := []struct {
+		name    string
+		vbs     []snmp.VarBind
+		err     error
+		wantErr error
+	}{
+		{"transport", nil, transportErr, transportErr},
+		{"canceled request", nil, context.Canceled, context.Canceled},
+		{"decode", []snmp.VarBind{intAt(lldpLocSysNameOID, 42).vb}, nil, snmp.ErrTypeMismatch},
+		{"empty response", nil, nil, nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			vbs := append(macRemRow(), octetsAt(lldpLocSysDescOID, []byte("test switch")))
+			sess := &scalarResponseSession{
+				fakeSession: &fakeSession{vbs: vbs},
+				oid:         lldpLocSysNameOID,
+				vbs:         tc.vbs,
+				err:         tc.err,
+			}
+
+			facts, err := snmpmap.LLDP(context.Background(), sess, nil)
+			if err == nil {
+				t.Fatal("got no error, want scalar failure reported")
+			}
+			if tc.wantErr != nil && !errors.Is(err, tc.wantErr) {
+				t.Errorf("got %v, want %v", err, tc.wantErr)
+			}
+			if len(facts.Neighbors) != 1 {
+				t.Errorf("got %d neighbors, want 1", len(facts.Neighbors))
+			}
+			if facts.LocalSystem == nil || facts.LocalSystem.GetSystemDescription() != "test switch" {
+				t.Errorf("got local system %v, want reported description", facts.LocalSystem)
+			}
+			validateFacts(t, facts)
+		})
+	}
+}
+
+func TestLLDP_UnsupportedScalarStaysAbsent(t *testing.T) {
+	tests := []struct {
+		name string
+		vbs  []snmp.VarBind
+		err  error
+	}{
+		{"no such object", []snmp.VarBind{snmp.NoSuchObjectVar{Header: snmp.Header{OID: lldpLocSysNameOID, Kind: snmp.KindNoSuchObject}}}, nil},
+		{"no such instance", []snmp.VarBind{snmp.NoSuchInstanceVar{Header: snmp.Header{OID: lldpLocSysNameOID, Kind: snmp.KindNoSuchInstance}}}, nil},
+		{"v1 no such name", nil, &snmp.PDUError{Status: snmp.NoSuchName, Index: 1, OID: lldpLocSysNameOID}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sess := &scalarResponseSession{
+				fakeSession: &fakeSession{vbs: macRemRow()},
+				oid:         lldpLocSysNameOID,
+				vbs:         tc.vbs,
+				err:         tc.err,
+			}
+			facts, err := snmpmap.LLDP(context.Background(), sess, nil)
+			if err != nil {
+				t.Fatalf("LLDP: %v", err)
+			}
+			if facts.LocalSystem != nil {
+				t.Errorf("got local system %v, want absent", facts.LocalSystem)
+			}
+			if len(facts.Neighbors) != 1 {
+				t.Errorf("got %d neighbors, want 1", len(facts.Neighbors))
+			}
+		})
+	}
+}

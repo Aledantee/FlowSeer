@@ -5,6 +5,10 @@
 // Tiers reach the wire by calling the public [snmp.NewSession] /
 // [snmp.ListenTraps] constructors directly — there is no backend swap
 // seam, since the SNMP implementation lives in package snmp itself.
+// Startup helpers are selected by the owning tier's build tag. Their tests use
+// fake containers and executables; for example, from the repository root:
+//
+//	go test -race -short -tags=snmp_integration_t1 ./src/common/snmp/test/integration/testenv
 package testenv
 
 import (
@@ -38,18 +42,16 @@ const (
 // SetTarget.
 var target atomic.Value // string
 
-// SetTarget records the agent target a tier's TestMain has brought
-// online. Tests in that tier read it back via [Target]. Tier TestMains
-// call SetTarget exactly once before m.Run.
+// SetTarget records the agent target a tier's TestMain has brought online.
+// It is safe to call concurrently with Target. Tiers set it before m.Run so
+// all tests use the same target.
 func SetTarget(addr string) {
 	target.Store(addr)
 }
 
-// Target returns the agent target previously set by [SetTarget], or the
-// empty string if no tier TestMain has run. Test code uses the return
-// value as the target argument to [snmp.NewSession]. The empty-string default
-// surfaces as a Dial error from the underlying Backend rather than a
-// silent connection to localhost.
+// Target returns the last address passed to [SetTarget], or an empty string
+// before the first call. It is safe for concurrent use. Tests pass this address
+// to snmp.NewSession, which rejects an empty target.
 func Target() string {
 	if v, ok := target.Load().(string); ok {
 		return v
@@ -57,11 +59,9 @@ func Target() string {
 	return ""
 }
 
-// SkipIfNoDocker calls t.Skip with a clear message when the Docker CLI
-// is not on PATH. Tier TestMains call this before any docker invocation
-// so a developer without Docker sees a skip instead of a confusing
-// exec.ErrNotFound surface. The check is intentionally cheap (a single
-// PATH lookup) so it can run on every TestMain.
+// SkipIfNoDocker skips a test when the Docker CLI is absent from PATH.
+// It does not check the daemon. TestMain uses [HasDocker] directly because
+// testing.M cannot skip an individual test.
 func SkipIfNoDocker(t testing.TB) {
 	t.Helper()
 	if !HasDocker() {

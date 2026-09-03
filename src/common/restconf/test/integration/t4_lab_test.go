@@ -14,9 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/yang"
 )
 
-// dialT4 opens one lab session. Every t4 write is a small reversible
-// change with explicit cleanup; devices are never left modified, even
-// on failure paths.
 func dialT4(t *testing.T, target t4Target) *restconf.Session {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -119,7 +116,8 @@ func TestT4IdentityRead(t *testing.T) {
 // (login-banner/hostname return "invalid internal value"); the
 // interface description is the device's documented, non-disruptive
 // writable leaf (purely cosmetic, no forwarding impact). The port's
-// enabled state is captured and restored so the port is never toggled.
+// enabled state must be present in the snapshot before the test writes.
+// Cleanup errors fail the test because the description may remain changed.
 //
 // Covers conformance matrix row: rc-t4-reversible-edit
 func TestT4ReversibleEdit(t *testing.T) {
@@ -137,50 +135,53 @@ func TestT4ReversibleEdit(t *testing.T) {
 			}}
 			descPath := yang.Path{Segments: append(append([]yang.Segment{}, cfg.Segments...), yang.Segment{Name: "description"})}
 
-			// Capture original description + enabled so the revert is exact
-			// and the port's up/down state is never altered.
 			origCfgRaw, err := s.Get(ctx, cfg, restconf.GetOptions{})
 			if err != nil {
 				t.Fatalf("capture original config: %v", err)
 			}
-			var origCfg struct {
-				Config struct {
-					Description string `json:"description"`
-					Enabled     bool   `json:"enabled"`
-				} `json:"openconfig-interfaces:config"`
-			}
-			if err := json.Unmarshal(origCfgRaw, &origCfg); err != nil {
+			origCfg, err := decodeDescriptionSnapshot(origCfgRaw)
+			if err != nil {
 				t.Fatalf("parse original config: %v", err)
 			}
-			origDesc := origCfg.Config.Description
+			origDesc := origCfg.Description
 
 			writeDesc := func(c context.Context, desc string) (restconf.WriteResult, error) {
 				body := map[string]any{"openconfig-interfaces:config": map[string]any{
 					"name":        port,
 					"type":        "iana-if-type:ethernetCsmacd",
 					"description": desc,
-					"enabled":     origCfg.Config.Enabled,
+					"enabled":     *origCfg.Enabled,
 				}}
-				b, _ := json.Marshal(body)
+				b, err := json.Marshal(body)
+				if err != nil {
+					return restconf.WriteResult{}, err
+				}
 				return s.Patch(c, cfg, b)
 			}
-			readDesc := func(c context.Context) string {
+			readDesc := func(c context.Context) (*string, error) {
 				raw, err := s.Get(c, descPath, restconf.GetOptions{})
 				if err != nil {
-					return ""
+					return nil, err
 				}
-				var d struct {
-					Description string `json:"openconfig-interfaces:description"`
-				}
-				_ = json.Unmarshal(raw, &d)
-				return d.Description
+				return decodeDescription(raw)
 			}
-
-			// Always restore the original description, even on failure.
+			restore := func(c context.Context) error {
+				if origDesc == nil {
+					return s.Delete(c, descPath)
+				}
+				_, err := writeDesc(c, *origDesc)
+				return err
+			}
+			restored := false
 			t.Cleanup(func() {
+				if restored {
+					return
+				}
 				cleanCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 				defer cancel()
-				_, _ = writeDesc(cleanCtx, origDesc)
+				if err := restore(cleanCtx); err != nil {
+					t.Errorf("restore description: %v", err)
+				}
 			})
 
 			const testDesc = "flowseer-t4"
@@ -189,16 +190,25 @@ func TestT4ReversibleEdit(t *testing.T) {
 				t.Fatalf("patch description: %v", err)
 			}
 			t.Logf("conditional write used If-Match: %v", res.UsedIfMatch)
-			if got := readDesc(ctx); got != testDesc {
-				t.Fatalf("read-back after edit = %q, want %q", got, testDesc)
+			got, err := readDesc(ctx)
+			if err != nil {
+				t.Fatalf("read back description: %v", err)
+			}
+			if got == nil || *got != testDesc {
+				t.Fatalf("read-back after edit = %v, want %q", got, testDesc)
 			}
 
-			if _, err := writeDesc(ctx, origDesc); err != nil {
+			if err := restore(ctx); err != nil {
 				t.Fatalf("revert description: %v", err)
 			}
-			if got := readDesc(ctx); got != origDesc {
-				t.Errorf("revert incomplete: original %q, now %q", origDesc, got)
+			got, err = readDesc(ctx)
+			if err != nil {
+				t.Fatalf("read back restored description: %v", err)
 			}
+			if (got == nil) != (origDesc == nil) || got != nil && *got != *origDesc {
+				t.Fatalf("revert incomplete: original %v, now %v", origDesc, got)
+			}
+			restored = true
 		})
 	}
 }

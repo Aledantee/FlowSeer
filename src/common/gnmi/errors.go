@@ -18,6 +18,6 @@ var (
 	ErrCodeSessionClosed = errs.NewCode("gnmi/session-closed")
 )
 
-// ErrSessionClosed is the sentinel every method returns after
+// ErrSessionClosed is returned by Get, Set, and Subscribe after
 // [Session.Close]; distinguish with errors.Is.
 var ErrSessionClosed = errs.New().Code(ErrCodeSessionClosed).Msg("gnmi session is closed")

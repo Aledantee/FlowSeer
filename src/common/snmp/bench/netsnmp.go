@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -17,8 +18,8 @@ import (
 // netsnmp.go drives the Net-SNMP C tools as the third comparand in the
 // macro tier. Net-SNMP runs as a subprocess, so it cannot be timed inside
 // a Go testing.B loop without the fork+exec cost dwarfing the actual SNMP
-// work. Instead it is measured with hyperfine, which amortizes process
-// startup across many runs and reports its own warm statistics. The
+// work. Instead hyperfine measures repeated invocations, each including
+// process startup, and reports warm statistics. The
 // numbers are wall-clock-per-invocation and must be read as such — never
 // compared head-to-head with the in-process ns/op figures.
 
@@ -59,8 +60,11 @@ func runHyperfine(ctx context.Context, command string, warmup, runs int) (hyperf
 		return hyperfineStats{}, err
 	}
 	jsonPath := f.Name()
-	_ = f.Close()
-	defer os.Remove(jsonPath)
+	// Removing a temporary report is best-effort and must not mask a run error.
+	defer func() { _ = os.Remove(jsonPath) }()
+	if err := f.Close(); err != nil {
+		return hyperfineStats{}, errs.Wrap(err, "close temporary report")
+	}
 
 	args := []string{
 		"--warmup", fmt.Sprint(warmup),
@@ -120,10 +124,14 @@ func percentile(xs []float64, p float64) float64 {
 // fails fast instead of stalling every hyperfine run on the default 5×1s
 // retry budget.
 func snmpbulkwalkCmd(agent, community, root string) string {
-	return fmt.Sprintf("snmpbulkwalk -v 2c -c %s -t 1 -r 1 -On -Cr50 %s %s", community, agent, root)
+	return fmt.Sprintf("snmpbulkwalk -v 2c -c %s -t 1 -r 1 -On -Cr50 %s %s", shellQuote(community), shellQuote(agent), shellQuote(root))
 }
 
 // snmpgetCmd builds a net-snmp snmpget v2c command string.
 func snmpgetCmd(agent, community, oid string) string {
-	return fmt.Sprintf("snmpget -v 2c -c %s -t 1 -r 1 -On %s %s", community, agent, oid)
+	return fmt.Sprintf("snmpget -v 2c -c %s -t 1 -r 1 -On %s %s", shellQuote(community), shellQuote(agent), shellQuote(oid))
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
 }

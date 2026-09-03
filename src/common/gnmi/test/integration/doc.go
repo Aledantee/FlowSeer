@@ -11,6 +11,7 @@
 //     malformed = fail). Owns the typed identity read on Aruba CX
 //     and the Set write-capability verdict.
 //
-// Each tier installs its own TestMain in a build-tag-guarded file;
-// bare `go test ./...` runs nothing here.
+// Each tier installs its own TestMain in a build-tag-guarded file.
+// Both tiers skip before opening connections when -short is set.
+// Bare `go test ./...` runs offline snapshot-restoration checks here.
 package integration

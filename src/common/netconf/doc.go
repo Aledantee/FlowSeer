@@ -9,8 +9,8 @@
 //
 // # Transport
 //
-// The wire envelope is nemith.io/netconf behind the [Transport] seam
-// seam: [Dial] builds the production SSH transport; [NewSession]
+// The wire envelope is nemith.io/netconf behind the [Transport] seam.
+// [Dial] builds the production SSH transport; [NewSession]
 // accepts any Transport, which is how tests script a fake and how a
 // house transport could replace the dependency without touching
 // callers.
@@ -23,9 +23,10 @@
 // background keepalive (when enabled) probes the peer between RPCs so
 // a dead transport latches an error via [Session.Err] instead of
 // blocking the next caller indefinitely. Close is idempotent and
-// safe to call concurrently with in-flight RPCs; after Close every
-// method returns [ErrSessionClosed]. A Session is safe for
-// concurrent use; RPCs serialize per the NETCONF message layer.
+// safe to call concurrently with in-flight RPCs. RPCs issued after
+// Close return [ErrSessionClosed] once local validation passes;
+// capability accessors remain usable. A Session is safe for
+// concurrent use; the transport serializes outbound messages.
 //
 // # Datastores and the edit flow
 //
@@ -33,9 +34,11 @@
 // candidate-mode peer (IOS-XE) edits the candidate datastore under
 // lock; a writable-running peer edits running directly; a peer with
 // neither surfaces [ErrCodeUnsupported]. [Session.Apply] runs the
-// full cycle — lock, edit-config, validate (when the peer supports
-// it), commit, unlock — and on any failure discards changes and
-// unlocks before surfacing the device's error. Lock contention maps
+// full cycle: lock, edit-config, validate (when the peer supports
+// it), commit, unlock. After a locked edit fails, it attempts cleanup
+// with independent RPC deadlines, even if the caller canceled. A
+// failed or timed-out commit can leave its outcome unknown; see
+// [Session.Apply] for cleanup limits. Lock contention maps
 // to the retryable [ErrCodeLockDenied].
 //
 // # Errors

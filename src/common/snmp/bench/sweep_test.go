@@ -13,7 +13,7 @@ package bench
 //     pipes) and reports saturation ops/sec per client at each fan-out point.
 //   - offered throughput: TestSweepOfferedRate paces each target at a fixed
 //     walks/sec and reports achieved-vs-offered ops/sec and mean latency, so
-//     each client's behaviour under sub-saturation load is visible.
+//     each client's behavior under sub-saturation load is visible.
 //
 // Build-tagged snmp_bench_netsnmp (needs cgo + libnetsnmp). Drive with
 // `task bench:sweep`.

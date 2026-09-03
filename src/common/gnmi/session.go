@@ -23,7 +23,7 @@ import (
 // Session is a gNMI client over one gRPC channel. Construct via
 // [Dial] (or [NewSession] over an existing connection — the test
 // seam); see the package documentation for the lifecycle contract.
-// Safe for concurrent use.
+// Safe for concurrent use. The zero value is unusable.
 type Session struct {
 	cc     *grpc.ClientConn
 	client gpb.GNMIClient
@@ -33,12 +33,12 @@ type Session struct {
 	caps     Capabilities
 	encoding gpb.Encoding
 
-	mu     sync.Mutex
+	mu     sync.Mutex // guards closed
 	closed bool
 }
 
 // Capabilities is the peer's advertised surface, recorded at
-// establishment.
+// establishment. Its slices are read-only and may be read concurrently.
 type Capabilities struct {
 	// Models lists the supported (name, organization, version)
 	// triples.
@@ -51,6 +51,7 @@ type Capabilities struct {
 
 // Model identifies one supported YANG model; Version feeds the
 // revision-drift detection against the vendored module revisions.
+// Values may be read concurrently while unmodified.
 type Model struct {
 	Name         string
 	Organization string
@@ -69,7 +70,8 @@ func (c Capabilities) ModelRevisions() map[string]string {
 }
 
 // Dial establishes the channel, records Capabilities, and negotiates
-// the encoding (JSON_IETF preferred, PROTO fallback).
+// the encoding (JSON_IETF preferred, then PROTO, then JSON). Caller
+// cancellation returns ctx.Err(); other failures carry an error code.
 func Dial(ctx context.Context, target string, opts Options) (*Session, error) {
 	opts = opts.withDefaults()
 	creds, err := opts.transportCredentials()
@@ -91,6 +93,8 @@ func Dial(ctx context.Context, target string, opts Options) (*Session, error) {
 // NewSession wraps an established gRPC connection: it issues
 // Capabilities and negotiates the encoding. The transport seam for
 // tests and callers with their own channel plumbing.
+// A successful session owns cc and closes it in [Session.Close];
+// on failure the caller remains responsible for closing cc.
 func NewSession(ctx context.Context, cc *grpc.ClientConn, opts Options) (*Session, error) {
 	opts = opts.withDefaults()
 	tp := opts.TracerProvider
@@ -108,7 +112,7 @@ func NewSession(ctx context.Context, cc *grpc.ClientConn, opts Options) (*Sessio
 	defer cancel()
 	resp, err := s.client.Capabilities(s.withCreds(capCtx), &gpb.CapabilityRequest{})
 	if err != nil {
-		return nil, s.mapError("Capabilities", err)
+		return nil, s.mapError(capCtx, "Capabilities", err)
 	}
 	for _, m := range resp.GetSupportedModels() {
 		s.caps.Models = append(s.caps.Models, Model{
@@ -154,6 +158,7 @@ func negotiateEncoding(offered []gpb.Encoding) (gpb.Encoding, error) {
 }
 
 // Capabilities returns the peer surface recorded at establishment.
+// The returned slices share session storage and must not be modified.
 func (s *Session) Capabilities() Capabilities { return s.caps }
 
 // Encoding returns the negotiated encoding's proto name.
@@ -196,10 +201,7 @@ func (s *Session) unaryCtx(ctx context.Context, op string) (context.Context, fun
 	if s.isClosed() {
 		return nil, nil, ErrSessionClosed
 	}
-	cancel := func() {}
-	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-		ctx, cancel = context.WithTimeout(ctx, s.opts.RPCTimeout)
-	}
+	ctx, cancel := context.WithTimeout(ctx, s.opts.RPCTimeout)
 	ctx, span := s.tracer.Start(ctx, "gnmi."+op,
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(attribute.String("gnmi_operation", op)))
@@ -215,7 +217,10 @@ func (s *Session) unaryCtx(ctx context.Context, op string) (context.Context, fun
 
 // mapError translates gRPC failures, keeping caller cancellation
 // unwrapped.
-func (s *Session) mapError(op string, err error) error {
+func (s *Session) mapError(ctx context.Context, op string, err error) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
@@ -231,6 +236,7 @@ func (s *Session) mapError(op string, err error) error {
 // Update is one decoded gNMI update: the full path plus either raw
 // JSON_IETF bytes (JSON encodings; decode with the generated codecs)
 // or a typed scalar.
+// Referenced values must not be modified during concurrent reads.
 type Update struct {
 	Path      yang.Path
 	Timestamp time.Time
@@ -252,10 +258,12 @@ func (s *Session) Get(ctx context.Context, paths ...yang.Path) ([]Update, error)
 		req.Path = append(req.Path, ToProtoPath(p))
 	}
 	resp, err := s.client.Get(ctx, req)
-	finish(err)
 	if err != nil {
-		return nil, s.mapError("Get", err)
+		err = s.mapError(ctx, "Get", err)
+		finish(err)
+		return nil, err
 	}
+	finish(nil)
 	var out []Update
 	for _, n := range resp.GetNotification() {
 		ts := time.Unix(0, n.GetTimestamp())
@@ -273,6 +281,7 @@ func (s *Session) Get(ctx context.Context, paths ...yang.Path) ([]Update, error)
 
 // SetRequest is one Set transaction: deletes, then replaces, then
 // updates, per the gNMI specification's ordering.
+// Fields and referenced values must remain unchanged until Set returns.
 type SetRequest struct {
 	Deletes  []yang.Path
 	Replaces []PathValue
@@ -281,6 +290,8 @@ type SetRequest struct {
 
 // PathValue pairs a path with its payload: JSON for subtree values,
 // Value for typed scalars.
+// Exactly one payload must be present. Referenced values must not be
+// modified during concurrent reads.
 type PathValue struct {
 	Path  yang.Path
 	JSON  []byte
@@ -317,10 +328,12 @@ func (s *Session) Set(ctx context.Context, req SetRequest) error {
 	}
 
 	resp, err := s.client.Set(ctx, preq)
-	finish(err)
 	if err != nil {
-		return s.setError(err, resp)
+		err = s.setError(ctx, err, resp)
+		finish(err)
+		return err
 	}
+	finish(nil)
 	// Deprecated per-result messages are still what several
 	// implementations use for partial failure; surface the first.
 	for _, r := range resp.GetResponse() {
@@ -336,8 +349,8 @@ func (s *Session) Set(ctx context.Context, req SetRequest) error {
 
 // setError decorates a Set rejection with the failing path when the
 // error detail carries one.
-func (s *Session) setError(err error, resp *gpb.SetResponse) error {
-	mapped := s.mapError("Set", err)
+func (s *Session) setError(ctx context.Context, err error, resp *gpb.SetResponse) error {
+	mapped := s.mapError(ctx, "Set", err)
 	if resp != nil {
 		for _, r := range resp.GetResponse() {
 			if msg := r.GetMessage(); msg != nil && msg.GetMessage() != "" { //nolint:staticcheck // deprecated upstream but the only per-path failure channel real devices use

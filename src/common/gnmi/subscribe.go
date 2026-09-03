@@ -19,8 +19,7 @@ import (
 // much memory.
 const defaultEventBuffer = 256
 
-// SubscribeMode selects the subscription lifetime (POLL is
-// deferred).
+// SubscribeMode selects the subscription lifetime. POLL is unsupported.
 type SubscribeMode int
 
 const (
@@ -31,15 +30,15 @@ const (
 	ModeOnce
 )
 
-// SubscribeOptions tunes one subscription.
+// SubscribeOptions tunes one subscription. Fields and paths must not
+// be modified concurrently with [Session.Subscribe].
 type SubscribeOptions struct {
 	// Mode is ModeStream or ModeOnce.
 	Mode SubscribeMode
 	// Paths are the subscribed subtrees. At least one is required.
 	Paths []yang.Path
 	// SampleInterval asks for SAMPLE cadence in Stream mode when
-	// > 0; zero requests ON_CHANGE (TARGET_DEFINED where the peer
-	// decides).
+	// > 0; otherwise TARGET_DEFINED leaves cadence to the peer.
 	SampleInterval time.Duration
 	// Origin sets the gNMI path origin on the subscription prefix
 	// (e.g. "openconfig") for peers that require it.
@@ -53,6 +52,7 @@ type SubscribeOptions struct {
 // notification batch, or the sync marker. Batch granularity is
 // deliberate: a row changing several leaves arrives as one event, so
 // consumers can emit exactly one change per row.
+// Referenced slices and values must remain unchanged during concurrent reads.
 type SubscribeEvent struct {
 	// Sync marks the device's sync_response: the initial state is
 	// complete (the Watcher's cold-start-complete signal). No other
@@ -71,6 +71,8 @@ type SubscribeEvent struct {
 // check [Stream.Err] after the loop, and [Stream.Close] to terminate
 // early. A dropped stream never resumes itself: reconnecting is the
 // caller's action, and a re-created stream cold-starts.
+// The zero value is unusable. One goroutine may iterate while other
+// goroutines call [Stream.Close] or [Stream.Err].
 type Stream struct {
 	pump *pump.Pump[SubscribeEvent]
 }
@@ -95,12 +97,14 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 	sctx, cancel := context.WithCancel(s.withCreds(ctx))
 	sc, err := s.client.Subscribe(sctx)
 	if err != nil {
+		err = s.mapError(sctx, "Subscribe", err)
 		cancel()
-		return nil, s.mapError("Subscribe", err)
+		return nil, err
 	}
 	if err := sc.Send(&gpb.SubscribeRequest{Request: &gpb.SubscribeRequest_Subscribe{Subscribe: s.subscriptionList(opts)}}); err != nil {
+		err = s.mapError(sctx, "Subscribe", err)
 		cancel()
-		return nil, s.mapError("Subscribe", err)
+		return nil, err
 	}
 
 	// A blocked Recv only returns when the stream context dies, so
@@ -142,7 +146,7 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 					st.pump.Fail(sctx.Err())
 					return
 				}
-				st.pump.Fail(s.mapError("Subscribe", err))
+				st.pump.Fail(s.mapError(sctx, "Subscribe", err))
 				return
 			}
 			if !st.deliver(resp) {

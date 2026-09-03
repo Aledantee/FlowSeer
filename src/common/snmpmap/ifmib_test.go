@@ -403,6 +403,43 @@ func TestInterfaces_StackRelationships(t *testing.T) {
 	}
 }
 
+func TestInterfaces_StackRequiresActiveStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		column uint32
+		status snmp.RowStatus
+		active bool
+	}{
+		{"active", 3, snmp.RowStatusActive, true},
+		{"not in service", 3, snmp.RowStatusNotInService, false},
+		{"not ready", 3, snmp.RowStatusNotReady, false},
+		{"status unreported", 1, 2, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			vbs := ifRow(1, "eth0", 6)
+			vbs = append(vbs, ifRow(2, "eth0.100", 53)...)
+			vbs = append(vbs, ifRow(3, "bond0", 161)...)
+			vbs = append(vbs,
+				intAt(ifStackEntry.Append(tc.column, 2, 1), int32(tc.status)),
+				intAt(ifStackEntry.Append(tc.column, 3, 1), int32(tc.status)),
+			)
+
+			ifaces := mapAll(t, vbs)
+			if len(ifaces) != 3 {
+				t.Fatalf("got %d interfaces, want 3", len(ifaces))
+			}
+			if got := ifaces[0].GetPhysical().HasLagParent(); got != tc.active {
+				t.Errorf("got LAG parent present %t, want %t", got, tc.active)
+			}
+			if got := ifaces[1].HasSub(); got != tc.active {
+				t.Errorf("got subinterface kind %t, want %t", got, tc.active)
+			}
+		})
+	}
+}
+
 // TestInterfaces_UnusableRowsReported checks the contract around a row
 // that cannot become a valid message: it is reported, and the rows
 // around it still map.

@@ -504,6 +504,35 @@ func TestCurlyQuoteByteInsideAUTF8SequenceIsNotADelimiter(t *testing.T) {
 	wantShapes(t, r, []shape{{KindIdentifier, "first"}, {KindIdentifier, "second"}})
 }
 
+func TestCurlyClosingQuoteByteInsideUTF8PreservesString(t *testing.T) {
+	src := "DESCRIPTION \x93before — after\x94 ::= "
+	r := lexString(t, src, CommentEndOfLine)
+
+	wantCodes(t, r, diag.ErrCodeCurlyQuotedString)
+	wantShapes(t, r, []shape{
+		{KindKeyword, "DESCRIPTION"},
+		{KindQuotedString, "\x93before — after\x94"},
+		{KindAssign, "::="},
+	})
+	if got, want := string(r.Content(r.Tokens[1])), "before — after"; got != want {
+		t.Errorf("content: got %q, want %q", got, want)
+	}
+}
+
+func TestUnterminatedCurlyStringPreservesTrailingUTF8(t *testing.T) {
+	if got, want := string(Unquote([]byte("\x93before —"))), "before —"; got != want {
+		t.Errorf("unquoted: got %q, want %q", got, want)
+	}
+
+	src := "DESCRIPTION \x93before —"
+	r := lexString(t, src, CommentEndOfLine)
+
+	wantCodes(t, r, diag.ErrCodeCurlyQuotedString, diag.ErrCodeUnterminatedString)
+	if got, want := string(r.Content(r.Tokens[1])), "before —"; got != want {
+		t.Errorf("content: got %q, want %q", got, want)
+	}
+}
+
 func TestUnterminatedCurlyQuotedStringIsFatal(t *testing.T) {
 	src := []byte("DESCRIPTION \x93runs off the end")
 

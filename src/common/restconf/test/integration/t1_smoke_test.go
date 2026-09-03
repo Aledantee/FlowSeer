@@ -41,15 +41,17 @@ func TestT1EditWithReadBack(t *testing.T) {
 
 	p := paramPath("t1-param")
 	body := []byte(`{"clixon-example:parameter":[{"name":"t1-param","value":"42"}]}`)
+	t.Cleanup(func() {
+		cleanCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.Delete(cleanCtx, p); err != nil {
+			t.Errorf("clean up parameter: %v", err)
+		}
+	})
 	res, err := s.Put(ctx, p, body)
 	if err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	t.Cleanup(func() {
-		cleanCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		_ = s.Delete(cleanCtx, p)
-	})
 	if !strings.Contains(string(res.ReadBack), `"value":"42"`) &&
 		!strings.Contains(string(res.ReadBack), `"value": "42"`) {
 		t.Fatalf("read-back = %s, want value 42", res.ReadBack)
@@ -74,14 +76,16 @@ func TestT1ReadWholeTable(t *testing.T) {
 	defer cancel()
 
 	p := paramPath("t1-read")
-	if _, err := s.Put(ctx, p, []byte(`{"clixon-example:parameter":[{"name":"t1-read","value":"7"}]}`)); err != nil {
-		t.Fatalf("Put: %v", err)
-	}
 	t.Cleanup(func() {
 		cleanCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		_ = s.Delete(cleanCtx, p)
+		if err := s.Delete(cleanCtx, p); err != nil {
+			t.Errorf("clean up parameter: %v", err)
+		}
 	})
+	if _, err := s.Put(ctx, p, []byte(`{"clixon-example:parameter":[{"name":"t1-read","value":"7"}]}`)); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
 
 	table := yang.Path{Segments: []yang.Segment{{Module: "clixon-example", Name: "table"}}}
 	body, err := s.Get(ctx, table, restconf.GetOptions{})

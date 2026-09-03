@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -26,9 +27,12 @@ const srlinuxStartupBudget = 10 * time.Minute
 // skips cleanly (exit 0) when either Docker or containerlab is
 // missing; container errors exit 1 with a diagnostic.
 //
-// Cleanup is registered before m.Run so a panicking test still tears
-// the lab down via `containerlab destroy --cleanup`.
+// Short mode runs offline tests before any Docker or containerlab setup.
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(m.Run())
+	}
 	if !testenv.HasDocker() {
 		fmt.Fprintln(os.Stderr, "[snmp_integration_t2] docker not on PATH; skipping tier")
 		os.Exit(0)
@@ -39,14 +43,11 @@ func TestMain(m *testing.M) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), srlinuxStartupBudget)
-	defer cancel()
 
 	target, execFn, cleanup, err := testenv.StartSRLinux(ctx, srlinuxTopologyPath)
+	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[snmp_integration_t2] StartSRLinux: %v\n", err)
-		if cleanup != nil {
-			cleanup()
-		}
 		os.Exit(1)
 	}
 	testenv.SetTarget(target)
@@ -54,6 +55,9 @@ func TestMain(m *testing.M) {
 	fmt.Fprintf(os.Stderr, "[snmp_integration_t2] SR Linux up at %s\n", target)
 
 	code := m.Run()
-	cleanup()
+	if err := cleanup(); err != nil {
+		fmt.Fprintf(os.Stderr, "[snmp_integration_t2] cleanup: %v\n", err)
+		code = 1
+	}
 	os.Exit(code)
 }

@@ -1,6 +1,7 @@
 package yang_test
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -263,5 +264,51 @@ func TestParseJSON7951EmptyRejectsWrongShape(t *testing.T) {
 		if _, err := yang.ParseJSON7951(yang.Type{Kind: yang.TypeEmpty}, []byte(raw)); err == nil {
 			t.Errorf("ParseJSON7951(empty, %s) succeeded, want error", raw)
 		}
+	}
+}
+
+func TestDecimal64MinimumRoundTrip(t *testing.T) {
+	for _, scale := range []int{1, 9, 18} {
+		v := yang.Decimal64(math.MinInt64, scale)
+		text, err := v.Canonical()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := yang.ParseCanonical(v.Type, text)
+		if err != nil {
+			t.Errorf("ParseCanonical(%q): %v", text, err)
+			continue
+		}
+		assertValueEqual(t, "minimum decimal64", got, v)
+	}
+}
+
+func TestParseJSON7951RejectsMalformedScalars(t *testing.T) {
+	tests := []struct {
+		name string
+		kind yang.TypeKind
+		raw  string
+	}{
+		{name: "null boolean", kind: yang.TypeBool, raw: `null`},
+		{name: "null string", kind: yang.TypeString, raw: `null`},
+		{name: "null bits", kind: yang.TypeBits, raw: `null`},
+		{name: "null binary", kind: yang.TypeBinary, raw: `null`},
+		{name: "leading plus", kind: yang.TypeInt32, raw: `+1`},
+		{name: "leading zero", kind: yang.TypeInt32, raw: `01`},
+		{name: "non-JSON whitespace", kind: yang.TypeInt32, raw: "\u00a042"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := yang.ParseJSON7951(yang.Type{Kind: tc.kind}, []byte(tc.raw)); err == nil {
+				t.Errorf("ParseJSON7951(%s, %s) succeeded, want error", tc.kind, tc.raw)
+			}
+		})
+	}
+}
+
+func TestParseJSON7951Whitespace(t *testing.T) {
+	v, err := yang.ParseJSON7951(*yang.TInt32, []byte(" \n42\t "))
+	if err != nil || v.Int != 42 {
+		t.Errorf("got %+v, %v; want 42, nil", v, err)
 	}
 }

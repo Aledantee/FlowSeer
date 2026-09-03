@@ -34,6 +34,9 @@ const MaxDiagnostics = 10000
 // thousand, so the raise path stays as cheap as an integer; line and
 // column are worked out from a [LineTable] when somebody actually looks
 // at the diagnostic.
+//
+// The zero value names byte zero of an unnamed file. Concurrent reads are
+// safe when no caller changes the fields.
 type Position struct {
 	File   string
 	Offset int
@@ -50,19 +53,25 @@ type LineTable struct {
 	// starts holds the offset of each line's first byte. Line 1 starts at
 	// offset 0 and is implied, so an empty slice describes a single-line
 	// file rather than a file with no lines.
-	starts []int32
+	starts []int
 }
 
 // NewLineTable builds the table for src in one pass. The lexer uses
 // [LineTable.AddLine] instead; this constructor is for callers that have
 // the bytes and no lexer, such as a test or a tool that renders
-// diagnostics somebody else produced.
+// diagnostics somebody else produced. It recognizes CR, LF, CRLF, and
+// LFCR as line terminators, matching the lexer.
 func NewLineTable(src []byte) *LineTable {
 	t := &LineTable{}
-	for i, b := range src {
-		if b == '\n' {
-			t.AddLine(i + 1)
+	for i := 0; i < len(src); i++ {
+		b := src[i]
+		if b != '\r' && b != '\n' {
+			continue
 		}
+		if i+1 < len(src) && ((b == '\r' && src[i+1] == '\n') || (b == '\n' && src[i+1] == '\r')) {
+			i++
+		}
+		t.AddLine(i + 1)
 	}
 
 	return t
@@ -76,11 +85,11 @@ func (t *LineTable) AddLine(offset int) {
 	if offset <= 0 {
 		return
 	}
-	if n := len(t.starts); n > 0 && offset <= int(t.starts[n-1]) {
+	if n := len(t.starts); n > 0 && offset <= t.starts[n-1] {
 		return
 	}
 
-	t.starts = append(t.starts, int32(offset))
+	t.starts = append(t.starts, offset)
 }
 
 // Lines returns the number of lines the table describes.
@@ -111,11 +120,14 @@ func (t *LineTable) LineColumn(offset int) (line, column int) {
 	// The first line start strictly greater than offset begins the line
 	// after the one offset sits on, which makes the search index the
 	// 0-based line number.
-	idx, _ := slices.BinarySearch(t.starts, int32(offset)+1)
+	idx, found := slices.BinarySearch(t.starts, offset)
+	if found {
+		idx++
+	}
 
 	start := 0
 	if idx > 0 {
-		start = int(t.starts[idx-1])
+		start = t.starts[idx-1]
 	}
 
 	return idx + 1, offset - start + 1
@@ -136,7 +148,7 @@ const (
 // allocate nothing at all.
 //
 // Build one with [ArgInt] or [ArgString]. The zero Arg renders as
-// "<missing>".
+// "<missing>". Arg values are immutable and safe for concurrent use.
 type Arg struct {
 	str  string
 	num  int64
@@ -185,7 +197,8 @@ func (a Arg) value() any {
 // caller that pins a diagnostic in a baseline pins the code, and a later
 // release may reword the message or move the offset without breaking it.
 //
-// A Diagnostic is a value. Copy it freely; it holds no pointers.
+// Diagnostic values are immutable and safe for concurrent use. The zero
+// value has no code or message.
 type Diagnostic struct {
 	pos      Position
 	code     errs.Code
@@ -237,6 +250,8 @@ func (d Diagnostic) Severity() Severity { return d.severity }
 
 // Rendered is a diagnostic with its text and its place in the file worked
 // out. It is what a report, a snapshot, or a log line is built from.
+// Concurrent reads are safe when no caller changes its fields. The zero
+// value has no message and uses zero line and column numbers.
 type Rendered struct {
 	File     string
 	Line     int
@@ -265,10 +280,10 @@ func (r Rendered) String() string {
 }
 
 // Render works out the diagnostic's line, column and message text. lines
-// is the table for the file the diagnostic came from; passing nil, or a
-// table for a different file, yields a position on line 1 rather than an
-// error, because a diagnostic that cannot be printed is worse than one
-// printed with a poor position.
+// must describe the file the diagnostic came from; tables have no file
+// identity, so a mismatched table produces an incorrect position.
+// Passing nil yields a position on line 1, so a diagnostic can still be
+// printed when its source is unavailable.
 func (d Diagnostic) Render(lines *LineTable) Rendered {
 	line, column := lines.LineColumn(d.pos.Offset)
 

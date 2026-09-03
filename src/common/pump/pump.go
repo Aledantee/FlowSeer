@@ -13,11 +13,11 @@
 //
 // # Synchronization model
 //
-//   - the data channel — buffered. Closed exactly once by [Pump.Fail]
-//     or [Pump.Done] under the sendMu write lock.
+//   - the data channel is optionally buffered. [Pump.CloseData] closes it
+//     exactly once under the sendMu write lock.
 //   - the stop channel — unbuffered signal. Closed via stopOnce by
-//     [Pump.SignalStop] (used by [Pump.Fail], [Pump.Done], and the
-//     outer-type Close paths).
+//     [Pump.SignalStop] (used by [Pump.CloseData], [Pump.Fail], [Pump.Done],
+//     and the outer-type Close paths).
 //   - sendMu — read/write lock. [Pump.Send] and
 //     [Pump.TrySendDropOldest] acquire the read lock for the entire
 //     send attempt; close paths acquire the write lock before closing
@@ -30,11 +30,12 @@ import (
 	"sync"
 )
 
-// Pump is the generic channel-pump state machine. The zero value is
-// not usable; construct via [New].
+// Pump transfers values between producers and consumers. Its methods are safe
+// for concurrent use; concurrent consumers divide the available values. The
+// zero value is not usable; construct via [New] and do not copy it. The owner
+// must call [Pump.Cancel] when finished to release the derived context.
 type Pump[T any] struct {
-	// ch is the buffered data channel the producer writes into. Closed
-	// by [Pump.Fail] or [Pump.Done] under sendMu's write lock.
+	// ch is closed under sendMu's write lock.
 	ch chan T
 	// stop signals the producer to terminate. Closed via stopOnce.
 	stop     chan struct{}
@@ -46,20 +47,17 @@ type Pump[T any] struct {
 	// in-flight send.
 	sendMu sync.RWMutex
 
-	// ctx is the derived cancellable context.
-	ctx context.Context
-	// cancel terminates the derived context.
+	// ctx belongs to the pump's lifetime, independently of any send or receive.
+	ctx    context.Context
 	cancel context.CancelFunc
 
-	mu  sync.Mutex
-	err error // first terminal error
+	mu  sync.Mutex // guards err
+	err error      // first terminal error
 }
 
-// New constructs a Pump with a buffered data channel of size buf, a
-// derived cancellable context from ctx, and freshly-zeroed Once
-// guards. buf must be >= 0; callers are expected to apply their own
-// default before invoking New (each outer type documents its default
-// buffer size).
+// New constructs a Pump with capacity buf and a cancellable context derived
+// from ctx. A zero buf creates an unbuffered channel; a negative buf panics.
+// Callers choose their own default capacity.
 //
 // If ctx is nil, [context.Background] is used.
 //
@@ -86,14 +84,13 @@ func (p *Pump[T]) Context() context.Context { return p.ctx }
 // [Pump.Context] observes cancellation promptly.
 func (p *Pump[T]) Cancel() { p.cancel() }
 
-// Data returns the buffered data channel for consumer-side range
-// loops. The channel is closed exactly once by [Pump.Fail] or
-// [Pump.Done]; consumers must never close it themselves.
+// Data returns the data channel for consumer-side range loops. [Pump.CloseData],
+// [Pump.Fail], and [Pump.Done] close it while leaving buffered values readable.
 func (p *Pump[T]) Data() <-chan T { return p.ch }
 
-// Stopped returns a channel closed when the pump is terminating,
-// mirroring [context.Context.Done]. Producers select on it to know
-// when to release their resources.
+// Stopped returns the stop signal. Producers select on it to know when to
+// release their resources. Context cancellation alone does not close it;
+// [Pump.Send] propagates cancellation when it observes it.
 func (p *Pump[T]) Stopped() <-chan struct{} { return p.stop }
 
 // SignalStop closes the stop channel exactly once. Safe to call from
@@ -102,11 +99,12 @@ func (p *Pump[T]) SignalStop() {
 	p.stopOnce.Do(func() { close(p.stop) })
 }
 
-// CloseData closes the data channel exactly once under the sendMu
-// write lock so a concurrent in-flight send (which holds the read
-// lock) finishes before the channel is closed and cannot panic on a
-// closed channel.
+// CloseData signals stop, unblocks pending sends, and closes the data channel
+// exactly once. Buffered values remain readable. It does not cancel the
+// derived context or record an error. It is safe to call concurrently with
+// either send method.
 func (p *Pump[T]) CloseData() {
+	p.SignalStop()
 	p.chOnce.Do(func() {
 		p.sendMu.Lock()
 		close(p.ch)
@@ -161,13 +159,13 @@ func (p *Pump[T]) Send(v T) bool {
 //
 // Return semantics:
 //
-//   - (delivered=true,  dropped=0): sent on the first attempt with
-//     no drop.
+//   - (delivered=true,  dropped=0): sent without discarding a buffered item.
 //   - (delivered=true,  dropped=1): buffer was full; the oldest
 //     buffered item was discarded and v was sent on the retry.
-//   - (delivered=false, dropped=1): buffer was full, the retry also
-//     failed (extremely rare race with the consumer), and v itself
-//     was dropped.
+//   - (delivered=false, dropped=1): neither attempt sent v and no
+//     buffered item was discarded. Only v was dropped.
+//   - (delivered=false, dropped=2): an old item was discarded, but
+//     another producer filled the space before the retry; v was also dropped.
 //   - (delivered=false, dropped=0): pump is stopped; v was silently
 //     dropped without counting (clean-shutdown, not a loss event).
 //
@@ -232,9 +230,9 @@ func (p *Pump[T]) Fail(err error) {
 	p.CloseData()
 }
 
-// Done signals normal completion: closes the data channel so consumers
-// exit cleanly, and closes the stop signal so the producer returns
-// promptly. Idempotent with [Pump.Fail]; subsequent calls are no-ops.
+// Done signals normal completion by stopping sends and closing the data channel.
+// Buffered values remain readable. Repeated calls are harmless; a later
+// [Pump.Fail] can still record an error. Done does not cancel the derived context.
 func (p *Pump[T]) Done() {
 	p.SignalStop()
 	p.CloseData()
@@ -248,8 +246,9 @@ func (p *Pump[T]) Err() error {
 	return p.err
 }
 
-// Recv pulls the next item from the data channel. Returns the zero
-// value and false when the channel is closed.
+// Recv blocks until a value is available or the data channel is closed and
+// drained. It returns the zero value and false only after buffered values have
+// been consumed. Stopping or canceling alone does not unblock Recv.
 func (p *Pump[T]) Recv() (T, bool) {
 	v, ok := <-p.ch
 	return v, ok

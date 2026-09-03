@@ -210,7 +210,22 @@ func ExpectedDivergences() []ExpectedDivergence {
 				"arrives as 0. The loss is inside an internal package of the dependency, so " +
 				"there is no override seam short of a fork",
 			Match: func(d Divergence) bool {
-				return d.Field == FieldMembers && allNumbersZero(d.Gosmi) && !allNumbersZero(d.Ours)
+				if d.Field != FieldMembers || !allNumbersZero(d.Gosmi) || allNumbersZero(d.Ours) {
+					return false
+				}
+
+				ours, theirs := strings.Fields(d.Ours), strings.Fields(d.Gosmi)
+				if len(ours) != len(theirs) {
+					return false
+				}
+				for i, member := range ours {
+					name, _, ok := strings.Cut(member, "=")
+					if !ok || theirs[i] != name+"=0" {
+						return false
+					}
+				}
+
+				return true
 			},
 		},
 		{

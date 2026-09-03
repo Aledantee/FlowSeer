@@ -12,10 +12,11 @@ const (
 	defaultRPCTimeout  = 60 * time.Second
 )
 
-// Options is the plain options struct for [Dial]: the SSH
-// credential surface, timeouts, and the keepalive guard. Required
-// parameters (address) are positional on Dial; everything here is
-// optional.
+// Options configures SSH authentication and session timeouts.
+// [Dial] requires credentials and explicit host-key verification;
+// [NewSession] uses only the timeout, keepalive, and tracing fields.
+// Options may be read concurrently but must not be changed while
+// being passed to either constructor.
 type Options struct {
 	// Username authenticates the SSH transport. Required by Dial.
 	Username string
@@ -26,7 +27,7 @@ type Options struct {
 	PrivateKeyPEM []byte
 
 	// HostKeySHA256 pins the peer's host key as the base64 SHA-256
-	// fingerprint (the `SSH-KEYGEN -lf` form). Exactly one of
+	// fingerprint (the ssh-keygen -lf form). Exactly one of
 	// HostKeySHA256 or InsecureIgnoreHostKey must be set: host-key
 	// verification has no implicit default.
 	HostKeySHA256 string
@@ -35,14 +36,14 @@ type Options struct {
 	InsecureIgnoreHostKey bool
 
 	// DialTimeout bounds transport establishment plus hello exchange.
-	// Zero means 30s.
+	// Non-positive values mean 30s.
 	DialTimeout time.Duration
 	// RPCTimeout bounds each RPC when the caller's context carries no
-	// earlier deadline. Zero means 60s.
+	// earlier deadline. Non-positive values mean 60s.
 	RPCTimeout time.Duration
 	// KeepaliveInterval enables the background liveness probe: every
 	// interval the session issues a minimal RPC and latches a
-	// transport error on failure. Zero disables the guard.
+	// transport error on failure. Non-positive values disable the guard.
 	KeepaliveInterval time.Duration
 
 	// TracerProvider supplies OTel tracing for RPC spans. Nil means

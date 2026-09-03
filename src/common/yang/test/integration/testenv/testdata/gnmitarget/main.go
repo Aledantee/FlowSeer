@@ -8,10 +8,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -24,7 +27,7 @@ import (
 type server struct {
 	gpb.UnimplementedGNMIServer
 
-	mu   sync.Mutex
+	mu   sync.Mutex       // guards rows
 	rows map[string]int64 // server name -> port
 }
 
@@ -32,6 +35,7 @@ func newServer() *server {
 	return &server{rows: map[string]int64{"edge-1": 8080, "edge-2": 9090}}
 }
 
+// Capabilities advertises the fixture model and its JSON_IETF response encoding.
 func (s *server) Capabilities(_ context.Context, _ *gpb.CapabilityRequest) (*gpb.CapabilityResponse, error) {
 	return &gpb.CapabilityResponse{
 		SupportedModels:    []*gpb.ModelData{{Name: "fixture-main", Organization: "FlowSeer", Version: "2026-01-02"}},
@@ -48,14 +52,10 @@ func (s *server) rowUpdates() []*gpb.Update {
 	for name := range s.rows {
 		names = append(names, name)
 	}
-	// Deterministic order.
-	for i := 1; i < len(names); i++ {
-		for j := i; j > 0 && names[j] < names[j-1]; j-- {
-			names[j], names[j-1] = names[j-1], names[j]
-		}
-	}
+	slices.Sort(names)
 	var out []*gpb.Update
 	for _, name := range names {
+		nameJSON, _ := json.Marshal(name) // Marshaling a string cannot fail.
 		base := []*gpb.PathElem{
 			{Name: "servers"},
 			{Name: "server", Key: map[string]string{"name": name}},
@@ -63,7 +63,7 @@ func (s *server) rowUpdates() []*gpb.Update {
 		out = append(out,
 			&gpb.Update{
 				Path: &gpb.Path{Elem: append(append([]*gpb.PathElem{}, base...), &gpb.PathElem{Name: "name"})},
-				Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(fmt.Sprintf("%q", name))}},
+				Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: nameJSON}},
 			},
 			&gpb.Update{
 				Path: &gpb.Path{Elem: append(append([]*gpb.PathElem{}, base...), &gpb.PathElem{Name: "port"})},
@@ -74,46 +74,113 @@ func (s *server) rowUpdates() []*gpb.Update {
 	return out
 }
 
-func (s *server) Get(_ context.Context, _ *gpb.GetRequest) (*gpb.GetResponse, error) {
+func pathElems(prefix, path *gpb.Path) []*gpb.PathElem {
+	return append(slices.Clone(prefix.GetElem()), path.GetElem()...)
+}
+
+func selectUpdates(updates []*gpb.Update, prefix *gpb.Path, paths []*gpb.Path) []*gpb.Update {
+	if len(paths) == 0 {
+		paths = []*gpb.Path{nil}
+	}
+	var selected []*gpb.Update
+	for _, update := range updates {
+		for _, path := range paths {
+			if containsPath(pathElems(prefix, path), update.GetPath().GetElem()) {
+				selected = append(selected, update)
+				break
+			}
+		}
+	}
+	return selected
+}
+
+func containsPath(query, path []*gpb.PathElem) bool {
+	if len(query) > len(path) {
+		return false
+	}
+	for i, elem := range query {
+		if elem.GetName() != path[i].GetName() {
+			return false
+		}
+		for key, value := range elem.GetKey() {
+			if got, ok := path[i].GetKey()[key]; !ok || got != value {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Get returns a consistent snapshot of the requested fixture leaves or subtrees.
+func (s *server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
 	return &gpb.GetResponse{Notification: []*gpb.Notification{{
 		Timestamp: time.Now().UnixNano(),
-		Update:    s.rowUpdates(),
+		Update:    selectUpdates(s.rowUpdates(), req.GetPrefix(), req.GetPath()),
 	}}}, nil
 }
 
+// Set applies supported port edits and row deletions atomically. Invalid paths or
+// values return InvalidArgument without changing any row in the transaction.
 func (s *server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+	if len(req.GetUnionReplace()) > 0 {
+		return nil, status.Error(codes.Unimplemented, "union-replace is not supported by the fixture")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	rows := maps.Clone(s.rows)
 	var results []*gpb.UpdateResult
-	apply := func(u *gpb.Update, op gpb.UpdateResult_Operation) {
-		// Accept only /servers/server[name]/port updates.
-		elems := u.GetPath().GetElem()
-		if len(elems) == 3 && elems[1].GetName() == "server" && elems[2].GetName() == "port" {
-			name := elems[1].GetKey()["name"]
-			var port int64
-			_, err := fmt.Sscanf(string(u.GetVal().GetJsonIetfVal()), "%d", &port)
-			if err == nil && name != "" {
-				s.rows[name] = port
-			}
+	apply := func(u *gpb.Update, op gpb.UpdateResult_Operation) error {
+		name, err := rowName(req.GetPrefix(), u.GetPath(), "port")
+		if err != nil {
+			return err
 		}
+		var port int64
+		if err := json.Unmarshal(u.GetVal().GetJsonIetfVal(), &port); err != nil || port < 1 || port > 65535 {
+			return status.Error(codes.InvalidArgument, "port must be a JSON integer between 1 and 65535")
+		}
+		rows[name] = port
 		results = append(results, &gpb.UpdateResult{Path: u.GetPath(), Op: op})
+		return nil
 	}
-	for _, u := range req.GetUpdate() {
-		apply(u, gpb.UpdateResult_UPDATE)
+	for _, path := range req.GetDelete() {
+		name, err := rowName(req.GetPrefix(), path, "")
+		if err != nil {
+			return nil, err
+		}
+		delete(rows, name)
+		results = append(results, &gpb.UpdateResult{Path: path, Op: gpb.UpdateResult_DELETE})
 	}
 	for _, u := range req.GetReplace() {
-		apply(u, gpb.UpdateResult_REPLACE)
-	}
-	for _, d := range req.GetDelete() {
-		elems := d.GetElem()
-		if len(elems) == 2 && elems[1].GetName() == "server" {
-			delete(s.rows, elems[1].GetKey()["name"])
+		if err := apply(u, gpb.UpdateResult_REPLACE); err != nil {
+			return nil, err
 		}
-		results = append(results, &gpb.UpdateResult{Path: d, Op: gpb.UpdateResult_DELETE})
 	}
-	return &gpb.SetResponse{Response: results, Timestamp: time.Now().UnixNano()}, nil
+	for _, u := range req.GetUpdate() {
+		if err := apply(u, gpb.UpdateResult_UPDATE); err != nil {
+			return nil, err
+		}
+	}
+	s.rows = rows
+	return &gpb.SetResponse{Prefix: req.GetPrefix(), Response: results, Timestamp: time.Now().UnixNano()}, nil
 }
 
+func rowName(prefix, path *gpb.Path, leaf string) (string, error) {
+	elems := pathElems(prefix, path)
+	if leaf != "" {
+		if len(elems) != 3 || elems[2].GetName() != leaf || len(elems[2].GetKey()) != 0 {
+			return "", status.Error(codes.InvalidArgument, "only /servers/server[name]/port edits are supported")
+		}
+		elems = elems[:2]
+	}
+	if len(elems) != 2 || elems[0].GetName() != "servers" || len(elems[0].GetKey()) != 0 ||
+		elems[1].GetName() != "server" || len(elems[1].GetKey()) != 1 || elems[1].GetKey()["name"] == "" {
+		return "", status.Error(codes.InvalidArgument, "expected a /servers/server[name] row")
+	}
+	return elems[1].GetKey()["name"], nil
+}
+
+// Subscribe sends matching leaves and a sync marker for ONCE or STREAM. STREAM
+// changes edge-1 once per second while it exists and stops on cancellation.
 func (s *server) Subscribe(srv gpb.GNMI_SubscribeServer) error {
 	req, err := srv.Recv()
 	if err != nil {
@@ -123,6 +190,13 @@ func (s *server) Subscribe(srv gpb.GNMI_SubscribeServer) error {
 	if sub == nil {
 		return status.Error(codes.InvalidArgument, "first message must be a SubscriptionList")
 	}
+	if sub.GetMode() != gpb.SubscriptionList_ONCE && sub.GetMode() != gpb.SubscriptionList_STREAM {
+		return status.Error(codes.Unimplemented, "only ONCE and STREAM are supported by the fixture")
+	}
+	paths := make([]*gpb.Path, 0, len(sub.GetSubscription()))
+	for _, subscription := range sub.GetSubscription() {
+		paths = append(paths, subscription.GetPath())
+	}
 
 	send := func(updates []*gpb.Update) error {
 		return srv.Send(&gpb.SubscribeResponse{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{
@@ -130,8 +204,10 @@ func (s *server) Subscribe(srv gpb.GNMI_SubscribeServer) error {
 			Update:    updates,
 		}}})
 	}
-	if err := send(s.rowUpdates()); err != nil {
-		return err
+	if !sub.GetUpdatesOnly() {
+		if err := send(selectUpdates(s.rowUpdates(), sub.GetPrefix(), paths)); err != nil {
+			return err
+		}
 	}
 	if err := srv.Send(&gpb.SubscribeResponse{Response: &gpb.SubscribeResponse_SyncResponse{SyncResponse: true}}); err != nil {
 		return err
@@ -149,8 +225,13 @@ func (s *server) Subscribe(srv gpb.GNMI_SubscribeServer) error {
 		case <-ticker.C:
 		}
 		s.mu.Lock()
-		s.rows["edge-1"]++
-		port := s.rows["edge-1"]
+		port, exists := s.rows["edge-1"]
+		if !exists {
+			s.mu.Unlock()
+			continue
+		}
+		port = port%65535 + 1
+		s.rows["edge-1"] = port
 		s.mu.Unlock()
 		update := &gpb.Update{
 			Path: &gpb.Path{Elem: []*gpb.PathElem{
@@ -160,8 +241,10 @@ func (s *server) Subscribe(srv gpb.GNMI_SubscribeServer) error {
 			}},
 			Val: &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(fmt.Sprintf("%d", port))}},
 		}
-		if err := send([]*gpb.Update{update}); err != nil {
-			return err
+		if updates := selectUpdates([]*gpb.Update{update}, sub.GetPrefix(), paths); len(updates) > 0 {
+			if err := send(updates); err != nil {
+				return err
+			}
 		}
 	}
 }

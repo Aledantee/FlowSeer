@@ -1,6 +1,7 @@
 package yang
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -125,8 +126,8 @@ func (id Identity) String() string {
 
 // Value is one typed YANG leaf value: a Type plus exactly one
 // populated payload field, selected by Type.Kind (Int for the signed
-// widths, Uint for the unsigned widths and the scaled decimal64
-// digits, Bool, String for string/enumeration/instance-identifier,
+// widths and the scaled decimal64 digits, Uint for the unsigned
+// widths, Bool, String for string/enumeration/instance-identifier,
 // Bytes for binary, Bits, Identity). TypeEmpty carries no payload.
 //
 // A Value inside a union carries the resolved member Type, not the
@@ -326,12 +327,13 @@ func parseDecimal64(t Type, text string) (Value, error) {
 		return Value{}, errs.New().Code(ErrCodeValueParse).Msgf("%q is not a valid decimal64 with %d fraction digits", text, fd)
 	}
 	fracPart += strings.Repeat("0", fd-len(fracPart))
-	digits, err := strconv.ParseInt(intPart+fracPart, 10, 64)
+	scaled := intPart + fracPart
+	if neg {
+		scaled = "-" + scaled
+	}
+	digits, err := strconv.ParseInt(scaled, 10, 64)
 	if err != nil {
 		return Value{}, errs.From(err).Code(ErrCodeValueRange).Msgf("%q overflows decimal64", text)
-	}
-	if neg {
-		digits = -digits
 	}
 	return Value{Type: t, Int: digits}, nil
 }
@@ -378,6 +380,10 @@ func (v Value) MarshalJSON7951() ([]byte, error) {
 // the JSON number and JSON string spellings, since real devices mix
 // them — the conformance corpus records which peers need the leniency.
 func ParseJSON7951(t Type, raw []byte) (Value, error) {
+	raw = bytes.Trim(raw, " \t\r\n")
+	if t.Kind != TypeUnion && (!json.Valid(raw) || bytes.Equal(raw, []byte("null"))) {
+		return Value{}, errs.New().Code(ErrCodeValueParse).Msgf("%s leaf is not a non-null JSON value", t.Kind)
+	}
 	switch t.Kind {
 	case TypeInt8, TypeInt16, TypeInt32, TypeInt64,
 		TypeUint8, TypeUint16, TypeUint32, TypeUint64, TypeDecimal64:

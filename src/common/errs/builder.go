@@ -6,6 +6,8 @@ import "fmt"
 // Builder, so a partially built value can be reused as the base of several
 // errors. The chain terminates in [Builder.Msg] or [Builder.Msgf], which
 // produce the error itself.
+// The zero value is ready to use. A shared Builder supports concurrent method
+// calls when its causes and attribute values are safe for concurrent reads.
 type Builder Error
 
 // New returns an empty Builder.
@@ -28,6 +30,7 @@ func From(err error) Builder {
 // and trusted peers but never a client-facing boundary; use
 // [Builder.PubAttr] for values a client may see. Never attach raw secret
 // material — attach a length or a protocol name instead.
+// Values are retained without copying; see [Attributes].
 func (b Builder) Attr(key string, val any) Builder {
 	return b.appendAttr(attr{key: key, val: val})
 }
@@ -35,6 +38,7 @@ func (b Builder) Attr(key string, val any) Builder {
 // PubAttr attaches a client-safe key-value pair: one a boundary may expose
 // to an untrusted caller. It appears in both [Attributes] and
 // [SafeAttributes].
+// Values are retained without copying; see [Attributes].
 func (b Builder) PubAttr(key string, val any) Builder {
 	return b.appendAttr(attr{key: key, val: val, safe: true})
 }

@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"google.golang.org/grpc"
@@ -24,6 +25,7 @@ type fakeServer struct {
 
 	encodings []gpb.Encoding
 	getResp   *gpb.GetResponse
+	get       func(context.Context, *gpb.GetRequest) (*gpb.GetResponse, error)
 	setResp   *gpb.SetResponse
 	setErr    error
 	subscribe func(gpb.GNMI_SubscribeServer) error
@@ -37,7 +39,10 @@ func (f *fakeServer) Capabilities(context.Context, *gpb.CapabilityRequest) (*gpb
 	}, nil
 }
 
-func (f *fakeServer) Get(context.Context, *gpb.GetRequest) (*gpb.GetResponse, error) {
+func (f *fakeServer) Get(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
+	if f.get != nil {
+		return f.get(ctx, req)
+	}
 	return f.getResp, nil
 }
 
@@ -55,6 +60,11 @@ func (f *fakeServer) Subscribe(srv gpb.GNMI_SubscribeServer) error {
 // dialFake wires a Session against an in-process server.
 func dialFake(t *testing.T, f *fakeServer) *gnmi.Session {
 	t.Helper()
+	return dialFakeWithOptions(t, f, gnmi.Options{Plaintext: true, Username: "admin", Password: "secret"})
+}
+
+func dialFakeWithOptions(t *testing.T, f *fakeServer, opts gnmi.Options) *gnmi.Session {
+	t.Helper()
 	lis := bufconn.Listen(1 << 20)
 	grpcSrv := grpc.NewServer()
 	gpb.RegisterGNMIServer(grpcSrv, f)
@@ -69,7 +79,7 @@ func dialFake(t *testing.T, f *fakeServer) *gnmi.Session {
 	if err != nil {
 		t.Fatalf("grpc.NewClient: %v", err)
 	}
-	s, err := gnmi.NewSession(context.Background(), cc, gnmi.Options{Plaintext: true, Username: "admin", Password: "secret"})
+	s, err := gnmi.NewSession(context.Background(), cc, opts)
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
@@ -77,10 +87,10 @@ func dialFake(t *testing.T, f *fakeServer) *gnmi.Session {
 	return s
 }
 
-func ifacePath(name string) yang.Path {
+func ifacePath() yang.Path {
 	return yang.Path{Segments: []yang.Segment{
 		{Module: "openconfig-interfaces", Name: "interfaces"},
-		{Name: "interface", Keys: []yang.KeyValue{{Name: "name", Value: name}}},
+		{Name: "interface", Keys: []yang.KeyValue{{Name: "name", Value: "eth0"}}},
 		{Name: "state"},
 		{Name: "oper-status"},
 	}}
@@ -108,7 +118,7 @@ func TestProtoOnlyPeerRoundTripsGet(t *testing.T) {
 		t.Errorf("negotiated encoding = %q, want PROTO", got)
 	}
 
-	updates, err := s.Get(context.Background(), ifacePath("eth0"))
+	updates, err := s.Get(context.Background(), ifacePath())
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -305,8 +315,43 @@ func TestGetOnClosedSession(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatalf("second Close: %v", err)
 	}
-	_, err := s.Get(context.Background(), ifacePath("eth0"))
+	_, err := s.Get(context.Background(), ifacePath())
 	if !errors.Is(err, gnmi.ErrSessionClosed) {
 		t.Errorf("Get on closed session = %v, want ErrSessionClosed", err)
+	}
+}
+
+func TestUnaryCallerCancellation(t *testing.T) {
+	s := dialFake(t, &fakeServer{encodings: []gpb.Encoding{gpb.Encoding_JSON_IETF}})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := s.Get(ctx, ifacePath())
+	if err != context.Canceled {
+		t.Errorf("Get error = %v, want unwrapped context.Canceled", err)
+	}
+	if err := s.Set(ctx, gnmi.SetRequest{}); err != context.Canceled {
+		t.Errorf("Set error = %v, want unwrapped context.Canceled", err)
+	}
+}
+
+func TestRPCTimeoutCapsLaterCallerDeadline(t *testing.T) {
+	remaining := make(chan time.Duration, 1)
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_JSON_IETF},
+		get: func(ctx context.Context, _ *gpb.GetRequest) (*gpb.GetResponse, error) {
+			deadline, _ := ctx.Deadline()
+			remaining <- time.Until(deadline)
+			return &gpb.GetResponse{}, nil
+		},
+	}
+	s := dialFakeWithOptions(t, f, gnmi.Options{RPCTimeout: time.Second})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if _, err := s.Get(ctx, ifacePath()); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got := <-remaining; got <= 0 || got > 2*time.Second {
+		t.Errorf("server deadline remaining = %v, want positive and at most 2s for 1s RPC timeout", got)
 	}
 }

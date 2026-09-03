@@ -6,15 +6,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
-// The lenient decoders are the documented fallback the fused raw fast path
-// declines into, and two of their error branches are routine rather than
-// exceptional: every completed BulkWalk ends on an EndOfMibView varbind, and
-// off-spec agents drive the type-mismatch branch per varbind. Both now
-// construct an errs error, which captures an origin stack.
-//
-// BenchmarkGet and friends only drive clean in-spec responses, so that cost is
-// invisible to the perf gate's allocs/op baseline. These benchmarks put the
-// error branches on the same gate.
+// BenchmarkDecodeFallback measures successful decoding and errors on exception
+// values or incompatible wire types. The local walk fixture exits its subtree
+// before an exception value, so the ordinary walk benchmarks do not measure
+// these decoder error paths. This benchmark has no committed gate baseline.
 func BenchmarkDecodeFallback(b *testing.B) {
 	var (
 		endOfMibView snmp.VarBind = snmp.EndOfMibViewVar{}

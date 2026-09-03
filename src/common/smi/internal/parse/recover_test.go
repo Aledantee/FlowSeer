@@ -2,6 +2,7 @@ package parse
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -190,6 +191,106 @@ scrambled OBJECT-TYPE
 	got := r.StringValue(m.ObjectTypes[0].Description)
 	if got != "scrambled" {
 		t.Errorf("got description %q, want %q", got, "scrambled")
+	}
+}
+
+func TestDuplicateClausesKeepFirstDecodedPayload(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+		read func(*Result, *Module) []string
+		want []string
+	}{
+		{
+			name: "syntax default and index",
+			body: `o OBJECT-TYPE
+    SYNTAX INTEGER
+    SYNTAX OCTET STRING
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION "object"
+    INDEX { first }
+    INDEX { IMPLIED second }
+    DEFVAL { 1 }
+    DEFVAL { 2 }
+    ::= { iso 3 }`,
+			read: func(r *Result, m *Module) []string {
+				o := m.ObjectTypes[0]
+				return []string{
+					r.Text(o.Syntax), o.SyntaxType.Base.String(),
+					r.Text(o.Defval), fmt.Sprint(o.DefaultValue.Number),
+					r.Text(o.Index.Parts[0].Name), fmt.Sprint(o.Index.Parts[0].Implied),
+				}
+			},
+			want: []string{"INTEGER", "INTEGER", "{ 1 }", "1", "first", "false"},
+		},
+		{
+			name: "display hint",
+			body: `Convention ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d"
+    DISPLAY-HINT "x"
+    STATUS current
+    DESCRIPTION "convention"
+    SYNTAX INTEGER`,
+			read: func(r *Result, m *Module) []string {
+				c := m.TextualConventions[0]
+				return []string{r.StringValue(c.DisplayHint), string(c.Hint.Format)}
+			},
+			want: []string{"d", "d"},
+		},
+		{
+			name: "objects",
+			body: `n NOTIFICATION-TYPE
+    OBJECTS { first }
+    OBJECTS { second }
+    STATUS current
+    DESCRIPTION "notification"
+    ::= { iso 3 }`,
+			read: func(r *Result, m *Module) []string {
+				return []string{r.Text(m.NotificationTypes[0].Objects[0])}
+			},
+			want: []string{"first"},
+		},
+		{
+			name: "notifications",
+			body: `g NOTIFICATION-GROUP
+    NOTIFICATIONS { first }
+    NOTIFICATIONS { second }
+    STATUS current
+    DESCRIPTION "group"
+    ::= { iso 3 }`,
+			read: func(r *Result, m *Module) []string {
+				return []string{r.Text(m.NotificationGroups[0].Notifications[0])}
+			},
+			want: []string{"first"},
+		},
+		{
+			name: "variables",
+			body: `n TRAP-TYPE
+    ENTERPRISE iso
+    VARIABLES { first }
+    VARIABLES { second }
+    ::= 3`,
+			read: func(r *Result, m *Module) []string {
+				return []string{r.Text(m.TrapTypes[0].Variables[0])}
+			},
+			want: []string{"first"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := parseSource(t, wrap(tc.body))
+			if len(r.Diagnostics) == 0 {
+				t.Fatal("duplicate clauses raised no diagnostic")
+			}
+			for _, d := range r.Diagnostics {
+				if d.Code() != diag.ErrCodeDuplicateClause {
+					t.Errorf("got diagnostic %v, want %v", d.Code(), diag.ErrCodeDuplicateClause)
+				}
+			}
+			if got := tc.read(r, module(t, r)); !slices.Equal(got, tc.want) {
+				t.Errorf("got clause values %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

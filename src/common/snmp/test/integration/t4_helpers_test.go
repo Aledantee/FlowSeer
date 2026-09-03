@@ -24,12 +24,12 @@ type t4Target struct {
 // String returns a stable identifier suitable for use as a subtest
 // name (slashes are tolerated by go test -run).
 func (t t4Target) String() string {
-	return fmt.Sprintf("%s:%d", t.Host, t.Port)
+	return t.Address()
 }
 
 // Address returns the host:port form [snmp.NewSession] expects.
 func (t t4Target) Address() string {
-	return fmt.Sprintf("%s:%d", t.Host, t.Port)
+	return net.JoinHostPort(t.Host, strconv.Itoa(int(t.Port)))
 }
 
 // parseT4Targets parses the SNMP_T4_TARGETS env var into a slice of
@@ -45,9 +45,9 @@ func (t t4Target) Address() string {
 // an empty input parses to an empty slice with no error.
 //
 // Parser-level errors never echo the community portion of the input —
-// `entry %d` plus the parsed host[:port] is enough for the operator
-// to identify the bad entry, and SNMPv2 communities (even weak
-// secrets) should not leak to stderr or CI logs on misconfiguration.
+// the entry number identifies the bad value without exposing a secret in
+// stderr or CI logs. The first '@' separates the address from the community;
+// subsequent '@' characters belong to the community.
 func parseT4Targets(s string) ([]t4Target, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -59,7 +59,7 @@ func parseT4Targets(s string) ([]t4Target, error) {
 		if entry == "" {
 			continue
 		}
-		at := strings.LastIndex(entry, "@")
+		at := strings.IndexByte(entry, '@')
 		if at < 0 {
 			return nil, fmt.Errorf("entry %d: missing '@community' suffix", i)
 		}
@@ -69,12 +69,12 @@ func parseT4Targets(s string) ([]t4Target, error) {
 			return nil, fmt.Errorf("entry %d: empty host", i)
 		}
 		if community == "" {
-			return nil, fmt.Errorf("entry %d (%q): empty community", i, hostPort)
+			return nil, fmt.Errorf("entry %d: empty community", i)
 		}
 
 		host, port, err := splitHostPortT4(hostPort)
 		if err != nil {
-			return nil, fmt.Errorf("entry %d (%q): %w", i, hostPort, err)
+			return nil, fmt.Errorf("entry %d: %w", i, err)
 		}
 
 		out = append(out, t4Target{Host: host, Port: port, Community: community})
@@ -90,15 +90,15 @@ func splitHostPortT4(hp string) (host string, port uint16, err error) {
 	port = 161
 	// Bracketed IPv6: "[addr]" or "[addr]:port".
 	if strings.HasPrefix(hp, "[") {
-		close := strings.IndexByte(hp, ']')
-		if close < 0 {
+		end := strings.IndexByte(hp, ']')
+		if end < 0 {
 			return "", 0, fmt.Errorf("unmatched '[' in host")
 		}
-		host = hp[1:close]
+		host = hp[1:end]
 		if host == "" {
 			return "", 0, fmt.Errorf("empty IPv6 literal")
 		}
-		rest := hp[close+1:]
+		rest := hp[end+1:]
 		if rest == "" {
 			return host, port, nil
 		}

@@ -1,9 +1,9 @@
-# bench:* — SMI parser performance suite (src/common/smi/bench/).
+# SMI parser performance suite (src/common/smi/bench/).
 #
 # Every `go` invocation here runs inside the standalone bench module (its
 # own go.mod), so run this Taskfile from this directory:
 #
-#   task -t Taskfile.yml bench:gate
+#   task -t Taskfile.yml gate
 #
 # The main module never sees these targets.
 
@@ -11,7 +11,7 @@ version: '3'
 
 vars:
   # Repetitions benchstat needs to say anything about significance.
-  # Override with `task bench:micro COUNT=20`.
+  # Override with `task micro COUNT=20`.
   COUNT: '10'
 
 tasks:
@@ -22,9 +22,9 @@ tasks:
       and for the compositions above them, so a regression names the
       stage it came from rather than moving one whole-parser average.
 
-      Resolution has no benchmark of its own — smi's resolve pass is
-      unexported and this module is outside package smi — so read it as
-      Load minus Pipeline.
+      The unexported resolution pass cannot be timed directly here.
+      Comparing Load with Pipeline also includes module discovery and
+      loading imports, so the difference only approximates resolution.
     cmds:
       - go test -bench . -benchmem -run '^$' -count={{.COUNT}}
 
@@ -41,13 +41,13 @@ tasks:
       MIN_DELTA percent is reported and not acted on, because a gate that
       false-trips on a busy machine is a gate somebody switches off.
 
-        task bench:gate                     # full suite, COUNT=10
-        task bench:gate COUNT=6             # faster, noisier
-        BENCH=Recovery task bench:gate      # gate one benchmark
-        GATE_NS=1 task bench:gate           # hard-fail wall time too (local)
-        MIN_DELTA=0.5 task bench:gate       # tighten the effect-size floor
+        task gate                     # full suite, COUNT=10
+        task gate COUNT=6              # faster, noisier
+        BENCH=Recovery task gate       # gate one benchmark
+        GATE_NS=1 task gate            # hard-fail wall time too (local)
+        MIN_DELTA=0.5 task gate        # tighten the effect-size floor
 
-      Refresh the baseline deliberately: re-run `task bench:micro
+      Refresh the baseline deliberately: re-run `task micro
       COUNT=10`, keep the preamble and the benchmark rows, commit the new
       testdata/baseline-micro.txt. The gate never rewrites it.
     cmds:
@@ -65,9 +65,9 @@ tasks:
       mem.prof + cpu.prof and the test binary (for symbol resolution and
       `list`) to the gitignored profiles/ dir.
 
-        task bench:profile                              # whole-file parse
-        task bench:profile BENCH=Load/fixture=lancom-oids
-        task bench:profile BENCH=Recovery
+        task profile                              # whole-file parse
+        task profile BENCH=Load/fixture=lancom-oids
+        task profile BENCH=Recovery
 
       Then attribute:
 

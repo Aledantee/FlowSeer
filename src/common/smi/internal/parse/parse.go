@@ -69,6 +69,7 @@ package parse
 
 import (
 	"slices"
+	"sort"
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/smi/internal/diag"
@@ -82,6 +83,8 @@ import (
 //
 // Modules is empty when a resource limit cost the file. Every other
 // condition leaves the declarations that parsed in place.
+// Construct a Result with [Parse]; its zero value cannot read source text.
+// A Result supports concurrent reads while its fields and source remain unchanged.
 type Result struct {
 	Name        string
 	Modules     []Module
@@ -94,6 +97,23 @@ type Result struct {
 // Text returns the source a span covers.
 func (r *Result) Text(s Span) string {
 	return string(r.src.Bytes(s.Start, s.End))
+}
+
+// Tokens returns the significant tokens wholly inside s in source order.
+// Comments are absent according to the comment mode selected for this file.
+// The returned slice aliases the lexer result and must not be modified.
+// An empty or out-of-file span returns nil.
+func (r *Result) Tokens(s Span) []lex.Token {
+	if s.End <= s.Start || r.src.Bytes(s.Start, s.End) == nil {
+		return nil
+	}
+
+	toks := r.src.Tokens
+	start := sort.Search(len(toks), func(i int) bool { return toks[i].Offset >= s.Start })
+	toks = toks[start:]
+	end := sort.Search(len(toks), func(i int) bool { return toks[i].End() > s.End })
+
+	return toks[:end:end]
 }
 
 // StringValue returns the content of a quoted-string clause: the text

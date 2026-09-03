@@ -49,6 +49,8 @@ func isFatalWalk(err error) bool {
 // LLDPFacts are the messages one device's LLDP-MIB yields: what the
 // device announces about itself, how each of its ports runs the
 // protocol, and what its neighbors announced.
+// The zero value contains no facts. Concurrent reads are safe; callers
+// must synchronize mutations of the slices or messages.
 type LLDPFacts struct {
 	// LocalSystem is what the device announces device-wide, or nil when
 	// it reported none of it.
@@ -144,6 +146,9 @@ var tlvTypeOfBit = map[snmp.BitPos]lldpv1.TlvType{
 // error still sees a truthful if incomplete neighbor set. A row whose
 // index suffix is not what the MIB's INDEX clause describes is skipped
 // silently, as is a scalar the agent does not implement.
+// Other scalar read errors are returned with the collected facts and
+// preserve their causes for [errors.Is] and [errors.As]. The caller must
+// not modify portNames during the call.
 func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (LLDPFacts, error) {
 	// A base table's failed walk is fatal where an enriching walk's and a
 	// row that could not be mapped are not, so results and errors travel
@@ -172,14 +177,31 @@ func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (
 // scalars plus the management addresses of lldpLocManAddrTable. A scalar
 // the agent does not implement leaves its field absent, so a device with
 // no LLDP local data at all yields nil rather than an empty message. A
-// failed address walk returns the announcement built from everything else
-// beside its error.
+// failed scalar read or address walk returns the announcement built from
+// everything else beside its error.
 func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSystem, error) {
 	local := &lldpv1.LocalSystem{}
 	reported := false
+	var readErrs []error
+
+	recordError := func(name string, err error) {
+		if err == nil || errors.Is(err, snmp.ErrException) {
+			return
+		}
+		// SNMPv1 reports an unsupported scalar through the PDU status;
+		// later versions use exception varbinds instead.
+		var pduErr *snmp.PDUError
+		if errors.As(err, &pduErr) && pduErr.Status == snmp.NoSuchName {
+			return
+		}
+
+		readErrs = append(readErrs, errs.Wrap(err, "read "+name))
+	}
 
 	subtype, subtypeErr := lldpmib.LldpLocChassisIdSubtypeGet(ctx, sess)
 	id, idErr := lldpmib.LldpLocChassisIdGet(ctx, sess)
+	recordError("lldpLocChassisIdSubtype", subtypeErr)
+	recordError("lldpLocChassisId", idErr)
 
 	if subtypeErr == nil && idErr == nil {
 		if chassis, ok := chassisID(subtype, id); ok {
@@ -193,27 +215,36 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		local.SetSystemName(string(name))
 
 		reported = true
+	} else {
+		recordError("lldpLocSysName", err)
 	}
 
 	if desc, err := lldpmib.LldpLocSysDescGet(ctx, sess); err == nil {
 		local.SetSystemDescription(string(desc))
 
 		reported = true
+	} else {
+		recordError("lldpLocSysDesc", err)
 	}
 
 	if caps, err := lldpmib.LldpLocSysCapSupportedGet(ctx, sess); err == nil {
 		local.SetCapabilitiesSupported(capabilities(caps))
 
 		reported = true
+	} else {
+		recordError("lldpLocSysCapSupported", err)
 	}
 
 	if caps, err := lldpmib.LldpLocSysCapEnabledGet(ctx, sess); err == nil {
 		local.SetCapabilitiesEnabled(capabilities(caps))
 
 		reported = true
+	} else {
+		recordError("lldpLocSysCapEnabled", err)
 	}
 
 	addrs, addrErr := lldpLocManAddrs(ctx, sess)
+	readErrs = append(readErrs, addrErr)
 	if len(addrs) > 0 {
 		local.SetManagementAddresses(addrs)
 
@@ -221,10 +252,10 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 	}
 
 	if !reported {
-		return nil, addrErr
+		return nil, errors.Join(readErrs...)
 	}
 
-	return local, addrErr
+	return local, errors.Join(readErrs...)
 }
 
 // lldpLocManAddrs walks the local management addresses. Each address is

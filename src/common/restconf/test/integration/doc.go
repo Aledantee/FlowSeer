@@ -10,6 +10,7 @@
 //     malformed = fail). Owns the typed identity reads and the ICX
 //     reversible-edit validation.
 //
-// Each tier installs its own TestMain in a build-tag-guarded file;
-// bare `go test ./...` runs nothing here.
+// Each tier installs its own TestMain in a build-tag-guarded file.
+// Both tiers skip before opening connections when -short is set.
+// Bare `go test ./...` runs offline snapshot and read-back decoding checks.
 package integration

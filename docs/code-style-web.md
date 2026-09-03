@@ -5,10 +5,10 @@ last_updated: 2026-08-16
 
 # FlowSeer — TypeScript & Web Style
 
-Conventions for the web frontend (`frontend/web/`, pnpm workspace; consumes the
-Connect-ES bindings that `buf generate` emits into `frontend/web/generated/proto/`).
-The frontend has its own toolchain — Vite, Vitest, ESLint (flat config),
-`typescript-eslint` — and this document, not the Go guide, governs it.
+Conventions for web code under `frontend/web/`. This checkout has no frontend
+workspace, and `buf.gen.yaml` currently emits only Go and Connect-Go bindings.
+The web toolchain prescribed here uses pnpm, Vite, Vitest, ESLint (flat config),
+and `typescript-eslint`.
 
 The comment discipline and the *Rules for coding agents* in
 [`code-style.md`](code-style.md) apply language-independently — comments explain

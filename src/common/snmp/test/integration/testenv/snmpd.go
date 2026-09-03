@@ -4,14 +4,14 @@ package testenv
 
 import (
 	"context"
+	"errors"
 	"net"
 	"time"
-
-	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
@@ -24,6 +24,8 @@ const snmpdReadyTimeout = 30 * time.Second
 // snmpdProbeBackoff is the inter-attempt delay for the readiness loop.
 const snmpdProbeBackoff = 500 * time.Millisecond
 
+var startSnmpdContainer = testcontainers.GenericContainer
+
 // StartSnmpd builds the FlowSeer T1 snmpd image from contextDir and
 // launches a container with UDP/161 mapped to a random host port.
 // contextDir is the Docker build context — typically "testdata/snmpd"
@@ -33,19 +35,19 @@ const snmpdProbeBackoff = 500 * time.Millisecond
 //
 //  1. testcontainers waits for snmpd's startup log line ("NET-SNMP
 //     version") to appear on stdout, guaranteeing the agent has
-//     finished initialisation.
+//     finished initialization.
 //  2. A polling loop dials via [snmp.NewSession] with
 //     SNMPv2c and runs a Get sysUpTime.0 until it succeeds or the
 //     [snmpdReadyTimeout] elapses. Probing through [snmp.NewSession] rather
 //     than a direct Backend call means the readiness check survives a
 //     Backend swap unchanged.
 //
-// The returned cleanup function terminates the container; callers
-// (typically a tier's TestMain) MUST invoke it before the process
-// exits to avoid leaking Docker resources. testcontainers' reaper
-// also reaps the container if the process dies before cleanup runs,
-// so a panicking test still tears down.
-func StartSnmpd(ctx context.Context, contextDir string) (target string, cleanup func(), err error) {
+// Failed startup terminates any partial container and joins cleanup errors with
+// the startup cause. On success, callers must invoke cleanup before exiting.
+// Cleanup uses a fresh 30-second context and returns any termination error.
+// Call it once. The startup context can be canceled
+// once this function returns; cleanup does not depend on it.
+func StartSnmpd(ctx context.Context, contextDir string) (target string, cleanup func() error, err error) {
 	req := testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
@@ -58,29 +60,24 @@ func StartSnmpd(ctx context.Context, contextDir string) (target string, cleanup 
 		},
 		Started: true,
 	}
-	ctr, err := testcontainers.GenericContainer(ctx, req)
+	ctr, err := startSnmpdContainer(ctx, req)
 	if err != nil {
-		return "", nil, errs.Wrap(err, "start snmpd container")
+		return "", nil, errors.Join(errs.Wrap(err, "start snmpd container"), terminateContainer(ctr))
 	}
-	cleanup = func() {
-		_ = ctr.Terminate(context.Background())
-	}
+	cleanup = func() error { return terminateContainer(ctr) }
 
 	host, err := ctr.Host(ctx)
 	if err != nil {
-		cleanup()
-		return "", nil, errs.Wrap(err, "snmpd container host")
+		return "", nil, errors.Join(errs.Wrap(err, "snmpd container host"), terminateContainer(ctr))
 	}
 	port, err := ctr.MappedPort(ctx, "161/udp")
 	if err != nil {
-		cleanup()
-		return "", nil, errs.Wrap(err, "snmpd container mapped port")
+		return "", nil, errors.Join(errs.Wrap(err, "snmpd container mapped port"), terminateContainer(ctr))
 	}
 	target = net.JoinHostPort(host, port.Port())
 
 	if err := waitForSnmpdReady(ctx, target); err != nil {
-		cleanup()
-		return "", nil, errs.Wrapf(err, "snmpd readiness probe at %s", target)
+		return "", nil, errors.Join(errs.Wrapf(err, "snmpd readiness probe at %s", target), terminateContainer(ctr))
 	}
 	return target, cleanup, nil
 }
@@ -98,6 +95,9 @@ func waitForSnmpdReady(ctx context.Context, target string) error {
 	sysUpTime := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 3, 0)
 	var lastErr error
 	for {
+		if err := probeCtx.Err(); err != nil {
+			return err
+		}
 		sess, err := snmp.NewSession(probeCtx, target, snmp.V2c,
 			snmp.WithCommunity("public"),
 			snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
@@ -122,7 +122,7 @@ func waitForSnmpdReady(ctx context.Context, target string) error {
 			if lastErr == nil {
 				return probeCtx.Err()
 			}
-			return errs.Wrap(lastErr, "probe exhausted")
+			return errors.Join(probeCtx.Err(), errs.Wrap(lastErr, "probe exhausted"))
 		}
 	}
 }

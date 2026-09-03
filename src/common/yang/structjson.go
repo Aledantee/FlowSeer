@@ -135,17 +135,19 @@ func writeJSONLeaf(b *bytes.Buffer, f *Field, scalar reflect.Value) error {
 }
 
 // UnmarshalJSON7951Struct decodes an RFC 7951 JSON object value into
-// v, a pointer to s's Go struct. Unknown members are ignored; members
-// may arrive bare or module-qualified.
+// v, a pointer to s's Go struct, replacing its content. Unknown members
+// are ignored; members may arrive bare or module-qualified. A decode
+// error may leave v partially populated.
 func UnmarshalJSON7951Struct(s *Schema, data []byte, v any) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() || rv.Elem().Kind() != reflect.Struct {
 		return errs.New().Code(ErrCodeValueParse).Msgf("decode target for %s must be a non-nil struct pointer", s.Name)
 	}
 	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(data, &obj); err != nil {
+	if err := json.Unmarshal(data, &obj); err != nil || obj == nil {
 		return errs.From(err).Code(ErrCodeValueParse).Msgf("%s is not a JSON object", s.Name)
 	}
+	rv.Elem().SetZero()
 	return decodeJSONObject(s, obj, rv.Elem())
 }
 
@@ -168,7 +170,7 @@ func DecodeJSONList[Row any](s *Schema, data []byte) ([]Row, error) {
 		arr = found
 	}
 	var rawRows []json.RawMessage
-	if err := json.Unmarshal(arr, &rawRows); err != nil {
+	if err := json.Unmarshal(arr, &rawRows); err != nil || rawRows == nil {
 		return nil, errs.From(err).Code(ErrCodeValueParse).Msgf("list %s is not a JSON array", s.Name)
 	}
 	rows := make([]Row, 0, len(rawRows))
@@ -210,7 +212,7 @@ func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Valu
 		switch {
 		case f.Child != nil && f.List:
 			var rawRows []json.RawMessage
-			if err := json.Unmarshal(raw, &rawRows); err != nil {
+			if err := json.Unmarshal(raw, &rawRows); err != nil || rawRows == nil {
 				return errs.From(err).Code(ErrCodeValueParse).Msgf("list %s is not a JSON array", name)
 			}
 			for _, rawRow := range rawRows {
@@ -229,7 +231,7 @@ func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Valu
 			}
 		case f.LeafList:
 			var rawEntries []json.RawMessage
-			if err := json.Unmarshal(raw, &rawEntries); err != nil {
+			if err := json.Unmarshal(raw, &rawEntries); err != nil || rawEntries == nil {
 				return errs.From(err).Code(ErrCodeValueParse).Msgf("leaf-list %s is not a JSON array", name)
 			}
 			for _, rawEntry := range rawEntries {

@@ -46,7 +46,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	pkgPrefix := fs.String("pkg-prefix", defaultPkgPrefix, "Go import-path prefix for generated packages")
 	verify := fs.Bool("verify", false, "load-only: parse config and load all modules, then exit 0 (no codegen, no baseline gate)")
 	check := fs.Bool("check", false, "regenerate into a tmpdir and diff against -out; exit 1 on drift")
-	update := fs.Bool("update", false, "refresh golden-test fixtures under testdata/")
+	update := fs.Bool("update", false, "regenerate configured bindings under -out")
 	baselinePath := fs.String("baseline", "", "path to the diagnostic baseline (default: "+defaultBaselineName+" beside the config)")
 	refreshBaseline := fs.Bool("refresh-baseline", false, "rewrite the baseline from the diagnostics this load raised, then exit")
 

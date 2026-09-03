@@ -573,6 +573,28 @@ func TestPairedCommentModeReparse(t *testing.T) {
 	wantShapes(t, f, 0, shape{KindValueAssignment, "bar", "bar OBJECT IDENTIFIER -- opens here -- ::= { iso 3 }"})
 }
 
+func TestPairedCommentNoticeHonorsDiagnosticLimit(t *testing.T) {
+	for _, tc := range []struct{ name, src string }{
+		{"notice exceeds cap", strings.Repeat("bad- ", MaxDiagnostics) + "\n" + pairedOnlySource},
+		{"paired lexer already exceeded cap", strings.Repeat("-- paired -- bad-\n", MaxDiagnostics+1) +
+			inModule(strings.Repeat("%%%\na OBJECT IDENTIFIER ::= { iso 1 }\n", MaxDiagnostics+1))},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := cut(t, tc.src)
+
+			if got, want := len(f.Diagnostics), MaxDiagnostics+1; got != want {
+				t.Fatalf("got %d diagnostics, want %d", got, want)
+			}
+			if got := f.Diagnostics[len(f.Diagnostics)-1].Code(); got != diag.ErrCodeLimitExceeded {
+				t.Errorf("last diagnostic is %v, want %v", got, diag.ErrCodeLimitExceeded)
+			}
+			if len(f.Modules) != 0 {
+				t.Errorf("got %d modules, want none after exceeding the diagnostic limit", len(f.Modules))
+			}
+		})
+	}
+}
+
 // The end-of-line rule is the one that cannot silently eat a
 // declaration, so a file that frames badly under both keeps its result
 // rather than trading one set of errors for another.

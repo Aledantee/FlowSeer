@@ -1,13 +1,10 @@
-// Package conformance is the shared quirk-corpus machinery the YANG
-// protocol libraries transcribe from the SNMP library's discipline:
-// append-only rows with provenance and adversarial input,
-// `// Covers conformance matrix row: <ID>` markers joining rows to
-// citing tests, an always-on integrity gate, a build-tagged
-// completeness gate, and a generated CONFORMANCE.md golden.
+// Package conformance joins protocol quirks to their citing tests and renders
+// CONFORMANCE.md. A test cites a row with a comment such as:
 //
-// It lives under src/common/internal so the three libraries share one
-// implementation while the package stays outside every public API
-// surface.
+//	// Covers conformance matrix row: gn-proto-only-encoding
+//
+// [RunIntegrity] checks row consistency and citations. [RunComplete] additionally
+// rejects pending rows when called by a protocol's build-tagged completeness test.
 package conformance
 
 import (
@@ -23,40 +20,54 @@ import (
 	"testing"
 )
 
-// Status is a row's lifecycle state.
+// Status records whether a row has test coverage or an accepted gap. Its zero
+// value is invalid; [ValidateRow] rejects values outside the declared constants.
 type Status string
 
-// The row states. Pending is allowed by the always-on integrity gate
-// (dev-branch friendliness) and forbidden by the build-tagged
-// completeness gate.
 const (
-	Pending      Status = "pending"
-	Covered      Status = "covered"
+	// Pending allows incomplete coverage in [RunIntegrity] but fails [RunComplete].
+	Pending Status = "pending"
+	// Covered requires a citing test marker and a recorded adversarial input.
+	Covered Status = "covered"
+	// AcceptedRisk requires a rationale and an explicit allowlist entry.
 	AcceptedRisk Status = "accepted-risk"
 )
 
-// Row is one cataloged conformance quirk: a paid-for lesson from an
-// RFC erratum, vendor documentation, or lab hardware, transcribed
-// into the library's test suite.
+// Row records a protocol quirk, its source, and the coverage expected from the
+// library's tests. The zero value is invalid. Callers may share rows for concurrent
+// reads but must not mutate them while a validation or rendering call uses them.
 type Row struct {
-	ID          string // stable kebab-case id, also the marker join key
-	Clause      string // RFC clause / vendor doc the row enforces
-	Provenance  string // where the quirk was learned
-	Behavior    string // expected behavior / tolerance policy
-	Adversarial string // the adversarial input the pin drives (required when covered)
-	Unit        string // owning plan implementation unit
-	Status      Status
-	Accepted    string // why-not-covered rationale (required when accepted-risk)
+	// ID is the stable kebab-case key cited by test markers.
+	ID string
+	// Clause identifies the RFC clause or vendor contract the row enforces.
+	Clause string
+	// Provenance identifies the documentation or hardware observation behind the quirk.
+	Provenance string
+	// Behavior states the expected response, including any tolerance for invalid input.
+	Behavior string
+	// Adversarial describes the input exercised by the citing test; [Covered] requires it.
+	Adversarial string
+	// Unit identifies the component responsible for coverage in pending-row errors.
+	Unit string
+	// Status selects the coverage requirements enforced by [ValidateRow].
+	Status Status
+	// Accepted explains why test coverage is absent; [AcceptedRisk] requires it.
+	Accepted string
 }
 
-// Family groups rows by ID prefix for CONFORMANCE.md rendering.
+// Family groups rows by ID prefix for CONFORMANCE.md rendering. The zero value
+// matches every row with an empty heading. Callers may share families for concurrent
+// reads but must not mutate them during validation or rendering.
 type Family struct {
+	// Prefix selects rows by a case-sensitive prefix of [Row.ID]; empty matches all rows.
 	Prefix string
-	Title  string
+	// Title is the section heading in CONFORMANCE.md.
+	Title string
 }
 
-// ValidateRow checks one row's internal consistency. Factored out so
-// the gate's own tests can prove it bites.
+// ValidateRow returns an error when r's status requirements are unmet or its
+// status is unknown. hasMarker reports whether a test cites r.ID. A nil allowlist
+// permits no [AcceptedRisk] rows; only entries set to true grant acceptance.
 func ValidateRow(r Row, hasMarker bool, allowlist map[string]bool) error {
 	switch r.Status {
 	case Covered:
@@ -81,10 +92,12 @@ func ValidateRow(r Row, hasMarker bool, allowlist map[string]bool) error {
 	return nil
 }
 
-var markerRe = regexp.MustCompile(`Covers conformance matrix row:\s*([A-Za-z0-9\-]+)`)
+var markerRe = regexp.MustCompile(`Covers conformance matrix row:\s*([A-Za-z0-9\-]+)(?:\s|$)`)
 
-// CollectMarkers scans every _test.go under each dir (non-recursive
-// per dir) for citing markers of known row ids.
+// CollectMarkers returns the known row IDs cited in comments in each directory's
+// _test.go files. It does not recurse or filter by build tags. Marker IDs are
+// whitespace-delimited tokens matched in full; unknown IDs are ignored. Directory
+// and Go parsing errors fail t immediately.
 func CollectMarkers(t *testing.T, rows []Row, dirs []string) map[string]bool {
 	t.Helper()
 	known := make(map[string]bool, len(rows))
@@ -127,8 +140,9 @@ func CollectMarkers(t *testing.T, rows []Row, dirs []string) map[string]bool {
 	return found
 }
 
-// RunIntegrity is the always-on gate: duplicate ids, per-row
-// consistency, and family membership.
+// RunIntegrity reports duplicate IDs, unmet status requirements, and rows without
+// a matching family through t. It collects citations from dirs with [CollectMarkers],
+// whose directory and parsing errors fail t immediately. Pending rows are allowed.
 func RunIntegrity(t *testing.T, rows []Row, allowlist map[string]bool, families []Family, dirs []string) {
 	t.Helper()
 	seen := make(map[string]bool, len(rows))
@@ -156,7 +170,8 @@ func RunIntegrity(t *testing.T, rows []Row, allowlist map[string]bool, families 
 	}
 }
 
-// RunComplete is the build-tagged merge gate body: no pending rows.
+// RunComplete reports pending rows through t, including their owning units.
+// Call it alongside [RunIntegrity], which checks all other status requirements.
 func RunComplete(t *testing.T, rows []Row) {
 	t.Helper()
 	var pending []string
@@ -171,7 +186,10 @@ func RunComplete(t *testing.T, rows []Row) {
 	}
 }
 
-// Markdown renders the corpus as the library's CONFORMANCE.md.
+// Markdown renders rows as CONFORMANCE.md in the supplied family and row order.
+// It flattens line breaks and escapes pipes in prose cells. Call [RunIntegrity]
+// separately to validate the corpus; rows without a matching family are omitted
+// from the tables. Concurrent calls are safe while inputs remain unchanged.
 func Markdown(title string, rows []Row, families []Family) []byte {
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "# %s\n\n", title)
@@ -198,13 +216,15 @@ func Markdown(title string, rows []Row, families []Family) []byte {
 	return b.Bytes()
 }
 
-// cell escapes pipes for table cells.
+var cellReplacer = strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ", "|", "\\|")
+
 func cell(s string) string {
-	return strings.ReplaceAll(s, "|", "\\|")
+	return cellReplacer.Replace(s)
 }
 
-// VerifyMarkdown compares (or, with update, rewrites) the committed
-// CONFORMANCE.md.
+// VerifyMarkdown reports a test error if path's contents differ from content.
+// With update, it creates or overwrites path instead. File errors fail t
+// immediately. Callers must serialize updates to the same path.
 func VerifyMarkdown(t *testing.T, path string, content []byte, update bool) {
 	t.Helper()
 	if update {
