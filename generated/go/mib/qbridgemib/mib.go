@@ -587,7 +587,7 @@ func (tw *Dot1qFdbTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qFdbTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -774,7 +774,7 @@ func (tw *Dot1qTpFdbTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qTpFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qTpFdbTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -931,7 +931,7 @@ func (tw *Dot1qTpGroupTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qTpGroupTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qTpGroupTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -1127,7 +1127,7 @@ func (tw *Dot1qForwardAllTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qForwardAllTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qForwardAllTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -1323,7 +1323,7 @@ func (tw *Dot1qForwardUnregisteredTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qForwardUnregisteredTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qForwardUnregisteredTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -1503,7 +1503,7 @@ func (tw *Dot1qStaticUnicastTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qStaticUnicastTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qStaticUnicastTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -1710,7 +1710,7 @@ func (tw *Dot1qStaticMulticastTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qStaticMulticastTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qStaticMulticastTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -1964,7 +1964,7 @@ func (tw *Dot1qVlanCurrentTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qVlanCurrentTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qVlanCurrentTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -2204,7 +2204,7 @@ func (tw *Dot1qVlanStaticTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qVlanStaticTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qVlanStaticTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -2525,7 +2525,7 @@ func (tw *Dot1qPortVlanTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qPortVlanTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVlanTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -2810,7 +2810,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qPortVlanStatisticsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVlanStatisticsTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -3011,7 +3011,7 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qPortVlanHCStatisticsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVlanHCStatisticsTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -3177,7 +3177,7 @@ func (tw *Dot1qLearningConstraintsTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1qLearningConstraintsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qLearningConstraintsTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -3336,7 +3336,7 @@ func (tw *Dot1vProtocolGroupTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1vProtocolGroupTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1vProtocolGroupTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -3494,7 +3494,7 @@ func (tw *Dot1vProtocolPortTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot1vProtocolPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1vProtocolPortTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }

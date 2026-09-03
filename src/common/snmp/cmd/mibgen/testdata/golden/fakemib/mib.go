@@ -327,7 +327,7 @@ func (tw *FakeTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t fakeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -652,7 +652,7 @@ func (tw *FakeStackTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t fakeStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeStackTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }

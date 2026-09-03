@@ -16,6 +16,8 @@ var ErrWalkNoProgress = errs.Msg("table walk made no progress")
 
 // ColumnCell associates a raw value with its zero-based position in the roots
 // passed to [WalkColumns]. Values remain valid after advancing or closing.
+// Concurrent reads are safe while neither the cell nor its referenced payloads
+// are mutated. Callers must synchronize mutations with all readers and writers.
 type ColumnCell struct {
 	Column int
 	Value  RawVarBind

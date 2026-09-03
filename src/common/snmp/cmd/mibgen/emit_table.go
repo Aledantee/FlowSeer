@@ -183,7 +183,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	f.Comment("Walk lazily retrieves only selected columns with bounded defaults.")
 	f.Comment("Rows are the union of selected values in numeric OID index order.")
 	f.Comment("No columns means no rows or requests. Duplicate selections are ignored.")
-	f.Comment("Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.")
+	f.Comment("Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].")
 	f.Func().Params(jen.Id("t").Id(descriptorTypeName)).Id("Walk").Params(
 		jen.Id("ctx").Qual("context", "Context"), jen.Id("sess").Qual(snmpImport, "Session"),
 		jen.Id("cols").Op("...").Qual(snmpImport, "AnyColumn"),

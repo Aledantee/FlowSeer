@@ -790,7 +790,7 @@ func (tw *EntPhysicalTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t entPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhysicalTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -1475,7 +1475,7 @@ func (tw *EntLogicalTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t entLogicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntLogicalTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -1832,7 +1832,7 @@ func (tw *EntLPMappingTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t entLPMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntLPMappingTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -2120,7 +2120,7 @@ func (tw *EntAliasMappingTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t entAliasMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntAliasMappingTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
@@ -2398,7 +2398,7 @@ func (tw *EntPhysicalContainsTableWalker) Close() {
 // Walk lazily retrieves only selected columns with bounded defaults.
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with snmp.ErrForeignColumn.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t entPhysicalContainsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhysicalContainsTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
