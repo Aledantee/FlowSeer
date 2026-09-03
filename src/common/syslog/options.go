@@ -66,7 +66,9 @@ func (l Limits) normalized() (Limits, error) {
 	return l, nil
 }
 
-func (l Limits) headroom() int { return 3*l.MaxPayload + 3*l.MetadataBytes + 4096 }
+func (l Limits) headroom() int {
+	return 3*l.MaxPayload + 3*l.MetadataBytes + 32*l.MaxDiagnostics + 8192
+}
 
 // ParseOptions is immutable after NewParser. Raw capture is disabled by default.
 // Year, Location, and zone offsets are explicit interpretation context.

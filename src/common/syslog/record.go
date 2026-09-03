@@ -220,7 +220,7 @@ func (r Record) checkSize(l Limits) error {
 	}
 	n := 0
 	add := func(v int) bool {
-		if v > l.MaxPayload*3-n {
+		if v > l.headroom()-n {
 			return false
 		}
 		n += v
