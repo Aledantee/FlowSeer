@@ -6,7 +6,7 @@
 // Package qbridgemib binds the YANG module Q-BRIDGE-MIB.
 package qbridgemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // QBRIDGEMIB is the Q-BRIDGE-MIB node /Q-BRIDGE-MIB/Q-BRIDGE-MIB.
 type QBRIDGEMIB struct {

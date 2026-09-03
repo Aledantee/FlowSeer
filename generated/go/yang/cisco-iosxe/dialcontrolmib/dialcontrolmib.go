@@ -6,7 +6,7 @@
 // Package dialcontrolmib binds the YANG module DIAL-CONTROL-MIB.
 package dialcontrolmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DIALCONTROLMIB is the DIAL-CONTROL-MIB node /DIAL-CONTROL-MIB/DIAL-CONTROL-MIB.
 type DIALCONTROLMIB struct {

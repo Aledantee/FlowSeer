@@ -6,7 +6,7 @@
 // Package ciscoiosxematmoper binds the YANG module Cisco-IOS-XE-matm-oper.
 package ciscoiosxematmoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MatmOperData is the Cisco-IOS-XE-matm-oper node /Cisco-IOS-XE-matm-oper/matm-oper-data.
 type MatmOperData struct {

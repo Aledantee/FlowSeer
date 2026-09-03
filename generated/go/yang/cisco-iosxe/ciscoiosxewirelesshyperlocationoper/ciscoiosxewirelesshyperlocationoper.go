@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesshyperlocationoper binds the YANG module Cisco-IOS-XE-wireless-hyperlocation-oper.
 package ciscoiosxewirelesshyperlocationoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // HyperlocationOperData is the Cisco-IOS-XE-wireless-hyperlocation-oper node /Cisco-IOS-XE-wireless-hyperlocation-oper/hyperlocation-oper-data.
 type HyperlocationOperData struct {

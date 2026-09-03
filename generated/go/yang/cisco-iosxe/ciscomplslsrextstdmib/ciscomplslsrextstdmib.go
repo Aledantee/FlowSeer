@@ -6,7 +6,7 @@
 // Package ciscomplslsrextstdmib binds the YANG module CISCO-MPLS-LSR-EXT-STD-MIB.
 package ciscomplslsrextstdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOMPLSLSREXTSTDMIB is the CISCO-MPLS-LSR-EXT-STD-MIB node /CISCO-MPLS-LSR-EXT-STD-MIB/CISCO-MPLS-LSR-EXT-STD-MIB.
 type CISCOMPLSLSREXTSTDMIB struct {

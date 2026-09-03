@@ -6,7 +6,7 @@
 // Package ciscoiosxebgpriboper binds the YANG module Cisco-IOS-XE-bgp-rib-oper.
 package ciscoiosxebgpriboper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BgpRibOperData is the Cisco-IOS-XE-bgp-rib-oper node /Cisco-IOS-XE-bgp-rib-oper/bgp-rib-oper-data.
 type BgpRibOperData struct {

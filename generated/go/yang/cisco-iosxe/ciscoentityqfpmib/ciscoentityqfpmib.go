@@ -6,7 +6,7 @@
 // Package ciscoentityqfpmib binds the YANG module CISCO-ENTITY-QFP-MIB.
 package ciscoentityqfpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOENTITYQFPMIB is the CISCO-ENTITY-QFP-MIB node /CISCO-ENTITY-QFP-MIB/CISCO-ENTITY-QFP-MIB.
 type CISCOENTITYQFPMIB struct {

@@ -6,7 +6,7 @@
 // Package pim binds the YANG module pim.
 package pim
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AsmMappingMode is the pim identity "asm-mapping-mode".
 var Identity_AsmMappingMode = yang.Identity{

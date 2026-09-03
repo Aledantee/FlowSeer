@@ -6,7 +6,7 @@
 // Package tailfnetconfmonitoring binds the YANG module tailf-netconf-monitoring.
 package tailfnetconfmonitoring
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_CliConsole is the tailf-netconf-monitoring identity "cli-console".
 var Identity_CliConsole = yang.Identity{

@@ -6,7 +6,7 @@
 // Package ciscoxeopenconfigifethernetext binds the YANG module cisco-xe-openconfig-if-ethernet-ext.
 package ciscoxeopenconfigifethernetext
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AUTO is the cisco-xe-openconfig-if-ethernet-ext identity "AUTO".
 var Identity_AUTO = yang.Identity{

@@ -5,347 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_TwoGigabitEthernet_Pppoe_EnableConfigSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe/enable-config for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_Pppoe_EnableConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "GroupName",
-		Name:   "group-name",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
-		},
-	}, {
-		GoName: "PppoeEnable",
-		Name:   "pppoe-enable",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-pppoe",
-	Name:      "enable-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TwoGigabitEthernet_Pppoe_EnableDefaultConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe/enable-default-config.
-type Native_Interface_TwoGigabitEthernet_Pppoe_EnableDefaultConfig struct {
-	Group *yang.Value
-}
-
-// Native_Interface_TwoGigabitEthernet_Pppoe_EnableDefaultConfigSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe/enable-default-config for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_Pppoe_EnableDefaultConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Group",
-		Name:   "group",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-pppoe",
-	Name:      "enable-default-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-	Presence:  true,
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeClient is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-client.
-type Native_Interface_TwoGigabitEthernet_PppoeClient struct {
-	DialPoolNumber     *uint32
-	DialPoolNumberList []Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList
-	PppMaxPayload      *uint32
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeClientSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-client for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PppoeClientSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "DialPoolNumber",
-		Name:   "dial-pool-number",
-		Type:   yang.TUint32,
-	}, {
-		Child:  Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListSchema,
-		GoName: "DialPoolNumberList",
-		List:   true,
-		Name:   "dial-pool-number-list",
-	}, {
-		GoName: "PppMaxPayload",
-		Name:   "ppp-max-payload",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-pppoe",
-	Name:      "pppoe-client",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-client/dial-pool-number-list.
-type Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList struct {
-	Number      *uint32
-	ServiceName *string
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-client/dial-pool-number-list for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Number",
-		Name:   "number",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "ServiceName",
-		Name:   "service-name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"number"},
-	Module:    "Cisco-IOS-XE-pppoe",
-	Name:      "dial-pool-number-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListKey is Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList's row identity (ancestor keys in canonical form).
-type Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListKey struct {
-	TwoGigabitEthernet_Name string
-	Number                  uint32
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow flattens one Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList entry with its ancestor list keys.
-type Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow struct {
-	TwoGigabitEthernet_Name string
-	Entry                   Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListDescriptor is the flattened-row descriptor for the nested list Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList.
-func Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListDescriptor() yang.ListDescriptor[Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow, Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListKey] {
-	return yang.ListDescriptor[Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow, Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListKey]{
-		Codec: yang.RowCodec[Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow, Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TwoGigabitEthernetSchema, Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow{
-						Entry:                   en.Entry,
-						TwoGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TwoGigabitEthernetSchema, Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow{
-						Entry:                   en.Entry,
-						TwoGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow) Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListKey {
-				var k Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListKey
-				k.TwoGigabitEthernet_Name = r.TwoGigabitEthernet_Name
-				if r.Entry.Number != nil {
-					k.Number = *r.Entry.Number
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow) Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_TwoGigabitEthernet_PppoeClient_DialPoolNumberListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "TwoGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-pppoe",
-			Name:      "pppoe-client",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-		}, {Name: "dial-pool-number-list"}}},
-	}
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeSession is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-session.
-type Native_Interface_TwoGigabitEthernet_PppoeSession struct {
-	Threshold *Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeSessionSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-session for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PppoeSessionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwoGigabitEthernet_PppoeSession_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-pppoe",
-	Name:      "pppoe-session",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-session/threshold.
-type Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold struct {
-	LossThreshold *uint32
-	Percent       *Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold_Percent
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeSession_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-session/threshold for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PppoeSession_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LossThreshold",
-		Name:   "loss-threshold",
-		Type:   yang.TUint32,
-	}, {
-		Child:  Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold_PercentSchema,
-		GoName: "Percent",
-		Name:   "percent",
-	}},
-	Module:    "Cisco-IOS-XE-pppoe",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold_Percent is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-session/threshold/percent.
-type Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold_Percent struct {
-	Interval   *uint32
-	Percantage *uint32
-}
-
-// Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold_PercentSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/pppoe-session/threshold/percent for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PppoeSession_Threshold_PercentSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Interval",
-		Name:   "interval",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Percantage",
-		Name:   "percantage",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-pppoe",
-	Name:      "percent",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TwoGigabitEthernet_PriorityQueue is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/priority-queue.
-type Native_Interface_TwoGigabitEthernet_PriorityQueue struct {
-	CosMap *Native_Interface_TwoGigabitEthernet_PriorityQueue_CosMap
-	Out    *bool
-}
-
-// Native_Interface_TwoGigabitEthernet_PriorityQueueSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/priority-queue for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PriorityQueueSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwoGigabitEthernet_PriorityQueue_CosMapSchema,
-		GoName: "CosMap",
-		Name:   "cos-map",
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "priority-queue",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_TwoGigabitEthernet_PriorityQueue_CosMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/priority-queue/cos-map.
-type Native_Interface_TwoGigabitEthernet_PriorityQueue_CosMap struct {
-	CosValues []uint8
-	Id        *uint8
-}
-
-// Native_Interface_TwoGigabitEthernet_PriorityQueue_CosMapSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/priority-queue/cos-map for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PriorityQueue_CosMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:   "CosValues",
-		LeafList: true,
-		Name:     "cos-values",
-		Type:     yang.TUint8,
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "cos-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_TwoGigabitEthernet_Ptp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/ptp.
-type Native_Interface_TwoGigabitEthernet_Ptp struct {
-	Announce  *Native_Interface_TwoGigabitEthernet_Ptp_Announce
-	DelayReq  *Native_Interface_TwoGigabitEthernet_Ptp_DelayReq
-	Enable    *bool
-	PdelayReq *Native_Interface_TwoGigabitEthernet_Ptp_PdelayReq
-	Sync      *Native_Interface_TwoGigabitEthernet_Ptp_Sync
-	Vlan      *uint16
-}
-
-// Native_Interface_TwoGigabitEthernet_PtpSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/ptp for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_PtpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TwoGigabitEthernet_Ptp_AnnounceSchema,
-		GoName: "Announce",
-		Name:   "announce",
-	}, {
-		Child:  Native_Interface_TwoGigabitEthernet_Ptp_DelayReqSchema,
-		GoName: "DelayReq",
-		Name:   "delay-req",
-	}, {
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_TwoGigabitEthernet_Ptp_PdelayReqSchema,
-		GoName: "PdelayReq",
-		Name:   "pdelay-req",
-	}, {
-		Child:  Native_Interface_TwoGigabitEthernet_Ptp_SyncSchema,
-		GoName: "Sync",
-		Name:   "sync",
-	}, {
-		GoName: "Vlan",
-		Name:   "vlan",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-ptp",
-	Name:      "ptp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ptp",
-}
-
-// Native_Interface_TwoGigabitEthernet_Ptp_Announce is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/ptp/announce.
-type Native_Interface_TwoGigabitEthernet_Ptp_Announce struct {
-	Interval *uint8
-	Timeout  *uint8
-}
-
-// Native_Interface_TwoGigabitEthernet_Ptp_AnnounceSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/ptp/announce for the generic codecs.
-var Native_Interface_TwoGigabitEthernet_Ptp_AnnounceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Interval",
-		Name:   "interval",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Timeout",
-		Name:   "timeout",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ptp",
-	Name:      "announce",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ptp",
-}
-
-// Native_Interface_TwoGigabitEthernet_Ptp_DelayReq is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/ptp/delay-req.
-type Native_Interface_TwoGigabitEthernet_Ptp_DelayReq struct {
-	Interval *int8
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_TwoGigabitEthernet_Ptp_DelayReqSchema describes /Cisco-IOS-XE-native/native/interface/TwoGigabitEthernet/ptp/delay-req for the generic codecs.
 var Native_Interface_TwoGigabitEthernet_Ptp_DelayReqSchema = &yang.Schema{
@@ -39232,4 +38892,230 @@ var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Incl
 type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast struct {
 	Include *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include
 	Level   *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_UnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include struct {
+	Multicast *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_MulticastSchema,
+		GoName: "Multicast",
+		Name:   "multicast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast struct {
+	Level *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_MulticastSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_MulticastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "multicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level struct {
+	Bps       *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Bps
+	Pps       *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Pps
+	Threshold *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Threshold
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/bps-case/bps.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/pps-case/pps.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level struct {
+	Bps       *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps
+	Pps       *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps
+	Threshold *Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TwoHundredGigE/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_TwoHundredGigE_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
 }

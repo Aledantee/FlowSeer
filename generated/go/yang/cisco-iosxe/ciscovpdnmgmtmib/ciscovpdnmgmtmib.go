@@ -6,7 +6,7 @@
 // Package ciscovpdnmgmtmib binds the YANG module CISCO-VPDN-MGMT-MIB.
 package ciscovpdnmgmtmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOVPDNMGMTMIB is the CISCO-VPDN-MGMT-MIB node /CISCO-VPDN-MGMT-MIB/CISCO-VPDN-MGMT-MIB.
 type CISCOVPDNMGMTMIB struct {

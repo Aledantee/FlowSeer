@@ -6,7 +6,7 @@
 // Package ciscosmi binds the YANG module CISCO-SMI.
 package ciscosmi
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Cisco2505RptrGroup is the CISCO-SMI identity "cisco2505RptrGroup".
 var Identity_Cisco2505RptrGroup = yang.Identity{

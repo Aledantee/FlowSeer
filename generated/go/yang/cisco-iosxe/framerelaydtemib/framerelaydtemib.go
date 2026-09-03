@@ -6,7 +6,7 @@
 // Package framerelaydtemib binds the YANG module FRAME-RELAY-DTE-MIB.
 package framerelaydtemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // FRAMERELAYDTEMIB is the FRAME-RELAY-DTE-MIB node /FRAME-RELAY-DTE-MIB/FRAME-RELAY-DTE-MIB.
 type FRAMERELAYDTEMIB struct {

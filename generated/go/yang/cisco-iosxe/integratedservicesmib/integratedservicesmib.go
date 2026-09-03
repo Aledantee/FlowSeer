@@ -6,7 +6,7 @@
 // Package integratedservicesmib binds the YANG module INTEGRATED-SERVICES-MIB.
 package integratedservicesmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // INTEGRATEDSERVICESMIB is the INTEGRATED-SERVICES-MIB node /INTEGRATED-SERVICES-MIB/INTEGRATED-SERVICES-MIB.
 type INTEGRATEDSERVICESMIB struct {

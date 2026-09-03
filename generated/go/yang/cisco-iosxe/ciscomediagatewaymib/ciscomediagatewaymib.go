@@ -6,7 +6,7 @@
 // Package ciscomediagatewaymib binds the YANG module CISCO-MEDIA-GATEWAY-MIB.
 package ciscomediagatewaymib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOMEDIAGATEWAYMIB is the CISCO-MEDIA-GATEWAY-MIB node /CISCO-MEDIA-GATEWAY-MIB/CISCO-MEDIA-GATEWAY-MIB.
 type CISCOMEDIAGATEWAYMIB struct {

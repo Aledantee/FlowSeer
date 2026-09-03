@@ -6,7 +6,7 @@
 // Package ietfdiffservpolicy binds the YANG module ietf-diffserv-policy.
 package ietfdiffservpolicy
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ActionType is the ietf-diffserv-policy identity "action-type".
 var Identity_ActionType = yang.Identity{

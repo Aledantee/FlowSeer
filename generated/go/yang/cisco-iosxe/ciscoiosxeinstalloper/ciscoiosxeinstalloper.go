@@ -6,7 +6,7 @@
 // Package ciscoiosxeinstalloper binds the YANG module Cisco-IOS-XE-install-oper.
 package ciscoiosxeinstalloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // InstallOperData is the Cisco-IOS-XE-install-oper node /Cisco-IOS-XE-install-oper/install-oper-data.
 type InstallOperData struct {

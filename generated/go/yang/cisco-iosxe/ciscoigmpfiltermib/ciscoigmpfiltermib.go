@@ -6,7 +6,7 @@
 // Package ciscoigmpfiltermib binds the YANG module CISCO-IGMP-FILTER-MIB.
 package ciscoigmpfiltermib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIGMPFILTERMIB is the CISCO-IGMP-FILTER-MIB node /CISCO-IGMP-FILTER-MIB/CISCO-IGMP-FILTER-MIB.
 type CISCOIGMPFILTERMIB struct {

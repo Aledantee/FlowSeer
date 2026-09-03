@@ -6,7 +6,7 @@
 // Package snmpv2mib binds the YANG module SNMPv2-MIB.
 package snmpv2mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SNMPv2MIB is the SNMPv2-MIB node /SNMPv2-MIB/SNMPv2-MIB.
 type SNMPv2MIB struct {

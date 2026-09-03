@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmcastoper binds the YANG module Cisco-IOS-XE-wireless-mcast-oper.
 package ciscoiosxewirelessmcastoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // McastOperData is the Cisco-IOS-XE-wireless-mcast-oper node /Cisco-IOS-XE-wireless-mcast-oper/mcast-oper-data.
 type McastOperData struct {

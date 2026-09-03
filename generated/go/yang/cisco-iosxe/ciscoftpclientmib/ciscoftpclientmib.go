@@ -6,7 +6,7 @@
 // Package ciscoftpclientmib binds the YANG module CISCO-FTP-CLIENT-MIB.
 package ciscoftpclientmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOFTPCLIENTMIB is the CISCO-FTP-CLIENT-MIB node /CISCO-FTP-CLIENT-MIB/CISCO-FTP-CLIENT-MIB.
 type CISCOFTPCLIENTMIB struct {

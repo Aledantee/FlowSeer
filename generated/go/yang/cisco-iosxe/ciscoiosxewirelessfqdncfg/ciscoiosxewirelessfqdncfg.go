@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessfqdncfg binds the YANG module Cisco-IOS-XE-wireless-fqdn-cfg.
 package ciscoiosxewirelessfqdncfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // FqdnCfgData is the Cisco-IOS-XE-wireless-fqdn-cfg node /Cisco-IOS-XE-wireless-fqdn-cfg/fqdn-cfg-data.
 type FqdnCfgData struct {

@@ -6,7 +6,7 @@
 // Package openconfigmacsec binds the YANG module openconfig-macsec.
 package openconfigmacsec
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Macsec is the openconfig-macsec node /openconfig-macsec/macsec.
 type Macsec struct {

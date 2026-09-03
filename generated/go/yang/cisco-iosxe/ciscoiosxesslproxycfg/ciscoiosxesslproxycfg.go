@@ -6,7 +6,7 @@
 // Package ciscoiosxesslproxycfg binds the YANG module Cisco-IOS-XE-sslproxy-cfg.
 package ciscoiosxesslproxycfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SslproxyCfgData is the Cisco-IOS-XE-sslproxy-cfg node /Cisco-IOS-XE-sslproxy-cfg/sslproxy-cfg-data.
 type SslproxyCfgData struct {

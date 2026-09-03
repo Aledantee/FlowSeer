@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessfabriccfg binds the YANG module Cisco-IOS-XE-wireless-fabric-cfg.
 package ciscoiosxewirelessfabriccfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // FabricCfgData is the Cisco-IOS-XE-wireless-fabric-cfg node /Cisco-IOS-XE-wireless-fabric-cfg/fabric-cfg-data.
 type FabricCfgData struct {

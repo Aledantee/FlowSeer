@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessradiocfg binds the YANG module Cisco-IOS-XE-wireless-radio-cfg.
 package ciscoiosxewirelessradiocfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RadioCfgData is the Cisco-IOS-XE-wireless-radio-cfg node /Cisco-IOS-XE-wireless-radio-cfg/radio-cfg-data.
 type RadioCfgData struct {

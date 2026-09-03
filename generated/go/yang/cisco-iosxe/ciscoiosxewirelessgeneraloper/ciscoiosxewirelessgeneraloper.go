@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessgeneraloper binds the YANG module Cisco-IOS-XE-wireless-general-oper.
 package ciscoiosxewirelessgeneraloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GeneralOperData is the Cisco-IOS-XE-wireless-general-oper node /Cisco-IOS-XE-wireless-general-oper/general-oper-data.
 type GeneralOperData struct {

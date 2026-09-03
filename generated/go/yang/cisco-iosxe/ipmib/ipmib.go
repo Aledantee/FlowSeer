@@ -6,7 +6,7 @@
 // Package ipmib binds the YANG module IP-MIB.
 package ipmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IPMIB is the IP-MIB node /IP-MIB/IP-MIB.
 type IPMIB struct {

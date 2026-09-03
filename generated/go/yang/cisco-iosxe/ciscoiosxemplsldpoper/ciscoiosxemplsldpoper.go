@@ -6,7 +6,7 @@
 // Package ciscoiosxemplsldpoper binds the YANG module Cisco-IOS-XE-mpls-ldp-oper.
 package ciscoiosxemplsldpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MplsLdpOperData is the Cisco-IOS-XE-mpls-ldp-oper node /Cisco-IOS-XE-mpls-ldp-oper/mpls-ldp-oper-data.
 type MplsLdpOperData struct {

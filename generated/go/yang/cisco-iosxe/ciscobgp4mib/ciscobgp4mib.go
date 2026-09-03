@@ -6,7 +6,7 @@
 // Package ciscobgp4mib binds the YANG module CISCO-BGP4-MIB.
 package ciscobgp4mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOBGP4MIB is the CISCO-BGP4-MIB node /CISCO-BGP4-MIB/CISCO-BGP4-MIB.
 type CISCOBGP4MIB struct {

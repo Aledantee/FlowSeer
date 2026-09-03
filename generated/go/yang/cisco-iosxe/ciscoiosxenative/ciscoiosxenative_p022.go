@@ -5,584 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication_ModeSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/authentication-serial/authentication/mode for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication_ModeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ModeOptions",
-		Name:   "mode-options",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "mode",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication_SendOnly is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/authentication-serial/authentication/send-only.
-type Native_Interface_GigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication_SendOnly struct{}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication_SendOnlySchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/authentication-serial/authentication/send-only for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_IsisSerial_AuthenticationSerial_Authentication_SendOnlySchema = &yang.Schema{
-	Fields:    []yang.Field{},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "send-only",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-	Presence:  true,
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloIntervalSerial is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/hello-interval-serial.
-type Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloIntervalSerial struct {
-	HelloInterval *yang.Value
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloIntervalSerialSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/hello-interval-serial for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloIntervalSerialSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "HelloInterval",
-		Name:   "hello-interval",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "hello-interval-serial",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloMultiplierSerial is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/hello-multiplier-serial.
-type Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloMultiplierSerial struct {
-	HelloMultiplier *uint16
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloMultiplierSerialSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/hello-multiplier-serial for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_IsisSerial_HelloMultiplierSerialSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "HelloMultiplier",
-		Name:   "hello-multiplier",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "hello-multiplier-serial",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/password-serial.
-type Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial struct {
-	Password       *string
-	PasswordConfig *Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial_PasswordConfig
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerialSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/password-serial for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerialSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial_PasswordConfigSchema,
-		GoName: "PasswordConfig",
-		Name:   "password-config",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "password-serial",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial_PasswordConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/password-serial/password-config.
-type Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial_PasswordConfig struct {
-	Encrypt     *string
-	PasswordStr *string
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial_PasswordConfigSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/password-serial/password-config for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_IsisSerial_PasswordSerial_PasswordConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Encrypt",
-		Name:   "encrypt",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "PasswordStr",
-		Name:   "password-str",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "password-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_ThreeWayHandshake is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/three-way-handshake.
-type Native_Interface_GigabitEthernet_Isis_IsisSerial_ThreeWayHandshake struct {
-	Implementor *string
-}
-
-// Native_Interface_GigabitEthernet_Isis_IsisSerial_ThreeWayHandshakeSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/isis-serial/three-way-handshake for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_IsisSerial_ThreeWayHandshakeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Implementor",
-		Name:   "implementor",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "three-way-handshake",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-	Presence:  true,
-}
-
-// Native_Interface_GigabitEthernet_Isis_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric.
-type Native_Interface_GigabitEthernet_Isis_Metric struct {
-	MetricList []Native_Interface_GigabitEthernet_Isis_Metric_MetricList
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GigabitEthernet_Isis_Metric_MetricListSchema,
-		GoName: "MetricList",
-		List:   true,
-		Name:   "metric-list",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_Metric_MetricList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric/metric-list.
-type Native_Interface_GigabitEthernet_Isis_Metric_MetricList struct {
-	Levels *string
-	Value  *yang.Value
-}
-
-// Native_Interface_GigabitEthernet_Isis_Metric_MetricListSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric/metric-list for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_Metric_MetricListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Levels",
-		Name:   "levels",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Value",
-		Name:   "value",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		},
-	}},
-	Keys:      []string{"levels"},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "metric-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_Metric_MetricListKey is Native_Interface_GigabitEthernet_Isis_Metric_MetricList's row identity (ancestor keys in canonical form).
-type Native_Interface_GigabitEthernet_Isis_Metric_MetricListKey struct {
-	GigabitEthernet_Name string
-	Levels               string
-}
-
-// Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow flattens one Native_Interface_GigabitEthernet_Isis_Metric_MetricList entry with its ancestor list keys.
-type Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow struct {
-	GigabitEthernet_Name string
-	Entry                Native_Interface_GigabitEthernet_Isis_Metric_MetricList
-}
-
-// Native_Interface_GigabitEthernet_Isis_Metric_MetricListDescriptor is the flattened-row descriptor for the nested list Native_Interface_GigabitEthernet_Isis_Metric_MetricList.
-func Native_Interface_GigabitEthernet_Isis_Metric_MetricListDescriptor() yang.ListDescriptor[Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow, Native_Interface_GigabitEthernet_Isis_Metric_MetricListKey] {
-	return yang.ListDescriptor[Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow, Native_Interface_GigabitEthernet_Isis_Metric_MetricListKey]{
-		Codec: yang.RowCodec[Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow, Native_Interface_GigabitEthernet_Isis_Metric_MetricListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GigabitEthernetSchema, Native_Interface_GigabitEthernet_Isis_Metric_MetricListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_GigabitEthernet_Isis_Metric_MetricList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow{
-						Entry:                en.Entry,
-						GigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GigabitEthernetSchema, Native_Interface_GigabitEthernet_Isis_Metric_MetricListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_GigabitEthernet_Isis_Metric_MetricList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow{
-						Entry:                en.Entry,
-						GigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow) Native_Interface_GigabitEthernet_Isis_Metric_MetricListKey {
-				var k Native_Interface_GigabitEthernet_Isis_Metric_MetricListKey
-				k.GigabitEthernet_Name = r.GigabitEthernet_Name
-				if r.Entry.Levels != nil {
-					k.Levels = *r.Entry.Levels
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow) Native_Interface_GigabitEthernet_Isis_Metric_MetricListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_GigabitEthernet_Isis_Metric_MetricListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "GigabitEthernet"}, {Name: "isis"}, {
-			Module:    "Cisco-IOS-XE-isis",
-			Name:      "metric",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-		}, {Name: "metric-list"}}},
-	}
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback struct {
-	Metric *Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallbackSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_MetricFallbackSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GigabitEthernet_Isis_MetricFallback_MetricSchema,
-		GoName: "Metric",
-		Name:   "metric",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "metric-fallback",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric struct {
-	Fallback *Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_MetricSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_MetricFallback_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_FallbackSchema,
-		GoName: "Fallback",
-		Name:   "fallback",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback struct {
-	Anomaly   []Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly
-	AnomalyTe *Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_FallbackSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_FallbackSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalySchema,
-		GoName: "Anomaly",
-		List:   true,
-		Name:   "anomaly",
-	}, {
-		Child:  Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTeSchema,
-		GoName: "AnomalyTe",
-		Name:   "anomaly-te",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "fallback",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback/anomaly.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly struct {
-	Delay      *bool
-	Increment  *int64
-	Levels     *string
-	Loss       *bool
-	Maximum    *bool
-	Multiplier *int64
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalySchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback/anomaly for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Increment",
-		Name:   "increment",
-		Type:   yang.TInt64,
-	}, {
-		GoName: "Levels",
-		Name:   "levels",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Loss",
-		Name:   "loss",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Maximum",
-		Name:   "maximum",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Multiplier",
-		Name:   "multiplier",
-		Type:   yang.TInt64,
-	}},
-	Keys:      []string{"levels"},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "anomaly",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyKey is Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly's row identity (ancestor keys in canonical form).
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyKey struct {
-	GigabitEthernet_Name string
-	Levels               string
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow flattens one Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly entry with its ancestor list keys.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow struct {
-	GigabitEthernet_Name string
-	Entry                Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyDescriptor is the flattened-row descriptor for the nested list Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly.
-func Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyDescriptor() yang.ListDescriptor[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyKey] {
-	return yang.ListDescriptor[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyKey]{
-		Codec: yang.RowCodec[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GigabitEthernetSchema, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalySchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow{
-						Entry:                en.Entry,
-						GigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GigabitEthernetSchema, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalySchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_Anomaly](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow{
-						Entry:                en.Entry,
-						GigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow) Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyKey {
-				var k Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyKey
-				k.GigabitEthernet_Name = r.GigabitEthernet_Name
-				if r.Entry.Levels != nil {
-					k.Levels = *r.Entry.Levels
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow) Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalySchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "GigabitEthernet"}, {Name: "isis"}, {
-			Module:    "Cisco-IOS-XE-isis",
-			Name:      "metric-fallback",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-		}, {Name: "metric"}, {Name: "fallback"}, {Name: "anomaly"}}},
-	}
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback/anomaly-te.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe struct {
-	Anomaly []Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTeSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback/anomaly-te for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema,
-		GoName: "Anomaly",
-		List:   true,
-		Name:   "anomaly",
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "anomaly-te",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback/anomaly-te/anomaly.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly struct {
-	Delay      *bool
-	Increment  *int64
-	Levels     *string
-	Loss       *bool
-	Maximum    *bool
-	Multiplier *int64
-	TeMetric   *bool
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/metric-fallback/metric/fallback/anomaly-te/anomaly for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Increment",
-		Name:   "increment",
-		Type:   yang.TInt64,
-	}, {
-		GoName: "Levels",
-		Name:   "levels",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Loss",
-		Name:   "loss",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Maximum",
-		Name:   "maximum",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Multiplier",
-		Name:   "multiplier",
-		Type:   yang.TInt64,
-	}, {
-		GoName: "TeMetric",
-		Name:   "te-metric",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"levels"},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "anomaly",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey is Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly's row identity (ancestor keys in canonical form).
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey struct {
-	GigabitEthernet_Name string
-	Levels               string
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow flattens one Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly entry with its ancestor list keys.
-type Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow struct {
-	GigabitEthernet_Name string
-	Entry                Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly
-}
-
-// Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyDescriptor is the flattened-row descriptor for the nested list Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly.
-func Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyDescriptor() yang.ListDescriptor[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey] {
-	return yang.ListDescriptor[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey]{
-		Codec: yang.RowCodec[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GigabitEthernetSchema, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow{
-						Entry:                en.Entry,
-						GigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_GigabitEthernetSchema, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow{
-						Entry:                en.Entry,
-						GigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow) Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey {
-				var k Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey
-				k.GigabitEthernet_Name = r.GigabitEthernet_Name
-				if r.Entry.Levels != nil {
-					k.Levels = *r.Entry.Levels
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow) Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_GigabitEthernet_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "GigabitEthernet"}, {Name: "isis"}, {
-			Module:    "Cisco-IOS-XE-isis",
-			Name:      "metric-fallback",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-		}, {Name: "metric"}, {Name: "fallback"}, {Name: "anomaly-te"}, {Name: "anomaly"}}},
-	}
-}
-
-// Native_Interface_GigabitEthernet_Isis_Network is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/network.
-type Native_Interface_GigabitEthernet_Isis_Network struct {
-	PointToPoint *bool
-}
-
-// Native_Interface_GigabitEthernet_Isis_NetworkSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/network for the generic codecs.
-var Native_Interface_GigabitEthernet_Isis_NetworkSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PointToPoint",
-		Name:   "point-to-point",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-isis",
-	Name:      "network",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
-}
-
-// Native_Interface_GigabitEthernet_Isis_PrefixAttributes is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/prefix-attributes.
-type Native_Interface_GigabitEthernet_Isis_PrefixAttributes struct {
-	PrefixAttributesList []Native_Interface_GigabitEthernet_Isis_PrefixAttributes_PrefixAttributesList
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_GigabitEthernet_Isis_PrefixAttributesSchema describes /Cisco-IOS-XE-native/native/interface/GigabitEthernet/isis/prefix-attributes for the generic codecs.
 var Native_Interface_GigabitEthernet_Isis_PrefixAttributesSchema = &yang.Schema{
@@ -42458,4 +41881,660 @@ var Native_Interface_GroupAsync_Peer_Default_Ip_Address_DhcpPoolSchema = &yang.S
 // Native_Interface_GroupAsync_Peer_Default_Ip_Address_Pool is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address/address-choice/pool/pool.
 type Native_Interface_GroupAsync_Peer_Default_Ip_Address_Pool struct {
 	Pools *string
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_Address_PoolSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address/address-choice/pool/pool for the generic codecs.
+var Native_Interface_GroupAsync_Peer_Default_Ip_Address_PoolSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Pools",
+		Name:   "pools",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pool",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config.
+type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig struct {
+	Address *Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfigSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config for the generic codecs.
+var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_AddressSchema,
+		GoName: "Address",
+		Name:   "address",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "address-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address.
+type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address struct {
+	Dhcp     *bool
+	DhcpPool *Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPool
+	Pool     *Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_Pool
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_AddressSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address for the generic codecs.
+var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_AddressSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Dhcp",
+		Name:   "dhcp",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPoolSchema,
+		GoName: "DhcpPool",
+		Name:   "dhcp-pool",
+	}, {
+		Child:  Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_PoolSchema,
+		GoName: "Pool",
+		Name:   "pool",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "address",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPool is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/dhcp-pool/dhcp-pool.
+type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPool struct {
+	Pools *string
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPoolSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/dhcp-pool/dhcp-pool for the generic codecs.
+var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_DhcpPoolSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Pools",
+		Name:   "pools",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "dhcp-pool",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_Pool is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/pool/pool.
+type Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_Pool struct {
+	Pools *string
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_PoolSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-config/address-config/address/address-choice/pool/pool for the generic codecs.
+var Native_Interface_GroupAsync_Peer_Default_Ip_AddressConfig_Address_PoolSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Pools",
+		Name:   "pools",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pool",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressNo is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-no/address-no.
+type Native_Interface_GroupAsync_Peer_Default_Ip_AddressNo struct {
+	Address *bool
+}
+
+// Native_Interface_GroupAsync_Peer_Default_Ip_AddressNoSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/peer/default/ip/address-choice/address-no/address-no for the generic codecs.
+var Native_Interface_GroupAsync_Peer_Default_Ip_AddressNoSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Address",
+		Name:   "address",
+		Type:   yang.TBool,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "address-no",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_PmPath is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/pm-path.
+type Native_Interface_GroupAsync_PmPath struct {
+	InterfaceId *uint8
+	Name        *string
+}
+
+// Native_Interface_GroupAsync_PmPathSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/pm-path for the generic codecs.
+var Native_Interface_GroupAsync_PmPathSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "InterfaceId",
+		Name:   "interface-id",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pm-path",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_PriorityQueue is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue.
+type Native_Interface_GroupAsync_PriorityQueue struct {
+	CosMap *Native_Interface_GroupAsync_PriorityQueue_CosMap
+	Out    *bool
+}
+
+// Native_Interface_GroupAsync_PriorityQueueSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue for the generic codecs.
+var Native_Interface_GroupAsync_PriorityQueueSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_GroupAsync_PriorityQueue_CosMapSchema,
+		GoName: "CosMap",
+		Name:   "cos-map",
+	}, {
+		GoName: "Out",
+		Name:   "out",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "priority-queue",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_PriorityQueue_CosMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue/cos-map.
+type Native_Interface_GroupAsync_PriorityQueue_CosMap struct {
+	CosValues []uint8
+	Id        *uint8
+}
+
+// Native_Interface_GroupAsync_PriorityQueue_CosMapSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/priority-queue/cos-map for the generic codecs.
+var Native_Interface_GroupAsync_PriorityQueue_CosMapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName:   "CosValues",
+		LeafList: true,
+		Name:     "cos-values",
+		Type:     yang.TUint8,
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "cos-map",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_PuntControl is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control.
+type Native_Interface_GroupAsync_PuntControl struct {
+	Cause  []Native_Interface_GroupAsync_PuntControl_Cause
+	Enable *Native_Interface_GroupAsync_PuntControl_Enable
+}
+
+// Native_Interface_GroupAsync_PuntControlSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control for the generic codecs.
+var Native_Interface_GroupAsync_PuntControlSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_GroupAsync_PuntControl_CauseSchema,
+		GoName: "Cause",
+		List:   true,
+		Name:   "cause",
+	}, {
+		Child:  Native_Interface_GroupAsync_PuntControl_EnableSchema,
+		GoName: "Enable",
+		Name:   "enable",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "punt-control",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_PuntControl_Cause is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/cause.
+type Native_Interface_GroupAsync_PuntControl_Cause struct {
+	Name *string
+	Rate *uint32
+}
+
+// Native_Interface_GroupAsync_PuntControl_CauseSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/cause for the generic codecs.
+var Native_Interface_GroupAsync_PuntControl_CauseSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Rate",
+		Name:   "rate",
+		Type:   yang.TUint32,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "cause",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_PuntControl_CauseKey is Native_Interface_GroupAsync_PuntControl_Cause's row identity (ancestor keys in canonical form).
+type Native_Interface_GroupAsync_PuntControl_CauseKey struct {
+	GroupAsync_Name string
+	Name            string
+}
+
+// Native_Interface_GroupAsync_PuntControl_CauseFlatRow flattens one Native_Interface_GroupAsync_PuntControl_Cause entry with its ancestor list keys.
+type Native_Interface_GroupAsync_PuntControl_CauseFlatRow struct {
+	GroupAsync_Name string
+	Entry           Native_Interface_GroupAsync_PuntControl_Cause
+}
+
+// Native_Interface_GroupAsync_PuntControl_CauseDescriptor is the flattened-row descriptor for the nested list Native_Interface_GroupAsync_PuntControl_Cause.
+func Native_Interface_GroupAsync_PuntControl_CauseDescriptor() yang.ListDescriptor[Native_Interface_GroupAsync_PuntControl_CauseFlatRow, Native_Interface_GroupAsync_PuntControl_CauseKey] {
+	return yang.ListDescriptor[Native_Interface_GroupAsync_PuntControl_CauseFlatRow, Native_Interface_GroupAsync_PuntControl_CauseKey]{
+		Codec: yang.RowCodec[Native_Interface_GroupAsync_PuntControl_CauseFlatRow, Native_Interface_GroupAsync_PuntControl_CauseKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_PuntControl_CauseSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_GroupAsync_PuntControl_Cause](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_GroupAsync_PuntControl_CauseFlatRow{
+						Entry:           en.Entry,
+						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_PuntControl_CauseSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_GroupAsync_PuntControl_Cause](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_GroupAsync_PuntControl_CauseFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_GroupAsync_PuntControl_CauseFlatRow{
+						Entry:           en.Entry,
+						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_GroupAsync_PuntControl_CauseFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_GroupAsync_PuntControl_CauseFlatRow) Native_Interface_GroupAsync_PuntControl_CauseKey {
+				var k Native_Interface_GroupAsync_PuntControl_CauseKey
+				k.GroupAsync_Name = r.GroupAsync_Name
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_GroupAsync_PuntControl_CauseFlatRow) Native_Interface_GroupAsync_PuntControl_CauseFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_GroupAsync_PuntControl_CauseSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Group-Async"}, {Name: "punt-control"}, {Name: "cause"}}},
+	}
+}
+
+// Native_Interface_GroupAsync_PuntControl_Enable is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/enable.
+type Native_Interface_GroupAsync_PuntControl_Enable struct {
+	Pps *uint32
+}
+
+// Native_Interface_GroupAsync_PuntControl_EnableSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/punt-control/enable for the generic codecs.
+var Native_Interface_GroupAsync_PuntControl_EnableSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Pps",
+		Name:   "pps",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "enable",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_GroupAsync_RcvQueue is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue.
+type Native_Interface_GroupAsync_RcvQueue struct {
+	CosMap []Native_Interface_GroupAsync_RcvQueue_CosMap
+}
+
+// Native_Interface_GroupAsync_RcvQueueSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue for the generic codecs.
+var Native_Interface_GroupAsync_RcvQueueSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_GroupAsync_RcvQueue_CosMapSchema,
+		GoName: "CosMap",
+		List:   true,
+		Name:   "cos-map",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "rcv-queue",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_RcvQueue_CosMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue/cos-map.
+type Native_Interface_GroupAsync_RcvQueue_CosMap struct {
+	CosValues   []uint8
+	QueueId     *uint8
+	ThresholdId *uint8
+}
+
+// Native_Interface_GroupAsync_RcvQueue_CosMapSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/rcv-queue/cos-map for the generic codecs.
+var Native_Interface_GroupAsync_RcvQueue_CosMapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName:   "CosValues",
+		LeafList: true,
+		Name:     "cos-values",
+		Type:     yang.TUint8,
+	}, {
+		GoName: "QueueId",
+		Name:   "queue-id",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "ThresholdId",
+		Name:   "threshold-id",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"queue-id", "threshold-id"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "cos-map",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_RcvQueue_CosMapKey is Native_Interface_GroupAsync_RcvQueue_CosMap's row identity (ancestor keys in canonical form).
+type Native_Interface_GroupAsync_RcvQueue_CosMapKey struct {
+	GroupAsync_Name string
+	QueueId         uint8
+	ThresholdId     uint8
+}
+
+// Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow flattens one Native_Interface_GroupAsync_RcvQueue_CosMap entry with its ancestor list keys.
+type Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow struct {
+	GroupAsync_Name string
+	Entry           Native_Interface_GroupAsync_RcvQueue_CosMap
+}
+
+// Native_Interface_GroupAsync_RcvQueue_CosMapDescriptor is the flattened-row descriptor for the nested list Native_Interface_GroupAsync_RcvQueue_CosMap.
+func Native_Interface_GroupAsync_RcvQueue_CosMapDescriptor() yang.ListDescriptor[Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, Native_Interface_GroupAsync_RcvQueue_CosMapKey] {
+	return yang.ListDescriptor[Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, Native_Interface_GroupAsync_RcvQueue_CosMapKey]{
+		Codec: yang.RowCodec[Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, Native_Interface_GroupAsync_RcvQueue_CosMapKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_RcvQueue_CosMapSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_GroupAsync_RcvQueue_CosMap](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow{
+						Entry:           en.Entry,
+						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_RcvQueue_CosMapSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_GroupAsync_RcvQueue_CosMap](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow{
+						Entry:           en.Entry,
+						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow) Native_Interface_GroupAsync_RcvQueue_CosMapKey {
+				var k Native_Interface_GroupAsync_RcvQueue_CosMapKey
+				k.GroupAsync_Name = r.GroupAsync_Name
+				if r.Entry.QueueId != nil {
+					k.QueueId = *r.Entry.QueueId
+				}
+				if r.Entry.ThresholdId != nil {
+					k.ThresholdId = *r.Entry.ThresholdId
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow) Native_Interface_GroupAsync_RcvQueue_CosMapFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_GroupAsync_RcvQueue_CosMapSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Group-Async"}, {Name: "rcv-queue"}, {Name: "cos-map"}}},
+	}
+}
+
+// Native_Interface_GroupAsync_Redundancy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy.
+type Native_Interface_GroupAsync_Redundancy struct {
+	AsymmetricRouting *Native_Interface_GroupAsync_Redundancy_AsymmetricRouting
+	GratuitousArp     *Native_Interface_GroupAsync_Redundancy_GratuitousArp
+	Group             []Native_Interface_GroupAsync_Redundancy_Group
+	Rii               *Native_Interface_GroupAsync_Redundancy_Rii
+}
+
+// Native_Interface_GroupAsync_RedundancySchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy for the generic codecs.
+var Native_Interface_GroupAsync_RedundancySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_GroupAsync_Redundancy_AsymmetricRoutingSchema,
+		GoName: "AsymmetricRouting",
+		Name:   "asymmetric-routing",
+	}, {
+		Child:  Native_Interface_GroupAsync_Redundancy_GratuitousArpSchema,
+		GoName: "GratuitousArp",
+		Name:   "gratuitous-arp",
+	}, {
+		Child:  Native_Interface_GroupAsync_Redundancy_GroupSchema,
+		GoName: "Group",
+		List:   true,
+		Name:   "group",
+	}, {
+		Child:  Native_Interface_GroupAsync_Redundancy_RiiSchema,
+		GoName: "Rii",
+		Name:   "rii",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "redundancy",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Redundancy_AsymmetricRouting is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/asymmetric-routing.
+type Native_Interface_GroupAsync_Redundancy_AsymmetricRouting struct {
+	Enable *bool
+}
+
+// Native_Interface_GroupAsync_Redundancy_AsymmetricRoutingSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/asymmetric-routing for the generic codecs.
+var Native_Interface_GroupAsync_Redundancy_AsymmetricRoutingSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Enable",
+		Name:   "enable",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "asymmetric-routing",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp.
+type Native_Interface_GroupAsync_Redundancy_GratuitousArp struct {
+	Group []Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArpSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp for the generic codecs.
+var Native_Interface_GroupAsync_Redundancy_GratuitousArpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema,
+		GoName: "Group",
+		List:   true,
+		Name:   "group",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "gratuitous-arp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group.
+type Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group struct {
+	Id       *uint8
+	Interval *Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_Interval
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group for the generic codecs.
+var Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_IntervalSchema,
+		GoName: "Interval",
+		Name:   "interval",
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey is Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group's row identity (ancestor keys in canonical form).
+type Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey struct {
+	GroupAsync_Name string
+	Id              uint8
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow flattens one Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group entry with its ancestor list keys.
+type Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow struct {
+	GroupAsync_Name string
+	Entry           Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group.
+func Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupDescriptor() yang.ListDescriptor[Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey] {
+	return yang.ListDescriptor[Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey]{
+		Codec: yang.RowCodec[Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow{
+						Entry:           en.Entry,
+						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_GroupAsyncSchema, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow{
+						Entry:           en.Entry,
+						GroupAsync_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow) Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey {
+				var k Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupKey
+				k.GroupAsync_Name = r.GroupAsync_Name
+				if r.Entry.Id != nil {
+					k.Id = *r.Entry.Id
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow) Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_GroupAsync_Redundancy_GratuitousArp_GroupSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Group-Async"}, {Name: "redundancy"}, {Name: "gratuitous-arp"}, {Name: "group"}}},
+	}
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_Interval is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group/interval.
+type Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_Interval struct {
+	Min *uint8
+	Sec *uint16
+}
+
+// Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_IntervalSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/gratuitous-arp/group/interval for the generic codecs.
+var Native_Interface_GroupAsync_Redundancy_GratuitousArp_Group_IntervalSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Min",
+		Name:   "min",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Sec",
+		Name:   "sec",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "interval",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Redundancy_Group is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/group.
+type Native_Interface_GroupAsync_Redundancy_Group struct {
+	Decrement *uint8
+	Id        *uint8
+	VirtualIp []Native_Interface_GroupAsync_Redundancy_Group_VirtualIp
+}
+
+// Native_Interface_GroupAsync_Redundancy_GroupSchema describes /Cisco-IOS-XE-native/native/interface/Group-Async/redundancy/group for the generic codecs.
+var Native_Interface_GroupAsync_Redundancy_GroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Decrement",
+		Name:   "decrement",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Interface_GroupAsync_Redundancy_Group_VirtualIpSchema,
+		GoName: "VirtualIp",
+		List:   true,
+		Name:   "virtual-ip",
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_GroupAsync_Redundancy_GroupKey is Native_Interface_GroupAsync_Redundancy_Group's row identity (ancestor keys in canonical form).
+type Native_Interface_GroupAsync_Redundancy_GroupKey struct {
+	GroupAsync_Name string
+	Id              uint8
+}
+
+// Native_Interface_GroupAsync_Redundancy_GroupFlatRow flattens one Native_Interface_GroupAsync_Redundancy_Group entry with its ancestor list keys.
+type Native_Interface_GroupAsync_Redundancy_GroupFlatRow struct {
+	GroupAsync_Name string
+	Entry           Native_Interface_GroupAsync_Redundancy_Group
 }

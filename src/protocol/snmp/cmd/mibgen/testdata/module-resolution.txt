@@ -1,0 +1,29 @@
+# Module resolution pinned for mibgen.
+#
+# One line per configured module: the module name, the file that name
+# resolves to relative to the repository root, and the SHA-256 of that
+# file. The generated header carries the same path and digest, so a
+# module quietly resolving to a sibling file — a dated revision of the
+# same MIB, say — would move every binding in its package without
+# anything else in the build noticing. Pinning it here turns that into a
+# named test failure.
+#
+# Regenerate with:
+#   go test ./src/protocol/snmp/cmd/mibgen -run TestModuleResolution -update-resolution
+
+SNMPv2-SMI	spec/mib/ietf/SNMPv2-SMI	ece2355fc8b6140af702f86d77bd3f7398d80375fc6278c3e30ff3a31b53e0b7
+SNMPv2-TC	spec/mib/ietf/SNMPv2-TC	c1379575e6a0ad25b2d7da68294153c1fd79750827376f2aa6323d072d73f0b8
+SNMPv2-CONF	spec/mib/ietf/SNMPv2-CONF	b3e90ba682e10c76f6de90e65a0013143f0ec531b0ed546b2b8aa5ad5c0001eb
+IANAifType-MIB	spec/mib/ietf/IANAifType-MIB	1bb1a2e5938abfd21ed019ff0c9cec71d2e2387b266737a37fe9516307b7afd8
+SNMPv2-MIB	spec/mib/ietf/SNMPv2-MIB	b4f8ef130f580b86d2b6bc890564e46100785f589431df76954e878a7b166e11
+IF-MIB	spec/mib/ietf/IF-MIB	a41d2d0414bd6e1b3249257d0d035ea11554624c525b830f6910195b72b0c297
+BRIDGE-MIB	spec/mib/ietf/BRIDGE-MIB	1e18de882086fca7be165e367d3b8e141379f5181fcaa3af0efe63f6710440da
+P-BRIDGE-MIB	spec/mib/ietf/P-BRIDGE-MIB	6dc239385992f51c08aca390749ed1af5ac16449394b33b19a98b9873f78d74e
+Q-BRIDGE-MIB	spec/mib/ietf/Q-BRIDGE-MIB	7c89bcd1830251189afd6b326650f2b6eb2f31c4a04c3f82d45453bd2c194fbb
+ENTITY-MIB	spec/mib/ietf/ENTITY-MIB	e56b77653a23171405dbae2431ed3f411dbe311e6ce1222cfd4cffd29dfe2e0c
+ENTITY-SENSOR-MIB	spec/mib/ietf/ENTITY-SENSOR-MIB	3ca987418ef2875b785725ac197be52730d5b4225b8a6961ad3983cbb5640be3
+ENTITY-STATE-MIB	spec/mib/ietf/ENTITY-STATE-MIB	5bf27909987c6f15e3ae5c81a02394e82c27f39e059717f4f65af03779bf6c8a
+IP-MIB	spec/mib/ietf/IP-MIB	6a6ec284b2de6f21a4d090927dba474a131c777d1c0b5a80a57fe21a7dd4a3d3
+HOST-RESOURCES-MIB	spec/mib/ietf/HOST-RESOURCES-MIB	0406b893dcfacc370a1ae04ccfe6ffdecb15f93e3377a1a5ded2bbde5d944165
+LLDP-MIB	spec/mib/ieee/LLDP-MIB	f0dac7bac08b6d632d2f2363aba8acf106ee7cf83c15f14823489390c31d6769
+MIKROTIK-MIB	spec/mib/mikrotik/MIKROTIK-MIB	b1a65ff8009d2b958177440e53005579305298eefcdeb062d236b305ce2373fb

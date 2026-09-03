@@ -6,7 +6,7 @@
 // Package ciscoiosxepolicymaptargetoper binds the YANG module Cisco-IOS-XE-policymap-target-oper.
 package ciscoiosxepolicymaptargetoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PolicymapTargetOperData is the Cisco-IOS-XE-policymap-target-oper node /Cisco-IOS-XE-policymap-target-oper/policymap-target-oper-data.
 type PolicymapTargetOperData struct {

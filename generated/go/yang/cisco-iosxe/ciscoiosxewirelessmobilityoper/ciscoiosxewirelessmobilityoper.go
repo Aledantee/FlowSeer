@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmobilityoper binds the YANG module Cisco-IOS-XE-wireless-mobility-oper.
 package ciscoiosxewirelessmobilityoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MobilityOperData is the Cisco-IOS-XE-wireless-mobility-oper node /Cisco-IOS-XE-wireless-mobility-oper/mobility-oper-data.
 type MobilityOperData struct {

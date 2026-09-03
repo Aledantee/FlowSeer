@@ -6,7 +6,7 @@
 // Package openconfigifethernet binds the YANG module openconfig-if-ethernet.
 package openconfigifethernet
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ETHERNETSPEED is the openconfig-if-ethernet identity "ETHERNET_SPEED".
 var Identity_ETHERNETSPEED = yang.Identity{

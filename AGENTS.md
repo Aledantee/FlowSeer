@@ -67,7 +67,12 @@ invariants.
 
 ## Layout
 
-- `src/backend/`, `src/common/`, `src/edge/` — Go (`go.aledante.io/FlowSeer`).
+- Go (`go.aledante.io/FlowSeer`), one module unless a directory says otherwise:
+  - `src/protocol/` — protocol and schema-language libraries; no domain types.
+  - `src/common/` — cross-cutting foundations (`errs`, `pump`); no domain types.
+  - `src/modules/` — reusable modules a host assembles; see its README.
+  - `src/services/` — control-plane services, assembled from modules.
+  - `src/edge/` — applications built to run at the edge (may also run centrally).
 - `spec/proto/` + `spec/mib/` — schema sources of truth; `generated/` is
   `buf generate` output, never edited by hand.
 - `docs/architecture/` — accepted direction records; read first for work on the

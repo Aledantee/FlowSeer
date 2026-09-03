@@ -6,7 +6,7 @@
 // Package openconfigwifimac binds the YANG module openconfig-wifi-mac.
 package openconfigwifimac
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Ssids is the openconfig-wifi-mac node /openconfig-wifi-mac/ssids.
 type Ssids struct {

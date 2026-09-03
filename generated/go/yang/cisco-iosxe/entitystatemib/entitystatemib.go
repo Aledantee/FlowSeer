@@ -6,7 +6,7 @@
 // Package entitystatemib binds the YANG module ENTITY-STATE-MIB.
 package entitystatemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ENTITYSTATEMIB is the ENTITY-STATE-MIB node /ENTITY-STATE-MIB/ENTITY-STATE-MIB.
 type ENTITYSTATEMIB struct {

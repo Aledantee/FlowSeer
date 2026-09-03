@@ -6,7 +6,7 @@
 // Package snmpproxymib binds the YANG module SNMP-PROXY-MIB.
 package snmpproxymib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SNMPPROXYMIB is the SNMP-PROXY-MIB node /SNMP-PROXY-MIB/SNMP-PROXY-MIB.
 type SNMPPROXYMIB struct {

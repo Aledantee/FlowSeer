@@ -6,7 +6,7 @@
 // Package openconfigmessages binds the YANG module openconfig-messages.
 package openconfigmessages
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_DEBUGSERVICE is the openconfig-messages identity "DEBUG_SERVICE".
 var Identity_DEBUGSERVICE = yang.Identity{

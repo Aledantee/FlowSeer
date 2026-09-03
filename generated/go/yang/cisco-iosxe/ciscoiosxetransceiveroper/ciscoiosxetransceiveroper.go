@@ -6,7 +6,7 @@
 // Package ciscoiosxetransceiveroper binds the YANG module Cisco-IOS-XE-transceiver-oper.
 package ciscoiosxetransceiveroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TransceiverOperData is the Cisco-IOS-XE-transceiver-oper node /Cisco-IOS-XE-transceiver-oper/transceiver-oper-data.
 type TransceiverOperData struct {

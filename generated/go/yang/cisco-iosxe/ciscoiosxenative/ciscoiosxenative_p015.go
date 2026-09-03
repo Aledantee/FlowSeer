@@ -5,511 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_FastEthernet_Service_Instance is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance.
-type Native_Interface_FastEthernet_Service_Instance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *Native_Interface_FastEthernet_Service_Instance_BridgeDomain
-	Cfm               *Native_Interface_FastEthernet_Service_Instance_Cfm
-	Description       *string
-	Eapol             *Native_Interface_FastEthernet_Service_Instance_Eapol
-	Encapsulation     *Native_Interface_FastEthernet_Service_Instance_Encapsulation
-	Errdisable        *Native_Interface_FastEthernet_Service_Instance_Errdisable
-	Ethernet          *bool
-	EthernetContainer *Native_Interface_FastEthernet_Service_Instance_EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	Id                *uint32
-	Ip                *Native_Interface_FastEthernet_Service_Instance_Ip
-	Ipv6              *Native_Interface_FastEthernet_Service_Instance_Ipv6
-	L2protocol        *Native_Interface_FastEthernet_Service_Instance_L2protocol
-	Lldp              *Native_Interface_FastEthernet_Service_Instance_Lldp
-	Mac               *Native_Interface_FastEthernet_Service_Instance_Mac
-	Rewrite           *Native_Interface_FastEthernet_Service_Instance_Rewrite
-	ServicePolicy     *Native_Interface_FastEthernet_Service_Instance_ServicePolicy
-	Shutdown          *bool
-	Snmp              *Native_Interface_FastEthernet_Service_Instance_Snmp
-	StormControl      *Native_Interface_FastEthernet_Service_Instance_StormControl
-	Track             *uint16
-	Trunk             *bool
-	Xconnect          *Native_Interface_FastEthernet_Service_Instance_Xconnect
-	XconnectPwClass   *Native_Interface_FastEthernet_Service_Instance_XconnectPwClass
-}
-
-// Native_Interface_FastEthernet_Service_InstanceSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance for the generic codecs.
-var Native_Interface_FastEthernet_Service_InstanceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "GigabitEthernet",
-		Name:   "GigabitEthernet",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_BridgeDomainSchema,
-		GoName: "BridgeDomain",
-		Name:   "bridge-domain",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_CfmSchema,
-		GoName: "Cfm",
-		Name:   "cfm",
-	}, {
-		GoName: "Description",
-		Name:   "description",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_EapolSchema,
-		GoName: "Eapol",
-		Name:   "eapol",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_EncapsulationSchema,
-		GoName: "Encapsulation",
-		Name:   "encapsulation",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_ErrdisableSchema,
-		GoName: "Errdisable",
-		Name:   "errdisable",
-	}, {
-		GoName: "Ethernet",
-		Name:   "ethernet",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_EthernetContainerSchema,
-		GoName: "EthernetContainer",
-		Name:   "ethernet-container",
-	}, {
-		GoName: "EthernetEvcName",
-		Name:   "ethernet-evc-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "EvcName",
-		Name:   "evc-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Group",
-		Name:   "group",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TUint32,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_IpSchema,
-		GoName: "Ip",
-		Name:   "ip",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Ipv6Schema,
-		GoName: "Ipv6",
-		Name:   "ipv6",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_L2protocolSchema,
-		GoName: "L2protocol",
-		Name:   "l2protocol",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_LldpSchema,
-		GoName: "Lldp",
-		Name:   "lldp",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_MacSchema,
-		GoName: "Mac",
-		Name:   "mac",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_RewriteSchema,
-		GoName: "Rewrite",
-		Name:   "rewrite",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_ServicePolicySchema,
-		GoName: "ServicePolicy",
-		Name:   "service-policy",
-	}, {
-		GoName: "Shutdown",
-		Name:   "shutdown",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_SnmpSchema,
-		GoName: "Snmp",
-		Name:   "snmp",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_StormControlSchema,
-		GoName: "StormControl",
-		Name:   "storm-control",
-	}, {
-		GoName: "Track",
-		Name:   "track",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Trunk",
-		Name:   "trunk",
-		Type:   yang.TEmpty,
-	}, {
-		Child:     Native_Interface_FastEthernet_Service_Instance_XconnectSchema,
-		GoName:    "Xconnect",
-		Module:    "Cisco-IOS-XE-l2vpn",
-		Name:      "xconnect",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}, {
-		Child:     Native_Interface_FastEthernet_Service_Instance_XconnectPwClassSchema,
-		GoName:    "XconnectPwClass",
-		Module:    "Cisco-IOS-XE-l2vpn",
-		Name:      "xconnect-pw-class",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "instance",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_InstanceKey is Native_Interface_FastEthernet_Service_Instance's row identity (ancestor keys in canonical form).
-type Native_Interface_FastEthernet_Service_InstanceKey struct {
-	FastEthernet_Name string
-	Id                uint32
-}
-
-// Native_Interface_FastEthernet_Service_InstanceFlatRow flattens one Native_Interface_FastEthernet_Service_Instance entry with its ancestor list keys.
-type Native_Interface_FastEthernet_Service_InstanceFlatRow struct {
-	FastEthernet_Name string
-	Entry             Native_Interface_FastEthernet_Service_Instance
-}
-
-// Native_Interface_FastEthernet_Service_InstanceDescriptor is the flattened-row descriptor for the nested list Native_Interface_FastEthernet_Service_Instance.
-func Native_Interface_FastEthernet_Service_InstanceDescriptor() yang.ListDescriptor[Native_Interface_FastEthernet_Service_InstanceFlatRow, Native_Interface_FastEthernet_Service_InstanceKey] {
-	return yang.ListDescriptor[Native_Interface_FastEthernet_Service_InstanceFlatRow, Native_Interface_FastEthernet_Service_InstanceKey]{
-		Codec: yang.RowCodec[Native_Interface_FastEthernet_Service_InstanceFlatRow, Native_Interface_FastEthernet_Service_InstanceKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FastEthernet_Service_InstanceFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FastEthernetSchema, Native_Interface_FastEthernet_Service_InstanceSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FastEthernet_Service_Instance](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FastEthernet_Service_InstanceFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FastEthernet_Service_InstanceFlatRow{
-						Entry:             en.Entry,
-						FastEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FastEthernet_Service_InstanceFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FastEthernetSchema, Native_Interface_FastEthernet_Service_InstanceSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FastEthernet_Service_Instance](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FastEthernet_Service_InstanceFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FastEthernet_Service_InstanceFlatRow{
-						Entry:             en.Entry,
-						FastEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FastEthernet_Service_InstanceFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FastEthernet_Service_InstanceFlatRow) Native_Interface_FastEthernet_Service_InstanceKey {
-				var k Native_Interface_FastEthernet_Service_InstanceKey
-				k.FastEthernet_Name = r.FastEthernet_Name
-				if r.Entry.Id != nil {
-					k.Id = *r.Entry.Id
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FastEthernet_Service_InstanceFlatRow) Native_Interface_FastEthernet_Service_InstanceFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FastEthernet_Service_InstanceSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FastEthernet"}, {
-			Module:    "Cisco-IOS-XE-ethernet",
-			Name:      "service",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-		}, {Name: "instance"}}},
-	}
-}
-
-// Native_Interface_FastEthernet_Service_Instance_BridgeDomain is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain.
-type Native_Interface_FastEthernet_Service_Instance_BridgeDomain struct {
-	BridgeId             *uint16
-	FromEncapsulation    *bool
-	SplitHorizon         *Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizon
-	SplitHorizonPresence *Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresence
-}
-
-// Native_Interface_FastEthernet_Service_Instance_BridgeDomainSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_BridgeDomainSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "BridgeId",
-		Name:   "bridge-id",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "FromEncapsulation",
-		Name:   "from-encapsulation",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonSchema,
-		GoName: "SplitHorizon",
-		Name:   "split-horizon",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresenceSchema,
-		GoName: "SplitHorizonPresence",
-		Name:   "split-horizon-presence",
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "bridge-domain",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizon is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon.
-type Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizon struct {
-	Group *uint8
-}
-
-// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Group",
-		Name:   "group",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "split-horizon",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresence is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon-presence.
-type Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresence struct {
-	Group *uint8
-}
-
-// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresenceSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon-presence for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresenceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Group",
-		Name:   "group",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "split-horizon-presence",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-	Presence:  true,
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm.
-type Native_Interface_FastEthernet_Service_Instance_Cfm struct {
-	Encapsulation    *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation
-	LatchingLoopback *Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback
-	Mep              *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep
-	MepList          *Native_Interface_FastEthernet_Service_Instance_Cfm_MepList
-	Mip              *Native_Interface_FastEthernet_Service_Instance_Cfm_Mip
-}
-
-// Native_Interface_FastEthernet_Service_Instance_CfmSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_CfmSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_EncapsulationSchema,
-		GoName: "Encapsulation",
-		Name:   "encapsulation",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopbackSchema,
-		GoName: "LatchingLoopback",
-		Name:   "latching-loopback",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_MepSchema,
-		GoName: "Mep",
-		Name:   "mep",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_MepListSchema,
-		GoName: "MepList",
-		Name:   "mep-list",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_MipSchema,
-		GoName: "Mip",
-		Name:   "mip",
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "cfm",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation struct {
-	Dot1ad *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad
-	Dot1q  *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_EncapsulationSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_Cfm_EncapsulationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1adSchema,
-		GoName: "Dot1ad",
-		Name:   "dot1ad",
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1qSchema,
-		GoName: "Dot1q",
-		Name:   "dot1q",
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "encapsulation",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad struct {
-	Cos    *uint8
-	Cos2   *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2
-	Dot1q  *uint16
-	VlanId *uint16
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1adSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1adSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cos",
-		Name:   "cos",
-		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2Schema,
-		GoName: "Cos2",
-		Name:   "cos2",
-	}, {
-		GoName: "Dot1q",
-		Name:   "dot1q",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "VlanId",
-		Name:   "vlan-id",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "dot1ad",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad/cos2.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2 struct {
-	Cos *uint8
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2Schema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad/cos2 for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cos",
-		Name:   "cos",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "cos2",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q struct {
-	Cos         *uint8
-	Cos2        *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2
-	SecondDot1q *uint16
-	VlanId      *uint16
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1qSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1qSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cos",
-		Name:   "cos",
-		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2Schema,
-		GoName: "Cos2",
-		Name:   "cos2",
-	}, {
-		GoName: "SecondDot1q",
-		Name:   "second-dot1q",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "VlanId",
-		Name:   "vlan-id",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "dot1q",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q/cos2.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2 struct {
-	Cos *uint8
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2Schema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q/cos2 for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cos",
-		Name:   "cos",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "cos2",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback struct {
-	Controller *Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_Controller
-	Domain     *string
-	Responder  *bool
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopbackSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopbackSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_ControllerSchema,
-		GoName: "Controller",
-		Name:   "controller",
-	}, {
-		GoName: "Domain",
-		Name:   "domain",
-		Type:   yang.TString,
-	}, {
-		GoName: "Responder",
-		Name:   "responder",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "latching-loopback",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_Controller is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback/controller.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_Controller struct {
-	DiscoverInterval *uint8
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_ControllerSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback/controller for the generic codecs.
-var Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_ControllerSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "DiscoverInterval",
-		Name:   "discover-interval",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "controller",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_FastEthernet_Service_Instance_Cfm_Mep is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/mep.
-type Native_Interface_FastEthernet_Service_Instance_Cfm_Mep struct {
-	Alarm           *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep_Alarm
-	ContinuityCheck *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep_ContinuityCheck
-	Cos             *uint16
-	Domain          *string
-	Mpid            *uint16
-	Rmep            *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep_Rmep
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_FastEthernet_Service_Instance_Cfm_MepSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/mep for the generic codecs.
 var Native_Interface_FastEthernet_Service_Instance_Cfm_MepSchema = &yang.Schema{
@@ -41368,4 +40864,381 @@ var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_DhcpSchema = &yang.Schema
 	Name:      "dhcp",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
 	Presence:  true,
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress struct {
+	Address   *string
+	LinkLocal *bool
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Address",
+		Name:   "address",
+		Type:   yang.TString,
+	}, {
+		GoName: "LinkLocal",
+		Name:   "link-local",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"address"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "link-local-address",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress's row identity (ancestor keys in canonical form).
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey struct {
+	FiftyGigabitEthernet_Name string
+	Address                   string
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress entry with its ancestor list keys.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow struct {
+	FiftyGigabitEthernet_Name string
+	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress.
+func Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey] {
+	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey]{
+		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey {
+				var k Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey
+				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
+				if r.Entry.Address != nil {
+					k.Address = *r.Entry.Address
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "ipv6"}, {Name: "address"}, {Name: "link-local-address"}}},
+	}
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address-container.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainer struct {
+	Address   *string
+	LinkLocal *bool
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainerSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address-container for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainerSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Address",
+		Name:   "address",
+		Type:   yang.TString,
+	}, {
+		GoName: "LinkLocal",
+		Name:   "link-local",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "link-local-address-container",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-list.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList struct {
+	Anycast *bool
+	Eui64   *bool
+	Prefix  *string
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-list for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Anycast",
+		Name:   "anycast",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Eui64",
+		Name:   "eui-64",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Prefix",
+		Name:   "prefix",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"prefix"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "prefix-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList's row identity (ancestor keys in canonical form).
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey struct {
+	FiftyGigabitEthernet_Name string
+	Prefix                    string
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList entry with its ancestor list keys.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow struct {
+	FiftyGigabitEthernet_Name string
+	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList.
+func Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey] {
+	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey]{
+		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey {
+				var k Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey
+				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
+				if r.Entry.Prefix != nil {
+					k.Prefix = *r.Entry.Prefix
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "ipv6"}, {Name: "address"}, {Name: "prefix-list"}}},
+	}
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName struct {
+	Ipv6Prefix    []string
+	Name          *string
+	PrefixOptions *Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName:   "Ipv6Prefix",
+		LeafList: true,
+		Name:     "ipv6-prefix",
+		Type:     yang.TString,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptionsSchema,
+		GoName: "PrefixOptions",
+		Name:   "prefix-options",
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "prefix-name",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName's row identity (ancestor keys in canonical form).
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey struct {
+	FiftyGigabitEthernet_Name string
+	Name                      string
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName entry with its ancestor list keys.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow struct {
+	FiftyGigabitEthernet_Name string
+	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName.
+func Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey] {
+	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey]{
+		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey {
+				var k Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey
+				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "ipv6"}, {Name: "address"}, {Name: "prefix-name"}}},
+	}
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions struct {
+	Ipv6Prefix []Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptionsSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptionsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixSchema,
+		GoName: "Ipv6Prefix",
+		List:   true,
+		Name:   "ipv6-prefix",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "prefix-options",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options/ipv6-prefix.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix struct {
+	Anycast        *bool
+	Eui64          *bool
+	Prefix         *string
+	SegmentRouting *bool
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options/ipv6-prefix for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Anycast",
+		Name:   "anycast",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Eui64",
+		Name:   "eui-64",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Prefix",
+		Name:   "prefix",
+		Type:   yang.TString,
+	}, {
+		GoName: "SegmentRouting",
+		Name:   "segment-routing",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"prefix"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "ipv6-prefix",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix's row identity (ancestor keys in canonical form).
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixKey struct {
+	FiftyGigabitEthernet_Name string
+	PrefixName_Name           string
+	Prefix                    string
+}
+
+// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix entry with its ancestor list keys.
+type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixFlatRow struct {
+	FiftyGigabitEthernet_Name string
+	PrefixName_Name           string
+	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix
 }

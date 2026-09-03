@@ -6,7 +6,7 @@
 // Package ciscoentityextmib binds the YANG module CISCO-ENTITY-EXT-MIB.
 package ciscoentityextmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOENTITYEXTMIB is the CISCO-ENTITY-EXT-MIB node /CISCO-ENTITY-EXT-MIB/CISCO-ENTITY-EXT-MIB.
 type CISCOENTITYEXTMIB struct {

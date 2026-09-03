@@ -6,7 +6,7 @@
 // Package openconfigospftypes binds the YANG module openconfig-ospf-types.
 package openconfigospftypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ADJACENCYSID is the openconfig-ospf-types identity "ADJACENCY_SID".
 var Identity_ADJACENCYSID = yang.Identity{

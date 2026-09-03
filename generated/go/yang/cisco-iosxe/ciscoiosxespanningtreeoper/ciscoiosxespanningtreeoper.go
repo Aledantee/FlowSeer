@@ -6,7 +6,7 @@
 // Package ciscoiosxespanningtreeoper binds the YANG module Cisco-IOS-XE-spanning-tree-oper.
 package ciscoiosxespanningtreeoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // StpDetails is the Cisco-IOS-XE-spanning-tree-oper node /Cisco-IOS-XE-spanning-tree-oper/stp-details.
 type StpDetails struct {

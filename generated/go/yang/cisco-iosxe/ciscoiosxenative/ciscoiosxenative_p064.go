@@ -5,420 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3 struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig
-	Password     *string
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3 for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "des3",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3/access-config.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig
-	Auth         *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_EncryptedSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_EncryptedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AuthSchema,
-		GoName: "Auth",
-		Name:   "auth",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "encrypted",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/access-config.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_AccessConfig
-	Md5          *bool
-	Password     *string
-	Priv         *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv
-	Sha          *bool
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AuthSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_AuthSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Md5",
-		Name:   "md5",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_PrivSchema,
-		GoName: "Priv",
-		Name:   "priv",
-	}, {
-		GoName: "Sha",
-		Name:   "sha",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "auth",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/access-config.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv struct {
-	Aes  *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes
-	Des  *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des
-	Des3 *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_PrivSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_PrivSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_AesSchema,
-		GoName: "Aes",
-		Name:   "aes",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_DesSchema,
-		GoName: "Des",
-		Name:   "des",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3Schema,
-		GoName: "Des3",
-		Name:   "des3",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "priv",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/aes/aes.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfig
-	Algorithm    *string
-	Password     *string
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_AesSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/aes/aes for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_AesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Algorithm",
-		Name:   "algorithm",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "aes",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/aes/aes/access-config.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/aes/aes/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfig
-	Password     *string
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_DesSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_DesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "des",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des/access-config.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3 struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfig
-	Password     *string
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3Schema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3 for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "des3",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3/access-config.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_TableMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/table-map.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_TableMap struct {
-	Filter *bool
-	Name   *string
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_TableMapSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/table-map for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_TableMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Filter",
-		Name:   "filter",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "table-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/unicast-reachability.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability struct {
-	SourceAs       *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_SourceAs
-	VrfRouteImport *Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_VrfRouteImport
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachabilitySchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/unicast-reachability for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachabilitySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_SourceAsSchema,
-		GoName: "SourceAs",
-		Name:   "source-as",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_VrfRouteImportSchema,
-		GoName: "VrfRouteImport",
-		Name:   "vrf-route-import",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "unicast-reachability",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_SourceAs is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/unicast-reachability/source-as.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_SourceAs struct {
-	Disable *bool
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_SourceAsSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/unicast-reachability/source-as for the generic codecs.
-var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_SourceAsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "source-as",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_VrfRouteImport is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/unicast-reachability/vrf-route-import.
-type Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_VrfRouteImport struct {
-	Disable *bool
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_VrfRouteImportSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv6/vrf/ipv6-unicast/unicast-reachability/vrf-route-import for the generic codecs.
 var Native_Router_Bgp_AddressFamily_WithVrf_Ipv6_Vrf_Ipv6Unicast_UnicastReachability_VrfRouteImportSchema = &yang.Schema{
@@ -38985,4 +38572,441 @@ func Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_C
 			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
 		}, {Name: "scope"}, {Name: "global"}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "nsap"}, {Name: "nsap"}, {Name: "snmp"}, {Name: "context"}, {Name: "context_word"}}},
 	}
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig struct {
+	Access          *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_Access
+	CommunityString *string
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_AccessSchema,
+		GoName: "Access",
+		Name:   "access",
+	}, {
+		GoName: "CommunityString",
+		Name:   "community-string",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "community-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_Access is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config/access.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_Access struct {
+	AclName     *string
+	ExpandedAcl *uint32
+	Ipv6        *string
+	Permission  *string
+	StandardAcl *uint32
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_AccessSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config/access for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_AccessSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "ExpandedAcl",
+		Name:   "expanded-acl",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type:   yang.TString,
+	}, {
+		GoName: "Permission",
+		Name:   "permission",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "StandardAcl",
+		Name:   "standard-acl",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "access",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User struct {
+	Name       *string
+	Permission *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_UserSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_UserSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_PermissionSchema,
+		GoName: "Permission",
+		Name:   "permission",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "user",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission struct {
+	Access     *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Access
+	Auth       *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth
+	Credential *bool
+	Encrypted  *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_PermissionSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_PermissionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AccessSchema,
+		GoName: "Access",
+		Name:   "access",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AuthSchema,
+		GoName: "Auth",
+		Name:   "auth",
+	}, {
+		GoName: "Credential",
+		Name:   "credential",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_EncryptedSchema,
+		GoName: "Encrypted",
+		Name:   "encrypted",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "permission",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Access is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/access.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Access struct {
+	AclName     *string
+	Ipv6        *string
+	StandardAcl *uint32
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AccessSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/access for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AccessSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type:   yang.TString,
+	}, {
+		GoName: "StandardAcl",
+		Name:   "standard-acl",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "access",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth struct {
+	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfig
+	Md5          *bool
+	Password     *string
+	Priv         *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv
+	Sha          *bool
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AuthSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AuthSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfigSchema,
+		GoName: "AccessConfig",
+		Name:   "access-config",
+	}, {
+		GoName: "Md5",
+		Name:   "md5",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Password",
+		Name:   "password",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_PrivSchema,
+		GoName: "Priv",
+		Name:   "priv",
+	}, {
+		GoName: "Sha",
+		Name:   "sha",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "auth",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/access-config.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfig struct {
+	AclName     *string
+	Ipv6        *string
+	StandardAcl *uint32
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/access-config for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type:   yang.TString,
+	}, {
+		GoName: "StandardAcl",
+		Name:   "standard-acl",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "access-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv struct {
+	Aes  *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes
+	Des  *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des
+	Des3 *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_PrivSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_PrivSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_AesSchema,
+		GoName: "Aes",
+		Name:   "aes",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_DesSchema,
+		GoName: "Des",
+		Name:   "des",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema,
+		GoName: "Des3",
+		Name:   "des3",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "priv",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes struct {
+	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfig
+	Algorithm    *string
+	Password     *string
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_AesSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_AesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfigSchema,
+		GoName: "AccessConfig",
+		Name:   "access-config",
+	}, {
+		GoName: "Algorithm",
+		Name:   "algorithm",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Password",
+		Name:   "password",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "aes",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes/access-config.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfig struct {
+	AclName     *string
+	Ipv6        *string
+	StandardAcl *uint32
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes/access-config for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type:   yang.TString,
+	}, {
+		GoName: "StandardAcl",
+		Name:   "standard-acl",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "access-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des struct {
+	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfig
+	Password     *string
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_DesSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_DesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfigSchema,
+		GoName: "AccessConfig",
+		Name:   "access-config",
+	}, {
+		GoName: "Password",
+		Name:   "password",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "des",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des/access-config.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfig struct {
+	AclName     *string
+	Ipv6        *string
+	StandardAcl *uint32
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des/access-config for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type:   yang.TString,
+	}, {
+		GoName: "StandardAcl",
+		Name:   "standard-acl",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "access-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3 struct {
+	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig
+	Password     *string
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3 for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema,
+		GoName: "AccessConfig",
+		Name:   "access-config",
+	}, {
+		GoName: "Password",
+		Name:   "password",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "des3",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3/access-config.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig struct {
+	AclName     *string
+	Ipv6        *string
+	StandardAcl *uint32
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3/access-config for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type:   yang.TString,
+	}, {
+		GoName: "StandardAcl",
+		Name:   "standard-acl",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "access-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted struct {
+	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig
+	Auth         *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_EncryptedSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_EncryptedSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema,
+		GoName: "AccessConfig",
+		Name:   "access-config",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AuthSchema,
+		GoName: "Auth",
+		Name:   "auth",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "encrypted",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted/access-config.
+type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig struct {
+	AclName     *string
+	Ipv6        *string
+	StandardAcl *uint32
+}
+
+// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted/access-config for the generic codecs.
+var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Ipv6",
+		Name:   "ipv6",
+		Type:   yang.TString,
+	}, {
+		GoName: "StandardAcl",
+		Name:   "standard-acl",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "access-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
 }

@@ -6,7 +6,7 @@
 // Package ciscoiosxearpoper binds the YANG module Cisco-IOS-XE-arp-oper.
 package ciscoiosxearpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ArpData is the Cisco-IOS-XE-arp-oper node /Cisco-IOS-XE-arp-oper/arp-data.
 type ArpData struct {

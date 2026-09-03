@@ -6,7 +6,7 @@
 // Package ciscoiosxevlanoper binds the YANG module Cisco-IOS-XE-vlan-oper.
 package ciscoiosxevlanoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Vlans is the Cisco-IOS-XE-vlan-oper node /Cisco-IOS-XE-vlan-oper/vlans.
 type Vlans struct {

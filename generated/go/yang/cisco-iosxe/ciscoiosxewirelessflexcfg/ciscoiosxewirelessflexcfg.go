@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessflexcfg binds the YANG module Cisco-IOS-XE-wireless-flex-cfg.
 package ciscoiosxewirelessflexcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // FlexCfgData is the Cisco-IOS-XE-wireless-flex-cfg node /Cisco-IOS-XE-wireless-flex-cfg/flex-cfg-data.
 type FlexCfgData struct {

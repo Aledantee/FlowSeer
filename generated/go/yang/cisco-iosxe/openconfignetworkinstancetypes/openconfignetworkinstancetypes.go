@@ -6,7 +6,7 @@
 // Package openconfignetworkinstancetypes binds the YANG module openconfig-network-instance-types.
 package openconfignetworkinstancetypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_BGPEVPN is the openconfig-network-instance-types identity "BGP_EVPN".
 var Identity_BGPEVPN = yang.Identity{

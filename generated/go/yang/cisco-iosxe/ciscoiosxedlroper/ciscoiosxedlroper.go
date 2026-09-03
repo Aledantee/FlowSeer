@@ -6,7 +6,7 @@
 // Package ciscoiosxedlroper binds the YANG module Cisco-IOS-XE-dlr-oper.
 package ciscoiosxedlroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DlrOperData is the Cisco-IOS-XE-dlr-oper node /Cisco-IOS-XE-dlr-oper/dlr-oper-data.
 type DlrOperData struct {

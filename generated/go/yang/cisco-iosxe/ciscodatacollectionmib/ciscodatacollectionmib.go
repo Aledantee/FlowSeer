@@ -6,7 +6,7 @@
 // Package ciscodatacollectionmib binds the YANG module CISCO-DATA-COLLECTION-MIB.
 package ciscodatacollectionmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCODATACOLLECTIONMIB is the CISCO-DATA-COLLECTION-MIB node /CISCO-DATA-COLLECTION-MIB/CISCO-DATA-COLLECTION-MIB.
 type CISCODATACOLLECTIONMIB struct {

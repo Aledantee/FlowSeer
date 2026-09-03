@@ -6,7 +6,7 @@
 // Package openconfigbfd binds the YANG module openconfig-bfd.
 package openconfigbfd
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Bfd is the openconfig-bfd node /openconfig-bfd/bfd.
 type Bfd struct {

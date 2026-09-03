@@ -6,7 +6,7 @@
 // Package ciscoiosxemerakiconnectoper binds the YANG module Cisco-IOS-XE-meraki-connect-oper.
 package ciscoiosxemerakiconnectoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MerakiConnectOperData is the Cisco-IOS-XE-meraki-connect-oper node /Cisco-IOS-XE-meraki-connect-oper/meraki-connect-oper-data.
 type MerakiConnectOperData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrulemdnsoper binds the YANG module Cisco-IOS-XE-wireless-rule-mdns-oper.
 package ciscoiosxewirelessrulemdnsoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RuleMdnsOperData is the Cisco-IOS-XE-wireless-rule-mdns-oper node /Cisco-IOS-XE-wireless-rule-mdns-oper/rule-mdns-oper-data.
 type RuleMdnsOperData struct {

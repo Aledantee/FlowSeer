@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesssisfglobaloper binds the YANG module Cisco-IOS-XE-wireless-sisf-global-oper.
 package ciscoiosxewirelesssisfglobaloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SisfGlobalOperData is the Cisco-IOS-XE-wireless-sisf-global-oper node /Cisco-IOS-XE-wireless-sisf-global-oper/sisf-global-oper-data.
 type SisfGlobalOperData struct {

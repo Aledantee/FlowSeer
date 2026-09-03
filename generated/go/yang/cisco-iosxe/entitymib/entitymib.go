@@ -6,7 +6,7 @@
 // Package entitymib binds the YANG module ENTITY-MIB.
 package entitymib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ENTITYMIB is the ENTITY-MIB node /ENTITY-MIB/ENTITY-MIB.
 type ENTITYMIB struct {

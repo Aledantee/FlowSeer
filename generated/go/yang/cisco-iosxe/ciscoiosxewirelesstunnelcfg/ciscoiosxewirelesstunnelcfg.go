@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesstunnelcfg binds the YANG module Cisco-IOS-XE-wireless-tunnel-cfg.
 package ciscoiosxewirelesstunnelcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // WirelessTunnelCfg is the Cisco-IOS-XE-wireless-tunnel-cfg node /Cisco-IOS-XE-wireless-tunnel-cfg/wireless-tunnel-cfg.
 type WirelessTunnelCfg struct {

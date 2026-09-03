@@ -6,7 +6,7 @@
 // Package openconfigmplstypes binds the YANG module openconfig-mpls-types.
 package openconfigmplstypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ADMINDOWN is the openconfig-mpls-types identity "ADMIN_DOWN".
 var Identity_ADMINDOWN = yang.Identity{

@@ -6,7 +6,7 @@
 // Package ciscoiosxenative binds the YANG module Cisco-IOS-XE-native.
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native.
 type Native struct {
@@ -305,9 +305,9 @@ var NativeSchema = &yang.Schema{
 	}, {
 		Child:     Native_AlarmSchema,
 		GoName:    "Alarm",
-		Module:    "Cisco-IOS-XE-alarm",
+		Module:    "Cisco-IOS-XE-digitalio",
 		Name:      "alarm",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-digitalio",
 	}, {
 		Child:  Native_AlarmContactSchema,
 		GoName: "AlarmContact",
@@ -23063,9 +23063,7 @@ var Native_AccessSession_WirelessSchema = &yang.Schema{
 
 // Native_Alarm is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm.
 type Native_Alarm struct {
-	Contact   *Native_Alarm_Contact
-	Facility  *Native_Alarm_Facility
-	RelayMode *Native_Alarm_RelayMode
+	Contact *Native_Alarm_Contact
 }
 
 // Native_AlarmSchema describes /Cisco-IOS-XE-native/native/alarm for the generic codecs.
@@ -23074,86 +23072,105 @@ var Native_AlarmSchema = &yang.Schema{
 		Child:  Native_Alarm_ContactSchema,
 		GoName: "Contact",
 		Name:   "contact",
-	}, {
-		Child:  Native_Alarm_FacilitySchema,
-		GoName: "Facility",
-		Name:   "facility",
-	}, {
-		Child:  Native_Alarm_RelayModeSchema,
-		GoName: "RelayMode",
-		Name:   "relay-mode",
 	}},
-	Module:    "Cisco-IOS-XE-alarm",
+	Module:    "Cisco-IOS-XE-digitalio",
 	Name:      "alarm",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-digitalio",
 }
 
 // Native_Alarm_Contact is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/contact.
 type Native_Alarm_Contact struct {
-	ContactId []Native_Alarm_Contact_ContactId
+	AttachToIox *bool
+	Port        []Native_Alarm_Contact_Port
 }
 
 // Native_Alarm_ContactSchema describes /Cisco-IOS-XE-native/native/alarm/contact for the generic codecs.
 var Native_Alarm_ContactSchema = &yang.Schema{
 	Fields: []yang.Field{{
-		Child:  Native_Alarm_Contact_ContactIdSchema,
-		GoName: "ContactId",
+		GoName: "AttachToIox",
+		Name:   "attach-to-iox",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Alarm_Contact_PortSchema,
+		GoName: "Port",
 		List:   true,
-		Name:   "contact-id",
+		Name:   "port",
 	}},
-	Module:    "Cisco-IOS-XE-alarm",
+	Module:    "Cisco-IOS-XE-digitalio",
 	Name:      "contact",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-digitalio",
 }
 
-// Native_Alarm_Contact_ContactId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/contact/contact-id.
-type Native_Alarm_Contact_ContactId struct {
-	ContactNumber *yang.Value
-	Description   *string
-	Severity      *string
-	Trigger       *string
+// Native_Alarm_Contact_Port is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/contact/port.
+type Native_Alarm_Contact_Port struct {
+	Application     *string
+	AttachPortToIox *bool
+	Description     *string
+	Enable          *bool
+	Id              *uint8
+	Output          *Native_Alarm_Contact_Port_Output
+	Severity        *string
+	Threshold       *uint16
+	Trigger         *string
 }
 
-// Native_Alarm_Contact_ContactIdSchema describes /Cisco-IOS-XE-native/native/alarm/contact/contact-id for the generic codecs.
-var Native_Alarm_Contact_ContactIdSchema = &yang.Schema{
+// Native_Alarm_Contact_PortSchema describes /Cisco-IOS-XE-native/native/alarm/contact/port for the generic codecs.
+var Native_Alarm_Contact_PortSchema = &yang.Schema{
 	Fields: []yang.Field{{
-		GoName: "ContactNumber",
-		Name:   "contact-number",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
-		},
+		GoName: "Application",
+		Name:   "application",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "AttachPortToIox",
+		Name:   "attach-port-to-iox",
+		Type:   yang.TEmpty,
 	}, {
 		GoName: "Description",
 		Name:   "description",
 		Type:   yang.TString,
 	}, {
+		GoName: "Enable",
+		Name:   "enable",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Alarm_Contact_Port_OutputSchema,
+		GoName: "Output",
+		Name:   "output",
+	}, {
 		GoName: "Severity",
 		Name:   "severity",
 		Type:   yang.TEnum,
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type:   yang.TUint16,
 	}, {
 		GoName: "Trigger",
 		Name:   "trigger",
 		Type:   yang.TEnum,
 	}},
-	Keys:      []string{"contact-number"},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "contact-id",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-digitalio",
+	Name:      "port",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-digitalio",
 }
 
-// Native_Alarm_Contact_ContactIdKey is Native_Alarm_Contact_ContactId's row identity (ancestor keys in canonical form).
-type Native_Alarm_Contact_ContactIdKey struct {
-	ContactNumber string
+// Native_Alarm_Contact_PortKey is Native_Alarm_Contact_Port's row identity (ancestor keys in canonical form).
+type Native_Alarm_Contact_PortKey struct {
+	Id uint8
 }
 
-// Native_Alarm_Contact_ContactIdDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Alarm_Contact_ContactIdDescriptor() yang.ListDescriptor[Native_Alarm_Contact_ContactId, Native_Alarm_Contact_ContactIdKey] {
-	return yang.ListDescriptor[Native_Alarm_Contact_ContactId, Native_Alarm_Contact_ContactIdKey]{
-		Codec: yang.StructRowCodec(Native_Alarm_Contact_ContactIdSchema, func(r *Native_Alarm_Contact_ContactId) Native_Alarm_Contact_ContactIdKey {
-			var k Native_Alarm_Contact_ContactIdKey
-			if r.ContactNumber != nil {
-				k.ContactNumber = yang.CanonicalKey(r.ContactNumber)
+// Native_Alarm_Contact_PortDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Alarm_Contact_PortDescriptor() yang.ListDescriptor[Native_Alarm_Contact_Port, Native_Alarm_Contact_PortKey] {
+	return yang.ListDescriptor[Native_Alarm_Contact_Port, Native_Alarm_Contact_PortKey]{
+		Codec: yang.StructRowCodec(Native_Alarm_Contact_PortSchema, func(r *Native_Alarm_Contact_Port) Native_Alarm_Contact_PortKey {
+			var k Native_Alarm_Contact_PortKey
+			if r.Id != nil {
+				k.Id = *r.Id
 			}
 			return k
 		}),
@@ -23162,550 +23179,56 @@ func Native_Alarm_Contact_ContactIdDescriptor() yang.ListDescriptor[Native_Alarm
 			Name:      "native",
 			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
 		}, {
-			Module:    "Cisco-IOS-XE-alarm",
+			Module:    "Cisco-IOS-XE-digitalio",
 			Name:      "alarm",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-		}, {Name: "contact"}, {Name: "contact-id"}}},
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-digitalio",
+		}, {Name: "contact"}, {Name: "port"}}},
 	}
 }
 
-// Native_Alarm_Facility is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility.
-type Native_Alarm_Facility struct {
-	Dlr           *Native_Alarm_Facility_Dlr
-	FcsHysteresis *uint8
-	Hsr           *Native_Alarm_Facility_Hsr
-	InputAlarm    *Native_Alarm_Facility_InputAlarm
-	PowerSupply   *Native_Alarm_Facility_PowerSupply
-	Ptp           *Native_Alarm_Facility_Ptp
-	SdCard        *Native_Alarm_Facility_SdCard
-	Temperature   *Native_Alarm_Facility_Temperature
+// Native_Alarm_Contact_Port_Output is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/contact/port/output.
+type Native_Alarm_Contact_Port_Output struct {
+	Relay *Native_Alarm_Contact_Port_Output_Relay
+	Value *uint8
 }
 
-// Native_Alarm_FacilitySchema describes /Cisco-IOS-XE-native/native/alarm/facility for the generic codecs.
-var Native_Alarm_FacilitySchema = &yang.Schema{
+// Native_Alarm_Contact_Port_OutputSchema describes /Cisco-IOS-XE-native/native/alarm/contact/port/output for the generic codecs.
+var Native_Alarm_Contact_Port_OutputSchema = &yang.Schema{
 	Fields: []yang.Field{{
-		Child:  Native_Alarm_Facility_DlrSchema,
-		GoName: "Dlr",
-		Name:   "dlr",
+		Child:  Native_Alarm_Contact_Port_Output_RelaySchema,
+		GoName: "Relay",
+		Name:   "relay",
 	}, {
-		GoName: "FcsHysteresis",
-		Name:   "fcs-hysteresis",
+		GoName: "Value",
+		Name:   "value",
 		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Alarm_Facility_HsrSchema,
-		GoName: "Hsr",
-		Name:   "hsr",
-	}, {
-		Child:  Native_Alarm_Facility_InputAlarmSchema,
+	}},
+	Module:    "Cisco-IOS-XE-digitalio",
+	Name:      "output",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-digitalio",
+	Presence:  true,
+}
+
+// Native_Alarm_Contact_Port_Output_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/contact/port/output/output-type/relay/relay.
+type Native_Alarm_Contact_Port_Output_Relay struct {
+	InputAlarm  *uint8
+	Temperature *string
+}
+
+// Native_Alarm_Contact_Port_Output_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/contact/port/output/output-type/relay/relay for the generic codecs.
+var Native_Alarm_Contact_Port_Output_RelaySchema = &yang.Schema{
+	Fields: []yang.Field{{
 		GoName: "InputAlarm",
 		Name:   "input-alarm",
-	}, {
-		Child:  Native_Alarm_Facility_PowerSupplySchema,
-		GoName: "PowerSupply",
-		Name:   "power-supply",
-	}, {
-		Child:  Native_Alarm_Facility_PtpSchema,
-		GoName: "Ptp",
-		Name:   "ptp",
-	}, {
-		Child:  Native_Alarm_Facility_SdCardSchema,
-		GoName: "SdCard",
-		Name:   "sd-card",
-	}, {
-		Child:  Native_Alarm_Facility_TemperatureSchema,
-		GoName: "Temperature",
-		Name:   "temperature",
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "facility",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Dlr is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/dlr.
-type Native_Alarm_Facility_Dlr struct {
-	Enable   *bool
-	Notifies *bool
-	Relay    *Native_Alarm_Facility_Dlr_Relay
-	Syslog   *bool
-}
-
-// Native_Alarm_Facility_DlrSchema describes /Cisco-IOS-XE-native/native/alarm/facility/dlr for the generic codecs.
-var Native_Alarm_Facility_DlrSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Alarm_Facility_Dlr_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "dlr",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Dlr_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/dlr/relay.
-type Native_Alarm_Facility_Dlr_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_Dlr_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/dlr/relay for the generic codecs.
-var Native_Alarm_Facility_Dlr_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Hsr is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/hsr.
-type Native_Alarm_Facility_Hsr struct {
-	Enable   *bool
-	Notifies *bool
-	Relay    *Native_Alarm_Facility_Hsr_Relay
-	Syslog   *bool
-}
-
-// Native_Alarm_Facility_HsrSchema describes /Cisco-IOS-XE-native/native/alarm/facility/hsr for the generic codecs.
-var Native_Alarm_Facility_HsrSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Alarm_Facility_Hsr_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "hsr",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Hsr_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/hsr/relay.
-type Native_Alarm_Facility_Hsr_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_Hsr_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/hsr/relay for the generic codecs.
-var Native_Alarm_Facility_Hsr_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_InputAlarm is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/input-alarm.
-type Native_Alarm_Facility_InputAlarm struct {
-	AlarmId []Native_Alarm_Facility_InputAlarm_AlarmId
-}
-
-// Native_Alarm_Facility_InputAlarmSchema describes /Cisco-IOS-XE-native/native/alarm/facility/input-alarm for the generic codecs.
-var Native_Alarm_Facility_InputAlarmSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Alarm_Facility_InputAlarm_AlarmIdSchema,
-		GoName: "AlarmId",
-		List:   true,
-		Name:   "alarm-id",
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "input-alarm",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_InputAlarm_AlarmId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/input-alarm/alarm-id.
-type Native_Alarm_Facility_InputAlarm_AlarmId struct {
-	InputAlarmId *uint8
-	Notifies     *bool
-	Relay        *Native_Alarm_Facility_InputAlarm_AlarmId_Relay
-	Syslog       *bool
-}
-
-// Native_Alarm_Facility_InputAlarm_AlarmIdSchema describes /Cisco-IOS-XE-native/native/alarm/facility/input-alarm/alarm-id for the generic codecs.
-var Native_Alarm_Facility_InputAlarm_AlarmIdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "InputAlarmId",
-		Name:   "input-alarm-id",
 		Type:   yang.TUint8,
 	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Alarm_Facility_InputAlarm_AlarmId_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TBool,
+		GoName: "Temperature",
+		Name:   "temperature",
+		Type:   yang.TEnum,
 	}},
-	Keys:      []string{"input-alarm-id"},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "alarm-id",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_InputAlarm_AlarmIdKey is Native_Alarm_Facility_InputAlarm_AlarmId's row identity (ancestor keys in canonical form).
-type Native_Alarm_Facility_InputAlarm_AlarmIdKey struct {
-	InputAlarmId uint8
-}
-
-// Native_Alarm_Facility_InputAlarm_AlarmIdDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Alarm_Facility_InputAlarm_AlarmIdDescriptor() yang.ListDescriptor[Native_Alarm_Facility_InputAlarm_AlarmId, Native_Alarm_Facility_InputAlarm_AlarmIdKey] {
-	return yang.ListDescriptor[Native_Alarm_Facility_InputAlarm_AlarmId, Native_Alarm_Facility_InputAlarm_AlarmIdKey]{
-		Codec: yang.StructRowCodec(Native_Alarm_Facility_InputAlarm_AlarmIdSchema, func(r *Native_Alarm_Facility_InputAlarm_AlarmId) Native_Alarm_Facility_InputAlarm_AlarmIdKey {
-			var k Native_Alarm_Facility_InputAlarm_AlarmIdKey
-			if r.InputAlarmId != nil {
-				k.InputAlarmId = *r.InputAlarmId
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-alarm",
-			Name:      "alarm",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-		}, {Name: "facility"}, {Name: "input-alarm"}, {Name: "alarm-id"}}},
-	}
-}
-
-// Native_Alarm_Facility_InputAlarm_AlarmId_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/input-alarm/alarm-id/relay.
-type Native_Alarm_Facility_InputAlarm_AlarmId_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_InputAlarm_AlarmId_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/input-alarm/alarm-id/relay for the generic codecs.
-var Native_Alarm_Facility_InputAlarm_AlarmId_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
+	Module:    "Cisco-IOS-XE-digitalio",
 	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_PowerSupply is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/power-supply.
-type Native_Alarm_Facility_PowerSupply struct {
-	Disable  *bool
-	Notifies *bool
-	Relay    *Native_Alarm_Facility_PowerSupply_Relay
-	Syslog   *bool
-}
-
-// Native_Alarm_Facility_PowerSupplySchema describes /Cisco-IOS-XE-native/native/alarm/facility/power-supply for the generic codecs.
-var Native_Alarm_Facility_PowerSupplySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Alarm_Facility_PowerSupply_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "power-supply",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_PowerSupply_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/power-supply/relay.
-type Native_Alarm_Facility_PowerSupply_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_PowerSupply_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/power-supply/relay for the generic codecs.
-var Native_Alarm_Facility_PowerSupply_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Ptp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/ptp.
-type Native_Alarm_Facility_Ptp struct {
-	Enable   *bool
-	Notifies *bool
-	Relay    *Native_Alarm_Facility_Ptp_Relay
-	Syslog   *bool
-}
-
-// Native_Alarm_Facility_PtpSchema describes /Cisco-IOS-XE-native/native/alarm/facility/ptp for the generic codecs.
-var Native_Alarm_Facility_PtpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Alarm_Facility_Ptp_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "ptp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Ptp_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/ptp/relay.
-type Native_Alarm_Facility_Ptp_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_Ptp_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/ptp/relay for the generic codecs.
-var Native_Alarm_Facility_Ptp_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_SdCard is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/sd-card.
-type Native_Alarm_Facility_SdCard struct {
-	Enable   *bool
-	Notifies *bool
-	Relay    *Native_Alarm_Facility_SdCard_Relay
-	Syslog   *bool
-}
-
-// Native_Alarm_Facility_SdCardSchema describes /Cisco-IOS-XE-native/native/alarm/facility/sd-card for the generic codecs.
-var Native_Alarm_Facility_SdCardSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Alarm_Facility_SdCard_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "sd-card",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_SdCard_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/sd-card/relay.
-type Native_Alarm_Facility_SdCard_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_SdCard_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/sd-card/relay for the generic codecs.
-var Native_Alarm_Facility_SdCard_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Temperature is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/temperature.
-type Native_Alarm_Facility_Temperature struct {
-	Primary   *Native_Alarm_Facility_Temperature_Primary
-	Secondary *Native_Alarm_Facility_Temperature_Secondary
-}
-
-// Native_Alarm_Facility_TemperatureSchema describes /Cisco-IOS-XE-native/native/alarm/facility/temperature for the generic codecs.
-var Native_Alarm_Facility_TemperatureSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Alarm_Facility_Temperature_PrimarySchema,
-		GoName: "Primary",
-		Name:   "primary",
-	}, {
-		Child:  Native_Alarm_Facility_Temperature_SecondarySchema,
-		GoName: "Secondary",
-		Name:   "secondary",
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "temperature",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Temperature_Primary is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/temperature/primary.
-type Native_Alarm_Facility_Temperature_Primary struct {
-	High     *int32
-	Low      *int32
-	Notifies *bool
-	Relay    *Native_Alarm_Facility_Temperature_Primary_Relay
-	Syslog   *bool
-}
-
-// Native_Alarm_Facility_Temperature_PrimarySchema describes /Cisco-IOS-XE-native/native/alarm/facility/temperature/primary for the generic codecs.
-var Native_Alarm_Facility_Temperature_PrimarySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "High",
-		Name:   "high",
-		Type:   yang.TInt32,
-	}, {
-		GoName: "Low",
-		Name:   "low",
-		Type:   yang.TInt32,
-	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TBool,
-	}, {
-		Child:  Native_Alarm_Facility_Temperature_Primary_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "primary",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Temperature_Primary_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/temperature/primary/relay.
-type Native_Alarm_Facility_Temperature_Primary_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_Temperature_Primary_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/temperature/primary/relay for the generic codecs.
-var Native_Alarm_Facility_Temperature_Primary_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Temperature_Secondary is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/temperature/secondary.
-type Native_Alarm_Facility_Temperature_Secondary struct {
-	High     *int32
-	Low      *int32
-	Notifies *bool
-	Relay    *Native_Alarm_Facility_Temperature_Secondary_Relay
-	Syslog   *bool
-}
-
-// Native_Alarm_Facility_Temperature_SecondarySchema describes /Cisco-IOS-XE-native/native/alarm/facility/temperature/secondary for the generic codecs.
-var Native_Alarm_Facility_Temperature_SecondarySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "High",
-		Name:   "high",
-		Type:   yang.TInt32,
-	}, {
-		GoName: "Low",
-		Name:   "low",
-		Type:   yang.TInt32,
-	}, {
-		GoName: "Notifies",
-		Name:   "notifies",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Alarm_Facility_Temperature_Secondary_RelaySchema,
-		GoName: "Relay",
-		Name:   "relay",
-	}, {
-		GoName: "Syslog",
-		Name:   "syslog",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "secondary",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_Facility_Temperature_Secondary_Relay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/facility/temperature/secondary/relay.
-type Native_Alarm_Facility_Temperature_Secondary_Relay struct {
-	Major *bool
-}
-
-// Native_Alarm_Facility_Temperature_Secondary_RelaySchema describes /Cisco-IOS-XE-native/native/alarm/facility/temperature/secondary/relay for the generic codecs.
-var Native_Alarm_Facility_Temperature_Secondary_RelaySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Major",
-		Name:   "major",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
-}
-
-// Native_Alarm_RelayMode is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm/relay-mode.
-type Native_Alarm_RelayMode struct {
-	Negative *bool
-}
-
-// Native_Alarm_RelayModeSchema describes /Cisco-IOS-XE-native/native/alarm/relay-mode for the generic codecs.
-var Native_Alarm_RelayModeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Negative",
-		Name:   "negative",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-alarm",
-	Name:      "relay-mode",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-alarm",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-digitalio",
 }
 
 // Native_AlarmContact is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/alarm-contact.
@@ -47296,4 +46819,290 @@ type Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMa
 	AccessList_Name     string
 	IpAddress_IpAddress string
 	Entry               Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddress
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressDescriptor is the flattened-row descriptor for the nested list Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddress.
+func Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressDescriptor() yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey] {
+	return yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey]{
+		Codec: yang.RowCodec[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey]{
+			DecodeJSON: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressSchema}
+				entries, err := yang.DecodeJSONNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow{
+						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:               en.Entry,
+						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressSchema}
+				entries, err := yang.DecodeXMLNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow{
+						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:               en.Entry,
+						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey {
+				var k Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey
+				k.AccessList_Name = r.AccessList_Name
+				k.IpAddress_IpAddress = r.IpAddress_IpAddress
+				if r.Entry.MacAddress != nil {
+					k.MacAddress = *r.Entry.MacAddress
+				}
+				return k
+			},
+			Merge: func(base, update Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow {
+				base.Entry = yang.MergeStructs(Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-arp",
+			Name:      "arp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-arp",
+		}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "access-list",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}, {Name: "no"}, {Name: "permit"}, {Name: "request"}, {Name: "ip"}, {Name: "host"}, {Name: "ip-address"}, {Name: "mac"}, {Name: "host"}, {Name: "sender-mac-address"}}},
+	}
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/host/ip-address/mac/sender-mac-address.
+type Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress struct {
+	Log            *bool
+	MacAddress     *string
+	MacAddressMask *string
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema describes /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/host/ip-address/mac/sender-mac-address for the generic codecs.
+var Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Log",
+		Name:   "log",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MacAddress",
+		Name:   "mac-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "MacAddressMask",
+		Name:   "mac-address-mask",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"mac-address"},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "sender-mac-address",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey is Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress's row identity (ancestor keys in canonical form).
+type Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey struct {
+	AccessList_Name     string
+	IpAddress_IpAddress string
+	MacAddress          string
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow flattens one Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress entry with its ancestor list keys.
+type Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow struct {
+	AccessList_Name     string
+	IpAddress_IpAddress string
+	Entry               Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressDescriptor is the flattened-row descriptor for the nested list Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress.
+func Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressDescriptor() yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey] {
+	return yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey]{
+		Codec: yang.RowCodec[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey]{
+			DecodeJSON: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema}
+				entries, err := yang.DecodeJSONNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow{
+						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:               en.Entry,
+						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema}
+				entries, err := yang.DecodeXMLNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow{
+						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:               en.Entry,
+						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey {
+				var k Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey
+				k.AccessList_Name = r.AccessList_Name
+				k.IpAddress_IpAddress = r.IpAddress_IpAddress
+				if r.Entry.MacAddress != nil {
+					k.MacAddress = *r.Entry.MacAddress
+				}
+				return k
+			},
+			Merge: func(base, update Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow {
+				base.Entry = yang.MergeStructs(Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-arp",
+			Name:      "arp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-arp",
+		}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "access-list",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}, {Name: "no"}, {Name: "permit"}, {Name: "request"}, {Name: "ip"}, {Name: "host"}, {Name: "ip-address"}, {Name: "mac"}, {Name: "sender-mac-address"}}},
+	}
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/sender-ip-address.
+type Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress struct {
+	IpAddress     *string
+	IpAddressMask *string
+	Mac           *Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress_Mac
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema describes /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/sender-ip-address for the generic codecs.
+var Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "IpAddress",
+		Name:   "ip-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "IpAddressMask",
+		Name:   "ip-address-mask",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress_MacSchema,
+		GoName: "Mac",
+		Name:   "mac",
+	}},
+	Keys:      []string{"ip-address"},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "sender-ip-address",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey is Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress's row identity (ancestor keys in canonical form).
+type Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey struct {
+	AccessList_Name string
+	IpAddress       string
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow flattens one Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress entry with its ancestor list keys.
+type Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow struct {
+	AccessList_Name string
+	Entry           Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress
+}
+
+// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressDescriptor is the flattened-row descriptor for the nested list Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress.
+func Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressDescriptor() yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey] {
+	return yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey]{
+		Codec: yang.RowCodec[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey]{
+			DecodeJSON: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema}
+				entries, err := yang.DecodeJSONNested[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow{
+						AccessList_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:           en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, error) {
+				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema}
+				entries, err := yang.DecodeXMLNested[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow{
+						AccessList_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:           en.Entry,
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey {
+				var k Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey
+				k.AccessList_Name = r.AccessList_Name
+				if r.Entry.IpAddress != nil {
+					k.IpAddress = *r.Entry.IpAddress
+				}
+				return k
+			},
+			Merge: func(base, update Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow {
+				base.Entry = yang.MergeStructs(Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {
+			Module:    "Cisco-IOS-XE-arp",
+			Name:      "arp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-arp",
+		}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "access-list",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}, {Name: "no"}, {Name: "permit"}, {Name: "request"}, {Name: "ip"}, {Name: "sender-ip-address"}}},
+	}
 }

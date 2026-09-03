@@ -6,7 +6,7 @@
 // Package ietfinterfaces binds the YANG module ietf-interfaces.
 package ietfinterfaces
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_InterfaceType is the ietf-interfaces identity "interface-type".
 var Identity_InterfaceType = yang.Identity{

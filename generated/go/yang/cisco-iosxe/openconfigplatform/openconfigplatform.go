@@ -6,7 +6,7 @@
 // Package openconfigplatform binds the YANG module openconfig-platform.
 package openconfigplatform
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Components is the openconfig-platform node /openconfig-platform/components.
 type Components struct {

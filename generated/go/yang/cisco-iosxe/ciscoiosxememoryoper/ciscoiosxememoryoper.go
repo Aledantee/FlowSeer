@@ -6,7 +6,7 @@
 // Package ciscoiosxememoryoper binds the YANG module Cisco-IOS-XE-memory-oper.
 package ciscoiosxememoryoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MemoryStatistics is the Cisco-IOS-XE-memory-oper node /Cisco-IOS-XE-memory-oper/memory-statistics.
 type MemoryStatistics struct {

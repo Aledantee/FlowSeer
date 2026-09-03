@@ -6,7 +6,7 @@
 // Package openconfigdefinedsets binds the YANG module openconfig-defined-sets.
 package openconfigdefinedsets
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DefinedSets is the openconfig-defined-sets node /openconfig-defined-sets/defined-sets.
 type DefinedSets struct {

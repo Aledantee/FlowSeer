@@ -5,370 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_L2protocol_TunnelSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/l2protocol/tunnel for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_L2protocol_TunnelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:   "Protocol",
-		LeafList: true,
-		Name:     "protocol",
-		Type:     yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "tunnel",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-	Presence:  true,
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Lldp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/lldp.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Lldp struct {
-	Enable *bool
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_LldpSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/lldp for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_LldpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "lldp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac struct {
-	AccessGroup     []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup
-	AccessGroupList []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList
-	Security        *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_MacSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_MacSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema,
-		GoName: "AccessGroup",
-		List:   true,
-		Name:   "access-group",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema,
-		GoName: "AccessGroupList",
-		List:   true,
-		Name:   "access-group-list",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_SecuritySchema,
-		GoName: "Security",
-		Name:   "security",
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "mac",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup struct {
-	AclName *string
-	In      *bool
-	Out     *bool
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "In",
-		Name:   "in",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"acl-name"},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "access-group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey is Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup's row identity (ancestor keys in canonical form).
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey struct {
-	TenGigabitEthernet_Name string
-	Instance_Id             string
-	AclName                 string
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow flattens one Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup entry with its ancestor list keys.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow struct {
-	TenGigabitEthernet_Name string
-	Instance_Id             string
-	Entry                   Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup.
-func Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey] {
-	return yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey]{
-		Codec: yang.RowCodec[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow{
-						Entry:                   en.Entry,
-						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow{
-						Entry:                   en.Entry,
-						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey {
-				var k Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey
-				k.TenGigabitEthernet_Name = r.TenGigabitEthernet_Name
-				k.Instance_Id = r.Instance_Id
-				if r.Entry.AclName != nil {
-					k.AclName = *r.Entry.AclName
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "TenGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-ethernet",
-			Name:      "service",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-		}, {Name: "instance"}, {Name: "mac"}, {Name: "access-group"}}},
-	}
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group-list.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList struct {
-	AccessGroup *string
-	Direction   *string
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group-list for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AccessGroup",
-		Name:   "access-group",
-		Type:   yang.TString,
-	}, {
-		GoName: "Direction",
-		Name:   "direction",
-		Type:   yang.TEnum,
-	}},
-	Keys:      []string{"direction"},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "access-group-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey is Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList's row identity (ancestor keys in canonical form).
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey struct {
-	TenGigabitEthernet_Name string
-	Instance_Id             string
-	Direction               string
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow flattens one Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList entry with its ancestor list keys.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow struct {
-	TenGigabitEthernet_Name string
-	Instance_Id             string
-	Entry                   Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList.
-func Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey] {
-	return yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey]{
-		Codec: yang.RowCodec[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow{
-						Entry:                   en.Entry,
-						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow{
-						Entry:                   en.Entry,
-						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey {
-				var k Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey
-				k.TenGigabitEthernet_Name = r.TenGigabitEthernet_Name
-				k.Instance_Id = r.Instance_Id
-				if r.Entry.Direction != nil {
-					k.Direction = *r.Entry.Direction
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "TenGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-ethernet",
-			Name:      "service",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-		}, {Name: "instance"}, {Name: "mac"}, {Name: "access-group-list"}}},
-	}
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security struct {
-	Address   *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address
-	Aging     *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Aging
-	Maximum   *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Maximum
-	Sticky    *bool
-	Violation *string
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_SecuritySchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_SecuritySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AddressSchema,
-		GoName: "Address",
-		Name:   "address",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AgingSchema,
-		GoName: "Aging",
-		Name:   "aging",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_MaximumSchema,
-		GoName: "Maximum",
-		Name:   "maximum",
-	}, {
-		GoName: "Sticky",
-		Name:   "sticky",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Violation",
-		Name:   "violation",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "security",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-	Presence:  true,
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address struct {
-	Deny   []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny
-	Permit []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Permit
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AddressSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenySchema,
-		GoName: "Deny",
-		List:   true,
-		Name:   "deny",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_PermitSchema,
-		GoName: "Permit",
-		List:   true,
-		Name:   "permit",
-	}},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address/deny.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny struct {
-	Mac *string
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenySchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address/deny for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Mac",
-		Name:   "mac",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"mac"},
-	Module:    "Cisco-IOS-XE-ethernet",
-	Name:      "deny",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyKey is Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny's row identity (ancestor keys in canonical form).
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyKey struct {
-	TenGigabitEthernet_Name string
-	Instance_Id             string
-	Mac                     string
-}
-
-// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyFlatRow flattens one Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny entry with its ancestor list keys.
-type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyFlatRow struct {
-	TenGigabitEthernet_Name string
-	Instance_Id             string
-	Entry                   Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny.
 func Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyKey] {
@@ -40377,4 +40014,270 @@ var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6
 	Module:    "Cisco-IOS-XE-nhrp",
 	Name:      "attribute",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/multicast/match/attribute/attr-type.
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType struct {
+	AttrType *string
+	AttrVal  *string
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/multicast/match/attribute/attr-type for the generic codecs.
+var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AttrType",
+		Name:   "attr-type",
+		Type:   yang.TString,
+	}, {
+		GoName: "AttrVal",
+		Name:   "attr-val",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"attr-type"},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "attr-type",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey is Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType's row identity (ancestor keys in canonical form).
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey struct {
+	Tunnel_Name       string
+	DestIpv4_DestIpv4 string
+	DestMask_DestMask string
+	NbmaIpv6_NbmaIpv6 string
+	AttrType          string
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow flattens one Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType entry with its ancestor list keys.
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow struct {
+	Tunnel_Name       string
+	DestIpv4_DestIpv4 string
+	DestMask_DestMask string
+	NbmaIpv6_NbmaIpv6 string
+	Entry             Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeDescriptor is the flattened-row descriptor for the nested list Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType.
+func Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeDescriptor() yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey] {
+	return yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey]{
+		Codec: yang.RowCodec[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow{
+						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
+						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
+						Entry:             en.Entry,
+						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
+						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrType](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow{
+						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
+						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
+						Entry:             en.Entry,
+						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
+						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey {
+				var k Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeKey
+				k.Tunnel_Name = r.Tunnel_Name
+				k.DestIpv4_DestIpv4 = r.DestIpv4_DestIpv4
+				k.DestMask_DestMask = r.DestMask_DestMask
+				k.NbmaIpv6_NbmaIpv6 = r.NbmaIpv6_NbmaIpv6
+				if r.Entry.AttrType != nil {
+					k.AttrType = *r.Entry.AttrType
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_Multicast_Match_Attribute_AttrTypeSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Tunnel"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-nhrp",
+			Name:      "nhrp-v4",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+		}, {Name: "nhrp"}, {Name: "summary-map"}, {Name: "dest-ipv4"}, {Name: "dest-mask"}, {Name: "nbma-ipv6"}, {Name: "preference"}, {Name: "multicast"}, {Name: "match"}, {Name: "attribute"}, {Name: "attr-type"}}},
+	}
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range.
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange struct {
+	Match     *Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match
+	Multicast *Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Multicast
+	PriRange  *uint8
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range for the generic codecs.
+var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MatchSchema,
+		GoName: "Match",
+		Name:   "match",
+	}, {
+		Child:  Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MulticastSchema,
+		GoName: "Multicast",
+		Name:   "multicast",
+	}, {
+		GoName: "PriRange",
+		Name:   "pri-range",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"pri-range"},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "pri-range",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey is Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange's row identity (ancestor keys in canonical form).
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey struct {
+	Tunnel_Name       string
+	DestIpv4_DestIpv4 string
+	DestMask_DestMask string
+	NbmaIpv6_NbmaIpv6 string
+	PriRange          uint8
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow flattens one Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange entry with its ancestor list keys.
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow struct {
+	Tunnel_Name       string
+	DestIpv4_DestIpv4 string
+	DestMask_DestMask string
+	NbmaIpv6_NbmaIpv6 string
+	Entry             Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeDescriptor is the flattened-row descriptor for the nested list Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange.
+func Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeDescriptor() yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey] {
+	return yang.ListDescriptor[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey]{
+		Codec: yang.RowCodec[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow{
+						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
+						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
+						Entry:             en.Entry,
+						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
+						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TunnelSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMaskSchema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6Schema, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow{
+						DestIpv4_DestIpv4: yang.AncestorKey(en.AncestorKeys, 1, "dest-ipv4"),
+						DestMask_DestMask: yang.AncestorKey(en.AncestorKeys, 2, "dest-mask"),
+						Entry:             en.Entry,
+						NbmaIpv6_NbmaIpv6: yang.AncestorKey(en.AncestorKeys, 3, "nbma-ipv6"),
+						Tunnel_Name:       yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey {
+				var k Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeKey
+				k.Tunnel_Name = r.Tunnel_Name
+				k.DestIpv4_DestIpv4 = r.DestIpv4_DestIpv4
+				k.DestMask_DestMask = r.DestMask_DestMask
+				k.NbmaIpv6_NbmaIpv6 = r.NbmaIpv6_NbmaIpv6
+				if r.Entry.PriRange != nil {
+					k.PriRange = *r.Entry.PriRange
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow) Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRangeSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Tunnel"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-nhrp",
+			Name:      "nhrp-v4",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+		}, {Name: "nhrp"}, {Name: "summary-map"}, {Name: "dest-ipv4"}, {Name: "dest-mask"}, {Name: "nbma-ipv6"}, {Name: "preference"}, {Name: "pri-range"}}},
+	}
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range/match.
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match struct {
+	Attribute    *Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute
+	GeoLocation  *string
+	Group        *string
+	TopoLocation *string
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MatchSchema describes /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range/match for the generic codecs.
+var Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_MatchSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_AttributeSchema,
+		GoName: "Attribute",
+		Name:   "attribute",
+	}, {
+		GoName: "GeoLocation",
+		Name:   "geo-location",
+		Type:   yang.TString,
+	}, {
+		GoName: "Group",
+		Name:   "group",
+		Type:   yang.TString,
+	}, {
+		GoName: "TopoLocation",
+		Name:   "topo-location",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-nhrp",
+	Name:      "match",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
+}
+
+// Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Tunnel/ip/nhrp-v4/nhrp/summary-map/dest-ipv4/dest-mask/nbma-ipv6/preference/pri-range/match/attribute.
+type Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute struct {
+	AttrType []Native_Interface_Tunnel_Ip_NhrpV4_Nhrp_SummaryMap_DestIpv4_DestMask_NbmaIpv6_Preference_PriRange_Match_Attribute_AttrType
 }

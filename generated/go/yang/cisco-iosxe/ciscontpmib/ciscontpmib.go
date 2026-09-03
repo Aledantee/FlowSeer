@@ -6,7 +6,7 @@
 // Package ciscontpmib binds the YANG module CISCO-NTP-MIB.
 package ciscontpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCONTPMIB is the CISCO-NTP-MIB node /CISCO-NTP-MIB/CISCO-NTP-MIB.
 type CISCONTPMIB struct {

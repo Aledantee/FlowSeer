@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmobilitycfg binds the YANG module Cisco-IOS-XE-wireless-mobility-cfg.
 package ciscoiosxewirelessmobilitycfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MobilityCfgData is the Cisco-IOS-XE-wireless-mobility-cfg node /Cisco-IOS-XE-wireless-mobility-cfg/mobility-cfg-data.
 type MobilityCfgData struct {

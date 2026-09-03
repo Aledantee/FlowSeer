@@ -6,7 +6,7 @@
 // Package ciscoiosxepoehealthoper binds the YANG module Cisco-IOS-XE-poe-health-oper.
 package ciscoiosxepoehealthoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PoeHealthOperData is the Cisco-IOS-XE-poe-health-oper node /Cisco-IOS-XE-poe-health-oper/poe-health-oper-data.
 type PoeHealthOperData struct {

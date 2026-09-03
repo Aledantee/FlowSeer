@@ -6,7 +6,7 @@
 // Package cisconetsyncmib binds the YANG module CISCO-NETSYNC-MIB.
 package cisconetsyncmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCONETSYNCMIB is the CISCO-NETSYNC-MIB node /CISCO-NETSYNC-MIB/CISCO-NETSYNC-MIB.
 type CISCONETSYNCMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoembeddedeventmgrmib binds the YANG module CISCO-EMBEDDED-EVENT-MGR-MIB.
 package ciscoembeddedeventmgrmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOEMBEDDEDEVENTMGRMIB is the CISCO-EMBEDDED-EVENT-MGR-MIB node /CISCO-EMBEDDED-EVENT-MGR-MIB/CISCO-EMBEDDED-EVENT-MGR-MIB.
 type CISCOEMBEDDEDEVENTMGRMIB struct {

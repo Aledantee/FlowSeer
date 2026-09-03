@@ -5,474 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_Margin is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/dynamic/dynamic/metric/margin.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_Margin struct {
-	Absolute *uint32
-	Relative *uint8
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_MarginSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/dynamic/dynamic/metric/margin for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_MarginSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Absolute",
-		Name:   "absolute",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Relative",
-		Name:   "relative",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "margin",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit struct {
-	SegmentList []Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_ExplicitSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_ExplicitSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema,
-		GoName: "SegmentList",
-		List:   true,
-		Name:   "segment-list",
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "explicit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit/segment-list.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList struct {
-	Name   *string
-	Weight *uint32
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit/segment-list for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Weight",
-		Name:   "weight",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "segment-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey is Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList's row identity (ancestor keys in canonical form).
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey struct {
-	Policy_Name           string
-	Preference_Preference string
-	Name                  string
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow flattens one Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList entry with its ancestor list keys.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow struct {
-	Policy_Name           string
-	Preference_Preference string
-	Entry                 Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListDescriptor is the flattened-row descriptor for the nested list Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList.
-func Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListDescriptor() yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey] {
-	return yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey]{
-		Codec: yang.RowCodec[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey]{
-			DecodeJSON: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, error) {
-				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema}
-				entries, err := yang.DecodeJSONNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow{
-						Entry:                 en.Entry,
-						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, error) {
-				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema}
-				entries, err := yang.DecodeXMLNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow{
-						Entry:                 en.Entry,
-						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey {
-				var k Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey
-				k.Policy_Name = r.Policy_Name
-				k.Preference_Preference = r.Preference_Preference
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow {
-				base.Entry = yang.MergeStructs(Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "segment-routing"}, {
-			Module:    "Cisco-IOS-XE-segment-routing",
-			Name:      "traffic-eng",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-		}, {Name: "policy"}, {Name: "candidate-paths"}, {Name: "preference"}, {Name: "explicit"}, {Name: "segment-list"}}},
-	}
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow struct {
-	ForwardClass *Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlowSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlowSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClassSchema,
-		GoName: "ForwardClass",
-		Name:   "forward-class",
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "per-flow",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-	Presence:  true,
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass struct {
-	Value []Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClassSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClassSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema,
-		GoName: "Value",
-		List:   true,
-		Name:   "value",
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "forward-class",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class/value.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value struct {
-	Color             *uint32
-	ColorOption       *uint32
-	ForwardClassValue *uint32
-	Rib               *bool
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class/value for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Color",
-		Name:   "color",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "ColorOption",
-		Name:   "color-option",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "ForwardClassValue",
-		Name:   "forward-class-value",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Rib",
-		Name:   "rib",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"forward-class-value"},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "value",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey is Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value's row identity (ancestor keys in canonical form).
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey struct {
-	Policy_Name           string
-	Preference_Preference string
-	ForwardClassValue     uint32
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow flattens one Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value entry with its ancestor list keys.
-type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow struct {
-	Policy_Name           string
-	Preference_Preference string
-	Entry                 Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueDescriptor is the flattened-row descriptor for the nested list Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value.
-func Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueDescriptor() yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey] {
-	return yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey]{
-		Codec: yang.RowCodec[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey]{
-			DecodeJSON: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, error) {
-				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema}
-				entries, err := yang.DecodeJSONNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow{
-						Entry:                 en.Entry,
-						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, error) {
-				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema}
-				entries, err := yang.DecodeXMLNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow{
-						Entry:                 en.Entry,
-						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey {
-				var k Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey
-				k.Policy_Name = r.Policy_Name
-				k.Preference_Preference = r.Preference_Preference
-				if r.Entry.ForwardClassValue != nil {
-					k.ForwardClassValue = *r.Entry.ForwardClassValue
-				}
-				return k
-			},
-			Merge: func(base, update Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow {
-				base.Entry = yang.MergeStructs(Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "segment-routing"}, {
-			Module:    "Cisco-IOS-XE-segment-routing",
-			Name:      "traffic-eng",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-		}, {Name: "policy"}, {Name: "candidate-paths"}, {Name: "preference"}, {Name: "per-flow"}, {Name: "forward-class"}, {Name: "value"}}},
-	}
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_ColorEndpoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/color-endpoint.
-type Native_SegmentRouting_TrafficEng_Policy_ColorEndpoint struct {
-	Color      *uint32
-	EndPoint   *string
-	EndPointV2 *yang.Value
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_ColorEndpointSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/color-endpoint for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_ColorEndpointSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Color",
-		Name:   "color",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "EndPoint",
-		Name:   "end-point",
-		Type:   yang.TString,
-	}, {
-		GoName: "EndPointV2",
-		Name:   "end-point-v2",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "color-endpoint",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement.
-type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement struct {
-	DelayMeasurement       *bool
-	DelayMeasurementConfig *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurementSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurementSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "DelayMeasurement",
-		Name:   "delay-measurement",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfigSchema,
-		GoName: "DelayMeasurementConfig",
-		Name:   "delay-measurement-config",
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "performance-measurement",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config.
-type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig struct {
-	LivenessDetection *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection
-	Profile           *string
-	ReversePath       *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePath
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfigSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetectionSchema,
-		GoName: "LivenessDetection",
-		Name:   "liveness-detection",
-	}, {
-		GoName: "Profile",
-		Name:   "profile",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePathSchema,
-		GoName: "ReversePath",
-		Name:   "reverse-path",
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "delay-measurement-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-	Presence:  true,
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection.
-type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection struct {
-	InvalidationAction *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationAction
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetectionSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetectionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationActionSchema,
-		GoName: "InvalidationAction",
-		Name:   "invalidation-action",
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "liveness-detection",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-	Presence:  true,
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection/invalidation-action.
-type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationAction struct {
-	Down *bool
-	None *bool
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationActionSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection/invalidation-action for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Down",
-		Name:   "down",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "None",
-		Name:   "none",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "invalidation-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePath is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/reverse-path.
-type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePath struct {
-	Label *uint32
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePathSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/reverse-path for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePathSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Label",
-		Name:   "label",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "reverse-path",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_Steering is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering.
-type Native_SegmentRouting_TrafficEng_Policy_Steering struct {
-	PathInvalidation *Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidation
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_SteeringSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_SteeringSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidationSchema,
-		GoName: "PathInvalidation",
-		Name:   "path-invalidation",
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "steering",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidation is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering/path-invalidation.
-type Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidation struct {
-	Drop *bool
-}
-
-// Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidationSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering/path-invalidation for the generic codecs.
-var Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Drop",
-		Name:   "drop",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-segment-routing",
-	Name:      "path-invalidation",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
-// Native_SegmentRouting_TrafficEng_SegmentList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/segment-list.
-type Native_SegmentRouting_TrafficEng_SegmentList struct {
-	Index []Native_SegmentRouting_TrafficEng_SegmentList_Index
-	Name  *string
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_SegmentRouting_TrafficEng_SegmentListSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/segment-list for the generic codecs.
 var Native_SegmentRouting_TrafficEng_SegmentListSchema = &yang.Schema{
@@ -51388,5 +50921,640 @@ var Native_Template_ROUTERINTERFACETEMPLATE_Mka_PolicySchema = &yang.Schema{
 	}},
 	Module:    "Cisco-IOS-XE-template",
 	Name:      "policy",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy.
+type Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy struct {
+	Input  *Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Input
+	Output *Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Output
+	Type   *Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicySchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_InputSchema,
+		GoName: "Input",
+		Name:   "input",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_OutputSchema,
+		GoName: "Output",
+		Name:   "output",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_TypeSchema,
+		GoName: "Type",
+		Name:   "type",
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "service-policy",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Input is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/input.
+type Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Input struct {
+	PolicyMapName *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_InputSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/input for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_InputSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PolicyMapName",
+		Name:   "policy-map-name",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "input",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Output is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/output.
+type Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Output struct {
+	PolicyMapName *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_OutputSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/output for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_OutputSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PolicyMapName",
+		Name:   "policy-map-name",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "output",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/type.
+type Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type struct {
+	Control *Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type_Control
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_TypeSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/type for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_TypeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type_ControlSchema,
+		GoName: "Control",
+		Name:   "control",
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "type",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type_Control is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/type/control.
+type Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type_Control struct {
+	Subscriber *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type_ControlSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/service-policy/type/control for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_ServicePolicy_Type_ControlSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Subscriber",
+		Name:   "subscriber",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "control",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_Source is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/source.
+type Native_Template_ROUTERINTERFACETEMPLATE_Source struct {
+	Template *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SourceSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/source for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_SourceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Template",
+		Name:   "template",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "source",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree.
+type Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree struct {
+	Bpdufilter    *string
+	Bpduguard     *Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_Bpduguard
+	Guard         *string
+	LinkType      *string
+	Portfast      *Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_Portfast
+	ServicePolicy *bool
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Bpdufilter",
+		Name:   "bpdufilter",
+		Type:   yang.TEnum,
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_BpduguardSchema,
+		GoName: "Bpduguard",
+		Name:   "bpduguard",
+	}, {
+		GoName: "Guard",
+		Name:   "guard",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "LinkType",
+		Name:   "link-type",
+		Type:   yang.TEnum,
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_PortfastSchema,
+		GoName: "Portfast",
+		Name:   "portfast",
+	}, {
+		GoName: "ServicePolicy",
+		Name:   "service-policy",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "spanning-tree",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_Bpduguard is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree/bpduguard.
+type Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_Bpduguard struct {
+	Disable *bool
+	Enable  *bool
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_BpduguardSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree/bpduguard for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_BpduguardSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Enable",
+		Name:   "enable",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "bpduguard",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_Portfast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree/portfast.
+type Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_Portfast struct {
+	Disable *bool
+	Edge    *bool
+	Network *bool
+	Trunk   *bool
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_PortfastSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree/portfast for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_SpanningTree_PortfastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Edge",
+		Name:   "edge",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Network",
+		Name:   "network",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Trunk",
+		Name:   "trunk",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "portfast",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+	Presence:  true,
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree-obsolete.
+type Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete struct {
+	Bpduguard     *Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_Bpduguard
+	Portfast      *Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_Portfast
+	ServicePolicy *bool
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsoleteSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree-obsolete for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsoleteSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_BpduguardSchema,
+		GoName: "Bpduguard",
+		Name:   "bpduguard",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_PortfastSchema,
+		GoName: "Portfast",
+		Name:   "portfast",
+	}, {
+		GoName: "ServicePolicy",
+		Name:   "service-policy",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "spanning-tree-obsolete",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+	Presence:  true,
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_Bpduguard is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree-obsolete/bpduguard.
+type Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_Bpduguard struct {
+	Enable *bool
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_BpduguardSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree-obsolete/bpduguard for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_BpduguardSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Enable",
+		Name:   "enable",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "bpduguard",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_Portfast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree-obsolete/portfast.
+type Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_Portfast struct {
+	Disable *bool
+	Edge    *bool
+	Network *bool
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_PortfastSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/spanning-tree-obsolete/portfast for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_SpanningTreeObsolete_PortfastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Edge",
+		Name:   "edge",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Network",
+		Name:   "network",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "portfast",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+	Presence:  true,
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl struct {
+	Action         *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Action
+	Broadcast      *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast
+	Multicast      *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast
+	Unicast        *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast
+	UnknownUnicast *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_UnknownUnicast
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControlSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControlSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_ActionSchema,
+		GoName: "Action",
+		Name:   "action",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_BroadcastSchema,
+		GoName: "Broadcast",
+		Name:   "broadcast",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_MulticastSchema,
+		GoName: "Multicast",
+		Name:   "multicast",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_UnicastSchema,
+		GoName: "Unicast",
+		Name:   "unicast",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_UnknownUnicastSchema,
+		GoName: "UnknownUnicast",
+		Name:   "unknown-unicast",
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "storm-control",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Action is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/action.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Action struct {
+	Shutdown *bool
+	Trap     *bool
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_ActionSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/action for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_ActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Shutdown",
+		Name:   "shutdown",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Trap",
+		Name:   "trap",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "action",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast struct {
+	Level *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_BroadcastSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_BroadcastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "broadcast",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast/level.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level struct {
+	Bps       *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_Bps
+	Pps       *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_Pps
+	Threshold *yang.Value
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast/level for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast/level/bps.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_Bps struct {
+	BUnit     *string
+	Threshold *yang.Value
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast/level/bps for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "BUnit",
+		Name:   "b-unit",
+		Type:   yang.TString,
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type: &yang.Type{
+			FractionDigits: 1,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast/level/pps.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_Pps struct {
+	Threshold *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/broadcast/level/pps for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Broadcast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast struct {
+	Level *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_MulticastSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_MulticastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "multicast",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast/level.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level struct {
+	Bps       *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_Bps
+	Pps       *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_Pps
+	Threshold *yang.Value
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_LevelSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast/level for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast/level/bps.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_Bps struct {
+	BUnit     *string
+	Threshold *yang.Value
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast/level/bps for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "BUnit",
+		Name:   "b-unit",
+		Type:   yang.TString,
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type: &yang.Type{
+			FractionDigits: 1,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast/level/pps.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_Pps struct {
+	Threshold *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/multicast/level/pps for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Multicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast struct {
+	Level *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_UnicastSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_UnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "unicast",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level struct {
+	Bps     *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Bps
+	Percent *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Percent
+	Pps     *Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Pps
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_PercentSchema,
+		GoName: "Percent",
+		Name:   "percent",
+	}, {
+		Child:  Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level/level-choice/bps-case/bps.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Percent is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level/level-choice/percent-case/percent.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Percent struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_PercentSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level/level-choice/percent-case/percent for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_PercentSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "percent",
+	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level/level-choice/pps-case/pps.
+type Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/template/ROUTER_INTERFACE_TEMPLATE/storm-control/unicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Template_ROUTERINTERFACETEMPLATE_StormControl_Unicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-template",
+	Name:      "pps",
 	Namespace: "http://cisco.com/ns/yang/ios-xe/template",
 }

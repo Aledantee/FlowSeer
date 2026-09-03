@@ -6,7 +6,7 @@
 // Package ciscovoicednismib binds the YANG module CISCO-VOICE-DNIS-MIB.
 package ciscovoicednismib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOVOICEDNISMIB is the CISCO-VOICE-DNIS-MIB node /CISCO-VOICE-DNIS-MIB/CISCO-VOICE-DNIS-MIB.
 type CISCOVOICEDNISMIB struct {

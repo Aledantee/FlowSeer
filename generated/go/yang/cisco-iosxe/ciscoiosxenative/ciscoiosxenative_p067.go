@@ -5,366 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow flattens one Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList entry with its ancestor list keys.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow struct {
-	Eigrp_Id           string
-	AddressFamily_Type string
-	AfIpVrfList_Vrf    string
-	Entry              Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListDescriptor is the flattened-row descriptor for the nested list Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList.
-func Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListDescriptor() yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey] {
-	return yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey]{
-		Codec: yang.RowCodec[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow{
-						AddressFamily_Type: yang.AncestorKey(en.AncestorKeys, 1, "type"),
-						AfIpVrfList_Vrf:    yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
-						Eigrp_Id:           yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:              en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow{
-						AddressFamily_Type: yang.AncestorKey(en.AncestorKeys, 1, "type"),
-						AfIpVrfList_Vrf:    yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
-						Eigrp_Id:           yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:              en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey {
-				var k Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListKey
-				k.Eigrp_Id = r.Eigrp_Id
-				k.AddressFamily_Type = r.AddressFamily_Type
-				k.AfIpVrfList_Vrf = r.AfIpVrfList_Vrf
-				if r.Entry.AutonomousSystem != nil {
-					k.AutonomousSystem = *r.Entry.AutonomousSystem
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-eigrp",
-			Name:      "eigrp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-		}, {Name: "address-family"}, {Name: "af-ip-vrf-list"}, {Name: "topology"}, {Name: "base"}, {Name: "redistribute"}, {Name: "eigrp"}, {Name: "as-list"}}},
-	}
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/metric.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_Metric struct {
-	Effective   *uint8
-	Bandwith    *uint32
-	Delay       *uint32
-	Mtu         *uint16
-	Reliability *uint8
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_MetricSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/metric for the generic codecs.
-var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Effective",
-		Name:   "Effective",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Bandwith",
-		Name:   "bandwith",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Mtu",
-		Name:   "mtu",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Reliability",
-		Name:   "reliability",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap struct {
-	RmapName []Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map for the generic codecs.
-var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema,
-		GoName: "RmapName",
-		List:   true,
-		Name:   "rmap-name",
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "route-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map/rmap-name.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName struct {
-	RmapName *string
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/eigrp/as-list/route-map/rmap-name for the generic codecs.
-var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "RmapName",
-		Name:   "rmap-name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"rmap-name"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "rmap-name",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey is Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName's row identity (ancestor keys in canonical form).
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey struct {
-	Eigrp_Id                string
-	AddressFamily_Type      string
-	AfIpVrfList_Vrf         string
-	AsList_AutonomousSystem string
-	RmapName                string
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow flattens one Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName entry with its ancestor list keys.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow struct {
-	Eigrp_Id                string
-	AddressFamily_Type      string
-	AfIpVrfList_Vrf         string
-	AsList_AutonomousSystem string
-	Entry                   Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameDescriptor is the flattened-row descriptor for the nested list Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName.
-func Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameDescriptor() yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey] {
-	return yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey]{
-		Codec: yang.RowCodec[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow{
-						AddressFamily_Type:      yang.AncestorKey(en.AncestorKeys, 1, "type"),
-						AfIpVrfList_Vrf:         yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
-						AsList_AutonomousSystem: yang.AncestorKey(en.AncestorKeys, 3, "autonomous-system"),
-						Eigrp_Id:                yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_EigrpSchema, Native_Router_Eigrp_AddressFamilySchema, Native_Router_Eigrp_AddressFamily_AfIpVrfListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsListSchema, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapName](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow{
-						AddressFamily_Type:      yang.AncestorKey(en.AncestorKeys, 1, "type"),
-						AfIpVrfList_Vrf:         yang.AncestorKey(en.AncestorKeys, 2, "vrf"),
-						AsList_AutonomousSystem: yang.AncestorKey(en.AncestorKeys, 3, "autonomous-system"),
-						Eigrp_Id:                yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:                   en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey {
-				var k Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameKey
-				k.Eigrp_Id = r.Eigrp_Id
-				k.AddressFamily_Type = r.AddressFamily_Type
-				k.AfIpVrfList_Vrf = r.AfIpVrfList_Vrf
-				k.AsList_AutonomousSystem = r.AsList_AutonomousSystem
-				if r.Entry.RmapName != nil {
-					k.RmapName = *r.Entry.RmapName
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow) Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_Eigrp_AsList_RouteMap_RmapNameSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-eigrp",
-			Name:      "eigrp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-		}, {Name: "address-family"}, {Name: "af-ip-vrf-list"}, {Name: "topology"}, {Name: "base"}, {Name: "redistribute"}, {Name: "eigrp"}, {Name: "as-list"}, {Name: "route-map"}, {Name: "rmap-name"}}},
-	}
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute struct {
-	Dia      *bool
-	Metric   *Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_Metric
-	Outside  *bool
-	RouteMap *Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRouteSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route for the generic codecs.
-var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRouteSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Dia",
-		Name:   "dia",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_MetricSchema,
-		GoName: "Metric",
-		Name:   "metric",
-	}, {
-		GoName: "Outside",
-		Name:   "outside",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMapSchema,
-		GoName: "RouteMap",
-		Name:   "route-map",
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "nat-route",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/metric.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_Metric struct {
-	Effective   *uint8
-	Bandwith    *uint32
-	Delay       *uint32
-	Mtu         *uint16
-	Reliability *uint8
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_MetricSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/metric for the generic codecs.
-var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Effective",
-		Name:   "Effective",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Bandwith",
-		Name:   "bandwith",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Mtu",
-		Name:   "mtu",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Reliability",
-		Name:   "reliability",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap struct {
-	RmapName []Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map for the generic codecs.
-var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameSchema,
-		GoName: "RmapName",
-		List:   true,
-		Name:   "rmap-name",
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "route-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map/rmap-name.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName struct {
-	RmapName *string
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameSchema describes /Cisco-IOS-XE-native/native/router/eigrp/address-family/af-ip-vrf-list/topology/base/redistribute/nat-route/route-map/rmap-name for the generic codecs.
-var Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "RmapName",
-		Name:   "rmap-name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"rmap-name"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "rmap-name",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameKey is Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName's row identity (ancestor keys in canonical form).
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameKey struct {
-	Eigrp_Id           string
-	AddressFamily_Type string
-	AfIpVrfList_Vrf    string
-	RmapName           string
-}
-
-// Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameFlatRow flattens one Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName entry with its ancestor list keys.
-type Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameFlatRow struct {
-	Eigrp_Id           string
-	AddressFamily_Type string
-	AfIpVrfList_Vrf    string
-	Entry              Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameDescriptor is the flattened-row descriptor for the nested list Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapName.
 func Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameDescriptor() yang.ListDescriptor[Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameFlatRow, Native_Router_Eigrp_AddressFamily_AfIpVrfList_Topology_Base_Redistribute_NatRoute_RouteMap_RmapNameKey] {
@@ -45219,4 +44860,486 @@ var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNe
 	Module:    "Cisco-IOS-XE-interface-common",
 	Name:      "L2LISP-subinterface",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/LISP-subinterface/LISP-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterface struct {
+	LISP *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "LISP",
+		Name:   "LISP",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterface struct {
+	PortChannel *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_PortChannelSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PortChannel",
+		Name:   "Port-channel",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Port-channel-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Serial-subinterface/Serial-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterface struct {
+	Serial *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv4-interface-new/interface-choice/Serial-subinterface/Serial-subinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv4InterfaceNew_SerialSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Serial",
+		Name:   "Serial",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Serial-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew struct {
+	ATM                       *string
+	ATMACR                    *string
+	ATMACRsubinterface        *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterface
+	ATMSubinterface           *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterface
+	AppGigabitEthernet        *string
+	AppNavCompress            *uint16
+	AppNavUnCompress          *uint16
+	Async                     *string
+	BDVIF                     *string
+	BDI                       *string
+	Bundle                    *uint32
+	CEM                       *string
+	CEMACR                    *uint8
+	Cellular                  *string
+	Dialer                    *string
+	EmbeddedServiceEngine     *string
+	Ethernet                  *string
+	FastEthernet              *string
+	FiveGigabitEthernet       *string
+	FortyGigabitEthernet      *string
+	GigabitEthernet           *string
+	HundredGigE               *string
+	L2LISP                    *string
+	L2LISPSubinterface        *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterface
+	LISP                      *string
+	LISPSubinterface          *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterface
+	Loopback                  *uint32
+	MFR                       *uint32
+	Multilink                 *uint16
+	PortChannel               *uint32
+	PortChannelSubinterface   *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterface
+	SM                        *string
+	Serial                    *string
+	SerialSubinterface        *Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterface
+	TenGigabitEthernet        *string
+	Tunnel                    *uint32
+	TwentyFiveGigE            *string
+	TwentyFiveGigabitEthernet *string
+	TwoGigabitEthernet        *string
+	VirtualTemplate           *uint16
+	VirtualPortGroup          *uint16
+	Vlan                      *uint16
+	Nve                       *uint16
+	Overlay                   *uint16
+	Pseudowire                *uint32
+	Vasileft                  *uint16
+	Vasiright                 *uint16
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNewSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNewSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName:    "ATM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "ATMACR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-ACR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterfaceSchema,
+		GoName:    "ATMACRsubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-ACRsubinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+	}, {
+		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterfaceSchema,
+		GoName:    "ATMSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+	}, {
+		GoName:    "AppGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "AppNavCompress",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppNav-Compress",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "AppNavUnCompress",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppNav-UnCompress",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Async",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Async",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "BDVIF",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "BD-VIF",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "BDI",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "BDI",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Bundle",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Bundle",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "CEM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "CEM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "CEMACR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "CEM-ACR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint8,
+	}, {
+		GoName:    "Cellular",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Cellular",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Dialer",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Dialer",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "EmbeddedServiceEngine",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Embedded-Service-Engine",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Ethernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Ethernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FastEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FastEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FiveGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FiveGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FortyGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FortyGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "GigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "GigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "HundredGigE",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "HundredGigE",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "L2LISP",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "L2LISP",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterfaceSchema,
+		GoName:    "L2LISPSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "L2LISP-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+	}, {
+		GoName:    "LISP",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "LISP",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterfaceSchema,
+		GoName:    "LISPSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "LISP-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+	}, {
+		GoName:    "Loopback",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Loopback",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "MFR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "MFR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "Multilink",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Multilink",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "PortChannel",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Port-channel",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint32,
+	}, {
+		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterfaceSchema,
+		GoName:    "PortChannelSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Port-channel-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+	}, {
+		GoName:    "SM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "SM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Serial",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Serial",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterfaceSchema,
+		GoName:    "SerialSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Serial-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+	}, {
+		GoName:    "TenGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TenGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Tunnel",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Tunnel",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "TwentyFiveGigE",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwentyFiveGigE",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "TwentyFiveGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwentyFiveGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "TwoGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwoGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "VirtualTemplate",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Virtual-Template",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "VirtualPortGroup",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "VirtualPortGroup",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Vlan",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Vlan",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Nve",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "nve",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Overlay",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "overlay",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Pseudowire",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "pseudowire",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "Vasileft",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "vasileft",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Vasiright",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "vasiright",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		Type:      yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "IPv6-interface-new",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterface struct {
+	ATMACR *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMACRsubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ATMACR",
+		Name:   "ATM-ACR",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "ATM-ACRsubinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-subinterface/ATM-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterface struct {
+	ATM *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/ATM-subinterface/ATM-subinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_ATMSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ATM",
+		Name:   "ATM",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "ATM-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/L2LISP-subinterface/L2LISP-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterface struct {
+	L2LISP *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/L2LISP-subinterface/L2LISP-subinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_L2LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "L2LISP",
+		Name:   "L2LISP",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "L2LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/LISP-subinterface/LISP-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterface struct {
+	LISP *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "LISP",
+		Name:   "LISP",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterface struct {
+	PortChannel *string
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
+var Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_PortChannelSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PortChannel",
+		Name:   "Port-channel",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Port-channel-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp/default/eid-table/instance-list/locator-down/IPv6-interface-new/interface-choice/Serial-subinterface/Serial-subinterface.
+type Native_Router_Lisp_Default_EidTable_InstanceList_LocatorDown_IPv6InterfaceNew_SerialSubinterface struct {
+	Serial *string
 }

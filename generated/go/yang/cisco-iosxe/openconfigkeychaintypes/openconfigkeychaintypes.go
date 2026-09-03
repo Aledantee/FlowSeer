@@ -6,7 +6,7 @@
 // Package openconfigkeychaintypes binds the YANG module openconfig-keychain-types.
 package openconfigkeychaintypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AES28CMAC96 is the openconfig-keychain-types identity "AES_28_CMAC_96".
 var Identity_AES28CMAC96 = yang.Identity{

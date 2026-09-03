@@ -6,7 +6,7 @@
 // Package openconfigpimtypes binds the YANG module openconfig-pim-types.
 package openconfigpimtypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_PIMMODE is the openconfig-pim-types identity "PIM_MODE".
 var Identity_PIMMODE = yang.Identity{

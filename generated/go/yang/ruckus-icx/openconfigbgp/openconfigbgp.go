@@ -6,7 +6,7 @@
 // Package openconfigbgp binds the YANG module openconfig-bgp.
 package openconfigbgp
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Bgp is the openconfig-bgp node /openconfig-bgp/bgp.
 type Bgp struct {

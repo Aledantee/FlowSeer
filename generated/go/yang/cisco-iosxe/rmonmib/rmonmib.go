@@ -6,7 +6,7 @@
 // Package rmonmib binds the YANG module RMON-MIB.
 package rmonmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_RmonEventsV2 is the RMON-MIB identity "rmonEventsV2".
 var Identity_RmonEventsV2 = yang.Identity{

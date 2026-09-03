@@ -6,7 +6,7 @@
 // Package openconfigisislsdbtypes binds the YANG module openconfig-isis-lsdb-types.
 package openconfigisislsdbtypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AREAADDRESSES is the openconfig-isis-lsdb-types identity "AREA_ADDRESSES".
 var Identity_AREAADDRESSES = yang.Identity{

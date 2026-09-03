@@ -6,7 +6,7 @@
 // Package ciscoiosxelineoper binds the YANG module Cisco-IOS-XE-line-oper.
 package ciscoiosxelineoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LineOperData is the Cisco-IOS-XE-line-oper node /Cisco-IOS-XE-line-oper/line-oper-data.
 type LineOperData struct {

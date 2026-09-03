@@ -6,7 +6,7 @@
 // Package ciscoiosxegnssdroper binds the YANG module Cisco-IOS-XE-gnss-dr-oper.
 package ciscoiosxegnssdroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GnssDrOperData is the Cisco-IOS-XE-gnss-dr-oper node /Cisco-IOS-XE-gnss-dr-oper/gnss-dr-oper-data.
 type GnssDrOperData struct {

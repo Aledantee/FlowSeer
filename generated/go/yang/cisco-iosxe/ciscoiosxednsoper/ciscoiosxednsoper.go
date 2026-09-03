@@ -6,7 +6,7 @@
 // Package ciscoiosxednsoper binds the YANG module Cisco-IOS-XE-dns-oper.
 package ciscoiosxednsoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DnsOperData is the Cisco-IOS-XE-dns-oper node /Cisco-IOS-XE-dns-oper/dns-oper-data.
 type DnsOperData struct {

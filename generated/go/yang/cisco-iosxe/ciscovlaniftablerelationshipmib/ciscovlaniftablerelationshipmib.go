@@ -6,7 +6,7 @@
 // Package ciscovlaniftablerelationshipmib binds the YANG module CISCO-VLAN-IFTABLE-RELATIONSHIP-MIB.
 package ciscovlaniftablerelationshipmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOVLANIFTABLERELATIONSHIPMIB is the CISCO-VLAN-IFTABLE-RELATIONSHIP-MIB node /CISCO-VLAN-IFTABLE-RELATIONSHIP-MIB/CISCO-VLAN-IFTABLE-RELATIONSHIP-MIB.
 type CISCOVLANIFTABLERELATIONSHIPMIB struct {

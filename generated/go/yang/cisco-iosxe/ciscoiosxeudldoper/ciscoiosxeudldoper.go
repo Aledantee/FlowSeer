@@ -6,7 +6,7 @@
 // Package ciscoiosxeudldoper binds the YANG module Cisco-IOS-XE-udld-oper.
 package ciscoiosxeudldoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UdldOperData is the Cisco-IOS-XE-udld-oper node /Cisco-IOS-XE-udld-oper/udld-oper-data.
 type UdldOperData struct {

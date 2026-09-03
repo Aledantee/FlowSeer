@@ -2,12 +2,12 @@
 title: A Decoder's Decline Costs the Whole Table, Not the Field
 date: 2026-08-30
 category: architecture-patterns
-module: src/common/snmp
+module: src/protocol/snmp
 problem_type: architecture_pattern
 component: code_generation
 severity: high
 applies_when:
-  - "adding or tightening a validation bound in any Decode* helper under src/common/snmp/"
+  - "adding or tightening a validation bound in any Decode* helper under src/protocol/snmp/"
   - "deciding whether a malformed agent value should return an error or be coerced"
   - "reading the fast-path doc's claim that declining costs nothing, and wondering whether it generalizes"
   - "a device returns zero rows for a table it clearly implements"
@@ -51,7 +51,7 @@ documents. A decoder reached from a generated table walker has no fallback.
 
 So when a value is malformed but its *meaning* is still recoverable, coerce it
 rather than erroring. `DecodeBitSet` truncates at `MaxBitSetOctets` for exactly
-this reason, and says so at `src/common/snmp/bits.go:68-73`:
+this reason, and says so at `src/protocol/snmp/bits.go:68-73`:
 
 ```go
 // A value longer than [MaxBitSetOctets] is truncated to the bound rather
@@ -67,7 +67,7 @@ wrong wire variant, an exception marker. `DecodeBitSet` still declines on those.
 
 ## Why This Matters
 
-The mechanism is in `src/common/snmp/cmd/mibgen/emit_table.go`, so it applies
+The mechanism is in `src/protocol/snmp/cmd/mibgen/emit_table.go`, so it applies
 to every generated table. The selected-column merge assembles the next complete
 row; the generated iterator decodes that row immediately before yielding it.
 A decoder error calls `ColumnWalker.Fail`, omits the failing row, and stops.
@@ -95,18 +95,18 @@ The full chain, verified end to end: oversized bitmap → `DecodeBitSet` error �
 Any change to these thirteen helpers, or to an enum or override decoder
 generated on top of them, since a generated column can reach all of them:
 
-- `src/common/snmp/decode.go` — `DecodeInt32`, `DecodeUint32`, `DecodeUint64`,
+- `src/protocol/snmp/decode.go` — `DecodeInt32`, `DecodeUint32`, `DecodeUint64`,
   `DecodeBytes`, `DecodeOID`, `DecodeIP`
-- `src/common/snmp/tc.go` — `DecodeMacAddress`, `DecodeDateAndTime`,
+- `src/protocol/snmp/tc.go` — `DecodeMacAddress`, `DecodeDateAndTime`,
   `DecodeTruthValue`, `DecodeRowStatus`, `DecodeDisplayString`,
   `DecodePhysAddress`
-- `src/common/snmp/bits.go` — `DecodeBitSet`
+- `src/protocol/snmp/bits.go` — `DecodeBitSet`
 
-`RawVarBind.Decode` (`src/common/snmp/rawwalk.go:47`) sits on the same arm: a
+`RawVarBind.Decode` (`src/protocol/snmp/rawwalk.go:47`) sits on the same arm: a
 wire-level failure also sets `derr` and kills the walk.
 
 `DecodeDateAndTime` is the neighbor most worth a look — its tests
-(`src/common/snmp/tc.go:124-157`) show it declines on bad length, bad direction,
+(`src/protocol/snmp/tc.go:124-157`) show it declines on bad length, bad direction,
 and out-of-range fields, so three separate odd values from one agent can each
 void a whole table.
 
@@ -118,7 +118,7 @@ column. No rows are discovered solely through unselected columns.
 
 The guard is executable, at two levels.
 
-Unit — `src/common/snmp/bits_test.go:176`, `TestDecodeBitSet_OversizedTruncates`:
+Unit — `src/protocol/snmp/bits_test.go:176`, `TestDecodeBitSet_OversizedTruncates`:
 an over-limit value returns a set truncated to the bound rather than an error.
 
 End-to-end — `src/common/snmpmap/lldp_test.go:320-337`,
@@ -151,7 +151,7 @@ erroring version.
 
 ## Open
 
-No package-level statement of this contract exists. `src/common/snmp/doc.go`
+No package-level statement of this contract exists. `src/protocol/snmp/doc.go`
 describes terminal-error latching but says nothing about decode-failure blast
 radius, so the reasoning currently lives only in `bits.go` and in the docstring
 emitted onto every generated walker (`emit_table.go:324-328`). Stating it in

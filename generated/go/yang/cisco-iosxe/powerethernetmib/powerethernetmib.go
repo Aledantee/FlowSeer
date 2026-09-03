@@ -6,7 +6,7 @@
 // Package powerethernetmib binds the YANG module POWER-ETHERNET-MIB.
 package powerethernetmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // POWERETHERNETMIB is the POWER-ETHERNET-MIB node /POWER-ETHERNET-MIB/POWER-ETHERNET-MIB.
 type POWERETHERNETMIB struct {

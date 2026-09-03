@@ -5,549 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostDescriptor is the flattened-row descriptor for the nested list Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCost.
-func Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostDescriptor() yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey] {
-	return yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey]{
-		Codec: yang.RowCodec[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCost](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow{
-						Entry:            en.Entry,
-						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCost](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow{
-						Entry:            en.Entry,
-						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey {
-				var k Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey
-				k.PortChannel_Name = r.PortChannel_Name
-				if r.Entry.AreaId != nil {
-					k.AreaId = yang.CanonicalKey(r.Entry.AreaId)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Port-channel-subinterface"}, {Name: "Port-channel"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "multi-area-config"}, {Name: "multi-area-id-cost"}}},
-	}
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor struct {
-	Cost           *uint16
-	DatabaseFilter *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilter
-	Id             *string
-	PollInterval   *uint32
-	Priority       *uint8
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cost",
-		Name:   "cost",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilterSchema,
-		GoName: "DatabaseFilter",
-		Name:   "database-filter",
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TString,
-	}, {
-		GoName: "PollInterval",
-		Name:   "poll-interval",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Priority",
-		Name:   "priority",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "neighbor",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey is Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor's row identity (ancestor keys in canonical form).
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey struct {
-	PortChannel_Name string
-	Id               string
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow flattens one Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor entry with its ancestor list keys.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow struct {
-	PortChannel_Name string
-	Entry            Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborDescriptor is the flattened-row descriptor for the nested list Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor.
-func Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborDescriptor() yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey] {
-	return yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey]{
-		Codec: yang.RowCodec[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow{
-						Entry:            en.Entry,
-						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow{
-						Entry:            en.Entry,
-						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey {
-				var k Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey
-				k.PortChannel_Name = r.PortChannel_Name
-				if r.Entry.Id != nil {
-					k.Id = *r.Entry.Id
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Port-channel-subinterface"}, {Name: "Port-channel"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "neighbor"}}},
-	}
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilter is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor/database-filter.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilter struct {
-	All *string
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilterSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor/database-filter for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilterSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "All",
-		Name:   "all",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "database-filter",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network struct {
-	Broadcast         *bool
-	Manet             *bool
-	NonBroadcast      *bool
-	PointToMultipoint *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipoint
-	PointToPoint      *bool
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Broadcast",
-		Name:   "broadcast",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Manet",
-		Name:   "manet",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "NonBroadcast",
-		Name:   "non-broadcast",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipointSchema,
-		GoName: "PointToMultipoint",
-		Name:   "point-to-multipoint",
-	}, {
-		GoName: "PointToPoint",
-		Name:   "point-to-point",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "network",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network/point-to-multipoint.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipoint struct {
-	NonBroadcast *bool
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipointSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network/point-to-multipoint for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipointSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "NonBroadcast",
-		Name:   "non-broadcast",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "point-to-multipoint",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType struct {
-	Broadcast         *bool
-	Manet             *bool
-	NonBroadcast      *bool
-	PointToMultipoint *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipoint
-	PointToPoint      *bool
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkTypeSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkTypeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Broadcast",
-		Name:   "broadcast",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Manet",
-		Name:   "manet",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "NonBroadcast",
-		Name:   "non-broadcast",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipointSchema,
-		GoName: "PointToMultipoint",
-		Name:   "point-to-multipoint",
-	}, {
-		GoName: "PointToPoint",
-		Name:   "point-to-point",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "network-type",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type/network-type-choice/point-to-multipoint/point-to-multipoint.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipoint struct {
-	NonBroadcast *bool
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipointSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type/network-type-choice/point-to-multipoint/point-to-multipoint for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipointSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "NonBroadcast",
-		Name:   "non-broadcast",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "point-to-multipoint",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppression is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/prefix-suppression.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppression struct {
-	Disable *bool
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppressionSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/prefix-suppression for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppressionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "prefix-suppression",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/process-id.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId struct {
-	Adjacency          *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency
-	Authentication     *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Authentication
-	Bfd                *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Bfd
-	Cost               *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Cost
-	CostConfig         *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_CostConfig
-	DatabaseFilter     *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DatabaseFilter
-	DeadInterval       *uint16
-	DemandCircuit      *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DemandCircuit
-	FloodReduction     *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_FloodReduction
-	HelloInterval      *uint32
-	Id                 *uint16
-	Ipv4               *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv4
-	Ipv6               *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv6
-	Manet              *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Manet
-	MtuIgnore          *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MtuIgnore
-	MultiArea          *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiArea
-	MultiAreaConfig    *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiAreaConfig
-	Neighbor           []Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Neighbor
-	Network            *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Network
-	NetworkType        *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NetworkType
-	PacketSize         *uint32
-	PrefixSuppression  *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_PrefixSuppression
-	Priority           *uint8
-	RetransmitInterval *uint32
-	Shutdown           *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Shutdown
-	TransmitDelay      *uint32
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/process-id for the generic codecs.
-var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_AdjacencySchema,
-		GoName: "Adjacency",
-		Name:   "adjacency",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_AuthenticationSchema,
-		GoName: "Authentication",
-		Name:   "authentication",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_BfdSchema,
-		GoName: "Bfd",
-		Name:   "bfd",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_CostSchema,
-		GoName: "Cost",
-		Name:   "cost",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_CostConfigSchema,
-		GoName: "CostConfig",
-		Name:   "cost-config",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DatabaseFilterSchema,
-		GoName: "DatabaseFilter",
-		Name:   "database-filter",
-	}, {
-		GoName: "DeadInterval",
-		Name:   "dead-interval",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DemandCircuitSchema,
-		GoName: "DemandCircuit",
-		Name:   "demand-circuit",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_FloodReductionSchema,
-		GoName: "FloodReduction",
-		Name:   "flood-reduction",
-	}, {
-		GoName: "HelloInterval",
-		Name:   "hello-interval",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv4Schema,
-		GoName: "Ipv4",
-		Name:   "ipv4",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv6Schema,
-		GoName: "Ipv6",
-		Name:   "ipv6",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_ManetSchema,
-		GoName: "Manet",
-		Name:   "manet",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MtuIgnoreSchema,
-		GoName: "MtuIgnore",
-		Name:   "mtu-ignore",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiAreaSchema,
-		GoName: "MultiArea",
-		Name:   "multi-area",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiAreaConfigSchema,
-		GoName: "MultiAreaConfig",
-		Name:   "multi-area-config",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NeighborSchema,
-		GoName: "Neighbor",
-		List:   true,
-		Name:   "neighbor",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NetworkSchema,
-		GoName: "Network",
-		Name:   "network",
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NetworkTypeSchema,
-		GoName: "NetworkType",
-		Name:   "network-type",
-	}, {
-		GoName: "PacketSize",
-		Name:   "packet-size",
-		Type:   yang.TUint32,
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_PrefixSuppressionSchema,
-		GoName: "PrefixSuppression",
-		Name:   "prefix-suppression",
-	}, {
-		GoName: "Priority",
-		Name:   "priority",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "RetransmitInterval",
-		Name:   "retransmit-interval",
-		Type:   yang.TUint32,
-	}, {
-		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_ShutdownSchema,
-		GoName: "Shutdown",
-		Name:   "shutdown",
-	}, {
-		GoName: "TransmitDelay",
-		Name:   "transmit-delay",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "process-id",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey is Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId's row identity (ancestor keys in canonical form).
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey struct {
-	PortChannel_Name string
-	Id               uint16
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow flattens one Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId entry with its ancestor list keys.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow struct {
-	PortChannel_Name string
-	Entry            Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdDescriptor is the flattened-row descriptor for the nested list Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId.
-func Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdDescriptor() yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey] {
-	return yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey]{
-		Codec: yang.RowCodec[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow{
-						Entry:            en.Entry,
-						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow{
-						Entry:            en.Entry,
-						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey {
-				var k Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey
-				k.PortChannel_Name = r.PortChannel_Name
-				if r.Entry.Id != nil {
-					k.Id = *r.Entry.Id
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "Port-channel-subinterface"}, {Name: "Port-channel"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "process-id"}}},
-	}
-}
-
-// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/process-id/adjacency.
-type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency struct {
-	Stagger *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency_Stagger
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_AdjacencySchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/process-id/adjacency for the generic codecs.
 var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_AdjacencySchema = &yang.Schema{
@@ -37879,4 +37337,731 @@ var Native_Interface_SM_Ipv6_Verify_Unicast_ReversePathSchema = &yang.Schema{
 type Native_Interface_SM_Ipv6_Verify_Unicast_ReversePathV1 struct {
 	AclName *string
 	Enable  *bool
+}
+
+// Native_Interface_SM_Ipv6_Verify_Unicast_ReversePathV1Schema describes /Cisco-IOS-XE-native/native/interface/SM/ipv6/verify/unicast/unicast-choice/reverse-path-case/reverse-path-v1 for the generic codecs.
+var Native_Interface_SM_Ipv6_Verify_Unicast_ReversePathV1Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Enable",
+		Name:   "enable",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "reverse-path-v1",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_Ipv6_Verify_Unicast_Source is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/ipv6/verify/unicast/source.
+type Native_Interface_SM_Ipv6_Verify_Unicast_Source struct {
+	AclName      *string
+	AllowDefault *bool
+	ReachableVia *string
+}
+
+// Native_Interface_SM_Ipv6_Verify_Unicast_SourceSchema describes /Cisco-IOS-XE-native/native/interface/SM/ipv6/verify/unicast/source for the generic codecs.
+var Native_Interface_SM_Ipv6_Verify_Unicast_SourceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "AllowDefault",
+		Name:   "allow-default",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "ReachableVia",
+		Name:   "reachable-via",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "source",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_Ipv6_Verify_Unicast_SourceV1 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/ipv6/verify/unicast/unicast-choice/source-case/source-v1.
+type Native_Interface_SM_Ipv6_Verify_Unicast_SourceV1 struct {
+	AclName      *string
+	AllowDefault *bool
+	ReachableVia *string
+}
+
+// Native_Interface_SM_Ipv6_Verify_Unicast_SourceV1Schema describes /Cisco-IOS-XE-native/native/interface/SM/ipv6/verify/unicast/unicast-choice/source-case/source-v1 for the generic codecs.
+var Native_Interface_SM_Ipv6_Verify_Unicast_SourceV1Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "AllowDefault",
+		Name:   "allow-default",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "ReachableVia",
+		Name:   "reachable-via",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "source-v1",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_Ipv6_VirtualReassembly is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/ipv6/virtual-reassembly.
+type Native_Interface_SM_Ipv6_VirtualReassembly struct {
+	In  *Native_Interface_SM_Ipv6_VirtualReassembly_In
+	Out *Native_Interface_SM_Ipv6_VirtualReassembly_Out
+}
+
+// Native_Interface_SM_Ipv6_VirtualReassemblySchema describes /Cisco-IOS-XE-native/native/interface/SM/ipv6/virtual-reassembly for the generic codecs.
+var Native_Interface_SM_Ipv6_VirtualReassemblySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_SM_Ipv6_VirtualReassembly_InSchema,
+		GoName: "In",
+		Name:   "in",
+	}, {
+		Child:  Native_Interface_SM_Ipv6_VirtualReassembly_OutSchema,
+		GoName: "Out",
+		Name:   "out",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "virtual-reassembly",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_Ipv6_VirtualReassembly_In is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/ipv6/virtual-reassembly/in.
+type Native_Interface_SM_Ipv6_VirtualReassembly_In struct {
+	DropFragments   *bool
+	MaxFragments    *uint8
+	MaxReassemblies *uint16
+	Mode            *string
+	Timeout         *uint8
+}
+
+// Native_Interface_SM_Ipv6_VirtualReassembly_InSchema describes /Cisco-IOS-XE-native/native/interface/SM/ipv6/virtual-reassembly/in for the generic codecs.
+var Native_Interface_SM_Ipv6_VirtualReassembly_InSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DropFragments",
+		Name:   "drop-fragments",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MaxFragments",
+		Name:   "max-fragments",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "MaxReassemblies",
+		Name:   "max-reassemblies",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Mode",
+		Name:   "mode",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Timeout",
+		Name:   "timeout",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "in",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_SM_Ipv6_VirtualReassembly_Out is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/ipv6/virtual-reassembly/out.
+type Native_Interface_SM_Ipv6_VirtualReassembly_Out struct {
+	DropFragments   *bool
+	MaxFragments    *uint8
+	MaxReassemblies *uint16
+	Mode            *string
+	Timeout         *uint8
+}
+
+// Native_Interface_SM_Ipv6_VirtualReassembly_OutSchema describes /Cisco-IOS-XE-native/native/interface/SM/ipv6/virtual-reassembly/out for the generic codecs.
+var Native_Interface_SM_Ipv6_VirtualReassembly_OutSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DropFragments",
+		Name:   "drop-fragments",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MaxFragments",
+		Name:   "max-fragments",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "MaxReassemblies",
+		Name:   "max-reassemblies",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Mode",
+		Name:   "mode",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Timeout",
+		Name:   "timeout",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "out",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_SM_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/isis.
+type Native_Interface_SM_Isis struct{}
+
+// Native_Interface_SM_IsisSchema describes /Cisco-IOS-XE-native/native/interface/SM/isis for the generic codecs.
+var Native_Interface_SM_IsisSchema = &yang.Schema{
+	Fields:    []yang.Field{},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "isis",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_KeepaliveConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/keepalive-config.
+type Native_Interface_SM_KeepaliveConfig struct {
+	Keepalive *bool
+	Period    *uint16
+	Retries   *uint8
+}
+
+// Native_Interface_SM_KeepaliveConfigSchema describes /Cisco-IOS-XE-native/native/interface/SM/keepalive-config for the generic codecs.
+var Native_Interface_SM_KeepaliveConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Keepalive",
+		Name:   "keepalive",
+		Type:   yang.TBool,
+	}, {
+		GoName: "Period",
+		Name:   "period",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Retries",
+		Name:   "retries",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "keepalive-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_KeepaliveSettings is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/keepalive-choice/keepalive-settings/keepalive-settings.
+type Native_Interface_SM_KeepaliveSettings struct {
+	Keepalive *Native_Interface_SM_KeepaliveSettings_Keepalive
+}
+
+// Native_Interface_SM_KeepaliveSettingsSchema describes /Cisco-IOS-XE-native/native/interface/SM/keepalive-choice/keepalive-settings/keepalive-settings for the generic codecs.
+var Native_Interface_SM_KeepaliveSettingsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_SM_KeepaliveSettings_KeepaliveSchema,
+		GoName: "Keepalive",
+		Name:   "keepalive",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "keepalive-settings",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_KeepaliveSettings_Keepalive is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/keepalive-choice/keepalive-settings/keepalive-settings/keepalive.
+type Native_Interface_SM_KeepaliveSettings_Keepalive struct {
+	Period  *uint16
+	Retries *uint8
+}
+
+// Native_Interface_SM_KeepaliveSettings_KeepaliveSchema describes /Cisco-IOS-XE-native/native/interface/SM/keepalive-choice/keepalive-settings/keepalive-settings/keepalive for the generic codecs.
+var Native_Interface_SM_KeepaliveSettings_KeepaliveSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Period",
+		Name:   "period",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Retries",
+		Name:   "retries",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "keepalive",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_SM_L2protocol is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol.
+type Native_Interface_SM_L2protocol struct {
+	Forward *Native_Interface_SM_L2protocol_Forward
+}
+
+// Native_Interface_SM_L2protocolSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol for the generic codecs.
+var Native_Interface_SM_L2protocolSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_SM_L2protocol_ForwardSchema,
+		GoName: "Forward",
+		Name:   "forward",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "l2protocol",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocol_Forward is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward.
+type Native_Interface_SM_L2protocol_Forward struct {
+	DropThreshold     *Native_Interface_SM_L2protocol_Forward_DropThreshold
+	Protocols         []string
+	ShutdownThreshold *Native_Interface_SM_L2protocol_Forward_ShutdownThreshold
+}
+
+// Native_Interface_SM_L2protocol_ForwardSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward for the generic codecs.
+var Native_Interface_SM_L2protocol_ForwardSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_SM_L2protocol_Forward_DropThresholdSchema,
+		GoName: "DropThreshold",
+		Name:   "drop-threshold",
+	}, {
+		GoName:   "Protocols",
+		LeafList: true,
+		Name:     "protocols",
+		Type:     yang.TEnum,
+	}, {
+		Child:  Native_Interface_SM_L2protocol_Forward_ShutdownThresholdSchema,
+		GoName: "ShutdownThreshold",
+		Name:   "shutdown-threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "forward",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocol_Forward_DropThreshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/drop-threshold.
+type Native_Interface_SM_L2protocol_Forward_DropThreshold struct {
+	ThresholdList []Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList
+}
+
+// Native_Interface_SM_L2protocol_Forward_DropThresholdSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/drop-threshold for the generic codecs.
+var Native_Interface_SM_L2protocol_Forward_DropThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListSchema,
+		GoName: "ThresholdList",
+		List:   true,
+		Name:   "threshold-list",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "drop-threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/drop-threshold/threshold-list.
+type Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList struct {
+	PpsNum    *uint16
+	ProtoType *string
+}
+
+// Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/drop-threshold/threshold-list for the generic codecs.
+var Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PpsNum",
+		Name:   "pps-num",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "ProtoType",
+		Name:   "proto-type",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"proto-type"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListKey is Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList's row identity (ancestor keys in canonical form).
+type Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListKey struct {
+	SM_Name   string
+	ProtoType string
+}
+
+// Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow flattens one Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList entry with its ancestor list keys.
+type Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow struct {
+	SM_Name string
+	Entry   Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList
+}
+
+// Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListDescriptor is the flattened-row descriptor for the nested list Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList.
+func Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListDescriptor() yang.ListDescriptor[Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListKey] {
+	return yang.ListDescriptor[Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListKey]{
+		Codec: yang.RowCodec[Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_SMSchema, Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow{
+						Entry:   en.Entry,
+						SM_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_SMSchema, Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow{
+						Entry:   en.Entry,
+						SM_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListKey {
+				var k Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListKey
+				k.SM_Name = r.SM_Name
+				if r.Entry.ProtoType != nil {
+					k.ProtoType = *r.Entry.ProtoType
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_SM_L2protocol_Forward_DropThreshold_ThresholdListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "SM"}, {Name: "l2protocol"}, {Name: "forward"}, {Name: "drop-threshold"}, {Name: "threshold-list"}}},
+	}
+}
+
+// Native_Interface_SM_L2protocol_Forward_ShutdownThreshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/shutdown-threshold.
+type Native_Interface_SM_L2protocol_Forward_ShutdownThreshold struct {
+	ThresholdList []Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList
+}
+
+// Native_Interface_SM_L2protocol_Forward_ShutdownThresholdSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/shutdown-threshold for the generic codecs.
+var Native_Interface_SM_L2protocol_Forward_ShutdownThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema,
+		GoName: "ThresholdList",
+		List:   true,
+		Name:   "threshold-list",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "shutdown-threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/shutdown-threshold/threshold-list.
+type Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList struct {
+	PpsNum    *uint16
+	ProtoType *string
+}
+
+// Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol/forward/shutdown-threshold/threshold-list for the generic codecs.
+var Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PpsNum",
+		Name:   "pps-num",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "ProtoType",
+		Name:   "proto-type",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"proto-type"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListKey is Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList's row identity (ancestor keys in canonical form).
+type Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListKey struct {
+	SM_Name   string
+	ProtoType string
+}
+
+// Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow flattens one Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList entry with its ancestor list keys.
+type Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow struct {
+	SM_Name string
+	Entry   Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList
+}
+
+// Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListDescriptor is the flattened-row descriptor for the nested list Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList.
+func Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListDescriptor() yang.ListDescriptor[Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListKey] {
+	return yang.ListDescriptor[Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListKey]{
+		Codec: yang.RowCodec[Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_SMSchema, Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow{
+						Entry:   en.Entry,
+						SM_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_SMSchema, Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow{
+						Entry:   en.Entry,
+						SM_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow) Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListKey {
+				var k Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListKey
+				k.SM_Name = r.SM_Name
+				if r.Entry.ProtoType != nil {
+					k.ProtoType = *r.Entry.ProtoType
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow) Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_SM_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "SM"}, {Name: "l2protocol"}, {Name: "forward"}, {Name: "shutdown-threshold"}, {Name: "threshold-list"}}},
+	}
+}
+
+// Native_Interface_SM_L2protocolTunnel is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel.
+type Native_Interface_SM_L2protocolTunnel struct {
+	Cdp               *bool
+	DropThreshold     *Native_Interface_SM_L2protocolTunnel_DropThreshold
+	Dtp               *bool
+	Elmi              *bool
+	Esmc              *bool
+	LinkOam           *bool
+	Lldp              *bool
+	Mmrp              *bool
+	Mvrp              *bool
+	PointToPoint      *Native_Interface_SM_L2protocolTunnel_PointToPoint
+	Ptppd             *bool
+	ShutdownThreshold *Native_Interface_SM_L2protocolTunnel_ShutdownThreshold
+	Stp               *bool
+	Vtp               *bool
+}
+
+// Native_Interface_SM_L2protocolTunnelSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel for the generic codecs.
+var Native_Interface_SM_L2protocolTunnelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cdp",
+		Name:   "cdp",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_SM_L2protocolTunnel_DropThresholdSchema,
+		GoName: "DropThreshold",
+		Name:   "drop-threshold",
+	}, {
+		GoName: "Dtp",
+		Name:   "dtp",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Elmi",
+		Name:   "elmi",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Esmc",
+		Name:   "esmc",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "LinkOam",
+		Name:   "link-oam",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Lldp",
+		Name:   "lldp",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Mmrp",
+		Name:   "mmrp",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Mvrp",
+		Name:   "mvrp",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_SM_L2protocolTunnel_PointToPointSchema,
+		GoName: "PointToPoint",
+		Name:   "point-to-point",
+	}, {
+		GoName: "Ptppd",
+		Name:   "ptppd",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_SM_L2protocolTunnel_ShutdownThresholdSchema,
+		GoName: "ShutdownThreshold",
+		Name:   "shutdown-threshold",
+	}, {
+		GoName: "Stp",
+		Name:   "stp",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Vtp",
+		Name:   "vtp",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "l2protocol-tunnel",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_SM_L2protocolTunnel_DropThreshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel/drop-threshold.
+type Native_Interface_SM_L2protocolTunnel_DropThreshold struct {
+	Cdp          *uint16
+	Dtp          *uint16
+	Elmi         *uint16
+	Esmc         *uint16
+	LinkOam      *uint16
+	Lldp         *uint16
+	Mmrp         *uint16
+	Mvrp         *uint16
+	PacketRate   *uint16
+	PointToPoint *Native_Interface_SM_L2protocolTunnel_DropThreshold_PointToPoint
+	Ptppd        *uint16
+	Stp          *uint16
+	Vtp          *uint16
+}
+
+// Native_Interface_SM_L2protocolTunnel_DropThresholdSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel/drop-threshold for the generic codecs.
+var Native_Interface_SM_L2protocolTunnel_DropThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cdp",
+		Name:   "cdp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Dtp",
+		Name:   "dtp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Elmi",
+		Name:   "elmi",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Esmc",
+		Name:   "esmc",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "LinkOam",
+		Name:   "link-oam",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Lldp",
+		Name:   "lldp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Mmrp",
+		Name:   "mmrp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Mvrp",
+		Name:   "mvrp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "PacketRate",
+		Name:   "packet-rate",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Interface_SM_L2protocolTunnel_DropThreshold_PointToPointSchema,
+		GoName: "PointToPoint",
+		Name:   "point-to-point",
+	}, {
+		GoName: "Ptppd",
+		Name:   "ptppd",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Stp",
+		Name:   "stp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Vtp",
+		Name:   "vtp",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "drop-threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocolTunnel_DropThreshold_PointToPoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel/drop-threshold/point-to-point.
+type Native_Interface_SM_L2protocolTunnel_DropThreshold_PointToPoint struct {
+	Lacp *uint16
+	Pagp *uint16
+	Udld *uint16
+}
+
+// Native_Interface_SM_L2protocolTunnel_DropThreshold_PointToPointSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel/drop-threshold/point-to-point for the generic codecs.
+var Native_Interface_SM_L2protocolTunnel_DropThreshold_PointToPointSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Lacp",
+		Name:   "lacp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Pagp",
+		Name:   "pagp",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Udld",
+		Name:   "udld",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "point-to-point",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_SM_L2protocolTunnel_PointToPoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel/point-to-point.
+type Native_Interface_SM_L2protocolTunnel_PointToPoint struct {
+	Lacp *bool
+	Pagp *bool
+	Udld *bool
+}
+
+// Native_Interface_SM_L2protocolTunnel_PointToPointSchema describes /Cisco-IOS-XE-native/native/interface/SM/l2protocol-tunnel/point-to-point for the generic codecs.
+var Native_Interface_SM_L2protocolTunnel_PointToPointSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Lacp",
+		Name:   "lacp",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Pagp",
+		Name:   "pagp",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Udld",
+		Name:   "udld",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "point-to-point",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
 }

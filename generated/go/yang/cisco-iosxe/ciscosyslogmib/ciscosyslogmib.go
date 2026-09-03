@@ -6,7 +6,7 @@
 // Package ciscosyslogmib binds the YANG module CISCO-SYSLOG-MIB.
 package ciscosyslogmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOSYSLOGMIB is the CISCO-SYSLOG-MIB node /CISCO-SYSLOG-MIB/CISCO-SYSLOG-MIB.
 type CISCOSYSLOGMIB struct {

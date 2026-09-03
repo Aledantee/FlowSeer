@@ -6,7 +6,7 @@
 // Package ciscoiosxecontrollert1e1oper binds the YANG module Cisco-IOS-XE-controller-t1e1-oper.
 package ciscoiosxecontrollert1e1oper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // T1e1OperData is the Cisco-IOS-XE-controller-t1e1-oper node /Cisco-IOS-XE-controller-t1e1-oper/t1e1-oper-data.
 type T1e1OperData struct {

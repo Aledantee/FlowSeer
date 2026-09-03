@@ -6,7 +6,7 @@
 // Package expressionmib binds the YANG module EXPRESSION-MIB.
 package expressionmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EXPRESSIONMIB is the EXPRESSION-MIB node /EXPRESSION-MIB/EXPRESSION-MIB.
 type EXPRESSIONMIB struct {

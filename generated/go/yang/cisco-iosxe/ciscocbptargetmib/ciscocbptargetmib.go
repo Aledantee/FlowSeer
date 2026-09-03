@@ -6,7 +6,7 @@
 // Package ciscocbptargetmib binds the YANG module CISCO-CBP-TARGET-MIB.
 package ciscocbptargetmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOCBPTARGETMIB is the CISCO-CBP-TARGET-MIB node /CISCO-CBP-TARGET-MIB/CISCO-CBP-TARGET-MIB.
 type CISCOCBPTARGETMIB struct {

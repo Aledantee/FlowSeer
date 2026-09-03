@@ -6,7 +6,7 @@
 // Package ciscoiosxerawsocketoper binds the YANG module Cisco-IOS-XE-rawsocket-oper.
 package ciscoiosxerawsocketoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RawsocketOperData is the Cisco-IOS-XE-rawsocket-oper node /Cisco-IOS-XE-rawsocket-oper/rawsocket-oper-data.
 type RawsocketOperData struct {

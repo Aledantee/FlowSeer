@@ -6,7 +6,7 @@
 // Package openconfiglldp binds the YANG module openconfig-lldp.
 package openconfiglldp
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Lldp is the openconfig-lldp node /openconfig-lldp/lldp.
 type Lldp struct {

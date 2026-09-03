@@ -5,276 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_Vasileft_KeepaliveConfigSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/keepalive-config for the generic codecs.
-var Native_Interface_Vasileft_KeepaliveConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Keepalive",
-		Name:   "keepalive",
-		Type:   yang.TBool,
-	}, {
-		GoName: "Period",
-		Name:   "period",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Retries",
-		Name:   "retries",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "keepalive-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_KeepaliveSettings is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/keepalive-choice/keepalive-settings/keepalive-settings.
-type Native_Interface_Vasileft_KeepaliveSettings struct {
-	Keepalive *Native_Interface_Vasileft_KeepaliveSettings_Keepalive
-}
-
-// Native_Interface_Vasileft_KeepaliveSettingsSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/keepalive-choice/keepalive-settings/keepalive-settings for the generic codecs.
-var Native_Interface_Vasileft_KeepaliveSettingsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vasileft_KeepaliveSettings_KeepaliveSchema,
-		GoName: "Keepalive",
-		Name:   "keepalive",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "keepalive-settings",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_KeepaliveSettings_Keepalive is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/keepalive-choice/keepalive-settings/keepalive-settings/keepalive.
-type Native_Interface_Vasileft_KeepaliveSettings_Keepalive struct {
-	Period  *uint16
-	Retries *uint8
-}
-
-// Native_Interface_Vasileft_KeepaliveSettings_KeepaliveSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/keepalive-choice/keepalive-settings/keepalive-settings/keepalive for the generic codecs.
-var Native_Interface_Vasileft_KeepaliveSettings_KeepaliveSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Period",
-		Name:   "period",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Retries",
-		Name:   "retries",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "keepalive",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_Vasileft_L2protocol is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol.
-type Native_Interface_Vasileft_L2protocol struct {
-	Forward *Native_Interface_Vasileft_L2protocol_Forward
-}
-
-// Native_Interface_Vasileft_L2protocolSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol for the generic codecs.
-var Native_Interface_Vasileft_L2protocolSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vasileft_L2protocol_ForwardSchema,
-		GoName: "Forward",
-		Name:   "forward",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "l2protocol",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward.
-type Native_Interface_Vasileft_L2protocol_Forward struct {
-	DropThreshold     *Native_Interface_Vasileft_L2protocol_Forward_DropThreshold
-	Protocols         []string
-	ShutdownThreshold *Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold
-}
-
-// Native_Interface_Vasileft_L2protocol_ForwardSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward for the generic codecs.
-var Native_Interface_Vasileft_L2protocol_ForwardSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vasileft_L2protocol_Forward_DropThresholdSchema,
-		GoName: "DropThreshold",
-		Name:   "drop-threshold",
-	}, {
-		GoName:   "Protocols",
-		LeafList: true,
-		Name:     "protocols",
-		Type:     yang.TEnum,
-	}, {
-		Child:  Native_Interface_Vasileft_L2protocol_Forward_ShutdownThresholdSchema,
-		GoName: "ShutdownThreshold",
-		Name:   "shutdown-threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "forward",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_DropThreshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/drop-threshold.
-type Native_Interface_Vasileft_L2protocol_Forward_DropThreshold struct {
-	ThresholdList []Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_DropThresholdSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/drop-threshold for the generic codecs.
-var Native_Interface_Vasileft_L2protocol_Forward_DropThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListSchema,
-		GoName: "ThresholdList",
-		List:   true,
-		Name:   "threshold-list",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "drop-threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/drop-threshold/threshold-list.
-type Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList struct {
-	PpsNum    *uint16
-	ProtoType *string
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/drop-threshold/threshold-list for the generic codecs.
-var Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PpsNum",
-		Name:   "pps-num",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "ProtoType",
-		Name:   "proto-type",
-		Type:   yang.TEnum,
-	}},
-	Keys:      []string{"proto-type"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListKey is Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList's row identity (ancestor keys in canonical form).
-type Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListKey struct {
-	Vasileft_Name string
-	ProtoType     string
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow flattens one Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList entry with its ancestor list keys.
-type Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow struct {
-	Vasileft_Name string
-	Entry         Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListDescriptor is the flattened-row descriptor for the nested list Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList.
-func Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListDescriptor() yang.ListDescriptor[Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListKey] {
-	return yang.ListDescriptor[Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListKey]{
-		Codec: yang.RowCodec[Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_VasileftSchema, Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow{
-						Entry:         en.Entry,
-						Vasileft_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_VasileftSchema, Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow{
-						Entry:         en.Entry,
-						Vasileft_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListKey {
-				var k Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListKey
-				k.Vasileft_Name = r.Vasileft_Name
-				if r.Entry.ProtoType != nil {
-					k.ProtoType = *r.Entry.ProtoType
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow) Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_Vasileft_L2protocol_Forward_DropThreshold_ThresholdListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "vasileft"}, {Name: "l2protocol"}, {Name: "forward"}, {Name: "drop-threshold"}, {Name: "threshold-list"}}},
-	}
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/shutdown-threshold.
-type Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold struct {
-	ThresholdList []Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdList
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_ShutdownThresholdSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/shutdown-threshold for the generic codecs.
-var Native_Interface_Vasileft_L2protocol_Forward_ShutdownThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema,
-		GoName: "ThresholdList",
-		List:   true,
-		Name:   "threshold-list",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "shutdown-threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/shutdown-threshold/threshold-list.
-type Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdList struct {
-	PpsNum    *uint16
-	ProtoType *string
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema describes /Cisco-IOS-XE-native/native/interface/vasileft/l2protocol/forward/shutdown-threshold/threshold-list for the generic codecs.
-var Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PpsNum",
-		Name:   "pps-num",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "ProtoType",
-		Name:   "proto-type",
-		Type:   yang.TEnum,
-	}},
-	Keys:      []string{"proto-type"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListKey is Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdList's row identity (ancestor keys in canonical form).
-type Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListKey struct {
-	Vasileft_Name string
-	ProtoType     string
-}
-
-// Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow flattens one Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdList entry with its ancestor list keys.
-type Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow struct {
-	Vasileft_Name string
-	Entry         Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdList
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListDescriptor is the flattened-row descriptor for the nested list Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdList.
 func Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListDescriptor() yang.ListDescriptor[Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListFlatRow, Native_Interface_Vasileft_L2protocol_Forward_ShutdownThreshold_ThresholdListKey] {
@@ -42954,4 +42685,325 @@ type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight struct {
 	Oc         *Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Oc
 	Resources  *Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Resources
 	Throughput *Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Throughput
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_WeightSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_WeightSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2FactorSchema,
+		GoName: "L2Factor",
+		Name:   "L2-factor",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_LatencySchema,
+		GoName: "Latency",
+		Name:   "latency",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_OcSchema,
+		GoName: "Oc",
+		Name:   "oc",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema,
+		GoName: "Resources",
+		Name:   "resources",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema,
+		GoName: "Throughput",
+		Name:   "throughput",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "weight",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2Factor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/L2-factor.
+type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2Factor struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2FactorSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/L2-factor for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2FactorSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "L2-factor",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Latency is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/latency.
+type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Latency struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_LatencySchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/latency for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_LatencySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "latency",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Oc is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/oc.
+type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Oc struct {
+	Cdr *bool
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_OcSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/oc for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_OcSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cdr",
+		Name:   "cdr",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "oc",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Resources is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/resources.
+type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Resources struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/resources for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "resources",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Throughput is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/throughput.
+type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Throughput struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/throughput for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "throughput",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config.
+type Native_Interface_Vmi_Ospfv3_CostConfig struct {
+	Dynamic *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic
+	Value   *uint32
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfigSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_DynamicSchema,
+		GoName: "Dynamic",
+		Name:   "dynamic",
+	}, {
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "cost-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic struct {
+	Default    *uint32
+	Hysteresis *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Hysteresis
+	Weight     *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_DynamicSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_DynamicSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Default",
+		Name:   "default",
+		Type:   yang.TUint32,
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_HysteresisSchema,
+		GoName: "Hysteresis",
+		Name:   "hysteresis",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_WeightSchema,
+		GoName: "Weight",
+		Name:   "weight",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "dynamic",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Hysteresis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/hysteresis.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Hysteresis struct {
+	Percent   *uint8
+	Threshold *uint32
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_HysteresisSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/hysteresis for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_HysteresisSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Percent",
+		Name:   "percent",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "hysteresis",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight struct {
+	L2Factor   *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2Factor
+	Latency    *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Latency
+	Oc         *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Oc
+	Resources  *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Resources
+	Throughput *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Throughput
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_WeightSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_WeightSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema,
+		GoName: "L2Factor",
+		Name:   "L2-factor",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema,
+		GoName: "Latency",
+		Name:   "latency",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_OcSchema,
+		GoName: "Oc",
+		Name:   "oc",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema,
+		GoName: "Resources",
+		Name:   "resources",
+	}, {
+		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema,
+		GoName: "Throughput",
+		Name:   "throughput",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "weight",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2Factor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/L2-factor.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2Factor struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/L2-factor for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "L2-factor",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Latency is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/latency.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Latency struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/latency for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "latency",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Oc is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/oc.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Oc struct {
+	Cdr *bool
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_OcSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/oc for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_OcSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cdr",
+		Name:   "cdr",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "oc",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Resources is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/resources.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Resources struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/resources for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "resources",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Throughput is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/throughput.
+type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Throughput struct {
+	Value *uint8
+}
+
+// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/throughput for the generic codecs.
+var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Value",
+		Name:   "value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "throughput",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_Vmi_Ospfv3_DatabaseFilter is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/database-filter.
+type Native_Interface_Vmi_Ospfv3_DatabaseFilter struct {
+	All *string
 }

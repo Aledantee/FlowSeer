@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessafcoper binds the YANG module Cisco-IOS-XE-wireless-afc-oper.
 package ciscoiosxewirelessafcoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AfcOperData is the Cisco-IOS-XE-wireless-afc-oper node /Cisco-IOS-XE-wireless-afc-oper/afc-oper-data.
 type AfcOperData struct {

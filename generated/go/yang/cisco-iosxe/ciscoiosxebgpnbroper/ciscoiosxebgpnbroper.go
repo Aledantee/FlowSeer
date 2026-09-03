@@ -6,7 +6,7 @@
 // Package ciscoiosxebgpnbroper binds the YANG module Cisco-IOS-XE-bgp-nbr-oper.
 package ciscoiosxebgpnbroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BgpNbrOperData is the Cisco-IOS-XE-bgp-nbr-oper node /Cisco-IOS-XE-bgp-nbr-oper/bgp-nbr-oper-data.
 type BgpNbrOperData struct {

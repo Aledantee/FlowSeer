@@ -6,7 +6,7 @@
 // Package ciscolicensemgmtmib binds the YANG module CISCO-LICENSE-MGMT-MIB.
 package ciscolicensemgmtmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOLICENSEMGMTMIB is the CISCO-LICENSE-MGMT-MIB node /CISCO-LICENSE-MGMT-MIB/CISCO-LICENSE-MGMT-MIB.
 type CISCOLICENSEMGMTMIB struct {

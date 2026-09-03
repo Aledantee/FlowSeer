@@ -6,7 +6,7 @@
 // Package ciscostackwisemib binds the YANG module CISCO-STACKWISE-MIB.
 package ciscostackwisemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOSTACKWISEMIB is the CISCO-STACKWISE-MIB node /CISCO-STACKWISE-MIB/CISCO-STACKWISE-MIB.
 type CISCOSTACKWISEMIB struct {

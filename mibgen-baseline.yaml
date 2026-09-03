@@ -10,7 +10,7 @@
 #
 # Refresh with:
 #
-#	go run ./src/common/snmp/cmd/mibgen -refresh-baseline
+#	go run ./src/protocol/snmp/cmd/mibgen -refresh-baseline
 #
 # A refreshed group arrives as "pending". Read it, write down why the
 # condition is acceptable, and set the status to "recorded"; a group

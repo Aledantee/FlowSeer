@@ -6,7 +6,7 @@
 // Package dismanexpressionmib binds the YANG module DISMAN-EXPRESSION-MIB.
 package dismanexpressionmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DISMANEXPRESSIONMIB is the DISMAN-EXPRESSION-MIB node /DISMAN-EXPRESSION-MIB/DISMAN-EXPRESSION-MIB.
 type DISMANEXPRESSIONMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxeriboper binds the YANG module Cisco-IOS-XE-rib-oper.
 package ciscoiosxeriboper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RibOperData is the Cisco-IOS-XE-rib-oper node /Cisco-IOS-XE-rib-oper/rib-oper-data.
 type RibOperData struct {

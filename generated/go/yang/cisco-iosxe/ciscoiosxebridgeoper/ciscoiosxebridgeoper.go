@@ -6,7 +6,7 @@
 // Package ciscoiosxebridgeoper binds the YANG module Cisco-IOS-XE-bridge-oper.
 package ciscoiosxebridgeoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BridgeInstances is the Cisco-IOS-XE-bridge-oper node /Cisco-IOS-XE-bridge-oper/bridge-instances.
 type BridgeInstances struct {

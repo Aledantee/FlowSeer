@@ -6,7 +6,7 @@
 // Package ciscoiosxeqfpresourceutilizationoper binds the YANG module Cisco-IOS-XE-qfp-resource-utilization-oper.
 package ciscoiosxeqfpresourceutilizationoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // QfpResourceUtilizationOperData is the Cisco-IOS-XE-qfp-resource-utilization-oper node /Cisco-IOS-XE-qfp-resource-utilization-oper/qfp-resource-utilization-oper-data.
 type QfpResourceUtilizationOperData struct {

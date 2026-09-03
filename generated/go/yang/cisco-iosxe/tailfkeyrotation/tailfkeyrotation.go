@@ -6,7 +6,7 @@
 // Package tailfkeyrotation binds the YANG module tailf-key-rotation.
 package tailfkeyrotation
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // KeyRotation is the tailf-key-rotation node /tailf-key-rotation/key-rotation.
 type KeyRotation struct{}

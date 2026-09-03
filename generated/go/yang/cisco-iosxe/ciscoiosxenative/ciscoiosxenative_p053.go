@@ -5,330 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Ip_Nat_Inside_SourceSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source for the generic codecs.
-var Native_Ip_Nat_Inside_SourceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Ip_Nat_Inside_Source_ListSchema,
-		GoName: "List",
-		List:   true,
-		Name:   "list",
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_ListInterfaceSchema,
-		GoName: "ListInterface",
-		Name:   "list-interface",
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_ListPoolSchema,
-		GoName: "ListPool",
-		Name:   "list-pool",
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_RouteMapSchema,
-		GoName: "RouteMap",
-		List:   true,
-		Name:   "route-map",
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_StaticSchema,
-		GoName: "Static",
-		Name:   "static",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "source",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Ip_Nat_Inside_Source_List is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list.
-type Native_Ip_Nat_Inside_Source_List struct {
-	Id               *yang.Value
-	Interface        []Native_Ip_Nat_Inside_Source_List_Interface
-	InterfaceWithVrf *Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf
-	Pool             []Native_Ip_Nat_Inside_Source_List_Pool
-	PoolWithVrf      *Native_Ip_Nat_Inside_Source_List_PoolWithVrf
-}
-
-// Native_Ip_Nat_Inside_Source_ListSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list for the generic codecs.
-var Native_Ip_Nat_Inside_Source_ListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Id",
-		Name:   "id",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceSchema,
-		GoName: "Interface",
-		List:   true,
-		Name:   "interface",
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceWithVrfSchema,
-		GoName: "InterfaceWithVrf",
-		Name:   "interface-with-vrf",
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_List_PoolSchema,
-		GoName: "Pool",
-		List:   true,
-		Name:   "pool",
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_List_PoolWithVrfSchema,
-		GoName: "PoolWithVrf",
-		Name:   "pool-with-vrf",
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Ip_Nat_Inside_Source_ListKey is Native_Ip_Nat_Inside_Source_List's row identity (ancestor keys in canonical form).
-type Native_Ip_Nat_Inside_Source_ListKey struct {
-	Id string
-}
-
-// Native_Ip_Nat_Inside_Source_ListDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Ip_Nat_Inside_Source_ListDescriptor() yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List, Native_Ip_Nat_Inside_Source_ListKey] {
-	return yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List, Native_Ip_Nat_Inside_Source_ListKey]{
-		Codec: yang.StructRowCodec(Native_Ip_Nat_Inside_Source_ListSchema, func(r *Native_Ip_Nat_Inside_Source_List) Native_Ip_Nat_Inside_Source_ListKey {
-			var k Native_Ip_Nat_Inside_Source_ListKey
-			if r.Id != nil {
-				k.Id = yang.CanonicalKey(r.Id)
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "inside"}, {Name: "source"}, {Name: "list"}}},
-	}
-}
-
-// Native_Ip_Nat_Inside_Source_List_Interface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface.
-type Native_Ip_Nat_Inside_Source_List_Interface struct {
-	Extended *bool
-	Name     *string
-	Oer      *bool
-	Overload *bool
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface for the generic codecs.
-var Native_Ip_Nat_Inside_Source_List_InterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Extended",
-		Name:   "extended",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Oer",
-		Name:   "oer",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Overload",
-		Name:   "overload",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "interface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceKey is Native_Ip_Nat_Inside_Source_List_Interface's row identity (ancestor keys in canonical form).
-type Native_Ip_Nat_Inside_Source_List_InterfaceKey struct {
-	List_Id string
-	Name    string
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow flattens one Native_Ip_Nat_Inside_Source_List_Interface entry with its ancestor list keys.
-type Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow struct {
-	List_Id string
-	Entry   Native_Ip_Nat_Inside_Source_List_Interface
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceDescriptor is the flattened-row descriptor for the nested list Native_Ip_Nat_Inside_Source_List_Interface.
-func Native_Ip_Nat_Inside_Source_List_InterfaceDescriptor() yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceKey] {
-	return yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceKey]{
-		Codec: yang.RowCodec[Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceKey]{
-			DecodeJSON: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, error) {
-				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceSchema}
-				entries, err := yang.DecodeJSONNested[Native_Ip_Nat_Inside_Source_List_Interface](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow{
-						Entry:   en.Entry,
-						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, error) {
-				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceSchema}
-				entries, err := yang.DecodeXMLNested[Native_Ip_Nat_Inside_Source_List_Interface](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow{
-						Entry:   en.Entry,
-						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceKey {
-				var k Native_Ip_Nat_Inside_Source_List_InterfaceKey
-				k.List_Id = r.List_Id
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow {
-				base.Entry = yang.MergeStructs(Native_Ip_Nat_Inside_Source_List_InterfaceSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "inside"}, {Name: "source"}, {Name: "list"}, {Name: "interface"}}},
-	}
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf.
-type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf struct {
-	Interface []Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrfSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf for the generic codecs.
-var Native_Ip_Nat_Inside_Source_List_InterfaceWithVrfSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema,
-		GoName: "Interface",
-		List:   true,
-		Name:   "interface",
-	}},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "interface-with-vrf",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf/interface.
-type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface struct {
-	Name *string
-	Vrf  []Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface_Vrf
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf/interface for the generic codecs.
-var Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface_VrfSchema,
-		GoName: "Vrf",
-		List:   true,
-		Name:   "vrf",
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-nat",
-	Name:      "interface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey is Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface's row identity (ancestor keys in canonical form).
-type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey struct {
-	List_Id string
-	Name    string
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow flattens one Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface entry with its ancestor list keys.
-type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow struct {
-	List_Id string
-	Entry   Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface
-}
-
-// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceDescriptor is the flattened-row descriptor for the nested list Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface.
-func Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceDescriptor() yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey] {
-	return yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey]{
-		Codec: yang.RowCodec[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey]{
-			DecodeJSON: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, error) {
-				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema}
-				entries, err := yang.DecodeJSONNested[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow{
-						Entry:   en.Entry,
-						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, error) {
-				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema}
-				entries, err := yang.DecodeXMLNested[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow{
-						Entry:   en.Entry,
-						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey {
-				var k Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey
-				k.List_Id = r.List_Id
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow {
-				base.Entry = yang.MergeStructs(Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-nat",
-			Name:      "nat",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
-		}, {Name: "inside"}, {Name: "source"}, {Name: "list"}, {Name: "interface-with-vrf"}, {Name: "interface"}}},
-	}
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface_Vrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf/interface/vrf.
 type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface_Vrf struct {
@@ -50117,6 +49794,752 @@ type Native_Ipv6_AccessList_NamedAcl_AccessListSeqRule_AceRule struct {
 	MsgTypeCase             *uint8
 	NamedMsgType            *string
 	ObjectGroup             *string
+	Protocol                *yang.Value
+	Psh                     *bool
+	Routing                 *bool
+	RoutingType             *uint8
+	Rst                     *bool
+	SourceAddress           *string
+	SourceFqdnGroup         *string
+	SourceGeoGroup          *string
+	SourceHost              *yang.Value
+	SourceObjectGroup       *string
+	SourcePrefix            *string
+	SourceWildcardBits      *string
+	SrcEq                   *yang.Value
+	SrcEqPort10             *yang.Value
+	SrcEqPort2              *yang.Value
+	SrcEqPort3              *yang.Value
+	SrcEqPort4              *yang.Value
+	SrcEqPort5              *yang.Value
+	SrcEqPort6              *yang.Value
+	SrcEqPort7              *yang.Value
+	SrcEqPort8              *yang.Value
+	SrcEqPort9              *yang.Value
+	SrcGt                   *yang.Value
+	SrcLt                   *yang.Value
+	SrcNeq                  *yang.Value
+	SrcNeqPort10            *yang.Value
+	SrcNeqPort2             *yang.Value
+	SrcNeqPort3             *yang.Value
+	SrcNeqPort4             *yang.Value
+	SrcNeqPort5             *yang.Value
+	SrcNeqPort6             *yang.Value
+	SrcNeqPort7             *yang.Value
+	SrcNeqPort8             *yang.Value
+	SrcNeqPort9             *yang.Value
+	SrcRange1               *yang.Value
+	SrcRange2               *yang.Value
+	Syn                     *bool
+	TimeRange               *string
+	Urg                     *bool
+}
+
+// Native_Ipv6_AccessList_NamedAcl_AccessListSeqRule_AceRuleSchema describes /Cisco-IOS-XE-native/native/ipv6/access-list/named-acl/access-list-seq-rule/ace-rule-remark-choice/ace-rule-case/ace-rule for the generic codecs.
+var Native_Ipv6_AccessList_NamedAcl_AccessListSeqRule_AceRuleSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ack",
+		Name:   "ack",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Action",
+		Name:   "action",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Any",
+		Name:   "any",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Auth",
+		Name:   "auth",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "DestOption",
+		Name:   "dest-option",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "DestinationAddress",
+		Name:   "destination-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "DestinationAny",
+		Name:   "destination-any",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "DestinationFqdnGroup",
+		Name:   "destination-fqdn-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "DestinationGeoGroup",
+		Name:   "destination-geo-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "DestinationHost",
+		Name:   "destination-host",
+		Type: &yang.Type{
+			Kind: yang.TypeUnion,
+			Members: []yang.Type{{
+				Kind:    yang.TypeUnion,
+				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+			}, {Kind: yang.TypeString}},
+		},
+	}, {
+		GoName: "DestinationObjectGroup",
+		Name:   "destination-object-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "DestinationPrefix",
+		Name:   "destination-prefix",
+		Type:   yang.TString,
+	}, {
+		GoName: "DestinationWildcardBits",
+		Name:   "destination-wildcard-bits",
+		Type:   yang.TString,
+	}, {
+		GoName: "Dscp",
+		Name:   "dscp",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEq",
+		Name:   "dst-eq",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort10",
+		Name:   "dst-eq-port10",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort2",
+		Name:   "dst-eq-port2",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort3",
+		Name:   "dst-eq-port3",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort4",
+		Name:   "dst-eq-port4",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort5",
+		Name:   "dst-eq-port5",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort6",
+		Name:   "dst-eq-port6",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort7",
+		Name:   "dst-eq-port7",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort8",
+		Name:   "dst-eq-port8",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstEqPort9",
+		Name:   "dst-eq-port9",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstGt",
+		Name:   "dst-gt",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstLt",
+		Name:   "dst-lt",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeq",
+		Name:   "dst-neq",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort10",
+		Name:   "dst-neq-port10",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort2",
+		Name:   "dst-neq-port2",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort3",
+		Name:   "dst-neq-port3",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort4",
+		Name:   "dst-neq-port4",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort5",
+		Name:   "dst-neq-port5",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort6",
+		Name:   "dst-neq-port6",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort7",
+		Name:   "dst-neq-port7",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort8",
+		Name:   "dst-neq-port8",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstNeqPort9",
+		Name:   "dst-neq-port9",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstRange1",
+		Name:   "dst-range1",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "DstRange2",
+		Name:   "dst-range2",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "Established",
+		Name:   "established",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Fin",
+		Name:   "fin",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "FlowLabel",
+		Name:   "flow-label",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Fragments",
+		Name:   "fragments",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Hbh",
+		Name:   "hbh",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Log",
+		Name:   "log",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "LogInput",
+		Name:   "log-input",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Mobility",
+		Name:   "mobility",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MobilityType",
+		Name:   "mobility-type",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "MsgCode",
+		Name:   "msg-code",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "MsgTypeCase",
+		Name:   "msg-type-case",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "NamedMsgType",
+		Name:   "named-msg-type",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "ObjectGroup",
+		Name:   "object-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "Protocol",
+		Name:   "protocol",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "Psh",
+		Name:   "psh",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Routing",
+		Name:   "routing",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "RoutingType",
+		Name:   "routing-type",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Rst",
+		Name:   "rst",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "SourceAddress",
+		Name:   "source-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "SourceFqdnGroup",
+		Name:   "source-fqdn-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "SourceGeoGroup",
+		Name:   "source-geo-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "SourceHost",
+		Name:   "source-host",
+		Type: &yang.Type{
+			Kind: yang.TypeUnion,
+			Members: []yang.Type{{
+				Kind:    yang.TypeUnion,
+				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+			}, {Kind: yang.TypeString}},
+		},
+	}, {
+		GoName: "SourceObjectGroup",
+		Name:   "source-object-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "SourcePrefix",
+		Name:   "source-prefix",
+		Type:   yang.TString,
+	}, {
+		GoName: "SourceWildcardBits",
+		Name:   "source-wildcard-bits",
+		Type:   yang.TString,
+	}, {
+		GoName: "SrcEq",
+		Name:   "src-eq",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort10",
+		Name:   "src-eq-port10",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort2",
+		Name:   "src-eq-port2",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort3",
+		Name:   "src-eq-port3",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort4",
+		Name:   "src-eq-port4",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort5",
+		Name:   "src-eq-port5",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort6",
+		Name:   "src-eq-port6",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort7",
+		Name:   "src-eq-port7",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort8",
+		Name:   "src-eq-port8",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcEqPort9",
+		Name:   "src-eq-port9",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcGt",
+		Name:   "src-gt",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcLt",
+		Name:   "src-lt",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeq",
+		Name:   "src-neq",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort10",
+		Name:   "src-neq-port10",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort2",
+		Name:   "src-neq-port2",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort3",
+		Name:   "src-neq-port3",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort4",
+		Name:   "src-neq-port4",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort5",
+		Name:   "src-neq-port5",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort6",
+		Name:   "src-neq-port6",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort7",
+		Name:   "src-neq-port7",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort8",
+		Name:   "src-neq-port8",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcNeqPort9",
+		Name:   "src-neq-port9",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcRange1",
+		Name:   "src-range1",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "SrcRange2",
+		Name:   "src-range2",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "Syn",
+		Name:   "syn",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "TimeRange",
+		Name:   "time-range",
+		Type:   yang.TString,
+	}, {
+		GoName: "Urg",
+		Name:   "urg",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-acl",
+	Name:      "ace-rule",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-acl",
+}
+
+// Native_Ipv6_AccessList_NamedAcl_Default is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ipv6/access-list/named-acl/default.
+type Native_Ipv6_AccessList_NamedAcl_Default struct {
+	AccessListSeqRule []Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule
+}
+
+// Native_Ipv6_AccessList_NamedAcl_DefaultSchema describes /Cisco-IOS-XE-native/native/ipv6/access-list/named-acl/default for the generic codecs.
+var Native_Ipv6_AccessList_NamedAcl_DefaultSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleSchema,
+		GoName: "AccessListSeqRule",
+		List:   true,
+		Name:   "access-list-seq-rule",
+	}},
+	Module:    "Cisco-IOS-XE-acl",
+	Name:      "default",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-acl",
+}
+
+// Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ipv6/access-list/named-acl/default/access-list-seq-rule.
+type Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule struct {
+	AceRule  *Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule_AceRule
+	Remark   *string
+	Sequence *uint64
+}
+
+// Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleSchema describes /Cisco-IOS-XE-native/native/ipv6/access-list/named-acl/default/access-list-seq-rule for the generic codecs.
+var Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule_AceRuleSchema,
+		GoName: "AceRule",
+		Name:   "ace-rule",
+	}, {
+		GoName: "Remark",
+		Name:   "remark",
+		Type:   yang.TString,
+	}, {
+		GoName: "Sequence",
+		Name:   "sequence",
+		Type:   yang.TUint64,
+	}},
+	Keys:      []string{"sequence"},
+	Module:    "Cisco-IOS-XE-acl",
+	Name:      "access-list-seq-rule",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-acl",
+}
+
+// Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleKey is Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule's row identity (ancestor keys in canonical form).
+type Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleKey struct {
+	NamedAcl_Name string
+	Sequence      uint64
+}
+
+// Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow flattens one Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule entry with its ancestor list keys.
+type Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow struct {
+	NamedAcl_Name string
+	Entry         Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule
+}
+
+// Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleDescriptor is the flattened-row descriptor for the nested list Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule.
+func Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleDescriptor() yang.ListDescriptor[Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow, Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleKey] {
+	return yang.ListDescriptor[Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow, Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleKey]{
+		Codec: yang.RowCodec[Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow, Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleKey]{
+			DecodeJSON: func(data []byte) ([]Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow, error) {
+				chain := []*yang.Schema{Native_Ipv6_AccessList_NamedAclSchema, Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleSchema}
+				entries, err := yang.DecodeJSONNested[Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow{
+						Entry:         en.Entry,
+						NamedAcl_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow, error) {
+				chain := []*yang.Schema{Native_Ipv6_AccessList_NamedAclSchema, Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleSchema}
+				entries, err := yang.DecodeXMLNested[Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow{
+						Entry:         en.Entry,
+						NamedAcl_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow) Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleKey {
+				var k Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleKey
+				k.NamedAcl_Name = r.NamedAcl_Name
+				if r.Entry.Sequence != nil {
+					k.Sequence = *r.Entry.Sequence
+				}
+				return k
+			},
+			Merge: func(base, update Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow) Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleFlatRow {
+				base.Entry = yang.MergeStructs(Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRuleSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "ipv6"}, {Name: "access-list"}, {
+			Module:    "Cisco-IOS-XE-acl",
+			Name:      "named-acl",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-acl",
+		}, {Name: "default"}, {Name: "access-list-seq-rule"}}},
+	}
+}
+
+// Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule_AceRule is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ipv6/access-list/named-acl/default/access-list-seq-rule/ace-rule-remark-choice/ace-rule-case/ace-rule.
+type Native_Ipv6_AccessList_NamedAcl_Default_AccessListSeqRule_AceRule struct {
+	Ack                     *bool
+	Action                  *string
+	Any                     *bool
+	Auth                    *bool
+	DestOption              *bool
+	DestinationAddress      *string
+	DestinationAny          *bool
+	DestinationFqdnGroup    *string
+	DestinationGeoGroup     *string
+	DestinationHost         *yang.Value
+	DestinationObjectGroup  *string
+	DestinationPrefix       *string
+	DestinationWildcardBits *string
+	Dscp                    *yang.Value
+	DstEq                   *yang.Value
+	DstEqPort10             *yang.Value
+	DstEqPort2              *yang.Value
+	DstEqPort3              *yang.Value
+	DstEqPort4              *yang.Value
+	DstEqPort5              *yang.Value
+	DstEqPort6              *yang.Value
+	DstEqPort7              *yang.Value
+	DstEqPort8              *yang.Value
+	DstEqPort9              *yang.Value
+	DstGt                   *yang.Value
+	DstLt                   *yang.Value
+	DstNeq                  *yang.Value
+	DstNeqPort10            *yang.Value
+	DstNeqPort2             *yang.Value
+	DstNeqPort3             *yang.Value
+	DstNeqPort4             *yang.Value
+	DstNeqPort5             *yang.Value
+	DstNeqPort6             *yang.Value
+	DstNeqPort7             *yang.Value
+	DstNeqPort8             *yang.Value
+	DstNeqPort9             *yang.Value
+	DstRange1               *yang.Value
+	DstRange2               *yang.Value
+	Established             *bool
+	Fin                     *bool
+	FlowLabel               *uint32
+	Fragments               *bool
+	Hbh                     *bool
+	Log                     *bool
+	LogInput                *bool
+	Mobility                *bool
+	MobilityType            *yang.Value
+	MsgCode                 *uint8
+	MsgTypeCase             *uint8
+	NamedMsgType            *string
 	Protocol                *yang.Value
 	Psh                     *bool
 	Routing                 *bool

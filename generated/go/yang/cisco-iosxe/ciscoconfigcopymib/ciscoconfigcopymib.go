@@ -6,7 +6,7 @@
 // Package ciscoconfigcopymib binds the YANG module CISCO-CONFIG-COPY-MIB.
 package ciscoconfigcopymib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOCONFIGCOPYMIB is the CISCO-CONFIG-COPY-MIB node /CISCO-CONFIG-COPY-MIB/CISCO-CONFIG-COPY-MIB.
 type CISCOCONFIGCOPYMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxeospfoper binds the YANG module Cisco-IOS-XE-ospf-oper.
 package ciscoiosxeospfoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // OspfOperData is the Cisco-IOS-XE-ospf-oper node /Cisco-IOS-XE-ospf-oper/ospf-oper-data.
 type OspfOperData struct {

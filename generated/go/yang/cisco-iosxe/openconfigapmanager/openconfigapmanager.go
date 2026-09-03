@@ -6,7 +6,7 @@
 // Package openconfigapmanager binds the YANG module openconfig-ap-manager.
 package openconfigapmanager
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // JoinedAps is the openconfig-ap-manager node /openconfig-ap-manager/joined-aps.
 type JoinedAps struct {

@@ -6,7 +6,7 @@
 // Package ietfnetconfmonitoring binds the YANG module ietf-netconf-monitoring.
 package ietfnetconfmonitoring
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_NetconfBeep is the ietf-netconf-monitoring identity "netconf-beep".
 var Identity_NetconfBeep = yang.Identity{

@@ -6,7 +6,7 @@
 // Package rfc1315mib binds the YANG module RFC1315-MIB.
 package rfc1315mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RFC1315MIB is the RFC1315-MIB node /RFC1315-MIB/RFC1315-MIB.
 type RFC1315MIB struct {

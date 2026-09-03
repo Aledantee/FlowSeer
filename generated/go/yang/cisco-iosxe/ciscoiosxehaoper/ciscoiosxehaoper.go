@@ -6,7 +6,7 @@
 // Package ciscoiosxehaoper binds the YANG module Cisco-IOS-XE-ha-oper.
 package ciscoiosxehaoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // HaOperData is the Cisco-IOS-XE-ha-oper node /Cisco-IOS-XE-ha-oper/ha-oper-data.
 type HaOperData struct {

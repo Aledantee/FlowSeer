@@ -6,7 +6,7 @@
 // Package ciscoiosxeserviceinsertionoper binds the YANG module Cisco-IOS-XE-service-insertion-oper.
 package ciscoiosxeserviceinsertionoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ServiceInsertionOperData is the Cisco-IOS-XE-service-insertion-oper node /Cisco-IOS-XE-service-insertion-oper/service-insertion-oper-data.
 type ServiceInsertionOperData struct {

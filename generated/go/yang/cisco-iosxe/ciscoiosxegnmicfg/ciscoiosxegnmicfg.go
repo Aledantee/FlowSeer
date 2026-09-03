@@ -6,7 +6,7 @@
 // Package ciscoiosxegnmicfg binds the YANG module Cisco-IOS-XE-gnmi-cfg.
 package ciscoiosxegnmicfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GnmiCfgData is the Cisco-IOS-XE-gnmi-cfg node /Cisco-IOS-XE-gnmi-cfg/gnmi-cfg-data.
 type GnmiCfgData struct {

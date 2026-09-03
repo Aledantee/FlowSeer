@@ -5,241 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetMplsExpTopmostTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-mpls-exp-topmost-transmit/violate-action for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetMplsExpTopmostTransmit_ViolateActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SetMplsExpTopmostTransmit",
-		Name:   "set-mpls-exp-topmost-transmit",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "violate-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit.
-type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit struct {
-	ViolateAction *Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateAction
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmitSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateActionSchema,
-		GoName: "ViolateAction",
-		Name:   "violate-action",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "violate-set-prec-transmit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit/violate-action.
-type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateAction struct {
-	SetPrecTransmit *yang.Value
-	Table           *string
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit/violate-action for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SetPrecTransmit",
-		Name:   "set-prec-transmit",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
-		},
-	}, {
-		GoName: "Table",
-		Name:   "table",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "violate-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit.
-type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit struct {
-	ViolateAction *Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateAction
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmitSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateActionSchema,
-		GoName: "ViolateAction",
-		Name:   "violate-action",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "violate-set-qos-transmit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit/violate-action.
-type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateAction struct {
-	SetQosTransmit *yang.Value
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit/violate-action for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SetQosTransmit",
-		Name:   "set-qos-transmit",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "violate-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit.
-type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit struct {
-	ViolateAction *Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateAction
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmitSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateActionSchema,
-		GoName: "ViolateAction",
-		Name:   "violate-action",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "violate-transmit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit/violate-action.
-type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateAction struct {
-	Transmit *bool
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit/violate-action for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Transmit",
-		Name:   "transmit",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "violate-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map.
-type Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap struct {
-	Police *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMapSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_PoliceSchema,
-		GoName: "Police",
-		Name:   "police",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "police-policy-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map/police.
-type Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police struct {
-	Actions *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions
-	Bc      *uint32
-	Be      *uint32
-	Cir     *uint64
-	Pir     *uint64
-	PirBe   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_PirBe
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_PoliceSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map/police for the generic codecs.
-var Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_PoliceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_ActionsSchema,
-		GoName: "Actions",
-		Name:   "actions",
-	}, {
-		GoName: "Bc",
-		Name:   "bc",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Be",
-		Name:   "be",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Cir",
-		Name:   "cir",
-		Type:   yang.TUint64,
-	}, {
-		GoName: "Pir",
-		Name:   "pir",
-		Type:   yang.TUint64,
-	}, {
-		Child:  Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_PirBeSchema,
-		GoName: "PirBe",
-		Name:   "pir-be",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "police",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map/police/actions.
-type Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions struct {
-	ConformDrop                              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformDrop
-	ConformSetClpTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetClpTransmit
-	ConformSetCosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetCosTransmit
-	ConformSetCosTransmitTable               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetCosTransmitTable
-	ConformSetDiscardClassTransmit           *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetDiscardClassTransmit
-	ConformSetDscpTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetDscpTransmit
-	ConformSetDscpTransmitTable              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetDscpTransmitTable
-	ConformSetFrdeTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetFrdeTransmit
-	ConformSetMplsExpImpositionTransmit      *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpImpositionTransmit
-	ConformSetMplsExpImpositionTransmitTable *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpImpositionTransmitTable
-	ConformSetMplsExpTopmostTransmit         *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpTopmostTransmit
-	ConformSetMplsExpTopmostTransmitTable    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpTopmostTransmitTable
-	ConformSetPrecTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetPrecTransmit
-	ConformSetPrecTransmitTable              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetPrecTransmitTable
-	ConformSetQosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetQosTransmit
-	ConformSetQosTransmitTable               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetQosTransmitTable
-	ConformTransmit                          *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformTransmit
-	ExceedDrop                               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedDrop
-	ExceedDscp                               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedDscp
-	ExceedSetClpTransmit                     *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetClpTransmit
-	ExceedSetCosTransmit                     *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetCosTransmit
-	ExceedSetCosTransmitVal                  *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetCosTransmitVal
-	ExceedSetDiscardClassTransmit            *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetDiscardClassTransmit
-	ExceedSetDscpTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetDscpTransmit
-	ExceedSetDscpTransmitTable               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetDscpTransmitTable
-	ExceedSetFrdeTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetFrdeTransmit
-	ExceedSetMplsExpImpositionTransmit       *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetMplsExpImpositionTransmit
-	ExceedSetMplsExpTopmostTransmit          *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetMplsExpTopmostTransmit
-	ExceedSetPrecTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetPrecTransmit
-	ExceedSetPrecTransmitVal                 *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetPrecTransmitVal
-	ExceedSetQosTransmit                     *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetQosTransmit
-	ExceedTransmit                           *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedTransmit
-	ViolateDrop                              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateDrop
-	ViolateSetClpTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetClpTransmit
-	ViolateSetCosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetCosTransmit
-	ViolateSetDiscardClassTransmit           *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetDiscardClassTransmit
-	ViolateSetDscpTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetDscpTransmit
-	ViolateSetFrdeTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetFrdeTransmit
-	ViolateSetMplsExpImpositionTransmit      *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetMplsExpImpositionTransmit
-	ViolateSetMplsExpTopmostTransmit         *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetMplsExpTopmostTransmit
-	ViolateSetPrecTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetPrecTransmit
-	ViolateSetQosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetQosTransmit
-	ViolateTransmit                          *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateTransmit
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_ActionsSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map/police/actions for the generic codecs.
 var Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_ActionsSchema = &yang.Schema{
@@ -30265,4 +30031,336 @@ type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate
 	ViolateSetPrecTransmit                   *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetPrecTransmit
 	ViolateSetQosTransmit                    *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetQosTransmit
 	ViolateTransmit                          *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateTransmit
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_ActionsSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_ActionsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDropSchema,
+		GoName: "ConformDrop",
+		Name:   "conform-drop",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmitSchema,
+		GoName: "ConformSetClpTransmit",
+		Name:   "conform-set-clp-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitSchema,
+		GoName: "ConformSetCosTransmit",
+		Name:   "conform-set-cos-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTableSchema,
+		GoName: "ConformSetCosTransmitTable",
+		Name:   "conform-set-cos-transmit-table",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetDiscardClassTransmitSchema,
+		GoName: "ConformSetDiscardClassTransmit",
+		Name:   "conform-set-discard-class-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetDscpTransmitSchema,
+		GoName: "ConformSetDscpTransmit",
+		Name:   "conform-set-dscp-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetDscpTransmitTableSchema,
+		GoName: "ConformSetDscpTransmitTable",
+		Name:   "conform-set-dscp-transmit-table",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetFrdeTransmitSchema,
+		GoName: "ConformSetFrdeTransmit",
+		Name:   "conform-set-frde-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpImpositionTransmitSchema,
+		GoName: "ConformSetMplsExpImpositionTransmit",
+		Name:   "conform-set-mpls-exp-imposition-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpImpositionTransmitTableSchema,
+		GoName: "ConformSetMplsExpImpositionTransmitTable",
+		Name:   "conform-set-mpls-exp-imposition-transmit-table",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpTopmostTransmitSchema,
+		GoName: "ConformSetMplsExpTopmostTransmit",
+		Name:   "conform-set-mpls-exp-topmost-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpTopmostTransmitTableSchema,
+		GoName: "ConformSetMplsExpTopmostTransmitTable",
+		Name:   "conform-set-mpls-exp-topmost-transmit-table",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetPrecTransmitSchema,
+		GoName: "ConformSetPrecTransmit",
+		Name:   "conform-set-prec-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetPrecTransmitTableSchema,
+		GoName: "ConformSetPrecTransmitTable",
+		Name:   "conform-set-prec-transmit-table",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetQosTransmitSchema,
+		GoName: "ConformSetQosTransmit",
+		Name:   "conform-set-qos-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetQosTransmitTableSchema,
+		GoName: "ConformSetQosTransmitTable",
+		Name:   "conform-set-qos-transmit-table",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformTransmitSchema,
+		GoName: "ConformTransmit",
+		Name:   "conform-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedDropSchema,
+		GoName: "ExceedDrop",
+		Name:   "exceed-drop",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedDscpSchema,
+		GoName: "ExceedDscp",
+		Name:   "exceed-dscp",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetClpTransmitSchema,
+		GoName: "ExceedSetClpTransmit",
+		Name:   "exceed-set-clp-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetCosTransmitSchema,
+		GoName: "ExceedSetCosTransmit",
+		Name:   "exceed-set-cos-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetCosTransmitValSchema,
+		GoName: "ExceedSetCosTransmitVal",
+		Name:   "exceed-set-cos-transmit-val",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetDiscardClassTransmitSchema,
+		GoName: "ExceedSetDiscardClassTransmit",
+		Name:   "exceed-set-discard-class-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetDscpTransmitSchema,
+		GoName: "ExceedSetDscpTransmit",
+		Name:   "exceed-set-dscp-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetDscpTransmitTableSchema,
+		GoName: "ExceedSetDscpTransmitTable",
+		Name:   "exceed-set-dscp-transmit-table",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetFrdeTransmitSchema,
+		GoName: "ExceedSetFrdeTransmit",
+		Name:   "exceed-set-frde-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetMplsExpImpositionTransmitSchema,
+		GoName: "ExceedSetMplsExpImpositionTransmit",
+		Name:   "exceed-set-mpls-exp-imposition-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetMplsExpTopmostTransmitSchema,
+		GoName: "ExceedSetMplsExpTopmostTransmit",
+		Name:   "exceed-set-mpls-exp-topmost-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetPrecTransmitSchema,
+		GoName: "ExceedSetPrecTransmit",
+		Name:   "exceed-set-prec-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetPrecTransmitValSchema,
+		GoName: "ExceedSetPrecTransmitVal",
+		Name:   "exceed-set-prec-transmit-val",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetQosTransmitSchema,
+		GoName: "ExceedSetQosTransmit",
+		Name:   "exceed-set-qos-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedTransmitSchema,
+		GoName: "ExceedTransmit",
+		Name:   "exceed-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateDropSchema,
+		GoName: "ViolateDrop",
+		Name:   "violate-drop",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetClpTransmitSchema,
+		GoName: "ViolateSetClpTransmit",
+		Name:   "violate-set-clp-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetCosTransmitSchema,
+		GoName: "ViolateSetCosTransmit",
+		Name:   "violate-set-cos-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetDiscardClassTransmitSchema,
+		GoName: "ViolateSetDiscardClassTransmit",
+		Name:   "violate-set-discard-class-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetDscpTransmitSchema,
+		GoName: "ViolateSetDscpTransmit",
+		Name:   "violate-set-dscp-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetFrdeTransmitSchema,
+		GoName: "ViolateSetFrdeTransmit",
+		Name:   "violate-set-frde-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetMplsExpImpositionTransmitSchema,
+		GoName: "ViolateSetMplsExpImpositionTransmit",
+		Name:   "violate-set-mpls-exp-imposition-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetMplsExpTopmostTransmitSchema,
+		GoName: "ViolateSetMplsExpTopmostTransmit",
+		Name:   "violate-set-mpls-exp-topmost-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetPrecTransmitSchema,
+		GoName: "ViolateSetPrecTransmit",
+		Name:   "violate-set-prec-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetQosTransmitSchema,
+		GoName: "ViolateSetQosTransmit",
+		Name:   "violate-set-qos-transmit",
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateTransmitSchema,
+		GoName: "ViolateTransmit",
+		Name:   "violate-transmit",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "actions",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop struct {
+	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformAction
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDropSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDropSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformActionSchema,
+		GoName: "ConformAction",
+		Name:   "conform-action",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-drop",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop/conform-action.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformAction struct {
+	Drop *bool
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop/conform-action for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Drop",
+		Name:   "drop",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit struct {
+	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformAction
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformActionSchema,
+		GoName: "ConformAction",
+		Name:   "conform-action",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-set-clp-transmit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit/conform-action.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformAction struct {
+	SetClpTransmit *bool
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit/conform-action for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SetClpTransmit",
+		Name:   "set-clp-transmit",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit struct {
+	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformAction
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformActionSchema,
+		GoName: "ConformAction",
+		Name:   "conform-action",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-set-cos-transmit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit/conform-action.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformAction struct {
+	SetCosTransmit *yang.Value
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit/conform-action for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SetCosTransmit",
+		Name:   "set-cos-transmit",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable struct {
+	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTableSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTableSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformActionSchema,
+		GoName: "ConformAction",
+		Name:   "conform-action",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-set-cos-transmit-table",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table/conform-action.
+type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction struct {
+	SetCosTransmit *yang.Value
+	Table          *string
+	TableContainer *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction_TableContainer
+}
+
+// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table/conform-action for the generic codecs.
+var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SetCosTransmit",
+		Name:   "set-cos-transmit",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "Table",
+		Name:   "table",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction_TableContainerSchema,
+		GoName: "TableContainer",
+		Name:   "table-container",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "conform-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
 }

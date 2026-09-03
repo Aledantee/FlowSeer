@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessctssxpcfg binds the YANG module Cisco-IOS-XE-wireless-cts-sxp-cfg.
 package ciscoiosxewirelessctssxpcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CtsSxpCfgData is the Cisco-IOS-XE-wireless-cts-sxp-cfg node /Cisco-IOS-XE-wireless-cts-sxp-cfg/cts-sxp-cfg-data.
 type CtsSxpCfgData struct {

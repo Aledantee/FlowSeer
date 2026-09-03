@@ -5,384 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress struct {
-	Address   *string
-	LinkLocal *bool
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address for the generic codecs.
-var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		GoName: "LinkLocal",
-		Name:   "link-local",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"address"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "link-local-address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress's row identity (ancestor keys in canonical form).
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey struct {
-	FiftyGigabitEthernet_Name string
-	Address                   string
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress entry with its ancestor list keys.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow struct {
-	FiftyGigabitEthernet_Name string
-	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress.
-func Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey] {
-	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey]{
-		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow{
-						Entry:                     en.Entry,
-						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow{
-						Entry:                     en.Entry,
-						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey {
-				var k Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressKey
-				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
-				if r.Entry.Address != nil {
-					k.Address = *r.Entry.Address
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "ipv6"}, {Name: "address"}, {Name: "link-local-address"}}},
-	}
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address-container.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainer struct {
-	Address   *string
-	LinkLocal *bool
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainerSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/link-local-address-container for the generic codecs.
-var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_LinkLocalAddressContainerSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		GoName: "LinkLocal",
-		Name:   "link-local",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "link-local-address-container",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-list.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList struct {
-	Anycast *bool
-	Eui64   *bool
-	Prefix  *string
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-list for the generic codecs.
-var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Anycast",
-		Name:   "anycast",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Eui64",
-		Name:   "eui-64",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Prefix",
-		Name:   "prefix",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"prefix"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "prefix-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList's row identity (ancestor keys in canonical form).
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey struct {
-	FiftyGigabitEthernet_Name string
-	Prefix                    string
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList entry with its ancestor list keys.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow struct {
-	FiftyGigabitEthernet_Name string
-	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList.
-func Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey] {
-	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey]{
-		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow{
-						Entry:                     en.Entry,
-						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow{
-						Entry:                     en.Entry,
-						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey {
-				var k Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListKey
-				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
-				if r.Entry.Prefix != nil {
-					k.Prefix = *r.Entry.Prefix
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "ipv6"}, {Name: "address"}, {Name: "prefix-list"}}},
-	}
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName struct {
-	Ipv6Prefix    []string
-	Name          *string
-	PrefixOptions *Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name for the generic codecs.
-var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:   "Ipv6Prefix",
-		LeafList: true,
-		Name:     "ipv6-prefix",
-		Type:     yang.TString,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptionsSchema,
-		GoName: "PrefixOptions",
-		Name:   "prefix-options",
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "prefix-name",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName's row identity (ancestor keys in canonical form).
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey struct {
-	FiftyGigabitEthernet_Name string
-	Name                      string
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName entry with its ancestor list keys.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow struct {
-	FiftyGigabitEthernet_Name string
-	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName.
-func Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey] {
-	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey]{
-		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow{
-						Entry:                     en.Entry,
-						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow{
-						Entry:                     en.Entry,
-						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey {
-				var k Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameKey
-				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow) Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixNameSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "ipv6"}, {Name: "address"}, {Name: "prefix-name"}}},
-	}
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions struct {
-	Ipv6Prefix []Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptionsSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options for the generic codecs.
-var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptionsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixSchema,
-		GoName: "Ipv6Prefix",
-		List:   true,
-		Name:   "ipv6-prefix",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "prefix-options",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options/ipv6-prefix.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix struct {
-	Anycast        *bool
-	Eui64          *bool
-	Prefix         *string
-	SegmentRouting *bool
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/ipv6/address/prefix-name/prefix-options/ipv6-prefix for the generic codecs.
-var Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Anycast",
-		Name:   "anycast",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Eui64",
-		Name:   "eui-64",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Prefix",
-		Name:   "prefix",
-		Type:   yang.TString,
-	}, {
-		GoName: "SegmentRouting",
-		Name:   "segment-routing",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"prefix"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ipv6-prefix",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixKey is Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix's row identity (ancestor keys in canonical form).
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixKey struct {
-	FiftyGigabitEthernet_Name string
-	PrefixName_Name           string
-	Prefix                    string
-}
-
-// Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixFlatRow flattens one Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix entry with its ancestor list keys.
-type Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixFlatRow struct {
-	FiftyGigabitEthernet_Name string
-	PrefixName_Name           string
-	Entry                     Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6Prefix.
 func Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixFlatRow, Native_Interface_FiftyGigabitEthernet_Ipv6_Address_PrefixName_PrefixOptions_Ipv6PrefixKey] {
@@ -39497,4 +39120,315 @@ type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecur
 type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow struct {
 	FiftyGigabitEthernet_Name string
 	Entry                     Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunk
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunk.
+func Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkKey] {
+	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkKey]{
+		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunk](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunk](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow) Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkKey {
+				var k Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkKey
+				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
+				if r.Entry.HwAddress != nil {
+					k.HwAddress = *r.Entry.HwAddress
+				}
+				if r.Entry.Vlan != nil {
+					k.Vlan = *r.Entry.Vlan
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow) Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressTrunkSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "switchport-config"}, {Name: "switchport"}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "port-security-config",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}, {Name: "port-security"}, {Name: "mac-address-config"}, {Name: "mac-address"}, {Name: "hw-address-trunk"}}},
+	}
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/mac-address-config/mac-address/hw-address-voice.
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice struct {
+	HwAddress *string
+	Sticky    *string
+	Vlan      *string
+	Voice     *string
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/mac-address-config/mac-address/hw-address-voice for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "HwAddress",
+		Name:   "hw-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Sticky",
+		Name:   "sticky",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Vlan",
+		Name:   "vlan",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Voice",
+		Name:   "voice",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"hw-address", "vlan", "voice"},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "hw-address-voice",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceKey is Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice's row identity (ancestor keys in canonical form).
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceKey struct {
+	FiftyGigabitEthernet_Name string
+	HwAddress                 string
+	Vlan                      string
+	Voice                     string
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow flattens one Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice entry with its ancestor list keys.
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow struct {
+	FiftyGigabitEthernet_Name string
+	Entry                     Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice.
+func Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceKey] {
+	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceKey]{
+		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoice](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow) Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceKey {
+				var k Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceKey
+				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
+				if r.Entry.HwAddress != nil {
+					k.HwAddress = *r.Entry.HwAddress
+				}
+				if r.Entry.Vlan != nil {
+					k.Vlan = *r.Entry.Vlan
+				}
+				if r.Entry.Voice != nil {
+					k.Voice = *r.Entry.Voice
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow) Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressConfig_MacAddress_HwAddressVoiceSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "switchport-config"}, {Name: "switchport"}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "port-security-config",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}, {Name: "port-security"}, {Name: "mac-address-config"}, {Name: "mac-address"}, {Name: "hw-address-voice"}}},
+	}
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/mac-address-sticky-on.
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn struct {
+	MacAddress *Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn_MacAddress
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOnSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/mac-address-sticky-on for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOnSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn_MacAddressSchema,
+		GoName: "MacAddress",
+		Name:   "mac-address",
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "mac-address-sticky-on",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn_MacAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/mac-address-sticky-on/mac-address.
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn_MacAddress struct {
+	Sticky *bool
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn_MacAddressSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/mac-address-sticky-on/mac-address for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MacAddressStickyOn_MacAddressSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Sticky",
+		Name:   "sticky",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "mac-address",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/maxcount.
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount struct {
+	MaxAddresses *uint16
+	Vlan         *string
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountSchema describes /Cisco-IOS-XE-native/native/interface/FiftyGigabitEthernet/switchport-config/switchport/port-security-config/port-security/maxcount for the generic codecs.
+var Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "MaxAddresses",
+		Name:   "max-addresses",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Vlan",
+		Name:   "vlan",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"max-addresses"},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "maxcount",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountKey is Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount's row identity (ancestor keys in canonical form).
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountKey struct {
+	FiftyGigabitEthernet_Name string
+	MaxAddresses              uint16
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow flattens one Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount entry with its ancestor list keys.
+type Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow struct {
+	FiftyGigabitEthernet_Name string
+	Entry                     Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount
+}
+
+// Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount.
+func Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountDescriptor() yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountKey] {
+	return yang.ListDescriptor[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountKey]{
+		Codec: yang.RowCodec[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FiftyGigabitEthernetSchema, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Maxcount](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow{
+						Entry:                     en.Entry,
+						FiftyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow) Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountKey {
+				var k Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountKey
+				k.FiftyGigabitEthernet_Name = r.FiftyGigabitEthernet_Name
+				if r.Entry.MaxAddresses != nil {
+					k.MaxAddresses = *r.Entry.MaxAddresses
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow) Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FiftyGigabitEthernet_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaxcountSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FiftyGigabitEthernet"}, {Name: "switchport-config"}, {Name: "switchport"}, {
+			Module:    "Cisco-IOS-XE-switch",
+			Name:      "port-security-config",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+		}, {Name: "port-security"}, {Name: "maxcount"}}},
+	}
 }

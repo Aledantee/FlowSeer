@@ -6,7 +6,7 @@
 // Package openconfigkeychain binds the YANG module openconfig-keychain.
 package openconfigkeychain
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Keychains is the openconfig-keychain node /openconfig-keychain/keychains.
 type Keychains struct {

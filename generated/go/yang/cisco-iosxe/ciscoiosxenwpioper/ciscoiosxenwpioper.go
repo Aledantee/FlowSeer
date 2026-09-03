@@ -6,7 +6,7 @@
 // Package ciscoiosxenwpioper binds the YANG module Cisco-IOS-XE-nwpi-oper.
 package ciscoiosxenwpioper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NwpiOperData is the Cisco-IOS-XE-nwpi-oper node /Cisco-IOS-XE-nwpi-oper/nwpi-oper-data.
 type NwpiOperData struct {

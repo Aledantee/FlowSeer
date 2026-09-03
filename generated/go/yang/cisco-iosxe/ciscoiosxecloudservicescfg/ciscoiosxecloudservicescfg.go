@@ -6,7 +6,7 @@
 // Package ciscoiosxecloudservicescfg binds the YANG module Cisco-IOS-XE-cloud-services-cfg.
 package ciscoiosxecloudservicescfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CloudServicesCfgData is the Cisco-IOS-XE-cloud-services-cfg node /Cisco-IOS-XE-cloud-services-cfg/cloud-services-cfg-data.
 type CloudServicesCfgData struct {

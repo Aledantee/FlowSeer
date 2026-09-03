@@ -217,7 +217,7 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
 - Attach a value someone will query or branch on as an attribute
   (`errs.New().Attr("got", n)`) rather than only interpolating it, so it survives
   into logs as a field. Interpolating a value that exists to make the message
-  readable is fine — most of `src/common/snmp` does exactly that. Never attach or
+  readable is fine — most of `src/protocol/snmp` does exactly that. Never attach or
   interpolate raw secret material — attach a length and a protocol name instead.
 - Errors that cross a process boundary carry an `errs.NewCode("<package>/<name>")`
   code, their stable identity on the wire. Codes are append-only: never renamed,
@@ -272,10 +272,10 @@ spec/          # protobuf, MIB, and YANG sources of truth
 - Regenerate bindings with their owning generator; a hand edit under `generated/`
   is always a bug. From the repository root, use `buf generate` for
   `generated/go/proto/`, `go generate .` for `generated/go/mib/`, and
-  `go run ./src/common/yang/cmd/yanggen -update` for `generated/go/yang/`.
+  `go run ./src/protocol/yang/cmd/yanggen -update` for `generated/go/yang/`.
   The [protobuf workflow](code-style-proto.md),
-  [MIB generator](../src/common/snmp/cmd/mibgen/doc.go), and
-  [YANG generator](../src/common/yang/cmd/yanggen/doc.go) describe their inputs
+  [MIB generator](../src/protocol/snmp/cmd/mibgen/doc.go), and
+  [YANG generator](../src/protocol/yang/cmd/yanggen/doc.go) describe their inputs
   and checks.
 
 ## Testing

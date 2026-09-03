@@ -6,7 +6,7 @@
 // Package tokenringrmonmib binds the YANG module TOKEN-RING-RMON-MIB.
 package tokenringrmonmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TOKENRINGRMONMIB is the TOKEN-RING-RMON-MIB node /TOKEN-RING-RMON-MIB/TOKEN-RING-RMON-MIB.
 type TOKENRINGRMONMIB struct {

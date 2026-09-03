@@ -6,7 +6,7 @@
 // Package ciscoiosxemrouteoper binds the YANG module Cisco-IOS-XE-mroute-oper.
 package ciscoiosxemrouteoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MrouteOperData is the Cisco-IOS-XE-mroute-oper node /Cisco-IOS-XE-mroute-oper/mroute-oper-data.
 type MrouteOperData struct {

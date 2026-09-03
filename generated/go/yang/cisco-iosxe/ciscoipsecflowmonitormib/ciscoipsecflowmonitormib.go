@@ -6,7 +6,7 @@
 // Package ciscoipsecflowmonitormib binds the YANG module CISCO-IPSEC-FLOW-MONITOR-MIB.
 package ciscoipsecflowmonitormib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPSECFLOWMONITORMIB is the CISCO-IPSEC-FLOW-MONITOR-MIB node /CISCO-IPSEC-FLOW-MONITOR-MIB/CISCO-IPSEC-FLOW-MONITOR-MIB.
 type CISCOIPSECFLOWMONITORMIB struct {

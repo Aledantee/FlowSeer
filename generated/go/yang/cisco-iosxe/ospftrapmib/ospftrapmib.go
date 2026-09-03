@@ -6,7 +6,7 @@
 // Package ospftrapmib binds the YANG module OSPF-TRAP-MIB.
 package ospftrapmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // OSPFTRAPMIB is the OSPF-TRAP-MIB node /OSPF-TRAP-MIB/OSPF-TRAP-MIB.
 type OSPFTRAPMIB struct {

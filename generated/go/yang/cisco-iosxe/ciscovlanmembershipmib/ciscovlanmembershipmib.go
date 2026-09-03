@@ -6,7 +6,7 @@
 // Package ciscovlanmembershipmib binds the YANG module CISCO-VLAN-MEMBERSHIP-MIB.
 package ciscovlanmembershipmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOVLANMEMBERSHIPMIB is the CISCO-VLAN-MEMBERSHIP-MIB node /CISCO-VLAN-MEMBERSHIP-MIB/CISCO-VLAN-MEMBERSHIP-MIB.
 type CISCOVLANMEMBERSHIPMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxemrpoper binds the YANG module Cisco-IOS-XE-mrp-oper.
 package ciscoiosxemrpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MrpOperData is the Cisco-IOS-XE-mrp-oper node /Cisco-IOS-XE-mrp-oper/mrp-oper-data.
 type MrpOperData struct {

@@ -6,7 +6,7 @@
 // Package tailfkicker binds the YANG module tailf-kicker.
 package tailfkicker
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Kickers is the tailf-kicker node /tailf-kicker/kickers.
 type Kickers struct {

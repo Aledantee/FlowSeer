@@ -5,241 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast struct {
-	Include *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include
-	Level   *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Level
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicastSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unknow-unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include struct {
-	Broadcast *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast struct {
-	Level *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_BroadcastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "broadcast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level struct {
-	Bps       *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Bps
-	Pps       *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Pps
-	Threshold *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Threshold
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/level.
-type Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Level struct {
-	Bps       *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Level_Bps
-	Pps       *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Level_Pps
-	Threshold *Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_Level_Threshold
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-PPP/storm-control/level-shared/unicast/include/multicast/include/unknow-unicast/level for the generic codecs.
 var Native_Interface_VirtualPPP_StormControl_LevelShared_Unicast_Include_Multicast_Include_UnknowUnicast_LevelSchema = &yang.Schema{
@@ -38221,4 +37987,239 @@ type Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_Anomal
 type Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow struct {
 	VirtualTemplate_Name string
 	Entry                Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly
+}
+
+// Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyDescriptor is the flattened-row descriptor for the nested list Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly.
+func Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyDescriptor() yang.ListDescriptor[Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey] {
+	return yang.ListDescriptor[Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey]{
+		Codec: yang.RowCodec[Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_VirtualTemplateSchema, Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow{
+						Entry:                en.Entry,
+						VirtualTemplate_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_VirtualTemplateSchema, Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_Anomaly](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow{
+						Entry:                en.Entry,
+						VirtualTemplate_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow) Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey {
+				var k Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyKey
+				k.VirtualTemplate_Name = r.VirtualTemplate_Name
+				if r.Entry.Levels != nil {
+					k.Levels = *r.Entry.Levels
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow) Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalyFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_VirtualTemplate_Isis_MetricFallback_Metric_Fallback_AnomalyTe_AnomalySchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Virtual-Template"}, {Name: "isis"}, {
+			Module:    "Cisco-IOS-XE-isis",
+			Name:      "metric-fallback",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+		}, {Name: "metric"}, {Name: "fallback"}, {Name: "anomaly-te"}, {Name: "anomaly"}}},
+	}
+}
+
+// Native_Interface_VirtualTemplate_Isis_PasswordLan is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/password-lan.
+type Native_Interface_VirtualTemplate_Isis_PasswordLan struct {
+	Password []Native_Interface_VirtualTemplate_Isis_PasswordLan_Password
+}
+
+// Native_Interface_VirtualTemplate_Isis_PasswordLanSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/password-lan for the generic codecs.
+var Native_Interface_VirtualTemplate_Isis_PasswordLanSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordSchema,
+		GoName: "Password",
+		List:   true,
+		Name:   "password",
+	}},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "password-lan",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_VirtualTemplate_Isis_PasswordLan_Password is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/password-lan/password.
+type Native_Interface_VirtualTemplate_Isis_PasswordLan_Password struct {
+	Encrypt  *string
+	Levels   *string
+	Password *string
+}
+
+// Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/password-lan/password for the generic codecs.
+var Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Levels",
+		Name:   "levels",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Password",
+		Name:   "password",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"levels"},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "password",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordKey is Native_Interface_VirtualTemplate_Isis_PasswordLan_Password's row identity (ancestor keys in canonical form).
+type Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordKey struct {
+	VirtualTemplate_Name string
+	Levels               string
+}
+
+// Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow flattens one Native_Interface_VirtualTemplate_Isis_PasswordLan_Password entry with its ancestor list keys.
+type Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow struct {
+	VirtualTemplate_Name string
+	Entry                Native_Interface_VirtualTemplate_Isis_PasswordLan_Password
+}
+
+// Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordDescriptor is the flattened-row descriptor for the nested list Native_Interface_VirtualTemplate_Isis_PasswordLan_Password.
+func Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordDescriptor() yang.ListDescriptor[Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow, Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordKey] {
+	return yang.ListDescriptor[Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow, Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordKey]{
+		Codec: yang.RowCodec[Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow, Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_VirtualTemplateSchema, Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_VirtualTemplate_Isis_PasswordLan_Password](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow{
+						Entry:                en.Entry,
+						VirtualTemplate_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_VirtualTemplateSchema, Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_VirtualTemplate_Isis_PasswordLan_Password](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow{
+						Entry:                en.Entry,
+						VirtualTemplate_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow) Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordKey {
+				var k Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordKey
+				k.VirtualTemplate_Name = r.VirtualTemplate_Name
+				if r.Entry.Levels != nil {
+					k.Levels = *r.Entry.Levels
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow) Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_VirtualTemplate_Isis_PasswordLan_PasswordSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Virtual-Template"}, {Name: "isis"}, {
+			Module:    "Cisco-IOS-XE-isis",
+			Name:      "password-lan",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+		}, {Name: "password"}}},
+	}
+}
+
+// Native_Interface_VirtualTemplate_Isis_PrefixAttributes is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/prefix-attributes.
+type Native_Interface_VirtualTemplate_Isis_PrefixAttributes struct {
+	PrefixAttributesList []Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesList
+}
+
+// Native_Interface_VirtualTemplate_Isis_PrefixAttributesSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/prefix-attributes for the generic codecs.
+var Native_Interface_VirtualTemplate_Isis_PrefixAttributesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesListSchema,
+		GoName: "PrefixAttributesList",
+		List:   true,
+		Name:   "prefix-attributes-list",
+	}},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "prefix-attributes",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/prefix-attributes/prefix-attributes-list.
+type Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesList struct {
+	Levels     *string
+	NFlagClear *bool
+}
+
+// Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesListSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-Template/isis/prefix-attributes/prefix-attributes-list for the generic codecs.
+var Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Levels",
+		Name:   "levels",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "NFlagClear",
+		Name:   "n-flag-clear",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"levels"},
+	Module:    "Cisco-IOS-XE-isis",
+	Name:      "prefix-attributes-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
+}
+
+// Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesListKey is Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesList's row identity (ancestor keys in canonical form).
+type Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesListKey struct {
+	VirtualTemplate_Name string
+	Levels               string
+}
+
+// Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesListFlatRow flattens one Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesList entry with its ancestor list keys.
+type Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesListFlatRow struct {
+	VirtualTemplate_Name string
+	Entry                Native_Interface_VirtualTemplate_Isis_PrefixAttributes_PrefixAttributesList
 }

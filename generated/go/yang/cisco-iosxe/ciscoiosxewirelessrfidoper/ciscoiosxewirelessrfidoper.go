@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrfidoper binds the YANG module Cisco-IOS-XE-wireless-rfid-oper.
 package ciscoiosxewirelessrfidoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RfidOperData is the Cisco-IOS-XE-wireless-rfid-oper node /Cisco-IOS-XE-wireless-rfid-oper/rfid-oper-data.
 type RfidOperData struct {

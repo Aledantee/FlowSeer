@@ -6,7 +6,7 @@
 // Package ciscoipslaautomeasuremib binds the YANG module CISCO-IPSLA-AUTOMEASURE-MIB.
 package ciscoipslaautomeasuremib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPSLAAUTOMEASUREMIB is the CISCO-IPSLA-AUTOMEASURE-MIB node /CISCO-IPSLA-AUTOMEASURE-MIB/CISCO-IPSLA-AUTOMEASURE-MIB.
 type CISCOIPSLAAUTOMEASUREMIB struct {

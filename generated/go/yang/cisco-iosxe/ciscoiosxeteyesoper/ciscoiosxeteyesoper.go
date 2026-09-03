@@ -6,7 +6,7 @@
 // Package ciscoiosxeteyesoper binds the YANG module Cisco-IOS-XE-teyes-oper.
 package ciscoiosxeteyesoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TeyesOperData is the Cisco-IOS-XE-teyes-oper node /Cisco-IOS-XE-teyes-oper/teyes-oper-data.
 type TeyesOperData struct {

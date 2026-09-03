@@ -6,7 +6,7 @@
 // Package ciscoiosxecheckpointarchiveoper binds the YANG module Cisco-IOS-XE-checkpoint-archive-oper.
 package ciscoiosxecheckpointarchiveoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CheckpointArchives is the Cisco-IOS-XE-checkpoint-archive-oper node /Cisco-IOS-XE-checkpoint-archive-oper/checkpoint-archives.
 type CheckpointArchives struct {

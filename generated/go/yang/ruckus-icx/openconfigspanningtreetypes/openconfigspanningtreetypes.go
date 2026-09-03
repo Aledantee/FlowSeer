@@ -6,7 +6,7 @@
 // Package openconfigspanningtreetypes binds the YANG module openconfig-spanning-tree-types.
 package openconfigspanningtreetypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ALTERNATE is the openconfig-spanning-tree-types identity "ALTERNATE".
 var Identity_ALTERNATE = yang.Identity{

@@ -6,7 +6,7 @@
 // Package ciscoiosxeqfpstats binds the YANG module Cisco-IOS-XE-qfp-stats.
 package ciscoiosxeqfpstats
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GlobalDropStatistics is the Cisco-IOS-XE-qfp-stats node /Cisco-IOS-XE-qfp-stats/global-drop-statistics.
 type GlobalDropStatistics struct {

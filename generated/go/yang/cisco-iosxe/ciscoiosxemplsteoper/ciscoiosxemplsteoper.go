@@ -6,7 +6,7 @@
 // Package ciscoiosxemplsteoper binds the YANG module Cisco-IOS-XE-mpls-te-oper.
 package ciscoiosxemplsteoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MplsTeOperData is the Cisco-IOS-XE-mpls-te-oper node /Cisco-IOS-XE-mpls-te-oper/mpls-te-oper-data.
 type MplsTeOperData struct {

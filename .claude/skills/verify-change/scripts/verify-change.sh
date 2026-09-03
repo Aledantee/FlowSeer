@@ -180,7 +180,7 @@ else
     # generator, its config, or a MIB source can silently drift the
     # committed bindings under generated/go/mib.
     case "$path" in
-      mibgen.yaml|spec/mib/*|src/common/snmp/cmd/mibgen/*|src/common/smi/*) mib=true ;;
+      mibgen.yaml|spec/mib/*|src/protocol/snmp/cmd/mibgen/*|src/protocol/smi/*) mib=true ;;
     esac
   done
 fi
@@ -275,24 +275,24 @@ if [[ $mib == true ]]; then
   # Regenerates into a tmpdir and diffs against the committed bindings;
   # exits non-zero on drift. Pairs with the buf-generate diff above so
   # both code generators are gated the same way.
-  run go run ./src/common/snmp/cmd/mibgen -check
+  run go run ./src/protocol/snmp/cmd/mibgen -check
   # The baseline's second tier forbids a pending group. Without it the
   # refresh flag's own output passes: refreshing writes every new group as
   # pending, and the always-on gate tolerates pending by design, so a
   # branch could record no reason for anything and still come out green.
-  run go test -tags=mibgen_baseline_complete -run TestBaselineComplete ./src/common/snmp/cmd/mibgen/
+  run go test -tags=mibgen_baseline_complete -run TestBaselineComplete ./src/protocol/snmp/cmd/mibgen/
   if [[ $full == true ]]; then
     # The parser's default corpus tier reads a deduplicated corpus so the
     # developer loop stays cheap. The whole corpus sits behind a build tag
     # and is only worth its cost here, where nothing else is in a hurry.
-    run go test -tags=smi_corpus_full -run TestCorpus ./src/common/smi/
+    run go test -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/
     # The differential suite compares the parser against the dependency it
     # replaced. It is its own module, so it needs -C to resolve; and its
     # corpus pass is single-goroutine and skips under -race, which is the
     # only way this script runs Go tests elsewhere, so a plain invocation
     # is the only thing that runs it at all. It walks the same corpus, so
     # it belongs in the same tier as the run above.
-    run go test -C src/common/smi/differential ./...
+    run go test -C src/protocol/smi/differential ./...
   fi
 fi
 

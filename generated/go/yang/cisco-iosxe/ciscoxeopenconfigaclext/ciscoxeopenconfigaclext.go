@@ -6,7 +6,7 @@
 // Package ciscoxeopenconfigaclext binds the YANG module cisco-xe-openconfig-acl-ext.
 package ciscoxeopenconfigaclext
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_IP is the cisco-xe-openconfig-acl-ext identity "IP".
 var Identity_IP = yang.Identity{

@@ -6,7 +6,7 @@
 // Package ciscoiosxenetconfdiagoper binds the YANG module Cisco-IOS-XE-netconf-diag-oper.
 package ciscoiosxenetconfdiagoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NetconfDiagOperData is the Cisco-IOS-XE-netconf-diag-oper node /Cisco-IOS-XE-netconf-diag-oper/netconf-diag-oper-data.
 type NetconfDiagOperData struct {

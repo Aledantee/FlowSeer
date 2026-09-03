@@ -6,7 +6,7 @@
 // Package ciscoiosxemkaoper binds the YANG module Cisco-IOS-XE-mka-oper.
 package ciscoiosxemkaoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MkaOperData is the Cisco-IOS-XE-mka-oper node /Cisco-IOS-XE-mka-oper/mka-oper-data.
 type MkaOperData struct {

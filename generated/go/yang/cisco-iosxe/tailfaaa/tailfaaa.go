@@ -6,7 +6,7 @@
 // Package tailfaaa binds the YANG module tailf-aaa.
 package tailfaaa
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Aaa is the tailf-aaa node /tailf-aaa/aaa.
 type Aaa struct {

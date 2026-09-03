@@ -6,7 +6,7 @@
 // Package intservmib binds the YANG module INT-SERV-MIB.
 package intservmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // INTSERVMIB is the INT-SERV-MIB node /INT-SERV-MIB/INT-SERV-MIB.
 type INTSERVMIB struct {

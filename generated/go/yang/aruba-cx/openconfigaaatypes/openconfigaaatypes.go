@@ -6,7 +6,7 @@
 // Package openconfigaaatypes binds the YANG module openconfig-aaa-types.
 package openconfigaaatypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AAAACCOUNTINGEVENTCOMMAND is the openconfig-aaa-types identity "AAA_ACCOUNTING_EVENT_COMMAND".
 var Identity_AAAACCOUNTINGEVENTCOMMAND = yang.Identity{

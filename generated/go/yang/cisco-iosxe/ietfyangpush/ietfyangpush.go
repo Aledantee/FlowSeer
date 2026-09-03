@@ -6,7 +6,7 @@
 // Package ietfyangpush binds the YANG module ietf-yang-push.
 package ietfyangpush
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_CustomStream is the ietf-yang-push identity "custom-stream".
 var Identity_CustomStream = yang.Identity{

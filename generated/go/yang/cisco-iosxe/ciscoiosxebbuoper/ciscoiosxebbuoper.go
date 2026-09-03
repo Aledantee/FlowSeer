@@ -6,7 +6,7 @@
 // Package ciscoiosxebbuoper binds the YANG module Cisco-IOS-XE-bbu-oper.
 package ciscoiosxebbuoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BbuOperData is the Cisco-IOS-XE-bbu-oper node /Cisco-IOS-XE-bbu-oper/bbu-oper-data.
 type BbuOperData struct {

@@ -6,7 +6,7 @@
 // Package mplsl3vpnstdmib binds the YANG module MPLS-L3VPN-STD-MIB.
 package mplsl3vpnstdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MPLSL3VPNSTDMIB is the MPLS-L3VPN-STD-MIB node /MPLS-L3VPN-STD-MIB/MPLS-L3VPN-STD-MIB.
 type MPLSL3VPNSTDMIB struct {

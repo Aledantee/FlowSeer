@@ -6,7 +6,7 @@
 // Package ciscoiosxefwoper binds the YANG module Cisco-IOS-XE-fw-oper.
 package ciscoiosxefwoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Zbfw is the Cisco-IOS-XE-fw-oper node /Cisco-IOS-XE-fw-oper/zbfw.
 type Zbfw struct {

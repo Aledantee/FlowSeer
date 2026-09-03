@@ -6,7 +6,7 @@
 // Package ciscoradiusextmib binds the YANG module CISCO-RADIUS-EXT-MIB.
 package ciscoradiusextmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCORADIUSEXTMIB is the CISCO-RADIUS-EXT-MIB node /CISCO-RADIUS-EXT-MIB/CISCO-RADIUS-EXT-MIB.
 type CISCORADIUSEXTMIB struct {

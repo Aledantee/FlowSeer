@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrlancfg binds the YANG module Cisco-IOS-XE-wireless-rlan-cfg.
 package ciscoiosxewirelessrlancfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RlanCfgData is the Cisco-IOS-XE-wireless-rlan-cfg node /Cisco-IOS-XE-wireless-rlan-cfg/rlan-cfg-data.
 type RlanCfgData struct {

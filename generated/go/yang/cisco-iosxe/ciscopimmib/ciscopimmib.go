@@ -6,7 +6,7 @@
 // Package ciscopimmib binds the YANG module CISCO-PIM-MIB.
 package ciscopimmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOPIMMIB is the CISCO-PIM-MIB node /CISCO-PIM-MIB/CISCO-PIM-MIB.
 type CISCOPIMMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxeevpnoper binds the YANG module Cisco-IOS-XE-evpn-oper.
 package ciscoiosxeevpnoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EvpnOperData is the Cisco-IOS-XE-evpn-oper node /Cisco-IOS-XE-evpn-oper/evpn-oper-data.
 type EvpnOperData struct {

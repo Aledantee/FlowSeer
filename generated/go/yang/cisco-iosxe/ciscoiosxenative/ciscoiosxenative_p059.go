@@ -5,339 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_ActionsSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_ActionsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDropSchema,
-		GoName: "ConformDrop",
-		Name:   "conform-drop",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmitSchema,
-		GoName: "ConformSetClpTransmit",
-		Name:   "conform-set-clp-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitSchema,
-		GoName: "ConformSetCosTransmit",
-		Name:   "conform-set-cos-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTableSchema,
-		GoName: "ConformSetCosTransmitTable",
-		Name:   "conform-set-cos-transmit-table",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetDiscardClassTransmitSchema,
-		GoName: "ConformSetDiscardClassTransmit",
-		Name:   "conform-set-discard-class-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetDscpTransmitSchema,
-		GoName: "ConformSetDscpTransmit",
-		Name:   "conform-set-dscp-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetDscpTransmitTableSchema,
-		GoName: "ConformSetDscpTransmitTable",
-		Name:   "conform-set-dscp-transmit-table",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetFrdeTransmitSchema,
-		GoName: "ConformSetFrdeTransmit",
-		Name:   "conform-set-frde-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpImpositionTransmitSchema,
-		GoName: "ConformSetMplsExpImpositionTransmit",
-		Name:   "conform-set-mpls-exp-imposition-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpImpositionTransmitTableSchema,
-		GoName: "ConformSetMplsExpImpositionTransmitTable",
-		Name:   "conform-set-mpls-exp-imposition-transmit-table",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpTopmostTransmitSchema,
-		GoName: "ConformSetMplsExpTopmostTransmit",
-		Name:   "conform-set-mpls-exp-topmost-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetMplsExpTopmostTransmitTableSchema,
-		GoName: "ConformSetMplsExpTopmostTransmitTable",
-		Name:   "conform-set-mpls-exp-topmost-transmit-table",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetPrecTransmitSchema,
-		GoName: "ConformSetPrecTransmit",
-		Name:   "conform-set-prec-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetPrecTransmitTableSchema,
-		GoName: "ConformSetPrecTransmitTable",
-		Name:   "conform-set-prec-transmit-table",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetQosTransmitSchema,
-		GoName: "ConformSetQosTransmit",
-		Name:   "conform-set-qos-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetQosTransmitTableSchema,
-		GoName: "ConformSetQosTransmitTable",
-		Name:   "conform-set-qos-transmit-table",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformTransmitSchema,
-		GoName: "ConformTransmit",
-		Name:   "conform-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedDropSchema,
-		GoName: "ExceedDrop",
-		Name:   "exceed-drop",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedDscpSchema,
-		GoName: "ExceedDscp",
-		Name:   "exceed-dscp",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetClpTransmitSchema,
-		GoName: "ExceedSetClpTransmit",
-		Name:   "exceed-set-clp-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetCosTransmitSchema,
-		GoName: "ExceedSetCosTransmit",
-		Name:   "exceed-set-cos-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetCosTransmitValSchema,
-		GoName: "ExceedSetCosTransmitVal",
-		Name:   "exceed-set-cos-transmit-val",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetDiscardClassTransmitSchema,
-		GoName: "ExceedSetDiscardClassTransmit",
-		Name:   "exceed-set-discard-class-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetDscpTransmitSchema,
-		GoName: "ExceedSetDscpTransmit",
-		Name:   "exceed-set-dscp-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetDscpTransmitTableSchema,
-		GoName: "ExceedSetDscpTransmitTable",
-		Name:   "exceed-set-dscp-transmit-table",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetFrdeTransmitSchema,
-		GoName: "ExceedSetFrdeTransmit",
-		Name:   "exceed-set-frde-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetMplsExpImpositionTransmitSchema,
-		GoName: "ExceedSetMplsExpImpositionTransmit",
-		Name:   "exceed-set-mpls-exp-imposition-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetMplsExpTopmostTransmitSchema,
-		GoName: "ExceedSetMplsExpTopmostTransmit",
-		Name:   "exceed-set-mpls-exp-topmost-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetPrecTransmitSchema,
-		GoName: "ExceedSetPrecTransmit",
-		Name:   "exceed-set-prec-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetPrecTransmitValSchema,
-		GoName: "ExceedSetPrecTransmitVal",
-		Name:   "exceed-set-prec-transmit-val",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedSetQosTransmitSchema,
-		GoName: "ExceedSetQosTransmit",
-		Name:   "exceed-set-qos-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ExceedTransmitSchema,
-		GoName: "ExceedTransmit",
-		Name:   "exceed-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateDropSchema,
-		GoName: "ViolateDrop",
-		Name:   "violate-drop",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetClpTransmitSchema,
-		GoName: "ViolateSetClpTransmit",
-		Name:   "violate-set-clp-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetCosTransmitSchema,
-		GoName: "ViolateSetCosTransmit",
-		Name:   "violate-set-cos-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetDiscardClassTransmitSchema,
-		GoName: "ViolateSetDiscardClassTransmit",
-		Name:   "violate-set-discard-class-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetDscpTransmitSchema,
-		GoName: "ViolateSetDscpTransmit",
-		Name:   "violate-set-dscp-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetFrdeTransmitSchema,
-		GoName: "ViolateSetFrdeTransmit",
-		Name:   "violate-set-frde-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetMplsExpImpositionTransmitSchema,
-		GoName: "ViolateSetMplsExpImpositionTransmit",
-		Name:   "violate-set-mpls-exp-imposition-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetMplsExpTopmostTransmitSchema,
-		GoName: "ViolateSetMplsExpTopmostTransmit",
-		Name:   "violate-set-mpls-exp-topmost-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetPrecTransmitSchema,
-		GoName: "ViolateSetPrecTransmit",
-		Name:   "violate-set-prec-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateSetQosTransmitSchema,
-		GoName: "ViolateSetQosTransmit",
-		Name:   "violate-set-qos-transmit",
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ViolateTransmitSchema,
-		GoName: "ViolateTransmit",
-		Name:   "violate-transmit",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "actions",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop struct {
-	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformAction
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDropSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDropSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformActionSchema,
-		GoName: "ConformAction",
-		Name:   "conform-action",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-drop",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop/conform-action.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformAction struct {
-	Drop *bool
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-drop/conform-action for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformDrop_ConformActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Drop",
-		Name:   "drop",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit struct {
-	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformAction
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmitSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformActionSchema,
-		GoName: "ConformAction",
-		Name:   "conform-action",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-set-clp-transmit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit/conform-action.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformAction struct {
-	SetClpTransmit *bool
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-clp-transmit/conform-action for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetClpTransmit_ConformActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SetClpTransmit",
-		Name:   "set-clp-transmit",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit struct {
-	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformAction
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformActionSchema,
-		GoName: "ConformAction",
-		Name:   "conform-action",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-set-cos-transmit",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit/conform-action.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformAction struct {
-	SetCosTransmit *yang.Value
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit/conform-action for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmit_ConformActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SetCosTransmit",
-		Name:   "set-cos-transmit",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable struct {
-	ConformAction *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTableSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTableSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformActionSchema,
-		GoName: "ConformAction",
-		Name:   "conform-action",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-set-cos-transmit-table",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table/conform-action.
-type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction struct {
-	SetCosTransmit *yang.Value
-	Table          *string
-	TableContainer *Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction_TableContainer
-}
-
-// Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table/conform-action for the generic codecs.
-var Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformActionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "SetCosTransmit",
-		Name:   "set-cos-transmit",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
-		},
-	}, {
-		GoName: "Table",
-		Name:   "table",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction_TableContainerSchema,
-		GoName: "TableContainer",
-		Name:   "table-container",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "conform-action",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction_TableContainer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/sequence-class/action-list/action-param/police-case/police-choice/police-rate-unit-case/police-rate-unit/police/rate/actions/conform-set-cos-transmit-table/conform-action/table-container.
 type Native_Policy_PolicyMap_SequenceClass_ActionList_PoliceRateUnit_Police_Rate_Actions_ConformSetCosTransmitTable_ConformAction_TableContainer struct {
@@ -42910,4 +42578,460 @@ type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow str
 	Bgp_Id      string
 	Ipv4_AfName string
 	Entry       Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor.
+func Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborDescriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey] {
+	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey]{
+		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey {
+				var k Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborKey
+				k.Bgp_Id = r.Bgp_Id
+				k.Ipv4_AfName = r.Ipv4_AfName
+				if r.Entry.Id != nil {
+					k.Id = yang.CanonicalKey(r.Entry.Id)
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-bgp",
+			Name:      "bgp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+		}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "ipv4"}, {Name: "ipv4-flowspec"}, {Name: "neighbor"}}},
+	}
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasIn is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/allowas-in.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasIn struct {
+	AsNumber *uint8
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasInSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/allowas-in for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_AllowasInSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AsNumber",
+		Name:   "as-number",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "allowas-in",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_Inherit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/inherit.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_Inherit struct {
+	PeerPolicy  *string
+	PeerSession *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_InheritSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/inherit for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_InheritSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PeerPolicy",
+		Name:   "peer-policy",
+		Type:   yang.TString,
+	}, {
+		GoName: "PeerSession",
+		Name:   "peer-session",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "inherit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/maximum-prefix.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefix struct {
+	DiscardExtra *bool
+	MaxPrefixNo  *uint32
+	Restart      *uint16
+	Threshold    *uint8
+	WarningOnly  *bool
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefixSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/maximum-prefix for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_MaximumPrefixSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DiscardExtra",
+		Name:   "discard-extra",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MaxPrefixNo",
+		Name:   "max-prefix-no",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Restart",
+		Name:   "restart",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "WarningOnly",
+		Name:   "warning-only",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "maximum-prefix",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/next-hop-self.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelf struct {
+	All *bool
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelfSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/next-hop-self for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NextHopSelfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "All",
+		Name:   "all",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "next-hop-self",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchanged is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/nexthop-unchanged.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchanged struct {
+	Allpaths         *bool
+	NextHopUnchanged *bool
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchangedSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/nexthop-unchanged for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_NexthopUnchangedSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Allpaths",
+		Name:   "allpaths",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "NextHopUnchanged",
+		Name:   "next-hop-unchanged",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "nexthop-unchanged",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs struct {
+	All *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_All
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAsSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_AllSchema,
+		GoName: "All",
+		Name:   "all",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "remove-private-as",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_All is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as/all.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_All struct {
+	ReplaceAs *bool
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_AllSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/remove-private-as/all for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RemovePrivateAs_AllSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ReplaceAs",
+		Name:   "replace-as",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "all",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/route-map.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap struct {
+	Inout        *string
+	RouteMapName *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/route-map for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Inout",
+		Name:   "inout",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "RouteMapName",
+		Name:   "route-map-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"inout"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "route-map",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey is Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap's row identity (ancestor keys in canonical form).
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey struct {
+	Bgp_Id      string
+	Ipv4_AfName string
+	Neighbor_Id string
+	Inout       string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow flattens one Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap entry with its ancestor list keys.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow struct {
+	Bgp_Id      string
+	Ipv4_AfName string
+	Neighbor_Id string
+	Entry       Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap.
+func Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapDescriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey] {
+	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey]{
+		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 2, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_NeighborSchema, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMap](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 2, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey {
+				var k Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapKey
+				k.Bgp_Id = r.Bgp_Id
+				k.Ipv4_AfName = r.Ipv4_AfName
+				k.Neighbor_Id = r.Neighbor_Id
+				if r.Entry.Inout != nil {
+					k.Inout = *r.Entry.Inout
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_RouteMapSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-bgp",
+			Name:      "bgp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+		}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "ipv4"}, {Name: "ipv4-flowspec"}, {Name: "neighbor"}, {Name: "route-map"}}},
+	}
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunity is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunity struct {
+	SendCommunityWhere *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunitySchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunitySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SendCommunityWhere",
+		Name:   "send-community-where",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "send-community",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community-v2.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2 struct {
+	SendCommunityWhere *string
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2Schema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/send-community-v2 for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SendCommunityV2Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SendCommunityWhere",
+		Name:   "send-community-where",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "send-community-v2",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer struct {
+	Detection        *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_Detection
+	SplitUpdateGroup *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeerSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeerSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_DetectionSchema,
+		GoName: "Detection",
+		Name:   "detection",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroupSchema,
+		GoName: "SplitUpdateGroup",
+		Name:   "split-update-group",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "slow-peer",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_Detection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/detection.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_Detection struct {
+	Disable   *bool
+	Threshold *uint16
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_DetectionSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/detection for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_DetectionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Threshold",
+		Name:   "threshold",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "detection",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup struct {
+	Dynamic *Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_Dynamic
+	Static  *bool
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroupSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_DynamicSchema,
+		GoName: "Dynamic",
+		Name:   "dynamic",
+	}, {
+		GoName: "Static",
+		Name:   "static",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "split-update-group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_Dynamic is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group/dynamic.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_Dynamic struct {
+	Disable   *bool
+	Permanent *bool
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_DynamicSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/neighbor/slow-peer/split-update-group/dynamic for the generic codecs.
+var Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Neighbor_SlowPeer_SplitUpdateGroup_DynamicSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Permanent",
+		Name:   "permanent",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "dynamic",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/ipv4/ipv4-flowspec/network.
+type Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network struct {
+	NoMask   []Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network_NoMask
+	WithMask []Native_Router_Bgp_AddressFamily_NoVrf_Ipv4_Ipv4Flowspec_Network_WithMask
 }

@@ -6,7 +6,7 @@
 // Package policytypes binds the YANG module policy-types.
 package policytypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AccessControl is the policy-types identity "access-control".
 var Identity_AccessControl = yang.Identity{

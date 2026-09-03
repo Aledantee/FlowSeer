@@ -6,7 +6,7 @@
 // Package openconfigethernetsegments binds the YANG module openconfig-ethernet-segments.
 package openconfigethernetsegments
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // EthernetSegments is the openconfig-ethernet-segments node /openconfig-ethernet-segments/ethernet-segments.
 type EthernetSegments struct {

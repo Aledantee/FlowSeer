@@ -6,7 +6,7 @@
 // Package ds1mib binds the YANG module DS1-MIB.
 package ds1mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DS1MIB is the DS1-MIB node /DS1-MIB/DS1-MIB.
 type DS1MIB struct {

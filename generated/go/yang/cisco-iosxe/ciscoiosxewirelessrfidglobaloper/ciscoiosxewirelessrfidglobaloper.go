@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrfidglobaloper binds the YANG module Cisco-IOS-XE-wireless-rfid-global-oper.
 package ciscoiosxewirelessrfidglobaloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RfidGlobalOperData is the Cisco-IOS-XE-wireless-rfid-global-oper node /Cisco-IOS-XE-wireless-rfid-global-oper/rfid-global-oper-data.
 type RfidGlobalOperData struct {

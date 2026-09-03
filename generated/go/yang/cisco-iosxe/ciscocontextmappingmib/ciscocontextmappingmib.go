@@ -6,7 +6,7 @@
 // Package ciscocontextmappingmib binds the YANG module CISCO-CONTEXT-MAPPING-MIB.
 package ciscocontextmappingmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOCONTEXTMAPPINGMIB is the CISCO-CONTEXT-MAPPING-MIB node /CISCO-CONTEXT-MAPPING-MIB/CISCO-CONTEXT-MAPPING-MIB.
 type CISCOCONTEXTMAPPINGMIB struct {

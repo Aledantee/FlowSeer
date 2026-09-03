@@ -6,7 +6,7 @@
 // Package ciscoiptapmib binds the YANG module CISCO-IP-TAP-MIB.
 package ciscoiptapmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPTAPMIB is the CISCO-IP-TAP-MIB node /CISCO-IP-TAP-MIB/CISCO-IP-TAP-MIB.
 type CISCOIPTAPMIB struct {

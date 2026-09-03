@@ -6,7 +6,7 @@
 // Package ciscoiosxeswitchdpmaclearningoper binds the YANG module Cisco-IOS-XE-switch-dp-mac-learning-oper.
 package ciscoiosxeswitchdpmaclearningoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SwitchDpMacLearningOperData is the Cisco-IOS-XE-switch-dp-mac-learning-oper node /Cisco-IOS-XE-switch-dp-mac-learning-oper/switch-dp-mac-learning-oper-data.
 type SwitchDpMacLearningOperData struct {

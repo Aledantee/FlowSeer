@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessapcfg binds the YANG module Cisco-IOS-XE-wireless-ap-cfg.
 package ciscoiosxewirelessapcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ApCfgData is the Cisco-IOS-XE-wireless-ap-cfg node /Cisco-IOS-XE-wireless-ap-cfg/ap-cfg-data.
 type ApCfgData struct {

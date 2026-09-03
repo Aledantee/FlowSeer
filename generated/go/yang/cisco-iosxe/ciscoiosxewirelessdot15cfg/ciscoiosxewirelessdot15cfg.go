@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessdot15cfg binds the YANG module Cisco-IOS-XE-wireless-dot15-cfg.
 package ciscoiosxewirelessdot15cfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Dot15CfgData is the Cisco-IOS-XE-wireless-dot15-cfg node /Cisco-IOS-XE-wireless-dot15-cfg/dot15-cfg-data.
 type Dot15CfgData struct {

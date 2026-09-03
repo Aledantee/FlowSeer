@@ -6,7 +6,7 @@
 // Package udpmib binds the YANG module UDP-MIB.
 package udpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UDPMIB is the UDP-MIB node /UDP-MIB/UDP-MIB.
 type UDPMIB struct {

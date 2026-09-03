@@ -6,7 +6,7 @@
 // Package openconfigaaa binds the YANG module openconfig-aaa.
 package openconfigaaa
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_RADIUS is the openconfig-aaa identity "RADIUS".
 var Identity_RADIUS = yang.Identity{

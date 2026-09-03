@@ -5,452 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpDescriptor is the flattened-row descriptor for the nested list Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Bgp.
-func Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpDescriptor() yang.ListDescriptor[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpKey] {
-	return yang.ListDescriptor[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpKey]{
-		Codec: yang.RowCodec[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Bgp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Bgp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow) Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpKey {
-				var k Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpKey
-				k.LispList_Lisp = r.LispList_Lisp
-				k.InstanceList_InstanceId = r.InstanceList_InstanceId
-				if r.Entry.Id != nil {
-					k.Id = yang.CanonicalKey(r.Entry.Id)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow) Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_BgpSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-lisp",
-			Name:      "lisp-list",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		}, {Name: "default"}, {Name: "instance-container"}, {Name: "instance-list"}, {Name: "service"}, {Name: "ipv6"}, {Name: "route-import"}, {Name: "database"}, {Name: "bgp"}}},
-	}
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Bgp_LispIpRouteImport is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/bgp/lisp-ip-route-import.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Bgp_LispIpRouteImport struct {
-	LocatorSet *string
-	Proxy      *bool
-	RouteMap   *string
-	RouteTag   *uint32
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Bgp_LispIpRouteImportSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/bgp/lisp-ip-route-import for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Bgp_LispIpRouteImportSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocatorSet",
-		Name:   "locator-set",
-		Type:   yang.TString,
-	}, {
-		GoName: "Proxy",
-		Name:   "proxy",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		GoName: "RouteTag",
-		Name:   "route-tag",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "lisp-ip-route-import",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/connected.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected struct {
-	LispIpRouteImport *Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected_LispIpRouteImport
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_ConnectedSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/connected for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_ConnectedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected_LispIpRouteImportSchema,
-		GoName: "LispIpRouteImport",
-		Name:   "lisp-ip-route-import",
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "connected",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected_LispIpRouteImport is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/connected/lisp-ip-route-import.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected_LispIpRouteImport struct {
-	LocatorSet *string
-	Proxy      *bool
-	RouteMap   *string
-	RouteTag   *uint32
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected_LispIpRouteImportSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/connected/lisp-ip-route-import for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Connected_LispIpRouteImportSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocatorSet",
-		Name:   "locator-set",
-		Type:   yang.TString,
-	}, {
-		GoName: "Proxy",
-		Name:   "proxy",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		GoName: "RouteTag",
-		Name:   "route-tag",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "lisp-ip-route-import",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/eigrp.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp struct {
-	Id                *uint16
-	LispIpRouteImport *Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp_LispIpRouteImport
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/eigrp for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp_LispIpRouteImportSchema,
-		GoName: "LispIpRouteImport",
-		Name:   "lisp-ip-route-import",
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "eigrp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpKey is Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp's row identity (ancestor keys in canonical form).
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpKey struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	Id                      uint16
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow flattens one Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp entry with its ancestor list keys.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow struct {
-	LispList_Lisp           string
-	InstanceList_InstanceId string
-	Entry                   Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpDescriptor is the flattened-row descriptor for the nested list Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp.
-func Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpDescriptor() yang.ListDescriptor[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpKey] {
-	return yang.ListDescriptor[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpKey]{
-		Codec: yang.RowCodec[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceListSchema, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow{
-						Entry:                   en.Entry,
-						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
-						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow) Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpKey {
-				var k Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpKey
-				k.LispList_Lisp = r.LispList_Lisp
-				k.InstanceList_InstanceId = r.InstanceList_InstanceId
-				if r.Entry.Id != nil {
-					k.Id = *r.Entry.Id
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow) Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_EigrpSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-lisp",
-			Name:      "lisp-list",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-		}, {Name: "default"}, {Name: "instance-container"}, {Name: "instance-list"}, {Name: "service"}, {Name: "ipv6"}, {Name: "route-import"}, {Name: "database"}, {Name: "eigrp"}}},
-	}
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp_LispIpRouteImport is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/eigrp/lisp-ip-route-import.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp_LispIpRouteImport struct {
-	LocatorSet *string
-	Proxy      *bool
-	RouteMap   *string
-	RouteTag   *uint32
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp_LispIpRouteImportSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/eigrp/lisp-ip-route-import for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Eigrp_LispIpRouteImportSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocatorSet",
-		Name:   "locator-set",
-		Type:   yang.TString,
-	}, {
-		GoName: "Proxy",
-		Name:   "proxy",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		GoName: "RouteTag",
-		Name:   "route-tag",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "lisp-ip-route-import",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/isis.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis struct {
-	LispIpRouteImport *Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis_LispIpRouteImport
-	ProcessId         *string
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_IsisSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/isis for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_IsisSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis_LispIpRouteImportSchema,
-		GoName: "LispIpRouteImport",
-		Name:   "lisp-ip-route-import",
-	}, {
-		GoName: "ProcessId",
-		Name:   "process-id",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "isis",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis_LispIpRouteImport is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/isis/lisp-ip-route-import.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis_LispIpRouteImport struct {
-	LocatorSet *string
-	Proxy      *bool
-	RouteMap   *string
-	RouteTag   *uint32
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis_LispIpRouteImportSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/isis/lisp-ip-route-import for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Isis_LispIpRouteImportSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocatorSet",
-		Name:   "locator-set",
-		Type:   yang.TString,
-	}, {
-		GoName: "Proxy",
-		Name:   "proxy",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		GoName: "RouteTag",
-		Name:   "route-tag",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "lisp-ip-route-import",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_MaximumPrefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/maximum-prefix.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_MaximumPrefix struct {
-	Number       *uint32
-	Threshold    *uint8
-	Threshold1   *uint8
-	WarningOnly  *bool
-	WarningOnly1 *bool
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_MaximumPrefixSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/maximum-prefix for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_MaximumPrefixSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Number",
-		Name:   "number",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Threshold",
-		Name:   "threshold",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Threshold1",
-		Name:   "threshold1",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "WarningOnly",
-		Name:   "warning-only",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "WarningOnly1",
-		Name:   "warning-only1",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "maximum-prefix",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/nd.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd struct {
-	LispIpRouteImport *Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd_LispIpRouteImport
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_NdSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/nd for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_NdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd_LispIpRouteImportSchema,
-		GoName: "LispIpRouteImport",
-		Name:   "lisp-ip-route-import",
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "nd",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd_LispIpRouteImport is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/nd/lisp-ip-route-import.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd_LispIpRouteImport struct {
-	LocatorSet *string
-	Proxy      *bool
-	RouteMap   *string
-	RouteTag   *uint32
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd_LispIpRouteImportSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/nd/lisp-ip-route-import for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Nd_LispIpRouteImportSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LocatorSet",
-		Name:   "locator-set",
-		Type:   yang.TString,
-	}, {
-		GoName: "Proxy",
-		Name:   "proxy",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		GoName: "RouteTag",
-		Name:   "route-tag",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "lisp-ip-route-import",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/omp.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp struct {
-	LispIpRouteImport *Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp_LispIpRouteImport
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_OmpSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/omp for the generic codecs.
-var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_OmpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp_LispIpRouteImportSchema,
-		GoName: "LispIpRouteImport",
-		Name:   "lisp-ip-route-import",
-	}},
-	Module:    "Cisco-IOS-XE-lisp",
-	Name:      "omp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
-}
-
-// Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp_LispIpRouteImport is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/omp/lisp-ip-route-import.
-type Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp_LispIpRouteImport struct {
-	LocatorSet *string
-	Proxy      *bool
-	RouteMap   *string
-	RouteTag   *uint32
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp_LispIpRouteImportSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/default/instance-container/instance-list/service/ipv6/route-import/database/omp/lisp-ip-route-import for the generic codecs.
 var Native_Router_LispList_Default_InstanceContainer_InstanceList_Service_Ipv6_RouteImport_Database_Omp_LispIpRouteImportSchema = &yang.Schema{
@@ -41210,4 +40765,509 @@ type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ether
 	InstanceList_InstanceId string
 	EidCont_EidPrefix       string
 	Entry                   Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributes
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesDescriptor is the flattened-row descriptor for the nested list Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributes.
+func Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesDescriptor() yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesKey] {
+	return yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesKey]{
+		Codec: yang.RowCodec[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidContSchema, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributes](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow{
+						EidCont_EidPrefix:       yang.AncestorKey(en.AncestorKeys, 2, "eid-prefix"),
+						Entry:                   en.Entry,
+						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
+						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidContSchema, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributes](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow{
+						EidCont_EidPrefix:       yang.AncestorKey(en.AncestorKeys, 2, "eid-prefix"),
+						Entry:                   en.Entry,
+						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
+						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesKey {
+				var k Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesKey
+				k.LispList_Lisp = r.LispList_Lisp
+				k.InstanceList_InstanceId = r.InstanceList_InstanceId
+				k.EidCont_EidPrefix = r.EidCont_EidPrefix
+				if r.Entry.Rloc != nil {
+					k.Rloc = yang.CanonicalKey(r.Entry.Rloc)
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCache_EidCont_RlocAttributesSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-lisp",
+			Name:      "lisp-list",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		}, {Name: "instance-container"}, {Name: "instance-list"}, {Name: "default"}, {Name: "service"}, {Name: "ethernet"}, {Name: "default"}, {Name: "map-cache"}, {Name: "eid-cont"}, {Name: "rloc-attributes"}}},
+	}
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCacheLimit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/map-cache-limit.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCacheLimit struct {
+	MaxMapCacheEntries *uint32
+	ReserveList        *string
+	WarningThreshold   *uint8
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCacheLimitSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/map-cache-limit for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_MapCacheLimitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "MaxMapCacheEntries",
+		Name:   "max-map-cache-entries",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "ReserveList",
+		Name:   "reserve-list",
+		Type:   yang.TString,
+	}, {
+		GoName: "WarningThreshold",
+		Name:   "warning-threshold",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "map-cache-limit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_RegistrationHistory is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/registration-history.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_RegistrationHistory struct {
+	Limit *uint32
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_RegistrationHistorySchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/registration-history for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_RegistrationHistorySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Limit",
+		Name:   "limit",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "registration-history",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SiteRegistration is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/site-registration.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SiteRegistration struct {
+	Limit            *uint32
+	WarningThreshold *uint8
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SiteRegistrationSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/site-registration for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SiteRegistrationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Limit",
+		Name:   "limit",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "WarningThreshold",
+		Name:   "warning-threshold",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "site-registration",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SolicitMapRequest is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/solicit-map-request.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SolicitMapRequest struct {
+	Ignore          *bool
+	MaxPerEntry     *uint8
+	SuppressionTime *uint16
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SolicitMapRequestSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/default/solicit-map-request for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Default_SolicitMapRequestSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ignore",
+		Name:   "ignore",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MaxPerEntry",
+		Name:   "max-per-entry",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "SuppressionTime",
+		Name:   "suppression-time",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "solicit-map-request",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/dynamic-eid.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid struct {
+	Detection *Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid_Detection
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEidSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/dynamic-eid for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEidSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid_DetectionSchema,
+		GoName: "Detection",
+		Name:   "detection",
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "dynamic-eid",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid_Detection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/dynamic-eid/detection.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid_Detection struct {
+	BridgedVm    *bool
+	MultipleAddr *bool
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid_DetectionSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/dynamic-eid/detection for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_DynamicEid_DetectionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "BridgedVm",
+		Name:   "bridged-vm",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "MultipleAddr",
+		Name:   "multiple-addr",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "detection",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_EidTable is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/eid-table.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_EidTable struct {
+	Vlan *uint16
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_EidTableSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/eid-table for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_EidTableSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Vlan",
+		Name:   "vlan",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "eid-table",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr struct {
+	AcceptMapRequestMapping *Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_AcceptMapRequestMapping
+	MapCacheTtl             *uint16
+	MapServer               []Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_EtrSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_EtrSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_AcceptMapRequestMappingSchema,
+		GoName: "AcceptMapRequestMapping",
+		Name:   "accept-map-request-mapping",
+	}, {
+		GoName: "MapCacheTtl",
+		Name:   "map-cache-ttl",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerSchema,
+		GoName: "MapServer",
+		List:   true,
+		Name:   "map-server",
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "etr",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_AcceptMapRequestMapping is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/accept-map-request-mapping.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_AcceptMapRequestMapping struct {
+	AcceptMappping *bool
+	Verify         *bool
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_AcceptMapRequestMappingSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/accept-map-request-mapping for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_AcceptMapRequestMappingSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AcceptMappping",
+		Name:   "accept-mappping",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Verify",
+		Name:   "verify",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "accept-map-request-mapping",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer struct {
+	IpAddr     *yang.Value
+	Key        *Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key
+	ProxyReply *bool
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerSchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "IpAddr",
+		Name:   "ip-addr",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+		},
+	}, {
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_KeySchema,
+		GoName: "Key",
+		Name:   "key",
+	}, {
+		GoName: "ProxyReply",
+		Name:   "proxy-reply",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"ip-addr"},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "map-server",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerKey is Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer's row identity (ancestor keys in canonical form).
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerKey struct {
+	LispList_Lisp           string
+	InstanceList_InstanceId string
+	IpAddr                  string
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow flattens one Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer entry with its ancestor list keys.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow struct {
+	LispList_Lisp           string
+	InstanceList_InstanceId string
+	Entry                   Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerDescriptor is the flattened-row descriptor for the nested list Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer.
+func Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerDescriptor() yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerKey] {
+	return yang.ListDescriptor[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerKey]{
+		Codec: yang.RowCodec[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow{
+						Entry:                   en.Entry,
+						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
+						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_LispListSchema, Native_Router_LispList_InstanceContainer_InstanceListSchema, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow{
+						Entry:                   en.Entry,
+						InstanceList_InstanceId: yang.AncestorKey(en.AncestorKeys, 1, "instance-id"),
+						LispList_Lisp:           yang.AncestorKey(en.AncestorKeys, 0, "lisp"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerKey {
+				var k Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerKey
+				k.LispList_Lisp = r.LispList_Lisp
+				k.InstanceList_InstanceId = r.InstanceList_InstanceId
+				if r.Entry.IpAddr != nil {
+					k.IpAddr = yang.CanonicalKey(r.Entry.IpAddr)
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow) Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServerSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-lisp",
+			Name:      "lisp-list",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+		}, {Name: "instance-container"}, {Name: "instance-list"}, {Name: "default"}, {Name: "service"}, {Name: "ethernet"}, {Name: "etr"}, {Name: "map-server"}}},
+	}
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key struct {
+	Key0   *Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key0
+	Key6   *Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key6
+	Key7   *Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key7
+	KeyPwd *Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_KeyPwd
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_KeySchema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_KeySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key0Schema,
+		GoName: "Key0",
+		Name:   "key-0",
+	}, {
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key6Schema,
+		GoName: "Key6",
+		Name:   "key-6",
+	}, {
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key7Schema,
+		GoName: "Key7",
+		Name:   "key-7",
+	}, {
+		Child:  Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_KeyPwdSchema,
+		GoName: "KeyPwd",
+		Name:   "key-pwd",
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "key",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key0 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key/password/password-key/key-0.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key0 struct {
+	Ak0          *string
+	DomainId     *uint32
+	HashFunction *string
+	PrefixList   *string
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key0Schema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key/password/password-key/key-0 for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key0Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ak0",
+		Name:   "ak-0",
+		Type:   yang.TString,
+	}, {
+		GoName: "DomainId",
+		Name:   "domain-id",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "HashFunction",
+		Name:   "hash-function",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "PrefixList",
+		Name:   "prefix-list",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "key-0",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key6 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key/password/password-key/key-6.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key6 struct {
+	Ak6          *string
+	DomainId     *uint32
+	HashFunction *string
+	PrefixList   *string
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key6Schema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key/password/password-key/key-6 for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key6Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ak6",
+		Name:   "ak-6",
+		Type:   yang.TString,
+	}, {
+		GoName: "DomainId",
+		Name:   "domain-id",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "HashFunction",
+		Name:   "hash-function",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "PrefixList",
+		Name:   "prefix-list",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "key-6",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key7 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key/password/password-key/key-7.
+type Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key7 struct {
+	Ak7          *string
+	DomainId     *uint32
+	HashFunction *string
+	PrefixList   *string
+}
+
+// Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key7Schema describes /Cisco-IOS-XE-native/native/router/lisp-list/instance-container/instance-list/default/service/ethernet/etr/map-server/key/password/password-key/key-7 for the generic codecs.
+var Native_Router_LispList_InstanceContainer_InstanceList_Default_Service_Ethernet_Etr_MapServer_Key_Key7Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Ak7",
+		Name:   "ak-7",
+		Type:   yang.TString,
+	}, {
+		GoName: "DomainId",
+		Name:   "domain-id",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "HashFunction",
+		Name:   "hash-function",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "PrefixList",
+		Name:   "prefix-list",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-lisp",
+	Name:      "key-7",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-lisp",
 }

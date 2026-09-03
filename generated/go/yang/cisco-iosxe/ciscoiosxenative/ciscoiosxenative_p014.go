@@ -5,435 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaximumAddressConfig_MaximumVlanVoice is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/port-security-config/port-security/maximum-address-config/maximum-vlan-voice.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaximumAddressConfig_MaximumVlanVoice struct {
-	Maximum *uint16
-	Vlan    *string
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaximumAddressConfig_MaximumVlanVoiceSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/port-security-config/port-security/maximum-address-config/maximum-vlan-voice for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_MaximumAddressConfig_MaximumVlanVoiceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Maximum",
-		Name:   "maximum",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Vlan",
-		Name:   "vlan",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "maximum-vlan-voice",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/port-security-config/port-security/violation.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation struct {
-	Protect  *bool
-	Report   *bool
-	Restrict *bool
-	Shutdown *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation_Shutdown
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_ViolationSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/port-security-config/port-security/violation for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_ViolationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Protect",
-		Name:   "protect",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Report",
-		Name:   "report",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Restrict",
-		Name:   "restrict",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation_ShutdownSchema,
-		GoName: "Shutdown",
-		Name:   "shutdown",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "violation",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation_Shutdown is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/port-security-config/port-security/violation/violation-choice/shutdown/shutdown.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation_Shutdown struct {
-	Vlan *bool
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation_ShutdownSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/port-security-config/port-security/violation/violation-choice/shutdown/shutdown for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PortSecurityConfig_PortSecurity_Violation_ShutdownSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Vlan",
-		Name:   "vlan",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "shutdown",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/priority.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority struct {
-	Extend *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority_Extend
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrioritySchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/priority for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrioritySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority_ExtendSchema,
-		GoName: "Extend",
-		Name:   "extend",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "priority",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority_Extend is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/priority/extend.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority_Extend struct {
-	Cos   *uint8
-	Trust *bool
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority_ExtendSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/priority/extend for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Priority_ExtendSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cos",
-		Name:   "cos",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Trust",
-		Name:   "trust",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "extend",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan struct {
-	Association     *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association
-	HostAssociation *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_HostAssociation
-	Mapping         *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Mapping
-	Trunk           *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlanSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlanSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_AssociationSchema,
-		GoName: "Association",
-		Name:   "association",
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_HostAssociationSchema,
-		GoName: "HostAssociation",
-		Name:   "host-association",
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_MappingSchema,
-		GoName: "Mapping",
-		Name:   "mapping",
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_TrunkSchema,
-		GoName: "Trunk",
-		Name:   "trunk",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "private-vlan",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/association.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association struct {
-	Host    *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_Host
-	Mapping *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_Mapping
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_AssociationSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/association for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_AssociationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_HostSchema,
-		GoName: "Host",
-		Name:   "host",
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_MappingSchema,
-		GoName: "Mapping",
-		Name:   "mapping",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "association",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_Host is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/association/host.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_Host struct {
-	PrimaryRange   *uint16
-	SecondaryRange *uint16
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_HostSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/association/host for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_HostSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PrimaryRange",
-		Name:   "primary-range",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "SecondaryRange",
-		Name:   "secondary-range",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "host",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_Mapping is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/association/mapping.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_Mapping struct {
-	Add            *string
-	PrimaryRange   *uint16
-	Remove         *string
-	SecondaryRange *string
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_MappingSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/association/mapping for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Association_MappingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Add",
-		Name:   "add",
-		Type:   yang.TString,
-	}, {
-		GoName: "PrimaryRange",
-		Name:   "primary-range",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Remove",
-		Name:   "remove",
-		Type:   yang.TString,
-	}, {
-		GoName: "SecondaryRange",
-		Name:   "secondary-range",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "mapping",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_HostAssociation is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/host-association.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_HostAssociation struct {
-	PrimaryRange   *uint16
-	SecondaryRange *uint16
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_HostAssociationSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/host-association for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_HostAssociationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PrimaryRange",
-		Name:   "primary-range",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "SecondaryRange",
-		Name:   "secondary-range",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "host-association",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Mapping is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/mapping.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Mapping struct {
-	PrimaryRange   *uint16
-	SecondaryRange *string
-	Trunk          *bool
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_MappingSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/mapping for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_MappingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PrimaryRange",
-		Name:   "primary-range",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "SecondaryRange",
-		Name:   "secondary-range",
-		Type:   yang.TString,
-	}, {
-		GoName: "Trunk",
-		Name:   "trunk",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "mapping",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk struct {
-	Allowed *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed
-	Native  *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_TrunkSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_TrunkSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_AllowedSchema,
-		GoName: "Allowed",
-		Name:   "allowed",
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_NativeSchema,
-		GoName: "Native",
-		Name:   "native",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "trunk",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/allowed.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed struct {
-	Vlan *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed_Vlan
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_AllowedSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/allowed for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_AllowedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed_VlanSchema,
-		GoName: "Vlan",
-		Name:   "vlan",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "allowed",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed_Vlan is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/allowed/vlan.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed_Vlan struct {
-	Vlans *yang.Value
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed_VlanSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/allowed/vlan for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Allowed_VlanSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Vlans",
-		Name:   "vlans",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "vlan",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/native.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native struct {
-	Vlan *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native_Vlan
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_NativeSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/native for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_NativeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native_VlanSchema,
-		GoName: "Vlan",
-		Name:   "vlan",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "native",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native_Vlan is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/native/vlan.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native_Vlan struct {
-	Tag   *bool
-	Vlans *uint16
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native_VlanSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/private-vlan/trunk/native/vlan for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_PrivateVlan_Trunk_Native_VlanSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Tag",
-		Name:   "tag",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Vlans",
-		Name:   "vlans",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "vlan",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/trunk.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk struct {
-	Allowed       *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed
-	Encapsulation *string
-	Native        *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Native
-	Pruning       *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Pruning
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_TrunkSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/trunk for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_TrunkSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_AllowedSchema,
-		GoName: "Allowed",
-		Name:   "allowed",
-	}, {
-		GoName: "Encapsulation",
-		Name:   "encapsulation",
-		Type:   yang.TEnum,
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_NativeSchema,
-		GoName: "Native",
-		Name:   "native",
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_PruningSchema,
-		GoName: "Pruning",
-		Name:   "pruning",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "trunk",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/trunk/allowed.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed struct {
-	Vlan   *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_Vlan
-	VlanV2 *Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_VlanV2
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_AllowedSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/trunk/allowed for the generic codecs.
-var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_AllowedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_VlanSchema,
-		GoName: "Vlan",
-		Name:   "vlan",
-	}, {
-		Child:  Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_VlanV2Schema,
-		GoName: "VlanV2",
-		Name:   "vlan-v2",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "allowed",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_Vlan is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/trunk/allowed/vlan.
-type Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_Vlan struct {
-	Add    *yang.Value
-	Except *yang.Value
-	None   *bool
-	Remove *yang.Value
-	Vlans  *yang.Value
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_VlanSchema describes /Cisco-IOS-XE-native/native/interface/Ethernet-Internal/switchport-config/switchport/trunk/allowed/vlan for the generic codecs.
 var Native_Interface_EthernetInternal_SwitchportConfig_Switchport_Trunk_Allowed_VlanSchema = &yang.Schema{
@@ -45925,4 +45497,508 @@ var Native_Interface_FastEthernet_ServiceSchema = &yang.Schema{
 	Module:    "Cisco-IOS-XE-ethernet",
 	Name:      "service",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance.
+type Native_Interface_FastEthernet_Service_Instance struct {
+	GigabitEthernet   *bool
+	BridgeDomain      *Native_Interface_FastEthernet_Service_Instance_BridgeDomain
+	Cfm               *Native_Interface_FastEthernet_Service_Instance_Cfm
+	Description       *string
+	Eapol             *Native_Interface_FastEthernet_Service_Instance_Eapol
+	Encapsulation     *Native_Interface_FastEthernet_Service_Instance_Encapsulation
+	Errdisable        *Native_Interface_FastEthernet_Service_Instance_Errdisable
+	Ethernet          *bool
+	EthernetContainer *Native_Interface_FastEthernet_Service_Instance_EthernetContainer
+	EthernetEvcName   *string
+	EvcName           *string
+	Group             *uint32
+	Id                *uint32
+	Ip                *Native_Interface_FastEthernet_Service_Instance_Ip
+	Ipv6              *Native_Interface_FastEthernet_Service_Instance_Ipv6
+	L2protocol        *Native_Interface_FastEthernet_Service_Instance_L2protocol
+	Lldp              *Native_Interface_FastEthernet_Service_Instance_Lldp
+	Mac               *Native_Interface_FastEthernet_Service_Instance_Mac
+	Rewrite           *Native_Interface_FastEthernet_Service_Instance_Rewrite
+	ServicePolicy     *Native_Interface_FastEthernet_Service_Instance_ServicePolicy
+	Shutdown          *bool
+	Snmp              *Native_Interface_FastEthernet_Service_Instance_Snmp
+	StormControl      *Native_Interface_FastEthernet_Service_Instance_StormControl
+	Track             *uint16
+	Trunk             *bool
+	Xconnect          *Native_Interface_FastEthernet_Service_Instance_Xconnect
+	XconnectPwClass   *Native_Interface_FastEthernet_Service_Instance_XconnectPwClass
+}
+
+// Native_Interface_FastEthernet_Service_InstanceSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance for the generic codecs.
+var Native_Interface_FastEthernet_Service_InstanceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "GigabitEthernet",
+		Name:   "GigabitEthernet",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_BridgeDomainSchema,
+		GoName: "BridgeDomain",
+		Name:   "bridge-domain",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_CfmSchema,
+		GoName: "Cfm",
+		Name:   "cfm",
+	}, {
+		GoName: "Description",
+		Name:   "description",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_EapolSchema,
+		GoName: "Eapol",
+		Name:   "eapol",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_EncapsulationSchema,
+		GoName: "Encapsulation",
+		Name:   "encapsulation",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_ErrdisableSchema,
+		GoName: "Errdisable",
+		Name:   "errdisable",
+	}, {
+		GoName: "Ethernet",
+		Name:   "ethernet",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_EthernetContainerSchema,
+		GoName: "EthernetContainer",
+		Name:   "ethernet-container",
+	}, {
+		GoName: "EthernetEvcName",
+		Name:   "ethernet-evc-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "EvcName",
+		Name:   "evc-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Group",
+		Name:   "group",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint32,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_IpSchema,
+		GoName: "Ip",
+		Name:   "ip",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Ipv6Schema,
+		GoName: "Ipv6",
+		Name:   "ipv6",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_L2protocolSchema,
+		GoName: "L2protocol",
+		Name:   "l2protocol",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_LldpSchema,
+		GoName: "Lldp",
+		Name:   "lldp",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_MacSchema,
+		GoName: "Mac",
+		Name:   "mac",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_RewriteSchema,
+		GoName: "Rewrite",
+		Name:   "rewrite",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_ServicePolicySchema,
+		GoName: "ServicePolicy",
+		Name:   "service-policy",
+	}, {
+		GoName: "Shutdown",
+		Name:   "shutdown",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_SnmpSchema,
+		GoName: "Snmp",
+		Name:   "snmp",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_StormControlSchema,
+		GoName: "StormControl",
+		Name:   "storm-control",
+	}, {
+		GoName: "Track",
+		Name:   "track",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Trunk",
+		Name:   "trunk",
+		Type:   yang.TEmpty,
+	}, {
+		Child:     Native_Interface_FastEthernet_Service_Instance_XconnectSchema,
+		GoName:    "Xconnect",
+		Module:    "Cisco-IOS-XE-l2vpn",
+		Name:      "xconnect",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
+	}, {
+		Child:     Native_Interface_FastEthernet_Service_Instance_XconnectPwClassSchema,
+		GoName:    "XconnectPwClass",
+		Module:    "Cisco-IOS-XE-l2vpn",
+		Name:      "xconnect-pw-class",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "instance",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_InstanceKey is Native_Interface_FastEthernet_Service_Instance's row identity (ancestor keys in canonical form).
+type Native_Interface_FastEthernet_Service_InstanceKey struct {
+	FastEthernet_Name string
+	Id                uint32
+}
+
+// Native_Interface_FastEthernet_Service_InstanceFlatRow flattens one Native_Interface_FastEthernet_Service_Instance entry with its ancestor list keys.
+type Native_Interface_FastEthernet_Service_InstanceFlatRow struct {
+	FastEthernet_Name string
+	Entry             Native_Interface_FastEthernet_Service_Instance
+}
+
+// Native_Interface_FastEthernet_Service_InstanceDescriptor is the flattened-row descriptor for the nested list Native_Interface_FastEthernet_Service_Instance.
+func Native_Interface_FastEthernet_Service_InstanceDescriptor() yang.ListDescriptor[Native_Interface_FastEthernet_Service_InstanceFlatRow, Native_Interface_FastEthernet_Service_InstanceKey] {
+	return yang.ListDescriptor[Native_Interface_FastEthernet_Service_InstanceFlatRow, Native_Interface_FastEthernet_Service_InstanceKey]{
+		Codec: yang.RowCodec[Native_Interface_FastEthernet_Service_InstanceFlatRow, Native_Interface_FastEthernet_Service_InstanceKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FastEthernet_Service_InstanceFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FastEthernetSchema, Native_Interface_FastEthernet_Service_InstanceSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FastEthernet_Service_Instance](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FastEthernet_Service_InstanceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FastEthernet_Service_InstanceFlatRow{
+						Entry:             en.Entry,
+						FastEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FastEthernet_Service_InstanceFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FastEthernetSchema, Native_Interface_FastEthernet_Service_InstanceSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FastEthernet_Service_Instance](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FastEthernet_Service_InstanceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FastEthernet_Service_InstanceFlatRow{
+						Entry:             en.Entry,
+						FastEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FastEthernet_Service_InstanceFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FastEthernet_Service_InstanceFlatRow) Native_Interface_FastEthernet_Service_InstanceKey {
+				var k Native_Interface_FastEthernet_Service_InstanceKey
+				k.FastEthernet_Name = r.FastEthernet_Name
+				if r.Entry.Id != nil {
+					k.Id = *r.Entry.Id
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FastEthernet_Service_InstanceFlatRow) Native_Interface_FastEthernet_Service_InstanceFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FastEthernet_Service_InstanceSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FastEthernet"}, {
+			Module:    "Cisco-IOS-XE-ethernet",
+			Name:      "service",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+		}, {Name: "instance"}}},
+	}
+}
+
+// Native_Interface_FastEthernet_Service_Instance_BridgeDomain is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain.
+type Native_Interface_FastEthernet_Service_Instance_BridgeDomain struct {
+	BridgeId             *uint16
+	FromEncapsulation    *bool
+	SplitHorizon         *Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizon
+	SplitHorizonPresence *Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresence
+}
+
+// Native_Interface_FastEthernet_Service_Instance_BridgeDomainSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_BridgeDomainSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "BridgeId",
+		Name:   "bridge-id",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "FromEncapsulation",
+		Name:   "from-encapsulation",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonSchema,
+		GoName: "SplitHorizon",
+		Name:   "split-horizon",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresenceSchema,
+		GoName: "SplitHorizonPresence",
+		Name:   "split-horizon-presence",
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "bridge-domain",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizon is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon.
+type Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizon struct {
+	Group *uint8
+}
+
+// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Group",
+		Name:   "group",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "split-horizon",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresence is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon-presence.
+type Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresence struct {
+	Group *uint8
+}
+
+// Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresenceSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/bridge-domain/split-horizon-presence for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_BridgeDomain_SplitHorizonPresenceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Group",
+		Name:   "group",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "split-horizon-presence",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+	Presence:  true,
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm.
+type Native_Interface_FastEthernet_Service_Instance_Cfm struct {
+	Encapsulation    *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation
+	LatchingLoopback *Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback
+	Mep              *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep
+	MepList          *Native_Interface_FastEthernet_Service_Instance_Cfm_MepList
+	Mip              *Native_Interface_FastEthernet_Service_Instance_Cfm_Mip
+}
+
+// Native_Interface_FastEthernet_Service_Instance_CfmSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_CfmSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_EncapsulationSchema,
+		GoName: "Encapsulation",
+		Name:   "encapsulation",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopbackSchema,
+		GoName: "LatchingLoopback",
+		Name:   "latching-loopback",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_MepSchema,
+		GoName: "Mep",
+		Name:   "mep",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_MepListSchema,
+		GoName: "MepList",
+		Name:   "mep-list",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_MipSchema,
+		GoName: "Mip",
+		Name:   "mip",
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "cfm",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation struct {
+	Dot1ad *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad
+	Dot1q  *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_EncapsulationSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_Cfm_EncapsulationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1adSchema,
+		GoName: "Dot1ad",
+		Name:   "dot1ad",
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1qSchema,
+		GoName: "Dot1q",
+		Name:   "dot1q",
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "encapsulation",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad struct {
+	Cos    *uint8
+	Cos2   *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2
+	Dot1q  *uint16
+	VlanId *uint16
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1adSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1adSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cos",
+		Name:   "cos",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2Schema,
+		GoName: "Cos2",
+		Name:   "cos2",
+	}, {
+		GoName: "Dot1q",
+		Name:   "dot1q",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "VlanId",
+		Name:   "vlan-id",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "dot1ad",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad/cos2.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2 struct {
+	Cos *uint8
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2Schema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1ad/cos2 for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1ad_Cos2Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cos",
+		Name:   "cos",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "cos2",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q struct {
+	Cos         *uint8
+	Cos2        *Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2
+	SecondDot1q *uint16
+	VlanId      *uint16
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1qSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1qSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cos",
+		Name:   "cos",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2Schema,
+		GoName: "Cos2",
+		Name:   "cos2",
+	}, {
+		GoName: "SecondDot1q",
+		Name:   "second-dot1q",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "VlanId",
+		Name:   "vlan-id",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "dot1q",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q/cos2.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2 struct {
+	Cos *uint8
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2Schema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/encapsulation/dot1q/cos2 for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_Cfm_Encapsulation_Dot1q_Cos2Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cos",
+		Name:   "cos",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "cos2",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback struct {
+	Controller *Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_Controller
+	Domain     *string
+	Responder  *bool
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopbackSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopbackSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_ControllerSchema,
+		GoName: "Controller",
+		Name:   "controller",
+	}, {
+		GoName: "Domain",
+		Name:   "domain",
+		Type:   yang.TString,
+	}, {
+		GoName: "Responder",
+		Name:   "responder",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "latching-loopback",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_Controller is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback/controller.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_Controller struct {
+	DiscoverInterval *uint8
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_ControllerSchema describes /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/latching-loopback/controller for the generic codecs.
+var Native_Interface_FastEthernet_Service_Instance_Cfm_LatchingLoopback_ControllerSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DiscoverInterval",
+		Name:   "discover-interval",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "controller",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_FastEthernet_Service_Instance_Cfm_Mep is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FastEthernet/service/instance/cfm/mep.
+type Native_Interface_FastEthernet_Service_Instance_Cfm_Mep struct {
+	Alarm           *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep_Alarm
+	ContinuityCheck *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep_ContinuityCheck
+	Cos             *uint16
+	Domain          *string
+	Mpid            *uint16
+	Rmep            *Native_Interface_FastEthernet_Service_Instance_Cfm_Mep_Rmep
 }

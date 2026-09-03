@@ -6,7 +6,7 @@
 // Package ciscoiosxelispoper binds the YANG module Cisco-IOS-XE-lisp-oper.
 package ciscoiosxelispoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LispState is the Cisco-IOS-XE-lisp-oper node /Cisco-IOS-XE-lisp-oper/lisp-state.
 type LispState struct {

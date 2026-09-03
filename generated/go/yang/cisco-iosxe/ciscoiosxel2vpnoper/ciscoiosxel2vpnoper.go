@@ -6,7 +6,7 @@
 // Package ciscoiosxel2vpnoper binds the YANG module Cisco-IOS-XE-l2vpn-oper.
 package ciscoiosxel2vpnoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // L2vpnOperData is the Cisco-IOS-XE-l2vpn-oper node /Cisco-IOS-XE-l2vpn-oper/l2vpn-oper-data.
 type L2vpnOperData struct {

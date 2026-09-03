@@ -6,7 +6,7 @@
 // Package openconfigpolicytypes binds the YANG module openconfig-policy-types.
 package openconfigpolicytypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ATTRIBUTECOMPARISON is the openconfig-policy-types identity "ATTRIBUTE_COMPARISON".
 var Identity_ATTRIBUTECOMPARISON = yang.Identity{

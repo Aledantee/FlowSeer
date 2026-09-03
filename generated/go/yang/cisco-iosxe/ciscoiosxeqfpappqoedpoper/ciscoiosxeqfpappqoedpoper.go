@@ -6,7 +6,7 @@
 // Package ciscoiosxeqfpappqoedpoper binds the YANG module Cisco-IOS-XE-qfp-appqoe-dp-oper.
 package ciscoiosxeqfpappqoedpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // QfpAppqoeDpOperData is the Cisco-IOS-XE-qfp-appqoe-dp-oper node /Cisco-IOS-XE-qfp-appqoe-dp-oper/qfp-appqoe-dp-oper-data.
 type QfpAppqoeDpOperData struct {

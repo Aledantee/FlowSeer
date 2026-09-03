@@ -6,7 +6,7 @@
 // Package openconfigevpntypes binds the YANG module openconfig-evpn-types.
 package openconfigevpntypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ALLACTIVE is the openconfig-evpn-types identity "ALL_ACTIVE".
 var Identity_ALLACTIVE = yang.Identity{

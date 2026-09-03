@@ -6,7 +6,7 @@
 // Package tunnelmib binds the YANG module TUNNEL-MIB.
 package tunnelmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TUNNELMIB is the TUNNEL-MIB node /TUNNEL-MIB/TUNNEL-MIB.
 type TUNNELMIB struct {

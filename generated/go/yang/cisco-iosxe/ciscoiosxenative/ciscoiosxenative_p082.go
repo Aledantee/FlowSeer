@@ -5,421 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISP.
-func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey] {
-	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey]{
-		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey {
-				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey
-				k.ProcessId_Id = r.ProcessId_Id
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospf",
-			Name:      "router-ospf",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "L2LISP",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}}},
-	}
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface struct {
-	L2LISP []Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface for the generic codecs.
-var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema,
-		GoName: "L2LISP",
-		List:   true,
-		Name:   "L2LISP",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "L2LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface/L2LISP.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP struct {
-	Name *string
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface/L2LISP for the generic codecs.
-var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "L2LISP",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP's row identity (ancestor keys in canonical form).
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey struct {
-	ProcessId_Id string
-	Name         string
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow flattens one Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP entry with its ancestor list keys.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow struct {
-	ProcessId_Id string
-	Entry        Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP.
-func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey] {
-	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey]{
-		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey {
-				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey
-				k.ProcessId_Id = r.ProcessId_Id
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospf",
-			Name:      "router-ospf",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "L2LISP-subinterface",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}, {Name: "L2LISP"}}},
-	}
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP struct {
-	Name *uint16
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP for the generic codecs.
-var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TUint16,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "LISP",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP's row identity (ancestor keys in canonical form).
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey struct {
-	ProcessId_Id string
-	Name         uint16
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow flattens one Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP entry with its ancestor list keys.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow struct {
-	ProcessId_Id string
-	Entry        Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP.
-func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey] {
-	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey]{
-		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey {
-				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey
-				k.ProcessId_Id = r.ProcessId_Id
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospf",
-			Name:      "router-ospf",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "LISP",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}}},
-	}
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface struct {
-	LISP []Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface for the generic codecs.
-var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema,
-		GoName: "LISP",
-		List:   true,
-		Name:   "LISP",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface/LISP.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP struct {
-	Name *string
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface/LISP for the generic codecs.
-var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "LISP",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP's row identity (ancestor keys in canonical form).
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey struct {
-	ProcessId_Id string
-	Name         string
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow flattens one Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP entry with its ancestor list keys.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow struct {
-	ProcessId_Id string
-	Entry        Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP.
-func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey] {
-	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey]{
-		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow{
-						Entry:        en.Entry,
-						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey {
-				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey
-				k.ProcessId_Id = r.ProcessId_Id
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospf",
-			Name:      "router-ospf",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "LISP-subinterface",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-		}, {Name: "LISP"}}},
-	}
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWAN is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LORAWAN.
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWAN struct {
-	Name *string
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LORAWAN for the generic codecs.
-var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "LORAWAN",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-}
-
-// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWAN's row identity (ancestor keys in canonical form).
-type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANKey struct {
-	ProcessId_Id string
-	Name         string
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANFlatRow flattens one Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWAN entry with its ancestor list keys.
 type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANFlatRow struct {
@@ -37983,4 +37569,471 @@ var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Me
 	Module:    "Cisco-IOS-XE-segment-routing",
 	Name:      "metric",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_Margin is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/dynamic/dynamic/metric/margin.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_Margin struct {
+	Absolute *uint32
+	Relative *uint8
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_MarginSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/dynamic/dynamic/metric/margin for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Dynamic_Metric_MarginSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Absolute",
+		Name:   "absolute",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Relative",
+		Name:   "relative",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "margin",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit struct {
+	SegmentList []Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_ExplicitSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_ExplicitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema,
+		GoName: "SegmentList",
+		List:   true,
+		Name:   "segment-list",
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "explicit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit/segment-list.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList struct {
+	Name   *string
+	Weight *uint32
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/explicit/explicit/segment-list for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Weight",
+		Name:   "weight",
+		Type:   yang.TUint32,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "segment-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey is Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList's row identity (ancestor keys in canonical form).
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey struct {
+	Policy_Name           string
+	Preference_Preference string
+	Name                  string
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow flattens one Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList entry with its ancestor list keys.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow struct {
+	Policy_Name           string
+	Preference_Preference string
+	Entry                 Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListDescriptor is the flattened-row descriptor for the nested list Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList.
+func Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListDescriptor() yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey] {
+	return yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey]{
+		Codec: yang.RowCodec[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey]{
+			DecodeJSON: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, error) {
+				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema}
+				entries, err := yang.DecodeJSONNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow{
+						Entry:                 en.Entry,
+						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, error) {
+				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema}
+				entries, err := yang.DecodeXMLNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow{
+						Entry:                 en.Entry,
+						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey {
+				var k Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListKey
+				k.Policy_Name = r.Policy_Name
+				k.Preference_Preference = r.Preference_Preference
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListFlatRow {
+				base.Entry = yang.MergeStructs(Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_Explicit_SegmentListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "segment-routing"}, {
+			Module:    "Cisco-IOS-XE-segment-routing",
+			Name:      "traffic-eng",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+		}, {Name: "policy"}, {Name: "candidate-paths"}, {Name: "preference"}, {Name: "explicit"}, {Name: "segment-list"}}},
+	}
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow struct {
+	ForwardClass *Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlowSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlowSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClassSchema,
+		GoName: "ForwardClass",
+		Name:   "forward-class",
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "per-flow",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+	Presence:  true,
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass struct {
+	Value []Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClassSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClassSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema,
+		GoName: "Value",
+		List:   true,
+		Name:   "value",
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "forward-class",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class/value.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value struct {
+	Color             *uint32
+	ColorOption       *uint32
+	ForwardClassValue *uint32
+	Rib               *bool
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/candidate-paths/preference/path-choice/per-flow/per-flow/forward-class/value for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Color",
+		Name:   "color",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "ColorOption",
+		Name:   "color-option",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "ForwardClassValue",
+		Name:   "forward-class-value",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Rib",
+		Name:   "rib",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"forward-class-value"},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "value",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey is Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value's row identity (ancestor keys in canonical form).
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey struct {
+	Policy_Name           string
+	Preference_Preference string
+	ForwardClassValue     uint32
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow flattens one Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value entry with its ancestor list keys.
+type Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow struct {
+	Policy_Name           string
+	Preference_Preference string
+	Entry                 Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueDescriptor is the flattened-row descriptor for the nested list Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value.
+func Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueDescriptor() yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey] {
+	return yang.ListDescriptor[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey]{
+		Codec: yang.RowCodec[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey]{
+			DecodeJSON: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, error) {
+				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema}
+				entries, err := yang.DecodeJSONNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow{
+						Entry:                 en.Entry,
+						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, error) {
+				chain := []*yang.Schema{Native_SegmentRouting_TrafficEng_PolicySchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_PreferenceSchema, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema}
+				entries, err := yang.DecodeXMLNested[Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_Value](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow{
+						Entry:                 en.Entry,
+						Policy_Name:           yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Preference_Preference: yang.AncestorKey(en.AncestorKeys, 1, "preference"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey {
+				var k Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueKey
+				k.Policy_Name = r.Policy_Name
+				k.Preference_Preference = r.Preference_Preference
+				if r.Entry.ForwardClassValue != nil {
+					k.ForwardClassValue = *r.Entry.ForwardClassValue
+				}
+				return k
+			},
+			Merge: func(base, update Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow) Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueFlatRow {
+				base.Entry = yang.MergeStructs(Native_SegmentRouting_TrafficEng_Policy_CandidatePaths_Preference_PerFlow_ForwardClass_ValueSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "segment-routing"}, {
+			Module:    "Cisco-IOS-XE-segment-routing",
+			Name:      "traffic-eng",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+		}, {Name: "policy"}, {Name: "candidate-paths"}, {Name: "preference"}, {Name: "per-flow"}, {Name: "forward-class"}, {Name: "value"}}},
+	}
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_ColorEndpoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/color-endpoint.
+type Native_SegmentRouting_TrafficEng_Policy_ColorEndpoint struct {
+	Color      *uint32
+	EndPoint   *string
+	EndPointV2 *yang.Value
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_ColorEndpointSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/color-endpoint for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_ColorEndpointSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Color",
+		Name:   "color",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "EndPoint",
+		Name:   "end-point",
+		Type:   yang.TString,
+	}, {
+		GoName: "EndPointV2",
+		Name:   "end-point-v2",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+		},
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "color-endpoint",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement.
+type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement struct {
+	DelayMeasurement       *bool
+	DelayMeasurementConfig *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurementSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurementSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DelayMeasurement",
+		Name:   "delay-measurement",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfigSchema,
+		GoName: "DelayMeasurementConfig",
+		Name:   "delay-measurement-config",
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "performance-measurement",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config.
+type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig struct {
+	LivenessDetection *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection
+	Profile           *string
+	ReversePath       *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePath
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfigSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetectionSchema,
+		GoName: "LivenessDetection",
+		Name:   "liveness-detection",
+	}, {
+		GoName: "Profile",
+		Name:   "profile",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePathSchema,
+		GoName: "ReversePath",
+		Name:   "reverse-path",
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "delay-measurement-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+	Presence:  true,
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection.
+type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection struct {
+	InvalidationAction *Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationAction
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetectionSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetectionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationActionSchema,
+		GoName: "InvalidationAction",
+		Name:   "invalidation-action",
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "liveness-detection",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+	Presence:  true,
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection/invalidation-action.
+type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationAction struct {
+	Down *bool
+	None *bool
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationActionSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/liveness-detection/invalidation-action for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_LivenessDetection_InvalidationActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Down",
+		Name:   "down",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "None",
+		Name:   "none",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "invalidation-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePath is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/reverse-path.
+type Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePath struct {
+	Label *uint32
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePathSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/performance-measurement/delay-measurement-config/reverse-path for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_PerformanceMeasurement_DelayMeasurementConfig_ReversePathSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Label",
+		Name:   "label",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "reverse-path",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_Steering is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering.
+type Native_SegmentRouting_TrafficEng_Policy_Steering struct {
+	PathInvalidation *Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidation
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_SteeringSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_SteeringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidationSchema,
+		GoName: "PathInvalidation",
+		Name:   "path-invalidation",
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "steering",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidation is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering/path-invalidation.
+type Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidation struct {
+	Drop *bool
+}
+
+// Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidationSchema describes /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/policy/steering/path-invalidation for the generic codecs.
+var Native_SegmentRouting_TrafficEng_Policy_Steering_PathInvalidationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Drop",
+		Name:   "drop",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-segment-routing",
+	Name:      "path-invalidation",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
+}
+
+// Native_SegmentRouting_TrafficEng_SegmentList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/segment-routing/traffic-eng/segment-list.
+type Native_SegmentRouting_TrafficEng_SegmentList struct {
+	Index []Native_SegmentRouting_TrafficEng_SegmentList_Index
+	Name  *string
 }

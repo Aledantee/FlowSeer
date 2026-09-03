@@ -6,7 +6,7 @@
 // Package ciscoatmqosmib binds the YANG module CISCO-ATM-QOS-MIB.
 package ciscoatmqosmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOATMQOSMIB is the CISCO-ATM-QOS-MIB node /CISCO-ATM-QOS-MIB/CISCO-ATM-QOS-MIB.
 type CISCOATMQOSMIB struct {

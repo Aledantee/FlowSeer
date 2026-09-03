@@ -6,7 +6,7 @@
 // Package openconfigvlan binds the YANG module openconfig-vlan.
 package openconfigvlan
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Vlans is the openconfig-vlan node /openconfig-vlan/vlans.
 type Vlans struct {

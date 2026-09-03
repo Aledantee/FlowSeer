@@ -6,7 +6,7 @@
 // Package ciscovoicedialcontrolmib binds the YANG module CISCO-VOICE-DIAL-CONTROL-MIB.
 package ciscovoicedialcontrolmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOVOICEDIALCONTROLMIB is the CISCO-VOICE-DIAL-CONTROL-MIB node /CISCO-VOICE-DIAL-CONTROL-MIB/CISCO-VOICE-DIAL-CONTROL-MIB.
 type CISCOVOICEDIALCONTROLMIB struct {

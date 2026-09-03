@@ -16,7 +16,7 @@ import (
 	"time"
 
 	errs "go.aledante.io/FlowSeer/src/common/errs"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // EntityAdminState is the SMI enum EntityAdminState.
