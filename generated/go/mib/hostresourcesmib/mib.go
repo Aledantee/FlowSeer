@@ -660,212 +660,149 @@ func (r HrStorageTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrStorageTableWalker is a table-aware walker over hrStorageTable.
+// HrStorageTableWalker streams selected columns of hrStorageTable.
 // The zero value is not usable; construct via HrStorageTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrStorageTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 	return func(yield func(snmp.OID, HrStorageTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1).WireBytes()
-		buffer := make(map[string]*HrStorageTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrStorageTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrStorageIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrStorageTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrStorageIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrStorageIndex = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrStorageIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrStorageIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrStorageType.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrStorageIndex.Decode(vb)
+						dv, dErr := HrStorageType.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrStorageIndex = dv
-							row.observed[0] |= 1 << 0
+							row.HrStorageType = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrStorageType.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrStorageType = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrStorageDescr.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrStorageDescr = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrStorageAllocationUnits = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case HrStorageDescr.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrStorageAllocationUnits.Decode(vb)
+						dv, dErr := HrStorageDescr.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrStorageAllocationUnits = dv
-							row.observed[0] |= 1 << 3
+							row.HrStorageDescr = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case HrStorageAllocationUnits.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrStorageAllocationUnits = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrStorageAllocationUnits.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrStorageAllocationUnits = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case HrStorageSize.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrStorageSize = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrStorageSize.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrStorageSize = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case HrStorageUsed.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrStorageUsed = int32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrStorageUsed.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrStorageUsed = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case HrStorageAllocationFailures.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.HrStorageAllocationFailures = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrStorageAllocationFailures.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrStorageAllocationFailures = dv
+								row.observed[0] |= 1 << 6
+							}
 						}
 					}
 				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrStorageSize = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrStorageSize.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrStorageSize = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrStorageUsed = int32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrStorageUsed.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrStorageUsed = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.HrStorageAllocationFailures = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrStorageAllocationFailures.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrStorageAllocationFailures = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -884,35 +821,43 @@ type hrStorageTableT struct{}
 // HrStorageTable is the descriptor for the hrStorageTable table.
 var HrStorageTable hrStorageTableT
 
-// Walk launches a BulkWalk over hrStorageTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrStorageTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrStorageTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrStorageTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrStorageTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrStorageTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrStorageTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrStorageTable", c)}
+		switch c.Key() {
+		case HrStorageIndex.Key(), HrStorageType.Key(), HrStorageDescr.Key(), HrStorageAllocationUnits.Key(), HrStorageSize.Key(), HrStorageUsed.Key(), HrStorageAllocationFailures.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrStorageTable.Walk: column %s", c.OID()))
+			return &HrStorageTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3))
-
 	return &HrStorageTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1026,189 +971,126 @@ func (r HrDeviceTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrDeviceTableWalker is a table-aware walker over hrDeviceTable.
+// HrDeviceTableWalker streams selected columns of hrDeviceTable.
 // The zero value is not usable; construct via HrDeviceTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrDeviceTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 	return func(yield func(snmp.OID, HrDeviceTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1).WireBytes()
-		buffer := make(map[string]*HrDeviceTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrDeviceTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrDeviceIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrDeviceTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrDeviceIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrDeviceIndex = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrDeviceIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrDeviceIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrDeviceType.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrDeviceIndex.Decode(vb)
+						dv, dErr := HrDeviceType.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrDeviceIndex = dv
-							row.observed[0] |= 1 << 0
+							row.HrDeviceType = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrDeviceType.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrDeviceType = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrDeviceDescr.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrDeviceDescr = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrDeviceID.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrDeviceID = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrDeviceStatus = HrDeviceStatusValue(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case HrDeviceDescr.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrDeviceStatus.Decode(vb)
+						dv, dErr := HrDeviceDescr.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrDeviceStatus = dv
-							row.observed[0] |= 1 << 4
+							row.HrDeviceDescr = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.HrDeviceErrors = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
+				case HrDeviceID.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrDeviceErrors.Decode(vb)
+						dv, dErr := HrDeviceID.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrDeviceErrors = dv
-							row.observed[0] |= 1 << 5
+							row.HrDeviceID = dv
+							row.observed[0] |= 1 << 3
+						}
+					}
+				case HrDeviceStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrDeviceStatus = HrDeviceStatusValue(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrDeviceStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrDeviceStatus = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case HrDeviceErrors.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.HrDeviceErrors = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrDeviceErrors.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrDeviceErrors = dv
+								row.observed[0] |= 1 << 5
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -1227,35 +1109,43 @@ type hrDeviceTableT struct{}
 // HrDeviceTable is the descriptor for the hrDeviceTable table.
 var HrDeviceTable hrDeviceTableT
 
-// Walk launches a BulkWalk over hrDeviceTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrDeviceTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrDeviceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrDeviceTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrDeviceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrDeviceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrDeviceTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrDeviceTable", c)}
+		switch c.Key() {
+		case HrDeviceIndex.Key(), HrDeviceType.Key(), HrDeviceDescr.Key(), HrDeviceID.Key(), HrDeviceStatus.Key(), HrDeviceErrors.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrDeviceTable.Walk: column %s", c.OID()))
+			return &HrDeviceTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2))
-
 	return &HrDeviceTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1306,127 +1196,64 @@ func (r HrProcessorTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrProcessorTableWalker is a table-aware walker over hrProcessorTable.
+// HrProcessorTableWalker streams selected columns of hrProcessorTable.
 // The zero value is not usable; construct via HrProcessorTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrProcessorTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrProcessorTableWalker) Iter() iter.Seq2[snmp.OID, HrProcessorTableRow] {
 	return func(yield func(snmp.OID, HrProcessorTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1).WireBytes()
-		buffer := make(map[string]*HrProcessorTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrProcessorTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrProcessorFrwID.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrProcessorFrwID = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrProcessorLoad = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrProcessorTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrProcessorFrwID.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrProcessorLoad.Decode(vb)
+						dv, dErr := HrProcessorFrwID.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrProcessorLoad = dv
-							row.observed[0] |= 1 << 1
+							row.HrProcessorFrwID = dv
+							row.observed[0] |= 1 << 0
+						}
+					}
+				case HrProcessorLoad.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrProcessorLoad = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrProcessorLoad.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrProcessorLoad = dv
+								row.observed[0] |= 1 << 1
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -1445,35 +1272,43 @@ type hrProcessorTableT struct{}
 // HrProcessorTable is the descriptor for the hrProcessorTable table.
 var HrProcessorTable hrProcessorTableT
 
-// Walk launches a BulkWalk over hrProcessorTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrProcessorTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrProcessorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrProcessorTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrProcessorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrProcessorTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrProcessorTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrProcessorTable", c)}
+		switch c.Key() {
+		case HrProcessorFrwID.Key(), HrProcessorLoad.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrProcessorTable.Walk: column %s", c.OID()))
+			return &HrProcessorTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3))
-
 	return &HrProcessorTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1514,114 +1349,51 @@ func (r HrNetworkTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrNetworkTableWalker is a table-aware walker over hrNetworkTable.
+// HrNetworkTableWalker streams selected columns of hrNetworkTable.
 // The zero value is not usable; construct via HrNetworkTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrNetworkTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrNetworkTableWalker) Iter() iter.Seq2[snmp.OID, HrNetworkTableRow] {
 	return func(yield func(snmp.OID, HrNetworkTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1).WireBytes()
-		buffer := make(map[string]*HrNetworkTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrNetworkTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrNetworkIfIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := HrNetworkTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrNetworkIfIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrNetworkIfIndex = int32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := HrNetworkIfIndex.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.HrNetworkIfIndex = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := HrNetworkIfIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrNetworkIfIndex = dv
+								row.observed[0] |= 1 << 0
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -1640,35 +1412,43 @@ type hrNetworkTableT struct{}
 // HrNetworkTable is the descriptor for the hrNetworkTable table.
 var HrNetworkTable hrNetworkTableT
 
-// Walk launches a BulkWalk over hrNetworkTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrNetworkTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrNetworkTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrNetworkTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrNetworkTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrNetworkTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrNetworkTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrNetworkTable", c)}
+		switch c.Key() {
+		case HrNetworkIfIndex.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrNetworkTable.Walk: column %s", c.OID()))
+			return &HrNetworkTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4))
-
 	return &HrNetworkTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1733,127 +1513,64 @@ func (r HrPrinterTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrPrinterTableWalker is a table-aware walker over hrPrinterTable.
+// HrPrinterTableWalker streams selected columns of hrPrinterTable.
 // The zero value is not usable; construct via HrPrinterTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrPrinterTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrPrinterTableWalker) Iter() iter.Seq2[snmp.OID, HrPrinterTableRow] {
 	return func(yield func(snmp.OID, HrPrinterTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1).WireBytes()
-		buffer := make(map[string]*HrPrinterTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrPrinterTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrPrinterStatus = HrPrinterStatusValue(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrPrinterTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrPrinterStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrPrinterStatus = HrPrinterStatusValue(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrPrinterStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrPrinterStatus = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrPrinterDetectedErrorState.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrPrinterStatus.Decode(vb)
+						dv, dErr := HrPrinterDetectedErrorState.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrPrinterStatus = dv
-							row.observed[0] |= 1 << 0
+							row.HrPrinterDetectedErrorState = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
 				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrPrinterDetectedErrorState.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrPrinterDetectedErrorState = dv
-						row.observed[0] |= 1 << 1
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -1872,35 +1589,43 @@ type hrPrinterTableT struct{}
 // HrPrinterTable is the descriptor for the hrPrinterTable table.
 var HrPrinterTable hrPrinterTableT
 
-// Walk launches a BulkWalk over hrPrinterTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrPrinterTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrPrinterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrPrinterTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrPrinterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrPrinterTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrPrinterTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrPrinterTable", c)}
+		switch c.Key() {
+		case HrPrinterStatus.Key(), HrPrinterDetectedErrorState.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrPrinterTable.Walk: column %s", c.OID()))
+			return &HrPrinterTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5))
-
 	return &HrPrinterTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1979,163 +1704,100 @@ func (r HrDiskStorageTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrDiskStorageTableWalker is a table-aware walker over hrDiskStorageTable.
+// HrDiskStorageTableWalker streams selected columns of hrDiskStorageTable.
 // The zero value is not usable; construct via HrDiskStorageTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrDiskStorageTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTableRow] {
 	return func(yield func(snmp.OID, HrDiskStorageTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1).WireBytes()
-		buffer := make(map[string]*HrDiskStorageTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrDiskStorageTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrDiskStorageAccess = HrDiskStorageAccessValue(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrDiskStorageTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrDiskStorageAccess.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrDiskStorageAccess = HrDiskStorageAccessValue(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrDiskStorageAccess.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrDiskStorageAccess = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrDiskStorageMedia.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrDiskStorageMedia = HrDiskStorageMediaValue(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrDiskStorageMedia.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrDiskStorageMedia = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case HrDiskStorageRemoveble.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrDiskStorageAccess.Decode(vb)
+						dv, dErr := HrDiskStorageRemoveble.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrDiskStorageAccess = dv
-							row.observed[0] |= 1 << 0
+							row.HrDiskStorageRemoveble = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrDiskStorageMedia = HrDiskStorageMediaValue(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case HrDiskStorageCapacity.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrDiskStorageCapacity = int32(v)
+						row.observed[0] |= 1 << 3
 					} else {
-						dv, dErr := HrDiskStorageMedia.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.HrDiskStorageMedia = dv
-							row.observed[0] |= 1 << 1
+							dv, dErr := HrDiskStorageCapacity.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrDiskStorageCapacity = dv
+								row.observed[0] |= 1 << 3
+							}
 						}
 					}
 				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrDiskStorageRemoveble.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrDiskStorageRemoveble = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrDiskStorageCapacity = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrDiskStorageCapacity.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrDiskStorageCapacity = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2154,35 +1816,43 @@ type hrDiskStorageTableT struct{}
 // HrDiskStorageTable is the descriptor for the hrDiskStorageTable table.
 var HrDiskStorageTable hrDiskStorageTableT
 
-// Walk launches a BulkWalk over hrDiskStorageTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrDiskStorageTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrDiskStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrDiskStorageTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrDiskStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrDiskStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrDiskStorageTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrDiskStorageTable", c)}
+		switch c.Key() {
+		case HrDiskStorageAccess.Key(), HrDiskStorageMedia.Key(), HrDiskStorageRemoveble.Key(), HrDiskStorageCapacity.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrDiskStorageTable.Walk: column %s", c.OID()))
+			return &HrDiskStorageTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6))
-
 	return &HrDiskStorageTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2266,176 +1936,113 @@ func (r HrPartitionTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrPartitionTableWalker is a table-aware walker over hrPartitionTable.
+// HrPartitionTableWalker streams selected columns of hrPartitionTable.
 // The zero value is not usable; construct via HrPartitionTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrPartitionTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow] {
 	return func(yield func(snmp.OID, HrPartitionTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1).WireBytes()
-		buffer := make(map[string]*HrPartitionTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrPartitionTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrPartitionIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrPartitionTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrPartitionIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrPartitionIndex = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrPartitionIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrPartitionIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrPartitionLabel.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrPartitionIndex.Decode(vb)
+						dv, dErr := HrPartitionLabel.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrPartitionIndex = dv
-							row.observed[0] |= 1 << 0
+							row.HrPartitionLabel = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrPartitionLabel.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrPartitionLabel = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrPartitionID.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrPartitionID = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrPartitionSize = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case HrPartitionID.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrPartitionSize.Decode(vb)
+						dv, dErr := HrPartitionID.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrPartitionSize = dv
-							row.observed[0] |= 1 << 3
+							row.HrPartitionID = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrPartitionFSIndex = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case HrPartitionSize.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrPartitionSize = int32(v)
+						row.observed[0] |= 1 << 3
 					} else {
-						dv, dErr := HrPartitionFSIndex.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.HrPartitionFSIndex = dv
-							row.observed[0] |= 1 << 4
+							dv, dErr := HrPartitionSize.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrPartitionSize = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case HrPartitionFSIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrPartitionFSIndex = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrPartitionFSIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrPartitionFSIndex = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2454,35 +2061,43 @@ type hrPartitionTableT struct{}
 // HrPartitionTable is the descriptor for the hrPartitionTable table.
 var HrPartitionTable hrPartitionTableT
 
-// Walk launches a BulkWalk over hrPartitionTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrPartitionTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrPartitionTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrPartitionTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrPartitionTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrPartitionTable", c)}
+		switch c.Key() {
+		case HrPartitionIndex.Key(), HrPartitionLabel.Key(), HrPartitionID.Key(), HrPartitionSize.Key(), HrPartitionFSIndex.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrPartitionTable.Walk: column %s", c.OID()))
+			return &HrPartitionTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7))
-
 	return &HrPartitionTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2619,228 +2234,165 @@ func (r HrFSTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrFSTableWalker is a table-aware walker over hrFSTable.
+// HrFSTableWalker streams selected columns of hrFSTable.
 // The zero value is not usable; construct via HrFSTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrFSTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 	return func(yield func(snmp.OID, HrFSTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1).WireBytes()
-		buffer := make(map[string]*HrFSTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrFSTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrFSIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrFSTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrFSIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrFSIndex = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrFSIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrFSIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrFSMountPoint.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrFSIndex.Decode(vb)
+						dv, dErr := HrFSMountPoint.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrFSIndex = dv
-							row.observed[0] |= 1 << 0
+							row.HrFSMountPoint = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrFSMountPoint.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrFSMountPoint = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrFSRemoteMountPoint.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrFSRemoteMountPoint = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrFSType.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrFSType = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrFSAccess = HrFSAccessValue(v)
-					row.observed[0] |= 1 << 4
-				} else {
+				case HrFSRemoteMountPoint.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrFSAccess.Decode(vb)
+						dv, dErr := HrFSRemoteMountPoint.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrFSAccess = dv
-							row.observed[0] |= 1 << 4
+							row.HrFSRemoteMountPoint = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrFSBootable.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrFSBootable = dv
-						row.observed[0] |= 1 << 5
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrFSStorageIndex = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
+				case HrFSType.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrFSStorageIndex.Decode(vb)
+						dv, dErr := HrFSType.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrFSStorageIndex = dv
-							row.observed[0] |= 1 << 6
+							row.HrFSType = dv
+							row.observed[0] |= 1 << 3
+						}
+					}
+				case HrFSAccess.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrFSAccess = HrFSAccessValue(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrFSAccess.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrFSAccess = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case HrFSBootable.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := HrFSBootable.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.HrFSBootable = dv
+							row.observed[0] |= 1 << 5
+						}
+					}
+				case HrFSStorageIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrFSStorageIndex = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrFSStorageIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrFSStorageIndex = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case HrFSLastFullBackupDate.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := HrFSLastFullBackupDate.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.HrFSLastFullBackupDate = dv
+							row.observed[0] |= 1 << 7
+						}
+					}
+				case HrFSLastPartialBackupDate.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := HrFSLastPartialBackupDate.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.HrFSLastPartialBackupDate = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
 				}
-			case 8:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrFSLastFullBackupDate.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrFSLastFullBackupDate = dv
-						row.observed[0] |= 1 << 7
-					}
-				}
-			case 9:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrFSLastPartialBackupDate.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrFSLastPartialBackupDate = dv
-						row.observed[0] |= 1 << 8
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2859,35 +2411,43 @@ type hrFSTableT struct{}
 // HrFSTable is the descriptor for the hrFSTable table.
 var HrFSTable hrFSTableT
 
-// Walk launches a BulkWalk over hrFSTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrFSTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrFSTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrFSTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrFSTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrFSTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrFSTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrFSTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrFSTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrFSTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrFSTable", c)}
+		switch c.Key() {
+		case HrFSIndex.Key(), HrFSMountPoint.Key(), HrFSRemoteMountPoint.Key(), HrFSType.Key(), HrFSAccess.Key(), HrFSBootable.Key(), HrFSStorageIndex.Key(), HrFSLastFullBackupDate.Key(), HrFSLastPartialBackupDate.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrFSTable.Walk: column %s", c.OID()))
+			return &HrFSTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8))
-
 	return &HrFSTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2998,202 +2558,139 @@ func (r HrSWRunTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrSWRunTableWalker is a table-aware walker over hrSWRunTable.
+// HrSWRunTableWalker streams selected columns of hrSWRunTable.
 // The zero value is not usable; construct via HrSWRunTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrSWRunTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 	return func(yield func(snmp.OID, HrSWRunTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1).WireBytes()
-		buffer := make(map[string]*HrSWRunTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrSWRunTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrSWRunIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrSWRunTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrSWRunIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrSWRunIndex = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrSWRunIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrSWRunIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrSWRunName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrSWRunIndex.Decode(vb)
+						dv, dErr := HrSWRunName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrSWRunIndex = dv
-							row.observed[0] |= 1 << 0
+							row.HrSWRunName = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrSWRunName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrSWRunName = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrSWRunID.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrSWRunID = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrSWRunPath.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrSWRunPath = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrSWRunParameters.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrSWRunParameters = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrSWRunType = HrSWRunTypeValue(v)
-					row.observed[0] |= 1 << 5
-				} else {
+				case HrSWRunID.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrSWRunType.Decode(vb)
+						dv, dErr := HrSWRunID.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrSWRunType = dv
-							row.observed[0] |= 1 << 5
+							row.HrSWRunID = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrSWRunStatus = HrSWRunStatusValue(v)
-					row.observed[0] |= 1 << 6
-				} else {
+				case HrSWRunPath.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrSWRunStatus.Decode(vb)
+						dv, dErr := HrSWRunPath.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrSWRunStatus = dv
-							row.observed[0] |= 1 << 6
+							row.HrSWRunPath = dv
+							row.observed[0] |= 1 << 3
+						}
+					}
+				case HrSWRunParameters.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := HrSWRunParameters.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.HrSWRunParameters = dv
+							row.observed[0] |= 1 << 4
+						}
+					}
+				case HrSWRunType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrSWRunType = HrSWRunTypeValue(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrSWRunType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrSWRunType = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case HrSWRunStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrSWRunStatus = HrSWRunStatusValue(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrSWRunStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrSWRunStatus = dv
+								row.observed[0] |= 1 << 6
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -3212,35 +2709,43 @@ type hrSWRunTableT struct{}
 // HrSWRunTable is the descriptor for the hrSWRunTable table.
 var HrSWRunTable hrSWRunTableT
 
-// Walk launches a BulkWalk over hrSWRunTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrSWRunTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrSWRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrSWRunTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrSWRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrSWRunTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrSWRunTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrSWRunTable", c)}
+		switch c.Key() {
+		case HrSWRunIndex.Key(), HrSWRunName.Key(), HrSWRunID.Key(), HrSWRunPath.Key(), HrSWRunParameters.Key(), HrSWRunType.Key(), HrSWRunStatus.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrSWRunTable.Walk: column %s", c.OID()))
+			return &HrSWRunTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2))
-
 	return &HrSWRunTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -3292,132 +2797,69 @@ func (r HrSWRunPerfTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrSWRunPerfTableWalker is a table-aware walker over hrSWRunPerfTable.
+// HrSWRunPerfTableWalker streams selected columns of hrSWRunPerfTable.
 // The zero value is not usable; construct via HrSWRunPerfTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrSWRunPerfTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow] {
 	return func(yield func(snmp.OID, HrSWRunPerfTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1).WireBytes()
-		buffer := make(map[string]*HrSWRunPerfTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrSWRunPerfTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrSWRunPerfCPU = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := HrSWRunPerfTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrSWRunPerfCPU.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrSWRunPerfCPU = int32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := HrSWRunPerfCPU.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.HrSWRunPerfCPU = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := HrSWRunPerfCPU.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrSWRunPerfCPU = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrSWRunPerfMem.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrSWRunPerfMem = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrSWRunPerfMem.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrSWRunPerfMem = dv
+								row.observed[0] |= 1 << 1
+							}
 						}
 					}
 				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrSWRunPerfMem = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWRunPerfMem.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWRunPerfMem = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -3436,35 +2878,43 @@ type hrSWRunPerfTableT struct{}
 // HrSWRunPerfTable is the descriptor for the hrSWRunPerfTable table.
 var HrSWRunPerfTable hrSWRunPerfTableT
 
-// Walk launches a BulkWalk over hrSWRunPerfTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrSWRunPerfTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrSWRunPerfTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrSWRunPerfTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrSWRunPerfTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrSWRunPerfTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrSWRunPerfTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrSWRunPerfTable", c)}
+		switch c.Key() {
+		case HrSWRunPerfCPU.Key(), HrSWRunPerfMem.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrSWRunPerfTable.Walk: column %s", c.OID()))
+			return &HrSWRunPerfTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1))
-
 	return &HrSWRunPerfTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -3551,171 +3001,108 @@ func (r HrSWInstalledTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// HrSWInstalledTableWalker is a table-aware walker over hrSWInstalledTable.
+// HrSWInstalledTableWalker streams selected columns of hrSWInstalledTable.
 // The zero value is not usable; construct via HrSWInstalledTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type HrSWInstalledTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTableRow] {
 	return func(yield func(snmp.OID, HrSWInstalledTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1).WireBytes()
-		buffer := make(map[string]*HrSWInstalledTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &HrSWInstalledTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrSWInstalledIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := HrSWInstalledTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case HrSWInstalledIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrSWInstalledIndex = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrSWInstalledIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrSWInstalledIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case HrSWInstalledName.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrSWInstalledIndex.Decode(vb)
+						dv, dErr := HrSWInstalledName.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrSWInstalledIndex = dv
-							row.observed[0] |= 1 << 0
+							row.HrSWInstalledName = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrSWInstalledName.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrSWInstalledName = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrSWInstalledID.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrSWInstalledID = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.HrSWInstalledType = HrSWInstalledTypeValue(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case HrSWInstalledID.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := HrSWInstalledType.Decode(vb)
+						dv, dErr := HrSWInstalledID.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.HrSWInstalledType = dv
-							row.observed[0] |= 1 << 3
+							row.HrSWInstalledID = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case HrSWInstalledType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.HrSWInstalledType = HrSWInstalledTypeValue(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := HrSWInstalledType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.HrSWInstalledType = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case HrSWInstalledDate.Key():
+					vb, vbErr := rv.Decode()
+					if vbErr != nil {
+						derr = vbErr
+					} else {
+						dv, dErr := HrSWInstalledDate.Decode(vb)
+						if dErr != nil {
+							derr = dErr
+						} else {
+							row.HrSWInstalledDate = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := HrSWInstalledDate.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.HrSWInstalledDate = dv
-						row.observed[0] |= 1 << 4
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -3734,35 +3121,43 @@ type hrSWInstalledTableT struct{}
 // HrSWInstalledTable is the descriptor for the hrSWInstalledTable table.
 var HrSWInstalledTable hrSWInstalledTableT
 
-// Walk launches a BulkWalk over hrSWInstalledTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of hrSWInstalledTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (hrSWInstalledTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *HrSWInstalledTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t hrSWInstalledTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (hrSWInstalledTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &HrSWInstalledTableWalker{rw: snmp.ForeignColumnWalk(ctx, "hrSWInstalledTable", c)}
+		switch c.Key() {
+		case HrSWInstalledIndex.Key(), HrSWInstalledName.Key(), HrSWInstalledID.Key(), HrSWInstalledType.Key(), HrSWInstalledDate.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrSWInstalledTable.Walk: column %s", c.OID()))
+			return &HrSWInstalledTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3))
-
 	return &HrSWInstalledTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -3831,7 +3226,7 @@ func decodeHrSWInstalledTableRow(idx snmp.OID, vbs []snmp.VarBind) (HrSWInstalle
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalHrSWInstalledTableRow(a HrSWInstalledTableRow, b HrSWInstalledTableRow) bool {
-	return a.Index.Equal(b.Index) && a.HrSWInstalledIndex == b.HrSWInstalledIndex && bytes.Equal(a.HrSWInstalledName, b.HrSWInstalledName) && a.HrSWInstalledID.Equal(b.HrSWInstalledID) && a.HrSWInstalledType == b.HrSWInstalledType && a.HrSWInstalledDate.Equal(b.HrSWInstalledDate)
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.HrSWInstalledIndex == b.HrSWInstalledIndex && bytes.Equal(a.HrSWInstalledName, b.HrSWInstalledName) && a.HrSWInstalledID.Equal(b.HrSWInstalledID) && a.HrSWInstalledType == b.HrSWInstalledType && a.HrSWInstalledDate.Equal(b.HrSWInstalledDate)
 }
 
 // mergeHrSWInstalledTableRow merges the values decoded from vbs into dst, leaving fields

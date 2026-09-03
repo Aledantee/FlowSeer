@@ -264,3 +264,39 @@ func BenchmarkColdStart(b *testing.B) {
 		}
 	})
 }
+
+// BenchmarkBulkWalkStreaming compares traversal without table-row assembly or
+// result collection. GoSNMP's BulkWalkAll arm remains in BenchmarkBulkWalk.
+func BenchmarkBulkWalkStreaming(b *testing.B) {
+	addr := startResponder(b)
+	b.Run("impl=flowseer-raw", func(b *testing.B) {
+		sess := dialNative(b, addr)
+		defer func() { _ = sess.Close() }()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for range b.N {
+			n := 0
+			w := sess.BulkWalkRaw(context.Background(), ifTableSnmp)
+			for range w.Iter() {
+				n++
+			}
+			if w.Err() != nil || n != benchRows*2 {
+				b.Fatalf("count=%d err=%v", n, w.Err())
+			}
+		}
+	})
+	b.Run("impl=gosnmp-callback", func(b *testing.B) {
+		client := dialGosnmp(b, addr)
+		defer func() { _ = client.Conn.Close() }()
+		client.MaxRepetitions = 50
+		b.ReportAllocs()
+		b.ResetTimer()
+		for range b.N {
+			n := 0
+			err := client.BulkWalk(ifTableStr, func(g.SnmpPDU) error { n++; return nil })
+			if err != nil || n != benchRows*2 {
+				b.Fatalf("count=%d err=%v", n, err)
+			}
+		}
+	})
+}

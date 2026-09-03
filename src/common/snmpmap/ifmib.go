@@ -69,8 +69,8 @@ var ifXTableColumns = []snmp.AnyColumn{
 }
 
 // IfRow is one walked ifTable row and the ifIndex its walk key carried.
-// The index is kept beside the row because a row a walk yields does not
-// populate its own Index field — only the change-watch path does.
+// IfIndex exposes the single index arc directly; Row.Index carries the same
+// identity in the generated OID form.
 // Concurrent reads are safe; callers must synchronize mutations of the
 // row or its referenced data.
 type IfRow struct {

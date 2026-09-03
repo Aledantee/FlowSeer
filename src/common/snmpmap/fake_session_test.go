@@ -16,7 +16,8 @@ type vbFixture struct {
 // fakeSession is an snmp.Session whose walks replay caller-supplied
 // VarBinds, filtered to the walked subtree so one fixture set can serve
 // the ifTable, ifXTable, and ifStackTable walks of a single mapper call.
-// Scalar getters read from the same fixtures.
+// Get, GetNext, and GetBulk answer from the same fixtures so generated walks
+// exercise their real request and merge path.
 //
 // The pattern is re-declared here rather than imported from
 // src/common/snmp/test/integration, where the same fake lives in a _test.go
@@ -48,12 +49,34 @@ func (s *fakeSession) Get(_ context.Context, oids []snmp.OID, _ ...snmp.CallOpti
 	return out, nil
 }
 
-func (s *fakeSession) GetNext(context.Context, []snmp.OID, ...snmp.CallOption) ([]snmp.VarBind, error) {
-	return nil, nil
+func (s *fakeSession) GetNext(ctx context.Context, oids []snmp.OID, opts ...snmp.CallOption) ([]snmp.VarBind, error) {
+	return s.GetBulk(ctx, 0, 1, oids, opts...)
 }
 
-func (s *fakeSession) GetBulk(context.Context, uint8, uint8, []snmp.OID, ...snmp.CallOption) ([]snmp.VarBind, error) {
-	return nil, nil
+func (s *fakeSession) GetBulk(ctx context.Context, _ uint8, reps uint8, oids []snmp.OID, _ ...snmp.CallOption) ([]snmp.VarBind, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	cur := append([]snmp.OID(nil), oids...)
+	var out []snmp.VarBind
+	for range reps {
+		for i, o := range cur {
+			var next *vbFixture
+			for j := range s.vbs {
+				f := &s.vbs[j]
+				if f.oid.Compare(o) > 0 && (next == nil || f.oid.Compare(next.oid) < 0) {
+					next = f
+				}
+			}
+			if next == nil {
+				out = append(out, snmp.EndOfMibViewVar{Header: snmp.Header{OID: o, Kind: snmp.KindEndOfMibView}})
+			} else {
+				out = append(out, next.vb)
+				cur[i] = next.oid
+			}
+		}
+	}
+	return out, nil
 }
 
 func (s *fakeSession) Set(context.Context, []snmp.VarBind, ...snmp.CallOption) ([]snmp.VarBind, error) {

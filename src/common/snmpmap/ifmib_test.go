@@ -27,46 +27,56 @@ func ifRow(idx uint32, descr string, ifType int32) []vbFixture {
 	}
 }
 
-// failingWalkSession answers every walk from its fixtures except the one
-// under root, which delivers its first prefix varbinds and then fails the
-// way an agent that times out or returns an undecodable varbind mid-table
-// does. A prefix of zero is the agent that answers nothing at all.
-// BulkWalkRaw is overridden as well as BulkWalk because the embedded fake
-// reaches its own BulkWalk directly, without passing through this type.
+// failingWalkSession serves a bounded fixture prefix one repetition at a time,
+// then fails its populated cursors. Empty columns end normally so the merge can
+// establish complete rows before the later request failure.
 type failingWalkSession struct {
 	*fakeSession
-
 	root   snmp.OID
 	prefix int
 	err    error
 }
 
-func (s *failingWalkSession) BulkWalk(ctx context.Context, root snmp.OID, opts ...snmp.CallOption) *snmp.Walker {
-	if !root.HasPrefix(s.root) {
-		return s.fakeSession.BulkWalk(ctx, root, opts...)
+func (s *failingWalkSession) GetBulk(ctx context.Context, nr, reps uint8, oids []snmp.OID, opts ...snmp.CallOption) ([]snmp.VarBind, error) {
+	if len(oids) == 0 || !oids[0].HasPrefix(s.root) {
+		return s.fakeSession.GetBulk(ctx, nr, reps, oids, opts...)
 	}
-
-	sent := s.subtree(root)
-	if s.prefix < len(sent) {
-		sent = sent[:s.prefix]
+	if s.prefix == 0 {
+		return nil, s.err
 	}
-
-	w := snmp.NewWalker(ctx, 1)
-	w.Pump(func(context.Context) {
-		for _, f := range sent {
-			if !w.Send(f.oid, f.vb) {
-				return
+	fixtures := s.subtree(s.root)
+	fixtures = fixtures[:min(s.prefix, len(fixtures))]
+	var out []snmp.VarBind
+	for _, o := range oids {
+		var next *vbFixture
+		populated := false
+		for i := range fixtures {
+			f := &fixtures[i]
+			// The column is the root's entry child. Index arcs may be composite.
+			columnLen := s.root.Len() + 2
+			column := snmp.OID{}
+			for j := 0; j < min(columnLen, o.Len()); j++ {
+				column = column.Append(o.At(j))
+			}
+			if !f.oid.HasPrefix(column) {
+				continue
+			}
+			populated = true
+			if f.oid.Compare(o) > 0 {
+				next = f
+				break
 			}
 		}
-
-		w.Fail(s.err)
-	})
-
-	return w
-}
-
-func (s *failingWalkSession) BulkWalkRaw(ctx context.Context, root snmp.OID, opts ...snmp.CallOption) *snmp.RawWalker {
-	return snmp.RawWalkerFromWalker(ctx, s.BulkWalk(ctx, root, opts...))
+		switch {
+		case next != nil:
+			out = append(out, next.vb)
+		case populated:
+			return nil, s.err
+		default:
+			out = append(out, snmp.EndOfMibViewVar{Header: snmp.Header{OID: o, Kind: snmp.KindEndOfMibView}})
+		}
+	}
+	return out, nil
 }
 
 // walkFailure builds the session a degraded-walk test runs against, whose

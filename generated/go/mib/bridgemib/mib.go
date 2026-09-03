@@ -10,7 +10,6 @@
 package bridgemib
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"iter"
@@ -771,181 +770,118 @@ func (r Dot1dBasePortTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Dot1dBasePortTableWalker is a table-aware walker over dot1dBasePortTable.
+// Dot1dBasePortTableWalker streams selected columns of dot1dBasePortTable.
 // The zero value is not usable; construct via Dot1dBasePortTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1dBasePortTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Dot1dBasePortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dBasePortTableRow] {
 	return func(yield func(snmp.OID, Dot1dBasePortTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1).WireBytes()
-		buffer := make(map[string]*Dot1dBasePortTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Dot1dBasePortTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dBasePort = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := Dot1dBasePortTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Dot1dBasePort.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dBasePort = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dBasePort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dBasePort = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case Dot1dBasePortIfIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dBasePortIfIndex = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dBasePortIfIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dBasePortIfIndex = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case Dot1dBasePortCircuit.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Dot1dBasePort.Decode(vb)
+						dv, dErr := Dot1dBasePortCircuit.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Dot1dBasePort = dv
-							row.observed[0] |= 1 << 0
+							row.Dot1dBasePortCircuit = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dBasePortIfIndex = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case Dot1dBasePortDelayExceededDiscards.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.Dot1dBasePortDelayExceededDiscards = uint32(v)
+						row.observed[0] |= 1 << 3
 					} else {
-						dv, dErr := Dot1dBasePortIfIndex.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Dot1dBasePortIfIndex = dv
-							row.observed[0] |= 1 << 1
+							dv, dErr := Dot1dBasePortDelayExceededDiscards.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dBasePortDelayExceededDiscards = dv
+								row.observed[0] |= 1 << 3
+							}
 						}
 					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Dot1dBasePortCircuit.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case Dot1dBasePortMtuExceededDiscards.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.Dot1dBasePortMtuExceededDiscards = uint32(v)
+						row.observed[0] |= 1 << 4
 					} else {
-						row.Dot1dBasePortCircuit = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.Dot1dBasePortDelayExceededDiscards = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dBasePortDelayExceededDiscards.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Dot1dBasePortDelayExceededDiscards = dv
-							row.observed[0] |= 1 << 3
+							dv, dErr := Dot1dBasePortMtuExceededDiscards.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dBasePortMtuExceededDiscards = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.Dot1dBasePortMtuExceededDiscards = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dBasePortMtuExceededDiscards.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dBasePortMtuExceededDiscards = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -964,35 +900,43 @@ type dot1dBasePortTableT struct{}
 // Dot1dBasePortTable is the descriptor for the dot1dBasePortTable table.
 var Dot1dBasePortTable dot1dBasePortTableT
 
-// Walk launches a BulkWalk over dot1dBasePortTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of dot1dBasePortTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (dot1dBasePortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dBasePortTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Dot1dBasePortTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t dot1dBasePortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dBasePortTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (dot1dBasePortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dBasePortTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Dot1dBasePortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dBasePortTable", c)}
+		switch c.Key() {
+		case Dot1dBasePort.Key(), Dot1dBasePortIfIndex.Key(), Dot1dBasePortCircuit.Key(), Dot1dBasePortDelayExceededDiscards.Key(), Dot1dBasePortMtuExceededDiscards.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dBasePortTable.Walk: column %s", c.OID()))
+			return &Dot1dBasePortTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4))
-
 	return &Dot1dBasePortTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1157,279 +1101,216 @@ func (r Dot1dStpPortTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Dot1dStpPortTableWalker is a table-aware walker over dot1dStpPortTable.
+// Dot1dStpPortTableWalker streams selected columns of dot1dStpPortTable.
 // The zero value is not usable; construct via Dot1dStpPortTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1dStpPortTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableRow] {
 	return func(yield func(snmp.OID, Dot1dStpPortTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1).WireBytes()
-		buffer := make(map[string]*Dot1dStpPortTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Dot1dStpPortTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStpPort = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := Dot1dStpPortTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Dot1dStpPort.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStpPort = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStpPort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPort = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case Dot1dStpPortPriority.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStpPortPriority = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStpPortPriority.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPortPriority = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case Dot1dStpPortState.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStpPortState = Dot1dStpPortStateValue(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStpPortState.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPortState = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case Dot1dStpPortEnable.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStpPortEnable = Dot1dStpPortEnableValue(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStpPortEnable.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPortEnable = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case Dot1dStpPortPathCost.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStpPortPathCost = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStpPortPathCost.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPortPathCost = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case Dot1dStpPortDesignatedRoot.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Dot1dStpPort.Decode(vb)
+						dv, dErr := Dot1dStpPortDesignatedRoot.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Dot1dStpPort = dv
-							row.observed[0] |= 1 << 0
+							row.Dot1dStpPortDesignatedRoot = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStpPortPriority = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case Dot1dStpPortDesignatedCost.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStpPortDesignatedCost = int32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStpPortDesignatedCost.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPortDesignatedCost = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case Dot1dStpPortDesignatedBridge.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Dot1dStpPortPriority.Decode(vb)
+						dv, dErr := Dot1dStpPortDesignatedBridge.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Dot1dStpPortPriority = dv
-							row.observed[0] |= 1 << 1
+							row.Dot1dStpPortDesignatedBridge = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStpPortState = Dot1dStpPortStateValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case Dot1dStpPortDesignatedPort.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Dot1dStpPortState.Decode(vb)
+						dv, dErr := Dot1dStpPortDesignatedPort.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Dot1dStpPortState = dv
-							row.observed[0] |= 1 << 2
+							row.Dot1dStpPortDesignatedPort = dv
+							row.observed[0] |= 1 << 8
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStpPortEnable = Dot1dStpPortEnableValue(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case Dot1dStpPortForwardTransitions.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.Dot1dStpPortForwardTransitions = uint32(v)
+						row.observed[0] |= 1 << 9
 					} else {
-						dv, dErr := Dot1dStpPortEnable.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Dot1dStpPortEnable = dv
-							row.observed[0] |= 1 << 3
+							dv, dErr := Dot1dStpPortForwardTransitions.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPortForwardTransitions = dv
+								row.observed[0] |= 1 << 9
+							}
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStpPortPathCost = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case Dot1dStpPortPathCost32.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStpPortPathCost32 = int32(v)
+						row.observed[0] |= 1 << 10
 					} else {
-						dv, dErr := Dot1dStpPortPathCost.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Dot1dStpPortPathCost = dv
-							row.observed[0] |= 1 << 4
+							dv, dErr := Dot1dStpPortPathCost32.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStpPortPathCost32 = dv
+								row.observed[0] |= 1 << 10
+							}
 						}
 					}
 				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Dot1dStpPortDesignatedRoot.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Dot1dStpPortDesignatedRoot = dv
-						row.observed[0] |= 1 << 5
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStpPortDesignatedCost = int32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStpPortDesignatedCost.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStpPortDesignatedCost = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 8:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Dot1dStpPortDesignatedBridge.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Dot1dStpPortDesignatedBridge = dv
-						row.observed[0] |= 1 << 7
-					}
-				}
-			case 9:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Dot1dStpPortDesignatedPort.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Dot1dStpPortDesignatedPort = dv
-						row.observed[0] |= 1 << 8
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.Dot1dStpPortForwardTransitions = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStpPortForwardTransitions.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStpPortForwardTransitions = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStpPortPathCost32 = int32(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStpPortPathCost32.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStpPortPathCost32 = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -1448,35 +1329,43 @@ type dot1dStpPortTableT struct{}
 // Dot1dStpPortTable is the descriptor for the dot1dStpPortTable table.
 var Dot1dStpPortTable dot1dStpPortTableT
 
-// Walk launches a BulkWalk over dot1dStpPortTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of dot1dStpPortTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (dot1dStpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStpPortTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Dot1dStpPortTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t dot1dStpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStpPortTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (dot1dStpPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dStpPortTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Dot1dStpPortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dStpPortTable", c)}
+		switch c.Key() {
+		case Dot1dStpPort.Key(), Dot1dStpPortPriority.Key(), Dot1dStpPortState.Key(), Dot1dStpPortEnable.Key(), Dot1dStpPortPathCost.Key(), Dot1dStpPortDesignatedRoot.Key(), Dot1dStpPortDesignatedCost.Key(), Dot1dStpPortDesignatedBridge.Key(), Dot1dStpPortDesignatedPort.Key(), Dot1dStpPortForwardTransitions.Key(), Dot1dStpPortPathCost32.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dStpPortTable.Walk: column %s", c.OID()))
+			return &Dot1dStpPortTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15))
-
 	return &Dot1dStpPortTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1559,145 +1448,82 @@ func (r Dot1dTpFdbTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Dot1dTpFdbTableWalker is a table-aware walker over dot1dTpFdbTable.
+// Dot1dTpFdbTableWalker streams selected columns of dot1dTpFdbTable.
 // The zero value is not usable; construct via Dot1dTpFdbTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1dTpFdbTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Dot1dTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpFdbTableRow] {
 	return func(yield func(snmp.OID, Dot1dTpFdbTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1).WireBytes()
-		buffer := make(map[string]*Dot1dTpFdbTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Dot1dTpFdbTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Dot1dTpFdbAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Dot1dTpFdbAddress = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dTpFdbPort = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := Dot1dTpFdbTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Dot1dTpFdbAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Dot1dTpFdbPort.Decode(vb)
+						dv, dErr := Dot1dTpFdbAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Dot1dTpFdbPort = dv
-							row.observed[0] |= 1 << 1
+							row.Dot1dTpFdbAddress = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dTpFdbStatus = Dot1dTpFdbStatusValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case Dot1dTpFdbPort.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dTpFdbPort = int32(v)
+						row.observed[0] |= 1 << 1
 					} else {
-						dv, dErr := Dot1dTpFdbStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Dot1dTpFdbStatus = dv
-							row.observed[0] |= 1 << 2
+							dv, dErr := Dot1dTpFdbPort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dTpFdbPort = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case Dot1dTpFdbStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dTpFdbStatus = Dot1dTpFdbStatusValue(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dTpFdbStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dTpFdbStatus = dv
+								row.observed[0] |= 1 << 2
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -1716,35 +1542,43 @@ type dot1dTpFdbTableT struct{}
 // Dot1dTpFdbTable is the descriptor for the dot1dTpFdbTable table.
 var Dot1dTpFdbTable dot1dTpFdbTableT
 
-// Walk launches a BulkWalk over dot1dTpFdbTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of dot1dTpFdbTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (dot1dTpFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpFdbTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Dot1dTpFdbTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t dot1dTpFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpFdbTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (dot1dTpFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dTpFdbTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Dot1dTpFdbTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dTpFdbTable", c)}
+		switch c.Key() {
+		case Dot1dTpFdbAddress.Key(), Dot1dTpFdbPort.Key(), Dot1dTpFdbStatus.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dTpFdbTable.Walk: column %s", c.OID()))
+			return &Dot1dTpFdbTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3))
-
 	return &Dot1dTpFdbTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -1831,186 +1665,123 @@ func (r Dot1dTpPortTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Dot1dTpPortTableWalker is a table-aware walker over dot1dTpPortTable.
+// Dot1dTpPortTableWalker streams selected columns of dot1dTpPortTable.
 // The zero value is not usable; construct via Dot1dTpPortTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1dTpPortTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow] {
 	return func(yield func(snmp.OID, Dot1dTpPortTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1).WireBytes()
-		buffer := make(map[string]*Dot1dTpPortTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Dot1dTpPortTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dTpPort = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := Dot1dTpPortTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Dot1dTpPort.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dTpPort = int32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := Dot1dTpPort.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Dot1dTpPort = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := Dot1dTpPort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dTpPort = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case Dot1dTpPortMaxInfo.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dTpPortMaxInfo = int32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dTpPortMaxInfo.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dTpPortMaxInfo = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case Dot1dTpPortInFrames.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.Dot1dTpPortInFrames = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dTpPortInFrames.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dTpPortInFrames = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case Dot1dTpPortOutFrames.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.Dot1dTpPortOutFrames = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dTpPortOutFrames.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dTpPortOutFrames = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case Dot1dTpPortInDiscards.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.Dot1dTpPortInDiscards = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dTpPortInDiscards.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dTpPortInDiscards = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dTpPortMaxInfo = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dTpPortMaxInfo.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dTpPortMaxInfo = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.Dot1dTpPortInFrames = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dTpPortInFrames.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dTpPortInFrames = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.Dot1dTpPortOutFrames = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dTpPortOutFrames.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dTpPortOutFrames = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.Dot1dTpPortInDiscards = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dTpPortInDiscards.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dTpPortInDiscards = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2029,35 +1800,43 @@ type dot1dTpPortTableT struct{}
 // Dot1dTpPortTable is the descriptor for the dot1dTpPortTable table.
 var Dot1dTpPortTable dot1dTpPortTableT
 
-// Walk launches a BulkWalk over dot1dTpPortTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of dot1dTpPortTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (dot1dTpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpPortTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Dot1dTpPortTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t dot1dTpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpPortTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (dot1dTpPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dTpPortTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Dot1dTpPortTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dTpPortTable", c)}
+		switch c.Key() {
+		case Dot1dTpPort.Key(), Dot1dTpPortMaxInfo.Key(), Dot1dTpPortInFrames.Key(), Dot1dTpPortOutFrames.Key(), Dot1dTpPortInDiscards.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dTpPortTable.Walk: column %s", c.OID()))
+			return &Dot1dTpPortTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4))
-
 	return &Dot1dTpPortTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2157,158 +1936,95 @@ func (r Dot1dStaticTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Dot1dStaticTableWalker is a table-aware walker over dot1dStaticTable.
+// Dot1dStaticTableWalker streams selected columns of dot1dStaticTable.
 // The zero value is not usable; construct via Dot1dStaticTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Dot1dStaticTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Dot1dStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStaticTableRow] {
 	return func(yield func(snmp.OID, Dot1dStaticTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1).WireBytes()
-		buffer := make(map[string]*Dot1dStaticTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Dot1dStaticTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Dot1dStaticAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Dot1dStaticAddress = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStaticReceivePort = int32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := Dot1dStaticTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Dot1dStaticAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Dot1dStaticReceivePort.Decode(vb)
+						dv, dErr := Dot1dStaticAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Dot1dStaticReceivePort = dv
-							row.observed[0] |= 1 << 1
+							row.Dot1dStaticAddress = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Dot1dStaticAllowedToGoTo.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case Dot1dStaticReceivePort.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStaticReceivePort = int32(v)
+						row.observed[0] |= 1 << 1
 					} else {
-						row.Dot1dStaticAllowedToGoTo = dv
-						row.observed[0] |= 1 << 2
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStaticReceivePort.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStaticReceivePort = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Dot1dStaticStatus = Dot1dStaticStatusValue(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case Dot1dStaticAllowedToGoTo.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Dot1dStaticStatus.Decode(vb)
+						dv, dErr := Dot1dStaticAllowedToGoTo.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Dot1dStaticStatus = dv
-							row.observed[0] |= 1 << 3
+							row.Dot1dStaticAllowedToGoTo = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case Dot1dStaticStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Dot1dStaticStatus = Dot1dStaticStatusValue(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Dot1dStaticStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Dot1dStaticStatus = dv
+								row.observed[0] |= 1 << 3
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2327,35 +2043,43 @@ type dot1dStaticTableT struct{}
 // Dot1dStaticTable is the descriptor for the dot1dStaticTable table.
 var Dot1dStaticTable dot1dStaticTableT
 
-// Walk launches a BulkWalk over dot1dStaticTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of dot1dStaticTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (dot1dStaticTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStaticTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Dot1dStaticTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t dot1dStaticTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStaticTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (dot1dStaticTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dStaticTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Dot1dStaticTableWalker{rw: snmp.ForeignColumnWalk(ctx, "dot1dStaticTable", c)}
+		switch c.Key() {
+		case Dot1dStaticAddress.Key(), Dot1dStaticReceivePort.Key(), Dot1dStaticAllowedToGoTo.Key(), Dot1dStaticStatus.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dStaticTable.Walk: column %s", c.OID()))
+			return &Dot1dStaticTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1))
-
 	return &Dot1dStaticTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

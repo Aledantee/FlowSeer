@@ -3,19 +3,20 @@ package integration
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"go.aledante.io/FlowSeer/generated/go/mib/ifmib"
 	"go.aledante.io/FlowSeer/generated/go/mib/lldpmib"
 	"go.aledante.io/FlowSeer/src/common/snmp"
 )
 
-// The tests below pin the two generated-binding contracts that proto
-// mappers depend on and that no live-agent assertion can express: a row
-// says which requested columns the agent actually reported, and a BITS
-// column decodes to a set of bit positions. Both are emitter behavior,
-// so they run against the checked-in bindings with the in-process
-// fakeSession rather than against a target.
+// These tests exercise generated row identity, column presence and BITS
+// decoding against the checked-in bindings. In-process sessions let them
+// distinguish an absent value from a reported zero and control when that
+// distinction changes during a watch.
 
 // sparseIfRowFixtures reports one ifTable row that carries ifDescr but
 // no ifMtu — the shape a device produces when it does not implement a
@@ -56,6 +57,9 @@ func TestIfTableRow_ObservedDistinguishesZeroFromAbsent(t *testing.T) {
 		if idx.Len() == 0 {
 			t.Fatal("row yielded with an empty index")
 		}
+		if !row.Index.Equal(idx) {
+			t.Errorf("Row.Index = %v, want iterator index %v", row.Index, idx)
+		}
 		rows[idx.At(idx.Len()-1)] = row
 	}
 	if err := tw.Err(); err != nil {
@@ -85,33 +89,17 @@ func TestIfTableRow_ObservedDistinguishesZeroFromAbsent(t *testing.T) {
 	}
 }
 
-// TestIfTableRow_ObservedOnUnrequestedColumnRow covers the walker's
-// row-presence rule: an index seen only through a column the caller did
-// not request still yields a row, and every requested column on it
-// reads unobserved.
-func TestIfTableRow_ObservedOnUnrequestedColumnRow(t *testing.T) {
+func TestIfTableWalkExcludesUnselectedOnlyRows(t *testing.T) {
 	sess := &fakeSession{vbs: []vbFixture{{
 		oid: ifEntry.Append(16, 7),
 		vb:  snmp.Counter32Var{Header: snmp.Header{OID: ifEntry.Append(16, 7), Kind: snmp.KindCounter32}, Value: 4242},
 	}}}
-
 	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr, ifmib.IfOperStatus)
-	n := 0
-	for _, row := range tw.Iter() {
-		n++
-		if row.Observed(ifmib.IfDescr) || row.Observed(ifmib.IfOperStatus) {
-			t.Error("requested column reads observed on a row assembled from an unrequested column")
-		}
-		// A column the walk never asked for is never observed either.
-		if row.Observed(ifmib.IfOutOctets) {
-			t.Error("unrequested IfOutOctets reads observed")
-		}
+	for range tw.Iter() {
+		t.Fatal("unselected-only row yielded")
 	}
 	if err := tw.Err(); err != nil {
-		t.Fatalf("walk: %v", err)
-	}
-	if n != 1 {
-		t.Fatalf("walk yielded %d rows, want 1", n)
+		t.Fatal(err)
 	}
 }
 
@@ -195,8 +183,11 @@ func TestLldpRemTable_CapabilitiesDecodeAsBitSet(t *testing.T) {
 
 	tw := lldpmib.LldpRemTable.Walk(context.Background(), sess, lldpmib.LldpRemSysCapSupported, lldpmib.LldpRemSysCapEnabled)
 	n := 0
-	for _, row := range tw.Iter() {
+	for idx, row := range tw.Iter() {
 		n++
+		if !row.Index.Equal(idx) || idx.Len() != 3 {
+			t.Errorf("composite Row.Index = %v, iterator index = %v; want matching three-arc indexes", row.Index, idx)
+		}
 		if !row.LldpRemSysCapSupported.Has(lldpmib.LldpSystemCapabilitiesMapBridge) {
 			t.Error("supported: bridge bit not set")
 		}
@@ -263,5 +254,121 @@ func TestLldpRemTable_MalformedCapabilityDeclines(t *testing.T) {
 	}
 	if tw.Err() == nil {
 		t.Fatal("walk over a malformed BITS value succeeded, want a decode error")
+	}
+}
+
+// presenceWatchSession serves targeted counter fetches from the same
+// fixtures as its full walks. Each walk keeps its own snapshot while
+// the test replaces the fixtures for the next tick.
+type presenceWatchSession struct {
+	*fakeSession
+	mu sync.Mutex
+}
+
+func (s *presenceWatchSession) setFixtures(vbs []vbFixture) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.vbs = vbs
+}
+
+func (s *presenceWatchSession) BulkWalk(ctx context.Context, _ snmp.OID, _ ...snmp.CallOption) *snmp.Walker {
+	s.mu.Lock()
+	snapshot := &fakeSession{vbs: s.vbs}
+	s.mu.Unlock()
+	return snapshot.pump(ctx)
+}
+
+func (s *presenceWatchSession) Get(_ context.Context, oids []snmp.OID, _ ...snmp.CallOption) ([]snmp.VarBind, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var vbs []snmp.VarBind
+	for _, oid := range oids {
+		for _, f := range s.vbs {
+			if f.oid.Equal(oid) {
+				vbs = append(vbs, f.vb)
+			}
+		}
+	}
+	return vbs, nil
+}
+
+func TestIfTableWatch_ReportsPresenceChangesAtZero(t *testing.T) {
+	for _, partial := range []bool{false, true} {
+		name := "full-walk"
+		if partial {
+			name = "counter-fetch"
+		}
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				base := append(sparseIfRowFixtures(7, "eth7"), vbFixture{
+					oid: ifEntry.Append(9, 7),
+					vb: snmp.TimeTicksVar{
+						Header: snmp.Header{OID: ifEntry.Append(9, 7), Kind: snmp.KindTimeTicks},
+						Value:  1,
+					},
+				})
+				sess := &presenceWatchSession{fakeSession: &fakeSession{vbs: base}}
+				walkInterval, counterInterval := time.Second, time.Hour
+				if partial {
+					walkInterval, counterInterval = counterInterval, walkInterval
+				}
+				tw := ifmib.IfTable.Watch(t.Context(), sess,
+					[]snmp.AnyColumn{ifmib.IfDescr, ifmib.IfInOctets},
+					snmp.WithCadenceBounds(time.Hour, time.Hour),
+					snmp.WithForcedWalkInterval(walkInterval),
+					snmp.WithCounterCadence(ifmib.IfInOctets, counterInterval),
+					snmp.WithPrevRow(),
+				)
+				defer func() { _ = tw.Close() }()
+				var events []snmp.WatchEvent[ifmib.IfTableRow]
+				go func() {
+					for _, ev := range tw.Iter() {
+						events = append(events, ev)
+					}
+				}()
+				synctest.Wait()
+				if len(events) != 1 || events[0].Kind != snmp.ChangeKindAdded || events[0].Row.Observed(ifmib.IfInOctets) {
+					t.Fatalf("cold start = %+v, want one Added event with an absent counter", events)
+				}
+
+				sess.setFixtures(append(append([]vbFixture(nil), base...), vbFixture{
+					oid: ifEntry.Append(10, 7),
+					vb:  snmp.Counter32Var{Header: snmp.Header{OID: ifEntry.Append(10, 7), Kind: snmp.KindCounter32}, Value: 0},
+				}))
+				time.Sleep(time.Second)
+				synctest.Wait()
+				if len(events) != 2 {
+					t.Fatalf("absent counter became zero: got %d events, want Added then Modified", len(events))
+				}
+				ev := events[1]
+				if ev.Kind != snmp.ChangeKindModified || !ev.Row.Observed(ifmib.IfInOctets) || ev.Row.IfInOctets != 0 {
+					t.Errorf("presence change = %+v, want Modified with an observed zero", ev)
+				}
+				if ev.Prev == nil || ev.Prev.Observed(ifmib.IfInOctets) || ev.Row.IfDescr != "eth7" {
+					t.Errorf("presence change lost the previous absence or existing description: %+v", ev)
+				}
+
+				time.Sleep(time.Second)
+				synctest.Wait()
+				if len(events) != 2 {
+					t.Errorf("unchanged observed zero emitted another event: %d events", len(events))
+				}
+				if !partial {
+					sess.setFixtures(base)
+					time.Sleep(time.Second)
+					synctest.Wait()
+					if len(events) != 3 {
+						t.Fatalf("zero counter became absent: got %d events, want 3", len(events))
+					}
+					ev = events[2]
+					if ev.Kind != snmp.ChangeKindModified || ev.Row.Observed(ifmib.IfInOctets) || ev.Prev == nil || !ev.Prev.Observed(ifmib.IfInOctets) {
+						t.Errorf("presence loss = %+v, want Modified from observed to absent", ev)
+					}
+				}
+				if err := tw.LastTickErr(); err != nil {
+					t.Errorf("tick: %v", err)
+				}
+			})
+		})
 	}
 }

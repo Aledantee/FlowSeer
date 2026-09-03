@@ -21,7 +21,7 @@ import (
 //
 //	var EntPhysicalTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(
 //	    snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 4, 1),
-//	    snmp.KindUinteger32,
+//	    snmp.KindTimeTicks,
 //	    []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1)},
 //	))
 //

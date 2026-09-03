@@ -72,3 +72,21 @@ func TestNetSnmpNativeRejectsNonProgress(t *testing.T) {
 		})
 	}
 }
+
+// BenchmarkNetSnmpTraversal counts the same varbinds as the Go callback arms.
+// Its allocation metrics exclude libnetsnmp's C heap.
+func BenchmarkNetSnmpTraversal(b *testing.B) {
+	addr := startResponder(b)
+	sess, err := nsOpen(addr, "public")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer sess.close()
+	b.ResetTimer()
+	for range b.N {
+		n, err := sess.bulkWalk(oidSubs(ifTableSnmp), walkBulkMaxRep)
+		if err != nil || n != benchRows*2 {
+			b.Fatalf("count=%d err=%v", n, err)
+		}
+	}
+}

@@ -199,18 +199,11 @@ func naturalResolved(ec *emitCtx, nodeName string, t *smi.Type) resolved {
 		return dec
 	}
 
-	// An application type written straight into a SYNTAX clause is
-	// anonymous — RFC 2578 §7.1 defines Counter32 and friends as types,
-	// not as conventions somebody named — so the base is what says
-	// which one it is. That is also the only place the distinction
-	// survives: a convention layered on top of one (TimeStamp over
-	// TimeTicks, ZeroBasedCounter32 over Gauge32) is rendered from its
-	// integer width instead, because its name is what carries its
-	// meaning and the column emitter has no arm for it.
-	if t.Name == "" {
-		if dec, ok := applicationType(t.Base); ok {
-			return dec
-		}
+	// A textual convention retains its base's wire encoding. TimeStamp
+	// still travels as TimeTicks; its name affects tier classification,
+	// not the column's Kind or decoder.
+	if dec, ok := applicationType(t.Base); ok {
+		return dec
 	}
 
 	// BITS resolves to a set, not to the octets it travels in. Its
@@ -478,11 +471,8 @@ const (
 // dispatchBase reduces a resolved type to the shape [resolveBase]
 // renders.
 //
-// The application types fold into their integer widths here, which is
-// the right answer at this point: a type reaching dispatchBase is a
-// convention layered over one (TimeStamp over TimeTicks), and its
-// meaning lives in its name, which the emitter has already had its
-// chance at.
+// Application types, including named conventions over them, resolve
+// before this fallback so their wire kinds and numeric widths survive.
 func dispatchBase(t *smi.Type) baseKind {
 	switch t.Base {
 	case smi.BaseInteger:

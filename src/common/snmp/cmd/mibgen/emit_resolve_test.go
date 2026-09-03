@@ -100,20 +100,21 @@ func TestResolve_ApplicationTypeWireKinds(t *testing.T) {
 		{smi.BaseInteger32, "KindInteger32"},
 		{smi.BaseUnsigned32, "KindUinteger32"},
 	} {
-		got := kindOf(t, ec, &smi.Type{Base: tc.base})
-		if !strings.Contains(got, tc.want) {
-			t.Errorf("%v resolved to %s; want %s", tc.base, got, tc.want)
-		}
+		t.Run(tc.base.String(), func(t *testing.T) {
+			for _, name := range []string{"", "NamedConvention"} {
+				ec.visible[name] = true
+				got := kindOf(t, ec, &smi.Type{Name: name, Base: tc.base})
+				if !strings.Contains(got, tc.want) {
+					t.Errorf("%v named %q resolved to %s; want %s", tc.base, name, got, tc.want)
+				}
+			}
+		})
 	}
 }
 
-// TestResolve_ConventionOverApplicationTypeIsNotTheApplicationType
-// pins the boundary between the two: an application type written
-// straight into a SYNTAX clause is anonymous and keeps its wire Kind,
-// while a convention layered over one is rendered from its integer
-// width. TimeStamp is the case that matters — it stands on TimeTicks
-// and means something else.
-func TestResolve_ConventionOverApplicationTypeIsNotTheApplicationType(t *testing.T) {
+// TimeStamp has TimeTicks wire encoding but retains its convention's
+// indicator tier; preserving the wire kind must not erase that meaning.
+func TestResolve_TimeStampRetainsWireKindAndIndicatorTier(t *testing.T) {
 	ec := baseTypeCtx()
 
 	raw := kindOf(t, ec, &smi.Type{Base: smi.BaseTimeTicks})
@@ -122,9 +123,13 @@ func TestResolve_ConventionOverApplicationTypeIsNotTheApplicationType(t *testing
 	}
 
 	ec.visible["TimeStamp"] = true
-	named := kindOf(t, ec, &smi.Type{Name: "TimeStamp", Base: smi.BaseTimeTicks})
-	if !strings.Contains(named, "KindUinteger32") {
-		t.Errorf("TimeStamp resolved to %s; want KindUinteger32", named)
+	ty := &smi.Type{Name: "TimeStamp", Base: smi.BaseTimeTicks}
+	r := naturalResolved(ec, "changedAt", ty)
+	if named := r.Kind.GoString(); !strings.Contains(named, "KindTimeTicks") {
+		t.Errorf("TimeStamp resolved to %s; want KindTimeTicks", named)
+	}
+	if tier := classifyTier(&smi.Node{Name: "changedAt", Type: ty}, r.Variant); tier != "snmp.TierIndicator" {
+		t.Errorf("TimeStamp tier = %s, want snmp.TierIndicator", tier)
 	}
 }
 

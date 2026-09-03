@@ -1866,176 +1866,113 @@ func (r IpAddrTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpAddrTableWalker is a table-aware walker over ipAddrTable.
+// IpAddrTableWalker streams selected columns of ipAddrTable.
 // The zero value is not usable; construct via IpAddrTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpAddrTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 	return func(yield func(snmp.OID, IpAddrTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1).WireBytes()
-		buffer := make(map[string]*IpAddrTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpAddrTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpAdEntAddr.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpAdEntAddr = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpAdEntIfIndex = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := IpAddrTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpAdEntAddr.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAdEntIfIndex.Decode(vb)
+						dv, dErr := IpAdEntAddr.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAdEntIfIndex = dv
-							row.observed[0] |= 1 << 1
+							row.IpAdEntAddr = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpAdEntNetMask.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case IpAdEntIfIndex.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpAdEntIfIndex = uint32(v)
+						row.observed[0] |= 1 << 1
 					} else {
-						row.IpAdEntNetMask = dv
-						row.observed[0] |= 1 << 2
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAdEntIfIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAdEntIfIndex = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpAdEntBcastAddr = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case IpAdEntNetMask.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAdEntBcastAddr.Decode(vb)
+						dv, dErr := IpAdEntNetMask.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAdEntBcastAddr = dv
-							row.observed[0] |= 1 << 3
+							row.IpAdEntNetMask = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpAdEntReasmMaxSize = int32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case IpAdEntBcastAddr.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpAdEntBcastAddr = uint32(v)
+						row.observed[0] |= 1 << 3
 					} else {
-						dv, dErr := IpAdEntReasmMaxSize.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IpAdEntReasmMaxSize = dv
-							row.observed[0] |= 1 << 4
+							dv, dErr := IpAdEntBcastAddr.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAdEntBcastAddr = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case IpAdEntReasmMaxSize.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpAdEntReasmMaxSize = int32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAdEntReasmMaxSize.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAdEntReasmMaxSize = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2054,35 +1991,43 @@ type ipAddrTableT struct{}
 // IpAddrTable is the descriptor for the ipAddrTable table.
 var IpAddrTable ipAddrTableT
 
-// Walk launches a BulkWalk over ipAddrTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipAddrTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddrTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpAddrTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddrTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpAddrTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpAddrTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipAddrTable", c)}
+		switch c.Key() {
+		case IpAdEntAddr.Key(), IpAdEntIfIndex.Key(), IpAdEntNetMask.Key(), IpAdEntBcastAddr.Key(), IpAdEntReasmMaxSize.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipAddrTable.Walk: column %s", c.OID()))
+			return &IpAddrTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20))
-
 	return &IpAddrTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2176,158 +2121,95 @@ func (r IpNetToMediaTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpNetToMediaTableWalker is a table-aware walker over ipNetToMediaTable.
+// IpNetToMediaTableWalker streams selected columns of ipNetToMediaTable.
 // The zero value is not usable; construct via IpNetToMediaTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpNetToMediaTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableRow] {
 	return func(yield func(snmp.OID, IpNetToMediaTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1).WireBytes()
-		buffer := make(map[string]*IpNetToMediaTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpNetToMediaTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpNetToMediaIfIndex = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := IpNetToMediaTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpNetToMediaIfIndex.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpNetToMediaIfIndex = uint32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpNetToMediaIfIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpNetToMediaIfIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IpNetToMediaPhysAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToMediaIfIndex.Decode(vb)
+						dv, dErr := IpNetToMediaPhysAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToMediaIfIndex = dv
-							row.observed[0] |= 1 << 0
+							row.IpNetToMediaPhysAddress = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpNetToMediaPhysAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpNetToMediaPhysAddress = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpNetToMediaNetAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpNetToMediaNetAddress = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpNetToMediaType = IpNetToMediaTypeValue(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case IpNetToMediaNetAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToMediaType.Decode(vb)
+						dv, dErr := IpNetToMediaNetAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToMediaType = dv
-							row.observed[0] |= 1 << 3
+							row.IpNetToMediaNetAddress = dv
+							row.observed[0] |= 1 << 2
+						}
+					}
+				case IpNetToMediaType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpNetToMediaType = IpNetToMediaTypeValue(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpNetToMediaType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpNetToMediaType = dv
+								row.observed[0] |= 1 << 3
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2346,35 +2228,43 @@ type ipNetToMediaTableT struct{}
 // IpNetToMediaTable is the descriptor for the ipNetToMediaTable table.
 var IpNetToMediaTable ipNetToMediaTableT
 
-// Walk launches a BulkWalk over ipNetToMediaTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipNetToMediaTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipNetToMediaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToMediaTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpNetToMediaTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipNetToMediaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToMediaTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipNetToMediaTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpNetToMediaTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpNetToMediaTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipNetToMediaTable", c)}
+		switch c.Key() {
+		case IpNetToMediaIfIndex.Key(), IpNetToMediaPhysAddress.Key(), IpNetToMediaNetAddress.Key(), IpNetToMediaType.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipNetToMediaTable.Walk: column %s", c.OID()))
+			return &IpNetToMediaTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22))
-
 	return &IpNetToMediaTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2441,150 +2331,87 @@ func (r Ipv4InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Ipv4InterfaceTableWalker is a table-aware walker over ipv4InterfaceTable.
+// Ipv4InterfaceTableWalker streams selected columns of ipv4InterfaceTable.
 // The zero value is not usable; construct via Ipv4InterfaceTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Ipv4InterfaceTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTableRow] {
 	return func(yield func(snmp.OID, Ipv4InterfaceTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1).WireBytes()
-		buffer := make(map[string]*Ipv4InterfaceTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Ipv4InterfaceTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Ipv4InterfaceReasmMaxSize = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := Ipv4InterfaceTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Ipv4InterfaceReasmMaxSize.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Ipv4InterfaceReasmMaxSize = int32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := Ipv4InterfaceReasmMaxSize.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Ipv4InterfaceReasmMaxSize = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := Ipv4InterfaceReasmMaxSize.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv4InterfaceReasmMaxSize = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case Ipv4InterfaceEnableStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Ipv4InterfaceEnableStatus = Ipv4InterfaceEnableStatusValue(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv4InterfaceEnableStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv4InterfaceEnableStatus = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case Ipv4InterfaceRetransmitTime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv4InterfaceRetransmitTime = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv4InterfaceRetransmitTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv4InterfaceRetransmitTime = dv
+								row.observed[0] |= 1 << 2
+							}
 						}
 					}
 				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Ipv4InterfaceEnableStatus = Ipv4InterfaceEnableStatusValue(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv4InterfaceEnableStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv4InterfaceEnableStatus = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv4InterfaceRetransmitTime = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv4InterfaceRetransmitTime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv4InterfaceRetransmitTime = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -2603,35 +2430,43 @@ type ipv4InterfaceTableT struct{}
 // Ipv4InterfaceTable is the descriptor for the ipv4InterfaceTable table.
 var Ipv4InterfaceTable ipv4InterfaceTableT
 
-// Walk launches a BulkWalk over ipv4InterfaceTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipv4InterfaceTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipv4InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv4InterfaceTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Ipv4InterfaceTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipv4InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv4InterfaceTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipv4InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv4InterfaceTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Ipv4InterfaceTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipv4InterfaceTable", c)}
+		switch c.Key() {
+		case Ipv4InterfaceReasmMaxSize.Key(), Ipv4InterfaceEnableStatus.Key(), Ipv4InterfaceRetransmitTime.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv4InterfaceTable.Walk: column %s", c.OID()))
+			return &Ipv4InterfaceTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28))
-
 	return &Ipv4InterfaceTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -2686,7 +2521,7 @@ func decodeIpv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv4Interfac
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpv4InterfaceTableRow(a Ipv4InterfaceTableRow, b Ipv4InterfaceTableRow) bool {
-	return a.Index.Equal(b.Index) && a.Ipv4InterfaceReasmMaxSize == b.Ipv4InterfaceReasmMaxSize && a.Ipv4InterfaceEnableStatus == b.Ipv4InterfaceEnableStatus && a.Ipv4InterfaceRetransmitTime == b.Ipv4InterfaceRetransmitTime
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.Ipv4InterfaceReasmMaxSize == b.Ipv4InterfaceReasmMaxSize && a.Ipv4InterfaceEnableStatus == b.Ipv4InterfaceEnableStatus && a.Ipv4InterfaceRetransmitTime == b.Ipv4InterfaceRetransmitTime
 }
 
 // mergeIpv4InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2917,199 +2752,136 @@ func (r Ipv6InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Ipv6InterfaceTableWalker is a table-aware walker over ipv6InterfaceTable.
+// Ipv6InterfaceTableWalker streams selected columns of ipv6InterfaceTable.
 // The zero value is not usable; construct via Ipv6InterfaceTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Ipv6InterfaceTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTableRow] {
 	return func(yield func(snmp.OID, Ipv6InterfaceTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1).WireBytes()
-		buffer := make(map[string]*Ipv6InterfaceTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Ipv6InterfaceTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6InterfaceReasmMaxSize = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := Ipv6InterfaceTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Ipv6InterfaceReasmMaxSize.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6InterfaceReasmMaxSize = uint32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6InterfaceReasmMaxSize.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6InterfaceReasmMaxSize = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case Ipv6InterfaceIdentifier.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6InterfaceReasmMaxSize.Decode(vb)
+						dv, dErr := Ipv6InterfaceIdentifier.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6InterfaceReasmMaxSize = dv
-							row.observed[0] |= 1 << 0
+							row.Ipv6InterfaceIdentifier = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 3:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Ipv6InterfaceIdentifier.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case Ipv6InterfaceEnableStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Ipv6InterfaceEnableStatus = Ipv6InterfaceEnableStatusValue(v)
+						row.observed[0] |= 1 << 2
 					} else {
-						row.Ipv6InterfaceIdentifier = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Ipv6InterfaceEnableStatus = Ipv6InterfaceEnableStatusValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6InterfaceEnableStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Ipv6InterfaceEnableStatus = dv
-							row.observed[0] |= 1 << 2
+							dv, dErr := Ipv6InterfaceEnableStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6InterfaceEnableStatus = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case Ipv6InterfaceReachableTime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6InterfaceReachableTime = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6InterfaceReachableTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6InterfaceReachableTime = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case Ipv6InterfaceRetransmitTime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6InterfaceRetransmitTime = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6InterfaceRetransmitTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6InterfaceRetransmitTime = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case Ipv6InterfaceForwarding.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.Ipv6InterfaceForwarding = Ipv6InterfaceForwardingValue(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6InterfaceForwarding.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6InterfaceForwarding = dv
+								row.observed[0] |= 1 << 5
+							}
 						}
 					}
 				}
-			case 6:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6InterfaceReachableTime = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6InterfaceReachableTime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6InterfaceReachableTime = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6InterfaceRetransmitTime = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6InterfaceRetransmitTime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6InterfaceRetransmitTime = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.Ipv6InterfaceForwarding = Ipv6InterfaceForwardingValue(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6InterfaceForwarding.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6InterfaceForwarding = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -3128,35 +2900,43 @@ type ipv6InterfaceTableT struct{}
 // Ipv6InterfaceTable is the descriptor for the ipv6InterfaceTable table.
 var Ipv6InterfaceTable ipv6InterfaceTableT
 
-// Walk launches a BulkWalk over ipv6InterfaceTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipv6InterfaceTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipv6InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6InterfaceTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Ipv6InterfaceTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipv6InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6InterfaceTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipv6InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv6InterfaceTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Ipv6InterfaceTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipv6InterfaceTable", c)}
+		switch c.Key() {
+		case Ipv6InterfaceReasmMaxSize.Key(), Ipv6InterfaceIdentifier.Key(), Ipv6InterfaceEnableStatus.Key(), Ipv6InterfaceReachableTime.Key(), Ipv6InterfaceRetransmitTime.Key(), Ipv6InterfaceForwarding.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv6InterfaceTable.Walk: column %s", c.OID()))
+			return &Ipv6InterfaceTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30))
-
 	return &Ipv6InterfaceTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -3232,7 +3012,7 @@ func decodeIpv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv6Interfac
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpv6InterfaceTableRow(a Ipv6InterfaceTableRow, b Ipv6InterfaceTableRow) bool {
-	return a.Index.Equal(b.Index) && a.Ipv6InterfaceReasmMaxSize == b.Ipv6InterfaceReasmMaxSize && bytes.Equal(a.Ipv6InterfaceIdentifier, b.Ipv6InterfaceIdentifier) && a.Ipv6InterfaceEnableStatus == b.Ipv6InterfaceEnableStatus && a.Ipv6InterfaceReachableTime == b.Ipv6InterfaceReachableTime && a.Ipv6InterfaceRetransmitTime == b.Ipv6InterfaceRetransmitTime && a.Ipv6InterfaceForwarding == b.Ipv6InterfaceForwarding
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.Ipv6InterfaceReasmMaxSize == b.Ipv6InterfaceReasmMaxSize && bytes.Equal(a.Ipv6InterfaceIdentifier, b.Ipv6InterfaceIdentifier) && a.Ipv6InterfaceEnableStatus == b.Ipv6InterfaceEnableStatus && a.Ipv6InterfaceReachableTime == b.Ipv6InterfaceReachableTime && a.Ipv6InterfaceRetransmitTime == b.Ipv6InterfaceRetransmitTime && a.Ipv6InterfaceForwarding == b.Ipv6InterfaceForwarding
 }
 
 // mergeIpv6InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
@@ -3851,7 +3631,7 @@ var IpSystemStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1
 // more of this entry's counters suffered a discontinuity. If no such
 // discontinuities have occurred since the last re- initialization of the
 // local management subsystem, then this object contains a zero value.
-var IpSystemStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpSystemStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -4025,906 +3805,843 @@ func (r IpSystemStatsTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpSystemStatsTableWalker is a table-aware walker over ipSystemStatsTable.
+// IpSystemStatsTableWalker streams selected columns of ipSystemStatsTable.
 // The zero value is not usable; construct via IpSystemStatsTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpSystemStatsTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTableRow] {
 	return func(yield func(snmp.OID, IpSystemStatsTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1).WireBytes()
-		buffer := make(map[string]*IpSystemStatsTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpSystemStatsTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 3:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInReceives = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := IpSystemStatsTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpSystemStatsInReceives.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInReceives = uint32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := IpSystemStatsInReceives.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IpSystemStatsInReceives = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := IpSystemStatsInReceives.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInReceives = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IpSystemStatsHCInReceives.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCInReceives = uint64(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCInReceives.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCInReceives = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case IpSystemStatsInOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInOctets = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInOctets = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case IpSystemStatsHCInOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCInOctets = uint64(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCInOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCInOctets = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case IpSystemStatsInHdrErrors.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInHdrErrors = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInHdrErrors.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInHdrErrors = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case IpSystemStatsInNoRoutes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInNoRoutes = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInNoRoutes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInNoRoutes = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case IpSystemStatsInAddrErrors.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInAddrErrors = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInAddrErrors.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInAddrErrors = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case IpSystemStatsInUnknownProtos.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInUnknownProtos = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInUnknownProtos.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInUnknownProtos = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case IpSystemStatsInTruncatedPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInTruncatedPkts = uint32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInTruncatedPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInTruncatedPkts = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case IpSystemStatsInForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInForwDatagrams = uint32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInForwDatagrams = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case IpSystemStatsHCInForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCInForwDatagrams = uint64(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCInForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCInForwDatagrams = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case IpSystemStatsReasmReqds.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsReasmReqds = uint32(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsReasmReqds.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsReasmReqds = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case IpSystemStatsReasmOKs.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsReasmOKs = uint32(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsReasmOKs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsReasmOKs = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case IpSystemStatsReasmFails.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsReasmFails = uint32(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsReasmFails.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsReasmFails = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case IpSystemStatsInDiscards.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInDiscards = uint32(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInDiscards.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInDiscards = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case IpSystemStatsInDelivers.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInDelivers = uint32(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInDelivers.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInDelivers = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case IpSystemStatsHCInDelivers.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCInDelivers = uint64(v)
+						row.observed[0] |= 1 << 16
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCInDelivers.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCInDelivers = dv
+								row.observed[0] |= 1 << 16
+							}
+						}
+					}
+				case IpSystemStatsOutRequests.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutRequests = uint32(v)
+						row.observed[0] |= 1 << 17
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutRequests.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutRequests = dv
+								row.observed[0] |= 1 << 17
+							}
+						}
+					}
+				case IpSystemStatsHCOutRequests.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCOutRequests = uint64(v)
+						row.observed[0] |= 1 << 18
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCOutRequests.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCOutRequests = dv
+								row.observed[0] |= 1 << 18
+							}
+						}
+					}
+				case IpSystemStatsOutNoRoutes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutNoRoutes = uint32(v)
+						row.observed[0] |= 1 << 19
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutNoRoutes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutNoRoutes = dv
+								row.observed[0] |= 1 << 19
+							}
+						}
+					}
+				case IpSystemStatsOutForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutForwDatagrams = uint32(v)
+						row.observed[0] |= 1 << 20
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutForwDatagrams = dv
+								row.observed[0] |= 1 << 20
+							}
+						}
+					}
+				case IpSystemStatsHCOutForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCOutForwDatagrams = uint64(v)
+						row.observed[0] |= 1 << 21
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCOutForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCOutForwDatagrams = dv
+								row.observed[0] |= 1 << 21
+							}
+						}
+					}
+				case IpSystemStatsOutDiscards.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutDiscards = uint32(v)
+						row.observed[0] |= 1 << 22
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutDiscards.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutDiscards = dv
+								row.observed[0] |= 1 << 22
+							}
+						}
+					}
+				case IpSystemStatsOutFragReqds.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutFragReqds = uint32(v)
+						row.observed[0] |= 1 << 23
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutFragReqds.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutFragReqds = dv
+								row.observed[0] |= 1 << 23
+							}
+						}
+					}
+				case IpSystemStatsOutFragOKs.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutFragOKs = uint32(v)
+						row.observed[0] |= 1 << 24
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutFragOKs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutFragOKs = dv
+								row.observed[0] |= 1 << 24
+							}
+						}
+					}
+				case IpSystemStatsOutFragFails.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutFragFails = uint32(v)
+						row.observed[0] |= 1 << 25
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutFragFails.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutFragFails = dv
+								row.observed[0] |= 1 << 25
+							}
+						}
+					}
+				case IpSystemStatsOutFragCreates.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutFragCreates = uint32(v)
+						row.observed[0] |= 1 << 26
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutFragCreates.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutFragCreates = dv
+								row.observed[0] |= 1 << 26
+							}
+						}
+					}
+				case IpSystemStatsOutTransmits.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutTransmits = uint32(v)
+						row.observed[0] |= 1 << 27
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutTransmits.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutTransmits = dv
+								row.observed[0] |= 1 << 27
+							}
+						}
+					}
+				case IpSystemStatsHCOutTransmits.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCOutTransmits = uint64(v)
+						row.observed[0] |= 1 << 28
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCOutTransmits.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCOutTransmits = dv
+								row.observed[0] |= 1 << 28
+							}
+						}
+					}
+				case IpSystemStatsOutOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutOctets = uint32(v)
+						row.observed[0] |= 1 << 29
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutOctets = dv
+								row.observed[0] |= 1 << 29
+							}
+						}
+					}
+				case IpSystemStatsHCOutOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCOutOctets = uint64(v)
+						row.observed[0] |= 1 << 30
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCOutOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCOutOctets = dv
+								row.observed[0] |= 1 << 30
+							}
+						}
+					}
+				case IpSystemStatsInMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInMcastPkts = uint32(v)
+						row.observed[0] |= 1 << 31
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInMcastPkts = dv
+								row.observed[0] |= 1 << 31
+							}
+						}
+					}
+				case IpSystemStatsHCInMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCInMcastPkts = uint64(v)
+						row.observed[0] |= 1 << 32
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCInMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCInMcastPkts = dv
+								row.observed[0] |= 1 << 32
+							}
+						}
+					}
+				case IpSystemStatsInMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInMcastOctets = uint32(v)
+						row.observed[0] |= 1 << 33
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInMcastOctets = dv
+								row.observed[0] |= 1 << 33
+							}
+						}
+					}
+				case IpSystemStatsHCInMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCInMcastOctets = uint64(v)
+						row.observed[0] |= 1 << 34
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCInMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCInMcastOctets = dv
+								row.observed[0] |= 1 << 34
+							}
+						}
+					}
+				case IpSystemStatsOutMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutMcastPkts = uint32(v)
+						row.observed[0] |= 1 << 35
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutMcastPkts = dv
+								row.observed[0] |= 1 << 35
+							}
+						}
+					}
+				case IpSystemStatsHCOutMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCOutMcastPkts = uint64(v)
+						row.observed[0] |= 1 << 36
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCOutMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCOutMcastPkts = dv
+								row.observed[0] |= 1 << 36
+							}
+						}
+					}
+				case IpSystemStatsOutMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutMcastOctets = uint32(v)
+						row.observed[0] |= 1 << 37
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutMcastOctets = dv
+								row.observed[0] |= 1 << 37
+							}
+						}
+					}
+				case IpSystemStatsHCOutMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCOutMcastOctets = uint64(v)
+						row.observed[0] |= 1 << 38
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCOutMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCOutMcastOctets = dv
+								row.observed[0] |= 1 << 38
+							}
+						}
+					}
+				case IpSystemStatsInBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsInBcastPkts = uint32(v)
+						row.observed[0] |= 1 << 39
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsInBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsInBcastPkts = dv
+								row.observed[0] |= 1 << 39
+							}
+						}
+					}
+				case IpSystemStatsHCInBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCInBcastPkts = uint64(v)
+						row.observed[0] |= 1 << 40
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCInBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCInBcastPkts = dv
+								row.observed[0] |= 1 << 40
+							}
+						}
+					}
+				case IpSystemStatsOutBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpSystemStatsOutBcastPkts = uint32(v)
+						row.observed[0] |= 1 << 41
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsOutBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsOutBcastPkts = dv
+								row.observed[0] |= 1 << 41
+							}
+						}
+					}
+				case IpSystemStatsHCOutBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpSystemStatsHCOutBcastPkts = uint64(v)
+						row.observed[0] |= 1 << 42
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsHCOutBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsHCOutBcastPkts = dv
+								row.observed[0] |= 1 << 42
+							}
+						}
+					}
+				case IpSystemStatsDiscontinuityTime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.IpSystemStatsDiscontinuityTime = uint32(v)
+						row.observed[0] |= 1 << 43
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsDiscontinuityTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsDiscontinuityTime = dv
+								row.observed[0] |= 1 << 43
+							}
+						}
+					}
+				case IpSystemStatsRefreshRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpSystemStatsRefreshRate = uint32(v)
+						row.observed[0] |= 1 << 44
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpSystemStatsRefreshRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpSystemStatsRefreshRate = dv
+								row.observed[0] |= 1 << 44
+							}
 						}
 					}
 				}
-			case 4:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCInReceives = uint64(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCInReceives.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCInReceives = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInOctets = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInOctets = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCInOctets = uint64(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCInOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCInOctets = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInHdrErrors = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInHdrErrors.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInHdrErrors = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInNoRoutes = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInNoRoutes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInNoRoutes = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInAddrErrors = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInAddrErrors.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInAddrErrors = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInUnknownProtos = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInUnknownProtos.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInUnknownProtos = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInTruncatedPkts = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInTruncatedPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInTruncatedPkts = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInForwDatagrams = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInForwDatagrams = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCInForwDatagrams = uint64(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCInForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCInForwDatagrams = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsReasmReqds = uint32(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsReasmReqds.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsReasmReqds = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsReasmOKs = uint32(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsReasmOKs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsReasmOKs = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsReasmFails = uint32(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsReasmFails.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsReasmFails = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInDiscards = uint32(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInDiscards.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInDiscards = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				}
-			case 18:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInDelivers = uint32(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInDelivers.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInDelivers = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 19:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCInDelivers = uint64(v)
-					row.observed[0] |= 1 << 16
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCInDelivers.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCInDelivers = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-			case 20:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutRequests = uint32(v)
-					row.observed[0] |= 1 << 17
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutRequests.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutRequests = dv
-							row.observed[0] |= 1 << 17
-						}
-					}
-				}
-			case 21:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCOutRequests = uint64(v)
-					row.observed[0] |= 1 << 18
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCOutRequests.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCOutRequests = dv
-							row.observed[0] |= 1 << 18
-						}
-					}
-				}
-			case 22:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutNoRoutes = uint32(v)
-					row.observed[0] |= 1 << 19
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutNoRoutes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutNoRoutes = dv
-							row.observed[0] |= 1 << 19
-						}
-					}
-				}
-			case 23:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutForwDatagrams = uint32(v)
-					row.observed[0] |= 1 << 20
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutForwDatagrams = dv
-							row.observed[0] |= 1 << 20
-						}
-					}
-				}
-			case 24:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCOutForwDatagrams = uint64(v)
-					row.observed[0] |= 1 << 21
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCOutForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCOutForwDatagrams = dv
-							row.observed[0] |= 1 << 21
-						}
-					}
-				}
-			case 25:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutDiscards = uint32(v)
-					row.observed[0] |= 1 << 22
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutDiscards.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutDiscards = dv
-							row.observed[0] |= 1 << 22
-						}
-					}
-				}
-			case 26:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutFragReqds = uint32(v)
-					row.observed[0] |= 1 << 23
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutFragReqds.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutFragReqds = dv
-							row.observed[0] |= 1 << 23
-						}
-					}
-				}
-			case 27:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutFragOKs = uint32(v)
-					row.observed[0] |= 1 << 24
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutFragOKs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutFragOKs = dv
-							row.observed[0] |= 1 << 24
-						}
-					}
-				}
-			case 28:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutFragFails = uint32(v)
-					row.observed[0] |= 1 << 25
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutFragFails.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutFragFails = dv
-							row.observed[0] |= 1 << 25
-						}
-					}
-				}
-			case 29:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutFragCreates = uint32(v)
-					row.observed[0] |= 1 << 26
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutFragCreates.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutFragCreates = dv
-							row.observed[0] |= 1 << 26
-						}
-					}
-				}
-			case 30:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutTransmits = uint32(v)
-					row.observed[0] |= 1 << 27
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutTransmits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutTransmits = dv
-							row.observed[0] |= 1 << 27
-						}
-					}
-				}
-			case 31:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCOutTransmits = uint64(v)
-					row.observed[0] |= 1 << 28
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCOutTransmits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCOutTransmits = dv
-							row.observed[0] |= 1 << 28
-						}
-					}
-				}
-			case 32:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutOctets = uint32(v)
-					row.observed[0] |= 1 << 29
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutOctets = dv
-							row.observed[0] |= 1 << 29
-						}
-					}
-				}
-			case 33:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCOutOctets = uint64(v)
-					row.observed[0] |= 1 << 30
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCOutOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCOutOctets = dv
-							row.observed[0] |= 1 << 30
-						}
-					}
-				}
-			case 34:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInMcastPkts = uint32(v)
-					row.observed[0] |= 1 << 31
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInMcastPkts = dv
-							row.observed[0] |= 1 << 31
-						}
-					}
-				}
-			case 35:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCInMcastPkts = uint64(v)
-					row.observed[0] |= 1 << 32
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCInMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCInMcastPkts = dv
-							row.observed[0] |= 1 << 32
-						}
-					}
-				}
-			case 36:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInMcastOctets = uint32(v)
-					row.observed[0] |= 1 << 33
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInMcastOctets = dv
-							row.observed[0] |= 1 << 33
-						}
-					}
-				}
-			case 37:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCInMcastOctets = uint64(v)
-					row.observed[0] |= 1 << 34
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCInMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCInMcastOctets = dv
-							row.observed[0] |= 1 << 34
-						}
-					}
-				}
-			case 38:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutMcastPkts = uint32(v)
-					row.observed[0] |= 1 << 35
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutMcastPkts = dv
-							row.observed[0] |= 1 << 35
-						}
-					}
-				}
-			case 39:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCOutMcastPkts = uint64(v)
-					row.observed[0] |= 1 << 36
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCOutMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCOutMcastPkts = dv
-							row.observed[0] |= 1 << 36
-						}
-					}
-				}
-			case 40:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutMcastOctets = uint32(v)
-					row.observed[0] |= 1 << 37
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutMcastOctets = dv
-							row.observed[0] |= 1 << 37
-						}
-					}
-				}
-			case 41:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCOutMcastOctets = uint64(v)
-					row.observed[0] |= 1 << 38
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCOutMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCOutMcastOctets = dv
-							row.observed[0] |= 1 << 38
-						}
-					}
-				}
-			case 42:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsInBcastPkts = uint32(v)
-					row.observed[0] |= 1 << 39
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsInBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsInBcastPkts = dv
-							row.observed[0] |= 1 << 39
-						}
-					}
-				}
-			case 43:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCInBcastPkts = uint64(v)
-					row.observed[0] |= 1 << 40
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCInBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCInBcastPkts = dv
-							row.observed[0] |= 1 << 40
-						}
-					}
-				}
-			case 44:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpSystemStatsOutBcastPkts = uint32(v)
-					row.observed[0] |= 1 << 41
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsOutBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsOutBcastPkts = dv
-							row.observed[0] |= 1 << 41
-						}
-					}
-				}
-			case 45:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpSystemStatsHCOutBcastPkts = uint64(v)
-					row.observed[0] |= 1 << 42
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsHCOutBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsHCOutBcastPkts = dv
-							row.observed[0] |= 1 << 42
-						}
-					}
-				}
-			case 46:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpSystemStatsDiscontinuityTime = uint32(v)
-					row.observed[0] |= 1 << 43
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsDiscontinuityTime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsDiscontinuityTime = dv
-							row.observed[0] |= 1 << 43
-						}
-					}
-				}
-			case 47:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpSystemStatsRefreshRate = uint32(v)
-					row.observed[0] |= 1 << 44
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpSystemStatsRefreshRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpSystemStatsRefreshRate = dv
-							row.observed[0] |= 1 << 44
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -4943,35 +4660,43 @@ type ipSystemStatsTableT struct{}
 // IpSystemStatsTable is the descriptor for the ipSystemStatsTable table.
 var IpSystemStatsTable ipSystemStatsTableT
 
-// Walk launches a BulkWalk over ipSystemStatsTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipSystemStatsTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipSystemStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpSystemStatsTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpSystemStatsTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipSystemStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpSystemStatsTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipSystemStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpSystemStatsTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpSystemStatsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipSystemStatsTable", c)}
+		switch c.Key() {
+		case IpSystemStatsInReceives.Key(), IpSystemStatsHCInReceives.Key(), IpSystemStatsInOctets.Key(), IpSystemStatsHCInOctets.Key(), IpSystemStatsInHdrErrors.Key(), IpSystemStatsInNoRoutes.Key(), IpSystemStatsInAddrErrors.Key(), IpSystemStatsInUnknownProtos.Key(), IpSystemStatsInTruncatedPkts.Key(), IpSystemStatsInForwDatagrams.Key(), IpSystemStatsHCInForwDatagrams.Key(), IpSystemStatsReasmReqds.Key(), IpSystemStatsReasmOKs.Key(), IpSystemStatsReasmFails.Key(), IpSystemStatsInDiscards.Key(), IpSystemStatsInDelivers.Key(), IpSystemStatsHCInDelivers.Key(), IpSystemStatsOutRequests.Key(), IpSystemStatsHCOutRequests.Key(), IpSystemStatsOutNoRoutes.Key(), IpSystemStatsOutForwDatagrams.Key(), IpSystemStatsHCOutForwDatagrams.Key(), IpSystemStatsOutDiscards.Key(), IpSystemStatsOutFragReqds.Key(), IpSystemStatsOutFragOKs.Key(), IpSystemStatsOutFragFails.Key(), IpSystemStatsOutFragCreates.Key(), IpSystemStatsOutTransmits.Key(), IpSystemStatsHCOutTransmits.Key(), IpSystemStatsOutOctets.Key(), IpSystemStatsHCOutOctets.Key(), IpSystemStatsInMcastPkts.Key(), IpSystemStatsHCInMcastPkts.Key(), IpSystemStatsInMcastOctets.Key(), IpSystemStatsHCInMcastOctets.Key(), IpSystemStatsOutMcastPkts.Key(), IpSystemStatsHCOutMcastPkts.Key(), IpSystemStatsOutMcastOctets.Key(), IpSystemStatsHCOutMcastOctets.Key(), IpSystemStatsInBcastPkts.Key(), IpSystemStatsHCInBcastPkts.Key(), IpSystemStatsOutBcastPkts.Key(), IpSystemStatsHCOutBcastPkts.Key(), IpSystemStatsDiscontinuityTime.Key(), IpSystemStatsRefreshRate.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipSystemStatsTable.Walk: column %s", c.OID()))
+			return &IpSystemStatsTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1))
-
 	return &IpSystemStatsTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -5447,7 +5172,7 @@ var IpIfStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2,
 // more of this entry's counters suffered a discontinuity. If no such
 // discontinuities have occurred since the last re- initialization of the
 // local management subsystem, then this object contains a zero value.
-var IpIfStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpIfStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -5618,888 +5343,825 @@ func (r IpIfStatsTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpIfStatsTableWalker is a table-aware walker over ipIfStatsTable.
+// IpIfStatsTableWalker streams selected columns of ipIfStatsTable.
 // The zero value is not usable; construct via IpIfStatsTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpIfStatsTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 	return func(yield func(snmp.OID, IpIfStatsTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1).WireBytes()
-		buffer := make(map[string]*IpIfStatsTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpIfStatsTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 3:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInReceives = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := IpIfStatsTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpIfStatsInReceives.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInReceives = uint32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := IpIfStatsInReceives.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IpIfStatsInReceives = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := IpIfStatsInReceives.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInReceives = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IpIfStatsHCInReceives.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCInReceives = uint64(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCInReceives.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCInReceives = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case IpIfStatsInOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInOctets = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInOctets = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case IpIfStatsHCInOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCInOctets = uint64(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCInOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCInOctets = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case IpIfStatsInHdrErrors.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInHdrErrors = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInHdrErrors.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInHdrErrors = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case IpIfStatsInNoRoutes.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInNoRoutes = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInNoRoutes.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInNoRoutes = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case IpIfStatsInAddrErrors.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInAddrErrors = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInAddrErrors.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInAddrErrors = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case IpIfStatsInUnknownProtos.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInUnknownProtos = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInUnknownProtos.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInUnknownProtos = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case IpIfStatsInTruncatedPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInTruncatedPkts = uint32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInTruncatedPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInTruncatedPkts = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case IpIfStatsInForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInForwDatagrams = uint32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInForwDatagrams = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case IpIfStatsHCInForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCInForwDatagrams = uint64(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCInForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCInForwDatagrams = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case IpIfStatsReasmReqds.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsReasmReqds = uint32(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsReasmReqds.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsReasmReqds = dv
+								row.observed[0] |= 1 << 11
+							}
+						}
+					}
+				case IpIfStatsReasmOKs.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsReasmOKs = uint32(v)
+						row.observed[0] |= 1 << 12
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsReasmOKs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsReasmOKs = dv
+								row.observed[0] |= 1 << 12
+							}
+						}
+					}
+				case IpIfStatsReasmFails.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsReasmFails = uint32(v)
+						row.observed[0] |= 1 << 13
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsReasmFails.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsReasmFails = dv
+								row.observed[0] |= 1 << 13
+							}
+						}
+					}
+				case IpIfStatsInDiscards.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInDiscards = uint32(v)
+						row.observed[0] |= 1 << 14
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInDiscards.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInDiscards = dv
+								row.observed[0] |= 1 << 14
+							}
+						}
+					}
+				case IpIfStatsInDelivers.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInDelivers = uint32(v)
+						row.observed[0] |= 1 << 15
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInDelivers.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInDelivers = dv
+								row.observed[0] |= 1 << 15
+							}
+						}
+					}
+				case IpIfStatsHCInDelivers.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCInDelivers = uint64(v)
+						row.observed[0] |= 1 << 16
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCInDelivers.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCInDelivers = dv
+								row.observed[0] |= 1 << 16
+							}
+						}
+					}
+				case IpIfStatsOutRequests.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutRequests = uint32(v)
+						row.observed[0] |= 1 << 17
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutRequests.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutRequests = dv
+								row.observed[0] |= 1 << 17
+							}
+						}
+					}
+				case IpIfStatsHCOutRequests.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCOutRequests = uint64(v)
+						row.observed[0] |= 1 << 18
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCOutRequests.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCOutRequests = dv
+								row.observed[0] |= 1 << 18
+							}
+						}
+					}
+				case IpIfStatsOutForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutForwDatagrams = uint32(v)
+						row.observed[0] |= 1 << 19
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutForwDatagrams = dv
+								row.observed[0] |= 1 << 19
+							}
+						}
+					}
+				case IpIfStatsHCOutForwDatagrams.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCOutForwDatagrams = uint64(v)
+						row.observed[0] |= 1 << 20
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCOutForwDatagrams.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCOutForwDatagrams = dv
+								row.observed[0] |= 1 << 20
+							}
+						}
+					}
+				case IpIfStatsOutDiscards.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutDiscards = uint32(v)
+						row.observed[0] |= 1 << 21
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutDiscards.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutDiscards = dv
+								row.observed[0] |= 1 << 21
+							}
+						}
+					}
+				case IpIfStatsOutFragReqds.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutFragReqds = uint32(v)
+						row.observed[0] |= 1 << 22
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutFragReqds.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutFragReqds = dv
+								row.observed[0] |= 1 << 22
+							}
+						}
+					}
+				case IpIfStatsOutFragOKs.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutFragOKs = uint32(v)
+						row.observed[0] |= 1 << 23
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutFragOKs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutFragOKs = dv
+								row.observed[0] |= 1 << 23
+							}
+						}
+					}
+				case IpIfStatsOutFragFails.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutFragFails = uint32(v)
+						row.observed[0] |= 1 << 24
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutFragFails.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutFragFails = dv
+								row.observed[0] |= 1 << 24
+							}
+						}
+					}
+				case IpIfStatsOutFragCreates.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutFragCreates = uint32(v)
+						row.observed[0] |= 1 << 25
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutFragCreates.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutFragCreates = dv
+								row.observed[0] |= 1 << 25
+							}
+						}
+					}
+				case IpIfStatsOutTransmits.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutTransmits = uint32(v)
+						row.observed[0] |= 1 << 26
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutTransmits.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutTransmits = dv
+								row.observed[0] |= 1 << 26
+							}
+						}
+					}
+				case IpIfStatsHCOutTransmits.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCOutTransmits = uint64(v)
+						row.observed[0] |= 1 << 27
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCOutTransmits.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCOutTransmits = dv
+								row.observed[0] |= 1 << 27
+							}
+						}
+					}
+				case IpIfStatsOutOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutOctets = uint32(v)
+						row.observed[0] |= 1 << 28
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutOctets = dv
+								row.observed[0] |= 1 << 28
+							}
+						}
+					}
+				case IpIfStatsHCOutOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCOutOctets = uint64(v)
+						row.observed[0] |= 1 << 29
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCOutOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCOutOctets = dv
+								row.observed[0] |= 1 << 29
+							}
+						}
+					}
+				case IpIfStatsInMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInMcastPkts = uint32(v)
+						row.observed[0] |= 1 << 30
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInMcastPkts = dv
+								row.observed[0] |= 1 << 30
+							}
+						}
+					}
+				case IpIfStatsHCInMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCInMcastPkts = uint64(v)
+						row.observed[0] |= 1 << 31
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCInMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCInMcastPkts = dv
+								row.observed[0] |= 1 << 31
+							}
+						}
+					}
+				case IpIfStatsInMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInMcastOctets = uint32(v)
+						row.observed[0] |= 1 << 32
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInMcastOctets = dv
+								row.observed[0] |= 1 << 32
+							}
+						}
+					}
+				case IpIfStatsHCInMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCInMcastOctets = uint64(v)
+						row.observed[0] |= 1 << 33
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCInMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCInMcastOctets = dv
+								row.observed[0] |= 1 << 33
+							}
+						}
+					}
+				case IpIfStatsOutMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutMcastPkts = uint32(v)
+						row.observed[0] |= 1 << 34
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutMcastPkts = dv
+								row.observed[0] |= 1 << 34
+							}
+						}
+					}
+				case IpIfStatsHCOutMcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCOutMcastPkts = uint64(v)
+						row.observed[0] |= 1 << 35
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCOutMcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCOutMcastPkts = dv
+								row.observed[0] |= 1 << 35
+							}
+						}
+					}
+				case IpIfStatsOutMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutMcastOctets = uint32(v)
+						row.observed[0] |= 1 << 36
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutMcastOctets = dv
+								row.observed[0] |= 1 << 36
+							}
+						}
+					}
+				case IpIfStatsHCOutMcastOctets.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCOutMcastOctets = uint64(v)
+						row.observed[0] |= 1 << 37
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCOutMcastOctets.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCOutMcastOctets = dv
+								row.observed[0] |= 1 << 37
+							}
+						}
+					}
+				case IpIfStatsInBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsInBcastPkts = uint32(v)
+						row.observed[0] |= 1 << 38
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsInBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsInBcastPkts = dv
+								row.observed[0] |= 1 << 38
+							}
+						}
+					}
+				case IpIfStatsHCInBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCInBcastPkts = uint64(v)
+						row.observed[0] |= 1 << 39
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCInBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCInBcastPkts = dv
+								row.observed[0] |= 1 << 39
+							}
+						}
+					}
+				case IpIfStatsOutBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IpIfStatsOutBcastPkts = uint32(v)
+						row.observed[0] |= 1 << 40
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsOutBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsOutBcastPkts = dv
+								row.observed[0] |= 1 << 40
+							}
+						}
+					}
+				case IpIfStatsHCOutBcastPkts.Key():
+					if v, okRaw := snmp.RawCounter64(rv); okRaw {
+						row.IpIfStatsHCOutBcastPkts = uint64(v)
+						row.observed[0] |= 1 << 41
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsHCOutBcastPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsHCOutBcastPkts = dv
+								row.observed[0] |= 1 << 41
+							}
+						}
+					}
+				case IpIfStatsDiscontinuityTime.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.IpIfStatsDiscontinuityTime = uint32(v)
+						row.observed[0] |= 1 << 42
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsDiscontinuityTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsDiscontinuityTime = dv
+								row.observed[0] |= 1 << 42
+							}
+						}
+					}
+				case IpIfStatsRefreshRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpIfStatsRefreshRate = uint32(v)
+						row.observed[0] |= 1 << 43
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpIfStatsRefreshRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpIfStatsRefreshRate = dv
+								row.observed[0] |= 1 << 43
+							}
 						}
 					}
 				}
-			case 4:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCInReceives = uint64(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCInReceives.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCInReceives = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInOctets = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInOctets = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCInOctets = uint64(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCInOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCInOctets = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInHdrErrors = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInHdrErrors.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInHdrErrors = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInNoRoutes = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInNoRoutes.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInNoRoutes = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInAddrErrors = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInAddrErrors.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInAddrErrors = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInUnknownProtos = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInUnknownProtos.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInUnknownProtos = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInTruncatedPkts = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInTruncatedPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInTruncatedPkts = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInForwDatagrams = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInForwDatagrams = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCInForwDatagrams = uint64(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCInForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCInForwDatagrams = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 14:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsReasmReqds = uint32(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsReasmReqds.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsReasmReqds = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-			case 15:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsReasmOKs = uint32(v)
-					row.observed[0] |= 1 << 12
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsReasmOKs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsReasmOKs = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				}
-			case 16:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsReasmFails = uint32(v)
-					row.observed[0] |= 1 << 13
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsReasmFails.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsReasmFails = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				}
-			case 17:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInDiscards = uint32(v)
-					row.observed[0] |= 1 << 14
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInDiscards.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInDiscards = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				}
-			case 18:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInDelivers = uint32(v)
-					row.observed[0] |= 1 << 15
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInDelivers.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInDelivers = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				}
-			case 19:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCInDelivers = uint64(v)
-					row.observed[0] |= 1 << 16
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCInDelivers.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCInDelivers = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-			case 20:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutRequests = uint32(v)
-					row.observed[0] |= 1 << 17
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutRequests.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutRequests = dv
-							row.observed[0] |= 1 << 17
-						}
-					}
-				}
-			case 21:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCOutRequests = uint64(v)
-					row.observed[0] |= 1 << 18
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCOutRequests.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCOutRequests = dv
-							row.observed[0] |= 1 << 18
-						}
-					}
-				}
-			case 23:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutForwDatagrams = uint32(v)
-					row.observed[0] |= 1 << 19
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutForwDatagrams = dv
-							row.observed[0] |= 1 << 19
-						}
-					}
-				}
-			case 24:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCOutForwDatagrams = uint64(v)
-					row.observed[0] |= 1 << 20
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCOutForwDatagrams.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCOutForwDatagrams = dv
-							row.observed[0] |= 1 << 20
-						}
-					}
-				}
-			case 25:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutDiscards = uint32(v)
-					row.observed[0] |= 1 << 21
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutDiscards.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutDiscards = dv
-							row.observed[0] |= 1 << 21
-						}
-					}
-				}
-			case 26:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutFragReqds = uint32(v)
-					row.observed[0] |= 1 << 22
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutFragReqds.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutFragReqds = dv
-							row.observed[0] |= 1 << 22
-						}
-					}
-				}
-			case 27:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutFragOKs = uint32(v)
-					row.observed[0] |= 1 << 23
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutFragOKs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutFragOKs = dv
-							row.observed[0] |= 1 << 23
-						}
-					}
-				}
-			case 28:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutFragFails = uint32(v)
-					row.observed[0] |= 1 << 24
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutFragFails.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutFragFails = dv
-							row.observed[0] |= 1 << 24
-						}
-					}
-				}
-			case 29:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutFragCreates = uint32(v)
-					row.observed[0] |= 1 << 25
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutFragCreates.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutFragCreates = dv
-							row.observed[0] |= 1 << 25
-						}
-					}
-				}
-			case 30:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutTransmits = uint32(v)
-					row.observed[0] |= 1 << 26
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutTransmits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutTransmits = dv
-							row.observed[0] |= 1 << 26
-						}
-					}
-				}
-			case 31:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCOutTransmits = uint64(v)
-					row.observed[0] |= 1 << 27
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCOutTransmits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCOutTransmits = dv
-							row.observed[0] |= 1 << 27
-						}
-					}
-				}
-			case 32:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutOctets = uint32(v)
-					row.observed[0] |= 1 << 28
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutOctets = dv
-							row.observed[0] |= 1 << 28
-						}
-					}
-				}
-			case 33:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCOutOctets = uint64(v)
-					row.observed[0] |= 1 << 29
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCOutOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCOutOctets = dv
-							row.observed[0] |= 1 << 29
-						}
-					}
-				}
-			case 34:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInMcastPkts = uint32(v)
-					row.observed[0] |= 1 << 30
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInMcastPkts = dv
-							row.observed[0] |= 1 << 30
-						}
-					}
-				}
-			case 35:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCInMcastPkts = uint64(v)
-					row.observed[0] |= 1 << 31
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCInMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCInMcastPkts = dv
-							row.observed[0] |= 1 << 31
-						}
-					}
-				}
-			case 36:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInMcastOctets = uint32(v)
-					row.observed[0] |= 1 << 32
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInMcastOctets = dv
-							row.observed[0] |= 1 << 32
-						}
-					}
-				}
-			case 37:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCInMcastOctets = uint64(v)
-					row.observed[0] |= 1 << 33
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCInMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCInMcastOctets = dv
-							row.observed[0] |= 1 << 33
-						}
-					}
-				}
-			case 38:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutMcastPkts = uint32(v)
-					row.observed[0] |= 1 << 34
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutMcastPkts = dv
-							row.observed[0] |= 1 << 34
-						}
-					}
-				}
-			case 39:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCOutMcastPkts = uint64(v)
-					row.observed[0] |= 1 << 35
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCOutMcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCOutMcastPkts = dv
-							row.observed[0] |= 1 << 35
-						}
-					}
-				}
-			case 40:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutMcastOctets = uint32(v)
-					row.observed[0] |= 1 << 36
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutMcastOctets = dv
-							row.observed[0] |= 1 << 36
-						}
-					}
-				}
-			case 41:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCOutMcastOctets = uint64(v)
-					row.observed[0] |= 1 << 37
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCOutMcastOctets.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCOutMcastOctets = dv
-							row.observed[0] |= 1 << 37
-						}
-					}
-				}
-			case 42:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsInBcastPkts = uint32(v)
-					row.observed[0] |= 1 << 38
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsInBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsInBcastPkts = dv
-							row.observed[0] |= 1 << 38
-						}
-					}
-				}
-			case 43:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCInBcastPkts = uint64(v)
-					row.observed[0] |= 1 << 39
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCInBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCInBcastPkts = dv
-							row.observed[0] |= 1 << 39
-						}
-					}
-				}
-			case 44:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IpIfStatsOutBcastPkts = uint32(v)
-					row.observed[0] |= 1 << 40
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsOutBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsOutBcastPkts = dv
-							row.observed[0] |= 1 << 40
-						}
-					}
-				}
-			case 45:
-				if v, okRaw := snmp.RawCounter64(rv); okRaw {
-					row.IpIfStatsHCOutBcastPkts = uint64(v)
-					row.observed[0] |= 1 << 41
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsHCOutBcastPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsHCOutBcastPkts = dv
-							row.observed[0] |= 1 << 41
-						}
-					}
-				}
-			case 46:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpIfStatsDiscontinuityTime = uint32(v)
-					row.observed[0] |= 1 << 42
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsDiscontinuityTime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsDiscontinuityTime = dv
-							row.observed[0] |= 1 << 42
-						}
-					}
-				}
-			case 47:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpIfStatsRefreshRate = uint32(v)
-					row.observed[0] |= 1 << 43
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpIfStatsRefreshRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpIfStatsRefreshRate = dv
-							row.observed[0] |= 1 << 43
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -6518,35 +6180,43 @@ type ipIfStatsTableT struct{}
 // IpIfStatsTable is the descriptor for the ipIfStatsTable table.
 var IpIfStatsTable ipIfStatsTableT
 
-// Walk launches a BulkWalk over ipIfStatsTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipIfStatsTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipIfStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpIfStatsTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpIfStatsTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipIfStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpIfStatsTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipIfStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpIfStatsTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpIfStatsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipIfStatsTable", c)}
+		switch c.Key() {
+		case IpIfStatsInReceives.Key(), IpIfStatsHCInReceives.Key(), IpIfStatsInOctets.Key(), IpIfStatsHCInOctets.Key(), IpIfStatsInHdrErrors.Key(), IpIfStatsInNoRoutes.Key(), IpIfStatsInAddrErrors.Key(), IpIfStatsInUnknownProtos.Key(), IpIfStatsInTruncatedPkts.Key(), IpIfStatsInForwDatagrams.Key(), IpIfStatsHCInForwDatagrams.Key(), IpIfStatsReasmReqds.Key(), IpIfStatsReasmOKs.Key(), IpIfStatsReasmFails.Key(), IpIfStatsInDiscards.Key(), IpIfStatsInDelivers.Key(), IpIfStatsHCInDelivers.Key(), IpIfStatsOutRequests.Key(), IpIfStatsHCOutRequests.Key(), IpIfStatsOutForwDatagrams.Key(), IpIfStatsHCOutForwDatagrams.Key(), IpIfStatsOutDiscards.Key(), IpIfStatsOutFragReqds.Key(), IpIfStatsOutFragOKs.Key(), IpIfStatsOutFragFails.Key(), IpIfStatsOutFragCreates.Key(), IpIfStatsOutTransmits.Key(), IpIfStatsHCOutTransmits.Key(), IpIfStatsOutOctets.Key(), IpIfStatsHCOutOctets.Key(), IpIfStatsInMcastPkts.Key(), IpIfStatsHCInMcastPkts.Key(), IpIfStatsInMcastOctets.Key(), IpIfStatsHCInMcastOctets.Key(), IpIfStatsOutMcastPkts.Key(), IpIfStatsHCOutMcastPkts.Key(), IpIfStatsOutMcastOctets.Key(), IpIfStatsHCOutMcastOctets.Key(), IpIfStatsInBcastPkts.Key(), IpIfStatsHCInBcastPkts.Key(), IpIfStatsOutBcastPkts.Key(), IpIfStatsHCOutBcastPkts.Key(), IpIfStatsDiscontinuityTime.Key(), IpIfStatsRefreshRate.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipIfStatsTable.Walk: column %s", c.OID()))
+			return &IpIfStatsTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3))
-
 	return &IpIfStatsTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -6888,7 +6558,7 @@ func decodeIpIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpIfStatsTableRo
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpIfStatsTableRow(a IpIfStatsTableRow, b IpIfStatsTableRow) bool {
-	return a.Index.Equal(b.Index) && a.IpIfStatsInReceives == b.IpIfStatsInReceives && a.IpIfStatsHCInReceives == b.IpIfStatsHCInReceives && a.IpIfStatsInOctets == b.IpIfStatsInOctets && a.IpIfStatsHCInOctets == b.IpIfStatsHCInOctets && a.IpIfStatsInHdrErrors == b.IpIfStatsInHdrErrors && a.IpIfStatsInNoRoutes == b.IpIfStatsInNoRoutes && a.IpIfStatsInAddrErrors == b.IpIfStatsInAddrErrors && a.IpIfStatsInUnknownProtos == b.IpIfStatsInUnknownProtos && a.IpIfStatsInTruncatedPkts == b.IpIfStatsInTruncatedPkts && a.IpIfStatsInForwDatagrams == b.IpIfStatsInForwDatagrams && a.IpIfStatsHCInForwDatagrams == b.IpIfStatsHCInForwDatagrams && a.IpIfStatsReasmReqds == b.IpIfStatsReasmReqds && a.IpIfStatsReasmOKs == b.IpIfStatsReasmOKs && a.IpIfStatsReasmFails == b.IpIfStatsReasmFails && a.IpIfStatsInDiscards == b.IpIfStatsInDiscards && a.IpIfStatsInDelivers == b.IpIfStatsInDelivers && a.IpIfStatsHCInDelivers == b.IpIfStatsHCInDelivers && a.IpIfStatsOutRequests == b.IpIfStatsOutRequests && a.IpIfStatsHCOutRequests == b.IpIfStatsHCOutRequests && a.IpIfStatsOutForwDatagrams == b.IpIfStatsOutForwDatagrams && a.IpIfStatsHCOutForwDatagrams == b.IpIfStatsHCOutForwDatagrams && a.IpIfStatsOutDiscards == b.IpIfStatsOutDiscards && a.IpIfStatsOutFragReqds == b.IpIfStatsOutFragReqds && a.IpIfStatsOutFragOKs == b.IpIfStatsOutFragOKs && a.IpIfStatsOutFragFails == b.IpIfStatsOutFragFails && a.IpIfStatsOutFragCreates == b.IpIfStatsOutFragCreates && a.IpIfStatsOutTransmits == b.IpIfStatsOutTransmits && a.IpIfStatsHCOutTransmits == b.IpIfStatsHCOutTransmits && a.IpIfStatsOutOctets == b.IpIfStatsOutOctets && a.IpIfStatsHCOutOctets == b.IpIfStatsHCOutOctets && a.IpIfStatsInMcastPkts == b.IpIfStatsInMcastPkts && a.IpIfStatsHCInMcastPkts == b.IpIfStatsHCInMcastPkts && a.IpIfStatsInMcastOctets == b.IpIfStatsInMcastOctets && a.IpIfStatsHCInMcastOctets == b.IpIfStatsHCInMcastOctets && a.IpIfStatsOutMcastPkts == b.IpIfStatsOutMcastPkts && a.IpIfStatsHCOutMcastPkts == b.IpIfStatsHCOutMcastPkts && a.IpIfStatsOutMcastOctets == b.IpIfStatsOutMcastOctets && a.IpIfStatsHCOutMcastOctets == b.IpIfStatsHCOutMcastOctets && a.IpIfStatsInBcastPkts == b.IpIfStatsInBcastPkts && a.IpIfStatsHCInBcastPkts == b.IpIfStatsHCInBcastPkts && a.IpIfStatsOutBcastPkts == b.IpIfStatsOutBcastPkts && a.IpIfStatsHCOutBcastPkts == b.IpIfStatsHCOutBcastPkts && a.IpIfStatsDiscontinuityTime == b.IpIfStatsDiscontinuityTime && a.IpIfStatsRefreshRate == b.IpIfStatsRefreshRate
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IpIfStatsInReceives == b.IpIfStatsInReceives && a.IpIfStatsHCInReceives == b.IpIfStatsHCInReceives && a.IpIfStatsInOctets == b.IpIfStatsInOctets && a.IpIfStatsHCInOctets == b.IpIfStatsHCInOctets && a.IpIfStatsInHdrErrors == b.IpIfStatsInHdrErrors && a.IpIfStatsInNoRoutes == b.IpIfStatsInNoRoutes && a.IpIfStatsInAddrErrors == b.IpIfStatsInAddrErrors && a.IpIfStatsInUnknownProtos == b.IpIfStatsInUnknownProtos && a.IpIfStatsInTruncatedPkts == b.IpIfStatsInTruncatedPkts && a.IpIfStatsInForwDatagrams == b.IpIfStatsInForwDatagrams && a.IpIfStatsHCInForwDatagrams == b.IpIfStatsHCInForwDatagrams && a.IpIfStatsReasmReqds == b.IpIfStatsReasmReqds && a.IpIfStatsReasmOKs == b.IpIfStatsReasmOKs && a.IpIfStatsReasmFails == b.IpIfStatsReasmFails && a.IpIfStatsInDiscards == b.IpIfStatsInDiscards && a.IpIfStatsInDelivers == b.IpIfStatsInDelivers && a.IpIfStatsHCInDelivers == b.IpIfStatsHCInDelivers && a.IpIfStatsOutRequests == b.IpIfStatsOutRequests && a.IpIfStatsHCOutRequests == b.IpIfStatsHCOutRequests && a.IpIfStatsOutForwDatagrams == b.IpIfStatsOutForwDatagrams && a.IpIfStatsHCOutForwDatagrams == b.IpIfStatsHCOutForwDatagrams && a.IpIfStatsOutDiscards == b.IpIfStatsOutDiscards && a.IpIfStatsOutFragReqds == b.IpIfStatsOutFragReqds && a.IpIfStatsOutFragOKs == b.IpIfStatsOutFragOKs && a.IpIfStatsOutFragFails == b.IpIfStatsOutFragFails && a.IpIfStatsOutFragCreates == b.IpIfStatsOutFragCreates && a.IpIfStatsOutTransmits == b.IpIfStatsOutTransmits && a.IpIfStatsHCOutTransmits == b.IpIfStatsHCOutTransmits && a.IpIfStatsOutOctets == b.IpIfStatsOutOctets && a.IpIfStatsHCOutOctets == b.IpIfStatsHCOutOctets && a.IpIfStatsInMcastPkts == b.IpIfStatsInMcastPkts && a.IpIfStatsHCInMcastPkts == b.IpIfStatsHCInMcastPkts && a.IpIfStatsInMcastOctets == b.IpIfStatsInMcastOctets && a.IpIfStatsHCInMcastOctets == b.IpIfStatsHCInMcastOctets && a.IpIfStatsOutMcastPkts == b.IpIfStatsOutMcastPkts && a.IpIfStatsHCOutMcastPkts == b.IpIfStatsHCOutMcastPkts && a.IpIfStatsOutMcastOctets == b.IpIfStatsOutMcastOctets && a.IpIfStatsHCOutMcastOctets == b.IpIfStatsHCOutMcastOctets && a.IpIfStatsInBcastPkts == b.IpIfStatsInBcastPkts && a.IpIfStatsHCInBcastPkts == b.IpIfStatsHCInBcastPkts && a.IpIfStatsOutBcastPkts == b.IpIfStatsOutBcastPkts && a.IpIfStatsHCOutBcastPkts == b.IpIfStatsHCOutBcastPkts && a.IpIfStatsDiscontinuityTime == b.IpIfStatsDiscontinuityTime && a.IpIfStatsRefreshRate == b.IpIfStatsRefreshRate
 }
 
 // mergeIpIfStatsTableRow merges the values decoded from vbs into dst, leaving fields
@@ -7343,176 +7013,113 @@ func (r IpAddressPrefixTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpAddressPrefixTableWalker is a table-aware walker over ipAddressPrefixTable.
+// IpAddressPrefixTableWalker streams selected columns of ipAddressPrefixTable.
 // The zero value is not usable; construct via IpAddressPrefixTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpAddressPrefixTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefixTableRow] {
 	return func(yield func(snmp.OID, IpAddressPrefixTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1).WireBytes()
-		buffer := make(map[string]*IpAddressPrefixTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpAddressPrefixTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpAddressPrefixOrigin = IpAddressPrefixOriginTC(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := IpAddressPrefixTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpAddressPrefixOrigin.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpAddressPrefixOrigin = IpAddressPrefixOriginTC(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressPrefixOrigin.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressPrefixOrigin = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IpAddressPrefixOnLinkFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressPrefixOrigin.Decode(vb)
+						dv, dErr := IpAddressPrefixOnLinkFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressPrefixOrigin = dv
-							row.observed[0] |= 1 << 0
+							row.IpAddressPrefixOnLinkFlag = dv
+							row.observed[0] |= 1 << 1
 						}
 					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpAddressPrefixOnLinkFlag.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpAddressPrefixOnLinkFlag = dv
-						row.observed[0] |= 1 << 1
-					}
-				}
-			case 7:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpAddressPrefixAutonomousFlag.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpAddressPrefixAutonomousFlag = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpAddressPrefixAdvPreferredLifetime = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
+				case IpAddressPrefixAutonomousFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressPrefixAdvPreferredLifetime.Decode(vb)
+						dv, dErr := IpAddressPrefixAutonomousFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressPrefixAdvPreferredLifetime = dv
-							row.observed[0] |= 1 << 3
+							row.IpAddressPrefixAutonomousFlag = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpAddressPrefixAdvValidLifetime = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case IpAddressPrefixAdvPreferredLifetime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpAddressPrefixAdvPreferredLifetime = uint32(v)
+						row.observed[0] |= 1 << 3
 					} else {
-						dv, dErr := IpAddressPrefixAdvValidLifetime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IpAddressPrefixAdvValidLifetime = dv
-							row.observed[0] |= 1 << 4
+							dv, dErr := IpAddressPrefixAdvPreferredLifetime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressPrefixAdvPreferredLifetime = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case IpAddressPrefixAdvValidLifetime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpAddressPrefixAdvValidLifetime = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressPrefixAdvValidLifetime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressPrefixAdvValidLifetime = dv
+								row.observed[0] |= 1 << 4
+							}
 						}
 					}
 				}
-			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
-				tw.rw.Fail(derr)
-				return
 			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -7531,35 +7138,43 @@ type ipAddressPrefixTableT struct{}
 // IpAddressPrefixTable is the descriptor for the ipAddressPrefixTable table.
 var IpAddressPrefixTable ipAddressPrefixTableT
 
-// Walk launches a BulkWalk over ipAddressPrefixTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipAddressPrefixTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipAddressPrefixTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressPrefixTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpAddressPrefixTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipAddressPrefixTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressPrefixTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipAddressPrefixTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpAddressPrefixTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpAddressPrefixTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipAddressPrefixTable", c)}
+		switch c.Key() {
+		case IpAddressPrefixOrigin.Key(), IpAddressPrefixOnLinkFlag.Key(), IpAddressPrefixAutonomousFlag.Key(), IpAddressPrefixAdvPreferredLifetime.Key(), IpAddressPrefixAdvValidLifetime.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipAddressPrefixTable.Walk: column %s", c.OID()))
+			return &IpAddressPrefixTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32))
-
 	return &IpAddressPrefixTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -7616,7 +7231,7 @@ var IpAddressStatus = snmp.NewColumn[IpAddressStatusTC](snmp.MustOID(1, 3, 6, 1,
 // The value of sysUpTime at the time this entry was created. If this entry
 // was created prior to the last re- initialization of the local network
 // management subsystem, then this object contains a zero value.
-var IpAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -7624,7 +7239,7 @@ var IpAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 
 // The value of sysUpTime at the time this entry was last updated. If this
 // entry was updated prior to the last re- initialization of the local
 // network management subsystem, then this object contains a zero value.
-var IpAddressLastChanged = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpAddressLastChanged = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -7705,248 +7320,185 @@ func (r IpAddressTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpAddressTableWalker is a table-aware walker over ipAddressTable.
+// IpAddressTableWalker streams selected columns of ipAddressTable.
 // The zero value is not usable; construct via IpAddressTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpAddressTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 	return func(yield func(snmp.OID, IpAddressTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1).WireBytes()
-		buffer := make(map[string]*IpAddressTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpAddressTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpAddressIfIndex = int32(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := IpAddressTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpAddressIfIndex.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpAddressIfIndex = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressIfIndex.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressIfIndex = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IpAddressType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpAddressType = IpAddressTypeValue(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressType = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case IpAddressPrefix.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressIfIndex.Decode(vb)
+						dv, dErr := IpAddressPrefix.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressIfIndex = dv
-							row.observed[0] |= 1 << 0
+							row.IpAddressPrefix = dv
+							row.observed[0] |= 1 << 2
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpAddressType = IpAddressTypeValue(v)
-					row.observed[0] |= 1 << 1
-				} else {
+				case IpAddressOrigin.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpAddressOrigin = IpAddressOriginTC(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressOrigin.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressOrigin = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case IpAddressStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpAddressStatus = IpAddressStatusTC(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressStatus = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case IpAddressCreated.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.IpAddressCreated = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressCreated.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressCreated = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case IpAddressLastChanged.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.IpAddressLastChanged = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpAddressLastChanged.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressLastChanged = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case IpAddressRowStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressType.Decode(vb)
+						dv, dErr := IpAddressRowStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressType = dv
-							row.observed[0] |= 1 << 1
+							row.IpAddressRowStatus = dv
+							row.observed[0] |= 1 << 7
 						}
 					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpAddressPrefix.Decode(vb)
-					if dErr != nil {
-						derr = dErr
+				case IpAddressStorageType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpAddressStorageType = snmpv2tc.StorageType(v)
+						row.observed[0] |= 1 << 8
 					} else {
-						row.IpAddressPrefix = dv
-						row.observed[0] |= 1 << 2
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpAddressOrigin = IpAddressOriginTC(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpAddressOrigin.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IpAddressOrigin = dv
-							row.observed[0] |= 1 << 3
+							dv, dErr := IpAddressStorageType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpAddressStorageType = dv
+								row.observed[0] |= 1 << 8
+							}
 						}
 					}
 				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpAddressStatus = IpAddressStatusTC(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpAddressStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpAddressStatus = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpAddressCreated = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpAddressCreated.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpAddressCreated = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpAddressLastChanged = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpAddressLastChanged.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpAddressLastChanged = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 10:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpAddressRowStatus.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpAddressRowStatus = dv
-						row.observed[0] |= 1 << 7
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpAddressStorageType = snmpv2tc.StorageType(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpAddressStorageType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpAddressStorageType = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -7965,35 +7517,43 @@ type ipAddressTableT struct{}
 // IpAddressTable is the descriptor for the ipAddressTable table.
 var IpAddressTable ipAddressTableT
 
-// Walk launches a BulkWalk over ipAddressTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipAddressTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpAddressTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipAddressTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpAddressTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpAddressTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipAddressTable", c)}
+		switch c.Key() {
+		case IpAddressIfIndex.Key(), IpAddressType.Key(), IpAddressPrefix.Key(), IpAddressOrigin.Key(), IpAddressStatus.Key(), IpAddressCreated.Key(), IpAddressLastChanged.Key(), IpAddressRowStatus.Key(), IpAddressStorageType.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipAddressTable.Walk: column %s", c.OID()))
+			return &IpAddressTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34))
-
 	return &IpAddressTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -8090,7 +7650,7 @@ func decodeIpAddressTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpAddressTableRo
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpAddressTableRow(a IpAddressTableRow, b IpAddressTableRow) bool {
-	return a.Index.Equal(b.Index) && a.IpAddressIfIndex == b.IpAddressIfIndex && a.IpAddressType == b.IpAddressType && a.IpAddressPrefix.Equal(b.IpAddressPrefix) && a.IpAddressOrigin == b.IpAddressOrigin && a.IpAddressStatus == b.IpAddressStatus && a.IpAddressCreated == b.IpAddressCreated && a.IpAddressLastChanged == b.IpAddressLastChanged && a.IpAddressRowStatus == b.IpAddressRowStatus && a.IpAddressStorageType == b.IpAddressStorageType
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IpAddressIfIndex == b.IpAddressIfIndex && a.IpAddressType == b.IpAddressType && a.IpAddressPrefix.Equal(b.IpAddressPrefix) && a.IpAddressOrigin == b.IpAddressOrigin && a.IpAddressStatus == b.IpAddressStatus && a.IpAddressCreated == b.IpAddressCreated && a.IpAddressLastChanged == b.IpAddressLastChanged && a.IpAddressRowStatus == b.IpAddressRowStatus && a.IpAddressStorageType == b.IpAddressStorageType
 }
 
 // mergeIpAddressTableRow merges the values decoded from vbs into dst, leaving fields
@@ -8256,7 +7816,7 @@ var IpNetToPhysicalPhysAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1,
 // The value of sysUpTime at the time this entry was last updated. If this
 // entry was updated prior to the last re- initialization of the local
 // network management subsystem, then this object contains a zero value.
-var IpNetToPhysicalLastUpdated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var IpNetToPhysicalLastUpdated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -8355,176 +7915,113 @@ func (r IpNetToPhysicalTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpNetToPhysicalTableWalker is a table-aware walker over ipNetToPhysicalTable.
+// IpNetToPhysicalTableWalker streams selected columns of ipNetToPhysicalTable.
 // The zero value is not usable; construct via IpNetToPhysicalTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpNetToPhysicalTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysicalTableRow] {
 	return func(yield func(snmp.OID, IpNetToPhysicalTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1).WireBytes()
-		buffer := make(map[string]*IpNetToPhysicalTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpNetToPhysicalTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 4:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpNetToPhysicalPhysAddress.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpNetToPhysicalPhysAddress = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpNetToPhysicalLastUpdated = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := IpNetToPhysicalTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpNetToPhysicalPhysAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToPhysicalLastUpdated.Decode(vb)
+						dv, dErr := IpNetToPhysicalPhysAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToPhysicalLastUpdated = dv
-							row.observed[0] |= 1 << 1
+							row.IpNetToPhysicalPhysAddress = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpNetToPhysicalType = IpNetToPhysicalTypeValue(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case IpNetToPhysicalLastUpdated.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.IpNetToPhysicalLastUpdated = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpNetToPhysicalLastUpdated.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpNetToPhysicalLastUpdated = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case IpNetToPhysicalType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpNetToPhysicalType = IpNetToPhysicalTypeValue(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpNetToPhysicalType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpNetToPhysicalType = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case IpNetToPhysicalState.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpNetToPhysicalState = IpNetToPhysicalStateValue(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpNetToPhysicalState.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpNetToPhysicalState = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case IpNetToPhysicalRowStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToPhysicalType.Decode(vb)
+						dv, dErr := IpNetToPhysicalRowStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToPhysicalType = dv
-							row.observed[0] |= 1 << 2
+							row.IpNetToPhysicalRowStatus = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
 				}
-			case 7:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpNetToPhysicalState = IpNetToPhysicalStateValue(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpNetToPhysicalState.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpNetToPhysicalState = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 8:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := IpNetToPhysicalRowStatus.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.IpNetToPhysicalRowStatus = dv
-						row.observed[0] |= 1 << 4
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -8543,35 +8040,43 @@ type ipNetToPhysicalTableT struct{}
 // IpNetToPhysicalTable is the descriptor for the ipNetToPhysicalTable table.
 var IpNetToPhysicalTable ipNetToPhysicalTableT
 
-// Walk launches a BulkWalk over ipNetToPhysicalTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipNetToPhysicalTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipNetToPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToPhysicalTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpNetToPhysicalTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipNetToPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToPhysicalTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipNetToPhysicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpNetToPhysicalTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpNetToPhysicalTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipNetToPhysicalTable", c)}
+		switch c.Key() {
+		case IpNetToPhysicalPhysAddress.Key(), IpNetToPhysicalLastUpdated.Key(), IpNetToPhysicalType.Key(), IpNetToPhysicalState.Key(), IpNetToPhysicalRowStatus.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipNetToPhysicalTable.Walk: column %s", c.OID()))
+			return &IpNetToPhysicalTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35))
-
 	return &IpNetToPhysicalTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -8640,7 +8145,7 @@ func decodeIpNetToPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpNetToPhy
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIpNetToPhysicalTableRow(a IpNetToPhysicalTableRow, b IpNetToPhysicalTableRow) bool {
-	return a.Index.Equal(b.Index) && bytes.Equal(a.IpNetToPhysicalPhysAddress, b.IpNetToPhysicalPhysAddress) && a.IpNetToPhysicalLastUpdated == b.IpNetToPhysicalLastUpdated && a.IpNetToPhysicalType == b.IpNetToPhysicalType && a.IpNetToPhysicalState == b.IpNetToPhysicalState && a.IpNetToPhysicalRowStatus == b.IpNetToPhysicalRowStatus
+	return a.Index.Equal(b.Index) && a.observed == b.observed && bytes.Equal(a.IpNetToPhysicalPhysAddress, b.IpNetToPhysicalPhysAddress) && a.IpNetToPhysicalLastUpdated == b.IpNetToPhysicalLastUpdated && a.IpNetToPhysicalType == b.IpNetToPhysicalType && a.IpNetToPhysicalState == b.IpNetToPhysicalState && a.IpNetToPhysicalRowStatus == b.IpNetToPhysicalRowStatus
 }
 
 // mergeIpNetToPhysicalTableRow merges the values decoded from vbs into dst, leaving fields
@@ -8905,312 +8410,249 @@ func (r Ipv6ScopeZoneIndexTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Ipv6ScopeZoneIndexTableWalker is a table-aware walker over ipv6ScopeZoneIndexTable.
+// Ipv6ScopeZoneIndexTableWalker streams selected columns of ipv6ScopeZoneIndexTable.
 // The zero value is not usable; construct via Ipv6ScopeZoneIndexTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Ipv6ScopeZoneIndexTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZoneIndexTableRow] {
 	return func(yield func(snmp.OID, Ipv6ScopeZoneIndexTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1).WireBytes()
-		buffer := make(map[string]*Ipv6ScopeZoneIndexTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Ipv6ScopeZoneIndexTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexLinkLocal = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := Ipv6ScopeZoneIndexTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Ipv6ScopeZoneIndexLinkLocal.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexLinkLocal = uint32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := Ipv6ScopeZoneIndexLinkLocal.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.Ipv6ScopeZoneIndexLinkLocal = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := Ipv6ScopeZoneIndexLinkLocal.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexLinkLocal = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndex3.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndex3 = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndex3.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndex3 = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndexAdminLocal.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexAdminLocal = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndexAdminLocal.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexAdminLocal = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndexSiteLocal.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexSiteLocal = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndexSiteLocal.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexSiteLocal = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndex6.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndex6 = uint32(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndex6.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndex6 = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndex7.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndex7 = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndex7.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndex7 = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndexOrganizationLocal.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexOrganizationLocal = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndexOrganizationLocal.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexOrganizationLocal = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndex9.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndex9 = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndex9.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndex9 = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndexA.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexA = uint32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndexA.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexA = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndexB.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexB = uint32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndexB.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexB = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndexC.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexC = uint32(v)
+						row.observed[0] |= 1 << 10
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndexC.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexC = dv
+								row.observed[0] |= 1 << 10
+							}
+						}
+					}
+				case Ipv6ScopeZoneIndexD.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6ScopeZoneIndexD = uint32(v)
+						row.observed[0] |= 1 << 11
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6ScopeZoneIndexD.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6ScopeZoneIndexD = dv
+								row.observed[0] |= 1 << 11
+							}
 						}
 					}
 				}
-			case 3:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndex3 = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndex3.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndex3 = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexAdminLocal = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndexAdminLocal.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndexAdminLocal = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexSiteLocal = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndexSiteLocal.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndexSiteLocal = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndex6 = uint32(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndex6.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndex6 = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndex7 = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndex7.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndex7 = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexOrganizationLocal = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndexOrganizationLocal.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndexOrganizationLocal = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndex9 = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndex9.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndex9 = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexA = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndexA.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndexA = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexB = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndexB.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndexB = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 12:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexC = uint32(v)
-					row.observed[0] |= 1 << 10
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndexC.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndexC = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-			case 13:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6ScopeZoneIndexD = uint32(v)
-					row.observed[0] |= 1 << 11
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6ScopeZoneIndexD.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6ScopeZoneIndexD = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -9229,35 +8671,43 @@ type ipv6ScopeZoneIndexTableT struct{}
 // Ipv6ScopeZoneIndexTable is the descriptor for the ipv6ScopeZoneIndexTable table.
 var Ipv6ScopeZoneIndexTable ipv6ScopeZoneIndexTableT
 
-// Walk launches a BulkWalk over ipv6ScopeZoneIndexTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipv6ScopeZoneIndexTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipv6ScopeZoneIndexTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6ScopeZoneIndexTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Ipv6ScopeZoneIndexTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipv6ScopeZoneIndexTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6ScopeZoneIndexTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipv6ScopeZoneIndexTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv6ScopeZoneIndexTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Ipv6ScopeZoneIndexTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipv6ScopeZoneIndexTable", c)}
+		switch c.Key() {
+		case Ipv6ScopeZoneIndexLinkLocal.Key(), Ipv6ScopeZoneIndex3.Key(), Ipv6ScopeZoneIndexAdminLocal.Key(), Ipv6ScopeZoneIndexSiteLocal.Key(), Ipv6ScopeZoneIndex6.Key(), Ipv6ScopeZoneIndex7.Key(), Ipv6ScopeZoneIndexOrganizationLocal.Key(), Ipv6ScopeZoneIndex9.Key(), Ipv6ScopeZoneIndexA.Key(), Ipv6ScopeZoneIndexB.Key(), Ipv6ScopeZoneIndexC.Key(), Ipv6ScopeZoneIndexD.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv6ScopeZoneIndexTable.Walk: column %s", c.OID()))
+			return &Ipv6ScopeZoneIndexTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36))
-
 	return &Ipv6ScopeZoneIndexTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -9319,132 +8769,69 @@ func (r IpDefaultRouterTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IpDefaultRouterTableWalker is a table-aware walker over ipDefaultRouterTable.
+// IpDefaultRouterTableWalker streams selected columns of ipDefaultRouterTable.
 // The zero value is not usable; construct via IpDefaultRouterTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IpDefaultRouterTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IpDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IpDefaultRouterTableRow] {
 	return func(yield func(snmp.OID, IpDefaultRouterTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1).WireBytes()
-		buffer := make(map[string]*IpDefaultRouterTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IpDefaultRouterTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 4:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.IpDefaultRouterLifetime = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := IpDefaultRouterTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IpDefaultRouterLifetime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.IpDefaultRouterLifetime = uint32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := IpDefaultRouterLifetime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IpDefaultRouterLifetime = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := IpDefaultRouterLifetime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpDefaultRouterLifetime = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IpDefaultRouterPreference.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.IpDefaultRouterPreference = IpDefaultRouterPreferenceValue(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IpDefaultRouterPreference.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IpDefaultRouterPreference = dv
+								row.observed[0] |= 1 << 1
+							}
 						}
 					}
 				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.IpDefaultRouterPreference = IpDefaultRouterPreferenceValue(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IpDefaultRouterPreference.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IpDefaultRouterPreference = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -9463,35 +8850,43 @@ type ipDefaultRouterTableT struct{}
 // IpDefaultRouterTable is the descriptor for the ipDefaultRouterTable table.
 var IpDefaultRouterTable ipDefaultRouterTableT
 
-// Walk launches a BulkWalk over ipDefaultRouterTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipDefaultRouterTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipDefaultRouterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpDefaultRouterTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IpDefaultRouterTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipDefaultRouterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpDefaultRouterTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipDefaultRouterTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpDefaultRouterTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IpDefaultRouterTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipDefaultRouterTable", c)}
+		switch c.Key() {
+		case IpDefaultRouterLifetime.Key(), IpDefaultRouterPreference.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipDefaultRouterTable.Walk: column %s", c.OID()))
+			return &IpDefaultRouterTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37))
-
 	return &IpDefaultRouterTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -9652,274 +9047,211 @@ func (r Ipv6RouterAdvertTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// Ipv6RouterAdvertTableWalker is a table-aware walker over ipv6RouterAdvertTable.
+// Ipv6RouterAdvertTableWalker streams selected columns of ipv6RouterAdvertTable.
 // The zero value is not usable; construct via Ipv6RouterAdvertTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type Ipv6RouterAdvertTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdvertTableRow] {
 	return func(yield func(snmp.OID, Ipv6RouterAdvertTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1).WireBytes()
-		buffer := make(map[string]*Ipv6RouterAdvertTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &Ipv6RouterAdvertTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Ipv6RouterAdvertSendAdverts.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Ipv6RouterAdvertSendAdverts = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6RouterAdvertMaxInterval = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := Ipv6RouterAdvertTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case Ipv6RouterAdvertSendAdverts.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertMaxInterval.Decode(vb)
+						dv, dErr := Ipv6RouterAdvertSendAdverts.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertMaxInterval = dv
-							row.observed[0] |= 1 << 1
+							row.Ipv6RouterAdvertSendAdverts = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6RouterAdvertMinInterval = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case Ipv6RouterAdvertMaxInterval.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6RouterAdvertMaxInterval = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6RouterAdvertMaxInterval.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6RouterAdvertMaxInterval = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case Ipv6RouterAdvertMinInterval.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6RouterAdvertMinInterval = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6RouterAdvertMinInterval.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6RouterAdvertMinInterval = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case Ipv6RouterAdvertManagedFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertMinInterval.Decode(vb)
+						dv, dErr := Ipv6RouterAdvertManagedFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertMinInterval = dv
-							row.observed[0] |= 1 << 2
+							row.Ipv6RouterAdvertManagedFlag = dv
+							row.observed[0] |= 1 << 3
 						}
 					}
-				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Ipv6RouterAdvertManagedFlag.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Ipv6RouterAdvertManagedFlag = dv
-						row.observed[0] |= 1 << 3
-					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Ipv6RouterAdvertOtherConfigFlag.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Ipv6RouterAdvertOtherConfigFlag = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6RouterAdvertLinkMTU = uint32(v)
-					row.observed[0] |= 1 << 5
-				} else {
+				case Ipv6RouterAdvertOtherConfigFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertLinkMTU.Decode(vb)
+						dv, dErr := Ipv6RouterAdvertOtherConfigFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertLinkMTU = dv
-							row.observed[0] |= 1 << 5
+							row.Ipv6RouterAdvertOtherConfigFlag = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6RouterAdvertReachableTime = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
+				case Ipv6RouterAdvertLinkMTU.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6RouterAdvertLinkMTU = uint32(v)
+						row.observed[0] |= 1 << 5
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6RouterAdvertLinkMTU.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6RouterAdvertLinkMTU = dv
+								row.observed[0] |= 1 << 5
+							}
+						}
+					}
+				case Ipv6RouterAdvertReachableTime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6RouterAdvertReachableTime = uint32(v)
+						row.observed[0] |= 1 << 6
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6RouterAdvertReachableTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6RouterAdvertReachableTime = dv
+								row.observed[0] |= 1 << 6
+							}
+						}
+					}
+				case Ipv6RouterAdvertRetransmitTime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6RouterAdvertRetransmitTime = uint32(v)
+						row.observed[0] |= 1 << 7
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6RouterAdvertRetransmitTime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6RouterAdvertRetransmitTime = dv
+								row.observed[0] |= 1 << 7
+							}
+						}
+					}
+				case Ipv6RouterAdvertCurHopLimit.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6RouterAdvertCurHopLimit = uint32(v)
+						row.observed[0] |= 1 << 8
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6RouterAdvertCurHopLimit.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6RouterAdvertCurHopLimit = dv
+								row.observed[0] |= 1 << 8
+							}
+						}
+					}
+				case Ipv6RouterAdvertDefaultLifetime.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.Ipv6RouterAdvertDefaultLifetime = uint32(v)
+						row.observed[0] |= 1 << 9
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := Ipv6RouterAdvertDefaultLifetime.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.Ipv6RouterAdvertDefaultLifetime = dv
+								row.observed[0] |= 1 << 9
+							}
+						}
+					}
+				case Ipv6RouterAdvertRowStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertReachableTime.Decode(vb)
+						dv, dErr := Ipv6RouterAdvertRowStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertReachableTime = dv
-							row.observed[0] |= 1 << 6
+							row.Ipv6RouterAdvertRowStatus = dv
+							row.observed[0] |= 1 << 10
 						}
 					}
 				}
-			case 9:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6RouterAdvertRetransmitTime = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6RouterAdvertRetransmitTime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6RouterAdvertRetransmitTime = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-			case 10:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6RouterAdvertCurHopLimit = uint32(v)
-					row.observed[0] |= 1 << 8
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6RouterAdvertCurHopLimit.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6RouterAdvertCurHopLimit = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-			case 11:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.Ipv6RouterAdvertDefaultLifetime = uint32(v)
-					row.observed[0] |= 1 << 9
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Ipv6RouterAdvertDefaultLifetime.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Ipv6RouterAdvertDefaultLifetime = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				}
-			case 12:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := Ipv6RouterAdvertRowStatus.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.Ipv6RouterAdvertRowStatus = dv
-						row.observed[0] |= 1 << 10
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -9938,35 +9270,43 @@ type ipv6RouterAdvertTableT struct{}
 // Ipv6RouterAdvertTable is the descriptor for the ipv6RouterAdvertTable table.
 var Ipv6RouterAdvertTable ipv6RouterAdvertTableT
 
-// Walk launches a BulkWalk over ipv6RouterAdvertTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of ipv6RouterAdvertTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (ipv6RouterAdvertTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6RouterAdvertTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *Ipv6RouterAdvertTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t ipv6RouterAdvertTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6RouterAdvertTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (ipv6RouterAdvertTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv6RouterAdvertTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &Ipv6RouterAdvertTableWalker{rw: snmp.ForeignColumnWalk(ctx, "ipv6RouterAdvertTable", c)}
+		switch c.Key() {
+		case Ipv6RouterAdvertSendAdverts.Key(), Ipv6RouterAdvertMaxInterval.Key(), Ipv6RouterAdvertMinInterval.Key(), Ipv6RouterAdvertManagedFlag.Key(), Ipv6RouterAdvertOtherConfigFlag.Key(), Ipv6RouterAdvertLinkMTU.Key(), Ipv6RouterAdvertReachableTime.Key(), Ipv6RouterAdvertRetransmitTime.Key(), Ipv6RouterAdvertCurHopLimit.Key(), Ipv6RouterAdvertDefaultLifetime.Key(), Ipv6RouterAdvertRowStatus.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv6RouterAdvertTable.Walk: column %s", c.OID()))
+			return &Ipv6RouterAdvertTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39))
-
 	return &Ipv6RouterAdvertTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -10041,168 +9381,105 @@ func (r IcmpStatsTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IcmpStatsTableWalker is a table-aware walker over icmpStatsTable.
+// IcmpStatsTableWalker streams selected columns of icmpStatsTable.
 // The zero value is not usable; construct via IcmpStatsTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IcmpStatsTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IcmpStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpStatsTableRow] {
 	return func(yield func(snmp.OID, IcmpStatsTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 29, 1).WireBytes()
-		buffer := make(map[string]*IcmpStatsTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IcmpStatsTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 2:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IcmpStatsInMsgs = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := IcmpStatsTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IcmpStatsInMsgs.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IcmpStatsInMsgs = uint32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := IcmpStatsInMsgs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IcmpStatsInMsgs = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := IcmpStatsInMsgs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IcmpStatsInMsgs = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IcmpStatsInErrors.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IcmpStatsInErrors = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IcmpStatsInErrors.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IcmpStatsInErrors = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case IcmpStatsOutMsgs.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IcmpStatsOutMsgs = uint32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IcmpStatsOutMsgs.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IcmpStatsOutMsgs = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case IcmpStatsOutErrors.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IcmpStatsOutErrors = uint32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IcmpStatsOutErrors.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IcmpStatsOutErrors = dv
+								row.observed[0] |= 1 << 3
+							}
 						}
 					}
 				}
-			case 3:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IcmpStatsInErrors = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IcmpStatsInErrors.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IcmpStatsInErrors = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IcmpStatsOutMsgs = uint32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IcmpStatsOutMsgs.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IcmpStatsOutMsgs = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IcmpStatsOutErrors = uint32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IcmpStatsOutErrors.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IcmpStatsOutErrors = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -10221,35 +9498,43 @@ type icmpStatsTableT struct{}
 // IcmpStatsTable is the descriptor for the icmpStatsTable table.
 var IcmpStatsTable icmpStatsTableT
 
-// Walk launches a BulkWalk over icmpStatsTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of icmpStatsTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (icmpStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IcmpStatsTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 29, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IcmpStatsTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t icmpStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IcmpStatsTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (icmpStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IcmpStatsTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IcmpStatsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "icmpStatsTable", c)}
+		switch c.Key() {
+		case IcmpStatsInMsgs.Key(), IcmpStatsInErrors.Key(), IcmpStatsOutMsgs.Key(), IcmpStatsOutErrors.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "icmpStatsTable.Walk: column %s", c.OID()))
+			return &IcmpStatsTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 29))
-
 	return &IcmpStatsTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -10298,132 +9583,69 @@ func (r IcmpMsgStatsTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// IcmpMsgStatsTableWalker is a table-aware walker over icmpMsgStatsTable.
+// IcmpMsgStatsTableWalker streams selected columns of icmpMsgStatsTable.
 // The zero value is not usable; construct via IcmpMsgStatsTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type IcmpMsgStatsTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *IcmpMsgStatsTableWalker) Iter() iter.Seq2[snmp.OID, IcmpMsgStatsTableRow] {
 	return func(yield func(snmp.OID, IcmpMsgStatsTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 30, 1).WireBytes()
-		buffer := make(map[string]*IcmpMsgStatsTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &IcmpMsgStatsTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 3:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IcmpMsgStatsInPkts = uint32(v)
-					row.observed[0] |= 1 << 0
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+		for idx, cells := range tw.rw.Iter() {
+			row := IcmpMsgStatsTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case IcmpMsgStatsInPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IcmpMsgStatsInPkts = uint32(v)
+						row.observed[0] |= 1 << 0
 					} else {
-						dv, dErr := IcmpMsgStatsInPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.IcmpMsgStatsInPkts = dv
-							row.observed[0] |= 1 << 0
+							dv, dErr := IcmpMsgStatsInPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IcmpMsgStatsInPkts = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case IcmpMsgStatsOutPkts.Key():
+					if v, okRaw := snmp.RawCounter32(rv); okRaw {
+						row.IcmpMsgStatsOutPkts = uint32(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := IcmpMsgStatsOutPkts.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.IcmpMsgStatsOutPkts = dv
+								row.observed[0] |= 1 << 1
+							}
 						}
 					}
 				}
-			case 4:
-				if v, okRaw := snmp.RawCounter32(rv); okRaw {
-					row.IcmpMsgStatsOutPkts = uint32(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IcmpMsgStatsOutPkts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IcmpMsgStatsOutPkts = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -10442,35 +9664,43 @@ type icmpMsgStatsTableT struct{}
 // IcmpMsgStatsTable is the descriptor for the icmpMsgStatsTable table.
 var IcmpMsgStatsTable icmpMsgStatsTableT
 
-// Walk launches a BulkWalk over icmpMsgStatsTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of icmpMsgStatsTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (icmpMsgStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IcmpMsgStatsTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 30, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *IcmpMsgStatsTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t icmpMsgStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IcmpMsgStatsTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (icmpMsgStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IcmpMsgStatsTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &IcmpMsgStatsTableWalker{rw: snmp.ForeignColumnWalk(ctx, "icmpMsgStatsTable", c)}
+		switch c.Key() {
+		case IcmpMsgStatsInPkts.Key(), IcmpMsgStatsOutPkts.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "icmpMsgStatsTable.Walk: column %s", c.OID()))
+			return &IcmpMsgStatsTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 30))
-
 	return &IcmpMsgStatsTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -10837,21 +10067,21 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var Ipv4InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28)}))
+var Ipv4InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28)}))
 
 // Ipv6InterfaceTableIndicator is the scalar change indicator for ipv6InterfaceTable.
 // The Watcher Gets ipv6InterfaceTableLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var Ipv6InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30)}))
+var Ipv6InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30)}))
 
 // IpIfStatsTableIndicator is the scalar change indicator for ipIfStatsTable.
 // The Watcher Gets ipIfStatsTableLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var IpIfStatsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2), snmp.KindUinteger32, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3)}))
+var IpIfStatsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3)}))
 
 // IpAddressTableIndicator is the per-row change indicator for ipAddressTable.
 // The Watcher probes the indicator column on each tick and only

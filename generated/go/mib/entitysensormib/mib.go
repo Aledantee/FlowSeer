@@ -10,11 +10,11 @@
 package entitysensormib
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"iter"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 )
 
@@ -290,7 +290,7 @@ var EntPhySensorUnitsDisplay = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2
 // EntPhySensorValueTimeStamp is the column entPhySensorValueTimeStamp of table entPhySensorTable.
 // The value of sysUpTime at the time the status and/or value of this
 // sensor was last obtained by the agent.
-var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
+var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
 
@@ -356,235 +356,172 @@ func (r EntPhySensorTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// EntPhySensorTableWalker is a table-aware walker over entPhySensorTable.
+// EntPhySensorTableWalker streams selected columns of entPhySensorTable.
 // The zero value is not usable; construct via EntPhySensorTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntPhySensorTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableRow] {
 	return func(yield func(snmp.OID, EntPhySensorTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1).WireBytes()
-		buffer := make(map[string]*EntPhySensorTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &EntPhySensorTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntPhySensorType = EntitySensorDataType(v)
-					row.observed[0] |= 1 << 0
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := EntPhySensorTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case EntPhySensorType.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntPhySensorType = EntitySensorDataType(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntPhySensorType.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntPhySensorType = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				case EntPhySensorScale.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntPhySensorScale = EntitySensorDataScale(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntPhySensorScale.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntPhySensorScale = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case EntPhySensorPrecision.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntPhySensorPrecision = int32(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntPhySensorPrecision.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntPhySensorPrecision = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case EntPhySensorValue.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntPhySensorValue = int32(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntPhySensorValue.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntPhySensorValue = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case EntPhySensorOperStatus.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntPhySensorOperStatus = EntitySensorStatus(v)
+						row.observed[0] |= 1 << 4
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntPhySensorOperStatus.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntPhySensorOperStatus = dv
+								row.observed[0] |= 1 << 4
+							}
+						}
+					}
+				case EntPhySensorUnitsDisplay.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := EntPhySensorType.Decode(vb)
+						dv, dErr := EntPhySensorUnitsDisplay.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.EntPhySensorType = dv
-							row.observed[0] |= 1 << 0
+							row.EntPhySensorUnitsDisplay = dv
+							row.observed[0] |= 1 << 5
 						}
 					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntPhySensorScale = EntitySensorDataScale(v)
-					row.observed[0] |= 1 << 1
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case EntPhySensorValueTimeStamp.Key():
+					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
+						row.EntPhySensorValueTimeStamp = uint32(v)
+						row.observed[0] |= 1 << 6
 					} else {
-						dv, dErr := EntPhySensorScale.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.EntPhySensorScale = dv
-							row.observed[0] |= 1 << 1
+							dv, dErr := EntPhySensorValueTimeStamp.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntPhySensorValueTimeStamp = dv
+								row.observed[0] |= 1 << 6
+							}
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntPhySensorPrecision = int32(v)
-					row.observed[0] |= 1 << 2
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case EntPhySensorValueUpdateRate.Key():
+					if v, okRaw := snmp.RawGauge32(rv); okRaw {
+						row.EntPhySensorValueUpdateRate = uint32(v)
+						row.observed[0] |= 1 << 7
 					} else {
-						dv, dErr := EntPhySensorPrecision.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.EntPhySensorPrecision = dv
-							row.observed[0] |= 1 << 2
+							dv, dErr := EntPhySensorValueUpdateRate.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntPhySensorValueUpdateRate = dv
+								row.observed[0] |= 1 << 7
+							}
 						}
 					}
 				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntPhySensorValue = int32(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntPhySensorValue.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntPhySensorValue = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-			case 5:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntPhySensorOperStatus = EntitySensorStatus(v)
-					row.observed[0] |= 1 << 4
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntPhySensorOperStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntPhySensorOperStatus = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-			case 6:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := EntPhySensorUnitsDisplay.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.EntPhySensorUnitsDisplay = dv
-						row.observed[0] |= 1 << 5
-					}
-				}
-			case 7:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.EntPhySensorValueTimeStamp = uint32(v)
-					row.observed[0] |= 1 << 6
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntPhySensorValueTimeStamp.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntPhySensorValueTimeStamp = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-			case 8:
-				if v, okRaw := snmp.RawGauge32(rv); okRaw {
-					row.EntPhySensorValueUpdateRate = uint32(v)
-					row.observed[0] |= 1 << 7
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntPhySensorValueUpdateRate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntPhySensorValueUpdateRate = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -603,35 +540,43 @@ type entPhySensorTableT struct{}
 // EntPhySensorTable is the descriptor for the entPhySensorTable table.
 var EntPhySensorTable entPhySensorTableT
 
-// Walk launches a BulkWalk over entPhySensorTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of entPhySensorTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (entPhySensorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhySensorTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *EntPhySensorTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t entPhySensorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhySensorTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (entPhySensorTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntPhySensorTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &EntPhySensorTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entPhySensorTable", c)}
+		switch c.Key() {
+		case EntPhySensorType.Key(), EntPhySensorScale.Key(), EntPhySensorPrecision.Key(), EntPhySensorValue.Key(), EntPhySensorOperStatus.Key(), EntPhySensorUnitsDisplay.Key(), EntPhySensorValueTimeStamp.Key(), EntPhySensorValueUpdateRate.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "entPhySensorTable.Walk: column %s", c.OID()))
+			return &EntPhySensorTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1))
-
 	return &EntPhySensorTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

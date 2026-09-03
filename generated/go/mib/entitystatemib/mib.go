@@ -10,12 +10,12 @@
 package entitystatemib
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"iter"
 	"time"
 
+	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/common/snmp"
 )
 
@@ -365,194 +365,131 @@ func (r EntStateTableRow) Observed(col snmp.AnyColumn) bool {
 	return false
 }
 
-// EntStateTableWalker is a table-aware walker over entStateTable.
+// EntStateTableWalker streams selected columns of entStateTable.
 // The zero value is not usable; construct via EntStateTable.Walk(ctx, sess, cols...).
-// Use a single iterator. Err may be called concurrently with iteration.
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type EntStateTableWalker struct {
-	rw    *snmp.RawWalker
-	cols  []snmp.AnyColumn
-	byCol map[uint32]snmp.AnyColumn
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
 }
 
-// Iter yields one (Index, Row) pair per row of the table walk. The
-// full BulkWalk is buffered before any row is yielded, so the
-// generated walker is correct over both column-major and row-major
-// agent emission. Contracts:
-//
-//  1. Ordering: rows yield in the index's first-appearance position
-//     in the agent's BulkWalk response — which for a well-behaved
-//     agent equals lexicographic OID order over the index suffix.
-//     This is NOT numerical order for composite-index tables
-//     (e.g. ipAddrTable indexed by IP-as-OID: 192.168.0.10 sorts
-//     before 192.168.0.2). Integer-keyed tables (ifTable,
-//     hrProcessorTable) get numeric order for free.
-//
-//  2. Row presence: every index observed under the entry prefix
-//     yields a row, even when only unrequested columns landed on
-//     that index. The row's requested-column fields stay at zero
-//     and Observed reports every column of that row as unobserved.
-//
-//  3. Decode error: rows for indexes strictly before the failing
-//     index in appearance order flush before Walker.Fail is set,
-//     preserving partial-progress visibility for the operator.
-//     The failing row and anything after it are not yielded.
-//     Check Err() afterwards for the terminal cause.
-//
-//  4. Memory profile: O(rows × requested columns) buffered before
-//     the first yield. Bounded by table size, not walk position —
-//     callers that broke out early via 'for row := range Iter()'
-//     still pay the full-walk buffer cost.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
 func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 	return func(yield func(snmp.OID, EntStateTableRow) bool) {
-		entryWire := snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1).WireBytes()
-		buffer := make(map[string]*EntStateTableRow)
-		var orderIdx []snmp.OID
-		var orderKey []string
-
-		for rv := range tw.rw.Iter() {
-			if !bytes.HasPrefix(rv.OID, entryWire) {
-				continue
-			}
-			suffix := rv.OID[len(entryWire):]
-			colID, colLen, okArc := snmp.RawFirstArc(suffix)
-			if !okArc || colLen >= len(suffix) {
-				continue
-			}
-			idxWire := suffix[colLen:]
-			row, exists := buffer[string(idxWire)]
-			if !exists {
-				idx, idxErr := snmp.DecodeIndexArcs(idxWire)
-				if idxErr != nil {
-					continue
-				}
-				key := string(idxWire)
-				row = &EntStateTableRow{}
-				buffer[key] = row
-				orderIdx = append(orderIdx, idx)
-				orderKey = append(orderKey, key)
-			}
-			_, ok := tw.byCol[colID]
-			if !ok {
-				continue
-			}
-			var derr error
-			switch colID {
-			case 1:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := EntStateLastChanged.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.EntStateLastChanged = dv
-						row.observed[0] |= 1 << 0
-					}
-				}
-			case 2:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntStateAdmin = EntityAdminState(v)
-					row.observed[0] |= 1 << 1
-				} else {
+		for idx, cells := range tw.rw.Iter() {
+			row := EntStateTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case EntStateLastChanged.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := EntStateAdmin.Decode(vb)
+						dv, dErr := EntStateLastChanged.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.EntStateAdmin = dv
-							row.observed[0] |= 1 << 1
+							row.EntStateLastChanged = dv
+							row.observed[0] |= 1 << 0
 						}
 					}
-				}
-			case 3:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntStateOper = EntityOperState(v)
-					row.observed[0] |= 1 << 2
-				} else {
+				case EntStateAdmin.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntStateAdmin = EntityAdminState(v)
+						row.observed[0] |= 1 << 1
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntStateAdmin.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntStateAdmin = dv
+								row.observed[0] |= 1 << 1
+							}
+						}
+					}
+				case EntStateOper.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntStateOper = EntityOperState(v)
+						row.observed[0] |= 1 << 2
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntStateOper.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntStateOper = dv
+								row.observed[0] |= 1 << 2
+							}
+						}
+					}
+				case EntStateUsage.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntStateUsage = EntityUsageState(v)
+						row.observed[0] |= 1 << 3
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := EntStateUsage.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntStateUsage = dv
+								row.observed[0] |= 1 << 3
+							}
+						}
+					}
+				case EntStateAlarm.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := EntStateOper.Decode(vb)
+						dv, dErr := EntStateAlarm.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.EntStateOper = dv
-							row.observed[0] |= 1 << 2
+							row.EntStateAlarm = dv
+							row.observed[0] |= 1 << 4
 						}
 					}
-				}
-			case 4:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntStateUsage = EntityUsageState(v)
-					row.observed[0] |= 1 << 3
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
+				case EntStateStandby.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.EntStateStandby = EntityStandbyStatus(v)
+						row.observed[0] |= 1 << 5
 					} else {
-						dv, dErr := EntStateUsage.Decode(vb)
-						if dErr != nil {
-							derr = dErr
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
 						} else {
-							row.EntStateUsage = dv
-							row.observed[0] |= 1 << 3
+							dv, dErr := EntStateStandby.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.EntStateStandby = dv
+								row.observed[0] |= 1 << 5
+							}
 						}
 					}
 				}
-			case 5:
-				vb, vbErr := rv.Decode()
-				if vbErr != nil {
-					derr = vbErr
-				} else {
-					dv, dErr := EntStateAlarm.Decode(vb)
-					if dErr != nil {
-						derr = dErr
-					} else {
-						row.EntStateAlarm = dv
-						row.observed[0] |= 1 << 4
-					}
-				}
-			case 6:
-				if v, okRaw := snmp.RawInteger32(rv); okRaw {
-					row.EntStateStandby = EntityStandbyStatus(v)
-					row.observed[0] |= 1 << 5
-				} else {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntStateStandby.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntStateStandby = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
 				}
 			}
-			if derr != nil {
-				for i := 0; i < len(orderKey); i++ {
-					if orderKey[i] == string(idxWire) {
-						break
-					}
-					if !yield(orderIdx[i], *buffer[orderKey[i]]) {
-						tw.rw.Fail(derr)
-						return
-					}
-				}
-				tw.rw.Fail(derr)
-				return
-			}
-		}
-
-		for i := 0; i < len(orderIdx); i++ {
-			if !yield(orderIdx[i], *buffer[orderKey[i]]) {
+			if !yield(idx, row) {
 				return
 			}
 		}
@@ -571,35 +508,43 @@ type entStateTableT struct{}
 // EntStateTable is the descriptor for the entStateTable table.
 var EntStateTable entStateTableT
 
-// Walk launches a BulkWalk over entStateTable and returns a
-// table-aware iterator. Only the columns listed in cols are
-// decoded; varbinds for unlisted columns are skipped. The walk
-// rides the raw fast path (BulkWalkRaw); sessions or responses
-// that cannot deliver raw bytes degrade transparently to the
-// generic per-varbind decode.
-//
-// Every column in cols must be a column of entStateTable. A column
-// of any other table is a caller bug, not a device quirk: no request
-// is sent, the iterator yields nothing, and Err reports
-// [snmp.ErrForeignColumn].
-func (entStateTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntStateTableWalker {
-	entry := snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1)
-	byCol := make(map[uint32]snmp.AnyColumn, len(cols))
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *EntStateTableWalker) Close() {
+	tw.rw.Close()
+}
 
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t entStateTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntStateTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (entStateTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntStateTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
 	for _, c := range cols {
-		o := c.OID()
-		if o.Len() != entry.Len()+1 || !o.HasPrefix(entry) {
-			return &EntStateTableWalker{rw: snmp.ForeignColumnWalk(ctx, "entStateTable", c)}
+		switch c.Key() {
+		case EntStateLastChanged.Key(), EntStateAdmin.Key(), EntStateOper.Key(), EntStateUsage.Key(), EntStateAlarm.Key(), EntStateStandby.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "entStateTable.Walk: column %s", c.OID()))
+			return &EntStateTableWalker{rw: w}
 		}
-		byCol[o.At(o.Len()-1)] = c
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
 	}
-
-	w := sess.BulkWalkRaw(ctx, snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1))
-
 	return &EntStateTableWalker{
-		byCol: byCol,
-		cols:  cols,
-		rw:    w,
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
@@ -675,7 +620,7 @@ func decodeEntStateTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntStateTableRow,
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntStateTableRow(a EntStateTableRow, b EntStateTableRow) bool {
-	return a.Index.Equal(b.Index) && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm.Equal(b.EntStateAlarm) && a.EntStateStandby == b.EntStateStandby
+	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm.Equal(b.EntStateAlarm) && a.EntStateStandby == b.EntStateStandby
 }
 
 // mergeEntStateTableRow merges the values decoded from vbs into dst, leaving fields

@@ -1,0 +1,11 @@
+goos: darwin
+goarch: arm64
+pkg: go.aledante.io/FlowSeer/src/common/snmp/bench
+cpu: Apple M4 Pro
+BenchmarkTableWalk/impl=flowseer-12         	     100	    240595 ns/op	   88670 B/op	    1062 allocs/op
+BenchmarkTableWalk/impl=flowseer-12         	     100	    194852 ns/op	   88663 B/op	    1062 allocs/op
+BenchmarkTableWalk/impl=flowseer-12         	     100	    142795 ns/op	   88741 B/op	    1062 allocs/op
+BenchmarkTableWalk/impl=flowseer-12         	     100	    160128 ns/op	   88663 B/op	    1062 allocs/op
+BenchmarkTableWalk/impl=flowseer-12         	     100	    136043 ns/op	   88675 B/op	    1062 allocs/op
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/snmp/bench	0.379s

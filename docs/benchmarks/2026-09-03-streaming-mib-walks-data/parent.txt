@@ -1,0 +1,31 @@
+goos: darwin
+goarch: arm64
+pkg: go.aledante.io/FlowSeer/src/common/snmp/bench
+cpu: Apple M4 Pro
+BenchmarkTableWalk/impl=flowseer-12         	       3	    288403 ns/op	   88693 B/op	    1062 allocs/op
+BenchmarkTableWalkScale/rows=50/cols=2/stop=0-12         	       3	   1997972 ns/op	        21.00 requests/op	     20928 wire-B/op	  449544 B/op	    2446 allocs/op
+BenchmarkTableWalkScale/rows=50/cols=2/stop=1-12         	       3	   1503903 ns/op	        21.00 requests/op	     20928 wire-B/op	  449554 B/op	    2446 allocs/op
+BenchmarkTableWalkScale/rows=50/cols=2/stop=100-12       	       3	   1473000 ns/op	        21.00 requests/op	     20928 wire-B/op	  449544 B/op	    2446 allocs/op
+BenchmarkTableWalkScale/rows=50/cols=20/stop=0-12        	       3	   1451375 ns/op	        21.00 requests/op	     20928 wire-B/op	  459088 B/op	    2648 allocs/op
+BenchmarkTableWalkScale/rows=50/cols=20/stop=1-12        	       3	   1462820 ns/op	        21.00 requests/op	     20928 wire-B/op	  459072 B/op	    2648 allocs/op
+BenchmarkTableWalkScale/rows=50/cols=20/stop=100-12      	       3	   1435028 ns/op	        21.00 requests/op	     20928 wire-B/op	  459072 B/op	    2648 allocs/op
+BenchmarkTableWalkScale/rows=1000/cols=2/stop=0-12       	       3	  17721208 ns/op	       401.0 requests/op	    431201 wire-B/op	 8994586 B/op	   34522 allocs/op
+BenchmarkTableWalkScale/rows=1000/cols=2/stop=1-12       	       3	  17497597 ns/op	       401.0 requests/op	    431201 wire-B/op	 8994442 B/op	   34520 allocs/op
+BenchmarkTableWalkScale/rows=1000/cols=2/stop=100-12     	       3	  17471250 ns/op	       401.0 requests/op	    431201 wire-B/op	 8994608 B/op	   34522 allocs/op
+BenchmarkTableWalkScale/rows=1000/cols=20/stop=0-12      	       3	  17361931 ns/op	       401.0 requests/op	    431201 wire-B/op	 9171117 B/op	   38521 allocs/op
+BenchmarkTableWalkScale/rows=1000/cols=20/stop=1-12      	       3	  17429778 ns/op	       401.0 requests/op	    431201 wire-B/op	 9171352 B/op	   38523 allocs/op
+BenchmarkTableWalkScale/rows=1000/cols=20/stop=100-12    	       3	  17310792 ns/op	       401.0 requests/op	    431201 wire-B/op	 9171117 B/op	   38521 allocs/op
+BenchmarkTableWalkScale/rows=10000/cols=2/stop=0-12      	       3	 173122681 ns/op	      4001 requests/op	   4340801 wire-B/op	90775461 B/op	  338976 allocs/op
+BenchmarkTableWalkScale/rows=10000/cols=2/stop=1-12      	       3	 171324597 ns/op	      4001 requests/op	   4340801 wire-B/op	90775008 B/op	  338972 allocs/op
+BenchmarkTableWalkScale/rows=10000/cols=2/stop=100-12    	       3	 173631375 ns/op	      4001 requests/op	   4340801 wire-B/op	90775088 B/op	  338972 allocs/op
+BenchmarkTableWalkScale/rows=10000/cols=20/stop=0-12     	       3	 170641500 ns/op	      4001 requests/op	   4340801 wire-B/op	92535912 B/op	  378975 allocs/op
+BenchmarkTableWalkScale/rows=10000/cols=20/stop=1-12     	       3	 172418097 ns/op	      4001 requests/op	   4340801 wire-B/op	92535922 B/op	  378975 allocs/op
+BenchmarkTableWalkScale/rows=10000/cols=20/stop=100-12   	       3	 178955736 ns/op	      4001 requests/op	   4340801 wire-B/op	92535746 B/op	  378974 allocs/op
+BenchmarkTableWalkScale/rows=100000/cols=2/stop=0-12     	       3	1793542653 ns/op	     40001 requests/op	  45882164 wire-B/op	953346714 B/op	 3383243 allocs/op
+BenchmarkTableWalkScale/rows=100000/cols=2/stop=1-12     	       3	1786343083 ns/op	     40001 requests/op	  45882164 wire-B/op	953348610 B/op	 3383246 allocs/op
+BenchmarkTableWalkScale/rows=100000/cols=2/stop=100-12   	       3	1792665222 ns/op	     40001 requests/op	  45882164 wire-B/op	953346762 B/op	 3383243 allocs/op
+BenchmarkTableWalkScale/rows=100000/cols=20/stop=0-12    	       3	1824094292 ns/op	     40001 requests/op	  45882164 wire-B/op	972285581 B/op	 3783247 allocs/op
+BenchmarkTableWalkScale/rows=100000/cols=20/stop=1-12    	       3	1777333889 ns/op	     40001 requests/op	  45882164 wire-B/op	972285448 B/op	 3783246 allocs/op
+BenchmarkTableWalkScale/rows=100000/cols=20/stop=100-12  	       3	1884449125 ns/op	     40001 requests/op	  45882164 wire-B/op	972285560 B/op	 3783247 allocs/op
+PASS
+ok  	go.aledante.io/FlowSeer/src/common/snmp/bench	73.033s
