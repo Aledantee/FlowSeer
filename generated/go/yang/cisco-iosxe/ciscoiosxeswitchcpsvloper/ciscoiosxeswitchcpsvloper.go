@@ -6,7 +6,7 @@
 // Package ciscoiosxeswitchcpsvloper binds the YANG module Cisco-IOS-XE-switch-cp-svl-oper.
 package ciscoiosxeswitchcpsvloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SwitchCpSvlOperData is the Cisco-IOS-XE-switch-cp-svl-oper node /Cisco-IOS-XE-switch-cp-svl-oper/switch-cp-svl-oper-data.
 type SwitchCpSvlOperData struct {

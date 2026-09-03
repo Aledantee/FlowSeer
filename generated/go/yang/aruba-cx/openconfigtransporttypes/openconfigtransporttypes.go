@@ -6,7 +6,7 @@
 // Package openconfigtransporttypes binds the YANG module openconfig-transport-types.
 package openconfigtransporttypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ADD is the openconfig-transport-types identity "ADD".
 var Identity_ADD = yang.Identity{

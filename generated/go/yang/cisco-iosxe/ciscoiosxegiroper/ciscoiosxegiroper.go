@@ -6,7 +6,7 @@
 // Package ciscoiosxegiroper binds the YANG module Cisco-IOS-XE-gir-oper.
 package ciscoiosxegiroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GirOperData is the Cisco-IOS-XE-gir-oper node /Cisco-IOS-XE-gir-oper/gir-oper-data.
 type GirOperData struct {

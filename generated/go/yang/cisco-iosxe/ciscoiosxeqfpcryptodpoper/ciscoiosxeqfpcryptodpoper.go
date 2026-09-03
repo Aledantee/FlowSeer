@@ -6,7 +6,7 @@
 // Package ciscoiosxeqfpcryptodpoper binds the YANG module Cisco-IOS-XE-qfp-crypto-dp-oper.
 package ciscoiosxeqfpcryptodpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // QfpCryptoDpOperData is the Cisco-IOS-XE-qfp-crypto-dp-oper node /Cisco-IOS-XE-qfp-crypto-dp-oper/qfp-crypto-dp-oper-data.
 type QfpCryptoDpOperData struct {

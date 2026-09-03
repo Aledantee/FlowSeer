@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessurwbcfg binds the YANG module Cisco-IOS-XE-wireless-urwb-cfg.
 package ciscoiosxewirelessurwbcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UrwbCfgData is the Cisco-IOS-XE-wireless-urwb-cfg node /Cisco-IOS-XE-wireless-urwb-cfg/urwb-cfg-data.
 type UrwbCfgData struct {

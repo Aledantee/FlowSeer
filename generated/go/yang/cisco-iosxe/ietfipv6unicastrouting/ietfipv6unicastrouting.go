@@ -6,7 +6,7 @@
 // Package ietfipv6unicastrouting binds the YANG module ietf-ipv6-unicast-routing.
 package ietfipv6unicastrouting
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Ipv6Unicast is the ietf-ipv6-unicast-routing identity "ipv6-unicast".
 var Identity_Ipv6Unicast = yang.Identity{

@@ -5,255 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/pps-case/pps.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level struct {
-	Bps       *Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Bps
-	Pps       *Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Pps
-	Threshold *Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Threshold
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast struct {
-	Include *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include
-	Level   *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Level
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_MulticastSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_MulticastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "multicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include struct {
-	Broadcast      *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast
-	Unicast        *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Unicast
-	UnknownUnicast *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_UnknownUnicast
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}, {
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_UnicastSchema,
-		GoName: "Unicast",
-		Name:   "unicast",
-	}, {
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_UnknownUnicastSchema,
-		GoName: "UnknownUnicast",
-		Name:   "unknown-unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include/broadcast.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast struct {
-	Include *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include
-	Level   *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Level
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include/broadcast for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_BroadcastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "broadcast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include/broadcast/include.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include struct {
-	Unicast        *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast
-	UnknownUnicast *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnknownUnicast
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include/broadcast/include for the generic codecs.
-var Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnicastSchema,
-		GoName: "Unicast",
-		Name:   "unicast",
-	}, {
-		Child:  Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnknownUnicastSchema,
-		GoName: "UnknownUnicast",
-		Name:   "unknown-unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include/broadcast/include/unicast.
-type Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast struct {
-	Include *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include
-	Level   *Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Level
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/Virtual-WPAN/storm-control/level-shared/multicast/include/broadcast/include/unicast for the generic codecs.
 var Native_Interface_VirtualWPAN_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnicastSchema = &yang.Schema{
@@ -40942,4 +40694,368 @@ type Native_Interface_Vlan_Cts_Manual_Sap_PmkKey struct {
 type Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow struct {
 	Vlan_Name string
 	Entry     Native_Interface_Vlan_Cts_Manual_Sap_Pmk
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_PmkDescriptor is the flattened-row descriptor for the nested list Native_Interface_Vlan_Cts_Manual_Sap_Pmk.
+func Native_Interface_Vlan_Cts_Manual_Sap_PmkDescriptor() yang.ListDescriptor[Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow, Native_Interface_Vlan_Cts_Manual_Sap_PmkKey] {
+	return yang.ListDescriptor[Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow, Native_Interface_Vlan_Cts_Manual_Sap_PmkKey]{
+		Codec: yang.RowCodec[Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow, Native_Interface_Vlan_Cts_Manual_Sap_PmkKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_VlanSchema, Native_Interface_Vlan_Cts_Manual_Sap_PmkSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_Vlan_Cts_Manual_Sap_Pmk](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow{
+						Entry:     en.Entry,
+						Vlan_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_VlanSchema, Native_Interface_Vlan_Cts_Manual_Sap_PmkSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_Vlan_Cts_Manual_Sap_Pmk](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow{
+						Entry:     en.Entry,
+						Vlan_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow) Native_Interface_Vlan_Cts_Manual_Sap_PmkKey {
+				var k Native_Interface_Vlan_Cts_Manual_Sap_PmkKey
+				k.Vlan_Name = r.Vlan_Name
+				if r.Entry.Word != nil {
+					k.Word = *r.Entry.Word
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow) Native_Interface_Vlan_Cts_Manual_Sap_PmkFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_Vlan_Cts_Manual_Sap_PmkSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Vlan"}, {
+			Module:    "Cisco-IOS-XE-cts",
+			Name:      "cts",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-cts",
+		}, {Name: "manual"}, {Name: "sap"}, {Name: "pmk"}}},
+	}
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list.
+type Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList struct {
+	GcmEncrypt *Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt
+	NoEncap    *Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeListSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list for the generic codecs.
+var Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncryptSchema,
+		GoName: "GcmEncrypt",
+		Name:   "gcm-encrypt",
+	}, {
+		Child:  Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncapSchema,
+		GoName: "NoEncap",
+		Name:   "no-encap",
+	}},
+	Module:    "Cisco-IOS-XE-cts",
+	Name:      "mode-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-cts",
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/gcm-encrypt.
+type Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt struct {
+	Gmac *Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt_Gmac
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncryptSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/gcm-encrypt for the generic codecs.
+var Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncryptSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt_GmacSchema,
+		GoName: "Gmac",
+		Name:   "gmac",
+	}},
+	Module:    "Cisco-IOS-XE-cts",
+	Name:      "gcm-encrypt",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-cts",
+	Presence:  true,
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt_Gmac is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/gcm-encrypt/gmac.
+type Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt_Gmac struct {
+	Null *bool
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt_GmacSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/gcm-encrypt/gmac for the generic codecs.
+var Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_GcmEncrypt_GmacSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Null",
+		Name:   "null",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-cts",
+	Name:      "gmac",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-cts",
+	Presence:  true,
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/no-encap.
+type Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap struct {
+	Gmac *Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap_Gmac
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncapSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/no-encap for the generic codecs.
+var Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap_GmacSchema,
+		GoName: "Gmac",
+		Name:   "gmac",
+	}},
+	Module:    "Cisco-IOS-XE-cts",
+	Name:      "no-encap",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-cts",
+	Presence:  true,
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap_Gmac is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/no-encap/gmac.
+type Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap_Gmac struct {
+	GcmEncrypt *bool
+}
+
+// Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap_GmacSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/cts/manual/sap/pmk/mode-list/no-encap/gmac for the generic codecs.
+var Native_Interface_Vlan_Cts_Manual_Sap_Pmk_ModeList_NoEncap_GmacSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "GcmEncrypt",
+		Name:   "gcm-encrypt",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-cts",
+	Name:      "gmac",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-cts",
+	Presence:  true,
+}
+
+// Native_Interface_Vlan_CwsTunnel is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/cws-tunnel.
+type Native_Interface_Vlan_CwsTunnel struct {
+	In  *bool
+	Out *Native_Interface_Vlan_CwsTunnel_Out
+}
+
+// Native_Interface_Vlan_CwsTunnelSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/cws-tunnel for the generic codecs.
+var Native_Interface_Vlan_CwsTunnelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_Vlan_CwsTunnel_OutSchema,
+		GoName: "Out",
+		Name:   "out",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "cws-tunnel",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Vlan_CwsTunnel_Out is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/cws-tunnel/out.
+type Native_Interface_Vlan_CwsTunnel_Out struct {
+	TunnelNumber *uint16
+}
+
+// Native_Interface_Vlan_CwsTunnel_OutSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/cws-tunnel/out for the generic codecs.
+var Native_Interface_Vlan_CwsTunnel_OutSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "TunnelNumber",
+		Name:   "tunnel-number",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "out",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Vlan_Dampening is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/dampening.
+type Native_Interface_Vlan_Dampening struct {
+	DampeningTime         *uint16
+	MaximumSupressingTime *uint16
+	Restart               *Native_Interface_Vlan_Dampening_Restart
+	StartReusingTime      *uint16
+	StartSupressingTime   *uint16
+}
+
+// Native_Interface_Vlan_DampeningSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/dampening for the generic codecs.
+var Native_Interface_Vlan_DampeningSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "DampeningTime",
+		Name:   "dampening-time",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "MaximumSupressingTime",
+		Name:   "maximum-supressing-time",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Interface_Vlan_Dampening_RestartSchema,
+		GoName: "Restart",
+		Name:   "restart",
+	}, {
+		GoName: "StartReusingTime",
+		Name:   "start-reusing-time",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "StartSupressingTime",
+		Name:   "start-supressing-time",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "dampening",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_Vlan_Dampening_Restart is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/dampening/restart.
+type Native_Interface_Vlan_Dampening_Restart struct {
+	Restart        *bool
+	RestartPenalty *uint16
+}
+
+// Native_Interface_Vlan_Dampening_RestartSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/dampening/restart for the generic codecs.
+var Native_Interface_Vlan_Dampening_RestartSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Restart",
+		Name:   "restart",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "RestartPenalty",
+		Name:   "restart-penalty",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "restart",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_Vlan_Datalink is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/datalink.
+type Native_Interface_Vlan_Datalink struct {
+	Flow *Native_Interface_Vlan_Datalink_Flow
+}
+
+// Native_Interface_Vlan_DatalinkSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/datalink for the generic codecs.
+var Native_Interface_Vlan_DatalinkSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vlan_Datalink_FlowSchema,
+		GoName: "Flow",
+		Name:   "flow",
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "datalink",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_Vlan_Datalink_Flow is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/datalink/flow.
+type Native_Interface_Vlan_Datalink_Flow struct {
+	Monitor    *Native_Interface_Vlan_Datalink_Flow_Monitor
+	MonitorNew []Native_Interface_Vlan_Datalink_Flow_MonitorNew
+}
+
+// Native_Interface_Vlan_Datalink_FlowSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/datalink/flow for the generic codecs.
+var Native_Interface_Vlan_Datalink_FlowSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Vlan_Datalink_Flow_MonitorSchema,
+		GoName: "Monitor",
+		Name:   "monitor",
+	}, {
+		Child:  Native_Interface_Vlan_Datalink_Flow_MonitorNewSchema,
+		GoName: "MonitorNew",
+		List:   true,
+		Name:   "monitor-new",
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "flow",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_Vlan_Datalink_Flow_Monitor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/datalink/flow/monitor.
+type Native_Interface_Vlan_Datalink_Flow_Monitor struct {
+	UserDefinedFlow *string
+	InputOutput     *string
+}
+
+// Native_Interface_Vlan_Datalink_Flow_MonitorSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/datalink/flow/monitor for the generic codecs.
+var Native_Interface_Vlan_Datalink_Flow_MonitorSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "UserDefinedFlow",
+		Name:   "User-defined-flow",
+		Type:   yang.TString,
+	}, {
+		GoName: "InputOutput",
+		Name:   "input-output",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "monitor",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+	Presence:  true,
+}
+
+// Native_Interface_Vlan_Datalink_Flow_MonitorNew is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Vlan/datalink/flow/monitor-new.
+type Native_Interface_Vlan_Datalink_Flow_MonitorNew struct {
+	Direction  *string
+	Name       *string
+	Sampler    *string
+	Subtraffic *string
+}
+
+// Native_Interface_Vlan_Datalink_Flow_MonitorNewSchema describes /Cisco-IOS-XE-native/native/interface/Vlan/datalink/flow/monitor-new for the generic codecs.
+var Native_Interface_Vlan_Datalink_Flow_MonitorNewSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Direction",
+		Name:   "direction",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Sampler",
+		Name:   "sampler",
+		Type:   yang.TString,
+	}, {
+		GoName: "Subtraffic",
+		Name:   "subtraffic",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"name", "direction"},
+	Module:    "Cisco-IOS-XE-switch",
+	Name:      "monitor-new",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
+}
+
+// Native_Interface_Vlan_Datalink_Flow_MonitorNewKey is Native_Interface_Vlan_Datalink_Flow_MonitorNew's row identity (ancestor keys in canonical form).
+type Native_Interface_Vlan_Datalink_Flow_MonitorNewKey struct {
+	Vlan_Name string
+	Name      string
+	Direction string
+}
+
+// Native_Interface_Vlan_Datalink_Flow_MonitorNewFlatRow flattens one Native_Interface_Vlan_Datalink_Flow_MonitorNew entry with its ancestor list keys.
+type Native_Interface_Vlan_Datalink_Flow_MonitorNewFlatRow struct {
+	Vlan_Name string
+	Entry     Native_Interface_Vlan_Datalink_Flow_MonitorNew
 }

@@ -6,7 +6,7 @@
 // Package ciscoiosxeidentityoper binds the YANG module Cisco-IOS-XE-identity-oper.
 package ciscoiosxeidentityoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IdentityOperData is the Cisco-IOS-XE-identity-oper node /Cisco-IOS-XE-identity-oper/identity-oper-data.
 type IdentityOperData struct {

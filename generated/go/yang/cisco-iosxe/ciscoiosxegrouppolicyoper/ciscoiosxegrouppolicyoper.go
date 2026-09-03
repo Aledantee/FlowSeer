@@ -6,7 +6,7 @@
 // Package ciscoiosxegrouppolicyoper binds the YANG module Cisco-IOS-XE-group-policy-oper.
 package ciscoiosxegrouppolicyoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GroupPolicyOperData is the Cisco-IOS-XE-group-policy-oper node /Cisco-IOS-XE-group-policy-oper/group-policy-oper-data.
 type GroupPolicyOperData struct {

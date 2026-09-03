@@ -6,7 +6,7 @@
 // Package ciscoiosxecdpoper binds the YANG module Cisco-IOS-XE-cdp-oper.
 package ciscoiosxecdpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CdpNeighborDetails is the Cisco-IOS-XE-cdp-oper node /Cisco-IOS-XE-cdp-oper/cdp-neighbor-details.
 type CdpNeighborDetails struct {

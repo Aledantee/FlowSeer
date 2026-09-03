@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesstunneloper binds the YANG module Cisco-IOS-XE-wireless-tunnel-oper.
 package ciscoiosxewirelesstunneloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TunnelOperData is the Cisco-IOS-XE-wireless-tunnel-oper node /Cisco-IOS-XE-wireless-tunnel-oper/tunnel-oper-data.
 type TunnelOperData struct {

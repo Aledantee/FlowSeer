@@ -6,7 +6,7 @@
 // Package ciscoiosxeucseoper binds the YANG module Cisco-IOS-XE-ucse-oper.
 package ciscoiosxeucseoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UcseOperData is the Cisco-IOS-XE-ucse-oper node /Cisco-IOS-XE-ucse-oper/ucse-oper-data.
 type UcseOperData struct {

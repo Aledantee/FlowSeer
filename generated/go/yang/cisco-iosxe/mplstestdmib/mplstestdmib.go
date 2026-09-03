@@ -6,7 +6,7 @@
 // Package mplstestdmib binds the YANG module MPLS-TE-STD-MIB.
 package mplstestdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MPLSTESTDMIB is the MPLS-TE-STD-MIB node /MPLS-TE-STD-MIB/MPLS-TE-STD-MIB.
 type MPLSTESTDMIB struct {

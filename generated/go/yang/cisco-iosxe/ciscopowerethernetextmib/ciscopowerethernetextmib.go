@@ -6,7 +6,7 @@
 // Package ciscopowerethernetextmib binds the YANG module CISCO-POWER-ETHERNET-EXT-MIB.
 package ciscopowerethernetextmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOPOWERETHERNETEXTMIB is the CISCO-POWER-ETHERNET-EXT-MIB node /CISCO-POWER-ETHERNET-EXT-MIB/CISCO-POWER-ETHERNET-EXT-MIB.
 type CISCOPOWERETHERNETEXTMIB struct {

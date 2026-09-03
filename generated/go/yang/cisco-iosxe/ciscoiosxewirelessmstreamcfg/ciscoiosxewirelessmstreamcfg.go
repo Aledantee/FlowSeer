@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmstreamcfg binds the YANG module Cisco-IOS-XE-wireless-mstream-cfg.
 package ciscoiosxewirelessmstreamcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MstreamCfgData is the Cisco-IOS-XE-wireless-mstream-cfg node /Cisco-IOS-XE-wireless-mstream-cfg/mstream-cfg-data.
 type MstreamCfgData struct {

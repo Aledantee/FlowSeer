@@ -15,7 +15,7 @@ import (
 	"iter"
 
 	errs "go.aledante.io/FlowSeer/src/common/errs"
-	snmp "go.aledante.io/FlowSeer/src/common/snmp"
+	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // LldpChassisIdSubtype is the SMI enum LldpChassisIdSubtype.

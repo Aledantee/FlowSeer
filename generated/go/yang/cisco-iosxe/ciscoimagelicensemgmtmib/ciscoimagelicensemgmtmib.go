@@ -6,7 +6,7 @@
 // Package ciscoimagelicensemgmtmib binds the YANG module CISCO-IMAGE-LICENSE-MGMT-MIB.
 package ciscoimagelicensemgmtmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIMAGELICENSEMGMTMIB is the CISCO-IMAGE-LICENSE-MGMT-MIB node /CISCO-IMAGE-LICENSE-MGMT-MIB/CISCO-IMAGE-LICENSE-MGMT-MIB.
 type CISCOIMAGELICENSEMGMTMIB struct {

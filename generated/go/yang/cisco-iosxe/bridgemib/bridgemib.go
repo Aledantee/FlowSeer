@@ -6,7 +6,7 @@
 // Package bridgemib binds the YANG module BRIDGE-MIB.
 package bridgemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BRIDGEMIB is the BRIDGE-MIB node /BRIDGE-MIB/BRIDGE-MIB.
 type BRIDGEMIB struct {

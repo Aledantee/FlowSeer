@@ -6,7 +6,7 @@
 // Package openconfiglldptypes binds the YANG module openconfig-lldp-types.
 package openconfiglldptypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_CHASSISID is the openconfig-lldp-types identity "CHASSIS_ID".
 var Identity_CHASSISID = yang.Identity{

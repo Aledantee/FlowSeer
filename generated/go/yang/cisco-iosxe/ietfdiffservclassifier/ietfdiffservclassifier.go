@@ -6,7 +6,7 @@
 // Package ietfdiffservclassifier binds the YANG module ietf-diffserv-classifier.
 package ietfdiffservclassifier
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ClassifierEntryFilterOperationType is the ietf-diffserv-classifier identity "classifier-entry-filter-operation-type".
 var Identity_ClassifierEntryFilterOperationType = yang.Identity{

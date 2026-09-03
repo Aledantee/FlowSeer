@@ -6,7 +6,7 @@
 // Package ciscoaaaservermib binds the YANG module CISCO-AAA-SERVER-MIB.
 package ciscoaaaservermib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOAAASERVERMIB is the CISCO-AAA-SERVER-MIB node /CISCO-AAA-SERVER-MIB/CISCO-AAA-SERVER-MIB.
 type CISCOAAASERVERMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxeprpoper binds the YANG module Cisco-IOS-XE-prp-oper.
 package ciscoiosxeprpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PrpOperData is the Cisco-IOS-XE-prp-oper node /Cisco-IOS-XE-prp-oper/prp-oper-data.
 type PrpOperData struct {

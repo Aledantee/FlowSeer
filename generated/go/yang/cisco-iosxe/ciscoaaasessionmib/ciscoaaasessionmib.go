@@ -6,7 +6,7 @@
 // Package ciscoaaasessionmib binds the YANG module CISCO-AAA-SESSION-MIB.
 package ciscoaaasessionmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOAAASESSIONMIB is the CISCO-AAA-SESSION-MIB node /CISCO-AAA-SESSION-MIB/CISCO-AAA-SESSION-MIB.
 type CISCOAAASESSIONMIB struct {

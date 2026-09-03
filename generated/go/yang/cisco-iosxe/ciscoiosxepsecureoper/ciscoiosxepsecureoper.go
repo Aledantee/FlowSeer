@@ -6,7 +6,7 @@
 // Package ciscoiosxepsecureoper binds the YANG module Cisco-IOS-XE-psecure-oper.
 package ciscoiosxepsecureoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PsecureOperData is the Cisco-IOS-XE-psecure-oper node /Cisco-IOS-XE-psecure-oper/psecure-oper-data.
 type PsecureOperData struct {

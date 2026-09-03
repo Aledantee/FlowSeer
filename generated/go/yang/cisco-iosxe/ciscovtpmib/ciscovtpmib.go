@@ -6,7 +6,7 @@
 // Package ciscovtpmib binds the YANG module CISCO-VTP-MIB.
 package ciscovtpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOVTPMIB is the CISCO-VTP-MIB node /CISCO-VTP-MIB/CISCO-VTP-MIB.
 type CISCOVTPMIB struct {

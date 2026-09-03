@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessdot11cfg binds the YANG module Cisco-IOS-XE-wireless-dot11-cfg.
 package ciscoiosxewirelessdot11cfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Dot11CfgData is the Cisco-IOS-XE-wireless-dot11-cfg node /Cisco-IOS-XE-wireless-dot11-cfg/dot11-cfg-data.
 type Dot11CfgData struct {

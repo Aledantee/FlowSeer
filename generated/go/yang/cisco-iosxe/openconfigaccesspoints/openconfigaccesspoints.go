@@ -6,7 +6,7 @@
 // Package openconfigaccesspoints binds the YANG module openconfig-access-points.
 package openconfigaccesspoints
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AccessPoints is the openconfig-access-points node /openconfig-access-points/access-points.
 type AccessPoints struct {

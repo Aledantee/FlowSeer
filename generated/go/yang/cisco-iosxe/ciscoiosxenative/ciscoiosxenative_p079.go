@@ -5,431 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Bgp.
-func Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpKey] {
-	return yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpKey]{
-		Codec: yang.RowCodec[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Bgp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Bgp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpKey {
-				var k Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpKey
-				k.Ospfv3_Id = r.Ospfv3_Id
-				if r.Entry.Out != nil {
-					k.Out = *r.Entry.Out
-				}
-				if r.Entry.Bgp != nil {
-					k.Bgp = yang.CanonicalKey(r.Entry.Bgp)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_BgpSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "unicast"}, {Name: "distribute-list"}, {Name: "prefix-list"}, {Name: "prefix-list-out-protocol"}, {Name: "bgp"}}},
-	}
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/connected.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected struct {
-	Connected  *string
-	Out        *string
-	PrefixList *string
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/connected for the generic codecs.
-var Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Connected",
-		Name:   "connected",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "PrefixList",
-		Name:   "prefix-list",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"out", "connected"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "connected",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedKey is Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected's row identity (ancestor keys in canonical form).
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedKey struct {
-	Ospfv3_Id string
-	Out       string
-	Connected string
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow flattens one Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected entry with its ancestor list keys.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow struct {
-	Ospfv3_Id string
-	Entry     Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected.
-func Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedKey] {
-	return yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedKey]{
-		Codec: yang.RowCodec[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Connected](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedKey {
-				var k Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedKey
-				k.Ospfv3_Id = r.Ospfv3_Id
-				if r.Entry.Out != nil {
-					k.Out = *r.Entry.Out
-				}
-				if r.Entry.Connected != nil {
-					k.Connected = *r.Entry.Connected
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_ConnectedSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "unicast"}, {Name: "distribute-list"}, {Name: "prefix-list"}, {Name: "prefix-list-out-protocol"}, {Name: "connected"}}},
-	}
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/eigrp.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp struct {
-	Eigrp      *uint16
-	Out        *string
-	PrefixList *string
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/eigrp for the generic codecs.
-var Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Eigrp",
-		Name:   "eigrp",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "PrefixList",
-		Name:   "prefix-list",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"out", "eigrp"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "eigrp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpKey is Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp's row identity (ancestor keys in canonical form).
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpKey struct {
-	Ospfv3_Id string
-	Out       string
-	Eigrp     uint16
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow flattens one Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp entry with its ancestor list keys.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow struct {
-	Ospfv3_Id string
-	Entry     Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp.
-func Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpKey] {
-	return yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpKey]{
-		Codec: yang.RowCodec[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Eigrp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpKey {
-				var k Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpKey
-				k.Ospfv3_Id = r.Ospfv3_Id
-				if r.Entry.Out != nil {
-					k.Out = *r.Entry.Out
-				}
-				if r.Entry.Eigrp != nil {
-					k.Eigrp = *r.Entry.Eigrp
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_EigrpSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "unicast"}, {Name: "distribute-list"}, {Name: "prefix-list"}, {Name: "prefix-list-out-protocol"}, {Name: "eigrp"}}},
-	}
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/isis.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis struct {
-	Isis       *string
-	Out        *string
-	PrefixList *string
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/isis for the generic codecs.
-var Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Isis",
-		Name:   "isis",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "PrefixList",
-		Name:   "prefix-list",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"out", "isis"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "isis",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisKey is Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis's row identity (ancestor keys in canonical form).
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisKey struct {
-	Ospfv3_Id string
-	Out       string
-	Isis      string
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow flattens one Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis entry with its ancestor list keys.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow struct {
-	Ospfv3_Id string
-	Entry     Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis.
-func Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisKey] {
-	return yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisKey]{
-		Codec: yang.RowCodec[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_Isis](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow{
-						Entry:     en.Entry,
-						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisKey {
-				var k Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisKey
-				k.Ospfv3_Id = r.Ospfv3_Id
-				if r.Entry.Out != nil {
-					k.Out = *r.Entry.Out
-				}
-				if r.Entry.Isis != nil {
-					k.Isis = *r.Entry.Isis
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "unicast"}, {Name: "distribute-list"}, {Name: "prefix-list"}, {Name: "prefix-list-out-protocol"}, {Name: "isis"}}},
-	}
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTag is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/isis-area-tag.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTag struct {
-	Isis       *string
-	Out        *string
-	PrefixList *string
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv4/unicast/distribute-list/prefix-list/prefix-list-out-protocol/isis-area-tag for the generic codecs.
-var Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Isis",
-		Name:   "isis",
-		Type:   yang.TString,
-	}, {
-		GoName: "Out",
-		Name:   "out",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "PrefixList",
-		Name:   "prefix-list",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"out", "isis"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "isis-area-tag",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagKey is Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTag's row identity (ancestor keys in canonical form).
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagKey struct {
-	Ospfv3_Id string
-	Out       string
-	Isis      string
-}
-
-// Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagFlatRow flattens one Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTag entry with its ancestor list keys.
-type Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagFlatRow struct {
-	Ospfv3_Id string
-	Entry     Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTag
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTag.
 func Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv4_Unicast_DistributeList_PrefixList_PrefixListOutProtocol_IsisAreaTagKey] {
@@ -41956,4 +41532,515 @@ var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_Prefix
 	Module:    "Cisco-IOS-XE-ospfv3",
 	Name:      "rip",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipKey is Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Rip's row identity (ancestor keys in canonical form).
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipKey struct {
+	Ospfv3_Id string
+	Vrf_Vrf   string
+	Out       string
+	Rip       string
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow flattens one Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Rip entry with its ancestor list keys.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow struct {
+	Ospfv3_Id string
+	Vrf_Vrf   string
+	Entry     Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Rip
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Rip.
+func Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipKey] {
+	return yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipKey]{
+		Codec: yang.RowCodec[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv6_VrfSchema, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Rip](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow{
+						Entry:     en.Entry,
+						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Vrf:   yang.AncestorKey(en.AncestorKeys, 1, "vrf"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv6_VrfSchema, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Rip](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow{
+						Entry:     en.Entry,
+						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Vrf:   yang.AncestorKey(en.AncestorKeys, 1, "vrf"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipKey {
+				var k Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipKey
+				k.Ospfv3_Id = r.Ospfv3_Id
+				k.Vrf_Vrf = r.Vrf_Vrf
+				if r.Entry.Out != nil {
+					k.Out = *r.Entry.Out
+				}
+				if r.Entry.Rip != nil {
+					k.Rip = *r.Entry.Rip
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_RipSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-ospfv3",
+			Name:      "ospfv3",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+		}, {Name: "address-family"}, {Name: "ipv6"}, {Name: "vrf"}, {Name: "distribute-list"}, {Name: "prefix-list"}, {Name: "prefix-list-out-protocol"}, {Name: "rip"}}},
+	}
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/distribute-list/prefix-list/prefix-list-out-protocol/static.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static struct {
+	Out        *string
+	PrefixList *string
+	Static     *string
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/distribute-list/prefix-list/prefix-list-out-protocol/static for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Out",
+		Name:   "out",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "PrefixList",
+		Name:   "prefix-list",
+		Type:   yang.TString,
+	}, {
+		GoName: "Static",
+		Name:   "static",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"out", "static"},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "static",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticKey is Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static's row identity (ancestor keys in canonical form).
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticKey struct {
+	Ospfv3_Id string
+	Vrf_Vrf   string
+	Out       string
+	Static    string
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow flattens one Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static entry with its ancestor list keys.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow struct {
+	Ospfv3_Id string
+	Vrf_Vrf   string
+	Entry     Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static.
+func Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticKey] {
+	return yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticKey]{
+		Codec: yang.RowCodec[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv6_VrfSchema, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow{
+						Entry:     en.Entry,
+						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Vrf:   yang.AncestorKey(en.AncestorKeys, 1, "vrf"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv6_VrfSchema, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_Static](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow{
+						Entry:     en.Entry,
+						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Vrf:   yang.AncestorKey(en.AncestorKeys, 1, "vrf"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticKey {
+				var k Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticKey
+				k.Ospfv3_Id = r.Ospfv3_Id
+				k.Vrf_Vrf = r.Vrf_Vrf
+				if r.Entry.Out != nil {
+					k.Out = *r.Entry.Out
+				}
+				if r.Entry.Static != nil {
+					k.Static = *r.Entry.Static
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_PrefixList_PrefixListOutProtocol_StaticSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-ospfv3",
+			Name:      "ospfv3",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+		}, {Name: "address-family"}, {Name: "ipv6"}, {Name: "vrf"}, {Name: "distribute-list"}, {Name: "prefix-list"}, {Name: "prefix-list-out-protocol"}, {Name: "static"}}},
+	}
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/distribute-list/route-map.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap struct {
+	RouteMapIn []Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/distribute-list/route-map for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInSchema,
+		GoName: "RouteMapIn",
+		List:   true,
+		Name:   "route-map-in",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "route-map",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/distribute-list/route-map/route-map-in.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn struct {
+	In           *string
+	RouteMapName *string
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/distribute-list/route-map/route-map-in for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "RouteMapName",
+		Name:   "route-map-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"in"},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "route-map-in",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInKey is Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn's row identity (ancestor keys in canonical form).
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInKey struct {
+	Ospfv3_Id string
+	Vrf_Vrf   string
+	In        string
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow flattens one Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn entry with its ancestor list keys.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow struct {
+	Ospfv3_Id string
+	Vrf_Vrf   string
+	Entry     Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInDescriptor is the flattened-row descriptor for the nested list Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn.
+func Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInDescriptor() yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInKey] {
+	return yang.ListDescriptor[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInKey]{
+		Codec: yang.RowCodec[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv6_VrfSchema, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow{
+						Entry:     en.Entry,
+						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Vrf:   yang.AncestorKey(en.AncestorKeys, 1, "vrf"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_Ospfv3Schema, Native_Router_Ospfv3_AddressFamily_Ipv6_VrfSchema, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapIn](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow{
+						Entry:     en.Entry,
+						Ospfv3_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Vrf_Vrf:   yang.AncestorKey(en.AncestorKeys, 1, "vrf"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInKey {
+				var k Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInKey
+				k.Ospfv3_Id = r.Ospfv3_Id
+				k.Vrf_Vrf = r.Vrf_Vrf
+				if r.Entry.In != nil {
+					k.In = *r.Entry.In
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow) Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_DistributeList_RouteMap_RouteMapInSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-ospfv3",
+			Name:      "ospfv3",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+		}, {Name: "address-family"}, {Name: "ipv6"}, {Name: "vrf"}, {Name: "distribute-list"}, {Name: "route-map"}, {Name: "route-map-in"}}},
+	}
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_EventLog is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/event-log.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_EventLog struct {
+	OneShot *bool
+	Pause   *bool
+	Size    *uint32
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_EventLogSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/event-log for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_EventLogSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "OneShot",
+		Name:   "one-shot",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Pause",
+		Name:   "pause",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Size",
+		Name:   "size",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "event-log",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/graceful-restart.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart struct {
+	Disable         *bool
+	Helper          *Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart_Helper
+	RestartInterval *uint16
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestartSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/graceful-restart for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestartSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart_HelperSchema,
+		GoName: "Helper",
+		Name:   "helper",
+	}, {
+		GoName: "RestartInterval",
+		Name:   "restart-interval",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "graceful-restart",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart_Helper is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/graceful-restart/helper.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart_Helper struct {
+	Disable           *bool
+	StrictLsaChecking *bool
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart_HelperSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/graceful-restart/helper for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_GracefulRestart_HelperSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "StrictLsaChecking",
+		Name:   "strict-lsa-checking",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "helper",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_InterfaceId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/interface-id.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_InterfaceId struct {
+	SnmpIfIndex *bool
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_InterfaceIdSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/interface-id for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_InterfaceIdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SnmpIfIndex",
+		Name:   "snmp-if-index",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "interface-id",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/limit.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit struct {
+	Retransmissions *Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit_Retransmissions
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_LimitSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/limit for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_LimitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit_RetransmissionsSchema,
+		GoName: "Retransmissions",
+		Name:   "retransmissions",
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "limit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit_Retransmissions is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/limit/retransmissions.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit_Retransmissions struct {
+	Dc    *yang.Value
+	NonDc *yang.Value
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit_RetransmissionsSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/limit/retransmissions for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Limit_RetransmissionsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Dc",
+		Name:   "dc",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "NonDc",
+		Name:   "non-dc",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
+		},
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "retransmissions",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_LogAdjacencyChanges is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/log-adjacency-changes.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_LogAdjacencyChanges struct {
+	Detail *bool
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_LogAdjacencyChangesSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/log-adjacency-changes for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_LogAdjacencyChangesSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Detail",
+		Name:   "detail",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "log-adjacency-changes",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/manet.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet struct {
+	Cache       *Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet_Cache
+	Hello       *string
+	Peering     *Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet_Peering
+	Willingness *uint8
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_ManetSchema describes /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/manet for the generic codecs.
+var Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_ManetSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet_CacheSchema,
+		GoName: "Cache",
+		Name:   "cache",
+	}, {
+		GoName: "Hello",
+		Name:   "hello",
+		Type:   yang.TEnum,
+	}, {
+		Child:  Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet_PeeringSchema,
+		GoName: "Peering",
+		Name:   "peering",
+	}, {
+		GoName: "Willingness",
+		Name:   "willingness",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "manet",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet_Cache is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/ospfv3/address-family/ipv6/vrf/manet/cache.
+type Native_Router_Ospfv3_AddressFamily_Ipv6_Vrf_Manet_Cache struct {
+	Acknowledgement *uint64
+	Update          *uint64
 }

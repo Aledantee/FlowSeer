@@ -6,7 +6,7 @@
 // Package ciscosonetmib binds the YANG module CISCO-SONET-MIB.
 package ciscosonetmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOSONETMIB is the CISCO-SONET-MIB node /CISCO-SONET-MIB/CISCO-SONET-MIB.
 type CISCOSONETMIB struct {

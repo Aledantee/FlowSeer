@@ -6,7 +6,7 @@
 // Package ciscoiosxenveoper binds the YANG module Cisco-IOS-XE-nve-oper.
 package ciscoiosxenveoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NveOperData is the Cisco-IOS-XE-nve-oper node /Cisco-IOS-XE-nve-oper/nve-oper-data.
 type NveOperData struct {

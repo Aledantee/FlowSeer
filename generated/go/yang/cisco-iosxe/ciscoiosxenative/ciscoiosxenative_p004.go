@@ -5,525 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_HwModule_Switch_Usbflash1PasswordDescriptor is the flattened-row descriptor for the nested list Native_HwModule_Switch_Usbflash1Password.
-func Native_HwModule_Switch_Usbflash1PasswordDescriptor() yang.ListDescriptor[Native_HwModule_Switch_Usbflash1PasswordFlatRow, Native_HwModule_Switch_Usbflash1PasswordKey] {
-	return yang.ListDescriptor[Native_HwModule_Switch_Usbflash1PasswordFlatRow, Native_HwModule_Switch_Usbflash1PasswordKey]{
-		Codec: yang.RowCodec[Native_HwModule_Switch_Usbflash1PasswordFlatRow, Native_HwModule_Switch_Usbflash1PasswordKey]{
-			DecodeJSON: func(data []byte) ([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, error) {
-				chain := []*yang.Schema{Native_HwModule_SwitchSchema, Native_HwModule_Switch_Usbflash1PasswordSchema}
-				entries, err := yang.DecodeJSONNested[Native_HwModule_Switch_Usbflash1Password](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_HwModule_Switch_Usbflash1PasswordFlatRow{
-						Entry:               en.Entry,
-						Switch_SwitchNumber: yang.AncestorKey(en.AncestorKeys, 0, "switch-number"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, error) {
-				chain := []*yang.Schema{Native_HwModule_SwitchSchema, Native_HwModule_Switch_Usbflash1PasswordSchema}
-				entries, err := yang.DecodeXMLNested[Native_HwModule_Switch_Usbflash1Password](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_HwModule_Switch_Usbflash1PasswordFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_HwModule_Switch_Usbflash1PasswordFlatRow{
-						Entry:               en.Entry,
-						Switch_SwitchNumber: yang.AncestorKey(en.AncestorKeys, 0, "switch-number"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_HwModule_Switch_Usbflash1PasswordFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_HwModule_Switch_Usbflash1PasswordFlatRow) Native_HwModule_Switch_Usbflash1PasswordKey {
-				var k Native_HwModule_Switch_Usbflash1PasswordKey
-				k.Switch_SwitchNumber = r.Switch_SwitchNumber
-				if r.Entry.Usbflash1PasswordString != nil {
-					k.Usbflash1PasswordString = *r.Entry.Usbflash1PasswordString
-				}
-				return k
-			},
-			Merge: func(base, update Native_HwModule_Switch_Usbflash1PasswordFlatRow) Native_HwModule_Switch_Usbflash1PasswordFlatRow {
-				base.Entry = yang.MergeStructs(Native_HwModule_Switch_Usbflash1PasswordSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "hw-module"}, {Name: "switch"}, {Name: "usbflash1-password"}}},
-	}
-}
-
-// Native_HwModule_SwitchAll is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/switch-all.
-type Native_HwModule_SwitchAll struct {
-	All *Native_HwModule_SwitchAll_All
-}
-
-// Native_HwModule_SwitchAllSchema describes /Cisco-IOS-XE-native/native/hw-module/switch-all for the generic codecs.
-var Native_HwModule_SwitchAllSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_HwModule_SwitchAll_AllSchema,
-		GoName: "All",
-		Name:   "all",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "switch-all",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_HwModule_SwitchAll_All is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/switch-all/all.
-type Native_HwModule_SwitchAll_All struct {
-	EcoMode *Native_HwModule_SwitchAll_All_EcoMode
-}
-
-// Native_HwModule_SwitchAll_AllSchema describes /Cisco-IOS-XE-native/native/hw-module/switch-all/all for the generic codecs.
-var Native_HwModule_SwitchAll_AllSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_HwModule_SwitchAll_All_EcoModeSchema,
-		GoName: "EcoMode",
-		Name:   "eco-mode",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "all",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_HwModule_SwitchAll_All_EcoMode is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/switch-all/all/eco-mode.
-type Native_HwModule_SwitchAll_All_EcoMode struct {
-	Led *bool
-}
-
-// Native_HwModule_SwitchAll_All_EcoModeSchema describes /Cisco-IOS-XE-native/native/hw-module/switch-all/all/eco-mode for the generic codecs.
-var Native_HwModule_SwitchAll_All_EcoModeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Led",
-		Name:   "led",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "eco-mode",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_HwModule_Uplink is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-module/uplink.
-type Native_HwModule_Uplink struct {
-	Mode   *string
-	Select *string
-}
-
-// Native_HwModule_UplinkSchema describes /Cisco-IOS-XE-native/native/hw-module/uplink for the generic codecs.
-var Native_HwModule_UplinkSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Mode",
-		Name:   "mode",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Select",
-		Name:   "select",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "uplink",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_HwSwitch is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch.
-type Native_HwSwitch struct {
-	Switch *Native_HwSwitch_Switch
-}
-
-// Native_HwSwitchSchema describes /Cisco-IOS-XE-native/native/hw-switch for the generic codecs.
-var Native_HwSwitchSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_HwSwitch_SwitchSchema,
-		GoName: "Switch",
-		Name:   "switch",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "hw-switch",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_HwSwitch_Switch is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch.
-type Native_HwSwitch_Switch struct {
-	SwitchNumber []Native_HwSwitch_Switch_SwitchNumber
-}
-
-// Native_HwSwitch_SwitchSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch for the generic codecs.
-var Native_HwSwitch_SwitchSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_HwSwitch_Switch_SwitchNumberSchema,
-		GoName: "SwitchNumber",
-		List:   true,
-		Name:   "switch-number",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "switch",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_HwSwitch_Switch_SwitchNumber is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number.
-type Native_HwSwitch_Switch_SwitchNumber struct {
-	Logging      *Native_HwSwitch_Switch_SwitchNumber_Logging
-	SwitchNumber *uint8
-}
-
-// Native_HwSwitch_Switch_SwitchNumberSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number for the generic codecs.
-var Native_HwSwitch_Switch_SwitchNumberSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_HwSwitch_Switch_SwitchNumber_LoggingSchema,
-		GoName: "Logging",
-		Name:   "logging",
-	}, {
-		GoName: "SwitchNumber",
-		Name:   "switch-number",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"switch-number"},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "switch-number",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_HwSwitch_Switch_SwitchNumberKey is Native_HwSwitch_Switch_SwitchNumber's row identity (ancestor keys in canonical form).
-type Native_HwSwitch_Switch_SwitchNumberKey struct {
-	SwitchNumber uint8
-}
-
-// Native_HwSwitch_Switch_SwitchNumberDescriptor is the list descriptor callers hand to a protocol library.
-func Native_HwSwitch_Switch_SwitchNumberDescriptor() yang.ListDescriptor[Native_HwSwitch_Switch_SwitchNumber, Native_HwSwitch_Switch_SwitchNumberKey] {
-	return yang.ListDescriptor[Native_HwSwitch_Switch_SwitchNumber, Native_HwSwitch_Switch_SwitchNumberKey]{
-		Codec: yang.StructRowCodec(Native_HwSwitch_Switch_SwitchNumberSchema, func(r *Native_HwSwitch_Switch_SwitchNumber) Native_HwSwitch_Switch_SwitchNumberKey {
-			var k Native_HwSwitch_Switch_SwitchNumberKey
-			if r.SwitchNumber != nil {
-				k.SwitchNumber = *r.SwitchNumber
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-switch",
-			Name:      "hw-switch",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-		}, {Name: "switch"}, {Name: "switch-number"}}},
-	}
-}
-
-// Native_HwSwitch_Switch_SwitchNumber_Logging is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging.
-type Native_HwSwitch_Switch_SwitchNumber_Logging struct {
-	Onboard *Native_HwSwitch_Switch_SwitchNumber_Logging_Onboard
-}
-
-// Native_HwSwitch_Switch_SwitchNumber_LoggingSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging for the generic codecs.
-var Native_HwSwitch_Switch_SwitchNumber_LoggingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_HwSwitch_Switch_SwitchNumber_Logging_OnboardSchema,
-		GoName: "Onboard",
-		Name:   "onboard",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "logging",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_HwSwitch_Switch_SwitchNumber_Logging_Onboard is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging/onboard.
-type Native_HwSwitch_Switch_SwitchNumber_Logging_Onboard struct {
-	Counter     *bool
-	Environment *bool
-	Message     *bool
-	Poe         *bool
-	Temperature *bool
-	Voltage     *bool
-}
-
-// Native_HwSwitch_Switch_SwitchNumber_Logging_OnboardSchema describes /Cisco-IOS-XE-native/native/hw-switch/switch/switch-number/logging/onboard for the generic codecs.
-var Native_HwSwitch_Switch_SwitchNumber_Logging_OnboardSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Counter",
-		Name:   "counter",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Environment",
-		Name:   "environment",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Message",
-		Name:   "message",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Poe",
-		Name:   "poe",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Temperature",
-		Name:   "temperature",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Voltage",
-		Name:   "voltage",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "onboard",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-	Presence:  true,
-}
-
-// Native_Ida is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ida.
-type Native_Ida struct {
-	TransportProfile []Native_Ida_TransportProfile
-}
-
-// Native_IdaSchema describes /Cisco-IOS-XE-native/native/ida for the generic codecs.
-var Native_IdaSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Ida_TransportProfileSchema,
-		GoName: "TransportProfile",
-		List:   true,
-		Name:   "transport-profile",
-	}},
-	Module:    "Cisco-IOS-XE-ida",
-	Name:      "ida",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ida",
-}
-
-// Native_Ida_TransportProfile is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ida/transport-profile.
-type Native_Ida_TransportProfile struct {
-	Active           *bool
-	CallhomeUrl      *string
-	ExecutionUrl     *string
-	KeepaliveTimer   *uint16
-	LocalTrustpoint  *string
-	Name             *string
-	ProxyAddr        *string
-	ReconnectTimer   *uint16
-	RemoteTrustpoint *string
-}
-
-// Native_Ida_TransportProfileSchema describes /Cisco-IOS-XE-native/native/ida/transport-profile for the generic codecs.
-var Native_Ida_TransportProfileSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Active",
-		Name:   "active",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "CallhomeUrl",
-		Name:   "callhome-url",
-		Type:   yang.TString,
-	}, {
-		GoName: "ExecutionUrl",
-		Name:   "execution-url",
-		Type:   yang.TString,
-	}, {
-		GoName: "KeepaliveTimer",
-		Name:   "keepalive-timer",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "LocalTrustpoint",
-		Name:   "local-trustpoint",
-		Type:   yang.TString,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		GoName: "ProxyAddr",
-		Name:   "proxy-addr",
-		Type:   yang.TString,
-	}, {
-		GoName: "ReconnectTimer",
-		Name:   "reconnect-timer",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "RemoteTrustpoint",
-		Name:   "remote-trustpoint",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-ida",
-	Name:      "transport-profile",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ida",
-}
-
-// Native_Ida_TransportProfileKey is Native_Ida_TransportProfile's row identity (ancestor keys in canonical form).
-type Native_Ida_TransportProfileKey struct {
-	Name string
-}
-
-// Native_Ida_TransportProfileDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Ida_TransportProfileDescriptor() yang.ListDescriptor[Native_Ida_TransportProfile, Native_Ida_TransportProfileKey] {
-	return yang.ListDescriptor[Native_Ida_TransportProfile, Native_Ida_TransportProfileKey]{
-		Codec: yang.StructRowCodec(Native_Ida_TransportProfileSchema, func(r *Native_Ida_TransportProfile) Native_Ida_TransportProfileKey {
-			var k Native_Ida_TransportProfileKey
-			if r.Name != nil {
-				k.Name = *r.Name
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-ida",
-			Name:      "ida",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ida",
-		}, {Name: "transport-profile"}}},
-	}
-}
-
-// Native_Identity is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/identity.
-type Native_Identity struct {
-	Policy  []Native_Identity_Policy
-	Profile *Native_Identity_Profile
-}
-
-// Native_IdentitySchema describes /Cisco-IOS-XE-native/native/identity for the generic codecs.
-var Native_IdentitySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Identity_PolicySchema,
-		GoName: "Policy",
-		List:   true,
-		Name:   "policy",
-	}, {
-		Child:  Native_Identity_ProfileSchema,
-		GoName: "Profile",
-		Name:   "profile",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "identity",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Identity_Policy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/identity/policy.
-type Native_Identity_Policy struct {
-	AbsoluteTimer     *uint16
-	AccessGroup       *string
-	Description       *string
-	InactivityTimer   *uint16
-	InterfaceTemplate *string
-	Linksec           *Native_Identity_Policy_Linksec
-	Name              *string
-	No                *Native_Identity_Policy_No
-	Redirect          *Native_Identity_Policy_Redirect
-	ServicePolicy     *Native_Identity_Policy_ServicePolicy
-	Sgt               *uint16
-	Tag               *string
-	Tunnel            *Native_Identity_Policy_Tunnel
-	Vlan              *uint16
-	Voice             *Native_Identity_Policy_Voice
-}
-
-// Native_Identity_PolicySchema describes /Cisco-IOS-XE-native/native/identity/policy for the generic codecs.
-var Native_Identity_PolicySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AbsoluteTimer",
-		Name:   "absolute-timer",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "AccessGroup",
-		Name:   "access-group",
-		Type:   yang.TString,
-	}, {
-		GoName: "Description",
-		Name:   "description",
-		Type:   yang.TString,
-	}, {
-		GoName: "InactivityTimer",
-		Name:   "inactivity-timer",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "InterfaceTemplate",
-		Name:   "interface-template",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Identity_Policy_LinksecSchema,
-		GoName: "Linksec",
-		Name:   "linksec",
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Identity_Policy_NoSchema,
-		GoName: "No",
-		Name:   "no",
-	}, {
-		Child:  Native_Identity_Policy_RedirectSchema,
-		GoName: "Redirect",
-		Name:   "redirect",
-	}, {
-		Child:  Native_Identity_Policy_ServicePolicySchema,
-		GoName: "ServicePolicy",
-		Name:   "service-policy",
-	}, {
-		GoName: "Sgt",
-		Name:   "sgt",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Tag",
-		Name:   "tag",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Identity_Policy_TunnelSchema,
-		GoName: "Tunnel",
-		Name:   "tunnel",
-	}, {
-		GoName: "Vlan",
-		Name:   "vlan",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Identity_Policy_VoiceSchema,
-		GoName: "Voice",
-		Name:   "voice",
-	}},
-	Keys:      []string{"name"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "policy",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Identity_PolicyKey is Native_Identity_Policy's row identity (ancestor keys in canonical form).
-type Native_Identity_PolicyKey struct {
-	Name string
-}
-
-// Native_Identity_PolicyDescriptor is the list descriptor callers hand to a protocol library.
-func Native_Identity_PolicyDescriptor() yang.ListDescriptor[Native_Identity_Policy, Native_Identity_PolicyKey] {
-	return yang.ListDescriptor[Native_Identity_Policy, Native_Identity_PolicyKey]{
-		Codec: yang.StructRowCodec(Native_Identity_PolicySchema, func(r *Native_Identity_Policy) Native_Identity_PolicyKey {
-			var k Native_Identity_PolicyKey
-			if r.Name != nil {
-				k.Name = *r.Name
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "identity"}, {Name: "policy"}}},
-	}
-}
-
-// Native_Identity_Policy_Linksec is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/identity/policy/linksec.
-type Native_Identity_Policy_Linksec struct {
-	Policy *string
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Identity_Policy_LinksecSchema describes /Cisco-IOS-XE-native/native/identity/policy/linksec for the generic codecs.
 var Native_Identity_Policy_LinksecSchema = &yang.Schema{
@@ -47128,4 +46610,346 @@ type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Pre
 	ATM_Name                string
 	StandbyList_GroupNumber string
 	Entry                   Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Prefix
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor is the flattened-row descriptor for the nested list Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Prefix.
+func Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor() yang.ListDescriptor[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey] {
+	return yang.ListDescriptor[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
+		Codec: yang.RowCodec[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_ATMSubinterface_ATMSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyListSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
+						ATM_Name:                yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_ATMSubinterface_ATMSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyListSchema, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
+						ATM_Name:                yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Entry:                   en.Entry,
+						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey {
+				var k Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey
+				k.ATM_Name = r.ATM_Name
+				k.StandbyList_GroupNumber = r.StandbyList_GroupNumber
+				if r.Entry.Prefix != nil {
+					k.Prefix = *r.Entry.Prefix
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "ATM-subinterface"}, {Name: "ATM"}, {Name: "standby"}, {Name: "standby-list"}, {Name: "ipv6-config"}, {Name: "ipv6_prefix"}}},
+	}
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt struct {
+	Delay *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_Delay
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_PreemptSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_PreemptSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_DelaySchema,
+		GoName: "Delay",
+		Name:   "delay",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "preempt",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+	Presence:  true,
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_Delay is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt/delay.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_Delay struct {
+	Minimum *uint16
+	Reload  *uint16
+	Sync    *uint16
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_DelaySchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/preempt/delay for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Preempt_DelaySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Minimum",
+		Name:   "minimum",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Reload",
+		Name:   "reload",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Sync",
+		Name:   "sync",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "delay",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect struct {
+	Advertisement *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement
+	Timers        *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Timers
+	Unknown       *bool
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_RedirectSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_RedirectSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_AdvertisementSchema,
+		GoName: "Advertisement",
+		Name:   "advertisement",
+	}, {
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_TimersSchema,
+		GoName: "Timers",
+		Name:   "timers",
+	}, {
+		GoName: "Unknown",
+		Name:   "unknown",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "redirect",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement struct {
+	Authentication *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_AdvertisementSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_AdvertisementSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_AuthenticationSchema,
+		GoName: "Authentication",
+		Name:   "authentication",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "advertisement",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication struct {
+	Md5 *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_AuthenticationSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5Schema,
+		GoName: "Md5",
+		Name:   "md5",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "authentication",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5 struct {
+	KeyChain  *string
+	KeyString *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyString
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5Schema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5 for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5Schema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "KeyChain",
+		Name:   "key-chain",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyStringSchema,
+		GoName: "KeyString",
+		Name:   "key-string",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "md5",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5/key-string.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyString struct {
+	Encrypt *string
+	String  *string
+	Timeout *uint16
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/advertisement/authentication/md5/key-string for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Advertisement_Authentication_Md5_KeyStringSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Encrypt",
+		Name:   "encrypt",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "String",
+		Name:   "string",
+		Type:   yang.TString,
+	}, {
+		GoName: "Timeout",
+		Name:   "timeout",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "key-string",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Timers is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/timers.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_Timers struct {
+	Advertisement *uint16
+	Holddown      *uint16
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_TimersSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/redirect/timers for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Redirect_TimersSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Advertisement",
+		Name:   "advertisement",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Holddown",
+		Name:   "holddown",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "timers",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers struct {
+	HelloInterval *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloInterval
+	HoldTime      *Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTime
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TimersSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TimersSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloIntervalSchema,
+		GoName: "HelloInterval",
+		Name:   "hello-interval",
+	}, {
+		Child:  Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTimeSchema,
+		GoName: "HoldTime",
+		Name:   "hold-time",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "timers",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloInterval is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hello-interval.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloInterval struct {
+	Msec    *uint16
+	Seconds *uint8
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloIntervalSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hello-interval for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HelloIntervalSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Msec",
+		Name:   "msec",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Seconds",
+		Name:   "seconds",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "hello-interval",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTime is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hold-time.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTime struct {
+	Msec    *uint16
+	Seconds *uint8
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTimeSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/timers/hold-time for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Timers_HoldTimeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Msec",
+		Name:   "msec",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Seconds",
+		Name:   "seconds",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "hold-time",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Track is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/track.
+type Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_Track struct {
+	Decrement      *uint8
+	Number         *uint16
+	Shutdown       *bool
+	TrackDecrement *uint8
+	TrackShutdown  *bool
+}
+
+// Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TrackSchema describes /Cisco-IOS-XE-native/native/interface/ATM-subinterface/ATM/standby/standby-list/track for the generic codecs.
+var Native_Interface_ATMSubinterface_ATM_Standby_StandbyList_TrackSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Decrement",
+		Name:   "decrement",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "Number",
+		Name:   "number",
+		Type:   yang.TUint16,
+	}, {
+		GoName: "Shutdown",
+		Name:   "shutdown",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "TrackDecrement",
+		Name:   "track-decrement",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "TrackShutdown",
+		Name:   "track-shutdown",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"number"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "track",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
 }

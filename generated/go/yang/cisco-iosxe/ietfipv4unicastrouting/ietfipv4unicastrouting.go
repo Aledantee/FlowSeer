@@ -6,7 +6,7 @@
 // Package ietfipv4unicastrouting binds the YANG module ietf-ipv4-unicast-routing.
 package ietfipv4unicastrouting
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Ipv4Unicast is the ietf-ipv4-unicast-routing identity "ipv4-unicast".
 var Identity_Ipv4Unicast = yang.Identity{

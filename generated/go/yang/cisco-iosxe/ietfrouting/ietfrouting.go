@@ -6,7 +6,7 @@
 // Package ietfrouting binds the YANG module ietf-routing.
 package ietfrouting
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AddressFamily is the ietf-routing identity "address-family".
 var Identity_AddressFamily = yang.Identity{

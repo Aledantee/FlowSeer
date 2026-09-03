@@ -6,7 +6,7 @@
 // Package ciscoentityfrucontrolmib binds the YANG module CISCO-ENTITY-FRU-CONTROL-MIB.
 package ciscoentityfrucontrolmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOENTITYFRUCONTROLMIB is the CISCO-ENTITY-FRU-CONTROL-MIB node /CISCO-ENTITY-FRU-CONTROL-MIB/CISCO-ENTITY-FRU-CONTROL-MIB.
 type CISCOENTITYFRUCONTROLMIB struct {

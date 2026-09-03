@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrulecfg binds the YANG module Cisco-IOS-XE-wireless-rule-cfg.
 package ciscoiosxewirelessrulecfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RuleCfgData is the Cisco-IOS-XE-wireless-rule-cfg node /Cisco-IOS-XE-wireless-rule-cfg/rule-cfg-data.
 type RuleCfgData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxenatoper binds the YANG module Cisco-IOS-XE-nat-oper.
 package ciscoiosxenatoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NatData is the Cisco-IOS-XE-nat-oper node /Cisco-IOS-XE-nat-oper/nat-data.
 type NatData struct {

@@ -6,7 +6,7 @@
 // Package ciscoetherlikeextmib binds the YANG module CISCO-ETHERLIKE-EXT-MIB.
 package ciscoetherlikeextmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOETHERLIKEEXTMIB is the CISCO-ETHERLIKE-EXT-MIB node /CISCO-ETHERLIKE-EXT-MIB/CISCO-ETHERLIKE-EXT-MIB.
 type CISCOETHERLIKEEXTMIB struct {

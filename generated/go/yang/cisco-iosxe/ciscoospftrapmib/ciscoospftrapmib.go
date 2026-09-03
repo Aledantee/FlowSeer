@@ -6,7 +6,7 @@
 // Package ciscoospftrapmib binds the YANG module CISCO-OSPF-TRAP-MIB.
 package ciscoospftrapmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOOSPFTRAPMIB is the CISCO-OSPF-TRAP-MIB node /CISCO-OSPF-TRAP-MIB/CISCO-OSPF-TRAP-MIB.
 type CISCOOSPFTRAPMIB struct {

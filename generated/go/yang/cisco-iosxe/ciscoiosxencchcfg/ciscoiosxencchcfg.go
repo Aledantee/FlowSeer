@@ -6,7 +6,7 @@
 // Package ciscoiosxencchcfg binds the YANG module Cisco-IOS-XE-ncch-cfg.
 package ciscoiosxencchcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NetconfCallhomeConfig is the Cisco-IOS-XE-ncch-cfg node /Cisco-IOS-XE-ncch-cfg/netconf-callhome-config.
 type NetconfCallhomeConfig struct {

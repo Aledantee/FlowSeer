@@ -6,7 +6,7 @@
 // Package ciscoiosxeuidpoper binds the YANG module Cisco-IOS-XE-uidp-oper.
 package ciscoiosxeuidpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UidpOperData is the Cisco-IOS-XE-uidp-oper node /Cisco-IOS-XE-uidp-oper/uidp-oper-data.
 type UidpOperData struct {

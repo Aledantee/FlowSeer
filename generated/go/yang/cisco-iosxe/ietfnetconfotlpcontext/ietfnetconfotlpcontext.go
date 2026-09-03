@@ -6,7 +6,7 @@
 // Package ietfnetconfotlpcontext binds the YANG module ietf-netconf-otlp-context.
 package ietfnetconfotlpcontext
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_BadFormat is the ietf-netconf-otlp-context identity "bad-format".
 var Identity_BadFormat = yang.Identity{

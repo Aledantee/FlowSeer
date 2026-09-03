@@ -6,7 +6,7 @@
 // Package ciscorfmib binds the YANG module CISCO-RF-MIB.
 package ciscorfmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCORFMIB is the CISCO-RF-MIB node /CISCO-RF-MIB/CISCO-RF-MIB.
 type CISCORFMIB struct {

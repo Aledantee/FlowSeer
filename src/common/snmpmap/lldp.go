@@ -10,7 +10,7 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	lldpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/snmp"
+	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 var (

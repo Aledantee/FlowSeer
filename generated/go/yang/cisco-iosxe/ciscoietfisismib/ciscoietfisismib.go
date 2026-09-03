@@ -6,7 +6,7 @@
 // Package ciscoietfisismib binds the YANG module CISCO-IETF-ISIS-MIB.
 package ciscoietfisismib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIETFISISMIB is the CISCO-IETF-ISIS-MIB node /CISCO-IETF-ISIS-MIB/CISCO-IETF-ISIS-MIB.
 type CISCOIETFISISMIB struct {

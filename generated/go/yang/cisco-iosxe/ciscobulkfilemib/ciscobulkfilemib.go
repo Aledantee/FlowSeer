@@ -6,7 +6,7 @@
 // Package ciscobulkfilemib binds the YANG module CISCO-BULK-FILE-MIB.
 package ciscobulkfilemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOBULKFILEMIB is the CISCO-BULK-FILE-MIB node /CISCO-BULK-FILE-MIB/CISCO-BULK-FILE-MIB.
 type CISCOBULKFILEMIB struct {

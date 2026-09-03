@@ -6,7 +6,7 @@
 // Package ciscoroutingext binds the YANG module cisco-routing-ext.
 package ciscoroutingext
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Bgp is the cisco-routing-ext identity "bgp".
 var Identity_Bgp = yang.Identity{

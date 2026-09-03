@@ -6,7 +6,7 @@
 // Package ciscoipslajittermib binds the YANG module CISCO-IPSLA-JITTER-MIB.
 package ciscoipslajittermib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPSLAJITTERMIB is the CISCO-IPSLA-JITTER-MIB node /CISCO-IPSLA-JITTER-MIB/CISCO-IPSLA-JITTER-MIB.
 type CISCOIPSLAJITTERMIB struct {

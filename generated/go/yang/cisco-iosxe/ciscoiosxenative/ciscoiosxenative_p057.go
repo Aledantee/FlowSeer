@@ -5,279 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/vendor-conf/vendor/vendor-name-version-source-list for the generic codecs.
-var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Source",
-		Name:   "source",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "VendorName",
-		Name:   "vendor-name",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Version",
-		Name:   "version",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"vendor-name", "version", "source"},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "vendor-name-version-source-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey is Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList's row identity (ancestor keys in canonical form).
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey struct {
-	ClassMap_Name string
-	VendorName    string
-	Version       string
-	Source        string
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow flattens one Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList entry with its ancestor list keys.
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow struct {
-	ClassMap_Name string
-	Entry         Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListDescriptor is the flattened-row descriptor for the nested list Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList.
-func Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListDescriptor() yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey] {
-	return yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey]{
-		Codec: yang.RowCodec[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, error) {
-				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow{
-						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:         en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, error) {
-				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow{
-						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:         en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey {
-				var k Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListKey
-				k.ClassMap_Name = r.ClassMap_Name
-				if r.Entry.VendorName != nil {
-					k.VendorName = *r.Entry.VendorName
-				}
-				if r.Entry.Version != nil {
-					k.Version = *r.Entry.Version
-				}
-				if r.Entry.Source != nil {
-					k.Source = *r.Entry.Source
-				}
-				return k
-			},
-			Merge: func(base, update Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VendorConf_Vendor_VendorNameVersionSourceListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "policy"}, {
-			Module:    "Cisco-IOS-XE-policy",
-			Name:      "class-map",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-		}, {Name: "match"}, {Name: "application"}, {Name: "ip-camera-conf"}, {Name: "ip-camera"}, {Name: "vendor-conf"}, {Name: "vendor"}, {Name: "vendor-name-version-source-list"}}},
-	}
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf.
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf struct {
-	Version *Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConfSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf for the generic codecs.
-var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConfSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_VersionSchema,
-		GoName: "Version",
-		Name:   "version",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "version-conf",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version.
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version struct {
-	VersionNameList       []Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList
-	VersionNameSourceList []Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_VersionSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version for the generic codecs.
-var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_VersionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema,
-		GoName: "VersionNameList",
-		List:   true,
-		Name:   "version-name-list",
-	}, {
-		Child:  Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListSchema,
-		GoName: "VersionNameSourceList",
-		List:   true,
-		Name:   "version-name-source-list",
-	}},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "version",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-list.
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList struct {
-	VersionName *string
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-list for the generic codecs.
-var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "VersionName",
-		Name:   "version-name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"version-name"},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "version-name-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey is Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList's row identity (ancestor keys in canonical form).
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey struct {
-	ClassMap_Name string
-	VersionName   string
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow flattens one Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList entry with its ancestor list keys.
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow struct {
-	ClassMap_Name string
-	Entry         Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListDescriptor is the flattened-row descriptor for the nested list Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList.
-func Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListDescriptor() yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey] {
-	return yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey]{
-		Codec: yang.RowCodec[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, error) {
-				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow{
-						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:         en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, error) {
-				chain := []*yang.Schema{Native_Policy_ClassMapSchema, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow{
-						ClassMap_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:         en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey {
-				var k Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListKey
-				k.ClassMap_Name = r.ClassMap_Name
-				if r.Entry.VersionName != nil {
-					k.VersionName = *r.Entry.VersionName
-				}
-				return k
-			},
-			Merge: func(base, update Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow) Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "policy"}, {
-			Module:    "Cisco-IOS-XE-policy",
-			Name:      "class-map",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-		}, {Name: "match"}, {Name: "application"}, {Name: "ip-camera-conf"}, {Name: "ip-camera"}, {Name: "version-conf"}, {Name: "version"}, {Name: "version-name-list"}}},
-	}
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-source-list.
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList struct {
-	Source         *string
-	VersionStrName *string
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListSchema describes /Cisco-IOS-XE-native/native/policy/class-map/match/application/ip-camera-conf/ip-camera/version-conf/version/version-name-source-list for the generic codecs.
-var Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Source",
-		Name:   "source",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "VersionStrName",
-		Name:   "version-str-name",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"version-str-name", "source"},
-	Module:    "Cisco-IOS-XE-policy",
-	Name:      "version-name-source-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListKey is Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList's row identity (ancestor keys in canonical form).
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListKey struct {
-	ClassMap_Name  string
-	VersionStrName string
-	Source         string
-}
-
-// Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListFlatRow flattens one Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList entry with its ancestor list keys.
-type Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListFlatRow struct {
-	ClassMap_Name string
-	Entry         Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListDescriptor is the flattened-row descriptor for the nested list Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceList.
 func Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListDescriptor() yang.ListDescriptor[Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListFlatRow, Native_Policy_ClassMap_Match_Application_IpCameraConf_IpCamera_VersionConf_Version_VersionNameSourceListKey] {
@@ -33356,4 +33084,238 @@ var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_Viol
 // Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetMplsExpTopmostTransmit_ViolateAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-mpls-exp-topmost-transmit/violate-action.
 type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetMplsExpTopmostTransmit_ViolateAction struct {
 	SetMplsExpTopmostTransmit *yang.Value
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetMplsExpTopmostTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-mpls-exp-topmost-transmit/violate-action for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetMplsExpTopmostTransmit_ViolateActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SetMplsExpTopmostTransmit",
+		Name:   "set-mpls-exp-topmost-transmit",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "violate-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit.
+type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit struct {
+	ViolateAction *Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateAction
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateActionSchema,
+		GoName: "ViolateAction",
+		Name:   "violate-action",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "violate-set-prec-transmit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit/violate-action.
+type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateAction struct {
+	SetPrecTransmit *yang.Value
+	Table           *string
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-prec-transmit/violate-action for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetPrecTransmit_ViolateActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SetPrecTransmit",
+		Name:   "set-prec-transmit",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "Table",
+		Name:   "table",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "violate-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit.
+type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit struct {
+	ViolateAction *Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateAction
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateActionSchema,
+		GoName: "ViolateAction",
+		Name:   "violate-action",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "violate-set-qos-transmit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit/violate-action.
+type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateAction struct {
+	SetQosTransmit *yang.Value
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-set-qos-transmit/violate-action for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateSetQosTransmit_ViolateActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "SetQosTransmit",
+		Name:   "set-qos-transmit",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint8}, {Kind: yang.TypeEnum}},
+		},
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "violate-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit.
+type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit struct {
+	ViolateAction *Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateAction
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmitSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmitSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateActionSchema,
+		GoName: "ViolateAction",
+		Name:   "violate-action",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "violate-transmit",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateAction is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit/violate-action.
+type Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateAction struct {
+	Transmit *bool
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateActionSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-flow-case/police-flow/police/flow/actions/violate-transmit/violate-action for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PoliceFlow_Police_Flow_Actions_ViolateTransmit_ViolateActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Transmit",
+		Name:   "transmit",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "violate-action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map.
+type Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap struct {
+	Police *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMapSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMapSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_PoliceSchema,
+		GoName: "Police",
+		Name:   "police",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "police-policy-map",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map/police.
+type Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police struct {
+	Actions *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions
+	Bc      *uint32
+	Be      *uint32
+	Cir     *uint64
+	Pir     *uint64
+	PirBe   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_PirBe
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_PoliceSchema describes /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map/police for the generic codecs.
+var Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_PoliceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_ActionsSchema,
+		GoName: "Actions",
+		Name:   "actions",
+	}, {
+		GoName: "Bc",
+		Name:   "bc",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Be",
+		Name:   "be",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Cir",
+		Name:   "cir",
+		Type:   yang.TUint64,
+	}, {
+		GoName: "Pir",
+		Name:   "pir",
+		Type:   yang.TUint64,
+	}, {
+		Child:  Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_PirBeSchema,
+		GoName: "PirBe",
+		Name:   "pir-be",
+	}},
+	Module:    "Cisco-IOS-XE-policy",
+	Name:      "police",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
+}
+
+// Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/policy/policy-map/class/action-list/action-param/police-case/police-choice/police-policy-map-case/police-policy-map/police/actions.
+type Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions struct {
+	ConformDrop                              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformDrop
+	ConformSetClpTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetClpTransmit
+	ConformSetCosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetCosTransmit
+	ConformSetCosTransmitTable               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetCosTransmitTable
+	ConformSetDiscardClassTransmit           *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetDiscardClassTransmit
+	ConformSetDscpTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetDscpTransmit
+	ConformSetDscpTransmitTable              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetDscpTransmitTable
+	ConformSetFrdeTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetFrdeTransmit
+	ConformSetMplsExpImpositionTransmit      *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpImpositionTransmit
+	ConformSetMplsExpImpositionTransmitTable *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpImpositionTransmitTable
+	ConformSetMplsExpTopmostTransmit         *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpTopmostTransmit
+	ConformSetMplsExpTopmostTransmitTable    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetMplsExpTopmostTransmitTable
+	ConformSetPrecTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetPrecTransmit
+	ConformSetPrecTransmitTable              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetPrecTransmitTable
+	ConformSetQosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetQosTransmit
+	ConformSetQosTransmitTable               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformSetQosTransmitTable
+	ConformTransmit                          *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ConformTransmit
+	ExceedDrop                               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedDrop
+	ExceedDscp                               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedDscp
+	ExceedSetClpTransmit                     *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetClpTransmit
+	ExceedSetCosTransmit                     *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetCosTransmit
+	ExceedSetCosTransmitVal                  *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetCosTransmitVal
+	ExceedSetDiscardClassTransmit            *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetDiscardClassTransmit
+	ExceedSetDscpTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetDscpTransmit
+	ExceedSetDscpTransmitTable               *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetDscpTransmitTable
+	ExceedSetFrdeTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetFrdeTransmit
+	ExceedSetMplsExpImpositionTransmit       *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetMplsExpImpositionTransmit
+	ExceedSetMplsExpTopmostTransmit          *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetMplsExpTopmostTransmit
+	ExceedSetPrecTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetPrecTransmit
+	ExceedSetPrecTransmitVal                 *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetPrecTransmitVal
+	ExceedSetQosTransmit                     *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedSetQosTransmit
+	ExceedTransmit                           *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ExceedTransmit
+	ViolateDrop                              *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateDrop
+	ViolateSetClpTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetClpTransmit
+	ViolateSetCosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetCosTransmit
+	ViolateSetDiscardClassTransmit           *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetDiscardClassTransmit
+	ViolateSetDscpTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetDscpTransmit
+	ViolateSetFrdeTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetFrdeTransmit
+	ViolateSetMplsExpImpositionTransmit      *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetMplsExpImpositionTransmit
+	ViolateSetMplsExpTopmostTransmit         *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetMplsExpTopmostTransmit
+	ViolateSetPrecTransmit                   *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetPrecTransmit
+	ViolateSetQosTransmit                    *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateSetQosTransmit
+	ViolateTransmit                          *Native_Policy_PolicyMap_Class_ActionList_PolicePolicyMap_Police_Actions_ViolateTransmit
 }

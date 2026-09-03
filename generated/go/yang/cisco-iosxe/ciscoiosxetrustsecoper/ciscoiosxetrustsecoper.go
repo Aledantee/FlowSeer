@@ -6,7 +6,7 @@
 // Package ciscoiosxetrustsecoper binds the YANG module Cisco-IOS-XE-trustsec-oper.
 package ciscoiosxetrustsecoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TrustsecState is the Cisco-IOS-XE-trustsec-oper node /Cisco-IOS-XE-trustsec-oper/trustsec-state.
 type TrustsecState struct {

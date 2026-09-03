@@ -6,7 +6,7 @@
 // Package ciscoxeopenconfigplatformext binds the YANG module cisco-xe-openconfig-platform-ext.
 package ciscoxeopenconfigplatformext
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ASICS is the cisco-xe-openconfig-platform-ext identity "ASICS".
 var Identity_ASICS = yang.Identity{

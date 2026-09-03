@@ -6,7 +6,7 @@
 // Package ciscoiosxecloudservicesoper binds the YANG module Cisco-IOS-XE-cloud-services-oper.
 package ciscoiosxecloudservicesoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CloudServicesOperData is the Cisco-IOS-XE-cloud-services-oper node /Cisco-IOS-XE-cloud-services-oper/cloud-services-oper-data.
 type CloudServicesOperData struct {

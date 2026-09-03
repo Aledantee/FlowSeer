@@ -6,7 +6,7 @@
 // Package atmmib binds the YANG module ATM-MIB.
 package atmmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ATMMIB is the ATM-MIB node /ATM-MIB/ATM-MIB.
 type ATMMIB struct {

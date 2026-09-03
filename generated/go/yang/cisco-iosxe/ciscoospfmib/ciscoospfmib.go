@@ -6,7 +6,7 @@
 // Package ciscoospfmib binds the YANG module CISCO-OSPF-MIB.
 package ciscoospfmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOOSPFMIB is the CISCO-OSPF-MIB node /CISCO-OSPF-MIB/CISCO-OSPF-MIB.
 type CISCOOSPFMIB struct {

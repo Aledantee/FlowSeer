@@ -6,7 +6,7 @@
 // Package ciscoiosxentpoper binds the YANG module Cisco-IOS-XE-ntp-oper.
 package ciscoiosxentpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NtpOperData is the Cisco-IOS-XE-ntp-oper node /Cisco-IOS-XE-ntp-oper/ntp-oper-data.
 type NtpOperData struct {

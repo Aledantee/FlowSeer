@@ -6,7 +6,7 @@
 // Package ciscoiosxeflowmonitoroper binds the YANG module Cisco-IOS-XE-flow-monitor-oper.
 package ciscoiosxeflowmonitoroper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // FlowMonitors is the Cisco-IOS-XE-flow-monitor-oper node /Cisco-IOS-XE-flow-monitor-oper/flow-monitors.
 type FlowMonitors struct {

@@ -6,7 +6,7 @@
 // Package ciscoatmpvctrapextnmib binds the YANG module CISCO-ATM-PVCTRAP-EXTN-MIB.
 package ciscoatmpvctrapextnmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOATMPVCTRAPEXTNMIB is the CISCO-ATM-PVCTRAP-EXTN-MIB node /CISCO-ATM-PVCTRAP-EXTN-MIB/CISCO-ATM-PVCTRAP-EXTN-MIB.
 type CISCOATMPVCTRAPEXTNMIB struct {

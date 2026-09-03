@@ -6,7 +6,7 @@
 // Package ietfyanglibrary binds the YANG module ietf-yang-library.
 package ietfyanglibrary
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ModulesState is the ietf-yang-library node /ietf-yang-library/modules-state.
 type ModulesState struct {

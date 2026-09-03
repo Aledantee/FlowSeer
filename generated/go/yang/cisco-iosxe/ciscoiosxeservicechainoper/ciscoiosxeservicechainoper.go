@@ -6,7 +6,7 @@
 // Package ciscoiosxeservicechainoper binds the YANG module Cisco-IOS-XE-service-chain-oper.
 package ciscoiosxeservicechainoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ServiceChainOperData is the Cisco-IOS-XE-service-chain-oper node /Cisco-IOS-XE-service-chain-oper/service-chain-oper-data.
 type ServiceChainOperData struct {

@@ -6,7 +6,7 @@
 // Package dismaneventmib binds the YANG module DISMAN-EVENT-MIB.
 package dismaneventmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // DISMANEVENTMIB is the DISMAN-EVENT-MIB node /DISMAN-EVENT-MIB/DISMAN-EVENT-MIB.
 type DISMANEVENTMIB struct {

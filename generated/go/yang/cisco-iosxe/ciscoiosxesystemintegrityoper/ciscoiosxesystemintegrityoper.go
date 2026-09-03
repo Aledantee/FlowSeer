@@ -6,7 +6,7 @@
 // Package ciscoiosxesystemintegrityoper binds the YANG module Cisco-IOS-XE-system-integrity-oper.
 package ciscoiosxesystemintegrityoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SystemIntegrityOperData is the Cisco-IOS-XE-system-integrity-oper node /Cisco-IOS-XE-system-integrity-oper/system-integrity-oper-data.
 type SystemIntegrityOperData struct {

@@ -5,423 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MtuIgnore is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/mtu-ignore.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MtuIgnore struct {
-	Disable *bool
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MtuIgnoreSchema describes /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/mtu-ignore for the generic codecs.
-var Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MtuIgnoreSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "mtu-ignore",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiArea is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiArea struct {
-	Cost    *uint32
-	Disable *bool
-	Id      *yang.Value
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaSchema describes /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area for the generic codecs.
-var Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cost",
-		Name:   "cost",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "multi-area",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area-config.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig struct {
-	MultiAreaId     []Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId
-	MultiAreaIdCost []Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfigSchema describes /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area-config for the generic codecs.
-var Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdSchema,
-		GoName: "MultiAreaId",
-		List:   true,
-		Name:   "multi-area-id",
-	}, {
-		Child:  Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostSchema,
-		GoName: "MultiAreaIdCost",
-		List:   true,
-		Name:   "multi-area-id-cost",
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "multi-area-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area-config/multi-area-id.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId struct {
-	AreaId  *yang.Value
-	Disable *bool
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdSchema describes /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area-config/multi-area-id for the generic codecs.
-var Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AreaId",
-		Name:   "area-id",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"area-id"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "multi-area-id",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdKey is Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId's row identity (ancestor keys in canonical form).
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdKey struct {
-	FiveGigabitEthernet_Name string
-	ProcessId_Id             string
-	AreaId                   string
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow flattens one Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId entry with its ancestor list keys.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow struct {
-	FiveGigabitEthernet_Name string
-	ProcessId_Id             string
-	Entry                    Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId.
-func Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdDescriptor() yang.ListDescriptor[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdKey] {
-	return yang.ListDescriptor[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdKey]{
-		Codec: yang.RowCodec[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiveGigabitEthernetSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessIdSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow{
-						Entry:                    en.Entry,
-						FiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						ProcessId_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiveGigabitEthernetSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessIdSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaId](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow{
-						Entry:                    en.Entry,
-						FiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						ProcessId_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow) Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdKey {
-				var k Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdKey
-				k.FiveGigabitEthernet_Name = r.FiveGigabitEthernet_Name
-				k.ProcessId_Id = r.ProcessId_Id
-				if r.Entry.AreaId != nil {
-					k.AreaId = yang.CanonicalKey(r.Entry.AreaId)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow) Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FiveGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "process-id"}, {Name: "ipv4"}, {Name: "multi-area-config"}, {Name: "multi-area-id"}}},
-	}
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area-config/multi-area-id-cost.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost struct {
-	AreaId *yang.Value
-	Cost   *uint32
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostSchema describes /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/multi-area-config/multi-area-id-cost for the generic codecs.
-var Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AreaId",
-		Name:   "area-id",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
-		},
-	}, {
-		GoName: "Cost",
-		Name:   "cost",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"area-id"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "multi-area-id-cost",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostKey is Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost's row identity (ancestor keys in canonical form).
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostKey struct {
-	FiveGigabitEthernet_Name string
-	ProcessId_Id             string
-	AreaId                   string
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow flattens one Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost entry with its ancestor list keys.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow struct {
-	FiveGigabitEthernet_Name string
-	ProcessId_Id             string
-	Entry                    Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost.
-func Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostDescriptor() yang.ListDescriptor[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostKey] {
-	return yang.ListDescriptor[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostKey]{
-		Codec: yang.RowCodec[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiveGigabitEthernetSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessIdSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow{
-						Entry:                    en.Entry,
-						FiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						ProcessId_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiveGigabitEthernetSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessIdSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCost](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow{
-						Entry:                    en.Entry,
-						FiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						ProcessId_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow) Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostKey {
-				var k Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostKey
-				k.FiveGigabitEthernet_Name = r.FiveGigabitEthernet_Name
-				k.ProcessId_Id = r.ProcessId_Id
-				if r.Entry.AreaId != nil {
-					k.AreaId = yang.CanonicalKey(r.Entry.AreaId)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow) Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_MultiAreaConfig_MultiAreaIdCostSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FiveGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "process-id"}, {Name: "ipv4"}, {Name: "multi-area-config"}, {Name: "multi-area-id-cost"}}},
-	}
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/neighbor.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor struct {
-	Cost           *uint16
-	DatabaseFilter *Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor_DatabaseFilter
-	Id             *string
-	PollInterval   *uint32
-	Priority       *uint8
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborSchema describes /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/neighbor for the generic codecs.
-var Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cost",
-		Name:   "cost",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor_DatabaseFilterSchema,
-		GoName: "DatabaseFilter",
-		Name:   "database-filter",
-	}, {
-		GoName: "Id",
-		Name:   "id",
-		Type:   yang.TString,
-	}, {
-		GoName: "PollInterval",
-		Name:   "poll-interval",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Priority",
-		Name:   "priority",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"id"},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "neighbor",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborKey is Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor's row identity (ancestor keys in canonical form).
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborKey struct {
-	FiveGigabitEthernet_Name string
-	ProcessId_Id             string
-	Id                       string
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow flattens one Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor entry with its ancestor list keys.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow struct {
-	FiveGigabitEthernet_Name string
-	ProcessId_Id             string
-	Entry                    Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborDescriptor is the flattened-row descriptor for the nested list Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor.
-func Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborDescriptor() yang.ListDescriptor[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborKey] {
-	return yang.ListDescriptor[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborKey]{
-		Codec: yang.RowCodec[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiveGigabitEthernetSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessIdSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow{
-						Entry:                    en.Entry,
-						FiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						ProcessId_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FiveGigabitEthernetSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessIdSchema, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow{
-						Entry:                    en.Entry,
-						FiveGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						ProcessId_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow) Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborKey {
-				var k Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborKey
-				k.FiveGigabitEthernet_Name = r.FiveGigabitEthernet_Name
-				k.ProcessId_Id = r.ProcessId_Id
-				if r.Entry.Id != nil {
-					k.Id = *r.Entry.Id
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow) Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_NeighborSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FiveGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-ospfv3",
-			Name:      "ospfv3",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-		}, {Name: "process-id"}, {Name: "ipv4"}, {Name: "neighbor"}}},
-	}
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor_DatabaseFilter is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/neighbor/database-filter.
-type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor_DatabaseFilter struct {
-	All *string
-}
-
-// Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor_DatabaseFilterSchema describes /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/neighbor/database-filter for the generic codecs.
-var Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Neighbor_DatabaseFilterSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "All",
-		Name:   "all",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "database-filter",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Network is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FiveGigabitEthernet/ospfv3/process-id/ipv4/network.
 type Native_Interface_FiveGigabitEthernet_Ospfv3_ProcessId_Ipv4_Network struct {
@@ -40059,4 +39643,644 @@ type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl struct {
 	Pseudowire                *uint32
 	Vasileft                  *uint16
 	Vasiright                 *uint16
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_UdlSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_UdlSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName:    "ATM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "ATMACR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-ACR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterfaceSchema,
+		GoName:    "ATMACRsubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-ACRsubinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterfaceSchema,
+		GoName:    "ATMSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "AppGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "AppNavCompress",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppNav-Compress",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "AppNavUnCompress",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppNav-UnCompress",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Async",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Async",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "BDVIF",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "BD-VIF",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "BDI",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "BDI",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Bundle",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Bundle",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "CEM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "CEM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "CEMACR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "CEM-ACR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint8,
+	}, {
+		GoName:    "Cellular",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Cellular",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Dialer",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Dialer",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "EmbeddedServiceEngine",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Embedded-Service-Engine",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Ethernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Ethernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FastEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FastEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FiftyGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FiftyGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FiveGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FiveGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FortyGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FortyGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "GigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "GigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "HundredGigE",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "HundredGigE",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "L2LISP",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "L2LISP",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterfaceSchema,
+		GoName:    "L2LISPSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "L2LISP-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "LISP",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "LISP",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterfaceSchema,
+		GoName:    "LISPSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "LISP-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "Loopback",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Loopback",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "MFR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "MFR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "Multilink",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Multilink",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "PortChannel",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Port-channel",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterfaceSchema,
+		GoName:    "PortChannelSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Port-channel-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "SM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "SM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Serial",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Serial",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterfaceSchema,
+		GoName:    "SerialSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Serial-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "TenGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TenGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Tunnel",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Tunnel",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "TwentyFiveGigE",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwentyFiveGigE",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "TwentyFiveGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwentyFiveGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "TwoGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwoGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "VirtualTemplate",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Virtual-Template",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "VirtualPortGroup",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "VirtualPortGroup",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Vlan",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Vlan",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Nve",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "nve",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Overlay",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "overlay",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Pseudowire",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "pseudowire",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "Vasileft",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "vasileft",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Vasiright",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "vasiright",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "udl",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterface struct {
+	ATMACR *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ATMACR",
+		Name:   "ATM-ACR",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "ATM-ACRsubinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-subinterface/ATM-subinterface.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterface struct {
+	ATM *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-subinterface/ATM-subinterface for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ATM",
+		Name:   "ATM",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "ATM-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/L2LISP-subinterface/L2LISP-subinterface.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterface struct {
+	L2LISP *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/L2LISP-subinterface/L2LISP-subinterface for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "L2LISP",
+		Name:   "L2LISP",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "L2LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/LISP-subinterface/LISP-subinterface.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterface struct {
+	LISP *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "LISP",
+		Name:   "LISP",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterface struct {
+	PortChannel *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PortChannel",
+		Name:   "Port-channel",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Port-channel-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Serial-subinterface/Serial-subinterface.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterface struct {
+	Serial *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Serial-subinterface/Serial-subinterface for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Serial",
+		Name:   "Serial",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Serial-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmp-join-group.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup struct {
+	JoinGroup *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmp-join-group for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "JoinGroup",
+		Name:   "join-group",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"join-group"},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "igmp-join-group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey is Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup's row identity (ancestor keys in canonical form).
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey struct {
+	FortyGigabitEthernet_Name string
+	JoinGroup                 string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow flattens one Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup entry with its ancestor list keys.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow struct {
+	FortyGigabitEthernet_Name string
+	Entry                     Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup.
+func Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupDescriptor() yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey] {
+	return yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey]{
+		Codec: yang.RowCodec[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow{
+						Entry:                     en.Entry,
+						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow{
+						Entry:                     en.Entry,
+						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey {
+				var k Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey
+				k.FortyGigabitEthernet_Name = r.FortyGigabitEthernet_Name
+				if r.Entry.JoinGroup != nil {
+					k.JoinGroup = *r.Entry.JoinGroup
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FortyGigabitEthernet"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-igmp",
+			Name:      "igmp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		}, {Name: "igmp-join-group"}}},
+	}
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmpv3-join-group.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup struct {
+	IpGroupAddress *string
+	Source         *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmpv3-join-group for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "IpGroupAddress",
+		Name:   "ip-group-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Source",
+		Name:   "source",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"ip-group-address", "source"},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "igmpv3-join-group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey is Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup's row identity (ancestor keys in canonical form).
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey struct {
+	FortyGigabitEthernet_Name string
+	IpGroupAddress            string
+	Source                    string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow flattens one Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup entry with its ancestor list keys.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow struct {
+	FortyGigabitEthernet_Name string
+	Entry                     Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup.
+func Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupDescriptor() yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey] {
+	return yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey]{
+		Codec: yang.RowCodec[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow{
+						Entry:                     en.Entry,
+						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow{
+						Entry:                     en.Entry,
+						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey {
+				var k Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey
+				k.FortyGigabitEthernet_Name = r.FortyGigabitEthernet_Name
+				if r.Entry.IpGroupAddress != nil {
+					k.IpGroupAddress = *r.Entry.IpGroupAddress
+				}
+				if r.Entry.Source != nil {
+					k.Source = *r.Entry.Source
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "FortyGigabitEthernet"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-igmp",
+			Name:      "igmp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		}, {Name: "igmpv3-join-group"}}},
+	}
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeave is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/immediate-leave.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeave struct {
+	GroupList *yang.Value
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeaveSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/immediate-leave for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeaveSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "GroupList",
+		Name:   "group-list",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
+		},
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "immediate-leave",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/join-group.
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroup struct {
+	IpGroupAddress *string
+	Source         *string
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/join-group for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "IpGroupAddress",
+		Name:   "ip-group-address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Source",
+		Name:   "source",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"ip-group-address"},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "join-group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupKey is Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroup's row identity (ancestor keys in canonical form).
+type Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupKey struct {
+	FortyGigabitEthernet_Name string
+	IpGroupAddress            string
 }

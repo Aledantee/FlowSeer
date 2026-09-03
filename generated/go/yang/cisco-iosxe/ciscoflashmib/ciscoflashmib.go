@@ -6,7 +6,7 @@
 // Package ciscoflashmib binds the YANG module CISCO-FLASH-MIB.
 package ciscoflashmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOFLASHMIB is the CISCO-FLASH-MIB node /CISCO-FLASH-MIB/CISCO-FLASH-MIB.
 type CISCOFLASHMIB struct {

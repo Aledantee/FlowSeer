@@ -6,7 +6,7 @@
 // Package pimmib binds the YANG module PIM-MIB.
 package pimmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PIMMIB is the PIM-MIB node /PIM-MIB/PIM-MIB.
 type PIMMIB struct {

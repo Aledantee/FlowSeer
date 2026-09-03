@@ -6,7 +6,7 @@
 // Package ciscoiosxeswitchdpresourcesoper binds the YANG module Cisco-IOS-XE-switch-dp-resources-oper.
 package ciscoiosxeswitchdpresourcesoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SwitchDpResourcesOperData is the Cisco-IOS-XE-switch-dp-resources-oper node /Cisco-IOS-XE-switch-dp-resources-oper/switch-dp-resources-oper-data.
 type SwitchDpResourcesOperData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxevdspoper binds the YANG module Cisco-IOS-XE-vdsp-oper.
 package ciscoiosxevdspoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // VdspOperData is the Cisco-IOS-XE-vdsp-oper node /Cisco-IOS-XE-vdsp-oper/vdsp-oper-data.
 type VdspOperData struct {

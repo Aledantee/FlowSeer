@@ -446,9 +446,9 @@ new field also needs a decision about whether it crosses the wire, and a
 reused for a different meaning (`src/common/errs/code.go:15`,
 `src/common/errs/doc.go:56-58`). Declare at package level with a string literal
 argument, or the repo-wide scan gate cannot see it. The first real users are the
-MIB parser's diagnostics: `src/common/smi/internal/diag/zz_generated_codes.go`
+MIB parser's diagnostics: `src/protocol/smi/internal/diag/zz_generated_codes.go`
 declares every `smi/...` code, generated from the table in
-`src/common/smi/internal/catalog/catalog.go` precisely so the literal the scan
+`src/protocol/smi/internal/catalog/catalog.go` precisely so the literal the scan
 gate needs exists in ordinary source and lives in exactly one place. That set
 also learned something the rule above does not say: append-only is a claim
 nothing enforces on its own, so the catalog carries a committed golden of
@@ -471,12 +471,12 @@ integrity-protected peers, and peer-supplied codes and attributes never drive
 authorization decisions.
 
 **Migrating the remaining `ae` call sites.** `go.aledante.io/ae v0.3.0` is still a
-direct requirement in the root `go.mod:9`, and in `src/common/snmp/bench/go.mod:45`
+direct requirement in the root `go.mod:9`, and in `src/protocol/snmp/bench/go.mod:45`
 it has dropped to `// indirect`. The generator's own three imports
 (`config.go`, `load.go`, `emit.go`) have since migrated. What remains is the
 `aeImport` constant the emitter writes into generated code
-(`src/common/snmp/cmd/mibgen/emit.go:29`) and the golden fixture that embeds it
-(`src/common/snmp/cmd/mibgen/testdata/golden/fakemib/mib.go:16`). This interacts
+(`src/protocol/snmp/cmd/mibgen/emit.go:29`) and the golden fixture that embeds it
+(`src/protocol/snmp/cmd/mibgen/testdata/golden/fakemib/mib.go:16`). This interacts
 with the standing rule that generated code consumes only the host library's public
 API — `errs` is public within the module, so the emitter constant can point at it,
 but regenerating `generated/go/mib` is part of the same follow-up. Even after
@@ -493,7 +493,7 @@ envelope integration.
 ### Error-first wrapping
 
 The `ae` form put the wrapped error between format and arguments. In
-`src/common/snmp/ber.go`:
+`src/protocol/snmp/ber.go`:
 
 ```go
 // before
@@ -524,7 +524,7 @@ var ErrPrivDecrypt = ae.Msg("USM decryption failed")
 // after
 var ErrPrivDecrypt = errs.Msg("USM decryption failed")
 ```
-(`src/common/snmp/usm_priv.go:37`.) Sentinels capture no stack, so a package-level
+(`src/protocol/snmp/usm_priv.go:37`.) Sentinels capture no stack, so a package-level
 `var` block costs nothing at init.
 
 ### Builder with attributes
@@ -537,7 +537,7 @@ return nil, ae.New().Attr("have", len(key)).Attr("need", need).Attr("proto", pro
 return nil, errs.New().Attr("have", len(key)).Attr("need", need).Attr("proto", proto.String()).
 	Msg("priv key length mismatch")
 ```
-(`src/common/snmp/usm_priv.go:61`.) Mechanically identical — which was the point of
+(`src/protocol/snmp/usm_priv.go:61`.) Mechanically identical — which was the point of
 keeping `ae`'s method names. One semantic change rides along: `ae.Attributes(err)`
 read only the top error's own attributes, while `errs.Attributes` merges the whole
 chain. The existing assertions passed because each asserted attribute sits on the
@@ -562,7 +562,7 @@ if len(key) != need {
 		Msg("priv key length mismatch")
 }
 ```
-(`src/common/snmp/usm_priv.go:60-62`) — the key's *length* and the protocol's
+(`src/protocol/snmp/usm_priv.go:60-62`) — the key's *length* and the protocol's
 *name*, never the key.
 
 ```go
@@ -570,17 +570,17 @@ if len(privParams) != 8 {
 	return nil, errs.New().Attr("len", len(privParams)).Cause(ErrPrivDecrypt).Msg("AES salt wrong length")
 }
 ```
-(`src/common/snmp/usm_priv.go:133`) — the salt's length, never the salt.
+(`src/protocol/snmp/usm_priv.go:133`) — the salt's length, never the salt.
 
 ```go
 return nil, errs.New().Attr("proto", proto.String()).Msg("no key derivation for AuthProtocolNone")
 ```
-(`src/common/snmp/usm_kdf.go:52`), and the same shape at
-`src/common/snmp/usm_kdf.go:71`, `:160`; `src/common/snmp/usm_auth.go:38`, `:94`,
+(`src/protocol/snmp/usm_kdf.go:52`), and the same shape at
+`src/protocol/snmp/usm_kdf.go:71`, `:160`; `src/protocol/snmp/usm_auth.go:38`, `:94`,
 `:120`.
 
 `ErrPrivDecrypt`'s own doc comment states the guarantee inline — "It carries no
-key material" (`src/common/snmp/usm_priv.go:36`). That is the pattern worth
+key material" (`src/protocol/snmp/usm_priv.go:36`). That is the pattern worth
 copying: when a sentinel or builder sits on a path where secrets are in scope, say
 in the comment what it does *not* carry, so the next person editing the attribute
 list sees the constraint before they add to it.
@@ -594,7 +594,7 @@ list sees the constraint before they add to it.
 - `docs/code-style.md` §Errors — the enforceable repo-wide rules this work
   produced. Consult it for what to do; consult this doc for why.
 - [SNMP Collection Library — Architecture and Fast-Path Conventions](snmp-collection-library-architecture-and-fast-path-conventions.md)
-  — `src/common/snmp` is the largest consumer of `errs` and served as the
+  — `src/protocol/snmp` is the largest consumer of `errs` and served as the
   migration oracle; its unchanged test suite is what proved the rename
   behavior-preserving. The `doc.go`-is-authoritative documentation convention used
   here is borrowed from that package.

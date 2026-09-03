@@ -6,7 +6,7 @@
 // Package ciscoiosxevrfoper binds the YANG module Cisco-IOS-XE-vrf-oper.
 package ciscoiosxevrfoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // VrfOperData is the Cisco-IOS-XE-vrf-oper node /Cisco-IOS-XE-vrf-oper/vrf-oper-data.
 type VrfOperData struct {

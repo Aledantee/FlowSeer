@@ -6,7 +6,7 @@
 // Package ipforwardmib binds the YANG module IP-FORWARD-MIB.
 package ipforwardmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IPFORWARDMIB is the IP-FORWARD-MIB node /IP-FORWARD-MIB/IP-FORWARD-MIB.
 type IPFORWARDMIB struct {

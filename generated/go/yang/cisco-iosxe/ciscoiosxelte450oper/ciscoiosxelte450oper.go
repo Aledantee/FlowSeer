@@ -6,7 +6,7 @@
 // Package ciscoiosxelte450oper binds the YANG module Cisco-IOS-XE-lte450-oper.
 package ciscoiosxelte450oper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Lte450OperData is the Cisco-IOS-XE-lte450-oper node /Cisco-IOS-XE-lte450-oper/lte450-oper-data.
 type Lte450OperData struct {

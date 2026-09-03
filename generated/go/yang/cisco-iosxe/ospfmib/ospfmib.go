@@ -6,7 +6,7 @@
 // Package ospfmib binds the YANG module OSPF-MIB.
 package ospfmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // OSPFMIB is the OSPF-MIB node /OSPF-MIB/OSPF-MIB.
 type OSPFMIB struct {

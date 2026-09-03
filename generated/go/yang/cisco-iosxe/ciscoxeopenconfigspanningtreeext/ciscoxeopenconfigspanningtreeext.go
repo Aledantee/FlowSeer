@@ -6,7 +6,7 @@
 // Package ciscoxeopenconfigspanningtreeext binds the YANG module cisco-xe-openconfig-spanning-tree-ext.
 package ciscoxeopenconfigspanningtreeext
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_BROKEN is the cisco-xe-openconfig-spanning-tree-ext identity "BROKEN".
 var Identity_BROKEN = yang.Identity{

@@ -5,647 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_UdlSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_UdlSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName:    "ATM",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "ATMACR",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM-ACR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterfaceSchema,
-		GoName:    "ATMACRsubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM-ACRsubinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-	}, {
-		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterfaceSchema,
-		GoName:    "ATMSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "ATM-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-	}, {
-		GoName:    "AppGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "AppGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "AppNavCompress",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "AppNav-Compress",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "AppNavUnCompress",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "AppNav-UnCompress",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Async",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Async",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "BDVIF",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "BD-VIF",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "BDI",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "BDI",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Bundle",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Bundle",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "CEM",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "CEM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "CEMACR",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "CEM-ACR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint8,
-	}, {
-		GoName:    "Cellular",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Cellular",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Dialer",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Dialer",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "EmbeddedServiceEngine",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Embedded-Service-Engine",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Ethernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Ethernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FastEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "FastEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FiftyGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "FiftyGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FiveGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "FiveGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "FortyGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "FortyGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "GigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "GigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "HundredGigE",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "HundredGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "L2LISP",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "L2LISP",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterfaceSchema,
-		GoName:    "L2LISPSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "L2LISP-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-	}, {
-		GoName:    "LISP",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "LISP",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterfaceSchema,
-		GoName:    "LISPSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "LISP-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-	}, {
-		GoName:    "Loopback",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Loopback",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "MFR",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "MFR",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "Multilink",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Multilink",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "PortChannel",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Port-channel",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint32,
-	}, {
-		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterfaceSchema,
-		GoName:    "PortChannelSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Port-channel-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-	}, {
-		GoName:    "SM",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "SM",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Serial",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Serial",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		Child:     Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterfaceSchema,
-		GoName:    "SerialSubinterface",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Serial-subinterface",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-	}, {
-		GoName:    "TenGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TenGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "Tunnel",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Tunnel",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "TwentyFiveGigE",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TwentyFiveGigE",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "TwentyFiveGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TwentyFiveGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "TwoGigabitEthernet",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "TwoGigabitEthernet",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TString,
-	}, {
-		GoName:    "VirtualTemplate",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Virtual-Template",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "VirtualPortGroup",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "VirtualPortGroup",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Vlan",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "Vlan",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Nve",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "nve",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Overlay",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "overlay",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Pseudowire",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "pseudowire",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint32,
-	}, {
-		GoName:    "Vasileft",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "vasileft",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}, {
-		GoName:    "Vasiright",
-		Module:    "Cisco-IOS-XE-interface-common",
-		Name:      "vasiright",
-		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		Type:      yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-igmp",
-	Name:      "udl",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterface struct {
-	ATMACR *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMACRsubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ATMACR",
-		Name:   "ATM-ACR",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "ATM-ACRsubinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-subinterface/ATM-subinterface.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterface struct {
-	ATM *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/ATM-subinterface/ATM-subinterface for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_ATMSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ATM",
-		Name:   "ATM",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "ATM-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/L2LISP-subinterface/L2LISP-subinterface.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterface struct {
-	L2LISP *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/L2LISP-subinterface/L2LISP-subinterface for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_L2LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "L2LISP",
-		Name:   "L2LISP",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "L2LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/LISP-subinterface/LISP-subinterface.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterface struct {
-	LISP *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_LISPSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LISP",
-		Name:   "LISP",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "LISP-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterface struct {
-	PortChannel *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_PortChannelSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "PortChannel",
-		Name:   "Port-channel",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "Port-channel-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Serial-subinterface/Serial-subinterface.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterface struct {
-	Serial *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/helper-address/udl/interface-choice/Serial-subinterface/Serial-subinterface for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_HelperAddress_Udl_SerialSubinterfaceSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Serial",
-		Name:   "Serial",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "Serial-subinterface",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmp-join-group.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup struct {
-	JoinGroup *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmp-join-group for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "JoinGroup",
-		Name:   "join-group",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"join-group"},
-	Module:    "Cisco-IOS-XE-igmp",
-	Name:      "igmp-join-group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey is Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup's row identity (ancestor keys in canonical form).
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey struct {
-	FortyGigabitEthernet_Name string
-	JoinGroup                 string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow flattens one Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup entry with its ancestor list keys.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow struct {
-	FortyGigabitEthernet_Name string
-	Entry                     Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup.
-func Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupDescriptor() yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey] {
-	return yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey]{
-		Codec: yang.RowCodec[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow{
-						Entry:                     en.Entry,
-						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroup](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow{
-						Entry:                     en.Entry,
-						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey {
-				var k Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupKey
-				k.FortyGigabitEthernet_Name = r.FortyGigabitEthernet_Name
-				if r.Entry.JoinGroup != nil {
-					k.JoinGroup = *r.Entry.JoinGroup
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FortyGigabitEthernet_Ip_Igmp_IgmpJoinGroupSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FortyGigabitEthernet"}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-igmp",
-			Name:      "igmp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		}, {Name: "igmp-join-group"}}},
-	}
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmpv3-join-group.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup struct {
-	IpGroupAddress *string
-	Source         *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/igmpv3-join-group for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "IpGroupAddress",
-		Name:   "ip-group-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Source",
-		Name:   "source",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"ip-group-address", "source"},
-	Module:    "Cisco-IOS-XE-igmp",
-	Name:      "igmpv3-join-group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey is Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup's row identity (ancestor keys in canonical form).
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey struct {
-	FortyGigabitEthernet_Name string
-	IpGroupAddress            string
-	Source                    string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow flattens one Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup entry with its ancestor list keys.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow struct {
-	FortyGigabitEthernet_Name string
-	Entry                     Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup.
-func Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupDescriptor() yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey] {
-	return yang.ListDescriptor[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey]{
-		Codec: yang.RowCodec[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow{
-						Entry:                     en.Entry,
-						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_FortyGigabitEthernetSchema, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroup](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow{
-						Entry:                     en.Entry,
-						FortyGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey {
-				var k Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupKey
-				k.FortyGigabitEthernet_Name = r.FortyGigabitEthernet_Name
-				if r.Entry.IpGroupAddress != nil {
-					k.IpGroupAddress = *r.Entry.IpGroupAddress
-				}
-				if r.Entry.Source != nil {
-					k.Source = *r.Entry.Source
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow) Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_FortyGigabitEthernet_Ip_Igmp_Igmpv3JoinGroupSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "FortyGigabitEthernet"}, {Name: "ip"}, {
-			Module:    "Cisco-IOS-XE-igmp",
-			Name:      "igmp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-		}, {Name: "igmpv3-join-group"}}},
-	}
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeave is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/immediate-leave.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeave struct {
-	GroupList *yang.Value
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeaveSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/immediate-leave for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_ImmediateLeaveSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "GroupList",
-		Name:   "group-list",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
-		},
-	}},
-	Module:    "Cisco-IOS-XE-igmp",
-	Name:      "immediate-leave",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/join-group.
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroup struct {
-	IpGroupAddress *string
-	Source         *string
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/ip/igmp/join-group for the generic codecs.
-var Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "IpGroupAddress",
-		Name:   "ip-group-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Source",
-		Name:   "source",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"ip-group-address"},
-	Module:    "Cisco-IOS-XE-igmp",
-	Name:      "join-group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
-}
-
-// Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupKey is Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroup's row identity (ancestor keys in canonical form).
-type Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupKey struct {
-	FortyGigabitEthernet_Name string
-	IpGroupAddress            string
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupFlatRow flattens one Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroup entry with its ancestor list keys.
 type Native_Interface_FortyGigabitEthernet_Ip_Igmp_JoinGroupFlatRow struct {
@@ -41743,4 +41103,450 @@ var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Inc
 type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps struct {
 	FallingThreshold *string
 	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level struct {
+	Bps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps
+	Pps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps
+	Threshold *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast struct {
+	Include *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include
+	Level   *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_UnicastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_IncludeSchema,
+		GoName: "Include",
+		Name:   "include",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "unicast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include struct {
+	Broadcast *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_IncludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_BroadcastSchema,
+		GoName: "Broadcast",
+		Name:   "broadcast",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "include",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast struct {
+	Level *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_BroadcastSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_LevelSchema,
+		GoName: "Level",
+		Name:   "level",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "broadcast",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level struct {
+	Bps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Bps
+	Pps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Pps
+	Threshold *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Threshold
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level/level-choice/bps-case/bps.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level/level-choice/pps-case/pps.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level/level-choice/threshold-case/threshold.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level struct {
+	Bps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Bps
+	Pps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Pps
+	Threshold *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Threshold
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level/level-choice/bps-case/bps.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level/level-choice/pps-case/pps.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Pps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level/level-choice/pps-case/pps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_PpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "pps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level/level-choice/threshold-case/threshold.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_Threshold struct {
+	FallingThreshold *yang.Value
+	RisingThreshold  *yang.Value
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/include/unicast/level/level-choice/threshold-case/threshold for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Include_Unicast_Level_ThresholdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type: &yang.Type{
+			FractionDigits: 2,
+			Kind:           yang.TypeDecimal64,
+		},
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "threshold",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/level.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level struct {
+	Bps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_Bps
+	Pps       *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_Pps
+	Threshold *Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_Threshold
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/level for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_LevelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_BpsSchema,
+		GoName: "Bps",
+		Name:   "bps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_PpsSchema,
+		GoName: "Pps",
+		Name:   "pps",
+	}, {
+		Child:  Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_ThresholdSchema,
+		GoName: "Threshold",
+		Name:   "threshold",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "level",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/level/level-choice/bps-case/bps.
+type Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_Bps struct {
+	FallingThreshold *string
+	RisingThreshold  *string
+}
+
+// Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/FortyGigabitEthernet/storm-control/level-shared/multicast/include/unknown-unicast/level/level-choice/bps-case/bps for the generic codecs.
+var Native_Interface_FortyGigabitEthernet_StormControl_LevelShared_Multicast_Include_UnknownUnicast_Level_BpsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "FallingThreshold",
+		Name:   "falling-threshold",
+		Type:   yang.TString,
+	}, {
+		GoName: "RisingThreshold",
+		Name:   "rising-threshold",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "bps",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
 }

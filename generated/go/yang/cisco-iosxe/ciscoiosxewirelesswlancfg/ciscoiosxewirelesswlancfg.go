@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesswlancfg binds the YANG module Cisco-IOS-XE-wireless-wlan-cfg.
 package ciscoiosxewirelesswlancfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // WlanCfgData is the Cisco-IOS-XE-wireless-wlan-cfg node /Cisco-IOS-XE-wireless-wlan-cfg/wlan-cfg-data.
 type WlanCfgData struct {

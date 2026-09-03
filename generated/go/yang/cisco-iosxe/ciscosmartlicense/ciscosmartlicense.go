@@ -6,7 +6,7 @@
 // Package ciscosmartlicense binds the YANG module cisco-smart-license.
 package ciscosmartlicense
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Licensing is the cisco-smart-license node /cisco-smart-license/licensing.
 type Licensing struct {

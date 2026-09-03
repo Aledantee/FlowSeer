@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmeshglobaloper binds the YANG module Cisco-IOS-XE-wireless-mesh-global-oper.
 package ciscoiosxewirelessmeshglobaloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MeshGlobalOperData is the Cisco-IOS-XE-wireless-mesh-global-oper node /Cisco-IOS-XE-wireless-mesh-global-oper/mesh-global-oper-data.
 type MeshGlobalOperData struct {

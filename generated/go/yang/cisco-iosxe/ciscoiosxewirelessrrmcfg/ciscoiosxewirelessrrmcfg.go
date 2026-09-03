@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrrmcfg binds the YANG module Cisco-IOS-XE-wireless-rrm-cfg.
 package ciscoiosxewirelessrrmcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RrmCfgData is the Cisco-IOS-XE-wireless-rrm-cfg node /Cisco-IOS-XE-wireless-rrm-cfg/rrm-cfg-data.
 type RrmCfgData struct {

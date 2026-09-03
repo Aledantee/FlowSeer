@@ -6,7 +6,7 @@
 // Package pbridgemib binds the YANG module P-BRIDGE-MIB.
 package pbridgemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PBRIDGEMIB is the P-BRIDGE-MIB node /P-BRIDGE-MIB/P-BRIDGE-MIB.
 type PBRIDGEMIB struct {

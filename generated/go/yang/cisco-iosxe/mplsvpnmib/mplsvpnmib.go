@@ -6,7 +6,7 @@
 // Package mplsvpnmib binds the YANG module MPLS-VPN-MIB.
 package mplsvpnmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MPLSVPNMIB is the MPLS-VPN-MIB node /MPLS-VPN-MIB/MPLS-VPN-MIB.
 type MPLSVPNMIB struct {

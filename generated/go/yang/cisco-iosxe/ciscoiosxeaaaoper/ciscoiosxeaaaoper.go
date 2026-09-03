@@ -6,7 +6,7 @@
 // Package ciscoiosxeaaaoper binds the YANG module Cisco-IOS-XE-aaa-oper.
 package ciscoiosxeaaaoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AaaData is the Cisco-IOS-XE-aaa-oper node /Cisco-IOS-XE-aaa-oper/aaa-data.
 type AaaData struct {

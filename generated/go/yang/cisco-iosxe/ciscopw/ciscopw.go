@@ -6,7 +6,7 @@
 // Package ciscopw binds the YANG module cisco-pw.
 package ciscopw
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_PwEncapMpls is the cisco-pw identity "pw-encap-mpls".
 var Identity_PwEncapMpls = yang.Identity{

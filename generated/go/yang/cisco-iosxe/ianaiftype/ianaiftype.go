@@ -6,7 +6,7 @@
 // Package ianaiftype binds the YANG module iana-if-type.
 package ianaiftype
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_A12MppSwitch is the iana-if-type identity "a12MppSwitch".
 var Identity_A12MppSwitch = yang.Identity{

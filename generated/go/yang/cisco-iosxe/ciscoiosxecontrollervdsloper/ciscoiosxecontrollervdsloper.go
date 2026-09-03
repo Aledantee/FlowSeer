@@ -6,7 +6,7 @@
 // Package ciscoiosxecontrollervdsloper binds the YANG module Cisco-IOS-XE-controller-vdsl-oper.
 package ciscoiosxecontrollervdsloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // VdslOperData is the Cisco-IOS-XE-controller-vdsl-oper node /Cisco-IOS-XE-controller-vdsl-oper/vdsl-oper-data.
 type VdslOperData struct {

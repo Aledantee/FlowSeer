@@ -6,7 +6,7 @@
 // Package ietfdiffservtarget binds the YANG module ietf-diffserv-target.
 package ietfdiffservtarget
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Direction is the ietf-diffserv-target identity "direction".
 var Identity_Direction = yang.Identity{

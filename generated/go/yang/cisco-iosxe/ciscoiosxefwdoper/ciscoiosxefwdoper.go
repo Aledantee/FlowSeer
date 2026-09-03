@@ -6,7 +6,7 @@
 // Package ciscoiosxefwdoper binds the YANG module Cisco-IOS-XE-fwd-oper.
 package ciscoiosxefwdoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // FwdOperData is the Cisco-IOS-XE-fwd-oper node /Cisco-IOS-XE-fwd-oper/fwd-oper-data.
 type FwdOperData struct {

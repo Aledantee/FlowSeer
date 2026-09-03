@@ -6,7 +6,7 @@
 // Package ciscoiosxeawscwoper binds the YANG module Cisco-IOS-XE-aws-cw-oper.
 package ciscoiosxeawscwoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AwsCwOperData is the Cisco-IOS-XE-aws-cw-oper node /Cisco-IOS-XE-aws-cw-oper/aws-cw-oper-data.
 type AwsCwOperData struct {

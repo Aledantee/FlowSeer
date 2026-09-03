@@ -6,7 +6,7 @@
 // Package openconfigsystemlogging binds the YANG module openconfig-system-logging.
 package openconfigsystemlogging
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ALL is the openconfig-system-logging identity "ALL".
 var Identity_ALL = yang.Identity{

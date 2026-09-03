@@ -6,7 +6,7 @@
 // Package ciscoiosxecablediagoper binds the YANG module Cisco-IOS-XE-cable-diag-oper.
 package ciscoiosxecablediagoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CableDiagOperData is the Cisco-IOS-XE-cable-diag-oper node /Cisco-IOS-XE-cable-diag-oper/cable-diag-oper-data.
 type CableDiagOperData struct {

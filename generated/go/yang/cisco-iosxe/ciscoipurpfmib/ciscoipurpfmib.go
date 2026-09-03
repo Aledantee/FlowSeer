@@ -6,7 +6,7 @@
 // Package ciscoipurpfmib binds the YANG module CISCO-IP-URPF-MIB.
 package ciscoipurpfmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPURPFMIB is the CISCO-IP-URPF-MIB node /CISCO-IP-URPF-MIB/CISCO-IP-URPF-MIB.
 type CISCOIPURPFMIB struct {

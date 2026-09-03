@@ -6,7 +6,7 @@
 // Package ciscoipslaechomib binds the YANG module CISCO-IPSLA-ECHO-MIB.
 package ciscoipslaechomib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPSLAECHOMIB is the CISCO-IPSLA-ECHO-MIB node /CISCO-IPSLA-ECHO-MIB/CISCO-IPSLA-ECHO-MIB.
 type CISCOIPSLAECHOMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxecellwanoper binds the YANG module Cisco-IOS-XE-cellwan-oper.
 package ciscoiosxecellwanoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CellwanOperData is the Cisco-IOS-XE-cellwan-oper node /Cisco-IOS-XE-cellwan-oper/cellwan-oper-data.
 type CellwanOperData struct {

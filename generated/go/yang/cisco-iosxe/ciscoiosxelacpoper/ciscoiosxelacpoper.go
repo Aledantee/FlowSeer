@@ -6,7 +6,7 @@
 // Package ciscoiosxelacpoper binds the YANG module Cisco-IOS-XE-lacp-oper.
 package ciscoiosxelacpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LagOperData is the Cisco-IOS-XE-lacp-oper node /Cisco-IOS-XE-lacp-oper/lag-oper-data.
 type LagOperData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesspowercfg binds the YANG module Cisco-IOS-XE-wireless-power-cfg.
 package ciscoiosxewirelesspowercfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PowerCfgData is the Cisco-IOS-XE-wireless-power-cfg node /Cisco-IOS-XE-wireless-power-cfg/power-cfg-data.
 type PowerCfgData struct {

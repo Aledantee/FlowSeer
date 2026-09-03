@@ -6,7 +6,7 @@
 // Package openconfigsystemgrpc binds the YANG module openconfig-system-grpc.
 package openconfigsystemgrpc
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_GNMI is the openconfig-system-grpc identity "GNMI".
 var Identity_GNMI = yang.Identity{

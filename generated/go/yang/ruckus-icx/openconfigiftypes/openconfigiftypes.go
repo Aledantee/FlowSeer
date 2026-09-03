@@ -6,7 +6,7 @@
 // Package openconfigiftypes binds the YANG module openconfig-if-types.
 package openconfigiftypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_IFAGGREGATE is the openconfig-if-types identity "IF_AGGREGATE".
 var Identity_IFAGGREGATE = yang.Identity{

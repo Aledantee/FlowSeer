@@ -6,7 +6,7 @@
 // Package ciscoiosxeipv6oper binds the YANG module Cisco-IOS-XE-ipv6-oper.
 package ciscoiosxeipv6oper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Ipv6Data is the Cisco-IOS-XE-ipv6-oper node /Cisco-IOS-XE-ipv6-oper/ipv6-data.
 type Ipv6Data struct {

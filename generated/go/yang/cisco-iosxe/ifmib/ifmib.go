@@ -6,7 +6,7 @@
 // Package ifmib binds the YANG module IF-MIB.
 package ifmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IFMIB is the IF-MIB node /IF-MIB/IF-MIB.
 type IFMIB struct {

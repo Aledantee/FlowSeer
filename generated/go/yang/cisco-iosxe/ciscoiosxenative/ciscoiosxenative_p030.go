@@ -5,460 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level struct {
-	Bps       *Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Bps
-	Pps       *Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Pps
-	Threshold *Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Threshold
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/bps-case/bps.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/pps-case/pps.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/include/unknown-unicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Include_UnknownUnicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level struct {
-	Bps       *Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Bps
-	Pps       *Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Pps
-	Threshold *Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Threshold
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast struct {
-	Include *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include
-	Level   *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Level
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_MulticastSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_MulticastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "multicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include struct {
-	Broadcast      *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast
-	Unicast        *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Unicast
-	UnknownUnicast *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_UnknownUnicast
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_UnicastSchema,
-		GoName: "Unicast",
-		Name:   "unicast",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_UnknownUnicastSchema,
-		GoName: "UnknownUnicast",
-		Name:   "unknown-unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast struct {
-	Include *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include
-	Level   *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Level
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_BroadcastSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_BroadcastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "broadcast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include struct {
-	Unicast        *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast
-	UnknownUnicast *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnknownUnicast
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnicastSchema,
-		GoName: "Unicast",
-		Name:   "unicast",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnknownUnicastSchema,
-		GoName: "UnknownUnicast",
-		Name:   "unknown-unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast struct {
-	Include *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include
-	Level   *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Level
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_UnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include struct {
-	UnknownUnicast *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicastSchema,
-		GoName: "UnknownUnicast",
-		Name:   "unknown-unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast struct {
-	Level *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicastSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unknown-unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level struct {
-	Bps       *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Bps
-	Pps       *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Pps
-	Threshold *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Threshold
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level/level-choice/bps-case/bps.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level/level-choice/pps-case/pps.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/include/unknown-unicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Include_UnknownUnicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/level.
-type Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Level struct {
-	Bps       *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Level_Bps
-	Pps       *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Level_Pps
-	Threshold *Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_Level_Threshold
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Multilink/storm-control/level-shared/multicast/include/broadcast/include/unicast/level for the generic codecs.
 var Native_Interface_Multilink_StormControl_LevelShared_Multicast_Include_Broadcast_Include_Unicast_LevelSchema = &yang.Schema{
@@ -41301,4 +40848,684 @@ type Native_Interface_PortChannel_Ip_Igmp_JoinGroupKey struct {
 type Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow struct {
 	PortChannel_Name string
 	Entry            Native_Interface_PortChannel_Ip_Igmp_JoinGroup
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_JoinGroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_PortChannel_Ip_Igmp_JoinGroup.
+func Native_Interface_PortChannel_Ip_Igmp_JoinGroupDescriptor() yang.ListDescriptor[Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow, Native_Interface_PortChannel_Ip_Igmp_JoinGroupKey] {
+	return yang.ListDescriptor[Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow, Native_Interface_PortChannel_Ip_Igmp_JoinGroupKey]{
+		Codec: yang.RowCodec[Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow, Native_Interface_PortChannel_Ip_Igmp_JoinGroupKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSchema, Native_Interface_PortChannel_Ip_Igmp_JoinGroupSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_PortChannel_Ip_Igmp_JoinGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSchema, Native_Interface_PortChannel_Ip_Igmp_JoinGroupSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_PortChannel_Ip_Igmp_JoinGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow) Native_Interface_PortChannel_Ip_Igmp_JoinGroupKey {
+				var k Native_Interface_PortChannel_Ip_Igmp_JoinGroupKey
+				k.PortChannel_Name = r.PortChannel_Name
+				if r.Entry.IpGroupAddress != nil {
+					k.IpGroupAddress = *r.Entry.IpGroupAddress
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow) Native_Interface_PortChannel_Ip_Igmp_JoinGroupFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_PortChannel_Ip_Igmp_JoinGroupSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Port-channel"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-igmp",
+			Name:      "igmp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		}, {Name: "join-group"}}},
+	}
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_LimitContainer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/limit-container.
+type Native_Interface_PortChannel_Ip_Igmp_LimitContainer struct {
+	Except *yang.Value
+	Limit  *uint16
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_LimitContainerSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/limit-container for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_LimitContainerSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Except",
+		Name:   "except",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
+		},
+	}, {
+		GoName: "Limit",
+		Name:   "limit",
+		Type:   yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "limit-container",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MaxGroups is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/max-groups.
+type Native_Interface_PortChannel_Ip_Igmp_MaxGroups struct {
+	Action *Native_Interface_PortChannel_Ip_Igmp_MaxGroups_Action
+	Count  *uint64
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MaxGroupsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/max-groups for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MaxGroupsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_PortChannel_Ip_Igmp_MaxGroups_ActionSchema,
+		GoName: "Action",
+		Name:   "action",
+	}, {
+		GoName: "Count",
+		Name:   "count",
+		Type:   yang.TUint64,
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "max-groups",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MaxGroups_Action is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/max-groups/action.
+type Native_Interface_PortChannel_Ip_Igmp_MaxGroups_Action struct {
+	Deny    *bool
+	Replace *bool
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MaxGroups_ActionSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/max-groups/action for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MaxGroups_ActionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Deny",
+		Name:   "deny",
+		Type:   yang.TBool,
+	}, {
+		GoName: "Replace",
+		Name:   "replace",
+		Type:   yang.TBool,
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "action",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy.
+type Native_Interface_PortChannel_Ip_Igmp_MrouteProxy struct {
+	ATM                       *string
+	ATMACR                    *string
+	ATMACRsubinterface        *Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMACRsubinterface
+	ATMSubinterface           *Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMSubinterface
+	AppGigabitEthernet        *string
+	AppNavCompress            *uint16
+	AppNavUnCompress          *uint16
+	Async                     *string
+	BDVIF                     *string
+	BDI                       *string
+	Bundle                    *uint32
+	CEM                       *string
+	CEMACR                    *uint8
+	Cellular                  *string
+	Dialer                    *string
+	EmbeddedServiceEngine     *string
+	Ethernet                  *string
+	FastEthernet              *string
+	FiftyGigabitEthernet      *string
+	FiveGigabitEthernet       *string
+	FortyGigabitEthernet      *string
+	GigabitEthernet           *string
+	HundredGigE               *string
+	L2LISP                    *string
+	L2LISPSubinterface        *Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_L2LISPSubinterface
+	LISP                      *string
+	LISPSubinterface          *Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_LISPSubinterface
+	Loopback                  *uint32
+	MFR                       *uint32
+	Multilink                 *uint16
+	PortChannel               *uint32
+	PortChannelSubinterface   *Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_PortChannelSubinterface
+	SM                        *string
+	Serial                    *string
+	SerialSubinterface        *Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_SerialSubinterface
+	TenGigabitEthernet        *string
+	Tunnel                    *uint32
+	TwentyFiveGigE            *string
+	TwentyFiveGigabitEthernet *string
+	TwoGigabitEthernet        *string
+	VirtualTemplate           *uint16
+	VirtualPortGroup          *uint16
+	Vlan                      *uint16
+	Nve                       *uint16
+	Overlay                   *uint16
+	Pseudowire                *uint32
+	Vasileft                  *uint16
+	Vasiright                 *uint16
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxySchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MrouteProxySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName:    "ATM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "ATMACR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-ACR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMACRsubinterfaceSchema,
+		GoName:    "ATMACRsubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-ACRsubinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		Child:     Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMSubinterfaceSchema,
+		GoName:    "ATMSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "ATM-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "AppGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "AppNavCompress",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppNav-Compress",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "AppNavUnCompress",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "AppNav-UnCompress",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Async",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Async",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "BDVIF",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "BD-VIF",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "BDI",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "BDI",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Bundle",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Bundle",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "CEM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "CEM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "CEMACR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "CEM-ACR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint8,
+	}, {
+		GoName:    "Cellular",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Cellular",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Dialer",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Dialer",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "EmbeddedServiceEngine",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Embedded-Service-Engine",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Ethernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Ethernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FastEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FastEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FiftyGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FiftyGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FiveGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FiveGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "FortyGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "FortyGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "GigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "GigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "HundredGigE",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "HundredGigE",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "L2LISP",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "L2LISP",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_L2LISPSubinterfaceSchema,
+		GoName:    "L2LISPSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "L2LISP-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "LISP",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "LISP",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_LISPSubinterfaceSchema,
+		GoName:    "LISPSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "LISP-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "Loopback",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Loopback",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "MFR",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "MFR",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "Multilink",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Multilink",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "PortChannel",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Port-channel",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		Child:     Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_PortChannelSubinterfaceSchema,
+		GoName:    "PortChannelSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Port-channel-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "SM",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "SM",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Serial",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Serial",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		Child:     Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_SerialSubinterfaceSchema,
+		GoName:    "SerialSubinterface",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Serial-subinterface",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+	}, {
+		GoName:    "TenGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TenGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "Tunnel",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Tunnel",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "TwentyFiveGigE",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwentyFiveGigE",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "TwentyFiveGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwentyFiveGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "TwoGigabitEthernet",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "TwoGigabitEthernet",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TString,
+	}, {
+		GoName:    "VirtualTemplate",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Virtual-Template",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "VirtualPortGroup",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "VirtualPortGroup",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Vlan",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "Vlan",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Nve",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "nve",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Overlay",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "overlay",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Pseudowire",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "pseudowire",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint32,
+	}, {
+		GoName:    "Vasileft",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "vasileft",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}, {
+		GoName:    "Vasiright",
+		Module:    "Cisco-IOS-XE-interface-common",
+		Name:      "vasiright",
+		Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+		Type:      yang.TUint16,
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "mroute-proxy",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMACRsubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface.
+type Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMACRsubinterface struct {
+	ATMACR *string
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMACRsubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/ATM-ACRsubinterface/ATM-ACRsubinterface for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMACRsubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ATMACR",
+		Name:   "ATM-ACR",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "ATM-ACRsubinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/ATM-subinterface/ATM-subinterface.
+type Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMSubinterface struct {
+	ATM *string
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/ATM-subinterface/ATM-subinterface for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_ATMSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ATM",
+		Name:   "ATM",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "ATM-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/L2LISP-subinterface/L2LISP-subinterface.
+type Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_L2LISPSubinterface struct {
+	L2LISP *string
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/L2LISP-subinterface/L2LISP-subinterface for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_L2LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "L2LISP",
+		Name:   "L2LISP",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "L2LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/LISP-subinterface/LISP-subinterface.
+type Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_LISPSubinterface struct {
+	LISP *string
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/LISP-subinterface/LISP-subinterface for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "LISP",
+		Name:   "LISP",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_PortChannelSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/Port-channel-subinterface/Port-channel-subinterface.
+type Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_PortChannelSubinterface struct {
+	PortChannel *string
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_PortChannelSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/Port-channel-subinterface/Port-channel-subinterface for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_PortChannelSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "PortChannel",
+		Name:   "Port-channel",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Port-channel-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_SerialSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/Serial-subinterface/Serial-subinterface.
+type Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_SerialSubinterface struct {
+	Serial *string
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_SerialSubinterfaceSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/mroute-proxy/interface-choice/Serial-subinterface/Serial-subinterface for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_MrouteProxy_SerialSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Serial",
+		Name:   "Serial",
+		Type:   yang.TString,
+	}},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Serial-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_Snooping is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/snooping.
+type Native_Interface_PortChannel_Ip_Igmp_Snooping struct {
+	Tcn *Native_Interface_PortChannel_Ip_Igmp_Snooping_Tcn
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_SnoopingSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/snooping for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_SnoopingSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_PortChannel_Ip_Igmp_Snooping_TcnSchema,
+		GoName: "Tcn",
+		Name:   "tcn",
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "snooping",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_Snooping_Tcn is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/snooping/tcn.
+type Native_Interface_PortChannel_Ip_Igmp_Snooping_Tcn struct {
+	Flood *bool
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_Snooping_TcnSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/snooping/tcn for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_Snooping_TcnSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Flood",
+		Name:   "flood",
+		Type:   yang.TBool,
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "tcn",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_StaticGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/static-group.
+type Native_Interface_PortChannel_Ip_Igmp_StaticGroup struct {
+	ClassMap            *string
+	WithSourceGroups    []Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroups
+	WithoutSourceGroups []Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithoutSourceGroups
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_StaticGroupSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/static-group for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_StaticGroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ClassMap",
+		Name:   "class-map",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroupsSchema,
+		GoName: "WithSourceGroups",
+		List:   true,
+		Name:   "with-source-groups",
+	}, {
+		Child:  Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithoutSourceGroupsSchema,
+		GoName: "WithoutSourceGroups",
+		List:   true,
+		Name:   "without-source-groups",
+	}},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "static-group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroups is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/static-group/with-source-groups.
+type Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroups struct {
+	Name   *yang.Value
+	Source *yang.Value
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroupsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/ip/igmp/static-group/with-source-groups for the generic codecs.
+var Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroupsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
+		},
+	}, {
+		GoName: "Source",
+		Name:   "source",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
+		},
+	}},
+	Keys:      []string{"name", "source"},
+	Module:    "Cisco-IOS-XE-igmp",
+	Name:      "with-source-groups",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-igmp",
+}
+
+// Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroupsKey is Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroups's row identity (ancestor keys in canonical form).
+type Native_Interface_PortChannel_Ip_Igmp_StaticGroup_WithSourceGroupsKey struct {
+	PortChannel_Name string
+	Name             string
+	Source           string
 }

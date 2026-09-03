@@ -6,7 +6,7 @@
 // Package ciscoconfigmanmib binds the YANG module CISCO-CONFIG-MAN-MIB.
 package ciscoconfigmanmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOCONFIGMANMIB is the CISCO-CONFIG-MAN-MIB node /CISCO-CONFIG-MAN-MIB/CISCO-CONFIG-MAN-MIB.
 type CISCOCONFIGMANMIB struct {

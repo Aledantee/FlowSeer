@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesssitecfg binds the YANG module Cisco-IOS-XE-wireless-site-cfg.
 package ciscoiosxewirelesssitecfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SiteCfgData is the Cisco-IOS-XE-wireless-site-cfg node /Cisco-IOS-XE-wireless-site-cfg/site-cfg-data.
 type SiteCfgData struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxescadagwoper binds the YANG module Cisco-IOS-XE-scada-gw-oper.
 package ciscoiosxescadagwoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ScadaGwOperData is the Cisco-IOS-XE-scada-gw-oper node /Cisco-IOS-XE-scada-gw-oper/scada-gw-oper-data.
 type ScadaGwOperData struct {

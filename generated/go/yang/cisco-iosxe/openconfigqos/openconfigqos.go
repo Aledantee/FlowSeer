@@ -6,7 +6,7 @@
 // Package openconfigqos binds the YANG module openconfig-qos.
 package openconfigqos
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_DYNAMICBASEDONSCALINGFACTOR is the openconfig-qos identity "DYNAMIC_BASED_ON_SCALING_FACTOR".
 var Identity_DYNAMICBASEDONSCALINGFACTOR = yang.Identity{

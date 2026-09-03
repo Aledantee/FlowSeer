@@ -6,7 +6,7 @@
 // Package ciscoiosxeumbrellaoper binds the YANG module Cisco-IOS-XE-umbrella-oper.
 package ciscoiosxeumbrellaoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UmbrellaIosOperData is the Cisco-IOS-XE-umbrella-oper node /Cisco-IOS-XE-umbrella-oper/umbrella-ios-oper-data.
 type UmbrellaIosOperData struct {

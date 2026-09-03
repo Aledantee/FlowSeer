@@ -480,7 +480,7 @@ snapshots.
   named); `docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md`
   (edge/backend split, Connect RPC, brokers, cross-boundary errors);
   `src/common/errs/doc.go` (wire payload: code, safe attributes, user message,
-  hint, retry disposition); `src/common/snmp/doc.go` (Collection Primitives
+  hint, retry disposition); `src/protocol/snmp/doc.go` (Collection Primitives
   lifecycle contract); `CONCEPTS.md` §Flagged ambiguities (no backend/driver
   abstraction); `docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md`
   on branch `worktree-brainstorm-netconf-restconf` (KD4, KD7, R10, R11, KTD4,

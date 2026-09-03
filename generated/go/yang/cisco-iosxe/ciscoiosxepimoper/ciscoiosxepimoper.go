@@ -6,7 +6,7 @@
 // Package ciscoiosxepimoper binds the YANG module Cisco-IOS-XE-pim-oper.
 package ciscoiosxepimoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PimOperData is the Cisco-IOS-XE-pim-oper node /Cisco-IOS-XE-pim-oper/pim-oper-data.
 type PimOperData struct {

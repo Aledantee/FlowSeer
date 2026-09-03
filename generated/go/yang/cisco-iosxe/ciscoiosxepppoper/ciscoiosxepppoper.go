@@ -6,7 +6,7 @@
 // Package ciscoiosxepppoper binds the YANG module Cisco-IOS-XE-ppp-oper.
 package ciscoiosxepppoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PppData is the Cisco-IOS-XE-ppp-oper node /Cisco-IOS-XE-ppp-oper/ppp-data.
 type PppData struct {

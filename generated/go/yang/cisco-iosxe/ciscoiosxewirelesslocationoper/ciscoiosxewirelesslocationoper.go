@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelesslocationoper binds the YANG module Cisco-IOS-XE-wireless-location-oper.
 package ciscoiosxewirelesslocationoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LocationOperData is the Cisco-IOS-XE-wireless-location-oper node /Cisco-IOS-XE-wireless-location-oper/location-oper-data.
 type LocationOperData struct {

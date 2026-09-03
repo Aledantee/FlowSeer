@@ -5,444 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig struct {
-	Access          *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_Access
-	CommunityString *string
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_AccessSchema,
-		GoName: "Access",
-		Name:   "access",
-	}, {
-		GoName: "CommunityString",
-		Name:   "community-string",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "community-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_Access is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config/access.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_Access struct {
-	AclName     *string
-	ExpandedAcl *uint32
-	Ipv6        *string
-	Permission  *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_AccessSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/community-config/access for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_CommunityConfig_AccessSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "ExpandedAcl",
-		Name:   "expanded-acl",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "Permission",
-		Name:   "permission",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User struct {
-	Name       *string
-	Permission *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_UserSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_UserSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_PermissionSchema,
-		GoName: "Permission",
-		Name:   "permission",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "user",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission struct {
-	Access     *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Access
-	Auth       *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth
-	Credential *bool
-	Encrypted  *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_PermissionSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_PermissionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AccessSchema,
-		GoName: "Access",
-		Name:   "access",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AuthSchema,
-		GoName: "Auth",
-		Name:   "auth",
-	}, {
-		GoName: "Credential",
-		Name:   "credential",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_EncryptedSchema,
-		GoName: "Encrypted",
-		Name:   "encrypted",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "permission",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Access is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/access.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Access struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AccessSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/access for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AccessSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth struct {
-	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfig
-	Md5          *bool
-	Password     *string
-	Priv         *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv
-	Sha          *bool
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AuthSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_AuthSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Md5",
-		Name:   "md5",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_PrivSchema,
-		GoName: "Priv",
-		Name:   "priv",
-	}, {
-		GoName: "Sha",
-		Name:   "sha",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "auth",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/access-config.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/access-config for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv struct {
-	Aes  *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes
-	Des  *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des
-	Des3 *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_PrivSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_PrivSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_AesSchema,
-		GoName: "Aes",
-		Name:   "aes",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_DesSchema,
-		GoName: "Des",
-		Name:   "des",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema,
-		GoName: "Des3",
-		Name:   "des3",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "priv",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes struct {
-	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfig
-	Algorithm    *string
-	Password     *string
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_AesSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_AesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Algorithm",
-		Name:   "algorithm",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "aes",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes/access-config.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/aes/aes/access-config for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Aes_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des struct {
-	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfig
-	Password     *string
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_DesSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_DesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "des",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des/access-config.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des/des/access-config for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3 struct {
-	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig
-	Password     *string
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3 for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "des3",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3/access-config.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/auth/priv/priv-option/des3/des3/access-config for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Auth_Priv_Des3_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted struct {
-	AccessConfig *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig
-	Auth         *Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_EncryptedSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_EncryptedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		Child:  Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AuthSchema,
-		GoName: "Auth",
-		Name:   "auth",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "encrypted",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted/access-config.
-type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted/access-config for the generic codecs.
-var Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/global/address-family/no-vrf/nsap/nsap/snmp/context/context_word/user/permission/encrypted/auth.
 type Native_Router_Bgp_Scope_Global_AddressFamily_NoVrf_Nsap_Nsap_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth struct {
@@ -37132,4 +36695,356 @@ var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Ne
 // Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_Send is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/additional-paths/send.
 type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_Send struct {
 	Receive *bool
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/additional-paths/send for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Receive",
+		Name:   "receive",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "send",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPaths is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/additional-paths/additional-paths-choice/send-paths/send-paths.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPaths struct {
+	Receive *bool
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPathsSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/additional-paths/additional-paths-choice/send-paths/send-paths for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdditionalPaths_SendPathsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Receive",
+		Name:   "receive",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "send-paths",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise struct {
+	AdditionalPaths *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths
+	BestExternal    *bool
+	DiversePath     *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_DiversePath
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdvertiseSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_AdvertiseSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPathsSchema,
+		GoName: "AdditionalPaths",
+		Name:   "additional-paths",
+	}, {
+		GoName: "BestExternal",
+		Name:   "best-external",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_DiversePathSchema,
+		GoName: "DiversePath",
+		Name:   "diverse-path",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "advertise",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths struct {
+	All       *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All
+	AllBest   *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBest
+	Best      *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best
+	GroupBest *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_GroupBest
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPathsSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPathsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllSchema,
+		GoName: "All",
+		Name:   "all",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBestSchema,
+		GoName: "AllBest",
+		Name:   "all-best",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_BestSchema,
+		GoName: "Best",
+		Name:   "best",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_GroupBestSchema,
+		GoName: "GroupBest",
+		Name:   "group-best",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "additional-paths",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All struct {
+	Best      *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best
+	GroupBest *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBest
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_BestSchema,
+		GoName: "Best",
+		Name:   "best",
+	}, {
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBestSchema,
+		GoName: "GroupBest",
+		Name:   "group-best",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "all",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best struct {
+	BestRange []Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_BestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_BestSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema,
+		GoName: "BestRange",
+		List:   true,
+		Name:   "best-range",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "best",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best/best-range.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange struct {
+	GroupBest *bool
+	Range     *uint8
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/best/best-range for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "GroupBest",
+		Name:   "group-best",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Range",
+		Name:   "range",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"range"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "best-range",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey is Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange's row identity (ancestor keys in canonical form).
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey struct {
+	Bgp_Id       string
+	Vrf_Id       string
+	L2vpn_AfName string
+	Neighbor_Id  string
+	Range        uint8
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow flattens one Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange entry with its ancestor list keys.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow struct {
+	Bgp_Id       string
+	Vrf_Id       string
+	L2vpn_AfName string
+	Neighbor_Id  string
+	Entry        Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange.
+func Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeDescriptor() yang.ListDescriptor[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey] {
+	return yang.ListDescriptor[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey]{
+		Codec: yang.RowCodec[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_Scope_VrfSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpnSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_NeighborSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow{
+						Bgp_Id:       yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:        en.Entry,
+						L2vpn_AfName: yang.AncestorKey(en.AncestorKeys, 2, "af-name"),
+						Neighbor_Id:  yang.AncestorKey(en.AncestorKeys, 3, "id"),
+						Vrf_Id:       yang.AncestorKey(en.AncestorKeys, 1, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_Scope_VrfSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpnSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_NeighborSchema, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRange](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow{
+						Bgp_Id:       yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:        en.Entry,
+						L2vpn_AfName: yang.AncestorKey(en.AncestorKeys, 2, "af-name"),
+						Neighbor_Id:  yang.AncestorKey(en.AncestorKeys, 3, "id"),
+						Vrf_Id:       yang.AncestorKey(en.AncestorKeys, 1, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow) Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey {
+				var k Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeKey
+				k.Bgp_Id = r.Bgp_Id
+				k.Vrf_Id = r.Vrf_Id
+				k.L2vpn_AfName = r.L2vpn_AfName
+				k.Neighbor_Id = r.Neighbor_Id
+				if r.Entry.Range != nil {
+					k.Range = *r.Entry.Range
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow) Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_Best_BestRangeSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-bgp",
+			Name:      "bgp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+		}, {Name: "scope"}, {Name: "vrf"}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "l2vpn"}, {Name: "l2vpn-evpn"}, {Name: "peer-group"}, {Name: "neighbor"}, {Name: "advertise"}, {Name: "additional-paths"}, {Name: "all"}, {Name: "best"}, {Name: "best-range"}}},
+	}
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBest is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/group-best.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBest struct {
+	Best *uint8
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all/group-best for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_All_GroupBestSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Best",
+		Name:   "best",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "group-best",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+	Presence:  true,
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBest is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all-best.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBest struct {
+	All       *bool
+	Best      *uint8
+	GroupBest *bool
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/all-best for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_AllBestSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "All",
+		Name:   "all",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Best",
+		Name:   "best",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "GroupBest",
+		Name:   "group-best",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "all-best",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best struct {
+	BestRange []Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_BestSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_BestSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeSchema,
+		GoName: "BestRange",
+		List:   true,
+		Name:   "best-range",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "best",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best/best-range.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange struct {
+	All       *bool
+	GroupBest *Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange_GroupBest
+	Range     *uint8
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeSchema describes /Cisco-IOS-XE-native/native/router/bgp/scope/vrf/address-family/no-vrf/l2vpn/l2vpn-evpn/peer-group/neighbor/advertise/additional-paths/best/best-range for the generic codecs.
+var Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "All",
+		Name:   "all",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange_GroupBestSchema,
+		GoName: "GroupBest",
+		Name:   "group-best",
+	}, {
+		GoName: "Range",
+		Name:   "range",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"range"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "best-range",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeKey is Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange's row identity (ancestor keys in canonical form).
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeKey struct {
+	Bgp_Id       string
+	Vrf_Id       string
+	L2vpn_AfName string
+	Neighbor_Id  string
+	Range        uint8
+}
+
+// Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeFlatRow flattens one Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange entry with its ancestor list keys.
+type Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRangeFlatRow struct {
+	Bgp_Id       string
+	Vrf_Id       string
+	L2vpn_AfName string
+	Neighbor_Id  string
+	Entry        Native_Router_Bgp_Scope_Vrf_AddressFamily_NoVrf_L2vpn_L2vpnEvpn_PeerGroup_Neighbor_Advertise_AdditionalPaths_Best_BestRange
 }

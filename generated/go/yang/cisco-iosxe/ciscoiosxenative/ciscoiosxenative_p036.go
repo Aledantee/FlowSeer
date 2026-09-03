@@ -5,481 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow flattens one Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_Vlanid entry with its ancestor list keys.
-type Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow struct {
-	TenGigabitEthernet_Name string
-	Entry                   Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_Vlanid
-}
-
-// Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_Vlanid.
-func Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow, Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidKey] {
-	return yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow, Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidKey]{
-		Codec: yang.RowCodec[Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow, Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_Vlanid](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow{
-						Entry:                   en.Entry,
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_Vlanid](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow{
-						Entry:                   en.Entry,
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow) Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidKey {
-				var k Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidKey
-				k.TenGigabitEthernet_Name = r.TenGigabitEthernet_Name
-				if r.Entry.Id != nil {
-					k.Id = *r.Entry.Id
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow) Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_TenGigabitEthernet_Cts_RoleBased_SgtMap_VlanidSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "TenGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-cts",
-			Name:      "cts",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-cts",
-		}, {Name: "role-based"}, {Name: "sgt-map"}, {Name: "vlanid"}}},
-	}
-}
-
-// Native_Interface_TenGigabitEthernet_CwsTunnel is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/cws-tunnel.
-type Native_Interface_TenGigabitEthernet_CwsTunnel struct {
-	In  *bool
-	Out *Native_Interface_TenGigabitEthernet_CwsTunnel_Out
-}
-
-// Native_Interface_TenGigabitEthernet_CwsTunnelSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/cws-tunnel for the generic codecs.
-var Native_Interface_TenGigabitEthernet_CwsTunnelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "In",
-		Name:   "in",
-		Type:   yang.TEmpty,
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_CwsTunnel_OutSchema,
-		GoName: "Out",
-		Name:   "out",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "cws-tunnel",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_TenGigabitEthernet_CwsTunnel_Out is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/cws-tunnel/out.
-type Native_Interface_TenGigabitEthernet_CwsTunnel_Out struct {
-	TunnelNumber *uint16
-}
-
-// Native_Interface_TenGigabitEthernet_CwsTunnel_OutSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/cws-tunnel/out for the generic codecs.
-var Native_Interface_TenGigabitEthernet_CwsTunnel_OutSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "TunnelNumber",
-		Name:   "tunnel-number",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "out",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_TenGigabitEthernet_Dampening is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dampening.
-type Native_Interface_TenGigabitEthernet_Dampening struct {
-	DampeningTime         *uint16
-	MaximumSupressingTime *uint16
-	Restart               *Native_Interface_TenGigabitEthernet_Dampening_Restart
-	StartReusingTime      *uint16
-	StartSupressingTime   *uint16
-}
-
-// Native_Interface_TenGigabitEthernet_DampeningSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dampening for the generic codecs.
-var Native_Interface_TenGigabitEthernet_DampeningSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "DampeningTime",
-		Name:   "dampening-time",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "MaximumSupressingTime",
-		Name:   "maximum-supressing-time",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Dampening_RestartSchema,
-		GoName: "Restart",
-		Name:   "restart",
-	}, {
-		GoName: "StartReusingTime",
-		Name:   "start-reusing-time",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "StartSupressingTime",
-		Name:   "start-supressing-time",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "dampening",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_TenGigabitEthernet_Dampening_Restart is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dampening/restart.
-type Native_Interface_TenGigabitEthernet_Dampening_Restart struct {
-	Restart        *bool
-	RestartPenalty *uint16
-}
-
-// Native_Interface_TenGigabitEthernet_Dampening_RestartSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dampening/restart for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Dampening_RestartSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Restart",
-		Name:   "restart",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "RestartPenalty",
-		Name:   "restart-penalty",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "restart",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_TenGigabitEthernet_Dapr is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dapr.
-type Native_Interface_TenGigabitEthernet_Dapr struct {
-	Egress  *Native_Interface_TenGigabitEthernet_Dapr_Egress
-	Ingress *Native_Interface_TenGigabitEthernet_Dapr_Ingress
-}
-
-// Native_Interface_TenGigabitEthernet_DaprSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dapr for the generic codecs.
-var Native_Interface_TenGigabitEthernet_DaprSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TenGigabitEthernet_Dapr_EgressSchema,
-		GoName: "Egress",
-		Name:   "egress",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Dapr_IngressSchema,
-		GoName: "Ingress",
-		Name:   "ingress",
-	}},
-	Module:    "Cisco-IOS-XE-dapr",
-	Name:      "dapr",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-dapr",
-}
-
-// Native_Interface_TenGigabitEthernet_Dapr_Egress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dapr/mode/egress/egress.
-type Native_Interface_TenGigabitEthernet_Dapr_Egress struct {
-	LinkGroup *string
-}
-
-// Native_Interface_TenGigabitEthernet_Dapr_EgressSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dapr/mode/egress/egress for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Dapr_EgressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "LinkGroup",
-		Name:   "link-group",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-dapr",
-	Name:      "egress",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-dapr",
-	Presence:  true,
-}
-
-// Native_Interface_TenGigabitEthernet_Dapr_Ingress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dapr/mode/ingress/ingress.
-type Native_Interface_TenGigabitEthernet_Dapr_Ingress struct{}
-
-// Native_Interface_TenGigabitEthernet_Dapr_IngressSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/dapr/mode/ingress/ingress for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Dapr_IngressSchema = &yang.Schema{
-	Fields:    []yang.Field{},
-	Module:    "Cisco-IOS-XE-dapr",
-	Name:      "ingress",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-dapr",
-	Presence:  true,
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink.
-type Native_Interface_TenGigabitEthernet_Datalink struct {
-	Flow *Native_Interface_TenGigabitEthernet_Datalink_Flow
-}
-
-// Native_Interface_TenGigabitEthernet_DatalinkSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink for the generic codecs.
-var Native_Interface_TenGigabitEthernet_DatalinkSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TenGigabitEthernet_Datalink_FlowSchema,
-		GoName: "Flow",
-		Name:   "flow",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "datalink",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink/flow.
-type Native_Interface_TenGigabitEthernet_Datalink_Flow struct {
-	Monitor    *Native_Interface_TenGigabitEthernet_Datalink_Flow_Monitor
-	MonitorNew []Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_FlowSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink/flow for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Datalink_FlowSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorSchema,
-		GoName: "Monitor",
-		Name:   "monitor",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewSchema,
-		GoName: "MonitorNew",
-		List:   true,
-		Name:   "monitor-new",
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "flow",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow_Monitor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink/flow/monitor.
-type Native_Interface_TenGigabitEthernet_Datalink_Flow_Monitor struct {
-	UserDefinedFlow *string
-	InputOutput     *string
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink/flow/monitor for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "UserDefinedFlow",
-		Name:   "User-defined-flow",
-		Type:   yang.TString,
-	}, {
-		GoName: "InputOutput",
-		Name:   "input-output",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "monitor",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-	Presence:  true,
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink/flow/monitor-new.
-type Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew struct {
-	Direction  *string
-	Name       *string
-	Sampler    *string
-	Subtraffic *string
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/datalink/flow/monitor-new for the generic codecs.
-var Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Direction",
-		Name:   "direction",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Sampler",
-		Name:   "sampler",
-		Type:   yang.TString,
-	}, {
-		GoName: "Subtraffic",
-		Name:   "subtraffic",
-		Type:   yang.TEnum,
-	}},
-	Keys:      []string{"name", "direction"},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "monitor-new",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewKey is Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew's row identity (ancestor keys in canonical form).
-type Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewKey struct {
-	TenGigabitEthernet_Name string
-	Name                    string
-	Direction               string
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow flattens one Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew entry with its ancestor list keys.
-type Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow struct {
-	TenGigabitEthernet_Name string
-	Entry                   Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew
-}
-
-// Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew.
-func Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow, Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewKey] {
-	return yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow, Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewKey]{
-		Codec: yang.RowCodec[Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow, Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow{
-						Entry:                   en.Entry,
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNew](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow{
-						Entry:                   en.Entry,
-						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow) Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewKey {
-				var k Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewKey
-				k.TenGigabitEthernet_Name = r.TenGigabitEthernet_Name
-				if r.Entry.Name != nil {
-					k.Name = *r.Entry.Name
-				}
-				if r.Entry.Direction != nil {
-					k.Direction = *r.Entry.Direction
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow) Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_TenGigabitEthernet_Datalink_Flow_MonitorNewSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "TenGigabitEthernet"}, {
-			Module:    "Cisco-IOS-XE-switch",
-			Name:      "datalink",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-		}, {Name: "flow"}, {Name: "monitor-new"}}},
-	}
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceSensor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/device-sensor.
-type Native_Interface_TenGigabitEthernet_DeviceSensor struct {
-	Dhcpv6Snooping *bool
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceSensorSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/device-sensor for the generic codecs.
-var Native_Interface_TenGigabitEthernet_DeviceSensorSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Dhcpv6Snooping",
-		Name:   "dhcpv6-snooping",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-device-sensor",
-	Name:      "device-sensor",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-sensor",
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceTracking is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/device-tracking.
-type Native_Interface_TenGigabitEthernet_DeviceTracking struct {
-	AttachPolicy     *string
-	AttachedPolicies []Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies
-	DefaultPolicy    *Native_Interface_TenGigabitEthernet_DeviceTracking_DefaultPolicy
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceTrackingSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/device-tracking for the generic codecs.
-var Native_Interface_TenGigabitEthernet_DeviceTrackingSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AttachPolicy",
-		Name:   "attach-policy",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesSchema,
-		GoName: "AttachedPolicies",
-		List:   true,
-		Name:   "attached-policies",
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_DeviceTracking_DefaultPolicySchema,
-		GoName: "DefaultPolicy",
-		Name:   "default-policy",
-	}},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "device-tracking",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-	Presence:  true,
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/device-tracking/attached-policies.
-type Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies struct {
-	AttachPolicy *string
-	Vlan         *Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies_Vlan
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/device-tracking/attached-policies for the generic codecs.
-var Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AttachPolicy",
-		Name:   "attach-policy",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies_VlanSchema,
-		GoName: "Vlan",
-		Name:   "vlan",
-	}},
-	Keys:      []string{"attach-policy"},
-	Module:    "Cisco-IOS-XE-device-tracking",
-	Name:      "attached-policies",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesKey is Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies's row identity (ancestor keys in canonical form).
-type Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesKey struct {
-	TenGigabitEthernet_Name string
-	AttachPolicy            string
-}
-
-// Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesFlatRow flattens one Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies entry with its ancestor list keys.
-type Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesFlatRow struct {
-	TenGigabitEthernet_Name string
-	Entry                   Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPolicies.
 func Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesFlatRow, Native_Interface_TenGigabitEthernet_DeviceTracking_AttachedPoliciesKey] {
@@ -43403,4 +42929,367 @@ var Native_Interface_TenGigabitEthernet_Service_Instance_L2protocol_PeerSchema =
 // Native_Interface_TenGigabitEthernet_Service_Instance_L2protocol_Tunnel is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/l2protocol/tunnel.
 type Native_Interface_TenGigabitEthernet_Service_Instance_L2protocol_Tunnel struct {
 	Protocol []string
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_L2protocol_TunnelSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/l2protocol/tunnel for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_L2protocol_TunnelSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName:   "Protocol",
+		LeafList: true,
+		Name:     "protocol",
+		Type:     yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "tunnel",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+	Presence:  true,
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Lldp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/lldp.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Lldp struct {
+	Enable *bool
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_LldpSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/lldp for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_LldpSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Enable",
+		Name:   "enable",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "lldp",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac struct {
+	AccessGroup     []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup
+	AccessGroupList []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList
+	Security        *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_MacSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_MacSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema,
+		GoName: "AccessGroup",
+		List:   true,
+		Name:   "access-group",
+	}, {
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema,
+		GoName: "AccessGroupList",
+		List:   true,
+		Name:   "access-group-list",
+	}, {
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_SecuritySchema,
+		GoName: "Security",
+		Name:   "security",
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "mac",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup struct {
+	AclName *string
+	In      *bool
+	Out     *bool
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AclName",
+		Name:   "acl-name",
+		Type:   yang.TString,
+	}, {
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Out",
+		Name:   "out",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"acl-name"},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "access-group",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey is Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup's row identity (ancestor keys in canonical form).
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey struct {
+	TenGigabitEthernet_Name string
+	Instance_Id             string
+	AclName                 string
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow flattens one Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup entry with its ancestor list keys.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow struct {
+	TenGigabitEthernet_Name string
+	Instance_Id             string
+	Entry                   Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup.
+func Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey] {
+	return yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey]{
+		Codec: yang.RowCodec[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow{
+						Entry:                   en.Entry,
+						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
+						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroup](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow{
+						Entry:                   en.Entry,
+						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
+						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey {
+				var k Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupKey
+				k.TenGigabitEthernet_Name = r.TenGigabitEthernet_Name
+				k.Instance_Id = r.Instance_Id
+				if r.Entry.AclName != nil {
+					k.AclName = *r.Entry.AclName
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "TenGigabitEthernet"}, {
+			Module:    "Cisco-IOS-XE-ethernet",
+			Name:      "service",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+		}, {Name: "instance"}, {Name: "mac"}, {Name: "access-group"}}},
+	}
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group-list.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList struct {
+	AccessGroup *string
+	Direction   *string
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/access-group-list for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "AccessGroup",
+		Name:   "access-group",
+		Type:   yang.TString,
+	}, {
+		GoName: "Direction",
+		Name:   "direction",
+		Type:   yang.TEnum,
+	}},
+	Keys:      []string{"direction"},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "access-group-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey is Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList's row identity (ancestor keys in canonical form).
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey struct {
+	TenGigabitEthernet_Name string
+	Instance_Id             string
+	Direction               string
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow flattens one Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList entry with its ancestor list keys.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow struct {
+	TenGigabitEthernet_Name string
+	Instance_Id             string
+	Entry                   Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListDescriptor is the flattened-row descriptor for the nested list Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList.
+func Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListDescriptor() yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey] {
+	return yang.ListDescriptor[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey]{
+		Codec: yang.RowCodec[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow{
+						Entry:                   en.Entry,
+						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
+						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_TenGigabitEthernetSchema, Native_Interface_TenGigabitEthernet_Service_InstanceSchema, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow{
+						Entry:                   en.Entry,
+						Instance_Id:             yang.AncestorKey(en.AncestorKeys, 1, "id"),
+						TenGigabitEthernet_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey {
+				var k Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListKey
+				k.TenGigabitEthernet_Name = r.TenGigabitEthernet_Name
+				k.Instance_Id = r.Instance_Id
+				if r.Entry.Direction != nil {
+					k.Direction = *r.Entry.Direction
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow) Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_TenGigabitEthernet_Service_Instance_Mac_AccessGroupListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "TenGigabitEthernet"}, {
+			Module:    "Cisco-IOS-XE-ethernet",
+			Name:      "service",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+		}, {Name: "instance"}, {Name: "mac"}, {Name: "access-group-list"}}},
+	}
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security struct {
+	Address   *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address
+	Aging     *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Aging
+	Maximum   *Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Maximum
+	Sticky    *bool
+	Violation *string
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_SecuritySchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_SecuritySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AddressSchema,
+		GoName: "Address",
+		Name:   "address",
+	}, {
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AgingSchema,
+		GoName: "Aging",
+		Name:   "aging",
+	}, {
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_MaximumSchema,
+		GoName: "Maximum",
+		Name:   "maximum",
+	}, {
+		GoName: "Sticky",
+		Name:   "sticky",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Violation",
+		Name:   "violation",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "security",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+	Presence:  true,
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address struct {
+	Deny   []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny
+	Permit []Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Permit
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AddressSchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_AddressSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenySchema,
+		GoName: "Deny",
+		List:   true,
+		Name:   "deny",
+	}, {
+		Child:  Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_PermitSchema,
+		GoName: "Permit",
+		List:   true,
+		Name:   "permit",
+	}},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "address",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address/deny.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny struct {
+	Mac *string
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenySchema describes /Cisco-IOS-XE-native/native/interface/TenGigabitEthernet/service/instance/mac/security/address/deny for the generic codecs.
+var Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Mac",
+		Name:   "mac",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"mac"},
+	Module:    "Cisco-IOS-XE-ethernet",
+	Name:      "deny",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyKey is Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny's row identity (ancestor keys in canonical form).
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyKey struct {
+	TenGigabitEthernet_Name string
+	Instance_Id             string
+	Mac                     string
+}
+
+// Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyFlatRow flattens one Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny entry with its ancestor list keys.
+type Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_DenyFlatRow struct {
+	TenGigabitEthernet_Name string
+	Instance_Id             string
+	Entry                   Native_Interface_TenGigabitEthernet_Service_Instance_Mac_Security_Address_Deny
 }

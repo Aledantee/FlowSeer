@@ -6,7 +6,7 @@
 // Package ietfdatastores binds the YANG module ietf-datastores.
 package ietfdatastores
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_Candidate is the ietf-datastores identity "candidate".
 var Identity_Candidate = yang.Identity{

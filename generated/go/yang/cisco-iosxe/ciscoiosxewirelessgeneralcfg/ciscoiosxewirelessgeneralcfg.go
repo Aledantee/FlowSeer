@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessgeneralcfg binds the YANG module Cisco-IOS-XE-wireless-general-cfg.
 package ciscoiosxewirelessgeneralcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GeneralCfgData is the Cisco-IOS-XE-wireless-general-cfg node /Cisco-IOS-XE-wireless-general-cfg/general-cfg-data.
 type GeneralCfgData struct {

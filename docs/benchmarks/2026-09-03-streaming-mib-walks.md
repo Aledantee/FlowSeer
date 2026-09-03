@@ -12,7 +12,7 @@ measurements on an Apple M4 Pro (darwin/arm64), not Cisco WLC validation.
 
 ## Reproduce
 
-From `src/common/snmp/bench/`:
+From `src/protocol/snmp/bench/`:
 
 ```sh
 go test -run '^$' -bench 'BenchmarkTableWalk($|Scale)' -benchtime=3x -benchmem

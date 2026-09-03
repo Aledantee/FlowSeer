@@ -5,293 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressDescriptor is the flattened-row descriptor for the nested list Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddress.
-func Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressDescriptor() yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey] {
-	return yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey]{
-		Codec: yang.RowCodec[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey]{
-			DecodeJSON: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressSchema}
-				entries, err := yang.DecodeJSONNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow{
-						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:               en.Entry,
-						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressSchema}
-				entries, err := yang.DecodeXMLNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow{
-						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:               en.Entry,
-						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey {
-				var k Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressKey
-				k.AccessList_Name = r.AccessList_Name
-				k.IpAddress_IpAddress = r.IpAddress_IpAddress
-				if r.Entry.MacAddress != nil {
-					k.MacAddress = *r.Entry.MacAddress
-				}
-				return k
-			},
-			Merge: func(base, update Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressFlatRow {
-				base.Entry = yang.MergeStructs(Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_Host_SenderMacAddressSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-arp",
-			Name:      "arp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-arp",
-		}, {
-			Module:    "Cisco-IOS-XE-switch",
-			Name:      "access-list",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-		}, {Name: "no"}, {Name: "permit"}, {Name: "request"}, {Name: "ip"}, {Name: "host"}, {Name: "ip-address"}, {Name: "mac"}, {Name: "host"}, {Name: "sender-mac-address"}}},
-	}
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/host/ip-address/mac/sender-mac-address.
-type Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress struct {
-	Log            *bool
-	MacAddress     *string
-	MacAddressMask *string
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema describes /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/host/ip-address/mac/sender-mac-address for the generic codecs.
-var Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Log",
-		Name:   "log",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "MacAddress",
-		Name:   "mac-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "MacAddressMask",
-		Name:   "mac-address-mask",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"mac-address"},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "sender-mac-address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey is Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress's row identity (ancestor keys in canonical form).
-type Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey struct {
-	AccessList_Name     string
-	IpAddress_IpAddress string
-	MacAddress          string
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow flattens one Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress entry with its ancestor list keys.
-type Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow struct {
-	AccessList_Name     string
-	IpAddress_IpAddress string
-	Entry               Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressDescriptor is the flattened-row descriptor for the nested list Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress.
-func Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressDescriptor() yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey] {
-	return yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey]{
-		Codec: yang.RowCodec[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey]{
-			DecodeJSON: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema}
-				entries, err := yang.DecodeJSONNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow{
-						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:               en.Entry,
-						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddressSchema, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema}
-				entries, err := yang.DecodeXMLNested[Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow{
-						AccessList_Name:     yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:               en.Entry,
-						IpAddress_IpAddress: yang.AncestorKey(en.AncestorKeys, 1, "ip-address"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey {
-				var k Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressKey
-				k.AccessList_Name = r.AccessList_Name
-				k.IpAddress_IpAddress = r.IpAddress_IpAddress
-				if r.Entry.MacAddress != nil {
-					k.MacAddress = *r.Entry.MacAddress
-				}
-				return k
-			},
-			Merge: func(base, update Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressFlatRow {
-				base.Entry = yang.MergeStructs(Native_Arp_AccessList_No_Permit_Request_Ip_Host_IpAddress_Mac_SenderMacAddressSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-arp",
-			Name:      "arp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-arp",
-		}, {
-			Module:    "Cisco-IOS-XE-switch",
-			Name:      "access-list",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-		}, {Name: "no"}, {Name: "permit"}, {Name: "request"}, {Name: "ip"}, {Name: "host"}, {Name: "ip-address"}, {Name: "mac"}, {Name: "sender-mac-address"}}},
-	}
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/sender-ip-address.
-type Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress struct {
-	IpAddress     *string
-	IpAddressMask *string
-	Mac           *Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress_Mac
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema describes /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/sender-ip-address for the generic codecs.
-var Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "IpAddress",
-		Name:   "ip-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "IpAddressMask",
-		Name:   "ip-address-mask",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress_MacSchema,
-		GoName: "Mac",
-		Name:   "mac",
-	}},
-	Keys:      []string{"ip-address"},
-	Module:    "Cisco-IOS-XE-switch",
-	Name:      "sender-ip-address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey is Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress's row identity (ancestor keys in canonical form).
-type Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey struct {
-	AccessList_Name string
-	IpAddress       string
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow flattens one Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress entry with its ancestor list keys.
-type Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow struct {
-	AccessList_Name string
-	Entry           Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress
-}
-
-// Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressDescriptor is the flattened-row descriptor for the nested list Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress.
-func Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressDescriptor() yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey] {
-	return yang.ListDescriptor[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey]{
-		Codec: yang.RowCodec[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey]{
-			DecodeJSON: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema}
-				entries, err := yang.DecodeJSONNested[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow{
-						AccessList_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:           en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Arp_AccessListSchema, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema}
-				entries, err := yang.DecodeXMLNested[Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow{
-						AccessList_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						Entry:           en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey {
-				var k Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressKey
-				k.AccessList_Name = r.AccessList_Name
-				if r.Entry.IpAddress != nil {
-					k.IpAddress = *r.Entry.IpAddress
-				}
-				return k
-			},
-			Merge: func(base, update Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow) Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressFlatRow {
-				base.Entry = yang.MergeStructs(Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddressSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {
-			Module:    "Cisco-IOS-XE-arp",
-			Name:      "arp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-arp",
-		}, {
-			Module:    "Cisco-IOS-XE-switch",
-			Name:      "access-list",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-		}, {Name: "no"}, {Name: "permit"}, {Name: "request"}, {Name: "ip"}, {Name: "sender-ip-address"}}},
-	}
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress_Mac is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/arp/access-list/no/permit/request/ip/sender-ip-address/mac.
 type Native_Arp_AccessList_No_Permit_Request_Ip_SenderIpAddress_Mac struct {
@@ -48349,4 +48063,292 @@ type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKe
 type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow struct {
 	Profile_Name string
 	Entry        Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDI
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIDescriptor is the flattened-row descriptor for the nested list Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDI.
+func Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIDescriptor() yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey] {
+	return yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey]{
+		Codec: yang.RowCodec[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey]{
+			DecodeJSON: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, error) {
+				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDISchema}
+				entries, err := yang.DecodeJSONNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDI](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow{
+						Entry:        en.Entry,
+						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, error) {
+				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDISchema}
+				entries, err := yang.DecodeXMLNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDI](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow{
+						Entry:        en.Entry,
+						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey {
+				var k Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey
+				k.Profile_Name = r.Profile_Name
+				if r.Entry.BDI != nil {
+					k.BDI = *r.Entry.BDI
+				}
+				return k
+			},
+			Merge: func(base, update Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow {
+				base.Entry = yang.MergeStructs(Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDISchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "crypto"}, {
+			Module:    "Cisco-IOS-XE-crypto",
+			Name:      "ikev2",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+		}, {Name: "profile"}, {Name: "match"}, {Name: "address"}, {Name: "local"}, {Name: "interface-options-local"}, {
+			Module:    "Cisco-IOS-XE-interface-common",
+			Name:      "BDI",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+		}}},
+	}
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/Bundle.
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle struct {
+	Bundle *uint32
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema describes /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/Bundle for the generic codecs.
+var Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Bundle",
+		Name:   "Bundle",
+		Type:   yang.TUint32,
+	}},
+	Keys:      []string{"Bundle"},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "Bundle",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey is Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle's row identity (ancestor keys in canonical form).
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey struct {
+	Profile_Name string
+	Bundle       uint32
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow flattens one Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle entry with its ancestor list keys.
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow struct {
+	Profile_Name string
+	Entry        Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleDescriptor is the flattened-row descriptor for the nested list Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle.
+func Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleDescriptor() yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey] {
+	return yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey]{
+		Codec: yang.RowCodec[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey]{
+			DecodeJSON: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, error) {
+				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema}
+				entries, err := yang.DecodeJSONNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow{
+						Entry:        en.Entry,
+						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, error) {
+				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema}
+				entries, err := yang.DecodeXMLNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow{
+						Entry:        en.Entry,
+						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey {
+				var k Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey
+				k.Profile_Name = r.Profile_Name
+				if r.Entry.Bundle != nil {
+					k.Bundle = *r.Entry.Bundle
+				}
+				return k
+			},
+			Merge: func(base, update Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow {
+				base.Entry = yang.MergeStructs(Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "crypto"}, {
+			Module:    "Cisco-IOS-XE-crypto",
+			Name:      "ikev2",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+		}, {Name: "profile"}, {Name: "match"}, {Name: "address"}, {Name: "local"}, {Name: "interface-options-local"}, {
+			Module:    "Cisco-IOS-XE-interface-common",
+			Name:      "Bundle",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+		}}},
+	}
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM.
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM struct {
+	CEM *string
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema describes /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM for the generic codecs.
+var Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "CEM",
+		Name:   "CEM",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"CEM"},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "CEM",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey is Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM's row identity (ancestor keys in canonical form).
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey struct {
+	Profile_Name string
+	CEM          string
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow flattens one Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM entry with its ancestor list keys.
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow struct {
+	Profile_Name string
+	Entry        Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMDescriptor is the flattened-row descriptor for the nested list Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM.
+func Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMDescriptor() yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey] {
+	return yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey]{
+		Codec: yang.RowCodec[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey]{
+			DecodeJSON: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, error) {
+				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema}
+				entries, err := yang.DecodeJSONNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow{
+						Entry:        en.Entry,
+						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, error) {
+				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema}
+				entries, err := yang.DecodeXMLNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow{
+						Entry:        en.Entry,
+						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey {
+				var k Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey
+				k.Profile_Name = r.Profile_Name
+				if r.Entry.CEM != nil {
+					k.CEM = *r.Entry.CEM
+				}
+				return k
+			},
+			Merge: func(base, update Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow {
+				base.Entry = yang.MergeStructs(Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "crypto"}, {
+			Module:    "Cisco-IOS-XE-crypto",
+			Name:      "ikev2",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+		}, {Name: "profile"}, {Name: "match"}, {Name: "address"}, {Name: "local"}, {Name: "interface-options-local"}, {
+			Module:    "Cisco-IOS-XE-interface-common",
+			Name:      "CEM",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+		}}},
+	}
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM-ACR.
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR struct {
+	CEMACR *uint8
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRSchema describes /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM-ACR for the generic codecs.
+var Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "CEMACR",
+		Name:   "CEM-ACR",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"CEM-ACR"},
+	Module:    "Cisco-IOS-XE-interface-common",
+	Name:      "CEM-ACR",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRKey is Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR's row identity (ancestor keys in canonical form).
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRKey struct {
+	Profile_Name string
+	CEMACR       uint8
+}
+
+// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRFlatRow flattens one Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR entry with its ancestor list keys.
+type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRFlatRow struct {
+	Profile_Name string
+	Entry        Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR
 }

@@ -5,295 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIDescriptor is the flattened-row descriptor for the nested list Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDI.
-func Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIDescriptor() yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey] {
-	return yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey]{
-		Codec: yang.RowCodec[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey]{
-			DecodeJSON: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, error) {
-				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDISchema}
-				entries, err := yang.DecodeJSONNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDI](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow{
-						Entry:        en.Entry,
-						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, error) {
-				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDISchema}
-				entries, err := yang.DecodeXMLNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDI](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow{
-						Entry:        en.Entry,
-						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey {
-				var k Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIKey
-				k.Profile_Name = r.Profile_Name
-				if r.Entry.BDI != nil {
-					k.BDI = *r.Entry.BDI
-				}
-				return k
-			},
-			Merge: func(base, update Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDIFlatRow {
-				base.Entry = yang.MergeStructs(Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BDISchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "crypto"}, {
-			Module:    "Cisco-IOS-XE-crypto",
-			Name:      "ikev2",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-		}, {Name: "profile"}, {Name: "match"}, {Name: "address"}, {Name: "local"}, {Name: "interface-options-local"}, {
-			Module:    "Cisco-IOS-XE-interface-common",
-			Name:      "BDI",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-		}}},
-	}
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/Bundle.
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle struct {
-	Bundle *uint32
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema describes /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/Bundle for the generic codecs.
-var Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Bundle",
-		Name:   "Bundle",
-		Type:   yang.TUint32,
-	}},
-	Keys:      []string{"Bundle"},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "Bundle",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey is Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle's row identity (ancestor keys in canonical form).
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey struct {
-	Profile_Name string
-	Bundle       uint32
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow flattens one Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle entry with its ancestor list keys.
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow struct {
-	Profile_Name string
-	Entry        Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleDescriptor is the flattened-row descriptor for the nested list Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle.
-func Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleDescriptor() yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey] {
-	return yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey]{
-		Codec: yang.RowCodec[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey]{
-			DecodeJSON: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, error) {
-				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema}
-				entries, err := yang.DecodeJSONNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow{
-						Entry:        en.Entry,
-						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, error) {
-				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema}
-				entries, err := yang.DecodeXMLNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_Bundle](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow{
-						Entry:        en.Entry,
-						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey {
-				var k Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleKey
-				k.Profile_Name = r.Profile_Name
-				if r.Entry.Bundle != nil {
-					k.Bundle = *r.Entry.Bundle
-				}
-				return k
-			},
-			Merge: func(base, update Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleFlatRow {
-				base.Entry = yang.MergeStructs(Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_BundleSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "crypto"}, {
-			Module:    "Cisco-IOS-XE-crypto",
-			Name:      "ikev2",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-		}, {Name: "profile"}, {Name: "match"}, {Name: "address"}, {Name: "local"}, {Name: "interface-options-local"}, {
-			Module:    "Cisco-IOS-XE-interface-common",
-			Name:      "Bundle",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-		}}},
-	}
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM.
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM struct {
-	CEM *string
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema describes /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM for the generic codecs.
-var Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "CEM",
-		Name:   "CEM",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"CEM"},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "CEM",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey is Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM's row identity (ancestor keys in canonical form).
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey struct {
-	Profile_Name string
-	CEM          string
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow flattens one Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM entry with its ancestor list keys.
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow struct {
-	Profile_Name string
-	Entry        Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMDescriptor is the flattened-row descriptor for the nested list Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM.
-func Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMDescriptor() yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey] {
-	return yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey]{
-		Codec: yang.RowCodec[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey]{
-			DecodeJSON: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, error) {
-				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema}
-				entries, err := yang.DecodeJSONNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow{
-						Entry:        en.Entry,
-						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, error) {
-				chain := []*yang.Schema{Native_Crypto_Ikev2_ProfileSchema, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema}
-				entries, err := yang.DecodeXMLNested[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEM](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow{
-						Entry:        en.Entry,
-						Profile_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey {
-				var k Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMKey
-				k.Profile_Name = r.Profile_Name
-				if r.Entry.CEM != nil {
-					k.CEM = *r.Entry.CEM
-				}
-				return k
-			},
-			Merge: func(base, update Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow) Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMFlatRow {
-				base.Entry = yang.MergeStructs(Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "crypto"}, {
-			Module:    "Cisco-IOS-XE-crypto",
-			Name:      "ikev2",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-		}, {Name: "profile"}, {Name: "match"}, {Name: "address"}, {Name: "local"}, {Name: "interface-options-local"}, {
-			Module:    "Cisco-IOS-XE-interface-common",
-			Name:      "CEM",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-		}}},
-	}
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM-ACR.
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR struct {
-	CEMACR *uint8
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRSchema describes /Cisco-IOS-XE-native/native/crypto/ikev2/profile/match/address/local/interface-options-local/CEM-ACR for the generic codecs.
-var Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "CEMACR",
-		Name:   "CEM-ACR",
-		Type:   yang.TUint8,
-	}},
-	Keys:      []string{"CEM-ACR"},
-	Module:    "Cisco-IOS-XE-interface-common",
-	Name:      "CEM-ACR",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRKey is Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR's row identity (ancestor keys in canonical form).
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRKey struct {
-	Profile_Name string
-	CEMACR       uint8
-}
-
-// Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRFlatRow flattens one Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR entry with its ancestor list keys.
-type Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRFlatRow struct {
-	Profile_Name string
-	Entry        Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRDescriptor is the flattened-row descriptor for the nested list Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACR.
 func Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRDescriptor() yang.ListDescriptor[Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRFlatRow, Native_Crypto_Ikev2_Profile_Match_Address_Local_InterfaceOptionsLocal_CEMACRKey] {
@@ -49676,4 +49388,392 @@ var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTrackingSch
 // Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/reachable-lifetime-choice/reachable-lifetime-config.
 type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig struct {
 	ReachableLifetime *Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetime
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfigSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/reachable-lifetime-choice/reachable-lifetime-config for the generic codecs.
+var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetimeSchema,
+		GoName: "ReachableLifetime",
+		Name:   "reachable-lifetime",
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "reachable-lifetime-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetime is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/reachable-lifetime-choice/reachable-lifetime-config/reachable-lifetime.
+type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetime struct {
+	Default  *bool
+	Infinite *bool
+	Seconds  *uint32
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetimeSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/reachable-lifetime-choice/reachable-lifetime-config/reachable-lifetime for the generic codecs.
+var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_ReachableLifetimeConfig_ReachableLifetimeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Default",
+		Name:   "default",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Infinite",
+		Name:   "infinite",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Seconds",
+		Name:   "seconds",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "reachable-lifetime",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval.
+type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval struct {
+	Default                 *bool
+	ReachableLifetimeConfig *Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig
+	Seconds                 *uint32
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryIntervalSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval for the generic codecs.
+var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryIntervalSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Default",
+		Name:   "default",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfigSchema,
+		GoName: "ReachableLifetimeConfig",
+		Name:   "reachable-lifetime-config",
+	}, {
+		GoName: "Seconds",
+		Name:   "seconds",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "retry-interval",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config.
+type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig struct {
+	ReachableLifetime *Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetime
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfigSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config for the generic codecs.
+var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfigSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetimeSchema,
+		GoName: "ReachableLifetime",
+		Name:   "reachable-lifetime",
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "reachable-lifetime-config",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetime is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config/reachable-lifetime.
+type Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetime struct {
+	Default  *bool
+	Infinite *bool
+	Seconds  *uint32
+}
+
+// Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetimeSchema describes /Cisco-IOS-XE-native/native/device-tracking/binding/vlan/binding-choices/binding-choice/tracking-choice/tracking/binding-tracking-choice/enable-tracking/enable-tracking/time-type-choice/retry-interval-choice/retry-interval/reachable-lifetime-config/reachable-lifetime for the generic codecs.
+var Native_DeviceTracking_Binding_Vlan_BindingChoices_Tracking_EnableTracking_RetryInterval_ReachableLifetimeConfig_ReachableLifetimeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Default",
+		Name:   "default",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Infinite",
+		Name:   "infinite",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Seconds",
+		Name:   "seconds",
+		Type:   yang.TUint32,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "reachable-lifetime",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Export is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/export.
+type Native_DeviceTracking_Export struct {
+	OperData *string
+}
+
+// Native_DeviceTracking_ExportSchema describes /Cisco-IOS-XE-native/native/device-tracking/export for the generic codecs.
+var Native_DeviceTracking_ExportSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "OperData",
+		Name:   "oper-data",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "export",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Logging is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/logging.
+type Native_DeviceTracking_Logging struct {
+	Packet         *Native_DeviceTracking_Logging_Packet
+	ResolutionVeto *bool
+	Theft          *bool
+}
+
+// Native_DeviceTracking_LoggingSchema describes /Cisco-IOS-XE-native/native/device-tracking/logging for the generic codecs.
+var Native_DeviceTracking_LoggingSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_DeviceTracking_Logging_PacketSchema,
+		GoName: "Packet",
+		Name:   "packet",
+	}, {
+		GoName: "ResolutionVeto",
+		Name:   "resolution-veto",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Theft",
+		Name:   "theft",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "logging",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+	Presence:  true,
+}
+
+// Native_DeviceTracking_Logging_Packet is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/logging/packet.
+type Native_DeviceTracking_Logging_Packet struct {
+	Drop *bool
+}
+
+// Native_DeviceTracking_Logging_PacketSchema describes /Cisco-IOS-XE-native/native/device-tracking/logging/packet for the generic codecs.
+var Native_DeviceTracking_Logging_PacketSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Drop",
+		Name:   "drop",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "packet",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Policy is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy.
+type Native_DeviceTracking_Policy struct {
+	DataGlean          *Native_DeviceTracking_Policy_DataGlean
+	DestinationGlean   *Native_DeviceTracking_Policy_DestinationGlean
+	DeviceRole         *Native_DeviceTracking_Policy_DeviceRole
+	DeviceRoleConfig   *string
+	Limit              *Native_DeviceTracking_Policy_Limit
+	MediumTypeWireless *bool
+	PrefixGlean        *Native_DeviceTracking_Policy_PrefixGlean
+	Protocol           *Native_DeviceTracking_Policy_Protocol
+	SecurityLevel      *Native_DeviceTracking_Policy_SecurityLevel
+	Tracking           *Native_DeviceTracking_Policy_Tracking
+	TrustedPort        *bool
+	Word               *string
+}
+
+// Native_DeviceTracking_PolicySchema describes /Cisco-IOS-XE-native/native/device-tracking/policy for the generic codecs.
+var Native_DeviceTracking_PolicySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_DeviceTracking_Policy_DataGleanSchema,
+		GoName: "DataGlean",
+		Name:   "data-glean",
+	}, {
+		Child:  Native_DeviceTracking_Policy_DestinationGleanSchema,
+		GoName: "DestinationGlean",
+		Name:   "destination-glean",
+	}, {
+		Child:  Native_DeviceTracking_Policy_DeviceRoleSchema,
+		GoName: "DeviceRole",
+		Name:   "device-role",
+	}, {
+		GoName: "DeviceRoleConfig",
+		Name:   "device-role-config",
+		Type:   yang.TEnum,
+	}, {
+		Child:  Native_DeviceTracking_Policy_LimitSchema,
+		GoName: "Limit",
+		Name:   "limit",
+	}, {
+		GoName: "MediumTypeWireless",
+		Name:   "medium-type-wireless",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_DeviceTracking_Policy_PrefixGleanSchema,
+		GoName: "PrefixGlean",
+		Name:   "prefix-glean",
+	}, {
+		Child:  Native_DeviceTracking_Policy_ProtocolSchema,
+		GoName: "Protocol",
+		Name:   "protocol",
+	}, {
+		Child:  Native_DeviceTracking_Policy_SecurityLevelSchema,
+		GoName: "SecurityLevel",
+		Name:   "security-level",
+	}, {
+		Child:  Native_DeviceTracking_Policy_TrackingSchema,
+		GoName: "Tracking",
+		Name:   "tracking",
+	}, {
+		GoName: "TrustedPort",
+		Name:   "trusted-port",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Word",
+		Name:   "word",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"word"},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "policy",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_PolicyKey is Native_DeviceTracking_Policy's row identity (ancestor keys in canonical form).
+type Native_DeviceTracking_PolicyKey struct {
+	Word string
+}
+
+// Native_DeviceTracking_PolicyDescriptor is the list descriptor callers hand to a protocol library.
+func Native_DeviceTracking_PolicyDescriptor() yang.ListDescriptor[Native_DeviceTracking_Policy, Native_DeviceTracking_PolicyKey] {
+	return yang.ListDescriptor[Native_DeviceTracking_Policy, Native_DeviceTracking_PolicyKey]{
+		Codec: yang.StructRowCodec(Native_DeviceTracking_PolicySchema, func(r *Native_DeviceTracking_Policy) Native_DeviceTracking_PolicyKey {
+			var k Native_DeviceTracking_PolicyKey
+			if r.Word != nil {
+				k.Word = *r.Word
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "device-tracking"}, {
+			Module:    "Cisco-IOS-XE-device-tracking",
+			Name:      "policy",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+		}}},
+	}
+}
+
+// Native_DeviceTracking_Policy_DataGlean is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean.
+type Native_DeviceTracking_Policy_DataGlean struct {
+	LogOnly  *bool
+	Recovery *Native_DeviceTracking_Policy_DataGlean_Recovery
+}
+
+// Native_DeviceTracking_Policy_DataGleanSchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean for the generic codecs.
+var Native_DeviceTracking_Policy_DataGleanSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "LogOnly",
+		Name:   "log-only",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_DeviceTracking_Policy_DataGlean_RecoverySchema,
+		GoName: "Recovery",
+		Name:   "recovery",
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "data-glean",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Policy_DataGlean_Recovery is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean/recovery.
+type Native_DeviceTracking_Policy_DataGlean_Recovery struct {
+	Dhcp *bool
+	Ndp  *bool
+}
+
+// Native_DeviceTracking_Policy_DataGlean_RecoverySchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/data-glean/recovery for the generic codecs.
+var Native_DeviceTracking_Policy_DataGlean_RecoverySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Dhcp",
+		Name:   "dhcp",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Ndp",
+		Name:   "ndp",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "recovery",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Policy_DestinationGlean is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean.
+type Native_DeviceTracking_Policy_DestinationGlean struct {
+	LogOnly  *bool
+	Recovery *Native_DeviceTracking_Policy_DestinationGlean_Recovery
+}
+
+// Native_DeviceTracking_Policy_DestinationGleanSchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean for the generic codecs.
+var Native_DeviceTracking_Policy_DestinationGleanSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "LogOnly",
+		Name:   "log-only",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_DeviceTracking_Policy_DestinationGlean_RecoverySchema,
+		GoName: "Recovery",
+		Name:   "recovery",
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "destination-glean",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Policy_DestinationGlean_Recovery is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean/recovery.
+type Native_DeviceTracking_Policy_DestinationGlean_Recovery struct {
+	Dhcp *bool
+}
+
+// Native_DeviceTracking_Policy_DestinationGlean_RecoverySchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/destination-glean/recovery for the generic codecs.
+var Native_DeviceTracking_Policy_DestinationGlean_RecoverySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Dhcp",
+		Name:   "dhcp",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "recovery",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Policy_DeviceRole is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/device-role.
+type Native_DeviceTracking_Policy_DeviceRole struct {
+	Node   *bool
+	Router *bool
+	Switch *bool
+}
+
+// Native_DeviceTracking_Policy_DeviceRoleSchema describes /Cisco-IOS-XE-native/native/device-tracking/policy/device-role for the generic codecs.
+var Native_DeviceTracking_Policy_DeviceRoleSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Node",
+		Name:   "node",
+		Type:   yang.TBool,
+	}, {
+		GoName: "Router",
+		Name:   "router",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Switch",
+		Name:   "switch",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-device-tracking",
+	Name:      "device-role",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-device-tracking",
+}
+
+// Native_DeviceTracking_Policy_Limit is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/device-tracking/policy/limit.
+type Native_DeviceTracking_Policy_Limit struct {
+	AddressCount       *uint16
+	AddressCountConfig *Native_DeviceTracking_Policy_Limit_AddressCountConfig
 }

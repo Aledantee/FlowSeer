@@ -5,454 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/multicast/level/level-choice/pps-case/pps.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/multicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/multicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/multicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Multicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast struct {
-	Include *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include
-	Level   *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_UnicastSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_UnicastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "unicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include struct {
-	Multicast *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_MulticastSchema,
-		GoName: "Multicast",
-		Name:   "multicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast struct {
-	Level *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_MulticastSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_MulticastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "multicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level struct {
-	Bps       *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Bps
-	Pps       *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Pps
-	Threshold *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Threshold
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/bps-case/bps.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/pps-case/pps.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/include/multicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Include_Multicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level struct {
-	Bps       *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps
-	Pps       *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps
-	Threshold *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/include/unicast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Include_Unicast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level struct {
-	Bps       *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Bps
-	Pps       *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Pps
-	Threshold *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Threshold
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_LevelSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_LevelSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_BpsSchema,
-		GoName: "Bps",
-		Name:   "bps",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_PpsSchema,
-		GoName: "Pps",
-		Name:   "pps",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema,
-		GoName: "Threshold",
-		Name:   "threshold",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "level",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Bps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Bps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_BpsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level/level-choice/bps-case/bps for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_BpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "bps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Pps is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Pps struct {
-	FallingThreshold *string
-	RisingThreshold  *string
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_PpsSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level/level-choice/pps-case/pps for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_PpsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type:   yang.TString,
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "pps",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Threshold is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_Threshold struct {
-	FallingThreshold *yang.Value
-	RisingThreshold  *yang.Value
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/broadcast/level/level-choice/threshold-case/threshold for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Broadcast_Level_ThresholdSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "FallingThreshold",
-		Name:   "falling-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}, {
-		GoName: "RisingThreshold",
-		Name:   "rising-threshold",
-		Type: &yang.Type{
-			FractionDigits: 2,
-			Kind:           yang.TypeDecimal64,
-		},
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "threshold",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/multicast.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast struct {
-	Include *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include
-	Level   *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Level
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_MulticastSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/multicast for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_MulticastSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_IncludeSchema,
-		GoName: "Include",
-		Name:   "include",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_LevelSchema,
-		GoName: "Level",
-		Name:   "level",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "multicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/multicast/include.
-type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include struct {
-	Broadcast *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast
-	Unicast   *Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Unicast
-}
-
-// Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_IncludeSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/multicast/include for the generic codecs.
-var Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_IncludeSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_BroadcastSchema,
-		GoName: "Broadcast",
-		Name:   "broadcast",
-	}, {
-		Child:  Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_UnicastSchema,
-		GoName: "Unicast",
-		Name:   "unicast",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "include",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel/storm-control/level-shared/unknown-unicast/include/multicast/include/broadcast.
 type Native_Interface_PortChannel_StormControl_LevelShared_UnknownUnicast_Include_Multicast_Include_Broadcast struct {
@@ -38831,4 +38384,546 @@ type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig
 type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow struct {
 	PortChannel_Name string
 	Entry            Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCost
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostDescriptor is the flattened-row descriptor for the nested list Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCost.
+func Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostDescriptor() yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey] {
+	return yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey]{
+		Codec: yang.RowCodec[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCost](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCost](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey {
+				var k Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostKey
+				k.PortChannel_Name = r.PortChannel_Name
+				if r.Entry.AreaId != nil {
+					k.AreaId = yang.CanonicalKey(r.Entry.AreaId)
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_MultiAreaConfig_MultiAreaIdCostSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Port-channel-subinterface"}, {Name: "Port-channel"}, {
+			Module:    "Cisco-IOS-XE-ospfv3",
+			Name:      "ospfv3",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+		}, {Name: "multi-area-config"}, {Name: "multi-area-id-cost"}}},
+	}
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor struct {
+	Cost           *uint16
+	DatabaseFilter *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilter
+	Id             *string
+	PollInterval   *uint32
+	Priority       *uint8
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Cost",
+		Name:   "cost",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilterSchema,
+		GoName: "DatabaseFilter",
+		Name:   "database-filter",
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TString,
+	}, {
+		GoName: "PollInterval",
+		Name:   "poll-interval",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Priority",
+		Name:   "priority",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "neighbor",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey is Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor's row identity (ancestor keys in canonical form).
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey struct {
+	PortChannel_Name string
+	Id               string
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow flattens one Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor entry with its ancestor list keys.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow struct {
+	PortChannel_Name string
+	Entry            Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborDescriptor is the flattened-row descriptor for the nested list Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor.
+func Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborDescriptor() yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey] {
+	return yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey]{
+		Codec: yang.RowCodec[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey {
+				var k Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborKey
+				k.PortChannel_Name = r.PortChannel_Name
+				if r.Entry.Id != nil {
+					k.Id = *r.Entry.Id
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NeighborSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Port-channel-subinterface"}, {Name: "Port-channel"}, {
+			Module:    "Cisco-IOS-XE-ospfv3",
+			Name:      "ospfv3",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+		}, {Name: "neighbor"}}},
+	}
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilter is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor/database-filter.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilter struct {
+	All *string
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilterSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/neighbor/database-filter for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Neighbor_DatabaseFilterSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "All",
+		Name:   "all",
+		Type:   yang.TEnum,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "database-filter",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network struct {
+	Broadcast         *bool
+	Manet             *bool
+	NonBroadcast      *bool
+	PointToMultipoint *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipoint
+	PointToPoint      *bool
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Broadcast",
+		Name:   "broadcast",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Manet",
+		Name:   "manet",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "NonBroadcast",
+		Name:   "non-broadcast",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipointSchema,
+		GoName: "PointToMultipoint",
+		Name:   "point-to-multipoint",
+	}, {
+		GoName: "PointToPoint",
+		Name:   "point-to-point",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "network",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network/point-to-multipoint.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipoint struct {
+	NonBroadcast *bool
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipointSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network/point-to-multipoint for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_Network_PointToMultipointSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "NonBroadcast",
+		Name:   "non-broadcast",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "point-to-multipoint",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType struct {
+	Broadcast         *bool
+	Manet             *bool
+	NonBroadcast      *bool
+	PointToMultipoint *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipoint
+	PointToPoint      *bool
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkTypeSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkTypeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Broadcast",
+		Name:   "broadcast",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Manet",
+		Name:   "manet",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "NonBroadcast",
+		Name:   "non-broadcast",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipointSchema,
+		GoName: "PointToMultipoint",
+		Name:   "point-to-multipoint",
+	}, {
+		GoName: "PointToPoint",
+		Name:   "point-to-point",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "network-type",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipoint is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type/network-type-choice/point-to-multipoint/point-to-multipoint.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipoint struct {
+	NonBroadcast *bool
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipointSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/network-type/network-type-choice/point-to-multipoint/point-to-multipoint for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_NetworkType_PointToMultipointSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "NonBroadcast",
+		Name:   "non-broadcast",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "point-to-multipoint",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppression is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/prefix-suppression.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppression struct {
+	Disable *bool
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppressionSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/prefix-suppression for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_PrefixSuppressionSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Disable",
+		Name:   "disable",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "prefix-suppression",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+	Presence:  true,
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/process-id.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId struct {
+	Adjacency          *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency
+	Authentication     *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Authentication
+	Bfd                *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Bfd
+	Cost               *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Cost
+	CostConfig         *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_CostConfig
+	DatabaseFilter     *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DatabaseFilter
+	DeadInterval       *uint16
+	DemandCircuit      *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DemandCircuit
+	FloodReduction     *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_FloodReduction
+	HelloInterval      *uint32
+	Id                 *uint16
+	Ipv4               *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv4
+	Ipv6               *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv6
+	Manet              *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Manet
+	MtuIgnore          *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MtuIgnore
+	MultiArea          *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiArea
+	MultiAreaConfig    *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiAreaConfig
+	Neighbor           []Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Neighbor
+	Network            *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Network
+	NetworkType        *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NetworkType
+	PacketSize         *uint32
+	PrefixSuppression  *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_PrefixSuppression
+	Priority           *uint8
+	RetransmitInterval *uint32
+	Shutdown           *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Shutdown
+	TransmitDelay      *uint32
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema describes /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/process-id for the generic codecs.
+var Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_AdjacencySchema,
+		GoName: "Adjacency",
+		Name:   "adjacency",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_AuthenticationSchema,
+		GoName: "Authentication",
+		Name:   "authentication",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_BfdSchema,
+		GoName: "Bfd",
+		Name:   "bfd",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_CostSchema,
+		GoName: "Cost",
+		Name:   "cost",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_CostConfigSchema,
+		GoName: "CostConfig",
+		Name:   "cost-config",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DatabaseFilterSchema,
+		GoName: "DatabaseFilter",
+		Name:   "database-filter",
+	}, {
+		GoName: "DeadInterval",
+		Name:   "dead-interval",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_DemandCircuitSchema,
+		GoName: "DemandCircuit",
+		Name:   "demand-circuit",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_FloodReductionSchema,
+		GoName: "FloodReduction",
+		Name:   "flood-reduction",
+	}, {
+		GoName: "HelloInterval",
+		Name:   "hello-interval",
+		Type:   yang.TUint32,
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint16,
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv4Schema,
+		GoName: "Ipv4",
+		Name:   "ipv4",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Ipv6Schema,
+		GoName: "Ipv6",
+		Name:   "ipv6",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_ManetSchema,
+		GoName: "Manet",
+		Name:   "manet",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MtuIgnoreSchema,
+		GoName: "MtuIgnore",
+		Name:   "mtu-ignore",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiAreaSchema,
+		GoName: "MultiArea",
+		Name:   "multi-area",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_MultiAreaConfigSchema,
+		GoName: "MultiAreaConfig",
+		Name:   "multi-area-config",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NeighborSchema,
+		GoName: "Neighbor",
+		List:   true,
+		Name:   "neighbor",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NetworkSchema,
+		GoName: "Network",
+		Name:   "network",
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_NetworkTypeSchema,
+		GoName: "NetworkType",
+		Name:   "network-type",
+	}, {
+		GoName: "PacketSize",
+		Name:   "packet-size",
+		Type:   yang.TUint32,
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_PrefixSuppressionSchema,
+		GoName: "PrefixSuppression",
+		Name:   "prefix-suppression",
+	}, {
+		GoName: "Priority",
+		Name:   "priority",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "RetransmitInterval",
+		Name:   "retransmit-interval",
+		Type:   yang.TUint32,
+	}, {
+		Child:  Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_ShutdownSchema,
+		GoName: "Shutdown",
+		Name:   "shutdown",
+	}, {
+		GoName: "TransmitDelay",
+		Name:   "transmit-delay",
+		Type:   yang.TUint32,
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-ospfv3",
+	Name:      "process-id",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey is Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId's row identity (ancestor keys in canonical form).
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey struct {
+	PortChannel_Name string
+	Id               uint16
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow flattens one Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId entry with its ancestor list keys.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow struct {
+	PortChannel_Name string
+	Entry            Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdDescriptor is the flattened-row descriptor for the nested list Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId.
+func Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdDescriptor() yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey] {
+	return yang.ListDescriptor[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey]{
+		Codec: yang.RowCodec[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_PortChannelSubinterface_PortChannelSchema, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow{
+						Entry:            en.Entry,
+						PortChannel_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey {
+				var k Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdKey
+				k.PortChannel_Name = r.PortChannel_Name
+				if r.Entry.Id != nil {
+					k.Id = *r.Entry.Id
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow) Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessIdSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Port-channel-subinterface"}, {Name: "Port-channel"}, {
+			Module:    "Cisco-IOS-XE-ospfv3",
+			Name:      "ospfv3",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
+		}, {Name: "process-id"}}},
+	}
+}
+
+// Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Port-channel-subinterface/Port-channel/ospfv3/process-id/adjacency.
+type Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency struct {
+	Stagger *Native_Interface_PortChannelSubinterface_PortChannel_Ospfv3_ProcessId_Adjacency_Stagger
 }

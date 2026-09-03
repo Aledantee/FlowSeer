@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessmdnsoper binds the YANG module Cisco-IOS-XE-wireless-mdns-oper.
 package ciscoiosxewirelessmdnsoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MdnsOperData is the Cisco-IOS-XE-wireless-mdns-oper node /Cisco-IOS-XE-wireless-mdns-oper/mdns-oper-data.
 type MdnsOperData struct {

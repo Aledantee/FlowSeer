@@ -6,7 +6,7 @@
 // Package ciscosipuamib binds the YANG module CISCO-SIP-UA-MIB.
 package ciscosipuamib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_CiscoSipUaMIBNotificationPrefix is the CISCO-SIP-UA-MIB identity "ciscoSipUaMIBNotificationPrefix".
 var Identity_CiscoSipUaMIBNotificationPrefix = yang.Identity{

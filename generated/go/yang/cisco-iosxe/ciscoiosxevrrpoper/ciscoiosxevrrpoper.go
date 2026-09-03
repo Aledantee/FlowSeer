@@ -6,7 +6,7 @@
 // Package ciscoiosxevrrpoper binds the YANG module Cisco-IOS-XE-vrrp-oper.
 package ciscoiosxevrrpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // VrrpOperData is the Cisco-IOS-XE-vrrp-oper node /Cisco-IOS-XE-vrrp-oper/vrrp-oper-data.
 type VrrpOperData struct {

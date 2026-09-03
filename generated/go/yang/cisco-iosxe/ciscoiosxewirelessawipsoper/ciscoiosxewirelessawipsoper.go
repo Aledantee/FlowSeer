@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessawipsoper binds the YANG module Cisco-IOS-XE-wireless-awips-oper.
 package ciscoiosxewirelessawipsoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AwipsOperData is the Cisco-IOS-XE-wireless-awips-oper node /Cisco-IOS-XE-wireless-awips-oper/awips-oper-data.
 type AwipsOperData struct {

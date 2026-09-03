@@ -6,7 +6,7 @@
 // Package ciscoiosxesdwanipsecoper binds the YANG module Cisco-IOS-XE-sdwan-ipsec-oper.
 package ciscoiosxesdwanipsecoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SdwanIpsecOperData is the Cisco-IOS-XE-sdwan-ipsec-oper node /Cisco-IOS-XE-sdwan-ipsec-oper/sdwan-ipsec-oper-data.
 type SdwanIpsecOperData struct {

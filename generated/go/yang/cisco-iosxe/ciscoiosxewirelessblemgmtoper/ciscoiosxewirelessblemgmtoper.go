@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessblemgmtoper binds the YANG module Cisco-IOS-XE-wireless-ble-mgmt-oper.
 package ciscoiosxewirelessblemgmtoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BleMgmtOperData is the Cisco-IOS-XE-wireless-ble-mgmt-oper node /Cisco-IOS-XE-wireless-ble-mgmt-oper/ble-mgmt-oper-data.
 type BleMgmtOperData struct {

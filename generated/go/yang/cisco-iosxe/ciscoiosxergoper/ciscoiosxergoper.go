@@ -6,7 +6,7 @@
 // Package ciscoiosxergoper binds the YANG module Cisco-IOS-XE-rg-oper.
 package ciscoiosxergoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RgOperData is the Cisco-IOS-XE-rg-oper node /Cisco-IOS-XE-rg-oper/rg-oper-data.
 type RgOperData struct {

@@ -5,328 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_WeightSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_WeightSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2FactorSchema,
-		GoName: "L2Factor",
-		Name:   "L2-factor",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_LatencySchema,
-		GoName: "Latency",
-		Name:   "latency",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_OcSchema,
-		GoName: "Oc",
-		Name:   "oc",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema,
-		GoName: "Resources",
-		Name:   "resources",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema,
-		GoName: "Throughput",
-		Name:   "throughput",
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "weight",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2Factor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/L2-factor.
-type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2Factor struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2FactorSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/L2-factor for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_L2FactorSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "L2-factor",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Latency is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/latency.
-type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Latency struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_LatencySchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/latency for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_LatencySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "latency",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Oc is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/oc.
-type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Oc struct {
-	Cdr *bool
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_OcSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/oc for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_OcSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cdr",
-		Name:   "cdr",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "oc",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Resources is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/resources.
-type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Resources struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/resources for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ResourcesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "resources",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Throughput is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/throughput.
-type Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_Throughput struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost/dynamic/weight/throughput for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_Cost_Dynamic_Weight_ThroughputSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "throughput",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config.
-type Native_Interface_Vmi_Ospfv3_CostConfig struct {
-	Dynamic *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic
-	Value   *uint32
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfigSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_DynamicSchema,
-		GoName: "Dynamic",
-		Name:   "dynamic",
-	}, {
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "cost-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic struct {
-	Default    *uint32
-	Hysteresis *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Hysteresis
-	Weight     *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_DynamicSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_DynamicSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Default",
-		Name:   "default",
-		Type:   yang.TUint32,
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_HysteresisSchema,
-		GoName: "Hysteresis",
-		Name:   "hysteresis",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_WeightSchema,
-		GoName: "Weight",
-		Name:   "weight",
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "dynamic",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Hysteresis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/hysteresis.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Hysteresis struct {
-	Percent   *uint8
-	Threshold *uint32
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_HysteresisSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/hysteresis for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_HysteresisSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Percent",
-		Name:   "percent",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Threshold",
-		Name:   "threshold",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "hysteresis",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight struct {
-	L2Factor   *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2Factor
-	Latency    *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Latency
-	Oc         *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Oc
-	Resources  *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Resources
-	Throughput *Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Throughput
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_WeightSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_WeightSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema,
-		GoName: "L2Factor",
-		Name:   "L2-factor",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema,
-		GoName: "Latency",
-		Name:   "latency",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_OcSchema,
-		GoName: "Oc",
-		Name:   "oc",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema,
-		GoName: "Resources",
-		Name:   "resources",
-	}, {
-		Child:  Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema,
-		GoName: "Throughput",
-		Name:   "throughput",
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "weight",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2Factor is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/L2-factor.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2Factor struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/L2-factor for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_L2FactorSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "L2-factor",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Latency is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/latency.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Latency struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/latency for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_LatencySchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "latency",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Oc is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/oc.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Oc struct {
-	Cdr *bool
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_OcSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/oc for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_OcSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Cdr",
-		Name:   "cdr",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "oc",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Resources is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/resources.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Resources struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/resources for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ResourcesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "resources",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Throughput is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/throughput.
-type Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_Throughput struct {
-	Value *uint8
-}
-
-// Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/cost-config/cost-options/dynamic/dynamic/weight/throughput for the generic codecs.
-var Native_Interface_Vmi_Ospfv3_CostConfig_Dynamic_Weight_ThroughputSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Value",
-		Name:   "value",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-ospfv3",
-	Name:      "throughput",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-	Presence:  true,
-}
-
-// Native_Interface_Vmi_Ospfv3_DatabaseFilter is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/database-filter.
-type Native_Interface_Vmi_Ospfv3_DatabaseFilter struct {
-	All *string
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_Vmi_Ospfv3_DatabaseFilterSchema describes /Cisco-IOS-XE-native/native/interface/vmi/ospfv3/database-filter for the generic codecs.
 var Native_Interface_Vmi_Ospfv3_DatabaseFilterSchema = &yang.Schema{
@@ -48930,4 +48609,327 @@ type Native_Ip_Nat_Inside_Source struct {
 	ListPool      *Native_Ip_Nat_Inside_Source_ListPool
 	RouteMap      []Native_Ip_Nat_Inside_Source_RouteMap
 	Static        *Native_Ip_Nat_Inside_Source_Static
+}
+
+// Native_Ip_Nat_Inside_SourceSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source for the generic codecs.
+var Native_Ip_Nat_Inside_SourceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Ip_Nat_Inside_Source_ListSchema,
+		GoName: "List",
+		List:   true,
+		Name:   "list",
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_ListInterfaceSchema,
+		GoName: "ListInterface",
+		Name:   "list-interface",
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_ListPoolSchema,
+		GoName: "ListPool",
+		Name:   "list-pool",
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_RouteMapSchema,
+		GoName: "RouteMap",
+		List:   true,
+		Name:   "route-map",
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_StaticSchema,
+		GoName: "Static",
+		Name:   "static",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "source",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Ip_Nat_Inside_Source_List is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list.
+type Native_Ip_Nat_Inside_Source_List struct {
+	Id               *yang.Value
+	Interface        []Native_Ip_Nat_Inside_Source_List_Interface
+	InterfaceWithVrf *Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf
+	Pool             []Native_Ip_Nat_Inside_Source_List_Pool
+	PoolWithVrf      *Native_Ip_Nat_Inside_Source_List_PoolWithVrf
+}
+
+// Native_Ip_Nat_Inside_Source_ListSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list for the generic codecs.
+var Native_Ip_Nat_Inside_Source_ListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Id",
+		Name:   "id",
+		Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint16}, {Kind: yang.TypeString}},
+		},
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceSchema,
+		GoName: "Interface",
+		List:   true,
+		Name:   "interface",
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceWithVrfSchema,
+		GoName: "InterfaceWithVrf",
+		Name:   "interface-with-vrf",
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_List_PoolSchema,
+		GoName: "Pool",
+		List:   true,
+		Name:   "pool",
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_List_PoolWithVrfSchema,
+		GoName: "PoolWithVrf",
+		Name:   "pool-with-vrf",
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Ip_Nat_Inside_Source_ListKey is Native_Ip_Nat_Inside_Source_List's row identity (ancestor keys in canonical form).
+type Native_Ip_Nat_Inside_Source_ListKey struct {
+	Id string
+}
+
+// Native_Ip_Nat_Inside_Source_ListDescriptor is the list descriptor callers hand to a protocol library.
+func Native_Ip_Nat_Inside_Source_ListDescriptor() yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List, Native_Ip_Nat_Inside_Source_ListKey] {
+	return yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List, Native_Ip_Nat_Inside_Source_ListKey]{
+		Codec: yang.StructRowCodec(Native_Ip_Nat_Inside_Source_ListSchema, func(r *Native_Ip_Nat_Inside_Source_List) Native_Ip_Nat_Inside_Source_ListKey {
+			var k Native_Ip_Nat_Inside_Source_ListKey
+			if r.Id != nil {
+				k.Id = yang.CanonicalKey(r.Id)
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "inside"}, {Name: "source"}, {Name: "list"}}},
+	}
+}
+
+// Native_Ip_Nat_Inside_Source_List_Interface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface.
+type Native_Ip_Nat_Inside_Source_List_Interface struct {
+	Extended *bool
+	Name     *string
+	Oer      *bool
+	Overload *bool
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface for the generic codecs.
+var Native_Ip_Nat_Inside_Source_List_InterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Extended",
+		Name:   "extended",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		GoName: "Oer",
+		Name:   "oer",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Overload",
+		Name:   "overload",
+		Type:   yang.TEmpty,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "interface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceKey is Native_Ip_Nat_Inside_Source_List_Interface's row identity (ancestor keys in canonical form).
+type Native_Ip_Nat_Inside_Source_List_InterfaceKey struct {
+	List_Id string
+	Name    string
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow flattens one Native_Ip_Nat_Inside_Source_List_Interface entry with its ancestor list keys.
+type Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow struct {
+	List_Id string
+	Entry   Native_Ip_Nat_Inside_Source_List_Interface
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceDescriptor is the flattened-row descriptor for the nested list Native_Ip_Nat_Inside_Source_List_Interface.
+func Native_Ip_Nat_Inside_Source_List_InterfaceDescriptor() yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceKey] {
+	return yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceKey]{
+		Codec: yang.RowCodec[Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceKey]{
+			DecodeJSON: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, error) {
+				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceSchema}
+				entries, err := yang.DecodeJSONNested[Native_Ip_Nat_Inside_Source_List_Interface](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow{
+						Entry:   en.Entry,
+						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, error) {
+				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceSchema}
+				entries, err := yang.DecodeXMLNested[Native_Ip_Nat_Inside_Source_List_Interface](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow{
+						Entry:   en.Entry,
+						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceKey {
+				var k Native_Ip_Nat_Inside_Source_List_InterfaceKey
+				k.List_Id = r.List_Id
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceFlatRow {
+				base.Entry = yang.MergeStructs(Native_Ip_Nat_Inside_Source_List_InterfaceSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "inside"}, {Name: "source"}, {Name: "list"}, {Name: "interface"}}},
+	}
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf.
+type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf struct {
+	Interface []Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrfSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf for the generic codecs.
+var Native_Ip_Nat_Inside_Source_List_InterfaceWithVrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema,
+		GoName: "Interface",
+		List:   true,
+		Name:   "interface",
+	}},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "interface-with-vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf/interface.
+type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface struct {
+	Name *string
+	Vrf  []Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface_Vrf
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema describes /Cisco-IOS-XE-native/native/ip/nat/inside/source/list/pool-or-interface/interface-choice/interface-with-vrf/interface for the generic codecs.
+var Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface_VrfSchema,
+		GoName: "Vrf",
+		List:   true,
+		Name:   "vrf",
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-nat",
+	Name:      "interface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey is Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface's row identity (ancestor keys in canonical form).
+type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey struct {
+	List_Id string
+	Name    string
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow flattens one Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface entry with its ancestor list keys.
+type Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow struct {
+	List_Id string
+	Entry   Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface
+}
+
+// Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceDescriptor is the flattened-row descriptor for the nested list Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface.
+func Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceDescriptor() yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey] {
+	return yang.ListDescriptor[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey]{
+		Codec: yang.RowCodec[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey]{
+			DecodeJSON: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, error) {
+				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema}
+				entries, err := yang.DecodeJSONNested[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow{
+						Entry:   en.Entry,
+						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, error) {
+				chain := []*yang.Schema{Native_Ip_Nat_Inside_Source_ListSchema, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema}
+				entries, err := yang.DecodeXMLNested[Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_Interface](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow{
+						Entry:   en.Entry,
+						List_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey {
+				var k Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceKey
+				k.List_Id = r.List_Id
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow) Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceFlatRow {
+				base.Entry = yang.MergeStructs(Native_Ip_Nat_Inside_Source_List_InterfaceWithVrf_InterfaceSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-nat",
+			Name:      "nat",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nat",
+		}, {Name: "inside"}, {Name: "source"}, {Name: "list"}, {Name: "interface-with-vrf"}, {Name: "interface"}}},
+	}
 }

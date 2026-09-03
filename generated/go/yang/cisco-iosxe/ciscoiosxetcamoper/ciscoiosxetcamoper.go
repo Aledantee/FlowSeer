@@ -6,7 +6,7 @@
 // Package ciscoiosxetcamoper binds the YANG module Cisco-IOS-XE-tcam-oper.
 package ciscoiosxetcamoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // TcamDetails is the Cisco-IOS-XE-tcam-oper node /Cisco-IOS-XE-tcam-oper/tcam-details.
 type TcamDetails struct {

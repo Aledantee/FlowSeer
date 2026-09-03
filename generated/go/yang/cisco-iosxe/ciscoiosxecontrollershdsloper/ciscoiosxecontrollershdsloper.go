@@ -6,7 +6,7 @@
 // Package ciscoiosxecontrollershdsloper binds the YANG module Cisco-IOS-XE-controller-shdsl-oper.
 package ciscoiosxecontrollershdsloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ShdslOperData is the Cisco-IOS-XE-controller-shdsl-oper node /Cisco-IOS-XE-controller-shdsl-oper/shdsl-oper-data.
 type ShdslOperData struct {

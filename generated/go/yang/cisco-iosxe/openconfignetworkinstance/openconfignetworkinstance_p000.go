@@ -6,7 +6,7 @@
 // Package openconfignetworkinstance binds the YANG module openconfig-network-instance.
 package openconfignetworkinstance
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // NetworkInstances is the openconfig-network-instance node /openconfig-network-instance/network-instances.
 type NetworkInstances struct {

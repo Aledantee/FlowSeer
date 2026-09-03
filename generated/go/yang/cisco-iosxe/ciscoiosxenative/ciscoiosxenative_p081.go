@@ -5,453 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Bgp.
-func Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpDescriptor() yang.ListDescriptor[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpKey] {
-	return yang.ListDescriptor[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpKey]{
-		Codec: yang.RowCodec[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterEigrp_Eigrp_NamedModeSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4Schema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBaseSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Bgp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow{
-						AfIpv4_Unicast:        yang.AncestorKey(en.AncestorKeys, 1, "unicast"),
-						Entry:                 en.Entry,
-						NamedMode_Name:        yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						TopoBase_TopologyBase: yang.AncestorKey(en.AncestorKeys, 2, "topology-base"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterEigrp_Eigrp_NamedModeSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4Schema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBaseSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Bgp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow{
-						AfIpv4_Unicast:        yang.AncestorKey(en.AncestorKeys, 1, "unicast"),
-						Entry:                 en.Entry,
-						NamedMode_Name:        yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						TopoBase_TopologyBase: yang.AncestorKey(en.AncestorKeys, 2, "topology-base"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow) Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpKey {
-				var k Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpKey
-				k.NamedMode_Name = r.NamedMode_Name
-				k.AfIpv4_Unicast = r.AfIpv4_Unicast
-				k.TopoBase_TopologyBase = r.TopoBase_TopologyBase
-				if r.Entry.As != nil {
-					k.As = yang.CanonicalKey(r.Entry.As)
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow) Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_BgpSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-eigrp",
-			Name:      "router-eigrp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-		}, {Name: "eigrp"}, {Name: "named-mode"}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "af-ipv4"}, {Name: "topology"}, {Name: "topo-base"}, {Name: "redistribute"}, {Name: "bgp"}}},
-	}
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Bgp_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/bgp/metric.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Bgp_Metric struct {
-	Bandwidth   *uint32
-	Delay       *uint32
-	Load        *uint8
-	Mtu         *uint16
-	Reliability *uint8
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Bgp_MetricSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/bgp/metric for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Bgp_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Bandwidth",
-		Name:   "bandwidth",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Load",
-		Name:   "load",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Mtu",
-		Name:   "mtu",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Reliability",
-		Name:   "reliability",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/connected.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected struct {
-	Metric   *Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected_Metric
-	RouteMap *string
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_ConnectedSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/connected for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_ConnectedSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected_MetricSchema,
-		GoName: "Metric",
-		Name:   "metric",
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "connected",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-	Presence:  true,
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/connected/metric.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected_Metric struct {
-	Bandwidth   *uint32
-	Delay       *uint32
-	Load        *uint8
-	Mtu         *uint16
-	Reliability *uint8
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected_MetricSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/connected/metric for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Connected_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Bandwidth",
-		Name:   "bandwidth",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Load",
-		Name:   "load",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Mtu",
-		Name:   "mtu",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Reliability",
-		Name:   "reliability",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/eigrp.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp struct {
-	As       *uint16
-	Metric   *Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp_Metric
-	RouteMap *string
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/eigrp for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "As",
-		Name:   "as",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp_MetricSchema,
-		GoName: "Metric",
-		Name:   "metric",
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"as"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "eigrp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpKey is Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp's row identity (ancestor keys in canonical form).
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpKey struct {
-	NamedMode_Name        string
-	AfIpv4_Unicast        string
-	TopoBase_TopologyBase string
-	As                    uint16
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow flattens one Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp entry with its ancestor list keys.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow struct {
-	NamedMode_Name        string
-	AfIpv4_Unicast        string
-	TopoBase_TopologyBase string
-	Entry                 Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp.
-func Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpDescriptor() yang.ListDescriptor[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpKey] {
-	return yang.ListDescriptor[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpKey]{
-		Codec: yang.RowCodec[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpKey]{
-			DecodeJSON: func(data []byte) ([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterEigrp_Eigrp_NamedModeSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4Schema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBaseSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpSchema}
-				entries, err := yang.DecodeJSONNested[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow{
-						AfIpv4_Unicast:        yang.AncestorKey(en.AncestorKeys, 1, "unicast"),
-						Entry:                 en.Entry,
-						NamedMode_Name:        yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						TopoBase_TopologyBase: yang.AncestorKey(en.AncestorKeys, 2, "topology-base"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow, error) {
-				chain := []*yang.Schema{Native_Router_RouterEigrp_Eigrp_NamedModeSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4Schema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBaseSchema, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpSchema}
-				entries, err := yang.DecodeXMLNested[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow{
-						AfIpv4_Unicast:        yang.AncestorKey(en.AncestorKeys, 1, "unicast"),
-						Entry:                 en.Entry,
-						NamedMode_Name:        yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						TopoBase_TopologyBase: yang.AncestorKey(en.AncestorKeys, 2, "topology-base"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow) Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpKey {
-				var k Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpKey
-				k.NamedMode_Name = r.NamedMode_Name
-				k.AfIpv4_Unicast = r.AfIpv4_Unicast
-				k.TopoBase_TopologyBase = r.TopoBase_TopologyBase
-				if r.Entry.As != nil {
-					k.As = *r.Entry.As
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow) Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpFlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_EigrpSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-eigrp",
-			Name:      "router-eigrp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-		}, {Name: "eigrp"}, {Name: "named-mode"}, {Name: "address-family"}, {Name: "ipv4"}, {Name: "af-ipv4"}, {Name: "topology"}, {Name: "topo-base"}, {Name: "redistribute"}, {Name: "eigrp"}}},
-	}
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/eigrp/metric.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp_Metric struct {
-	Bandwidth   *uint32
-	Delay       *uint32
-	Load        *uint8
-	Mtu         *uint16
-	Reliability *uint8
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp_MetricSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/eigrp/metric for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Eigrp_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Bandwidth",
-		Name:   "bandwidth",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Load",
-		Name:   "load",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Mtu",
-		Name:   "mtu",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Reliability",
-		Name:   "reliability",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis struct {
-	Metric   *Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis_Metric
-	RouteMap *string
-	Routes   *string
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis_MetricSchema,
-		GoName: "Metric",
-		Name:   "metric",
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		GoName: "Routes",
-		Name:   "routes",
-		Type:   yang.TEnum,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "isis",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-	Presence:  true,
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis_Metric is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis/metric.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis_Metric struct {
-	Bandwidth   *uint32
-	Delay       *uint32
-	Load        *uint8
-	Mtu         *uint16
-	Reliability *uint8
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis_MetricSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis/metric for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_Isis_MetricSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Bandwidth",
-		Name:   "bandwidth",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TUint32,
-	}, {
-		GoName: "Load",
-		Name:   "load",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Mtu",
-		Name:   "mtu",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Reliability",
-		Name:   "reliability",
-		Type:   yang.TUint8,
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "metric",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis-area-tag.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag struct {
-	Isis []Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTagSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis-area-tag for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTagSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisSchema,
-		GoName: "Isis",
-		List:   true,
-		Name:   "isis",
-	}},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "isis-area-tag",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis-area-tag/isis.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis struct {
-	AreaTag  *string
-	Metric   *Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis_Metric
-	RouteMap *string
-	Routes   *string
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisSchema describes /Cisco-IOS-XE-native/native/router/router-eigrp/eigrp/named-mode/address-family/ipv4/af-ipv4/topology/topo-base/redistribute/isis-area-tag/isis for the generic codecs.
-var Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AreaTag",
-		Name:   "area-tag",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis_MetricSchema,
-		GoName: "Metric",
-		Name:   "metric",
-	}, {
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		GoName: "Routes",
-		Name:   "routes",
-		Type:   yang.TEnum,
-	}},
-	Keys:      []string{"area-tag"},
-	Module:    "Cisco-IOS-XE-eigrp",
-	Name:      "isis",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-eigrp",
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisKey is Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis's row identity (ancestor keys in canonical form).
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisKey struct {
-	NamedMode_Name        string
-	AfIpv4_Unicast        string
-	TopoBase_TopologyBase string
-	AreaTag               string
-}
-
-// Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisFlatRow flattens one Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis entry with its ancestor list keys.
-type Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisFlatRow struct {
-	NamedMode_Name        string
-	AfIpv4_Unicast        string
-	TopoBase_TopologyBase string
-	Entry                 Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_Isis.
 func Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisDescriptor() yang.ListDescriptor[Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisFlatRow, Native_Router_RouterEigrp_Eigrp_NamedMode_AddressFamily_Ipv4_AfIpv4_Topology_TopoBase_Redistribute_IsisAreaTag_IsisKey] {
@@ -34361,4 +33915,418 @@ type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterf
 type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow struct {
 	ProcessId_Id string
 	Entry        Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISP
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISP.
+func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey] {
+	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey]{
+		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey {
+				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPKey
+				k.ProcessId_Id = r.ProcessId_Id
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-ospf",
+			Name:      "router-ospf",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "L2LISP",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}}},
+	}
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface struct {
+	L2LISP []Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface for the generic codecs.
+var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema,
+		GoName: "L2LISP",
+		List:   true,
+		Name:   "L2LISP",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "L2LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface/L2LISP.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP struct {
+	Name *string
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/L2LISP-subinterface/L2LISP for the generic codecs.
+var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "L2LISP",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP's row identity (ancestor keys in canonical form).
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey struct {
+	ProcessId_Id string
+	Name         string
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow flattens one Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP entry with its ancestor list keys.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow struct {
+	ProcessId_Id string
+	Entry        Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP.
+func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey] {
+	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey]{
+		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey {
+				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPKey
+				k.ProcessId_Id = r.ProcessId_Id
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_L2LISPSubinterface_L2LISPSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-ospf",
+			Name:      "router-ospf",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "L2LISP-subinterface",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}, {Name: "L2LISP"}}},
+	}
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP struct {
+	Name *uint16
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP for the generic codecs.
+var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TUint16,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "LISP",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP's row identity (ancestor keys in canonical form).
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey struct {
+	ProcessId_Id string
+	Name         uint16
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow flattens one Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP entry with its ancestor list keys.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow struct {
+	ProcessId_Id string
+	Entry        Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP.
+func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey] {
+	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey]{
+		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey {
+				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPKey
+				k.ProcessId_Id = r.ProcessId_Id
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-ospf",
+			Name:      "router-ospf",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "LISP",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}}},
+	}
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface struct {
+	LISP []Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterfaceSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface for the generic codecs.
+var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterfaceSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema,
+		GoName: "LISP",
+		List:   true,
+		Name:   "LISP",
+	}},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "LISP-subinterface",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface/LISP.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP struct {
+	Name *string
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LISP-subinterface/LISP for the generic codecs.
+var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "LISP",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP's row identity (ancestor keys in canonical form).
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey struct {
+	ProcessId_Id string
+	Name         string
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow flattens one Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP entry with its ancestor list keys.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow struct {
+	ProcessId_Id string
+	Entry        Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPDescriptor is the flattened-row descriptor for the nested list Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP.
+func Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPDescriptor() yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey] {
+	return yang.ListDescriptor[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey]{
+		Codec: yang.RowCodec[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_RouterOspf_Ospf_ProcessIdSchema, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISP](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow{
+						Entry:        en.Entry,
+						ProcessId_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey {
+				var k Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPKey
+				k.ProcessId_Id = r.ProcessId_Id
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow) Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LISPSubinterface_LISPSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-ospf",
+			Name:      "router-ospf",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}, {Name: "ospf"}, {Name: "process-id"}, {Name: "passive-interface-config"}, {Name: "enable-interface"}, {
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "LISP-subinterface",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+		}, {Name: "LISP"}}},
+	}
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWAN is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LORAWAN.
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWAN struct {
+	Name *string
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANSchema describes /Cisco-IOS-XE-native/native/router/router-ospf/ospf/process-id/passive-interface-config/enable-interface/LORAWAN for the generic codecs.
+var Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-native",
+	Name:      "LORAWAN",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
+}
+
+// Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANKey is Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWAN's row identity (ancestor keys in canonical form).
+type Native_Router_RouterOspf_Ospf_ProcessId_PassiveInterfaceConfig_EnableInterface_LORAWANKey struct {
+	ProcessId_Id string
+	Name         string
 }

@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessurwboper binds the YANG module Cisco-IOS-XE-wireless-urwb-oper.
 package ciscoiosxewirelessurwboper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UrwbOperData is the Cisco-IOS-XE-wireless-urwb-oper node /Cisco-IOS-XE-wireless-urwb-oper/urwb-oper-data.
 type UrwbOperData struct {

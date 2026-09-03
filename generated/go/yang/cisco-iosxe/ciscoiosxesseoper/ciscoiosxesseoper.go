@@ -6,7 +6,7 @@
 // Package ciscoiosxesseoper binds the YANG module Cisco-IOS-XE-sse-oper.
 package ciscoiosxesseoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SseOperData is the Cisco-IOS-XE-sse-oper node /Cisco-IOS-XE-sse-oper/sse-oper-data.
 type SseOperData struct {

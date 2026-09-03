@@ -6,7 +6,7 @@
 // Package ciscoiosxefiboper binds the YANG module Cisco-IOS-XE-fib-oper.
 package ciscoiosxefiboper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // FibOperData is the Cisco-IOS-XE-fib-oper node /Cisco-IOS-XE-fib-oper/fib-oper-data.
 type FibOperData struct {

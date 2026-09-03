@@ -6,7 +6,7 @@
 // Package openconfigspanningtree binds the YANG module openconfig-spanning-tree.
 package openconfigspanningtree
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Stp is the openconfig-spanning-tree node /openconfig-spanning-tree/stp.
 type Stp struct {

@@ -6,7 +6,7 @@
 // Package ciscoentityalarmmib binds the YANG module CISCO-ENTITY-ALARM-MIB.
 package ciscoentityalarmmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOENTITYALARMMIB is the CISCO-ENTITY-ALARM-MIB node /CISCO-ENTITY-ALARM-MIB/CISCO-ENTITY-ALARM-MIB.
 type CISCOENTITYALARMMIB struct {

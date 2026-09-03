@@ -6,7 +6,7 @@
 // Package ciscoietfmplsteextstd03mib binds the YANG module CISCO-IETF-MPLS-TE-EXT-STD-03-MIB.
 package ciscoietfmplsteextstd03mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIETFMPLSTEEXTSTD03MIB is the CISCO-IETF-MPLS-TE-EXT-STD-03-MIB node /CISCO-IETF-MPLS-TE-EXT-STD-03-MIB/CISCO-IETF-MPLS-TE-EXT-STD-03-MIB.
 type CISCOIETFMPLSTEEXTSTD03MIB struct {

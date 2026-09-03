@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessaccesspointoper binds the YANG module Cisco-IOS-XE-wireless-access-point-oper.
 package ciscoiosxewirelessaccesspointoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AccessPointOperData is the Cisco-IOS-XE-wireless-access-point-oper node /Cisco-IOS-XE-wireless-access-point-oper/access-point-oper-data.
 type AccessPointOperData struct {

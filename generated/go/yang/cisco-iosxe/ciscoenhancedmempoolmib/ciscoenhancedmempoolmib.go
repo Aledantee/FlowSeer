@@ -6,7 +6,7 @@
 // Package ciscoenhancedmempoolmib binds the YANG module CISCO-ENHANCED-MEMPOOL-MIB.
 package ciscoenhancedmempoolmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOENHANCEDMEMPOOLMIB is the CISCO-ENHANCED-MEMPOOL-MIB node /CISCO-ENHANCED-MEMPOOL-MIB/CISCO-ENHANCED-MEMPOOL-MIB.
 type CISCOENHANCEDMEMPOOLMIB struct {

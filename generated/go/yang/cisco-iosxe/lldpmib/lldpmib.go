@@ -6,7 +6,7 @@
 // Package lldpmib binds the YANG module LLDP-MIB.
 package lldpmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // LLDPMIB is the LLDP-MIB node /LLDP-MIB/LLDP-MIB.
 type LLDPMIB struct {

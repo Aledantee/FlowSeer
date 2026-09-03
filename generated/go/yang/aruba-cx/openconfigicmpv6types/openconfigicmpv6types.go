@@ -6,7 +6,7 @@
 // Package openconfigicmpv6types binds the YANG module openconfig-icmpv6-types.
 package openconfigicmpv6types
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_CERTIFICATIONPATHADVERTISEMENT is the openconfig-icmpv6-types identity "CERTIFICATION_PATH_ADVERTISEMENT".
 var Identity_CERTIFICATIONPATHADVERTISEMENT = yang.Identity{

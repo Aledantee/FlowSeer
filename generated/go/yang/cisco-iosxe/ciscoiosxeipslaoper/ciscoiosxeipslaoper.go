@@ -6,7 +6,7 @@
 // Package ciscoiosxeipslaoper binds the YANG module Cisco-IOS-XE-ip-sla-oper.
 package ciscoiosxeipslaoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IpSlaStats is the Cisco-IOS-XE-ip-sla-oper node /Cisco-IOS-XE-ip-sla-oper/ip-sla-stats.
 type IpSlaStats struct {

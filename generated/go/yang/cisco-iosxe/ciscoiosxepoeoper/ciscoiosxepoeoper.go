@@ -6,7 +6,7 @@
 // Package ciscoiosxepoeoper binds the YANG module Cisco-IOS-XE-poe-oper.
 package ciscoiosxepoeoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PoeOperData is the Cisco-IOS-XE-poe-oper node /Cisco-IOS-XE-poe-oper/poe-oper-data.
 type PoeOperData struct {

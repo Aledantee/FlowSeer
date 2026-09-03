@@ -6,7 +6,7 @@
 // Package ciscoifextensionmib binds the YANG module CISCO-IF-EXTENSION-MIB.
 package ciscoifextensionmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIFEXTENSIONMIB is the CISCO-IF-EXTENSION-MIB node /CISCO-IF-EXTENSION-MIB/CISCO-IF-EXTENSION-MIB.
 type CISCOIFEXTENSIONMIB struct {

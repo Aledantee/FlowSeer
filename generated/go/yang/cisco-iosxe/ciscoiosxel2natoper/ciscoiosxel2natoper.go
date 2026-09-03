@@ -6,7 +6,7 @@
 // Package ciscoiosxel2natoper binds the YANG module Cisco-IOS-XE-l2nat-oper.
 package ciscoiosxel2natoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // L2natOperData is the Cisco-IOS-XE-l2nat-oper node /Cisco-IOS-XE-l2nat-oper/l2nat-oper-data.
 type L2natOperData struct {

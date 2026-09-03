@@ -6,7 +6,7 @@
 // Package ietfospf binds the YANG module ietf-ospf.
 package ietfospf
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AreaType is the ietf-ospf identity "area-type".
 var Identity_AreaType = yang.Identity{

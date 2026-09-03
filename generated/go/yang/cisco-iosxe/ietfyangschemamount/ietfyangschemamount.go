@@ -6,7 +6,7 @@
 // Package ietfyangschemamount binds the YANG module ietf-yang-schema-mount.
 package ietfyangschemamount
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SchemaMounts is the ietf-yang-schema-mount node /ietf-yang-schema-mount/schema-mounts.
 type SchemaMounts struct {

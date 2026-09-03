@@ -6,7 +6,7 @@
 // Package sonetmib binds the YANG module SONET-MIB.
 package sonetmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SONETMIB is the SONET-MIB node /SONET-MIB/SONET-MIB.
 type SONETMIB struct {

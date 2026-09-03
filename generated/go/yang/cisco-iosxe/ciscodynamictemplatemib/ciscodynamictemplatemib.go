@@ -6,7 +6,7 @@
 // Package ciscodynamictemplatemib binds the YANG module CISCO-DYNAMIC-TEMPLATE-MIB.
 package ciscodynamictemplatemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCODYNAMICTEMPLATEMIB is the CISCO-DYNAMIC-TEMPLATE-MIB node /CISCO-DYNAMIC-TEMPLATE-MIB/CISCO-DYNAMIC-TEMPLATE-MIB.
 type CISCODYNAMICTEMPLATEMIB struct {

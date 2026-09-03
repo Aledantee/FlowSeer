@@ -6,7 +6,7 @@
 // Package ciscostpextensionsmib binds the YANG module CISCO-STP-EXTENSIONS-MIB.
 package ciscostpextensionsmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOSTPEXTENSIONSMIB is the CISCO-STP-EXTENSIONS-MIB node /CISCO-STP-EXTENSIONS-MIB/CISCO-STP-EXTENSIONS-MIB.
 type CISCOSTPEXTENSIONSMIB struct {

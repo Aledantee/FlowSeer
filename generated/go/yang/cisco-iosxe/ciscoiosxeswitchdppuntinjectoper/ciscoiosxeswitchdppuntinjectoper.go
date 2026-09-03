@@ -6,7 +6,7 @@
 // Package ciscoiosxeswitchdppuntinjectoper binds the YANG module Cisco-IOS-XE-switch-dp-punt-inject-oper.
 package ciscoiosxeswitchdppuntinjectoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // SwitchDpPuntInjectOperData is the Cisco-IOS-XE-switch-dp-punt-inject-oper node /Cisco-IOS-XE-switch-dp-punt-inject-oper/switch-dp-punt-inject-oper-data.
 type SwitchDpPuntInjectOperData struct {

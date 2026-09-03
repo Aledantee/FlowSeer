@@ -6,7 +6,7 @@
 // Package ciscoiosxeperfmeasureoper binds the YANG module Cisco-IOS-XE-perf-measure-oper.
 package ciscoiosxeperfmeasureoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // PerformanceMeasurement is the Cisco-IOS-XE-perf-measure-oper node /Cisco-IOS-XE-perf-measure-oper/performance-measurement.
 type PerformanceMeasurement struct {

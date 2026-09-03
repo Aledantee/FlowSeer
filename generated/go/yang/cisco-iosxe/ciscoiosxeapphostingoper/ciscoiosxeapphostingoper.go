@@ -6,7 +6,7 @@
 // Package ciscoiosxeapphostingoper binds the YANG module Cisco-IOS-XE-app-hosting-oper.
 package ciscoiosxeapphostingoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AppHostingOperData is the Cisco-IOS-XE-app-hosting-oper node /Cisco-IOS-XE-app-hosting-oper/app-hosting-oper-data.
 type AppHostingOperData struct {

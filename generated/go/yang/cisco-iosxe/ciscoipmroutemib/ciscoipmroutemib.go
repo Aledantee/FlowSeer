@@ -6,7 +6,7 @@
 // Package ciscoipmroutemib binds the YANG module CISCO-IPMROUTE-MIB.
 package ciscoipmroutemib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPMROUTEMIB is the CISCO-IPMROUTE-MIB node /CISCO-IPMROUTE-MIB/CISCO-IPMROUTE-MIB.
 type CISCOIPMROUTEMIB struct {

@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessapglobaloper binds the YANG module Cisco-IOS-XE-wireless-ap-global-oper.
 package ciscoiosxewirelessapglobaloper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // ApGlobalOperData is the Cisco-IOS-XE-wireless-ap-global-oper node /Cisco-IOS-XE-wireless-ap-global-oper/ap-global-oper-data.
 type ApGlobalOperData struct {

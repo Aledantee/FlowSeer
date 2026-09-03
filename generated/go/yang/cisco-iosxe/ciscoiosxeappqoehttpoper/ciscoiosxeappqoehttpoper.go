@@ -6,7 +6,7 @@
 // Package ciscoiosxeappqoehttpoper binds the YANG module Cisco-IOS-XE-appqoe-http-oper.
 package ciscoiosxeappqoehttpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // AppqoeHttpOperData is the Cisco-IOS-XE-appqoe-http-oper node /Cisco-IOS-XE-appqoe-http-oper/appqoe-http-oper-data.
 type AppqoeHttpOperData struct {

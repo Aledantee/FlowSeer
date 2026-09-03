@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessctssxpoper binds the YANG module Cisco-IOS-XE-wireless-cts-sxp-oper.
 package ciscoiosxewirelessctssxpoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CtsSxpOperData is the Cisco-IOS-XE-wireless-cts-sxp-oper node /Cisco-IOS-XE-wireless-cts-sxp-oper/cts-sxp-oper-data.
 type CtsSxpOperData struct {

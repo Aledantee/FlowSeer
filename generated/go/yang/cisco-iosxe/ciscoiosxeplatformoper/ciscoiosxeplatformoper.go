@@ -6,7 +6,7 @@
 // Package ciscoiosxeplatformoper binds the YANG module Cisco-IOS-XE-platform-oper.
 package ciscoiosxeplatformoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Components is the Cisco-IOS-XE-platform-oper node /Cisco-IOS-XE-platform-oper/components.
 type Components struct {

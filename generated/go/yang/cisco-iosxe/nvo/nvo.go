@@ -6,7 +6,7 @@
 // Package nvo binds the YANG module nvo.
 package nvo
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_NvgreType is the nvo identity "nvgre-type".
 var Identity_NvgreType = yang.Identity{

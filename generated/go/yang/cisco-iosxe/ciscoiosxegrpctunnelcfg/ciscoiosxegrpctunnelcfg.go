@@ -6,7 +6,7 @@
 // Package ciscoiosxegrpctunnelcfg binds the YANG module Cisco-IOS-XE-grpc-tunnel-cfg.
 package ciscoiosxegrpctunnelcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // GrpcTunnelCfgData is the Cisco-IOS-XE-grpc-tunnel-cfg node /Cisco-IOS-XE-grpc-tunnel-cfg/grpc-tunnel-cfg-data.
 type GrpcTunnelCfgData struct {

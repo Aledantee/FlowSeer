@@ -6,7 +6,7 @@
 // Package ietfnetconfacm binds the YANG module ietf-netconf-acm.
 package ietfnetconfacm
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Nacm is the ietf-netconf-acm node /ietf-netconf-acm/nacm.
 type Nacm struct {

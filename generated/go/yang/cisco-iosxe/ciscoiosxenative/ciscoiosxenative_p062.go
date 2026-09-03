@@ -5,493 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/aes/aes/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Aes_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfig
-	Password     *string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_DesSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_DesSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "des",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des/access-config.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des/des/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3 struct {
-	AccessConfig *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfig
-	Password     *string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3Schema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3 for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfigSchema,
-		GoName: "AccessConfig",
-		Name:   "access-config",
-	}, {
-		GoName: "Password",
-		Name:   "password",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "des3",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3/access-config.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfig struct {
-	AclName     *string
-	Ipv6        *string
-	StandardAcl *uint32
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfigSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv4/vpnv4-unicast/snmp/context/context_word/user/permission/encrypted/auth/priv/priv-option/des3/des3/access-config for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv4_Vpnv4Unicast_Snmp_Context_ContextWord_User_Permission_Encrypted_Auth_Priv_Des3_AccessConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AclName",
-		Name:   "acl-name",
-		Type:   yang.TString,
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type:   yang.TString,
-	}, {
-		GoName: "StandardAcl",
-		Name:   "standard-acl",
-		Type:   yang.TUint32,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "access-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6 struct {
-	AfName         *string
-	Vpnv6Flowspec  *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec
-	Vpnv6Multicast *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Multicast
-	Vpnv6Unicast   *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Unicast
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Schema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6 for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "AfName",
-		Name:   "af-name",
-		Type:   yang.TEnum,
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6FlowspecSchema,
-		GoName: "Vpnv6Flowspec",
-		Name:   "vpnv6-flowspec",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6MulticastSchema,
-		GoName: "Vpnv6Multicast",
-		Name:   "vpnv6-multicast",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6UnicastSchema,
-		GoName: "Vpnv6Unicast",
-		Name:   "vpnv6-unicast",
-	}},
-	Keys:      []string{"af-name"},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "vpnv6",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Key is Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6's row identity (ancestor keys in canonical form).
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Key struct {
-	Bgp_Id string
-	AfName string
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow flattens one Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6 entry with its ancestor list keys.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow struct {
-	Bgp_Id string
-	Entry  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Descriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6.
-func Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Descriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Key] {
-	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Key]{
-		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow, Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Key]{
-			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Schema}
-				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow{
-						Bgp_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:  en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow, error) {
-				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Schema}
-				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow{
-						Bgp_Id: yang.AncestorKey(en.AncestorKeys, 0, "id"),
-						Entry:  en.Entry,
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Key {
-				var k Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Key
-				k.Bgp_Id = r.Bgp_Id
-				if r.Entry.AfName != nil {
-					k.AfName = *r.Entry.AfName
-				}
-				return k
-			},
-			Merge: func(base, update Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow) Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6FlatRow {
-				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6Schema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "router"}, {
-			Module:    "Cisco-IOS-XE-bgp",
-			Name:      "bgp",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-		}, {Name: "address-family"}, {Name: "no-vrf"}, {Name: "vpnv6"}}},
-	}
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec struct {
-	Bgp          *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp
-	MaximumPaths *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths
-	Neighbor     []Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Neighbor
-	PeerGroup    *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_PeerGroup
-	Snmp         *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Snmp
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6FlowspecSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6FlowspecSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_BgpSchema,
-		GoName: "Bgp",
-		Name:   "bgp",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPathsSchema,
-		GoName: "MaximumPaths",
-		Name:   "maximum-paths",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_NeighborSchema,
-		GoName: "Neighbor",
-		List:   true,
-		Name:   "neighbor",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_PeerGroupSchema,
-		GoName: "PeerGroup",
-		Name:   "peer-group",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_SnmpSchema,
-		GoName: "Snmp",
-		Name:   "snmp",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "vpnv6-flowspec",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp struct {
-	Nexthop  *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop
-	RouteMap *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_RouteMap
-	ScanTime *uint8
-	SlowPeer *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_BgpSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_BgpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_NexthopSchema,
-		GoName: "Nexthop",
-		Name:   "nexthop",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_RouteMapSchema,
-		GoName: "RouteMap",
-		Name:   "route-map",
-	}, {
-		GoName: "ScanTime",
-		Name:   "scan-time",
-		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeerSchema,
-		GoName: "SlowPeer",
-		Name:   "slow-peer",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "bgp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/nexthop.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop struct {
-	RouteMap *string
-	Trigger  *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop_Trigger
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_NexthopSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/nexthop for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_NexthopSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "RouteMap",
-		Name:   "route-map",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop_TriggerSchema,
-		GoName: "Trigger",
-		Name:   "trigger",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "nexthop",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop_Trigger is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/nexthop/trigger.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop_Trigger struct {
-	CriticalDelay *uint8
-	Delay         *uint8
-	Enable        *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop_TriggerSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/nexthop/trigger for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_Nexthop_TriggerSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "CriticalDelay",
-		Name:   "critical-delay",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Delay",
-		Name:   "delay",
-		Type:   yang.TUint8,
-	}, {
-		GoName: "Enable",
-		Name:   "enable",
-		Type:   yang.TBool,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "trigger",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_RouteMap is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/route-map.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_RouteMap struct {
-	Priority *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_RouteMapSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/route-map for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_RouteMapSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Priority",
-		Name:   "priority",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "route-map",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer struct {
-	Detection        *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_Detection
-	SplitUpdateGroup *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeerSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeerSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_DetectionSchema,
-		GoName: "Detection",
-		Name:   "detection",
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroupSchema,
-		GoName: "SplitUpdateGroup",
-		Name:   "split-update-group",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "slow-peer",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_Detection is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer/detection.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_Detection struct {
-	Disable   *bool
-	Threshold *uint16
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_DetectionSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer/detection for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_DetectionSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Threshold",
-		Name:   "threshold",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "detection",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer/split-update-group.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup struct {
-	Dynamic *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup_Dynamic
-	Static  *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroupSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer/split-update-group for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroupSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup_DynamicSchema,
-		GoName: "Dynamic",
-		Name:   "dynamic",
-	}, {
-		GoName: "Static",
-		Name:   "static",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "split-update-group",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup_Dynamic is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer/split-update-group/dynamic.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup_Dynamic struct {
-	Disable   *bool
-	Permanent *bool
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup_DynamicSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/bgp/slow-peer/split-update-group/dynamic for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_Bgp_SlowPeer_SplitUpdateGroup_DynamicSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Disable",
-		Name:   "disable",
-		Type:   yang.TEmpty,
-	}, {
-		GoName: "Permanent",
-		Name:   "permanent",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "dynamic",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-	Presence:  true,
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/maximum-paths.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths struct {
-	Ebgp  *uint16
-	Eibgp *uint16
-	Ibgp  *Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths_Ibgp
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPathsSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/maximum-paths for the generic codecs.
-var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPathsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Ebgp",
-		Name:   "ebgp",
-		Type:   yang.TUint16,
-	}, {
-		GoName: "Eibgp",
-		Name:   "eibgp",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths_IbgpSchema,
-		GoName: "Ibgp",
-		Name:   "ibgp",
-	}},
-	Module:    "Cisco-IOS-XE-bgp",
-	Name:      "maximum-paths",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths_Ibgp is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/maximum-paths/ibgp.
-type Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths_Ibgp struct {
-	Max         *uint16
-	UnequalCost *uint16
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths_IbgpSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/no-vrf/vpnv6/vpnv6-flowspec/maximum-paths/ibgp for the generic codecs.
 var Native_Router_Bgp_AddressFamily_NoVrf_Vpnv6_Vpnv6Flowspec_MaximumPaths_IbgpSchema = &yang.Schema{
@@ -39269,4 +38783,358 @@ var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neigh
 type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeType struct {
 	In   *bool
 	Type *uint8
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/discard/attribute-type for the generic codecs.
+var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Type",
+		Name:   "type",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"type"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "attribute-type",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeKey is Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeType's row identity (ancestor keys in canonical form).
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeKey struct {
+	Bgp_Id      string
+	Ipv4_AfName string
+	Vrf_Name    string
+	Neighbor_Id string
+	Type        uint8
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow flattens one Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeType entry with its ancestor list keys.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow struct {
+	Bgp_Id      string
+	Ipv4_AfName string
+	Vrf_Name    string
+	Neighbor_Id string
+	Entry       Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeType
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeType.
+func Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeDescriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeKey] {
+	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeKey]{
+		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_VrfSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_NeighborSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeType](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 3, "id"),
+						Vrf_Name:    yang.AncestorKey(en.AncestorKeys, 2, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_VrfSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_NeighborSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeType](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 3, "id"),
+						Vrf_Name:    yang.AncestorKey(en.AncestorKeys, 2, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow) Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeKey {
+				var k Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeKey
+				k.Bgp_Id = r.Bgp_Id
+				k.Ipv4_AfName = r.Ipv4_AfName
+				k.Vrf_Name = r.Vrf_Name
+				k.Neighbor_Id = r.Neighbor_Id
+				if r.Entry.Type != nil {
+					k.Type = *r.Entry.Type
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow) Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_AttributeTypeSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-bgp",
+			Name:      "bgp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+		}, {Name: "address-family"}, {Name: "with-vrf"}, {Name: "ipv4"}, {Name: "vrf"}, {Name: "ipv4-unicast"}, {Name: "peer-group"}, {Name: "neighbor"}, {Name: "path-attribute"}, {Name: "discard"}, {Name: "attribute-type"}}},
+	}
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_Range is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/discard/range.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_Range struct {
+	EndValue   *uint8
+	In         *bool
+	StartValue *uint8
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_RangeSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/discard/range for the generic codecs.
+var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_Discard_RangeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "EndValue",
+		Name:   "end_value",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "StartValue",
+		Name:   "start_value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "range",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw struct {
+	AttibuteType  *Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttibuteType
+	AttributeType []Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType
+	Range         *Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_Range
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdrawSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw for the generic codecs.
+var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdrawSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttibuteTypeSchema,
+		GoName: "AttibuteType",
+		Name:   "attibute_type",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeSchema,
+		GoName: "AttributeType",
+		List:   true,
+		Name:   "attribute-type",
+	}, {
+		Child:  Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_RangeSchema,
+		GoName: "Range",
+		Name:   "range",
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "treat-as-withdraw",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttibuteType is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw/attibute_type.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttibuteType struct {
+	In   *bool
+	Type *uint8
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttibuteTypeSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw/attibute_type for the generic codecs.
+var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttibuteTypeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Type",
+		Name:   "type",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "attibute_type",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw/attribute-type.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType struct {
+	In   *bool
+	Type *uint8
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw/attribute-type for the generic codecs.
+var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Type",
+		Name:   "type",
+		Type:   yang.TUint8,
+	}},
+	Keys:      []string{"type"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "attribute-type",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeKey is Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType's row identity (ancestor keys in canonical form).
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeKey struct {
+	Bgp_Id      string
+	Ipv4_AfName string
+	Vrf_Name    string
+	Neighbor_Id string
+	Type        uint8
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow flattens one Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType entry with its ancestor list keys.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow struct {
+	Bgp_Id      string
+	Ipv4_AfName string
+	Vrf_Name    string
+	Neighbor_Id string
+	Entry       Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeDescriptor is the flattened-row descriptor for the nested list Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType.
+func Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeDescriptor() yang.ListDescriptor[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeKey] {
+	return yang.ListDescriptor[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeKey]{
+		Codec: yang.RowCodec[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeKey]{
+			DecodeJSON: func(data []byte) ([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_VrfSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_NeighborSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeSchema}
+				entries, err := yang.DecodeJSONNested[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 3, "id"),
+						Vrf_Name:    yang.AncestorKey(en.AncestorKeys, 2, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow, error) {
+				chain := []*yang.Schema{Native_Router_BgpSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4Schema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_VrfSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_NeighborSchema, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeSchema}
+				entries, err := yang.DecodeXMLNested[Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeType](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow{
+						Bgp_Id:      yang.AncestorKey(en.AncestorKeys, 0, "id"),
+						Entry:       en.Entry,
+						Ipv4_AfName: yang.AncestorKey(en.AncestorKeys, 1, "af-name"),
+						Neighbor_Id: yang.AncestorKey(en.AncestorKeys, 3, "id"),
+						Vrf_Name:    yang.AncestorKey(en.AncestorKeys, 2, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow) Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeKey {
+				var k Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeKey
+				k.Bgp_Id = r.Bgp_Id
+				k.Ipv4_AfName = r.Ipv4_AfName
+				k.Vrf_Name = r.Vrf_Name
+				k.Neighbor_Id = r.Neighbor_Id
+				if r.Entry.Type != nil {
+					k.Type = *r.Entry.Type
+				}
+				return k
+			},
+			Merge: func(base, update Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow) Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeFlatRow {
+				base.Entry = yang.MergeStructs(Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_AttributeTypeSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "router"}, {
+			Module:    "Cisco-IOS-XE-bgp",
+			Name:      "bgp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+		}, {Name: "address-family"}, {Name: "with-vrf"}, {Name: "ipv4"}, {Name: "vrf"}, {Name: "ipv4-unicast"}, {Name: "peer-group"}, {Name: "neighbor"}, {Name: "path-attribute"}, {Name: "treat-as-withdraw"}, {Name: "attribute-type"}}},
+	}
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_Range is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw/range.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_Range struct {
+	EndValue   *uint8
+	In         *bool
+	StartValue *uint8
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_RangeSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/path-attribute/treat-as-withdraw/range for the generic codecs.
+var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PathAttribute_TreatAsWithdraw_RangeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "EndValue",
+		Name:   "end_value",
+		Type:   yang.TUint8,
+	}, {
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "StartValue",
+		Name:   "start_value",
+		Type:   yang.TUint8,
+	}},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "range",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PrefixList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/prefix-list.
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PrefixList struct {
+	Inout          *string
+	PrefixListName *string
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PrefixListSchema describes /Cisco-IOS-XE-native/native/router/bgp/address-family/with-vrf/ipv4/vrf/ipv4-unicast/peer-group/neighbor/prefix-list for the generic codecs.
+var Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PrefixListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Inout",
+		Name:   "inout",
+		Type:   yang.TEnum,
+	}, {
+		GoName: "PrefixListName",
+		Name:   "prefix-list-name",
+		Type:   yang.TString,
+	}},
+	Keys:      []string{"inout"},
+	Module:    "Cisco-IOS-XE-bgp",
+	Name:      "prefix-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
+}
+
+// Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PrefixListKey is Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PrefixList's row identity (ancestor keys in canonical form).
+type Native_Router_Bgp_AddressFamily_WithVrf_Ipv4_Vrf_Ipv4Unicast_PeerGroup_Neighbor_PrefixListKey struct {
+	Bgp_Id      string
+	Ipv4_AfName string
+	Vrf_Name    string
+	Neighbor_Id string
+	Inout       string
 }

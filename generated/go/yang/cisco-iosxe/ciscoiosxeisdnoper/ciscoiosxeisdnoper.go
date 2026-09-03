@@ -6,7 +6,7 @@
 // Package ciscoiosxeisdnoper binds the YANG module Cisco-IOS-XE-isdn-oper.
 package ciscoiosxeisdnoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IsdnOperData is the Cisco-IOS-XE-isdn-oper node /Cisco-IOS-XE-isdn-oper/isdn-oper-data.
 type IsdnOperData struct {

@@ -6,7 +6,7 @@
 // Package rmon2mib binds the YANG module RMON2-MIB.
 package rmon2mib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RMON2MIB is the RMON2-MIB node /RMON2-MIB/RMON2-MIB.
 type RMON2MIB struct {

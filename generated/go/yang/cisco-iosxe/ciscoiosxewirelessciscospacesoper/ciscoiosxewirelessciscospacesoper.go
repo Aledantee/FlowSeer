@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessciscospacesoper binds the YANG module Cisco-IOS-XE-wireless-cisco-spaces-oper.
 package ciscoiosxewirelessciscospacesoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CiscoSpacesOperData is the Cisco-IOS-XE-wireless-cisco-spaces-oper node /Cisco-IOS-XE-wireless-cisco-spaces-oper/cisco-spaces-oper-data.
 type CiscoSpacesOperData struct {

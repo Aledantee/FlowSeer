@@ -6,7 +6,7 @@
 // Package ciscoiosxebfdoper binds the YANG module Cisco-IOS-XE-bfd-oper.
 package ciscoiosxebfdoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // BfdState is the Cisco-IOS-XE-bfd-oper node /Cisco-IOS-XE-bfd-oper/bfd-state.
 type BfdState struct {

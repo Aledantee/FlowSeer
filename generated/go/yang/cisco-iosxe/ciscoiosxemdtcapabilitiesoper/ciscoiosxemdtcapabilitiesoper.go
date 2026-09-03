@@ -6,7 +6,7 @@
 // Package ciscoiosxemdtcapabilitiesoper binds the YANG module Cisco-IOS-XE-mdt-capabilities-oper.
 package ciscoiosxemdtcapabilitiesoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MdtCapabilitiesOperData is the Cisco-IOS-XE-mdt-capabilities-oper node /Cisco-IOS-XE-mdt-capabilities-oper/mdt-capabilities-oper-data.
 type MdtCapabilitiesOperData struct {

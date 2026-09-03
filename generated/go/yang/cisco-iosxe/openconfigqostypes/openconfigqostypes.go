@@ -6,7 +6,7 @@
 // Package openconfigqostypes binds the YANG module openconfig-qos-types.
 package openconfigqostypes
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_DROPTAIL is the openconfig-qos-types identity "DROP_TAIL".
 var Identity_DROPTAIL = yang.Identity{

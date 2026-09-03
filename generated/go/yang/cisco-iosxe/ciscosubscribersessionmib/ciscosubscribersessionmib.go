@@ -6,7 +6,7 @@
 // Package ciscosubscribersessionmib binds the YANG module CISCO-SUBSCRIBER-SESSION-MIB.
 package ciscosubscribersessionmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOSUBSCRIBERSESSIONMIB is the CISCO-SUBSCRIBER-SESSION-MIB node /CISCO-SUBSCRIBER-SESSION-MIB/CISCO-SUBSCRIBER-SESSION-MIB.
 type CISCOSUBSCRIBERSESSIONMIB struct {

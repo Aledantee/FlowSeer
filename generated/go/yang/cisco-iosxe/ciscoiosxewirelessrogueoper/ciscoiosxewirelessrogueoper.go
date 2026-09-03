@@ -6,7 +6,7 @@
 // Package ciscoiosxewirelessrogueoper binds the YANG module Cisco-IOS-XE-wireless-rogue-oper.
 package ciscoiosxewirelessrogueoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // RogueOperData is the Cisco-IOS-XE-wireless-rogue-oper node /Cisco-IOS-XE-wireless-rogue-oper/rogue-oper-data.
 type RogueOperData struct {

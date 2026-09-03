@@ -6,7 +6,7 @@
 // Package ciscoiosxectrlmngcfg binds the YANG module Cisco-IOS-XE-ctrl-mng-cfg.
 package ciscoiosxectrlmngcfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CtrlMngCfgData is the Cisco-IOS-XE-ctrl-mng-cfg node /Cisco-IOS-XE-ctrl-mng-cfg/ctrl-mng-cfg-data.
 type CtrlMngCfgData struct {

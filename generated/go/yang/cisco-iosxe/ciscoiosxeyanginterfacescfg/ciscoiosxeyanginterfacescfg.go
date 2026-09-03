@@ -6,7 +6,7 @@
 // Package ciscoiosxeyanginterfacescfg binds the YANG module Cisco-IOS-XE-yang-interfaces-cfg.
 package ciscoiosxeyanginterfacescfg
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // YangInterfacesCfgData is the Cisco-IOS-XE-yang-interfaces-cfg node /Cisco-IOS-XE-yang-interfaces-cfg/yang-interfaces-cfg-data.
 type YangInterfacesCfgData struct {

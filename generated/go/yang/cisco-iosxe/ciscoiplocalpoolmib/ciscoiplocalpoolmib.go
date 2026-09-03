@@ -6,7 +6,7 @@
 // Package ciscoiplocalpoolmib binds the YANG module CISCO-IP-LOCAL-POOL-MIB.
 package ciscoiplocalpoolmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPLOCALPOOLMIB is the CISCO-IP-LOCAL-POOL-MIB node /CISCO-IP-LOCAL-POOL-MIB/CISCO-IP-LOCAL-POOL-MIB.
 type CISCOIPLOCALPOOLMIB struct {

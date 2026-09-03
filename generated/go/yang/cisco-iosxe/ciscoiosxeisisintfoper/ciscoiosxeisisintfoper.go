@@ -6,7 +6,7 @@
 // Package ciscoiosxeisisintfoper binds the YANG module Cisco-IOS-XE-isis-intf-oper.
 package ciscoiosxeisisintfoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // IsisIntfOperData is the Cisco-IOS-XE-isis-intf-oper node /Cisco-IOS-XE-isis-intf-oper/isis-intf-oper-data.
 type IsisIntfOperData struct {

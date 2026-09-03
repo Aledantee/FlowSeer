@@ -6,7 +6,7 @@
 // Package ciscoiosxestackoper binds the YANG module Cisco-IOS-XE-stack-oper.
 package ciscoiosxestackoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // StackOperData is the Cisco-IOS-XE-stack-oper node /Cisco-IOS-XE-stack-oper/stack-oper-data.
 type StackOperData struct {

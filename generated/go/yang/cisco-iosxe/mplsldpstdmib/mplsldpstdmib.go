@@ -6,7 +6,7 @@
 // Package mplsldpstdmib binds the YANG module MPLS-LDP-STD-MIB.
 package mplsldpstdmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // MPLSLDPSTDMIB is the MPLS-LDP-STD-MIB node /MPLS-LDP-STD-MIB/MPLS-LDP-STD-MIB.
 type MPLSLDPSTDMIB struct {

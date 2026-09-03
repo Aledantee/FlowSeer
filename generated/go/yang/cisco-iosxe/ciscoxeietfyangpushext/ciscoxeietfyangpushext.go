@@ -6,7 +6,7 @@
 // Package ciscoxeietfyangpushext binds the YANG module cisco-xe-ietf-yang-push-ext.
 package ciscoxeietfyangpushext
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_CloudNative is the cisco-xe-ietf-yang-push-ext identity "cloud-native".
 var Identity_CloudNative = yang.Identity{

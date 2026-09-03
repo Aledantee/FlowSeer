@@ -6,7 +6,7 @@
 // Package ciscoiosxeuplinkautoconfigoper binds the YANG module Cisco-IOS-XE-uplink-autoconfig-oper.
 package ciscoiosxeuplinkautoconfigoper
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // UplinkAutoconfigOperData is the Cisco-IOS-XE-uplink-autoconfig-oper node /Cisco-IOS-XE-uplink-autoconfig-oper/uplink-autoconfig-oper-data.
 type UplinkAutoconfigOperData struct {

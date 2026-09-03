@@ -6,7 +6,7 @@
 // Package ciscoipsecpolicymapmib binds the YANG module CISCO-IPSEC-POLICY-MAP-MIB.
 package ciscoipsecpolicymapmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // CISCOIPSECPOLICYMAPMIB is the CISCO-IPSEC-POLICY-MAP-MIB node /CISCO-IPSEC-POLICY-MAP-MIB/CISCO-IPSEC-POLICY-MAP-MIB.
 type CISCOIPSECPOLICYMAPMIB struct {

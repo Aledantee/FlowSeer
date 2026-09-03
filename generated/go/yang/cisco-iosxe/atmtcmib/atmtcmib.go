@@ -6,7 +6,7 @@
 // Package atmtcmib binds the YANG module ATM-TC-MIB.
 package atmtcmib
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_AtmClpNoTaggingMcr is the ATM-TC-MIB identity "atmClpNoTaggingMcr".
 var Identity_AtmClpNoTaggingMcr = yang.Identity{

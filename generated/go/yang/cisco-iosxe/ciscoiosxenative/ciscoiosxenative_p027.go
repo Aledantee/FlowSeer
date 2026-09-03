@@ -5,550 +5,7 @@
 
 package ciscoiosxenative
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_AuthenticationSchema,
-		GoName: "Authentication",
-		Name:   "authentication",
-	}, {
-		GoName: "Follow",
-		Name:   "follow",
-		Type:   yang.TString,
-	}, {
-		GoName: "GroupNumber",
-		Name:   "group-number",
-		Type:   yang.TUint16,
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpSchema,
-		GoName: "Ip",
-		Name:   "ip",
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfigSchema,
-		GoName: "IpConfig",
-		Name:   "ip-config",
-	}, {
-		GoName: "Ipv6",
-		Name:   "ipv6",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
-		},
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6ConfigSchema,
-		GoName: "Ipv6Config",
-		Name:   "ipv6-config",
-	}, {
-		GoName: "MacAddress",
-		Name:   "mac-address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Name",
-		Name:   "name",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_PreemptSchema,
-		GoName: "Preempt",
-		Name:   "preempt",
-	}, {
-		GoName: "Priority",
-		Name:   "priority",
-		Type:   yang.TUint8,
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_RedirectSchema,
-		GoName: "Redirect",
-		Name:   "redirect",
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_TimersSchema,
-		GoName: "Timers",
-		Name:   "timers",
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_TrackSchema,
-		GoName: "Track",
-		List:   true,
-		Name:   "track",
-	}},
-	Keys:      []string{"group-number"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "standby-list",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey is Native_Interface_LISPSubinterface_LISP_Standby_StandbyList's row identity (ancestor keys in canonical form).
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey struct {
-	LISP_Name   string
-	GroupNumber uint16
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow flattens one Native_Interface_LISPSubinterface_LISP_Standby_StandbyList entry with its ancestor list keys.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow struct {
-	LISP_Name string
-	Entry     Native_Interface_LISPSubinterface_LISP_Standby_StandbyList
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyListDescriptor is the flattened-row descriptor for the nested list Native_Interface_LISPSubinterface_LISP_Standby_StandbyList.
-func Native_Interface_LISPSubinterface_LISP_Standby_StandbyListDescriptor() yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey] {
-	return yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey]{
-		Codec: yang.RowCodec[Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow{
-						Entry:     en.Entry,
-						LISP_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow{
-						Entry:     en.Entry,
-						LISP_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey {
-				var k Native_Interface_LISPSubinterface_LISP_Standby_StandbyListKey
-				k.LISP_Name = r.LISP_Name
-				if r.Entry.GroupNumber != nil {
-					k.GroupNumber = *r.Entry.GroupNumber
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyListFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "LISP-subinterface"}, {Name: "LISP"}, {Name: "standby"}, {Name: "standby-list"}}},
-	}
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication struct {
-	Encrypt *string
-	Md5     *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5
-	Text    *string
-	Word    *string
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_AuthenticationSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_AuthenticationSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Encrypt",
-		Name:   "encrypt",
-		Type:   yang.TEnum,
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5Schema,
-		GoName: "Md5",
-		Name:   "md5",
-	}, {
-		GoName: "Text",
-		Name:   "text",
-		Type:   yang.TString,
-	}, {
-		GoName: "Word",
-		Name:   "word",
-		Type:   yang.TString,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "authentication",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5 is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5 struct {
-	KeyChain  *string
-	KeyString *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyString
-	Md5Config *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5Schema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5 for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "KeyChain",
-		Name:   "key-chain",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyStringSchema,
-		GoName: "KeyString",
-		Name:   "key-string",
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5ConfigSchema,
-		GoName: "Md5Config",
-		Name:   "md5-config",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "md5",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/key-string.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyString struct {
-	Encrypt *string
-	String  *string
-	Timeout *uint16
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/key-string for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_KeyStringSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Encrypt",
-		Name:   "encrypt",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "String",
-		Name:   "string",
-		Type:   yang.TString,
-	}, {
-		GoName: "Timeout",
-		Name:   "timeout",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "key-string",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config struct {
-	KeyChain  *string
-	KeyString *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyString
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5ConfigSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5ConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "KeyChain",
-		Name:   "key-chain",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyStringSchema,
-		GoName: "KeyString",
-		Name:   "key-string",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "md5-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyString is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config/md5-choice/key-string/key-string.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyString struct {
-	Encrypt *string
-	String  *string
-	Timeout *uint16
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyStringSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/authentication/auth/md5/md5/md5-config/md5-choice/key-string/key-string for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Authentication_Md5_Md5Config_KeyStringSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Encrypt",
-		Name:   "encrypt",
-		Type:   yang.TEnum,
-	}, {
-		GoName: "String",
-		Name:   "string",
-		Type:   yang.TString,
-	}, {
-		GoName: "Timeout",
-		Name:   "timeout",
-		Type:   yang.TUint16,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "key-string",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ip is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ip struct {
-	Address   *string
-	Secondary *bool
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Secondary",
-		Name:   "secondary",
-		Type:   yang.TEmpty,
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ip",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig struct {
-	Address          *string
-	SecondaryAddress []Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfigSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema,
-		GoName: "SecondaryAddress",
-		List:   true,
-		Name:   "secondary-address",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ip-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-	Presence:  true,
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config/secondary-address.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress struct {
-	Address   *string
-	Secondary *bool
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ip-config/secondary-address for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Secondary",
-		Name:   "secondary",
-		Type:   yang.TEmpty,
-	}},
-	Keys:      []string{"address"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "secondary-address",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey is Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress's row identity (ancestor keys in canonical form).
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey struct {
-	LISP_Name               string
-	StandbyList_GroupNumber string
-	Address                 string
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow flattens one Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress entry with its ancestor list keys.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow struct {
-	LISP_Name               string
-	StandbyList_GroupNumber string
-	Entry                   Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressDescriptor is the flattened-row descriptor for the nested list Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress.
-func Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressDescriptor() yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey] {
-	return yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey]{
-		Codec: yang.RowCodec[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow{
-						Entry:                   en.Entry,
-						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddress](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow{
-						Entry:                   en.Entry,
-						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey {
-				var k Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressKey
-				k.LISP_Name = r.LISP_Name
-				k.StandbyList_GroupNumber = r.StandbyList_GroupNumber
-				if r.Entry.Address != nil {
-					k.Address = *r.Entry.Address
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_IpConfig_SecondaryAddressSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "LISP-subinterface"}, {Name: "LISP"}, {Name: "standby"}, {Name: "standby-list"}, {Name: "ip-config"}, {Name: "secondary-address"}}},
-	}
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config struct {
-	Ipv6LinkLocal *yang.Value
-	Ipv6Prefix    []Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6ConfigSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6ConfigSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Ipv6LinkLocal",
-		Name:   "ipv6-link-local",
-		Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeEnum}},
-		},
-	}, {
-		Child:  Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema,
-		GoName: "Ipv6Prefix",
-		List:   true,
-		Name:   "ipv6_prefix",
-	}},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ipv6-config",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config/ipv6_prefix.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix struct {
-	Prefix *string
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/ipv6-config/ipv6_prefix for the generic codecs.
-var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Prefix",
-		Name:   "prefix",
-		Type:   yang.TString,
-	}},
-	Keys:      []string{"prefix"},
-	Module:    "Cisco-IOS-XE-native",
-	Name:      "ipv6_prefix",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey is Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix's row identity (ancestor keys in canonical form).
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey struct {
-	LISP_Name               string
-	StandbyList_GroupNumber string
-	Prefix                  string
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow flattens one Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix entry with its ancestor list keys.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow struct {
-	LISP_Name               string
-	StandbyList_GroupNumber string
-	Entry                   Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor is the flattened-row descriptor for the nested list Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix.
-func Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixDescriptor() yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey] {
-	return yang.ListDescriptor[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
-		Codec: yang.RowCodec[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey]{
-			DecodeJSON: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
-				entries, err := yang.DecodeJSONNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
-						Entry:                   en.Entry,
-						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
-					})
-				}
-				return rows, nil
-			},
-			DecodeXML: func(data []byte) ([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, error) {
-				chain := []*yang.Schema{Native_Interface_LISPSubinterface_LISPSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyListSchema, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema}
-				entries, err := yang.DecodeXMLNested[Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6Prefix](chain, data)
-				if err != nil {
-					return nil, err
-				}
-				rows := make([]Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow, 0, len(entries))
-				for _, en := range entries {
-					rows = append(rows, Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow{
-						Entry:                   en.Entry,
-						LISP_Name:               yang.AncestorKey(en.AncestorKeys, 0, "name"),
-						StandbyList_GroupNumber: yang.AncestorKey(en.AncestorKeys, 1, "group-number"),
-					})
-				}
-				return rows, nil
-			},
-			Equal: func(a, b Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) bool {
-				return yang.EqualStructs(a, b)
-			},
-			Key: func(r Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey {
-				var k Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixKey
-				k.LISP_Name = r.LISP_Name
-				k.StandbyList_GroupNumber = r.StandbyList_GroupNumber
-				if r.Entry.Prefix != nil {
-					k.Prefix = *r.Entry.Prefix
-				}
-				return k
-			},
-			Merge: func(base, update Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow) Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixFlatRow {
-				base.Entry = yang.MergeStructs(Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Ipv6Config_Ipv6PrefixSchema, base.Entry, update.Entry)
-				return base
-			},
-		},
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "Cisco-IOS-XE-native",
-			Name:      "native",
-			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
-		}, {Name: "interface"}, {Name: "LISP-subinterface"}, {Name: "LISP"}, {Name: "standby"}, {Name: "standby-list"}, {Name: "ipv6-config"}, {Name: "ipv6_prefix"}}},
-	}
-}
-
-// Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Preempt is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/preempt.
-type Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Preempt struct {
-	Delay *Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_Preempt_Delay
-}
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_PreemptSchema describes /Cisco-IOS-XE-native/native/interface/LISP-subinterface/LISP/standby/standby-list/preempt for the generic codecs.
 var Native_Interface_LISPSubinterface_LISP_Standby_StandbyList_PreemptSchema = &yang.Schema{
@@ -41739,4 +41196,575 @@ var Native_Interface_Loopback_Ip_WccpSchema = &yang.Schema{
 	Module:    "Cisco-IOS-XE-wccp",
 	Name:      "wccp",
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf.
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrf struct {
+	Name     *string
+	WccpList []Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList
+	WebCache *Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrfSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_OverlayVrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListSchema,
+		GoName: "WccpList",
+		List:   true,
+		Name:   "wccp-list",
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCacheSchema,
+		GoName: "WebCache",
+		Name:   "web-cache",
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "overlay-vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrfKey is Native_Interface_Loopback_Ip_Wccp_OverlayVrf's row identity (ancestor keys in canonical form).
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrfKey struct {
+	Loopback_Name string
+	Name          string
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow flattens one Native_Interface_Loopback_Ip_Wccp_OverlayVrf entry with its ancestor list keys.
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow struct {
+	Loopback_Name string
+	Entry         Native_Interface_Loopback_Ip_Wccp_OverlayVrf
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrfDescriptor is the flattened-row descriptor for the nested list Native_Interface_Loopback_Ip_Wccp_OverlayVrf.
+func Native_Interface_Loopback_Ip_Wccp_OverlayVrfDescriptor() yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow, Native_Interface_Loopback_Ip_Wccp_OverlayVrfKey] {
+	return yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow, Native_Interface_Loopback_Ip_Wccp_OverlayVrfKey]{
+		Codec: yang.RowCodec[Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow, Native_Interface_Loopback_Ip_Wccp_OverlayVrfKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_OverlayVrfSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_Loopback_Ip_Wccp_OverlayVrf](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow{
+						Entry:         en.Entry,
+						Loopback_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_OverlayVrfSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_Loopback_Ip_Wccp_OverlayVrf](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow{
+						Entry:         en.Entry,
+						Loopback_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow) Native_Interface_Loopback_Ip_Wccp_OverlayVrfKey {
+				var k Native_Interface_Loopback_Ip_Wccp_OverlayVrfKey
+				k.Loopback_Name = r.Loopback_Name
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow) Native_Interface_Loopback_Ip_Wccp_OverlayVrfFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_Loopback_Ip_Wccp_OverlayVrfSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Loopback"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-wccp",
+			Name:      "wccp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+		}, {Name: "overlay-vrf"}}},
+	}
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/wccp-list.
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList struct {
+	GroupListen *bool
+	Id          *uint8
+	Redirect    *Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList_Redirect
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/wccp-list for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "GroupListen",
+		Name:   "group-listen",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList_RedirectSchema,
+		GoName: "Redirect",
+		Name:   "redirect",
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "wccp-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListKey is Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList's row identity (ancestor keys in canonical form).
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListKey struct {
+	Loopback_Name   string
+	OverlayVrf_Name string
+	Id              uint8
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow flattens one Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList entry with its ancestor list keys.
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow struct {
+	Loopback_Name   string
+	OverlayVrf_Name string
+	Entry           Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListDescriptor is the flattened-row descriptor for the nested list Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList.
+func Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListDescriptor() yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow, Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListKey] {
+	return yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow, Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListKey]{
+		Codec: yang.RowCodec[Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow, Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_OverlayVrfSchema, Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow{
+						Entry:           en.Entry,
+						Loopback_Name:   yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						OverlayVrf_Name: yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_OverlayVrfSchema, Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow{
+						Entry:           en.Entry,
+						Loopback_Name:   yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						OverlayVrf_Name: yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow) Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListKey {
+				var k Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListKey
+				k.Loopback_Name = r.Loopback_Name
+				k.OverlayVrf_Name = r.OverlayVrf_Name
+				if r.Entry.Id != nil {
+					k.Id = *r.Entry.Id
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow) Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpListSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Loopback"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-wccp",
+			Name:      "wccp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+		}, {Name: "overlay-vrf"}, {Name: "wccp-list"}}},
+	}
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList_Redirect is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/wccp-list/redirect.
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList_Redirect struct {
+	In  *bool
+	Out *bool
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList_RedirectSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/wccp-list/redirect for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WccpList_RedirectSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Out",
+		Name:   "out",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "redirect",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/web-cache.
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache struct {
+	GroupListen *bool
+	Redirect    *Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache_Redirect
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCacheSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/web-cache for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCacheSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "GroupListen",
+		Name:   "group-listen",
+		Type:   yang.TEmpty,
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache_RedirectSchema,
+		GoName: "Redirect",
+		Name:   "redirect",
+	}},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "web-cache",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache_Redirect is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/web-cache/redirect.
+type Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache_Redirect struct {
+	In  *bool
+	Out *bool
+}
+
+// Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache_RedirectSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/overlay-vrf/web-cache/redirect for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_OverlayVrf_WebCache_RedirectSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Out",
+		Name:   "out",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "redirect",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Redirect is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/redirect.
+type Native_Interface_Loopback_Ip_Wccp_Redirect struct {
+	Exclude *Native_Interface_Loopback_Ip_Wccp_Redirect_Exclude
+}
+
+// Native_Interface_Loopback_Ip_Wccp_RedirectSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/redirect for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_RedirectSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  Native_Interface_Loopback_Ip_Wccp_Redirect_ExcludeSchema,
+		GoName: "Exclude",
+		Name:   "exclude",
+	}},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "redirect",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Redirect_Exclude is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/redirect/exclude.
+type Native_Interface_Loopback_Ip_Wccp_Redirect_Exclude struct {
+	In *bool
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Redirect_ExcludeSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/redirect/exclude for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_Redirect_ExcludeSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "In",
+		Name:   "in",
+		Type:   yang.TEmpty,
+	}},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "exclude",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/vrf.
+type Native_Interface_Loopback_Ip_Wccp_Vrf struct {
+	Name       *string
+	OverlayVrf []Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf
+	WccpList   []Native_Interface_Loopback_Ip_Wccp_Vrf_WccpList
+	WebCache   *Native_Interface_Loopback_Ip_Wccp_Vrf_WebCache
+}
+
+// Native_Interface_Loopback_Ip_Wccp_VrfSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/vrf for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_VrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfSchema,
+		GoName: "OverlayVrf",
+		List:   true,
+		Name:   "overlay-vrf",
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_Vrf_WccpListSchema,
+		GoName: "WccpList",
+		List:   true,
+		Name:   "wccp-list",
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_Vrf_WebCacheSchema,
+		GoName: "WebCache",
+		Name:   "web-cache",
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_VrfKey is Native_Interface_Loopback_Ip_Wccp_Vrf's row identity (ancestor keys in canonical form).
+type Native_Interface_Loopback_Ip_Wccp_VrfKey struct {
+	Loopback_Name string
+	Name          string
+}
+
+// Native_Interface_Loopback_Ip_Wccp_VrfFlatRow flattens one Native_Interface_Loopback_Ip_Wccp_Vrf entry with its ancestor list keys.
+type Native_Interface_Loopback_Ip_Wccp_VrfFlatRow struct {
+	Loopback_Name string
+	Entry         Native_Interface_Loopback_Ip_Wccp_Vrf
+}
+
+// Native_Interface_Loopback_Ip_Wccp_VrfDescriptor is the flattened-row descriptor for the nested list Native_Interface_Loopback_Ip_Wccp_Vrf.
+func Native_Interface_Loopback_Ip_Wccp_VrfDescriptor() yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_VrfFlatRow, Native_Interface_Loopback_Ip_Wccp_VrfKey] {
+	return yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_VrfFlatRow, Native_Interface_Loopback_Ip_Wccp_VrfKey]{
+		Codec: yang.RowCodec[Native_Interface_Loopback_Ip_Wccp_VrfFlatRow, Native_Interface_Loopback_Ip_Wccp_VrfKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_VrfFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_VrfSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_Loopback_Ip_Wccp_Vrf](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_VrfFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_VrfFlatRow{
+						Entry:         en.Entry,
+						Loopback_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_VrfFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_VrfSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_Loopback_Ip_Wccp_Vrf](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_VrfFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_VrfFlatRow{
+						Entry:         en.Entry,
+						Loopback_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_Loopback_Ip_Wccp_VrfFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_Loopback_Ip_Wccp_VrfFlatRow) Native_Interface_Loopback_Ip_Wccp_VrfKey {
+				var k Native_Interface_Loopback_Ip_Wccp_VrfKey
+				k.Loopback_Name = r.Loopback_Name
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_Loopback_Ip_Wccp_VrfFlatRow) Native_Interface_Loopback_Ip_Wccp_VrfFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_Loopback_Ip_Wccp_VrfSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Loopback"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-wccp",
+			Name:      "wccp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+		}, {Name: "vrf"}}},
+	}
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/vrf/overlay-vrf.
+type Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf struct {
+	Name     *string
+	WccpList []Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList
+	WebCache *Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WebCache
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/vrf/overlay-vrf for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Name",
+		Name:   "name",
+		Type:   yang.TString,
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpListSchema,
+		GoName: "WccpList",
+		List:   true,
+		Name:   "wccp-list",
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WebCacheSchema,
+		GoName: "WebCache",
+		Name:   "web-cache",
+	}},
+	Keys:      []string{"name"},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "overlay-vrf",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfKey is Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf's row identity (ancestor keys in canonical form).
+type Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfKey struct {
+	Loopback_Name string
+	Vrf_Name      string
+	Name          string
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow flattens one Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf entry with its ancestor list keys.
+type Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow struct {
+	Loopback_Name string
+	Vrf_Name      string
+	Entry         Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfDescriptor is the flattened-row descriptor for the nested list Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf.
+func Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfDescriptor() yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow, Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfKey] {
+	return yang.ListDescriptor[Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow, Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfKey]{
+		Codec: yang.RowCodec[Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow, Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfKey]{
+			DecodeJSON: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_VrfSchema, Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfSchema}
+				entries, err := yang.DecodeJSONNested[Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow{
+						Entry:         en.Entry,
+						Loopback_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Vrf_Name:      yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			DecodeXML: func(data []byte) ([]Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow, error) {
+				chain := []*yang.Schema{Native_Interface_LoopbackSchema, Native_Interface_Loopback_Ip_Wccp_VrfSchema, Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfSchema}
+				entries, err := yang.DecodeXMLNested[Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf](chain, data)
+				if err != nil {
+					return nil, err
+				}
+				rows := make([]Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow, 0, len(entries))
+				for _, en := range entries {
+					rows = append(rows, Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow{
+						Entry:         en.Entry,
+						Loopback_Name: yang.AncestorKey(en.AncestorKeys, 0, "name"),
+						Vrf_Name:      yang.AncestorKey(en.AncestorKeys, 1, "name"),
+					})
+				}
+				return rows, nil
+			},
+			Equal: func(a, b Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow) bool {
+				return yang.EqualStructs(a, b)
+			},
+			Key: func(r Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow) Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfKey {
+				var k Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfKey
+				k.Loopback_Name = r.Loopback_Name
+				k.Vrf_Name = r.Vrf_Name
+				if r.Entry.Name != nil {
+					k.Name = *r.Entry.Name
+				}
+				return k
+			},
+			Merge: func(base, update Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow) Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfFlatRow {
+				base.Entry = yang.MergeStructs(Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrfSchema, base.Entry, update.Entry)
+				return base
+			},
+		},
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "Cisco-IOS-XE-native",
+			Name:      "native",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+		}, {Name: "interface"}, {Name: "Loopback"}, {Name: "ip"}, {
+			Module:    "Cisco-IOS-XE-wccp",
+			Name:      "wccp",
+			Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+		}, {Name: "vrf"}, {Name: "overlay-vrf"}}},
+	}
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList is the Cisco-IOS-XE-native node /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/vrf/overlay-vrf/wccp-list.
+type Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList struct {
+	GroupListen *bool
+	Id          *uint8
+	Redirect    *Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList_Redirect
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpListSchema describes /Cisco-IOS-XE-native/native/interface/Loopback/ip/wccp/vrf/overlay-vrf/wccp-list for the generic codecs.
+var Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpListSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "GroupListen",
+		Name:   "group-listen",
+		Type:   yang.TEmpty,
+	}, {
+		GoName: "Id",
+		Name:   "id",
+		Type:   yang.TUint8,
+	}, {
+		Child:  Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList_RedirectSchema,
+		GoName: "Redirect",
+		Name:   "redirect",
+	}},
+	Keys:      []string{"id"},
+	Module:    "Cisco-IOS-XE-wccp",
+	Name:      "wccp-list",
+	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-wccp",
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpListKey is Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList's row identity (ancestor keys in canonical form).
+type Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpListKey struct {
+	Loopback_Name   string
+	Vrf_Name        string
+	OverlayVrf_Name string
+	Id              uint8
+}
+
+// Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpListFlatRow flattens one Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList entry with its ancestor list keys.
+type Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpListFlatRow struct {
+	Loopback_Name   string
+	Vrf_Name        string
+	OverlayVrf_Name string
+	Entry           Native_Interface_Loopback_Ip_Wccp_Vrf_OverlayVrf_WccpList
 }

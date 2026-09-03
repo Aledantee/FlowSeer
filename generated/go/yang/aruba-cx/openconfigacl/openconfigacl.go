@@ -6,7 +6,7 @@
 // Package openconfigacl binds the YANG module openconfig-acl.
 package openconfigacl
 
-import yang "go.aledante.io/FlowSeer/src/common/yang"
+import yang "go.aledante.io/FlowSeer/src/protocol/yang"
 
 // Identity_ACCEPT is the openconfig-acl identity "ACCEPT".
 var Identity_ACCEPT = yang.Identity{
