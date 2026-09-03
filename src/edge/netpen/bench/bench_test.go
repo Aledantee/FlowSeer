@@ -3,6 +3,9 @@
 package bench
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,23 +13,23 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
+
+	// Register the owned decoders in gopacket's dispatch tables.
+	_ "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 )
 
 // decodeFixtures holds the raw frame bytes loaded from the layers
-// testdata corpus. Loaded once in TestMain (or init) so benchmarks
+// testdata corpus. Loaded once in TestMain so benchmarks
 // measure decode, not file I/O.
 var decodeFixtures [][]byte
 
 // TestMain loads the pcap fixtures from the layers testdata directory
 // so the decode benchmark measures only the decode hot path.
 func TestMain(m *testing.M) {
-	fixtures, err := loadLayerFixtures()
+	fixtures, err := loadLayerFixtures(filepath.Join("..", "layers", "testdata"))
 	if err != nil {
-		// If fixtures can't be loaded, benchmarks still compile
-		// but will fail if run. This keeps `go vet` happy without
-		// the build tag.
-		os.Stderr.WriteString("bench: " + err.Error() + "\n")
-		os.Exit(m.Run())
+		fmt.Fprintln(os.Stderr, "bench:", err)
+		os.Exit(1)
 	}
 	decodeFixtures = fixtures
 	os.Exit(m.Run())
@@ -35,13 +38,7 @@ func TestMain(m *testing.M) {
 // loadLayerFixtures loads all pcap files from the layers/testdata
 // directory. These are the characterization fixtures the decode
 // hot path processes.
-func loadLayerFixtures() ([][]byte, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	// From src/edge/netpen/bench/, the layers testdata is at ../layers/testdata.
-	dir := filepath.Join(wd, "..", "layers", "testdata")
+func loadLayerFixtures(dir string) ([][]byte, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -57,12 +54,12 @@ func loadLayerFixtures() ([][]byte, error) {
 		}
 		pkts, err := readPcapFile(filepath.Join(dir, name))
 		if err != nil {
-			continue // skip unreadable pcaps
+			return nil, fmt.Errorf("read fixture %s: %w", name, err)
 		}
 		out = append(out, pkts...)
 	}
 	if len(out) == 0 {
-		return nil, os.ErrNotExist
+		return nil, fmt.Errorf("no packets in fixture directory %s", dir)
 	}
 	return out, nil
 }
@@ -77,11 +74,17 @@ func readPcapFile(path string) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if r.LinkType() != layers.LinkTypeEthernet {
+		return nil, fmt.Errorf("capture link type is %v, want Ethernet", r.LinkType())
+	}
 	var pkts [][]byte
 	for {
 		data, _, err := r.ReadPacketData()
-		if err != nil {
+		if errors.Is(err, io.EOF) {
 			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read packet %d: %w", len(pkts)+1, err)
 		}
 		pkts = append(pkts, data)
 	}
@@ -95,7 +98,7 @@ func readPcapFile(path string) ([][]byte, error) {
 // HSRP, GLBP, LLMNR).
 func BenchmarkDecodeHotPath(b *testing.B) {
 	if len(decodeFixtures) == 0 {
-		b.Skip("no decode fixtures loaded")
+		b.Fatal("no decode fixtures loaded")
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -110,7 +113,7 @@ func BenchmarkDecodeHotPath(b *testing.B) {
 // concurrently).
 func BenchmarkDecodeHotPathParallel(b *testing.B) {
 	if len(decodeFixtures) == 0 {
-		b.Skip("no decode fixtures loaded")
+		b.Fatal("no decode fixtures loaded")
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -124,15 +127,8 @@ func BenchmarkDecodeHotPathParallel(b *testing.B) {
 	})
 }
 
-// BenchmarkFloodCraftPoolLoop measures the flood-craft hot path:
-// serializing a burst of Ethernet frames through gopacket's
-// SerializeBuffer pool. This is the send-side hot path — every frame a
-// behavior crafts goes through SerializeLayers.
-//
-// The benchmark builds a minimal Ethernet + ARP frame (the simplest
-// craft shape) to isolate the serialization cost from protocol-specific
-// construction. Protocol-specific craft is benchmarked by the per-attack
-// behavior tests; this measures the shared serialization pool.
+// BenchmarkFloodCraftPoolLoop measures Ethernet/ARP serialization with a fresh
+// buffer for each frame, including buffer allocation. It does not send traffic.
 func BenchmarkFloodCraftPoolLoop(b *testing.B) {
 	eth := layers.Ethernet{
 		SrcMAC:       []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -155,14 +151,15 @@ func BenchmarkFloodCraftPoolLoop(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		buf := gopacket.NewSerializeBuffer()
-		_ = gopacket.SerializeLayers(buf, opts, &eth, &arp)
+		if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
+			b.Fatal(err)
+		}
 		_ = buf.Bytes()
 	}
 }
 
-// BenchmarkFloodCraftReuseBuffer measures the flood-craft hot path with
-// a reused SerializeBuffer (the pool loop a behavior actually runs: one
-// buffer, many serializations).
+// BenchmarkFloodCraftReuseBuffer measures steady-state Ethernet/ARP
+// serialization with one warmed buffer. It does not send traffic.
 func BenchmarkFloodCraftReuseBuffer(b *testing.B) {
 	eth := layers.Ethernet{
 		SrcMAC:       []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -182,11 +179,15 @@ func BenchmarkFloodCraftReuseBuffer(b *testing.B) {
 	}
 	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
 	buf := gopacket.NewSerializeBuffer()
+	if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
+		b.Fatal(err)
+	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		buf.Clear()
-		_ = gopacket.SerializeLayers(buf, opts, &eth, &arp)
+		if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
+			b.Fatal(err)
+		}
 		_ = buf.Bytes()
 	}
 }

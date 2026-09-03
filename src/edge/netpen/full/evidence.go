@@ -1,8 +1,7 @@
 // Package full implements netpen's two orchestrator commands: `scan`
 // (passive/active segment discovery with dual-segment observe) and `full`
-// (the four-phase evidence-gated audit). Both are thin coordinators over
-// the runner: they build [runner.Options], drive the runner, and stream
-// findings into the output layer selected by the CLI.
+// (the four-phase evidence-gated audit). Full drives behaviors through the
+// runner; Scan decodes captured frames and emits findings directly.
 //
 // The orchestration contract is split across the files in this
 // package:
@@ -35,6 +34,10 @@ package full
 // not arm. The values are the raw evidence payloads (counts, sets, or
 // typed structs) the gate surfaces and the report read; tests assert on
 // them directly.
+//
+// Concurrent reads are safe while the map and its payloads remain unchanged.
+// Mutation requires exclusive access. The zero value supports reads; allocate
+// a map before writing evidence. Slice accessors return the stored slices.
 type Evidence map[string]any
 
 // Evidence keys. These are the only strings the gate surfaces match on;

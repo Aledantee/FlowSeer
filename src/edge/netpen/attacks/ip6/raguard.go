@@ -33,6 +33,7 @@ type raGuardFinding struct {
 // RunRAGuard sends a forged RA from the attack leg and observes the
 // watch leg for traversal evidence (the watch-leg rule). The behavior
 // records whether the forged RA traversed the fabric.
+// Cancellation while observing returns ctx.Err(); terminal receive errors are wrapped.
 func RunRAGuard(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 
@@ -58,8 +59,14 @@ func RunRAGuard(ctx context.Context, deps runner.Deps) error {
 		for range sent + 1 { // sent + possible ambient
 			select {
 			case frame, ok := <-ch:
+				if err := ctx.Err(); err != nil {
+					return err
+				}
 				if !ok {
 					goto done
+				}
+				if frame.Err != nil {
+					return fmt.Errorf("raguard: receive observation: %w", frame.Err)
 				}
 				observed++
 				if isRAGuardFrame(frame.Data, src) {
@@ -70,11 +77,14 @@ func RunRAGuard(ctx context.Context, deps runner.Deps) error {
 			case <-time.After(100 * time.Millisecond):
 				goto done
 			case <-ctx.Done():
-				goto done
+				return ctx.Err()
 			}
 		}
 	}
 done:
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	traversal := "not-forwarded"
 	if attackAttributed > 0 {

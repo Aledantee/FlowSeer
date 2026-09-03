@@ -33,11 +33,8 @@ func putBuf(b gopacket.SerializeBuffer) {
 	poolBuf.Put(b)
 }
 
-// craftPool serializes the given layers into a fresh buffer from the
-// pool and returns the bytes. The caller must copy the result before
-// returning the buffer. This is the flood-class craft path:
-// pre-serialized buffers through sync.Pool so burst sends are
-// allocation-free.
+// craftPool copies serialized bytes before returning the buffer to the pool,
+// so callers retain ownership of the packet after the next serialization.
 func craftPool(layers ...gopacket.SerializableLayer) ([]byte, error) {
 	buf := getBuf()
 	defer putBuf(buf)

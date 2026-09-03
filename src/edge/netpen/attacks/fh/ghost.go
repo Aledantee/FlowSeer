@@ -1,16 +1,3 @@
-// ghost.go implements the ghost-frame proof attack behavior.
-//
-// Durability (from the catalog): non-destructive. The attack sends
-// sentinel frames with a reserved group MAC as the source address (an
-// 802.3 §3.2.6 violation) to prove forward-but-never-learn behavior on
-// non-conformant silicon. The watch leg confirms traversal evidence.
-//
-// The behavior requires a watch leg; the runner fast-fails without one
-// (catalog Legs=WatchRequired). The behavior asserts
-// traversal-attribution: frames produced by attack-leg activity observed
-// on the watch leg are distinguished from ambient traffic on the two-leg
-// fixture harness.
-
 package fh
 
 import (
@@ -37,10 +24,12 @@ type ghostFinding struct {
 	Attributed string `json:"attributed"`
 }
 
-// RunGhost sends ghost-SA sentinel frames from the attack leg and observes
-// the watch leg for traversal evidence. The two-leg fixture harness feeds
-// the watch leg with frames matching what the attack leg sent (proving the
-// frames traversed the fabric).
+// RunGhost sends two ghost-SA frames and observes up to three frames on the
+// required watch leg. It waits until that limit, receive closure, or context
+// cancellation. Observation cancellation returns ctx.Err(); receive errors
+// are wrapped.
+// Neither failure emits a traversal finding. Attribution matches the source
+// MAC only; it does not establish that an observed frame is one sent by this run.
 func RunGhost(ctx context.Context, deps runner.Deps) error {
 	// The runner guarantees a non-nil WatchLeg for WatchRequired
 	// behaviors, so this is not re-checked here.
@@ -70,12 +59,6 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 		}
 	}
 
-	// Observe the watch leg for traversal evidence. The two-leg fixture
-	// harness feeds the watch leg with frames matching the attack leg's
-	// output (proving traversal). We read a bounded number of frames and
-	// attribute: a frame on the watch leg whose source MAC matches the
-	// ghost SA is attack-leg-produced; a frame with a different source
-	// MAC is ambient.
 	observed := 0
 	attackAttributed := 0
 	ambientAttributed := 0
@@ -83,8 +66,14 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 	for range count + 1 { // read sent frames + possible ambient
 		select {
 		case frame, ok := <-ch:
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if !ok {
 				goto done
+			}
+			if frame.Err != nil {
+				return fmt.Errorf("ghost: receive watch frame: %w", frame.Err)
 			}
 			observed++
 			if isGhostFrame(frame.Data, ghostSABytes) {
@@ -93,10 +82,13 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 				ambientAttributed++
 			}
 		case <-ctx.Done():
-			goto done
+			return ctx.Err()
 		}
 	}
 done:
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	traversal := "not-forwarded"
 	if attackAttributed > 0 {
@@ -127,7 +119,7 @@ done:
 // isGhostFrame checks whether a frame's Ethernet source MAC matches the
 // ghost SA — the traversal-attribution test.
 func isGhostFrame(data []byte, ghostSA net.HardwareAddr) bool {
-	if len(data) < 12 {
+	if len(data) < 14 {
 		return false
 	}
 	// Ethernet source MAC is bytes [6:12].

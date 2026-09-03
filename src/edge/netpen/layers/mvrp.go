@@ -68,7 +68,9 @@ type MVRPMessage struct {
 	Events        []MVRPEvent
 }
 
-// MVRP is a Multiple VLAN Registration Protocol frame.
+// MVRP is a Multiple VLAN Registration Protocol frame. Its zero value is
+// ready for decoding. Decoding retains data in BaseLayer and is not safe
+// concurrently with other uses of the same frame.
 type MVRP struct {
 	BaseLayer
 	Version  uint8
@@ -102,9 +104,9 @@ func (m *MVRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		if offset+2 <= len(data) && data[offset] == 0 && data[offset+1] == 0 {
 			break
 		}
-		if offset+3 > len(data) {
+		if offset+4 > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("MVRP: truncated message header at offset %d, need 3 bytes, got %d", offset, len(data)-offset)
+			return fmt.Errorf("MVRP: truncated message header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
 		}
 
 		msg := MVRPMessage{

@@ -1,15 +1,11 @@
-// Command netpen is the L2/L3 security audit and attack binary. It replaces
-// the Python l2l3-audit tool with a self-contained static Go binary.
-//
-// This file holds the testable run core and the subcommand dispatch table.
-// Every catalog command name dispatches to a real behavior: open legs via
-// link.Open, build runner.Options, construct a Runner, install the
-// SignalHandler, run, stream findings into the output layer selected by
-// ResolveMode, and exit via run()'s 0/1/2 contract.
+// Command netpen runs L2/L3 security audits and streams findings as JSONL or
+// an interactive display. Runtime and output failures exit with status 1;
+// invalid command arguments exit with status 2.
 package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -213,6 +209,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
+	if fs.NArg() != 0 {
+		fmt.Fprintf(stderr, "netpen %s: unexpected arguments: %q\n", name, fs.Args())
+		fs.Usage()
+		return 2
+	}
 	cf.commandName = name
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
@@ -258,7 +259,7 @@ func printUsage(stderr io.Writer, unknown string) {
 	fmt.Fprintln(stderr, "Global flags (per command):")
 	fmt.Fprintln(stderr, "  -i string             attack interface (default eth0)")
 	fmt.Fprintln(stderr, "  -w string             watch interface (optional)")
-	fmt.Fprintln(stderr, "  --json                emit JSONL on stdout (auto/true/false)")
+	fmt.Fprintln(stderr, "  --json value          output mode (empty=auto, true=JSON, false=TUI)")
 	fmt.Fprintln(stderr, "  --i-accept-permanent  acknowledge a permanent mode (repeatable)")
 	fmt.Fprintln(stderr, "  --rate int            packet rate limit (pps, 0=unlimited)")
 	fmt.Fprintln(stderr, "  --timeout duration    bound the whole run")
@@ -266,7 +267,10 @@ func printUsage(stderr io.Writer, unknown string) {
 
 // runVersion prints the netpen version.
 func runVersion(_ context.Context, _ *cmdFlags, stdout, _ io.Writer) error {
-	fmt.Fprintln(stdout, versionCmd())
+	_, err := fmt.Fprintln(stdout, versionCmd())
+	if err != nil {
+		return errs.From(err).ExitCode(1).Msg("write version")
+	}
 	return nil
 }
 
@@ -416,10 +420,12 @@ func runFull(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error 
 	return runOrchestrator(ctx, f.RecordChan(), f.Run, cf, stdout, stderr)
 }
 
-// runOrchestrator is the shared live-streaming driver for full and scan.
-// It starts the run in a goroutine, then drains the live record channel
-// into the output layer (JSONL or TUI) concurrently.
 func runOrchestrator(ctx context.Context, ch <-chan findings.Record, runFn func(context.Context) error, cf *cmdFlags, stdout, stderr io.Writer) error {
+	if cf.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, cf.timeout)
+		defer cancel()
+	}
 	meta := findings.Meta{
 		Tool:      "netpen",
 		Version:   version.Version,
@@ -431,25 +437,29 @@ func runOrchestrator(ctx context.Context, ch <-chan findings.Record, runFn func(
 	return streamAndRun(ctx, ch, meta, mode, stdout, stderr, runFn)
 }
 
-// streamAndRun starts the output streamer (JSONL or TUI) in a goroutine,
-// runs the run function concurrently, and waits for the streamer to
-// finish before returning. It is the shared done-channel pattern for
-// both the orchestrator (full/scan) and the single-attack driver.
+// streamAndRun waits for both the runner and its output consumer. runFn must
+// close ch before returning or arrange for its producer to close it. Output
+// failure cancels the run, drains cleanup records, and preserves both errors.
 func streamAndRun(ctx context.Context, ch <-chan findings.Record, meta findings.Meta, mode output.Mode, stdout, stderr io.Writer, runFn func(context.Context) error) error {
-	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	done := make(chan error, 1)
 	go func() {
+		var err error
 		if mode == output.ModeJSON {
-			streamJSON(stdout, stderr, ch, meta)
-		} else if err := streamTUI(ch, meta); err != nil {
-			// Mirror the JSON path: an output-layer failure is diagnosed
-			// on stderr; it never moves the exit code.
-			fmt.Fprintf(stderr, "output error: %v\n", err)
+			err = streamJSON(stdout, stderr, ch, meta)
+		} else {
+			err = streamTUI(ch, meta, cancel)
 		}
-		close(done)
+		if err != nil {
+			cancel()
+		}
+		for range ch {
+		}
+		done <- err
 	}()
 	runErr := runFn(ctx)
-	<-done
-	return runErr
+	return errors.Join(runErr, <-done)
 }
 
 func setupScan(fs *flag.FlagSet, cf *cmdFlags) {

@@ -1,9 +1,8 @@
-// Package fh holds netpen's first-hop and identity attack behaviors:
-// arpsweep, arpspoof, gratarp, hsrp, vrrp, icmpredirect, llmnr, ghost,
-// and the GLBP-hijack and LLDP-spoof supersets. Each behavior is a thin
-// [runner.Behavior] over the protocol toolkit — leg sends, decoder reads,
-// findings emission — with durability duties sourced from the catalog, not
-// per-command code.
+// Package fh provides first-hop and identity behaviors with fixed fixture
+// addresses and bounded send counts. Use [Behaviors] with runner.Options so
+// the runner supplies the required legs, emitter, and teardown handles and
+// applies catalog safety gates. Direct Run calls require those same handles.
+// The behaviors do not configure host IP forwarding or discover live targets.
 //
 // ARP-class behaviors (arpsweep, arpspoof, gratarp) are L2-only frames
 // (Ethernet → ARP). L3 behaviors (hsrp, vrrp, icmpredirect, llmnr, glbp)
@@ -19,9 +18,9 @@ import (
 	"github.com/gopacket/gopacket/layers"
 )
 
-// FixtureSrcMAC is the source MAC the harvest script uses for all FH
-// fixtures. Behaviors use it as the default source when no attack-leg MAC
-// is available (in-memory tests).
+// FixtureSrcMAC is the source MAC used by the fixture generator and all
+// behaviors except [RunGhost]. It is independent of the attack leg's MAC.
+// Callers must not mutate it while a behavior is running.
 var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 // Well-known multicast destinations.
@@ -37,6 +36,8 @@ var (
 // GhostSA is the reserved group MAC used as the source address in ghost
 // frames — an 802.3 §3.2.6 violation (reserved group MAC as source) that
 // conformant silicon should filter but non-conformant silicon forwards.
+// Callers must preserve its six-byte length and must not mutate it while
+// a behavior is running.
 var GhostSA = net.HardwareAddr{0x01, 0x80, 0xc2, 0x00, 0x00, 0x01}
 
 // Fixture target addresses (matching the harvest script's constants).
@@ -93,8 +94,6 @@ func craftUDPLayer(eth *layers.Ethernet, ip *layers.IPv4, udp *layers.UDP, layer
 	return append([]byte(nil), buf.Bytes()...), nil
 }
 
-// srcMAC returns the source MAC for the behavior. In tests this is the
-// fixture MAC; in production it would come from the leg.
 func srcMAC() net.HardwareAddr {
 	return FixtureSrcMAC
 }

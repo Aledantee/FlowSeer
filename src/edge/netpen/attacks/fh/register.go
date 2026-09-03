@@ -17,7 +17,8 @@ import "go.aledante.io/FlowSeer/src/edge/netpen/runner"
 // Behaviors returns the first-hop/identity behavior map for
 // [runner.Options.Behaviors]. The keys are the attack names the catalog
 // registered: arpsweep, arpspoof, gratarp, hsrp, vrrp, icmpredirect,
-// llmnr, ghost, glbp, lldpspoof.
+// llmnr, ghost, glbp, lldpspoof. Each call returns an independent map that
+// the caller may modify before passing it to a runner.
 func Behaviors() map[string]runner.Behavior {
 	return map[string]runner.Behavior{
 		"arpsweep":     RunARPSweep,

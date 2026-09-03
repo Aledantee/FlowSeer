@@ -28,10 +28,15 @@ type vlanEnumFinding struct {
 }
 
 // RunVlanEnum passively enumerates VLANs from tagged frames on the attack
-// leg. It reads frames until the context is canceled or a short idle
-// timeout elapses with no new VLANs, then reports the set.
+// leg. It reports the observed VLANs after 500 ms without a received frame
+// or when the receive channel closes. Cancellation returns ctx.Err(); a
+// terminal receive error is wrapped and no partial finding is emitted.
 func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 	const idleTimeout = 500 * time.Millisecond
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	rx := deps.AttackLeg.Receive(ctx)
 	vlanSet := make(map[uint16]bool)
@@ -43,7 +48,7 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 		case <-timer.C:
 			goto done
 		case <-ctx.Done():
-			goto done
+			return ctx.Err()
 		case frame, ok := <-rx:
 			if !ok {
 				goto done
@@ -53,7 +58,10 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 			}
 			timer.Reset(idleTimeout)
 			if frame.Err != nil {
-				continue
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				return fmt.Errorf("vlanenum: receive: %w", frame.Err)
 			}
 			pkt := gopacket.NewPacket(frame.Data, layers.LayerTypeEthernet, gopacket.Lazy)
 			dot1q := pkt.Layer(layers.LayerTypeDot1Q)
@@ -69,6 +77,10 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 	}
 
 done:
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	vlans := make([]uint16, 0, len(vlanSet))
 	for v := range vlanSet {
 		vlans = append(vlans, v)

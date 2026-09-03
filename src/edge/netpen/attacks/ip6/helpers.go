@@ -1,16 +1,12 @@
-// Package ip6 holds netpen's DHCP and IPv6 first-hop attack behaviors:
-// dhcpstarve, roguedhcp, roguedhcp6, daddos, ndpspoof, raguard, roguera,
-// and the RA-flood and MLD-abuse supersets. Each behavior is a thin
-// [runner.Behavior] over the protocol toolkit — leg sends, decoder
-// reads, findings emission — with durability duties sourced from the
-// catalog, not per-command code.
+// Package ip6 provides DHCP and IPv6 first-hop behaviors for netpen's runner.
+// Behaviors use fixed fixture addresses, including [FixtureSrcMAC], and send
+// through the supplied legs. DHCPv4 shares this package with DHCPv6 because
+// both use the same fixture harness and runner contracts.
 //
-// DHCPv4 behaviors (dhcpstarve, roguedhcp) live in this package per the
-// plan's layout note: "shared with dhcp behaviors per protocol family."
-// The fork's DHCPv4/DHCPv6/NDP/MLD/ICMPv6 decoders are reused;
-// L3+ craft uses SerializeLayers with SetNetworkLayerForChecksum.
-// Flood-class behaviors (dhcpstarve, raflood, mld bursts) use the
-// pool-craft path ([craftPool]) for pre-serialized buffers.
+// Register [Behaviors] in the runner's behavior map. Callers must supply the
+// initialized dependencies promised by runner.Deps and must not mutate fixture
+// addresses during a run. Flood behaviors send five frames. [RunRogueDHCPv6]
+// requires a context deadline to bound an idle receive.
 package ip6
 
 import (
@@ -19,9 +15,9 @@ import (
 	"github.com/gopacket/gopacket"
 )
 
-// FixtureSrcMAC is the source MAC the harvest script uses for all ip6
-// fixtures. Behaviors use it as the default source when no attack-leg
-// MAC is available (in-memory tests).
+// FixtureSrcMAC is the source MAC used by the behaviors and their fixture
+// generator. Behaviors do not derive it from the attack leg. Callers must not
+// mutate it concurrently with a behavior run.
 var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 // Well-known multicast destinations.
@@ -49,8 +45,6 @@ var (
 	dhcpXid       uint32 = 0x12345678
 )
 
-// srcMAC returns the source MAC for the behavior. In tests this is the
-// fixture MAC; in production it would come from the leg.
 func srcMAC() net.HardwareAddr {
 	return FixtureSrcMAC
 }

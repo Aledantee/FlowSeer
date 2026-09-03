@@ -34,8 +34,9 @@ type llmnrFinding struct {
 	Length   int    `json:"length,omitempty"`
 }
 
-// RunLLMNR crafts a spoofed LLMNR response for a fixture query. The
-// in-memory test shape: send a query, then send the spoofed response.
+// RunLLMNR sends one response for the fixed fixture query and emits simulated
+// credential metadata. It does not capture authentication traffic. Craft and
+// send failures are returned with operation context.
 func RunLLMNR(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 	qname := "host.lab"

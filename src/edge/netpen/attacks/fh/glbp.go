@@ -31,8 +31,9 @@ type glbpFinding struct {
 	Restore  string `json:"restore"`
 }
 
-// RunGLBP sends a GLBP hello with high priority to claim the AVG role,
-// then arms the resign teardown.
+// RunGLBP arms a resign teardown before sending a high-priority hello for
+// the fixed fixture group. It requires the runner's teardown and emitter
+// handles and returns craft or send errors with operation context.
 func RunGLBP(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 	group := uint16(1)

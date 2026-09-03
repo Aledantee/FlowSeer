@@ -35,6 +35,10 @@ type rogueDHCPv6Finding struct {
 // fixture and emits the lease finding with its decay note. The behavior
 // observes a SOLICIT on the attack leg's RX and responds with an
 // ADVERTISE from the rogue server.
+// It waits until a frame arrives or ctx is canceled; callers must supply a
+// deadline to bound an idle receive. Cancellation while waiting returns ctx.Err().
+// Receive and decode errors, and missing or empty client IDs, return errors
+// without a reply.
 func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 
@@ -43,8 +47,14 @@ func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
 	var solicit *layers.DHCPv6
 	select {
 	case frame, ok := <-ch:
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if !ok {
 			return fmt.Errorf("roguedhcp6: no solicit received")
+		}
+		if frame.Err != nil {
+			return fmt.Errorf("roguedhcp6: receive solicit: %w", frame.Err)
 		}
 		var err error
 		solicit, err = decodeDHCPv6(frame.Data)
@@ -67,8 +77,8 @@ func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
 			break
 		}
 	}
-	if clientDUID == nil {
-		return fmt.Errorf("roguedhcp6: solicit missing ClientID")
+	if len(clientDUID) == 0 {
+		return fmt.Errorf("roguedhcp6: solicit missing or empty client ID")
 	}
 
 	// Craft and send the ADVERTISE response.

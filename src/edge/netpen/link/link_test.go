@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/bpf"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -57,7 +59,6 @@ func (m *mockLeg) Receive(ctx context.Context) <-chan Frame {
 		for {
 			select {
 			case <-ctx.Done():
-				out <- Frame{Err: ctx.Err()}
 				return
 			case f, ok := <-m.frames:
 				if !ok {
@@ -66,7 +67,6 @@ func (m *mockLeg) Receive(ctx context.Context) <-chan Frame {
 				select {
 				case out <- f:
 				case <-ctx.Done():
-					out <- Frame{Err: ctx.Err()}
 					return
 				}
 			}
@@ -210,15 +210,49 @@ func TestIsUnsupported(t *testing.T) {
 	}
 }
 
-// TestFilterEtherTypeProducesValidProgram checks the bpf builder returns raw
-// instructions without error.
-func TestFilterEtherTypeProducesValidProgram(t *testing.T) {
-	raw, err := FilterEtherType(0x0806) // ARP
+func TestFilterEtherType(t *testing.T) {
+	raw, err := FilterEtherType(0x0806)
 	if err != nil {
 		t.Fatalf("FilterEtherType: %v", err)
 	}
-	if len(raw) != 4 {
-		t.Errorf("got %d instructions, want 4", len(raw))
+	bpfRaw := make([]bpf.RawInstruction, len(raw))
+	for i, instruction := range raw {
+		bpfRaw[i] = bpf.RawInstruction(instruction)
+	}
+	insts, allDecoded := bpf.Disassemble(bpfRaw)
+	if !allDecoded {
+		t.Fatal("filter contains unknown instructions")
+	}
+	vm, err := bpf.NewVM(insts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range []struct {
+		name string
+		data []byte
+		want int
+	}{
+		{name: "match", data: append(make([]byte, 12), 0x08, 0x06), want: 4096},
+		{name: "mismatch", data: append(make([]byte, 12), 0x08, 0x00)},
+		{name: "truncated", data: make([]byte, 13)},
+		{name: "vlan", data: append(make([]byte, 12), 0x81, 0x00, 0, 1, 0x08, 0x06)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := vm.Run(tt.data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("filter verdict = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAssembleInvalidInstruction(t *testing.T) {
+	if _, err := Assemble([]Instruction{bpf.LoadAbsolute{Off: 12, Size: 3}}); err == nil {
+		t.Fatal("Assemble invalid load size returned nil, want error")
 	}
 }
 

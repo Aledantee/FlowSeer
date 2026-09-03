@@ -26,8 +26,8 @@ const defaultStreamBuffer = 64
 //   - The stream is created at [NewRunner] construction, so a consumer can
 //     start iterating before [Runner.Run] is called.
 //   - Iteration (Iter or Next/Current) is the idiomatic consumer surface.
-//   - Close is idempotent and terminates the producer within one leg poll
-//     cycle (~100ms) by canceling the derived context.
+//   - Close is idempotent and cancels the active behavior. Run then waits
+//     for the behavior to return and executes any armed teardown.
 //   - A terminal error latches once and surfaces through Err.
 //
 // # Backpressure
@@ -49,9 +49,7 @@ type Stream struct {
 
 	// closeHook is called by Close to cancel the run's context, so a
 	// consumer leaving iteration early aborts the dispatch loop and any
-	// in-flight behavior. Set by [Runner.Run] before the dispatch loop
-	// starts; nil when Run has not been called (Close is then a no-op
-	// beyond signaling the pump).
+	// in-flight behavior. Set by [NewRunner] before the stream is published.
 	closeHook func()
 
 	// attackMu guards attack and mode, the currently-running attack
@@ -71,8 +69,7 @@ type Stream struct {
 
 // newStream constructs a Stream tied to ctx with a bounded channel of
 // defaultStreamBuffer. The pump derives a cancellable child context from ctx;
-// Close cancels it so a behavior blocked in leg I/O unblocks within one poll
-// cycle.
+// the runner connects it to the run context when Run starts.
 func newStream(ctx context.Context) *Stream {
 	return &Stream{
 		pump: pump.New[findings.Record](ctx, defaultStreamBuffer),
@@ -135,8 +132,8 @@ func (s *Stream) Err() error {
 // completion from a terminal error.
 //
 // Breaking out of the loop signals the producer to terminate; Iter drains
-// any in-flight buffered records so the producer goroutine does not block on
-// a full channel. The producer exits within one leg poll cycle (~100ms).
+// any in-flight buffered records and waits for the producer to finish,
+// including armed teardown.
 func (s *Stream) Iter() iter.Seq[findings.Record] {
 	return func(yield func(findings.Record) bool) {
 		for rec := range s.pump.Data() {
@@ -199,19 +196,17 @@ func (s *Stream) Current() findings.Record {
 
 // Close signals the producer to terminate and cancels the stream's context.
 // It is idempotent. After Close, iteration drains any remaining buffered
-// records and returns; the producer exits within one leg poll cycle
-// (~100ms).
+// records and returns when the producer finishes.
 //
 // Close does not block waiting for the producer goroutine to exit — the
-// producer shuts down asynchronously within the bounded time. The bounded
-// shutdown is asserted in tests.
+// producer waits for the behavior and any armed teardown. Use [Runner.Wait]
+// to wait for that cleanup.
 func (s *Stream) Close() error {
 	s.pump.SignalStop()
 	s.pump.Cancel()
 	// Cancel the run's context so the dispatch loop and any in-flight
 	// behavior observe cancellation and exit promptly. closeHook is
-	// set by [Runner.Run]; when Run has not been called it is nil and
-	// Close is a stream-only teardown.
+	// set by [NewRunner], so Close also prevents dispatch before Run starts.
 	if s.closeHook != nil {
 		s.closeHook()
 	}

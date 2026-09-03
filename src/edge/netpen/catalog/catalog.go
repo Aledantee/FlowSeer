@@ -1,24 +1,20 @@
-// Package catalog is netpen's generated attack catalog: the single source
-// for dispatch, help text, legs, preconditions, and durability classes.
-// The registration table in registrations.go registers behavior metadata
-// via [Register]; a generator ([gen.go]) emits the committed catalog as Go source
-// (zz_generated_catalog.go), and the cross-check, family-guard, oracle,
-// validator, and CLI-reconciliation tests pin the seams so the catalog
-// cannot drift from registrations or from the CLI dispatch table.
-//
-// Metadata registration is centralized in registrations.go. Attack packages
-// expose runner behavior maps and do not call [Register]; the generated catalog
-// is the data view of the centralized metadata table.
+// Package catalog supplies netpen's dispatch metadata and durability classes.
+// Registrations in registrations.go are expanded into one row per behavior and
+// mode by [Entries]. The generator commits the same rows as [GeneratedEntries].
+// Register, Behaviors, and Entries synchronize access to the registry; callers
+// own the metadata returned by Behaviors and Entries.
 package catalog
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 )
 
 // Durability is the four-class safety taxonomy every (attack, mode) pair
-// carries. The class lives in the catalog and gates dispatch.
+// carries. The class lives in the catalog and gates dispatch. Its zero value is
+// invalid. Durability values are safe for concurrent reads.
 type Durability string
 
 const (
@@ -37,7 +33,8 @@ const (
 )
 
 // Legs is the interface requirement a behavior declares: whether the
-// watch leg is forbidden, optional, or required.
+// watch leg is forbidden, optional, or required. Its zero value is invalid.
+// Legs values are safe for concurrent reads.
 type Legs string
 
 const (
@@ -53,7 +50,8 @@ const (
 // Mode is a flag-gated class/teardown override for a behavior. The base
 // (mode-less) behavior and each mode each emit their own catalog row, so
 // portsteal's --relay and dtp's keep-trunk mode appear as distinct
-// (behavior, mode) pairs.
+// (behavior, mode) pairs. The zero value is invalid for registration. Callers
+// must synchronize concurrent mutation of a shared Mode.
 type Mode struct {
 	// Flag is the mode's flag name without the leading dashes (e.g.
 	// "relay", "wipe", "persist", "keep-trunk").
@@ -62,8 +60,8 @@ type Mode struct {
 	// mode.
 	Class Durability
 	// Teardown overrides the behavior's default teardown descriptor for
-	// this mode. Empty means the class's default (no teardown for
-	// transient/non-destructive classes).
+	// this mode. Empty means this mode declares no restoration or expiry
+	// details; it does not inherit the behavior's descriptor.
 	Teardown string
 	// Help is the one-line mode help text.
 	Help string
@@ -72,7 +70,9 @@ type Mode struct {
 // Behavior is metadata for one registered behavior. registrations.go passes
 // these values to [Register], and the catalog generator emits a row per
 // (behavior, mode) pair. Run functions live in the attack packages, which
-// expose runner behavior maps without registering catalog metadata.
+// expose runner behavior maps without registering catalog metadata. The zero
+// value is invalid for registration. Callers must synchronize concurrent
+// mutation of a shared Behavior or its slices.
 type Behavior struct {
 	// Name is the command name, matching the CLI dispatch table
 	// (e.g. "arpspoof", "portsteal", "ospf"). It is the dispatch key.
@@ -89,8 +89,8 @@ type Behavior struct {
 	// Class is the default durability class for the mode-less (base)
 	// behavior.
 	Class Durability
-	// Teardown is the default teardown descriptor. Empty for classes
-	// that carry no teardown (non-destructive, transient-decay).
+	// Teardown describes active restoration or passive state expiry. Empty
+	// means the behavior leaves no state to restore or expire.
 	Teardown string
 	// Help is the one-line help text shown in CLI usage and the catalog.
 	Help string
@@ -101,7 +101,9 @@ type Behavior struct {
 
 // Entry is one row of the generated catalog: one (behavior, mode) pair.
 // The base (mode-less) row has an empty Mode. A mode-bearing behavior
-// emits a base row plus one row per mode.
+// emits a base row plus one row per mode. The zero value does not describe a
+// registered behavior. Callers must synchronize concurrent mutation of a shared
+// Entry or its slices.
 type Entry struct {
 	// Name is the behavior's command name.
 	Name string
@@ -129,12 +131,12 @@ var (
 
 // Register adds behavior metadata to the catalog. registrations.go calls it
 // during package initialization; attack packages expose runner behavior maps
-// and do not register catalog metadata. Register validates the registration:
-// a behavior missing help text or preconditions (where the class requires
-// them) is rejected with a panic, so a bad registration fails at init rather
-// than silently producing a malformed catalog row.
-// Register must not be called after [Behaviors] or [Entries] has been read;
-// the catalog is append-only until generation.
+// and do not register catalog metadata. Register copies b and its slices. It
+// panics for missing names or help text, unknown classes or legs, and modes
+// without flags or help text. It also panics after the first call to [Behaviors]
+// or [Entries], because generation requires a fixed registration set.
+// Register is safe for concurrent calls; callers must not mutate b's slices
+// during the call.
 func Register(b Behavior) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -144,7 +146,14 @@ func Register(b Behavior) {
 	if err := validate(b); err != nil {
 		panic(fmt.Sprintf("catalog: invalid registration %q: %v", b.Name, err))
 	}
-	behaviors = append(behaviors, b)
+	behaviors = append(behaviors, cloneBehavior(b))
+}
+
+func cloneBehavior(b Behavior) Behavior {
+	b.Protocols = slices.Clone(b.Protocols)
+	b.Preconditions = slices.Clone(b.Preconditions)
+	b.Modes = slices.Clone(b.Modes)
+	return b
 }
 
 // validate enforces the registration contract: every behavior carries help
@@ -199,7 +208,8 @@ func validateLegs(l Legs) error {
 	}
 }
 
-// Behaviors returns a sorted copy of the registered behaviors. Calling
+// Behaviors returns a name-sorted copy of the registered behaviors, including
+// their slices. It is safe for concurrent calls. Calling
 // it latches the catalog as registered (further [Register] calls panic),
 // which is the contract the generator relies on for byte stability.
 func Behaviors() []Behavior {
@@ -207,7 +217,9 @@ func Behaviors() []Behavior {
 	defer mu.Unlock()
 	registered = true
 	out := make([]Behavior, len(behaviors))
-	copy(out, behaviors)
+	for i, b := range behaviors {
+		out[i] = cloneBehavior(b)
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
@@ -215,6 +227,7 @@ func Behaviors() []Behavior {
 // Entries expands the registered behaviors into one [Entry] per
 // (behavior, mode) pair: the base row (empty Mode) plus one row per mode.
 // The result is sorted by (Name, Mode) so generation is byte-stable.
+// Entries is safe for concurrent calls and returns independently owned slices.
 func Entries() []Entry {
 	bs := Behaviors()
 	var out []Entry

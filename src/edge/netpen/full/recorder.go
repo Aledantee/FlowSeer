@@ -32,6 +32,8 @@ func newRecorder() recorder {
 }
 
 // Records returns the findings collected so far (thread-safe).
+// The returned slice is a copy, but record payloads remain shared and must
+// be treated as read-only.
 func (r *recorder) Records() []findings.Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -42,6 +44,8 @@ func (r *recorder) Records() []findings.Record {
 
 // RecordChan returns the live record channel. Records are emitted as
 // they are appended during Run; the channel is closed when Run completes.
+// The caller must drain it concurrently with Run, which blocks once the
+// 64-record buffer fills. Record payloads must be treated as read-only.
 func (r *recorder) RecordChan() <-chan findings.Record {
 	return r.recsCh
 }

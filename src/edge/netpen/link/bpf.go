@@ -14,8 +14,9 @@ import (
 type Instruction = bpf.Instruction
 
 // Assemble converts a slice of BPF instructions into the raw form
-// afpacket.SetBPF installs. It panics on a malformed instruction, matching
-// x/net/bpf.Assemble; callers build filters from known-good constants.
+// afpacket.SetBPF installs. It returns an error if an instruction cannot be
+// encoded. Instructions must be non-nil; assembling does not validate
+// program control flow.
 func Assemble(insts []Instruction) ([]RawInstruction, error) {
 	raw, err := bpf.Assemble(insts)
 	if err != nil {
@@ -36,10 +37,9 @@ func Assemble(insts []Instruction) ([]RawInstruction, error) {
 }
 
 // FilterEtherType returns a BPF program that accepts frames whose Ethernet
-// EtherType field (offset 12, 2 bytes, big-endian) equals etype. It is the
-// building block for per-protocol legs: CDP (0x88be), DTP (0x2004), LLDP
-// (0x88cc), and so on. The program loads the EtherType, skips the accept
-// instruction on mismatch, and returns a verdict.
+// EtherType field (offset 12, 2 bytes, big-endian) equals etype, for example
+// ARP (0x0806) or LLDP (0x88cc). Accepted packets are limited to 4096 bytes.
+// VLAN encapsulation and LLC/SNAP protocol identifiers are not inspected.
 func FilterEtherType(etype uint16) ([]RawInstruction, error) {
 	return Assemble([]bpf.Instruction{
 		bpf.LoadAbsolute{Off: 12, Size: 2},

@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 )
 
-// TestAE4JSONModeHygiene verifies JSON-mode output hygiene: stdout decodes as JSONL with
+// TestJSONModeHygiene verifies JSON-mode output hygiene: stdout decodes as JSONL with
 // schema_version on every line, a leading meta record, and zero escape
 // sequences.
-func TestAE4JSONModeHygiene(t *testing.T) {
+func TestJSONModeHygiene(t *testing.T) {
 	recs := syntheticFeed()
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -132,7 +135,7 @@ func TestEmptyRunJSON(t *testing.T) {
 // TestSecretValueExclusion feeds a Secret-carrying record through the writer
 // and asserts the secret value bytes are absent from stdout bytes.
 func TestSecretValueExclusion(t *testing.T) {
-	recs := secretCarryingFeed()
+	recs := secretCarryingFeed(t)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
@@ -176,7 +179,7 @@ func TestEPIPEHandling(t *testing.T) {
 // synthetic feed, asserting no escape sequences can ever reach stdout in JSON
 // mode.
 func TestNoEscapeBytesSyntheticFeed(t *testing.T) {
-	for _, feed := range [][]findings.Record{syntheticFeed(), emptyFeed(), secretCarryingFeed()} {
+	for _, feed := range [][]findings.Record{syntheticFeed(), emptyFeed(), secretCarryingFeed(t)} {
 		stdout := &bytes.Buffer{}
 		stderr := &bytes.Buffer{}
 
@@ -300,5 +303,57 @@ func TestJSONWriterFlush(t *testing.T) {
 	})
 	if err := w.Flush(); err != nil {
 		t.Errorf("Flush: %v", err)
+	}
+}
+
+// TestJSONWriterPreservesWriteFailure covers both buffered flush failures and
+// records large enough to write directly to the underlying writer.
+func TestJSONWriterPreservesWriteFailure(t *testing.T) {
+	for _, size := range []int{1, 8192} {
+		t.Run(fmt.Sprintf("detail bytes %d", size), func(t *testing.T) {
+			rec := findings.NewRecord(findings.KindProgress)
+			rec.Progress = &findings.Progress{Detail: strings.Repeat("x", size)}
+			w := NewJSONWriter(errorWriter{}, io.Discard, findings.Meta{})
+			err := w.Write(rec)
+			if !IsStdoutClosed(err) {
+				t.Errorf("IsStdoutClosed(%v) = false, want true", err)
+			}
+			if !errors.Is(err, io.ErrClosedPipe) {
+				t.Errorf("Write error = %v, want wrapped io.ErrClosedPipe", err)
+			}
+			if got, _ := errs.CodeOf(err); got != ErrCodeJSONWrite {
+				t.Errorf("error code = %q, want %q", got, ErrCodeJSONWrite)
+			}
+		})
+	}
+}
+
+// TestJSONWriterMarshalError keeps encoding failures distinguishable from
+// stdout failures and leaves diagnostics to the caller.
+func TestJSONWriterMarshalError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	w := NewJSONWriter(&stdout, &stderr, findings.Meta{})
+	rec := findings.NewRecord(findings.KindFinding)
+	rec.Finding = &findings.Finding{Detail: json.RawMessage(`{"unfinished":`)}
+
+	err := w.Write(rec)
+	if err == nil {
+		t.Fatal("Write error = nil, want malformed JSON error")
+	}
+	if IsStdoutClosed(err) {
+		t.Errorf("IsStdoutClosed(%v) = true, want false", err)
+	}
+	var syntaxErr *json.SyntaxError
+	if !errors.As(err, &syntaxErr) {
+		t.Errorf("Write error = %v, want wrapped *json.SyntaxError", err)
+	}
+	if got, _ := errs.CodeOf(err); got != ErrCodeJSONMarshal {
+		t.Errorf("error code = %q, want %q", got, ErrCodeJSONMarshal)
+	}
+	if stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Errorf("output lengths = (%d, %d), want (0, 0)", stdout.Len(), stderr.Len())
+	}
+	if err := w.Write(findings.NewRecord(findings.KindProgress)); err != nil {
+		t.Errorf("Write after marshal error: %v", err)
 	}
 }

@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
+	"errors"
 	"io"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -71,6 +70,11 @@ func TestFlagParseErrorExitsTwo(t *testing.T) {
 // TestMissingInterfaceSurfacesCodedError verifies that a command that tries
 // to open a missing interface surfaces the coded error, not a panic.
 func TestMissingInterfaceSurfacesCodedError(t *testing.T) {
+	original := legOpen
+	t.Cleanup(func() { legOpen = original })
+	legOpen = func(string) (link.Leg, error) {
+		return nil, errs.New().Code(link.ErrCodeLegOpen).Msg("interface unavailable")
+	}
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"arpsweep", "-i", "netpen-nonexistent-0xdead", "--json=true"}, &stdout, &stderr)
 	if code != 1 {
@@ -199,8 +203,7 @@ func TestJSONModeEmitsJSONL(t *testing.T) {
 				ch <- findings.NewRecord(findings.KindFinding)
 				close(ch)
 				meta := findings.Meta{Tool: "netpen", Version: "test", AttackLeg: cf.iface, Started: time.Now()}
-				streamJSON(stdout, stderr, ch, meta)
-				return nil
+				return streamJSON(stdout, stderr, ch, meta)
 			},
 		},
 	}
@@ -253,10 +256,14 @@ func (n *noopLeg) Close() error { return nil }
 
 // TestLegOpenErrorSeam verifies the legOpenError seam works.
 func TestLegOpenErrorSeam(t *testing.T) {
+	original := legOpen
+	t.Cleanup(func() { legOpen = original })
+	legOpen = func(string) (link.Leg, error) {
+		return nil, errs.New().Code(link.ErrCodeLegOpen).Msg("interface unavailable")
+	}
 	err := legOpenError("netpen-nonexistent")
 	if err == nil {
-		// On some platforms link.Open might succeed; that's fine.
-		return
+		t.Fatal("legOpenError = nil, want missing-interface error")
 	}
 	if c, ok := errs.CodeOf(err); !ok || c != link.ErrCodeLegOpen {
 		t.Errorf("legOpenError code: got %v, want %s", c, link.ErrCodeLegOpen)
@@ -301,7 +308,9 @@ func TestStreamingJSONWritesRecordsMidRun(t *testing.T) {
 
 	// Consumer: streamJSON writes records as they arrive.
 	meta := findings.Meta{Tool: "netpen", Version: "test", AttackLeg: "lo", Started: time.Now()}
-	streamJSON(&stdout, &stderr, ch, meta)
+	if err := streamJSON(&stdout, &stderr, ch, meta); err != nil {
+		t.Fatal(err)
+	}
 
 	out := stdout.String()
 	// Must have all three lines: meta, first, second, plus summary.
@@ -385,8 +394,30 @@ func TestFullStreamingJSONWritesOneAccurateSummary(t *testing.T) {
 	}
 }
 
-// Keep the flag import honest for the noopLeg test harness.
-var (
-	_ = flag.NewFlagSet
-	_ = os.Stdout
-)
+func TestOrchestratorTimeoutFlagReachesRun(t *testing.T) {
+	for _, name := range []string{"full", "scan"} {
+		t.Run(name, func(t *testing.T) {
+			original := commands
+			t.Cleanup(func() { commands = original })
+			commands = []subcommand{{name: name, run: func(ctx context.Context, cf *cmdFlags, stdout, stderr io.Writer) error {
+				ch := make(chan findings.Record)
+				return runOrchestrator(ctx, ch, func(ctx context.Context) error {
+					defer close(ch)
+					if _, ok := ctx.Deadline(); !ok {
+						t.Error("orchestrator context has no deadline")
+						return nil
+					}
+					<-ctx.Done()
+					if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+						t.Errorf("context error = %v, want deadline exceeded", ctx.Err())
+					}
+					return ctx.Err()
+				}, cf, stdout, stderr)
+			}}}
+			var stdout, stderr bytes.Buffer
+			if code := run([]string{name, "--timeout=1ms", "--json=true"}, &stdout, &stderr); code != 1 {
+				t.Errorf("exit code = %d, want 1", code)
+			}
+		})
+	}
+}

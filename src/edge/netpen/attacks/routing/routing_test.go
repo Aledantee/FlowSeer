@@ -414,16 +414,8 @@ func TestWPAD_AE6Reproducibility(t *testing.T) {
 	}
 }
 
-// TestWPAD_PortCollision: the WPAD behavior must handle a port collision
-// with a named coded error rather than crashing. We simulate by pre-binding
-// the OS-chosen port and verifying the behavior's error carries the
-// netpen/wpad-port-collision code.
-//
-// Since the proxy uses port 0 (OS-chosen), a collision is unlikely in
-// practice. Instead, we test that the behavior handles the error path
-// correctly by checking the error code when a collision occurs. This
-// test verifies the error path returns the named code. The test is a
-// regression guard: if the error handling changes, this test catches it.
+// TestWPAD_PortCollision pins the wire error code. It does not exercise
+// listener failure: the proxy asks the OS for an available port.
 func TestWPAD_PortCollision(t *testing.T) {
 	// The behavior binds on a random free port (port 0). A real
 	// collision is hard to force reliably, so we verify the error code

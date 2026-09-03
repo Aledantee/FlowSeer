@@ -15,8 +15,8 @@ package routing
 import "go.aledante.io/FlowSeer/src/edge/netpen/runner"
 
 // Behaviors returns the routing-injection and rogue-WPAD behavior map for
-// [runner.Options.Behaviors]. The keys are the attack names the catalog
-// registered: ospf, eigrp, wpad.
+// [runner.Options.Behaviors]. Each call returns a new caller-owned map with
+// the catalog keys ospf, eigrp, and wpad. Calls are safe concurrently.
 func Behaviors() map[string]runner.Behavior {
 	return map[string]runner.Behavior{
 		"ospf":  RunOSPF,

@@ -48,13 +48,13 @@ import (
 // (e.g. a named-but-absent watch leg).
 var ErrCodeFull = errs.NewCode("netpen/full")
 
-// Config configures the `full` orchestrator.
+// Config configures a [Full] run. Its maps and callback state must not be
+// mutated concurrently with Run.
 type Config struct {
 	// AttackLeg is the attack interface. Required.
 	AttackLeg link.Leg
-	// WatchLeg is the optional watch leg. nil = single-leg run (pending
-	// verdicts). A non-nil WatchLegNamed that does not exist fails fast
-	// before recon (a deviation from the baseline, which degraded silently).
+	// WatchLeg is the optional watch leg. Nil means a single-leg run with
+	// pending traversal verdicts.
 	WatchLeg link.Leg
 	// WatchLegNamed is the watch interface name the operator passed
 	// (-w). When non-empty, the orchestrator fails fast if WatchLeg is
@@ -63,10 +63,10 @@ type Config struct {
 	WatchLegNamed string
 	// AttackLegName is the attack interface name (for the meta record).
 	AttackLegName string
-	// Duration bounds the burst phase (seconds). Zero means a minimal
-	// default; the orchestrator clamps to at least 1s.
+	// Duration bounds the burst phase. Non-positive values use 30 seconds.
 	Duration time.Duration
-	// ScanTime bounds the recon passive listen (seconds).
+	// ScanTime bounds the recon passive listen. Non-positive values use
+	// 15 seconds.
 	ScanTime time.Duration
 	// NoSpoof skips ARP poisoning of discovered hosts (disarms arpspoof
 	// and portsteal).
@@ -84,18 +84,15 @@ type Config struct {
 	// returns canned Evidence. When nil, the orchestrator uses the
 	// default recon (passive listen + ARP sweep).
 	ReconFn func(ctx context.Context, cfg Config) (Evidence, error)
-	// SweepNet is the configured sweep network for the ARP sweep
-	// fallback. Empty means derive from the attack leg, then fall back
-	// to 172.16.0.0/24.
+	// SweepNet is the configured network for the ARP sweep. Empty means
+	// 172.16.0.0/24.
 	SweepNet string
 }
 
-// Full is the orchestrator. It holds the merged findings and the
-// traversal verdicts. The CLI (cmd/netpen) constructs one, calls Run,
-// and streams the findings into the selected output mode.
-//
-// It embeds [recorder] for the shared record-collection surface
-// (Records, RecordChan, appendRecord, closeRecords).
+// Full coordinates recon, a bounded burst, sequential follow-ups, and a
+// summary. Construct it with [NewFull] and call Run once. The zero value is
+// unusable. Records may be read concurrently with Run; the record channel
+// must be drained during Run so a full buffer does not block progress.
 type Full struct {
 	cfg Config
 	recorder
@@ -112,7 +109,7 @@ type verdict struct {
 
 // NewFull constructs the orchestrator from the config. A live record
 // channel is created here so the CLI can consume records as they arrive
-// while Run executes.
+// while Run executes. It retains the config's maps and callbacks.
 func NewFull(cfg Config) *Full {
 	return &Full{cfg: cfg, recorder: newRecorder()}
 }

@@ -41,7 +41,9 @@ type LACPPortInfo struct {
 	State          LACPActorState
 }
 
-// LACP is a Link Aggregation Control Protocol frame.
+// LACP is a Link Aggregation Control Protocol frame. Its zero value is ready
+// for decoding; serialization requires Subtype to be 1. Decoding retains data
+// in BaseLayer and is not safe concurrently with other uses of the same frame.
 type LACP struct {
 	BaseLayer
 	Subtype           uint8
@@ -119,6 +121,8 @@ func (l *LACP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptio
 	if err != nil {
 		return err
 	}
+	// SerializeBuffer reuses storage, so reserved bytes can contain old data.
+	clear(buf)
 
 	buf[0] = l.Subtype
 	buf[1] = l.Version
@@ -134,8 +138,6 @@ func (l *LACP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptio
 	// Terminator
 	buf[lacpTermOff] = 0x00
 	buf[lacpTermOff+1] = 0x00
-
-	// Remaining bytes are already zero from PrependBytes.
 
 	return nil
 }

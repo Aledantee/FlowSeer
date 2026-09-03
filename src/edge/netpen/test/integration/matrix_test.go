@@ -14,11 +14,8 @@ import (
 // single-source guard: the catalog is the source of truth,
 // and the matrix cannot drift from it.
 //
-// The test checks that each behavior name appears as the first column of
-// a matrix row. Mode pairs are checked by looking for the mode string on
-// the same line. This is deliberately a structural (not semantic) check:
-// it catches drift (a new behavior added to the catalog but missing from
-// the matrix) without coupling the test to the matrix's column layout.
+// It checks the first two columns, including the explicit base mode, without
+// treating prose elsewhere in the file as evidence for a missing matrix row.
 func TestValidationMatrixCompleteness(t *testing.T) {
 	matrixPath := filepath.Join(".", "VALIDATION_MATRIX.md")
 	data, err := os.ReadFile(matrixPath)
@@ -29,27 +26,13 @@ func TestValidationMatrixCompleteness(t *testing.T) {
 
 	entries := catalog.Entries()
 	for _, e := range entries {
-		// Each behavior name must appear as the first field of a
-		// table row (line starting with "| <name>").
-		prefix := "| " + e.Name + " "
-		if !strings.Contains(matrix, prefix) {
-			t.Errorf("behavior %q missing from VALIDATION_MATRIX.md", e.Name)
-			continue
+		mode := e.Mode
+		if mode == "" {
+			mode = "base"
 		}
-		// For mode-bearing entries, the mode must appear on the
-		// same row. We check that a row with the behavior name and
-		// the mode string exists.
-		if e.Mode != "" {
-			found := false
-			for _, line := range strings.Split(matrix, "\n") {
-				if strings.HasPrefix(line, prefix) && strings.Contains(line, "| "+e.Mode+" |") {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Errorf("behavior %q mode %q missing from VALIDATION_MATRIX.md", e.Name, e.Mode)
-			}
+		prefix := "| " + e.Name + " | " + mode + " |"
+		if !strings.Contains(matrix, "\n"+prefix) {
+			t.Errorf("behavior %q mode %q missing from VALIDATION_MATRIX.md", e.Name, mode)
 		}
 	}
 }
@@ -63,10 +46,15 @@ func TestSupersetAttacksInMatrix(t *testing.T) {
 		t.Fatalf("read %s: %v", matrixPath, err)
 	}
 	matrix := string(data)
+	_, section, ok := strings.Cut(matrix, "\n## AE6 superset attacks (R4)\n")
+	if !ok {
+		t.Fatal("AE6 section missing from VALIDATION_MATRIX.md")
+	}
+	section, _, _ = strings.Cut(section, "\n## ")
 
 	supersets := []string{"ospf", "eigrp", "wpad", "etherchannel", "mld", "raflood", "lldpspoof", "glbp"}
 	for _, s := range supersets {
-		if !strings.Contains(matrix, "| "+s+" |") {
+		if !strings.Contains(section, "\n| "+s+" |") {
 			t.Errorf("superset attack %q missing from VALIDATION_MATRIX.md AE6 section", s)
 		}
 	}

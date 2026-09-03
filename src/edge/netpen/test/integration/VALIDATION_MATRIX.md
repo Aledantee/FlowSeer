@@ -1,8 +1,9 @@
 # netpen Validation Matrix
 
-This matrix labels every (behavior, mode) pair's ground-truth source and
-tier-1 validation status, per KTD15. It is the single source a reviewer
-consults to know what validates each attack.
+This matrix inventories every (behavior, mode) pair's intended ground-truth
+source, per KTD15. No live T1 or T2 run is recorded here. Fixture provenance
+labels do not establish that this integration suite has executed a wire or
+vendor assertion.
 
 ## Ground-truth sources
 
@@ -10,14 +11,12 @@ consults to know what validates each attack.
   harvested from `l2l3-audit` (KTD14) pins the protocol structure.
   The Go behavior's TX is compared byte-for-byte (deterministic) or by
   field-set (randomized) against the fixture.
-- **(b)** t2 vendor behavioral truth: a real Cisco NOS (operator-supplied
-  vIOS-class image) validates the attack produces the expected finding.
-  **None yet** — t2 is opt-in and operator-run; rows default to (c) until
-  t2 covers them.
-- **(c)** Ring-only self-consistency: the netpen-vs-netpen ring validates
-  wire shape (the crafter's frames decode correctly), but **not** vendor
-  behavior. These rows carry the explicit caveat: **"wire-shape-validated,
-  behavior-unvalidated"** until t2 covers them.
+- **(b)** Planned T2 vendor behavioral truth: an operator-supplied Cisco NOS
+  must produce expected findings. T2 currently logs intended runs without
+  executing or asserting behavior. No row has this evidence.
+- **(c)** Planned ring self-consistency: captured frames would need to decode
+  correctly. The ring compose fixture exists, but this suite has no capture or
+  decoder test. These rows have no wire or vendor evidence from this suite.
 
 ## Fixture provenance key
 
@@ -25,7 +24,7 @@ consults to know what validates each attack.
 |-------|---------|
 | (a)   | Python-fixture wire-shape truth (KTD14 pcap pin) |
 | (b)   | t2 vendor behavioral truth (none yet) |
-| (c)   | Ring-only self-consistency (wire-shape-validated, behavior-unvalidated) |
+| (c)   | Planned ring self-consistency (no executing integration assertion) |
 
 ## Columns
 
@@ -35,7 +34,7 @@ consults to know what validates each attack.
 | Mode | Mode flag (base = mode-less) |
 | Durability | Catalog durability class |
 | Fixture provenance | (a) Python-fixture / (c) ring-only / (a)+(c) both |
-| t1 AE6 status | pass = reproduced; skip+docker-state = tier skipped (daemon absent); N/A = no t1 target |
+| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list |
 | t2 status | never (t2 is opt-in, not yet run) |
 | Teardown | teardown path from catalog (empty = none) |
 
@@ -51,22 +50,22 @@ consults to know what validates each attack.
 | doubletag | base | transient-decay | (a) | N/A | never | one-shot injected frames; nothing persists |
 | dtp | base | temporary-restored | (c) | N/A | never | access-port restore armed by default (KTD12) |
 | dtp | keep-trunk | permanent-destructive | (c) | N/A | never | opt-in per KTD12 |
-| eigrp | base | temporary-restored | (a) | pass/skip | never | goodbye/flush teardown |
-| etherchannel | base | temporary-restored | (a) | pass/skip | never | port-channel release |
+| eigrp | base | temporary-restored | (a) | not recorded | never | goodbye/flush teardown |
+| etherchannel | base | temporary-restored | (a) | not recorded | never | port-channel release |
 | ghost | base | non-destructive | (a) | N/A | never | |
-| glbp | base | temporary-restored | (a) | pass/skip | never | resign teardown |
+| glbp | base | temporary-restored | (a) | not recorded | never | resign teardown |
 | gratarp | base | transient-decay | (a) | N/A | never | neighbor cache ages |
 | hsrp | base | temporary-restored | (a) | N/A | never | resign teardown |
 | icmpredirect | base | transient-decay | (a) | N/A | never | victim route cache decays |
-| lldpspoof | base | transient-decay | (a) | pass/skip | never | bounded bursts / holdtimes |
+| lldpspoof | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
 | llmnr | base | transient-decay | (a) | N/A | never | spoofed answers expire |
-| mld | base | transient-decay | (a) | pass/skip | never | bounded bursts / holdtimes |
+| mld | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
 | mvrp | base | transient-decay | (c) | N/A | never | MRP timers, minutes |
 | ndpspoof | base | transient-decay | (a) | N/A | never | NUD / real master resumes |
-| ospf | base | temporary-restored | (a) | pass/skip | never | goodbye/flush teardown |
+| ospf | base | temporary-restored | (a) | not recorded | never | goodbye/flush teardown |
 | portsteal | base | transient-decay | (a) | N/A | never | CAM aging |
 | portsteal | relay | temporary-restored | (a) | N/A | never | ip_forward restore armed |
-| raflood | base | transient-decay | (a) | pass/skip | never | bounded bursts / holdtimes |
+| raflood | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
 | raguard | base | non-destructive | (a) | N/A | never | |
 | roguedhcp | base | transient-decay | (a) | N/A | never | client leases ~1800s |
 | roguedhcp6 | base | transient-decay | (a) | N/A | never | ~300s lifetime announced |
@@ -82,35 +81,45 @@ consults to know what validates each attack.
 | vtp | base | transient-decay | (c) | N/A | never | revision-bump side effect recorded |
 | vtp | set | permanent-destructive | (c) | N/A | never | opt-in per R15 |
 | vtp | wipe | permanent-destructive | (c) | N/A | never | opt-in per R15 |
-| wpad | base | transient-decay | (a) | pass/skip | never | client proxy config residue, bound = TTL |
+| wpad | base | transient-decay | (a) | not recorded | never | client proxy config residue, bound = TTL |
 
 ## AE6 superset attacks (R4)
 
-The eight superset attacks earn the AE6 reproducibility shape in t1.
-Each runs twice against the same target and must produce the same
-findings class. "pass/skip" in the t1 AE6 column means: **pass** when
-the Docker daemon is running (tier executes, attack reproduces);
-**skip+docker-state** when the daemon is absent (tier skips cleanly,
-no live evidence).
+AE6 runs each listed command twice inside FRR r1 on `eth0`. A pass requires
+successful command exits and matching record-kind/finding-module sets from
+complete JSONL streams. Command errors, missing binaries, malformed output, and
+empty streams fail. A skipped tier supplies no live evidence. Results must be
+recorded manually; the tests do not update this file.
 
 | Superset | Fixture provenance | t1 target | t2 target | Caveat |
 |----------|-------------------|-----------|-----------|--------|
-| ospf | (a) | FRR r1 (10.99.0.11) | vIOS (operator) | OSPF adjacency is FRR-impersonatable |
-| eigrp | (a) | ring-only | vIOS (operator) | EIGRP is Cisco-proprietary; FRR has no EIGRP — ring validates wire shape only |
+| ospf | (a) | FRR r1 lab segment | vIOS (operator) | Harness waits for FRR adjacency; attack result is not asserted against FRR state |
+| eigrp | (a) | FRR r1 lab segment | vIOS (operator) | No EIGRP responder is configured |
 | wpad | (a) | lab segment | vIOS (operator) | LLMNR/NBNS-based; lab segment target |
-| etherchannel | (a) | ring-only | vIOS (operator) | LACP/PAgP; ring validates wire shape only |
+| etherchannel | (a) | FRR r1 lab segment | vIOS (operator) | No LACP/PAgP responder or wire assertion |
 | mld | (a) | lab segment | vIOS (operator) | IPv6 multicast; lab segment target |
 | raflood | (a) | lab segment | vIOS (operator) | IPv6 RA; lab segment target |
-| lldpspoof | (a) | ring-only | vIOS (operator) | LLDP; ring validates wire shape only |
-| glbp | (a) | ring-only | vIOS (operator) | GLBP; ring validates wire shape only |
+| lldpspoof | (a) | FRR r1 lab segment | vIOS (operator) | No LLDP decoder assertion |
+| glbp | (a) | FRR r1 lab segment | vIOS (operator) | No GLBP responder or wire assertion |
 
 ### Ring-only caveat
 
-Rows labeled (c) — DTP, VTP, MVRP — and ring-only supersets
-(EIGRP, EtherChannel, LLDP-spoof, GLBP) carry the explicit caveat:
-**"wire-shape-validated, behavior-unvalidated"** until t2 covers them.
-The netpen-vs-netpen ring proves the crafter's frames decode correctly;
-it does not prove a real switch accepts or is affected by them.
+The ring fixture is not started by TestMain, and its containers have no
+crafter/decoder commands configured. It supplies no live assertion today.
+Running a future decoder test would establish self-consistency only; a vendor
+response still needs separate evidence.
+
+### Live T1 prerequisites and limits
+
+The supplied FRR image does not include netpen. The operator must install a
+compatible binary in `netpen-t1-frr-r1` before running AE5 or AE6. The harness
+does not install it. AE6 passes `--duration 2s` and `--timeout 20s`; per-attack
+duration is currently parsed but not consumed by the CLI, so the timeout is
+the enforced bound. A timeout is a test failure, not a reproduced finding.
+
+AE5 checks successful full-command completion with `--duration 3s`. A separate
+test checks static linking of the local release artifact. Neither test verifies
+that the container runs that same artifact or has no network egress.
 
 ## Structural guard test
 

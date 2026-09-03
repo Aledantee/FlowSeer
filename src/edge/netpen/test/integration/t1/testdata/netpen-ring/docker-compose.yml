@@ -1,16 +1,7 @@
-# t1 netpen-vs-netpen ring: two netpen containers on a shared bridge.
-# One (the "crafter") runs a behavior's craft function and sends frames;
-# the other (the "decoder") captures and decodes the frames, asserting
-# the wire shape matches the fixture. This validates Cisco-proprietary
-# protocol wire shapes (DTP, VTP, MVRP, PAgP, LACP, etc.) that no
-# open-source container can impersonate.
-#
-# The ring proves wire shape (self-consistency), not vendor behavior —
-# the validation matrix labels these rows (c) with the explicit caveat:
-# "wire-shape-validated, behavior-unvalidated" until t2 covers them.
-#
-# Bring up:   docker compose -f testdata/netpen-ring/docker-compose.yml up -d
-# Tear down:  docker compose -f testdata/netpen-ring/docker-compose.yml down -v
+# This fixture defines two netpen containers on a shared bridge. Neither has
+# a command for crafting or decoding packets; the default entrypoint prints
+# usage and exits. TestMain does not start this fixture, and it provides no
+# automated wire-shape or vendor-behavior assertions.
 
 services:
   netpen-crafter:

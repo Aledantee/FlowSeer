@@ -15,6 +15,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gopacket/gopacket"
@@ -29,7 +31,8 @@ import (
 // ErrCodeScan is the wire identity for a scan-level failure.
 var ErrCodeScan = errs.NewCode("netpen/scan")
 
-// ScanConfig configures the `scan` command.
+// ScanConfig configures a [Scan] run. Its callback state must not be mutated
+// concurrently with Run.
 type ScanConfig struct {
 	// AttackLeg is the attack interface. Required.
 	AttackLeg link.Leg
@@ -40,23 +43,28 @@ type ScanConfig struct {
 	WatchLegNamed string
 	// AttackLegName is the attack interface name (for the meta record).
 	AttackLegName string
-	// Time bounds the passive listen (seconds). Default 35.
+	// Time bounds each leg's passive listen. Non-positive values use
+	// 35 seconds. The attack and watch legs are observed sequentially.
 	Time time.Duration
 	// NoProbe skips active VLAN probing.
 	NoProbe bool
-	// ProbeVLANs is the candidate VLAN list for active probing. Empty
-	// means the default set (common ids + passively leaked).
+	// ProbeVLANs accepts comma-separated IDs and ranges, such as "10,20-25".
+	// Only IDs 1 through 4094 are used. Invalid entries are ignored; if no
+	// valid IDs remain, probing uses the default set of common VLAN IDs.
 	ProbeVLANs string
-	// ProbeTime bounds the active probe window (seconds). Default 6.
+	// ProbeTime bounds the active probe window. Non-positive values use
+	// 6 seconds.
 	ProbeTime time.Duration
 	// ScanFn is the scan function. Tests substitute a stub. When nil,
-	// the orchestrator uses defaultScanRun.
+	// the orchestrator uses defaultScanRun. The callback must finish all
+	// calls to emit before returning.
 	ScanFn func(ctx context.Context, cfg ScanConfig, emit func(findings.Record)) error
 }
 
-// Scan is the scan orchestrator. It embeds [recorder] for the shared
-// record-collection surface (Records, RecordChan, appendRecord,
-// closeRecords).
+// Scan collects passive observations and optional VLAN probe results.
+// Construct it with [NewScan] and call Run once. The zero value is unusable.
+// Records may be read concurrently with Run; the record channel must be
+// drained during Run so a full buffer does not block progress.
 type Scan struct {
 	cfg ScanConfig
 	recorder
@@ -127,16 +135,12 @@ func defaultScanRun(ctx context.Context, cfg ScanConfig, emit func(findings.Reco
 	if cfg.WatchLeg != nil {
 		watchCtx, watchCancel := context.WithTimeout(ctx, listenTime)
 		defer watchCancel()
-		go func() {
-			defer watchCancel()
-			for frame := range cfg.WatchLeg.Receive(watchCtx) {
-				if frame.Err != nil {
-					return
-				}
-				emitScanFinding(emit, frame.Data)
+		for frame := range cfg.WatchLeg.Receive(watchCtx) {
+			if frame.Err != nil {
+				break
 			}
-		}()
-		<-watchCtx.Done()
+			emitScanFinding(emit, frame.Data)
+		}
 	}
 
 	// Active VLAN probing (unless --no-probe).
@@ -400,81 +404,26 @@ type vlanProbeStat struct {
 	ra     int    // RAs seen on this VID
 }
 
-// parseCandidateVLANs parses a comma/range VLAN spec like "1,2,10-20,1000".
-// Returns nil if spec is empty (caller falls back to defaults).
 func parseCandidateVLANs(spec string) []int {
-	if spec == "" {
-		return nil
-	}
 	var out []int
-	for _, part := range splitComma(spec) {
-		lo, hi, ok := parseRange(part)
-		if !ok {
+	for _, part := range strings.Split(spec, ",") {
+		low, high, isRange := strings.Cut(strings.TrimSpace(part), "-")
+		lo, err := strconv.Atoi(low)
+		if err != nil {
 			continue
 		}
-		for v := lo; v <= hi; v++ {
-			if v >= 1 && v <= 4094 {
-				out = append(out, v)
+		hi := lo
+		if isRange {
+			hi, err = strconv.Atoi(high)
+			if err != nil {
+				continue
 			}
+		}
+		for v := max(lo, 1); v <= min(hi, 4094); v++ {
+			out = append(out, v)
 		}
 	}
 	return out
-}
-
-// splitComma splits a string by commas, trimming whitespace.
-func splitComma(s string) []string {
-	var out []string
-	start := 0
-	for i := 0; i <= len(s); i++ {
-		if i == len(s) || s[i] == ',' {
-			part := s[start:i]
-			// trim whitespace
-			for len(part) > 0 && (part[0] == ' ' || part[0] == '\t') {
-				part = part[1:]
-			}
-			for len(part) > 0 && (part[len(part)-1] == ' ' || part[len(part)-1] == '\t') {
-				part = part[:len(part)-1]
-			}
-			if part != "" {
-				out = append(out, part)
-			}
-			start = i + 1
-		}
-	}
-	return out
-}
-
-// parseRange parses a range like "10" or "10-20".
-func parseRange(s string) (int, int, bool) {
-	dashIdx := -1
-	for i := 0; i < len(s); i++ {
-		if s[i] == '-' {
-			dashIdx = i
-			break
-		}
-	}
-	if dashIdx < 0 {
-		v, ok := atoi(s)
-		return v, v, ok
-	}
-	lo, ok1 := atoi(s[:dashIdx])
-	hi, ok2 := atoi(s[dashIdx+1:])
-	return lo, hi, ok1 && ok2
-}
-
-// atoi is a minimal string-to-int.
-func atoi(s string) (int, bool) {
-	if len(s) == 0 {
-		return 0, false
-	}
-	n := 0
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, false
-		}
-		n = n*10 + int(c-'0')
-	}
-	return n, true
 }
 
 // fingerprintXID generates a deterministic xid for a VID so we can match

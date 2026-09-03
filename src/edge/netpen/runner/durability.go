@@ -11,10 +11,9 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 )
 
-// DefaultTeardownBudget bounds the total time the teardown executor may
-// spend running armed steps before forcing completion (roughly ten
-// seconds). Tests scale this down by setting [Options.TeardownBudget]
-// so the bounded-budget assertion runs in milliseconds.
+// DefaultTeardownBudget is the cleanup allowance for each behavior when
+// Options.TeardownBudget is non-positive. Steps must respect their contexts
+// to complete within this allowance.
 const DefaultTeardownBudget = 10 * time.Second
 
 // gateDecision is the outcome of the durability gate for one (attack,
@@ -211,7 +210,8 @@ type teardownStep struct {
 // TeardownStep is the restore function a behavior registers against a
 // [Teardown] via [Teardown.Arm]. It runs under a context bounded by the
 // teardown budget; an error is collected into the partial-failure record
-// and does not stop later steps.
+// and does not stop later steps. It must return promptly on cancellation;
+// the executor waits for it to return before starting the next step.
 type TeardownStep func(ctx context.Context) error
 
 // newTeardown constructs a Teardown tied to the stream (for the

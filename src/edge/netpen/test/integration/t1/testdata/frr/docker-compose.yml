@@ -1,12 +1,7 @@
-# t1 lab topology: two FRR (FRRouting) nodes on a custom bridge for OSPF
-# adjacency formation + route learnability, the open-source-impersonatable
-# subset of the t1 targets. Cisco-proprietary protocols (DTP, VTP, MVRP,
-# etc.) cannot be impersonated by FRR; those run in the netpen-vs-netpen
-# ring (separate compose / test), which validates wire shape, not vendor
-# behavior.
-#
-# Bring up:   docker compose -f testdata/frr/docker-compose.yml up -d
-# Tear down:  docker compose -f testdata/frr/docker-compose.yml down -v
+# Two FRR nodes form an OSPF adjacency on a shared bridge. The integration
+# suite starts this fixture, but the image does not include the netpen binary
+# that the command-execution tests require. The separate ring fixture has no
+# executing protocol assertions.
 
 services:
   frr-r1:

@@ -1,28 +1,33 @@
 // Package version holds the netpen binary's build-time version metadata.
 //
-// The fields are injected via -ldflags '-X' at release time by the
-// Taskfile `release` task: the Go linker rewrites the string
-// values in place, so a release binary carries its git commit, build
-// date, and semantic version without a runtime git invocation.
+// The Taskfile release task injects operator-supplied VERSION, COMMIT, and
+// BUILDDATE values through -ldflags -X. It does not derive them from Git or the
+// clock. Omitted values keep the development defaults.
 //
-// Defaults are dev-placeholders so a bare `go build` or `go test` still
-// produces a meaningful `--version` string ("dev") without requiring the
-// ldflags ceremony.
+// Run netpen version to print the metadata. A development build prints:
+//
+//	netpen dev (commit none, built unknown)
+//
+// Metadata is read-only during normal execution. Tests that assign these
+// variables must synchronize with every reader, including String.
 package version
 
-// Version is the semantic version string. Overridden at release via
+// Version is the release version label, or "dev" when not supplied. Set it via
 // -ldflags '-X go.aledante.io/FlowSeer/src/edge/netpen/version.Version=...'.
 var Version = "dev"
 
-// Commit is the VCS commit hash the binary was built from. Overridden
-// at release via -ldflags '-X ...version.Commit=...'.
+// Commit is the VCS commit hash, or "none" when not supplied. Set it via
+// -ldflags '-X go.aledante.io/FlowSeer/src/edge/netpen/version.Commit=...'.
 var Commit = "none"
 
-// BuildDate is the build timestamp (RFC3339). Overridden at release.
+// BuildDate is the supplied RFC3339 build timestamp, or "unknown" when omitted.
+// The package does not validate the timestamp or derive it at runtime.
 var BuildDate = "unknown"
 
-// String returns a single-line version string suitable for `--version`
-// output. The shape is: netpen <version> (commit <short>, built <date>).
+// String formats netpen <version> (commit <short>, built <date>), shortening
+// Commit to its first eight bytes. It adds no newline and does not sanitize
+// metadata; build inputs must be single-line strings. Concurrent calls are safe
+// while the metadata remains unchanged.
 func String() string {
 	short := Commit
 	if len(short) > 8 {

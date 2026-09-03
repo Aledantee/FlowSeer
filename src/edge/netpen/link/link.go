@@ -30,9 +30,9 @@ var ErrUnsupportedPlatform = errs.New().
 	Hint("run on Linux, where netpen uses AF_PACKET").
 	Msg("afpacket leg is linux-only")
 
-// Frame is one captured packet: the bytes the kernel delivered and any error
-// the poll returned. A terminal error (context cancellation, socket close)
-// terminates the RX loop.
+// Frame contains an owned copy of a captured packet, or a terminal receive
+// error. The consumer may retain Data after the next receive. Concurrent
+// mutation of the same Frame or its Data requires synchronization.
 type Frame struct {
 	Data []byte
 	Err  error
@@ -44,11 +44,13 @@ type Frame struct {
 //
 // A Leg is safe for concurrent use by one writer and one reader: the RX loop
 // runs in a single goroutine and Close is called from the signal path. The fd
-// lifecycle is mutex-guarded inside the implementation so close-during-poll is
-// an orderly EBADF exit, not a use-after-close race.
+// lifecycle is mutex-guarded inside the implementation; Close waits for an
+// in-flight poll before releasing the socket.
 type Leg interface {
 	// Send writes pkt to the wire. It returns an error matching
 	// [ErrCodeLegOpen] when the leg is closed or the write fails.
+	// A canceled context returns ctx.Err() before writing; cancellation
+	// does not interrupt a write already in progress.
 	Send(ctx context.Context, pkt []byte) error
 
 	// SetFilter installs a BPF program built from insts. An empty program
@@ -59,18 +61,22 @@ type Leg interface {
 	// context is canceled or the leg is closed, at which point the channel
 	// is closed. The implementation polls with a short timeout and checks
 	// ctx.Done() each cycle so cancellation unblocks within one poll.
+	// A terminal error frame is best effort and may be omitted if the
+	// channel is full. Drain the channel to wait for the receiver to exit
+	// before starting another Receive call.
 	Receive(ctx context.Context) <-chan Frame
 
 	// Close releases the underlying socket and ring buffer. It is
-	// idempotent: calling Close more than once is a no-op (Collection
-	// Primitives lifecycle). It unblocks an active Receive poll.
+	// idempotent: calling Close more than once is a no-op. It waits for an
+	// active poll and wakes Receive even if its consumer stopped reading.
 	Close() error
 }
 
 // RawInstruction is one BPF instruction, the raw form afpacket.SetBPF accepts.
 // It is the [golang.org/x/net/bpf.RawInstruction] shape re-exported so the
 // platform-neutral file has no linux-only import; the bpf builder produces
-// these from [Instruction] values.
+// these from [Instruction] values. Values may be copied; concurrent mutation
+// of the same value requires synchronization.
 type RawInstruction struct {
 	Op uint16
 	Jt uint8
@@ -93,8 +99,8 @@ func IsUnsupported(err error) bool {
 	return errors.Is(err, ErrUnsupportedPlatform)
 }
 
-// AsIO is a convenience for tests: it asserts leg implements io.Closer and
-// returns it as such. It exists only to keep the interface import honest.
-func AsIO(leg Leg) io.Closer { //nolint:unused // kept for the io.Closer contract proof
+// AsIO exposes leg's Close method as an [io.Closer]. It preserves the leg's
+// concurrency and ownership requirements.
+func AsIO(leg Leg) io.Closer {
 	return leg
 }

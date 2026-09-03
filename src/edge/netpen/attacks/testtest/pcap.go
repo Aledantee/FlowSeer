@@ -1,9 +1,9 @@
-// Package-level test helpers for reading pcap fixtures into raw frame bytes.
-// Shared by behavior tests in attacks/l2 and (later) attacks/fh, attacks/ip6.
-
 package testtest
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +14,8 @@ import (
 // ReadPcap reads all packets from a pcap file and returns their raw bytes.
 // The path is relative to the caller's working directory; behavior tests
 // pass a path relative to the attacks/testdata tree.
+// Empty or malformed captures fail the test, including a truncated packet
+// after an otherwise valid prefix.
 func ReadPcap(t *testing.T, path string) [][]byte {
 	t.Helper()
 	f, err := os.Open(path)
@@ -22,23 +24,33 @@ func ReadPcap(t *testing.T, path string) [][]byte {
 	}
 	defer func() { _ = f.Close() }()
 
-	r, err := pcapgo.NewReader(f)
+	pkts, err := readPackets(f)
 	if err != nil {
-		t.Fatalf("new pcap reader %s: %v", path, err)
+		t.Fatalf("read pcap %s: %v", path, err)
 	}
+	return pkts
+}
 
+func readPackets(reader io.Reader) ([][]byte, error) {
+	r, err := pcapgo.NewReader(reader)
+	if err != nil {
+		return nil, fmt.Errorf("read header: %w", err)
+	}
 	var pkts [][]byte
 	for {
 		data, _, err := r.ReadPacketData()
-		if err != nil {
+		if errors.Is(err, io.EOF) {
 			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read packet %d: %w", len(pkts)+1, err)
 		}
 		pkts = append(pkts, data)
 	}
 	if len(pkts) == 0 {
-		t.Fatalf("no packets in %s", path)
+		return nil, fmt.Errorf("capture has no packets")
 	}
-	return pkts
+	return pkts, nil
 }
 
 // FixturePath resolves a fixture name relative to the attacks testdata root.
@@ -49,9 +61,6 @@ func FixturePath(t *testing.T, rel string) string {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	// From attacks/l2/, the testdata root is ../testdata; from attacks/testtest/
-	// during self-test it is ../testdata. Resolve relative to the attacks/
-	// directory by walking up to find "attacks".
 	dir := wd
 	for {
 		if filepath.Base(dir) == "attacks" {
@@ -63,6 +72,5 @@ func FixturePath(t *testing.T, rel string) string {
 		}
 		dir = parent
 	}
-	// Fallback: assume testdata is a sibling of the package dir.
 	return filepath.Join(wd, "..", "testdata", rel)
 }

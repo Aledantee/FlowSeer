@@ -5,9 +5,7 @@ import (
 	"testing"
 )
 
-// TestStringDefault verifies the dev-default version string contains the
-// tool name and all three fields so a bare `go build` still produces a
-// meaningful `--version`.
+// TestStringDefault checks the tool name and labels in development output.
 func TestStringDefault(t *testing.T) {
 	s := String()
 	if !strings.HasPrefix(s, "netpen ") {
@@ -20,8 +18,8 @@ func TestStringDefault(t *testing.T) {
 	}
 }
 
-// TestStringInjected verifies the String() shape after ldflags-style
-// injection, proving the release wiring surfaces all three fields.
+// TestStringInjected checks formatting after assigning release metadata.
+// Linker injection is a separate build-level contract.
 func TestStringInjected(t *testing.T) {
 	oldV, oldC, oldD := Version, Commit, BuildDate
 	defer func() {
@@ -37,7 +35,7 @@ func TestStringInjected(t *testing.T) {
 	}
 }
 
-// TestStringShortCommit verifies the commit hash is truncated to 8 chars.
+// TestStringShortCommit checks that a hash shorter than eight bytes is retained.
 func TestStringShortCommit(t *testing.T) {
 	oldV, oldC, oldD := Version, Commit, BuildDate
 	defer func() {

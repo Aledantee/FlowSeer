@@ -29,8 +29,9 @@ type hsrpFinding struct {
 	Restore  string `json:"restore"`
 }
 
-// RunHSRP sends a Coup to steal the active router role, then arms the
-// resign teardown step.
+// RunHSRP arms a resign teardown before sending a Coup and hello for the
+// fixed fixture group. It requires the runner's teardown and emitter handles
+// and returns craft or send errors with operation context.
 func RunHSRP(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 	group := uint8(1)

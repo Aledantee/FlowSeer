@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/json"
+	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
@@ -120,7 +121,8 @@ func emptyFeed() []findings.Record {
 
 // secretCarryingFeed returns a record set where a finding carries a Secret in
 // its detail. The secret value must never appear in stdout bytes.
-func secretCarryingFeed() []findings.Record {
+func secretCarryingFeed(t *testing.T) []findings.Record {
+	t.Helper()
 	t0 := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 
 	meta := findings.NewRecord(findings.KindMeta)
@@ -135,13 +137,16 @@ func secretCarryingFeed() []findings.Record {
 	// A finding whose detail JSON includes a Secret. The Secret's
 	// MarshalJSON emits only protocol and length, never the value.
 	secret := findings.NewSecret("snmp", []byte("supersecretcommunity"))
-	detail, _ := json.Marshal(struct {
+	detail, err := json.Marshal(struct {
 		Host   string          `json:"host"`
 		Secret findings.Secret `json:"secret"`
 	}{
 		Host:   "10.0.0.1",
 		Secret: secret,
 	})
+	if err != nil {
+		t.Fatalf("marshal secret finding: %v", err)
+	}
 
 	finding := findings.NewRecord(findings.KindFinding)
 	finding.Time = t0

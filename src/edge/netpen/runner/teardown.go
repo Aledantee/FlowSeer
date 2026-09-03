@@ -15,11 +15,9 @@ import (
 // set the returned error's exit code to 1. Completion and
 // interrupt share this one entry point.
 //
-// The total time is bounded by budget (or [DefaultTeardownBudget] when
-// zero). A step that overruns its share does not block later steps beyond
-// the remaining budget: each step runs under a child context with a
-// fraction of the remaining budget, so a hung step cannot consume the
-// whole allowance.
+// Each step receives a fraction of the remaining budget under a child of
+// ctx. Non-positive budgets use [DefaultTeardownBudget]. Steps must return
+// promptly on cancellation; Run cannot preempt a step that ignores its context.
 //
 // Run is idempotent and goroutine-safe: completion and interrupt may both
 // call it concurrently, but the steps execute exactly once. The runOnce

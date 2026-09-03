@@ -1,14 +1,14 @@
-// Package layers holds netpen's owned L2/L3 protocol decoders — the protocols
-// gopacket's fork does not provide. Each decoder follows gopacket's layer
-// contract (DecodeFromBytes/CanDecode/NextLayerType/LayerType + SerializeTo)
-// and is registered into the fork's dispatch tables at init time so the
-// Ethernet → LLC → SNAP → protocol and Ethernet → protocol chains reach them.
+// Package layers decodes and serializes netpen's supported L2/L3 protocol
+// messages. Importing the package registers its decoders in gopacket's
+// Ethernet, IP, and UDP dispatch tables.
 //
-// Every decoder is a Guarded Fast Path: specialized paths decline with
-// ok=false, never error, and the general path holds the semantics. Decoders
-// are pinned by differential fixture tests (testdata/*.pcap) rather than
-// parser symmetry; malformed and adversarial frames accrete in the corpus
-// with provenance, never deleted.
+// A decoder's zero value is ready for DecodeFromBytes. Decoded contents and
+// some field slices reference the input buffer; callers must retain that
+// buffer and copy data they need beyond its lifetime. Decoding mutates the
+// receiver, so it must not overlap reads or other decoding on that receiver.
+// Check decoding errors before using fields, which can be partially populated.
+// The offline fixture corpus checks the supported message shapes and preserves
+// malformed inputs as regression cases.
 package layers
 
 import (

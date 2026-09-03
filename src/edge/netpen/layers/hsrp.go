@@ -40,7 +40,9 @@ const (
 	HSRPStateActive  HSRPState = 16
 )
 
-// HSRP is a Hot Standby Router Protocol message.
+// HSRP is a Hot Standby Router Protocol message. Its zero value is ready for
+// decoding. Decoding retains data in BaseLayer and is not safe concurrently
+// with other uses of the same message.
 type HSRP struct {
 	BaseLayer
 	Version   uint8
@@ -93,8 +95,15 @@ func (h *HSRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	return nil
 }
 
-// SerializeTo writes the HSRP layer from the typed fields.
+// SerializeTo writes the HSRP layer from the typed fields. VirtualIP accepts
+// four-byte and IPv4-mapped addresses. A nil address writes 0.0.0.0; other
+// addresses must be IPv4 or serialization returns an error.
 func (h *HSRP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptions) error {
+	vip := h.VirtualIP.To4()
+	if vip == nil && len(h.VirtualIP) != 0 {
+		return fmt.Errorf("HSRP: virtual IP must be IPv4")
+	}
+
 	buf, err := b.PrependBytes(hsrpMinLen)
 	if err != nil {
 		return err
@@ -109,11 +118,8 @@ func (h *HSRP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptio
 	buf[6] = h.Group
 	buf[7] = h.Reserved
 	copy(buf[hsrpAuthOff:], h.Auth[:])
-	vip := h.VirtualIP
-	if len(vip) < 4 {
-		vip = make(net.IP, 4)
-	}
-	copy(buf[hsrpVIPOff:], vip[:4])
+	clear(buf[hsrpVIPOff:])
+	copy(buf[hsrpVIPOff:], vip)
 
 	return nil
 }

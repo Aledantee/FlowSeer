@@ -1,11 +1,5 @@
 package full
 
-// behaviors.go is the import bridge to the four behavior packages. It
-// exists as a separate file so full.go's test-only path (nil Behaviors)
-// does not import the attack packages unconditionally in tests — tests
-// that substitute stubs do not pull the heavy gopacket dependency graph.
-// The production path (mergedBehaviors) calls these helpers.
-
 import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/fh"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/ip6"

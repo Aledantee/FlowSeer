@@ -21,14 +21,9 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
-// Options configures a [Runner]. It is a plain struct, not a functional-option
-// chain, following the stdlib idiom (http.Server, tls.Config) the project's
-// code-style mandates: a struct is self-documenting at the call site and free
-// of per-option closure ceremony.
-//
-// Required fields: [Options.AttackLeg]. A zero [Options] is invalid by design;
-// [NewRunner] rejects it rather than silently defaulting, so a missing leg is
-// visible in review.
+// Options configures a [Runner]. The zero value describes an empty run.
+// AttackLeg is required when Attacks is non-empty. Callers must not mutate
+// referenced slices or maps after passing Options to [NewRunner].
 type Options struct {
 	// AttackLeg is the leg attacks send and receive on. Required for any
 	// run with a non-empty Attacks list; a nil AttackLeg causes Run to
@@ -90,16 +85,16 @@ type Options struct {
 	// single-attack invocation does not.
 	Orchestrated bool
 
-	// TeardownBudget bounds the total time the teardown executor may
-	// spend running armed steps before forcing completion. Zero means
-	// [DefaultTeardownBudget]. Tests scale this const down via this field
-	// so the bounded-budget assertion runs in milliseconds, not seconds.
+	// TeardownBudget is the time allowance for restoring each behavior.
+	// Non-positive values use [DefaultTeardownBudget]. Steps must respect
+	// their contexts for this allowance to bound completion time.
 	TeardownBudget time.Duration
 }
 
 // AttackRef is one entry in [Options.Attacks]: a (behavior, mode) pair. Mode
 // is empty for the base (mode-less) behavior; a non-empty Mode selects a
 // flag-gated variant (e.g. portsteal's "relay").
+// An AttackRef can be shared between goroutines if it is not modified.
 type AttackRef struct {
 	// Name is the behavior's command name, matching the catalog entry
 	// and the CLI dispatch table (e.g. "arpspoof", "portsteal").
@@ -122,17 +117,12 @@ type AttackRef struct {
 // (code-style: context cancellation surfaces as the unwrapped ctx.Err()).
 type Behavior func(ctx context.Context, deps Deps) error
 
-// Deps is the per-attack execution context handed to a [Behavior]. It is the
-// seam the durability gate wraps the dispatch loop around and the behavior
-// implementations build on. Keep it minimal — add nothing speculative.
+// Deps supplies a [Behavior] with the resolved catalog entry and execution
+// handles. Treat its fields as immutable; each handle documents its own
+// concurrency contract.
 type Deps struct {
-	// AttackLeg is the leg the behavior sends and receives on. Always
-	// non-nil (Run rejects a nil AttackLeg before dispatch). A
-	// permanent-destructive entry that the gate refuses receives a nil
-	// AttackLeg: the gate evaluates before the leg's TX is ever handed to
-	// the behavior, so a refused behavior literally never holds a
-	// send-capable leg. A behavior that observes a nil AttackLeg must
-	// return immediately without touching the wire.
+	// AttackLeg is the leg the behavior sends and receives on. It is
+	// always non-nil; refused behaviors are never invoked.
 	AttackLeg link.Leg
 
 	// WatchLeg is the passive observation leg, or nil when the run has no
@@ -152,8 +142,8 @@ type Deps struct {
 	Entry catalog.Entry
 
 	// Emitter is the typed sink the behavior writes findings through. It
-	// is safe for concurrent use from one goroutine (the behavior's own);
-	// a behavior that spawns goroutines must coordinate access itself.
+	// supports one goroutine (the behavior's own); a behavior that spawns
+	// goroutines must coordinate access itself.
 	Emitter *Emitter
 
 	// Teardown is the arming handle a temporary-restored behavior
@@ -167,8 +157,7 @@ type Deps struct {
 	// reverse-dependency order (least-dependent — host-local state —
 	// first), each in its own error scope, so one failing step does
 	// not abandon later ones. A temporary-restored behavior that arms
-	// zero steps is a coded runtime failure at arm time: a required
-	// restore path that restores nothing is a bug, not a silent skip.
+	// zero steps returns a coded runtime failure during teardown.
 	Teardown *Teardown
 }
 

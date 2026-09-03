@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -225,8 +226,8 @@ func TestTUIParityWithJSON(t *testing.T) {
 	recs := syntheticFeed()
 
 	// JSON mode: produce JSONL lines.
-	jsonStdout := newBuffer()
-	jsonStderr := newBuffer()
+	jsonStdout := &bytes.Buffer{}
+	jsonStderr := &bytes.Buffer{}
 	jw := NewJSONWriter(jsonStdout, jsonStderr, *recs[0].Meta)
 	if err := jw.Run(recs[1:]); err != nil {
 		t.Fatalf("JSON Run: %v", err)
@@ -328,17 +329,3 @@ func TestTUIViewAltScreen(t *testing.T) {
 		t.Error("View did not set AltScreen")
 	}
 }
-
-// buffer is a minimal io.Writer for tests.
-type buffer struct {
-	data []byte
-}
-
-func newBuffer() *buffer { return &buffer{} }
-
-func (b *buffer) Write(p []byte) (int, error) {
-	b.data = append(b.data, p...)
-	return len(p), nil
-}
-
-func (b *buffer) String() string { return string(b.data) }

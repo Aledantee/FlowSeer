@@ -1,14 +1,3 @@
-// link_linux.go is the AF_PACKET leg implementation. It wraps afpacket.TPacket
-// (v3 ring RX, promiscuous, WritePacketData TX) with a poll-loop cancellation
-// contract: Receive polls with a short timeout and checks ctx.Done() each
-// cycle, and Close from the signal path unblocks the poll.
-//
-// AF_PACKET uses unix.Poll, not the Go netpoller, so there is no read deadline.
-// The fd lifecycle is mutex-guarded against the polling goroutine: poll setup
-// and fd close hold the same lock, so close-during-poll is an orderly EBADF
-// exit rather than a use-after-close race. The contract is verified under
-// `go test -race`.
-//
 //go:build linux
 
 package link
@@ -18,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/afpacket"
 	"golang.org/x/net/bpf"
-	"golang.org/x/sys/unix"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -32,14 +21,20 @@ const pollTimeout = 100 * time.Millisecond
 
 // linuxLeg wraps an afpacket.TPacket behind the [Leg] interface.
 //
-// The fd lifecycle is guarded by mu: poll setup (ReadPacketData) and fd close
-// hold the same lock, so a Close from the signal path cannot race with an
-// in-flight poll. Once closed is set, further operations return an error
-// matching [ErrCodeLegOpen] rather than touching the freed socket.
+// mu guards the socket and closed flag. Close waits for the current poll;
+// done also wakes Receive when it is waiting for the consumer to read.
 type linuxLeg struct {
-	tp     *afpacket.TPacket
+	tp     packetSocket
 	mu     sync.Mutex
 	closed bool
+	done   chan struct{}
+}
+
+type packetSocket interface {
+	ReadPacketData() ([]byte, gopacket.CaptureInfo, error)
+	WritePacketData([]byte) error
+	SetBPF([]bpf.RawInstruction) error
+	Close()
 }
 
 func open(iface string) (Leg, error) {
@@ -65,14 +60,17 @@ func open(iface string) (Leg, error) {
 			Msgf("promiscuous mode on %q", iface)
 	}
 
-	return &linuxLeg{tp: tp}, nil
+	return &linuxLeg{tp: tp, done: make(chan struct{})}, nil
 }
 
-// Send writes pkt to the wire. It takes mu so it cannot race with Close.
-func (l *linuxLeg) Send(_ context.Context, pkt []byte) error {
+// Send skips canceled writes and serializes socket access with Receive and Close.
+func (l *linuxLeg) Send(ctx context.Context, pkt []byte) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if l.closed {
 		return errs.New().
 			Code(ErrCodeLegOpen).
@@ -88,8 +86,8 @@ func (l *linuxLeg) Send(_ context.Context, pkt []byte) error {
 	return nil
 }
 
-// SetFilter installs a BPF program on the underlying socket. It must be
-// called before Receive.
+// SetFilter replaces the socket filter; an empty program removes it.
+// Call SetFilter before Receive.
 func (l *linuxLeg) SetFilter(raw []RawInstruction) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -107,15 +105,9 @@ func (l *linuxLeg) SetFilter(raw []RawInstruction) error {
 	return l.tp.SetBPF(insts)
 }
 
-// Receive returns a channel that delivers captured frames until ctx is
-// canceled or the leg is closed. It runs a single polling goroutine that
-// calls ReadPacketData (which uses unix.Poll under the hood) and checks
-// ctx.Done() after each poll returns. Close unblocks the poll by closing the
-// fd under mu; the poll sees EBADF and the loop exits.
+// Receive closes its channel after cancellation or Close, even if the
+// consumer stops reading. Terminal error delivery is best effort.
 func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
-	// Buffered by 1 so terminal sends below never block: a consumer that
-	// abandons iteration (bounded-read behaviors cancel mid-stream) must
-	// not strand the polling goroutine on the final error frame.
 	frames := make(chan Frame, 1)
 
 	go func() {
@@ -126,12 +118,11 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 			case <-ctx.Done():
 				sendTerminal(frames, Frame{Err: ctx.Err()})
 				return
+			case <-l.done:
+				return
 			default:
 			}
 
-			// Poll setup under the lock: if Close won the race, the
-			// fd is already -1 and ReadPacketData returns an error,
-			// which we treat as a terminal close.
 			l.mu.Lock()
 			if l.closed {
 				l.mu.Unlock()
@@ -144,9 +135,6 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 			l.mu.Unlock()
 
 			if err != nil {
-				// A poll timeout is not terminal: the loop retries
-				// after the ctx.Done() check. EBADF (from Close
-				// winning the race) or any other error is terminal.
 				if isTimeout(err) {
 					select {
 					case <-ctx.Done():
@@ -166,6 +154,8 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 			case <-ctx.Done():
 				sendTerminal(frames, Frame{Err: ctx.Err()})
 				return
+			case <-l.done:
+				return
 			}
 		}
 	}()
@@ -173,9 +163,8 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 	return frames
 }
 
-// Close releases the socket and ring buffer. It is idempotent: the closed flag
-// under mu makes a second call a no-op. It unblocks an active poll by closing
-// the fd; the polling goroutine sees the error and exits.
+// Close waits for an active poll before releasing the socket, then wakes any
+// receiver waiting for its consumer. Repeated calls do nothing.
 func (l *linuxLeg) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -186,14 +175,12 @@ func (l *linuxLeg) Close() error {
 
 	l.tp.Close()
 	l.closed = true
+	close(l.done)
 
 	return nil
 }
 
-// sendTerminal delivers a terminal frame without blocking: an active
-// consumer still receives it (the buffer is empty on its path), while
-// an abandoned consumer lets the polling goroutine exit instead of
-// stranding it on the final send.
+// An abandoned consumer must not strand Receive on the final error frame.
 func sendTerminal(frames chan<- Frame, f Frame) {
 	select {
 	case frames <- f:
@@ -201,16 +188,8 @@ func sendTerminal(frames chan<- Frame, f Frame) {
 	}
 }
 
-// isTimeout reports whether err is a poll timeout. afpacket returns
-// ErrTimeout on a poll that returned no packets within the timeout.
 func isTimeout(err error) bool {
 	return err == afpacket.ErrTimeout
 }
 
-// Compile-time assertion that linuxLeg satisfies Leg.
 var _ Leg = (*linuxLeg)(nil)
-
-// unixETH_PAll silences the unused import warning on builds where unix is
-// only referenced transitively through afpacket; it documents the default
-// protocol.
-const _ = unix.ETH_P_ALL

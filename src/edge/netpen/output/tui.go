@@ -2,6 +2,7 @@ package output
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/viewport"
@@ -15,7 +16,6 @@ import (
 // a bounded viewport: older lines scroll off as new findings arrive.
 const feedLineLimit = 1000
 
-// progressEntry is one attack's progress state in the TUI's progress map.
 type progressEntry struct {
 	attack string
 	mode   string
@@ -30,6 +30,8 @@ type progressEntry struct {
 // The model never owns signal handling or teardown. Quitting (q or Ctrl-C)
 // transitions the model to a finished state that main reads to drive its own
 // teardown — the TUI's responsibility ends at signaling intent to quit.
+// Construct it with [NewModel]; the zero value is unusable. Its methods and
+// copies share state and are not safe for concurrent use.
 type Model struct {
 	feed        []string
 	feedContent string // cached strings.Join(feed, "\n"); rebuilt when feedDirty
@@ -42,9 +44,9 @@ type Model struct {
 	isDark      bool
 }
 
-// NewModel constructs a TUI model with the given dark-background flag
-// (lipgloss v2 explicit isDark) and an initial terminal size. The model is
-// ready for tea.NewProgram.
+// NewModel creates a model for the given background and terminal dimensions in
+// character cells. Content dimensions clamp to at least one cell. Send findings
+// through [tea.Program.Send] after starting a [tea.Program] with the model.
 func NewModel(isDark bool, width, height int) Model {
 	m := Model{
 		feed:      make([]string, 0, feedLineLimit),
@@ -58,8 +60,8 @@ func NewModel(isDark bool, width, height int) Model {
 	return m
 }
 
-// Init satisfies the tea.Model interface. It returns nil — the stream-reading
-// Cmd is armed by the caller through [Model.WaitForRecord].
+// Init returns no initial command. The caller supplies findings records through
+// [tea.Program.Send] and owns the stream reader's lifecycle.
 func (m Model) Init() tea.Cmd {
 	return nil
 }
@@ -98,9 +100,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// applyRecord updates the feed and progress map from one findings record. It
-// is the shared ingestion path for both live stream messages and synthetic
-// test injection.
 func (m *Model) applyRecord(r findings.Record) {
 	switch r.Kind {
 	case findings.KindMeta:
@@ -152,7 +151,6 @@ func (m *Model) applyRecord(r findings.Record) {
 	m.refreshViewport()
 }
 
-// appendFeed adds a line to the feed, evicting the oldest when at capacity.
 func (m *Model) appendFeed(line string) {
 	if len(m.feed) >= feedLineLimit {
 		m.feed = m.feed[1:]
@@ -161,7 +159,6 @@ func (m *Model) appendFeed(line string) {
 	m.feedDirty = true
 }
 
-// getOrCreate fetches or creates a progress entry for an attack.
 func (m *Model) getOrCreate(key, attack, mode string) *progressEntry {
 	entry, ok := m.progress[key]
 	if !ok {
@@ -171,8 +168,6 @@ func (m *Model) getOrCreate(key, attack, mode string) *progressEntry {
 	return entry
 }
 
-// refreshViewport syncs the viewport's content from the feed. The join
-// is cached and only rebuilt when the feed changed since the last sync.
 func (m *Model) refreshViewport() {
 	if m.feedDirty {
 		m.feedContent = strings.Join(m.feed, "\n")
@@ -212,7 +207,6 @@ func (m Model) View() tea.View {
 	return v
 }
 
-// renderProgress renders the per-attack progress panel.
 func (m Model) renderProgress() string {
 	var sb strings.Builder
 	sb.WriteString(m.headerStyle().Render("progress"))
@@ -236,18 +230,12 @@ func (m Model) renderProgress() string {
 	return sb.String()
 }
 
-// sortedProgressKeys returns progress map keys in a stable order.
 func (m Model) sortedProgressKeys() []string {
 	keys := make([]string, 0, len(m.progress))
 	for k := range m.progress {
 		keys = append(keys, k)
 	}
-	// Simple insertion sort for deterministic output without importing sort.
-	for i := 1; i < len(keys); i++ {
-		for j := i; j > 0 && keys[j] < keys[j-1]; j-- {
-			keys[j], keys[j-1] = keys[j-1], keys[j]
-		}
-	}
+	slices.Sort(keys)
 	return keys
 }
 
@@ -257,18 +245,16 @@ func (m Model) Finished() bool {
 	return m.finished
 }
 
-// Feed returns the current feed lines (for testing).
+// Feed returns the retained feed lines in arrival order. The slice shares the
+// model's storage; callers must not modify it or retain it across updates.
 func (m Model) Feed() []string {
 	return m.feed
 }
 
-// progressEntries returns the current progress entries (for testing).
 func (m Model) progressEntries() map[string]*progressEntry {
 	return m.progress
 }
 
-// contentWidth returns the usable width for content, reserving space for
-// borders/padding. Clamped to at least 1.
 func (m Model) contentWidth() int {
 	if m.width < 4 {
 		return 1
@@ -276,7 +262,6 @@ func (m Model) contentWidth() int {
 	return m.width - 2
 }
 
-// contentHeight returns the usable height for content. Clamped to at least 1.
 func (m Model) contentHeight() int {
 	if m.height < 2 {
 		return 1
@@ -284,8 +269,6 @@ func (m Model) contentHeight() int {
 	return m.height - 1
 }
 
-// headerStyle returns a lipgloss style for section headers, using the
-// model's isDark flag for color selection.
 func (m Model) headerStyle() lipgloss.Style {
 	style := lipgloss.NewStyle().Bold(true)
 	if m.isDark {
@@ -296,12 +279,10 @@ func (m Model) headerStyle() lipgloss.Style {
 	return style
 }
 
-// attackKey builds the progress-map key for an (attack, mode) pair.
 func attackKey(attack, mode string) string {
 	return attack + "\x00" + mode
 }
 
-// progressPanelHeight returns the height the progress panel occupies.
 func progressPanelHeight(progress map[string]*progressEntry) int {
 	if len(progress) == 0 {
 		return 0
@@ -309,8 +290,6 @@ func progressPanelHeight(progress map[string]*progressEntry) int {
 	return len(progress) + 1 // header + entries
 }
 
-// clampView renders a minimal view for a terminal too narrow for the full
-// layout. It never panics.
 func clampView(width, height int) tea.View {
 	if width < 1 || height < 1 {
 		return tea.NewView("")

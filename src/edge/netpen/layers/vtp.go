@@ -48,7 +48,9 @@ type VTPVLANInfo struct {
 	NameLen uint8
 }
 
-// VTP is a VLAN Trunking Protocol frame.
+// VTP is a VLAN Trunking Protocol frame. Its zero value is ready for decoding.
+// Decoding retains data in BaseLayer and is not safe concurrently with other
+// uses of the same frame.
 type VTP struct {
 	BaseLayer
 	Version   VTPVersion
@@ -162,8 +164,8 @@ func (v *VTP) decodeSubset(data []byte, df gopacket.DecodeFeedback) error {
 			return fmt.Errorf("VTP: truncated VLAN record header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
 		}
 		recLen := int(data[offset])
-		if recLen < 4 {
-			break
+		if recLen < 12 {
+			return fmt.Errorf("VTP: VLAN record at offset %d has length %d < 12 (fixed fields)", offset, recLen)
 		}
 		if offset+recLen > len(data) {
 			df.SetTruncated()

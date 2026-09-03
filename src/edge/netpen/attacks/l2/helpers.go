@@ -13,8 +13,8 @@ import (
 )
 
 // FixtureSrcMAC is the source MAC the harvest script uses for all L2
-// fixtures. Behaviors use it as the default source when no attack-leg MAC
-// is available (in-memory tests).
+// fixtures. Behaviors also use it because the attack leg does not expose an
+// interface MAC. Callers must not mutate it while a behavior is running.
 var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 // Well-known L2 multicast destinations.

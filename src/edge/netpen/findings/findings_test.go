@@ -52,9 +52,8 @@ func TestRecordMarshalJSONEmitsSchemaVersion(t *testing.T) {
 	}
 }
 
-// TestKindsEnumerate is the enumeration completeness check: the kinds the
-// machine contract names all exist. A new kind without a constant
-// fails here.
+// TestKindsEnumerate checks that the declared record kinds have distinct
+// wire values.
 func TestKindsEnumerate(t *testing.T) {
 	want := []Kind{
 		KindMeta, KindFinding, KindProgress, KindSummary,

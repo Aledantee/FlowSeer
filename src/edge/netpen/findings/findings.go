@@ -4,11 +4,10 @@
 // record kinds enumerate meta, finding, progress, summary, error, refusal,
 // and the per-attack resisted/skipped/pending rollups.
 //
-// The package enforces the secret-material rule at the model level:
-// a [Secret] wraps captured credential material (a community string, a
-// key, a hash) and its JSON encoding emits only the protocol name and the
-// byte length — never the value. Redaction is not a convention the output
-// writer remembers; it is a property of the type.
+// Wrap captured credential material in [Secret] before marshaling a
+// finding's detail. Secret's JSON encoding emits only the protocol name
+// and byte length. [Finding.Detail] accepts raw JSON, so callers must
+// redact it before assigning it; records do not sanitize arbitrary JSON.
 package findings
 
 import (
@@ -27,6 +26,7 @@ const SchemaVersion = 1
 // the machine-mode surface so the output mode loses nothing the TUI shows:
 // a run header, per-module findings, progress, summary, error and
 // refusal, and the per-attack resisted/skipped/pending rollups.
+// The zero value names no record kind. Kind values are safe for concurrent use.
 type Kind string
 
 const (
@@ -56,9 +56,11 @@ const (
 	KindPending Kind = "pending"
 )
 
-// Record is one JSONL line of the machine contract. Every record carries
-// the schema version; the Kind selects which optional field holds the
-// payload. Records are JSON-serializable via [Record.MarshalJSON].
+// Record is one JSONL record of the machine contract. Construct it with
+// [NewRecord] to set the schema version, then set Time and the payload for
+// Kind. Marshaling does not validate kind/payload agreement. Copies share
+// payload pointers and detail bytes; callers must synchronize concurrent
+// access involving writes to a record or its payload.
 type Record struct {
 	SchemaVersion int          `json:"schema_version"`
 	Kind          Kind         `json:"kind"`
@@ -76,6 +78,7 @@ type Record struct {
 
 // Meta is the run-header payload: the tool identity, its version,
 // the configured legs, and the run start time.
+// Callers must synchronize concurrent access involving writes.
 type Meta struct {
 	Tool      string    `json:"tool"`
 	Version   string    `json:"version"`
@@ -84,16 +87,19 @@ type Meta struct {
 	Started   time.Time `json:"started"`
 }
 
-// Finding is a per-module typed payload. The Module names the protocol
-// family (arp, dhcp, stp, …); Detail carries the module-specific fields a
-// behavior emits, serialized as-is. Secrets ride under the "secrets" key
-// as [Secret] values, so the redaction rule applies transitively.
+// Finding carries a protocol family's evidence as JSON. Module names the
+// family (for example, arp or dhcp). Build Detail by marshaling a payload
+// containing [Secret] values before assigning it; arbitrary raw JSON is
+// not redacted. Nil Detail encodes as null; empty or malformed JSON causes
+// record marshaling to fail. Callers must synchronize concurrent access
+// involving writes, including writes to Detail's backing bytes.
 type Finding struct {
 	Module string          `json:"module"`
 	Detail json.RawMessage `json:"detail"`
 }
 
 // Progress reports an attack's phase advancement.
+// Callers must synchronize concurrent access involving writes.
 type Progress struct {
 	Phase  string `json:"phase"`
 	Detail string `json:"detail,omitempty"`
@@ -102,6 +108,7 @@ type Progress struct {
 // Summary closes a run with aggregate counts. Additive-only within
 // schema major version 1: optional fields may appear over time
 // but no field is renamed, removed, or retyped.
+// Callers must synchronize concurrent access involving writes.
 type Summary struct {
 	Attacks  int    `json:"attacks"`
 	Findings int    `json:"findings"`
@@ -114,27 +121,29 @@ type Summary struct {
 
 // ErrorRecord is a runtime failure record: the code (stable identity), the
 // internal message, and the attack it came from when applicable.
+// Callers must synchronize concurrent access involving writes.
 type ErrorRecord struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Attack  string `json:"attack,omitempty"`
 }
 
-// Refusal is a dispatch-gate refusal record: the attack, the mode,
-// and the reason the gate declined before any frame was emitted.
+// Refusal explains why the dispatch gate declined before emitting a frame.
+// The enclosing [Record] identifies the attack and mode.
+// Callers must synchronize concurrent access involving writes.
 type Refusal struct {
 	Reason string `json:"reason"`
 }
 
 // Rollup is the per-attack resisted/skipped/pending verdict.
+// Callers must synchronize concurrent access involving writes.
 type Rollup struct {
 	Verdict Kind   `json:"verdict"`
 	Detail  string `json:"detail,omitempty"`
 }
 
-// NewRecord returns a Record preloaded with the schema version and the
-// given kind. It is the constructor every behavior uses so the schema
-// version cannot be forgotten.
+// NewRecord sets the schema version and kind, leaving Time and the payload
+// unset for the caller. It does not validate kind.
 func NewRecord(kind Kind) Record {
 	return Record{SchemaVersion: SchemaVersion, Kind: kind}
 }
@@ -142,7 +151,8 @@ func NewRecord(kind Kind) Record {
 // NewErrorRecord builds a [KindError] record from an error, capturing the
 // stable code (via [errs.CodeOf]), the internal message, and the attack
 // and mode it originated from. The code is empty when the error carries
-// no code.
+// no code. err must be non-nil. The message is copied without redaction;
+// callers must ensure it contains no captured credentials. Time remains unset.
 func NewErrorRecord(err error, attack, mode string) Record {
 	r := NewRecord(KindError)
 	r.Attack = attack
@@ -159,30 +169,29 @@ func NewErrorRecord(err error, attack, mode string) Record {
 	return r
 }
 
-// MarshalJSON emits the record as a single JSONL line. It is the standard
-// encoding/json behavior; the method exists to document that the schema
-// version rides on every record and that [Secret] payloads redact
-// automatically through [Secret.MarshalJSON].
+// MarshalJSON encodes the record as a JSON object without a trailing newline.
+// It returns encoding errors, including malformed [Finding.Detail] or a time
+// outside JSON's supported range. It does not validate record semantics or
+// redact raw detail; [Secret] redaction happens when callers build that detail.
 func (r Record) MarshalJSON() ([]byte, error) {
 	type plain Record
 	return json.Marshal(plain(r))
 }
 
-// Secret wraps captured credential material — a community string, a key,
-// a hash — so that the secret-material rule is enforced at the model
-// level. Its JSON encoding emits only the protocol name and the byte
-// length; the value never crosses a marshal boundary. Construct one with
-// [NewSecret]; the value is held for in-memory use (logging structured
-// fields, comparison) but is not serializable through any path that goes
-// through [json.Marshal].
+// Secret holds captured credential material for in-memory comparison. Its
+// JSON encoding exposes only the protocol name and byte length. This
+// redaction applies to JSON encoding; callers should log only [Secret.Protocol]
+// and [Secret.Length]. Construct one with [NewSecret]. The zero value has an
+// empty protocol and no material. Secret values are immutable and safe for
+// concurrent use.
 type Secret struct {
 	protocol string
 	value    []byte
 }
 
-// NewSecret wraps captured credential material of the given protocol.
-// The value is retained for in-memory use; it never escapes through JSON
-// marshaling.
+// NewSecret copies captured credential material for the given protocol.
+// Later changes to value do not affect the secret. protocol is public metadata
+// and must not contain credentials; it is emitted unchanged in JSON.
 func NewSecret(protocol string, value []byte) Secret {
 	return Secret{protocol: protocol, value: append([]byte(nil), value...)}
 }
@@ -209,16 +218,13 @@ func (s Secret) Equal(other Secret) bool {
 	return true
 }
 
-// secretJSON is the JSON shape a Secret emits: protocol and length only.
-// It is unexported because it exists solely to make MarshalJSON readable.
 type secretJSON struct {
 	Protocol string `json:"protocol"`
 	Length   int    `json:"length"`
 }
 
-// MarshalJSON emits the secret-material rule shape: protocol and length
-// only, never the value. A Secret in any struct field reachable from
-// [Record.MarshalJSON] redacts through this method.
+// MarshalJSON emits protocol and byte length, omitting the captured value.
+// It always returns a nil error.
 func (s Secret) MarshalJSON() ([]byte, error) {
 	return json.Marshal(secretJSON{Protocol: s.protocol, Length: len(s.value)})
 }

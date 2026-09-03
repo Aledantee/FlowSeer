@@ -5,8 +5,7 @@
 //
 //	go generate ./catalog/...
 //
-// It reads the registered behaviors (this package's init registers the
-// full 35-behavior skeleton) and emits zz_generated_catalog.go as
+// It reads the registered behaviors and emits zz_generated_catalog.go as
 // committed, byte-stable Go source. The generated file carries the "Code
 // generated ... DO NOT EDIT" header per Go convention.
 //
@@ -17,16 +16,18 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"go/format"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 )
 
 func main() {
+	outPath := flag.String("output", "zz_generated_catalog.go", "generated Go source path")
+	flag.Parse()
 	entries := catalog.Entries()
 
 	var b bytes.Buffer
@@ -39,12 +40,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	outPath := filepath.Join(".", "zz_generated_catalog.go")
-	if err := os.WriteFile(outPath, src, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "write %s: %v\n", outPath, err)
+	if err := os.WriteFile(*outPath, src, 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "write %s: %v\n", *outPath, err)
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stdout, "OK: generated %s (%d entries)\n", outPath, len(entries))
+	fmt.Fprintf(os.Stdout, "OK: generated %s (%d entries)\n", *outPath, len(entries))
 }
 
 func writeHeader(b *bytes.Buffer) {
@@ -61,6 +61,8 @@ func writeTable(b *bytes.Buffer, entries []catalog.Entry) {
 	b.WriteString("// (behavior, mode) pair, sorted by (Name, Mode). It is the data\n")
 	b.WriteString("// view of the behavior registrations and the single source for\n")
 	b.WriteString("// dispatch, help text, legs, preconditions, and durability classes.\n")
+	b.WriteString("// Callers must treat this slice and its nested slices as read-only for\n")
+	b.WriteString("// concurrent reads to be safe. Use Entries for an independently owned copy.\n")
 	b.WriteString("var GeneratedEntries = []Entry{\n")
 
 	for _, e := range entries {

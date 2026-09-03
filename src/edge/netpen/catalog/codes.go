@@ -4,11 +4,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// errs codes for netpen, declared per the errs package convention:
-// "<package>/<name>", append-only. The repo-wide AST uniqueness scan
-// (src/common/errs/code_test.go) WalkDirs the whole repo and enforces
-// these from day one in the nested module.
-
 var (
 	// ErrCodeUnknownBehavior marks a dispatch lookup for a behavior name
 	// that has no catalog entry — a CLI/registration drift.

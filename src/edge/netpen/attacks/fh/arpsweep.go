@@ -1,7 +1,3 @@
-// arpsweep.go implements the ARP sweep (host discovery) attack behavior.
-// It sends broadcast ARP requests for a /24 range and reports the count.
-// Classified non-destructive: passive discovery, no state changes.
-
 package fh
 
 import (
@@ -22,8 +18,9 @@ type arpSweepFinding struct {
 	Hosts  []string `json:"hosts"`
 }
 
-// RunARPSweep sends ARP requests for the fixture's /24 range. The in-memory
-// test shape sends a bounded set of requests (3 hosts) and reports the count.
+// RunARPSweep sends requests to 172.16.0.1 through 172.16.0.3. Its finding
+// lists requested targets, not discovered hosts; replies are not read.
+// Craft and send failures are returned with operation context.
 func RunARPSweep(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 	// The fixture sweep range is 172.16.0.1–3.

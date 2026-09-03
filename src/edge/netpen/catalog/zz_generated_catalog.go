@@ -9,6 +9,8 @@ package catalog
 // (behavior, mode) pair, sorted by (Name, Mode). It is the data
 // view of the behavior registrations and the single source for
 // dispatch, help text, legs, preconditions, and durability classes.
+// Callers must treat this slice and its nested slices as read-only for
+// concurrent reads to be safe. Use Entries for an independently owned copy.
 var GeneratedEntries = []Entry{
 	{Name: "arpspoof", Mode: "", Protocols: []string{"arp"}, Preconditions: nil, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "neighbor unicast repairs + ip_forward restore", Help: "ARP cache poisoning"},
 	{Name: "arpsweep", Mode: "", Protocols: []string{"arp"}, Preconditions: nil, Legs: AttackOnly, Class: NonDestructive, Teardown: "", Help: "sweep a subnet for live hosts via ARP"},

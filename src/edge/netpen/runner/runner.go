@@ -36,15 +36,14 @@ var errNoAttackLeg = errs.New().
 //
 // Error semantics: a behavior erroring mid-run surfaces as a typed
 // [findings.ErrorRecord] through the stream and the run of remaining
-// behaviors continues. Only a dispatch-level failure (unknown attack, leg
-// precondition) or context cancellation aborts the whole run. Run returns
-// ctx.Err() unwrapped on cancellation (code-style).
+// behaviors continues. Dispatch failures and context cancellation stop the
+// run. Teardown failures are also returned. Cancellation returns the run
+// context's error unwrapped unless teardown failed.
 //
 // The zero value is not usable; construct a Runner via [NewRunner].
 //
-// Runner is safe for concurrent use only in the restricted sense that one
-// goroutine calls Run while any number of goroutines consume
-// [Runner.Stream]. Run must not be called concurrently with itself.
+// One goroutine calls Run while one consumer reads [Runner.Stream].
+// Interrupt and Wait may be called concurrently. Run must be called exactly once.
 type Runner struct {
 	opts   Options
 	stream *Stream
@@ -135,18 +134,21 @@ func (r *Runner) Stream() *Stream {
 //
 // Run returns nil on successful completion (including when behaviors
 // emitted error records — those are findings, not run failures). It returns
-// a non-nil error only for dispatch-level failures (unknown attack, leg
-// precondition) or context cancellation; on cancellation it returns
-// ctx.Err() unwrapped.
-func (r *Runner) Run(ctx context.Context) error {
+// a non-nil error for dispatch failures, teardown failures, or cancellation.
+// Cancellation returns the run context's error unwrapped unless teardown
+// failed. Closing the stream requests a graceful stop. Teardown runs with
+// its own budget even when the run context is canceled.
+func (r *Runner) Run(ctx context.Context) (result error) {
 	defer close(r.runDone)
 	defer r.stream.done()
+	defer r.stream.pump.Cancel()
 
 	if len(r.opts.Attacks) == 0 {
 		return nil
 	}
 
 	if r.opts.AttackLeg == nil {
+		r.stream.fail(errNoAttackLeg)
 		return errNoAttackLeg
 	}
 
@@ -170,6 +172,17 @@ func (r *Runner) Run(ctx context.Context) error {
 		runCtx, cancel = context.WithTimeout(runCtx, r.opts.Timeout)
 		defer cancel()
 	}
+
+	// The stream exists before Run receives its context. Connect cancellation
+	// here so a stalled consumer cannot keep a send blocked past the deadline.
+	stopStreamCancel := context.AfterFunc(runCtx, r.stream.pump.Cancel)
+	defer stopStreamCancel()
+	defer func() {
+		if result == nil && !r.closedByConsumer.Load() && runCtx.Err() != nil {
+			result = runCtx.Err()
+			r.stream.fail(result)
+		}
+	}()
 
 	// Build the entry lookup once: a map from (name, mode) to catalog
 	// entry. The catalog is the single source for dispatch metadata.
@@ -275,7 +288,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		}
 
 		fn, ok := r.opts.Behaviors[ref.Name]
-		if !ok {
+		if !ok || fn == nil {
 			err := errs.New().
 				Code(catalog.ErrCodeUnknownBehavior).
 				Attr("name", ref.Name).
@@ -361,6 +374,10 @@ func (r *Runner) Run(ctx context.Context) error {
 		r.activeCancel = nil
 		r.teardownMu.Unlock()
 
+		if runCtx.Err() != nil {
+			break
+		}
+
 		if behErr != nil {
 			// When the interrupt path engaged teardown, it canceled
 			// the behavior's context; the resulting context.Canceled
@@ -428,7 +445,9 @@ func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Durat
 		t.failed = []string{"<no-steps-armed>"}
 		return err
 	}
-	return t.Run(ctx, budget)
+	// Restoration must survive the cancellation that stopped the behavior.
+	// Teardown.Run applies a fresh deadline to each step.
+	return t.Run(context.WithoutCancel(ctx), budget)
 }
 
 // Interrupt engages the teardown path from a signal (SIGINT, SIGTERM, or

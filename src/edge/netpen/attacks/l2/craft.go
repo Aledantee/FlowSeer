@@ -1,13 +1,11 @@
-// Package l2 holds netpen's L2 switching attack behaviors: dtp, doubletag,
-// vlanenum, vlanhop, voicevlan, stproot, camflood, vtp, mvrp, portsteal, and
-// the EtherChannel (LACP/PAgP) superset. Each behavior is a thin
-// [runner.Behavior] over the protocol toolkit — leg sends, decoder reads,
-// findings emission — with durability duties sourced from the catalog, not
-// per-command code.
+// Package l2 provides L2 switching behaviors for the netpen runner. Register
+// them with [Behaviors]. Callers must supply dependencies through the runner
+// so catalog gates are evaluated before transmission.
 //
-// Flood-class behaviors (camflood, stproot, mvrp bursts) use the shared
-// pool-craft path ([craftPool]) for pre-serialized buffers; the
-// default craft path uses SerializeLayers+ComputeChecksums+FixLengths.
+// Active behaviors send bounded sequences with fixed fixture addresses and
+// VLANs. Their findings describe attempted operations, without confirming a
+// peer's state. Only DTP sends a restore frame; other registered restore
+// callbacks perform no recovery. VLAN enumeration passively reads the leg.
 package l2
 
 import (
@@ -38,10 +36,8 @@ func putBuf(b gopacket.SerializeBuffer) {
 	poolBuf.Put(b)
 }
 
-// craftPool serializes the given layers into a fresh buffer from the pool
-// and returns the bytes. The caller must copy the result before returning
-// the buffer. This is the flood-class craft path: pre-serialized
-// buffers through sync.Pool so burst sends are allocation-free.
+// craftPool returns an owned copy of the serialized layers before recycling
+// the serialization buffer. The result can be retained across calls.
 func craftPool(layers ...gopacket.SerializableLayer) ([]byte, error) {
 	buf := getBuf()
 	defer putBuf(buf)

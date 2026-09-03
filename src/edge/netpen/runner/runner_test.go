@@ -528,6 +528,24 @@ func TestNilAttackLegCodedFailure(t *testing.T) {
 	}
 }
 
+func TestNilBehaviorCodedFailure(t *testing.T) {
+	leg := newMockLeg()
+	closeLeg(t, leg)
+	r := runner.NewRunner(runner.Options{
+		AttackLeg: leg,
+		Attacks:   []runner.AttackRef{{Name: "arpsweep"}},
+		Behaviors: map[string]runner.Behavior{"arpsweep": nil},
+	})
+	err := r.Run(context.Background())
+	r.Wait()
+	if code, _ := errs.CodeOf(err); code != catalog.ErrCodeUnknownBehavior {
+		t.Errorf("got %v, want unknown behavior error", err)
+	}
+	if code, _ := errs.CodeOf(r.Stream().Err()); code != catalog.ErrCodeUnknownBehavior {
+		t.Errorf("got stream error %v, want unknown behavior error", r.Stream().Err())
+	}
+}
+
 func TestEmptyAttacksReturnsNil(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
@@ -549,8 +567,9 @@ func TestContextCancellationReturnsCtxErr(t *testing.T) {
 	leg := newMockLeg()
 	closeLeg(t, leg)
 
-	// A behavior that blocks until ctx canceled.
+	started := make(chan struct{})
 	block := func(ctx context.Context, _ runner.Deps) error {
+		close(started)
 		<-ctx.Done()
 		return ctx.Err()
 	}
@@ -564,26 +583,80 @@ func TestContextCancellationReturnsCtxErr(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 
-	go func() { _ = r.Run(ctx) }()
+	result := make(chan error, 1)
+	go func() { result <- r.Run(ctx) }()
 
-	// Cancel after a short delay.
-	time.Sleep(20 * time.Millisecond)
+	<-started
 	cancel()
 
-	err := func() error {
-		// Wait for Run to finish and get the error.
-		r.Wait()
-		// The error was returned by Run, but we didn't capture it.
-		// Instead, check the stream's terminal error.
-		return r.Stream().Err()
-	}()
+	if err := <-result; err != context.Canceled {
+		t.Errorf("Run error = %v, want context.Canceled", err)
+	}
+	if err := r.Stream().Err(); !errors.Is(err, context.Canceled) {
+		t.Errorf("stream error = %v, want context.Canceled", err)
+	}
+}
 
-	// Run returns ctx.Err() (context.Canceled) on cancellation.
-	// The stream may or may not have latched it depending on timing;
-	// the key assertion is that the run stopped.
-	if err != nil && !errors.Is(err, context.Canceled) {
-		t.Errorf("error %v, want context.Canceled or nil", err)
+func TestCancellationUnblocksFullStream(t *testing.T) {
+	for _, timeout := range []bool{false, true} {
+		name := "caller"
+		if timeout {
+			name = "timeout"
+		}
+		t.Run(name, func(t *testing.T) {
+			leg := newMockLeg()
+			closeLeg(t, leg)
+			full := make(chan struct{})
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			opts := runner.Options{
+				AttackLeg: leg,
+				Attacks:   []runner.AttackRef{{Name: "arpsweep"}, {Name: "scan"}},
+				Behaviors: map[string]runner.Behavior{
+					"arpsweep": func(_ context.Context, deps runner.Deps) error {
+						for range 64 {
+							deps.Emitter.Progress("scan", "")
+						}
+						close(full)
+						deps.Emitter.Progress("blocked", "")
+						return nil
+					},
+					"scan": func(_ context.Context, _ runner.Deps) error {
+						t.Error("dispatched another behavior after cancellation")
+						return nil
+					},
+				},
+			}
+			wantErr := context.Canceled
+			if timeout {
+				opts.Timeout = 50 * time.Millisecond
+				wantErr = context.DeadlineExceeded
+			}
+			r := runner.NewRunner(opts)
+			result := make(chan error, 1)
+			go func() { result <- r.Run(ctx) }()
+			<-full
+			if !timeout {
+				cancel()
+			}
+			select {
+			case err := <-result:
+				if err != wantErr {
+					t.Errorf("Run error = %v, want %v", err, wantErr)
+				}
+				if err := r.Stream().Err(); err != wantErr {
+					t.Errorf("stream error = %v, want %v", err, wantErr)
+				}
+			case <-time.After(time.Second):
+				if err := r.Stream().Close(); err != nil {
+					t.Errorf("Close: %v", err)
+				}
+				<-result
+				t.Fatal("Run remained blocked on a full stream after cancellation")
+			}
+		})
 	}
 }
 

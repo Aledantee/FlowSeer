@@ -9,17 +9,13 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/test/integration/testenv"
 )
 
-// TestT2SupersetBehavioralTruth runs each of the eight superset attacks
-// against the operator-supplied vIOS target and records the findings
-// class. This is the behavioral-truth validation (ground-truth source
-// (b)): a real Cisco NOS validates that the attack produces the
-// expected finding against a real switch, not just the correct wire
-// shape.
-//
-// The test mirrors TestAE6_SupersetReproducibility but targets the
-// operator's vIOS image. Results are recorded in VALIDATION_MATRIX.md
-// under the (b) column.
+// TestT2SupersetBehavioralTruth lists the intended attack/target pairs. It has
+// no command execution or behavioral assertions, so a pass is not validation
+// evidence. Vendor execution and expected findings remain unimplemented.
 func TestT2SupersetBehavioralTruth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("operator t2 tier disabled in short mode")
+	}
 	target := testenv.Target()
 	if target == "" {
 		t.Skip("no t2 target; NETPEN_T2_TARGET not set")
@@ -28,10 +24,6 @@ func TestT2SupersetBehavioralTruth(t *testing.T) {
 	supersets := []string{"ospf", "eigrp", "wpad", "etherchannel", "mld", "raflood", "lldpspoof", "glbp"}
 	for _, attack := range supersets {
 		t.Run(attack, func(t *testing.T) {
-			// The operator runs netpen against the vIOS target.
-			// The exact invocation depends on the image shape;
-			// this test documents the contract and records the
-			// findings class.
 			t.Logf("t2 %s: would run against %s (operator provides the image)", attack, target)
 		})
 	}

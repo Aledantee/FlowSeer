@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"go/ast"
 	"go/parser"
-	"go/printer"
 	"go/token"
-	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
-	"sort"
-	"strings"
+	"strconv"
 	"testing"
 )
 
@@ -20,8 +18,15 @@ import (
 // registration changed without regenerating, and the committed catalog
 // is stale.
 func TestGeneratedCatalogIsCurrent(t *testing.T) {
-	entries := Entries()
-	generated := renderEntries(entries)
+	outputPath := filepath.Join(t.TempDir(), "catalog.go")
+	cmd := exec.Command("go", "run", "gen_catalog.go", "-output", outputPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("run catalog generator: %v\n%s", err, output)
+	}
+	generated, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("read generated catalog: %v", err)
+	}
 
 	committed, err := os.ReadFile("zz_generated_catalog.go")
 	if err != nil {
@@ -65,10 +70,8 @@ func entriesEqual(a, b Entry) bool {
 		reflect.DeepEqual(a.Preconditions, b.Preconditions)
 }
 
-// TestFamilyGuardRejectsUnknownClass is the family-guard test transplanted
-// from the snmp corpus renderer's truncation guard: an unrecognized
-// durability class cannot silently vanish from listings and gates. A
-// fabricated entry with a bogus class must fail loudly.
+// TestFamilyGuardRejectsUnknownClass prevents unknown durability classes from
+// silently vanishing from listings and gates.
 func TestFamilyGuardRejectsUnknownClass(t *testing.T) {
 	bogus := Durability("destructive-rainbow")
 	if err := validateClass(bogus); err == nil {
@@ -121,11 +124,8 @@ type oracleRow struct {
 	teardown string
 }
 
-// planOracle is the authoritative durability classification of all 35
-// behaviors. A misclassified row here fails the test, not just the family
-// guard. full is orchestration and carries no durability row of its own;
-// it is registered for dispatch/help reconciliation but excluded from
-// this oracle.
+// planOracle pins the durability classifications independently of registrations.
+// The full command orchestrates other behaviors and has no catalog row.
 var planOracle = []oracleRow{
 	// non-destructive
 	{"scan", "", NonDestructive, ""},
@@ -207,7 +207,7 @@ func TestOracleDurabilityClassification(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("generated entry %q/%q has no oracle row — the catalog drifted beyond the plan", e.Name, e.Mode)
+			t.Errorf("generated entry %q/%q has no oracle row", e.Name, e.Mode)
 		}
 	}
 }
@@ -225,10 +225,8 @@ func TestPermanentModesRequireOptIn(t *testing.T) {
 }
 
 // TestCLIReconciliation is the integration test: every catalog
-// entry name has a registered FlagSet handler in cmd/netpen's stub
-// dispatch table and vice versa. Since cmd/netpen is a main package and
-// cannot be imported, the test parses main.go's AST (the errs
-// code_test.go pattern) to extract the stubNames list and asserts parity.
+// entry name has a registered FlagSet handler in cmd/netpen's dispatch table
+// and vice versa. The test parses main.go because main packages cannot be imported.
 func TestCLIReconciliation(t *testing.T) {
 	mainPath := filepath.Join("..", "cmd", "netpen", "main.go")
 	cmdNames := stubNamesFromAST(t, mainPath)
@@ -243,10 +241,7 @@ func TestCLIReconciliation(t *testing.T) {
 		cmdSet[n] = true
 	}
 
-	// full is orchestration scripting the gate and carries no (attack,
-	// mode) catalog entry of its own (plan). It is the sole CLI-only
-	// orchestration name the reconciliation allows; every other command
-	// name must have a catalog row and vice versa.
+	// full orchestrates other behaviors and has no catalog row of its own.
 	const orchestrationOnly = "full"
 
 	for name := range catalogNames {
@@ -264,10 +259,6 @@ func TestCLIReconciliation(t *testing.T) {
 	}
 }
 
-// stubNamesFromAST parses main.go and extracts the stubNames slice
-// literal — the 27 parity + 8 superset command names. It mirrors the
-// errs code_test.go AST-walk pattern: a literal argument is required so
-// the gate can read it.
 func stubNamesFromAST(t *testing.T, path string) []string {
 	t.Helper()
 	fset := token.NewFileSet()
@@ -277,7 +268,6 @@ func stubNamesFromAST(t *testing.T, path string) []string {
 	}
 	var names []string
 	ast.Inspect(file, func(n ast.Node) bool {
-		// Find the stubNames var declaration.
 		vs, ok := n.(*ast.ValueSpec)
 		if !ok {
 			return true
@@ -298,8 +288,6 @@ func stubNamesFromAST(t *testing.T, path string) []string {
 	return names
 }
 
-// appendLiteralStrings extracts string literals from a composite literal
-// (a []string slice). It prints the AST node to reconstruct the literal.
 func appendLiteralStrings(t *testing.T, expr ast.Expr, fset *token.FileSet) []string {
 	t.Helper()
 	var names []string
@@ -312,93 +300,11 @@ func appendLiteralStrings(t *testing.T, expr ast.Expr, fset *token.FileSet) []st
 		if !ok || lit.Kind != token.STRING {
 			t.Fatalf("stubNames element is not a string literal: %s", fset.Position(elt.Pos()))
 		}
-		v := unquote(lit.Value)
+		v, err := strconv.Unquote(lit.Value)
+		if err != nil {
+			t.Fatalf("unquote command name at %s: %v", fset.Position(elt.Pos()), err)
+		}
 		names = append(names, v)
 	}
 	return names
 }
-
-// unquote strips the surrounding quotes from a Go string literal. It
-// mirrors the errs code_test.go pattern but stays simple since the stub
-// list holds only plain double-quoted strings.
-func unquote(s string) string {
-	return strings.Trim(s, `"`)
-}
-
-// renderEntries produces the exact bytes the generator writes, so the
-// drift test compares generation against generation without invoking the
-// generator binary. It imports the same rendering the generator uses by
-// reconstructing the committed file's shape.
-func renderEntries(entries []Entry) []byte {
-	var b bytes.Buffer
-	b.WriteString("// Code generated by gen_catalog.go; DO NOT EDIT.\n")
-	b.WriteString("//\n")
-	b.WriteString("// Run `go generate ./catalog/...` to regenerate. The catalog is\n")
-	b.WriteString("// extracted from behavior registrations in registrations.go.\n")
-	b.WriteString("\n")
-	b.WriteString("package catalog\n\n")
-	b.WriteString("// GeneratedEntries is the generated attack catalog: one row per\n")
-	b.WriteString("// (behavior, mode) pair, sorted by (Name, Mode). It is the data\n")
-	b.WriteString("// view of the behavior registrations and the single source for\n")
-	b.WriteString("// dispatch, help text, legs, preconditions, and durability classes.\n")
-	b.WriteString("var GeneratedEntries = []Entry{\n")
-	for _, e := range entries {
-		b.WriteString("\t{Name: " + quoteGo(e.Name) + ", Mode: " + quoteGo(e.Mode) +
-			", Protocols: " + quoteSlice(e.Protocols) +
-			", Preconditions: " + quoteSlice(e.Preconditions) +
-			", Legs: " + legsLiteral(e.Legs) +
-			", Class: " + classLiteral(e.Class) +
-			", Teardown: " + quoteGo(e.Teardown) +
-			", Help: " + quoteGo(e.Help) + "},\n")
-	}
-	b.WriteString("}\n")
-	return b.Bytes()
-}
-
-func quoteGo(s string) string { return `"` + s + `"` }
-
-func quoteSlice(s []string) string {
-	if len(s) == 0 {
-		return "nil"
-	}
-	out := make([]string, len(s))
-	for i, v := range s {
-		out[i] = quoteGo(v)
-	}
-	return "[]string{" + strings.Join(out, ", ") + "}"
-}
-
-func classLiteral(c Durability) string {
-	switch c {
-	case NonDestructive:
-		return "NonDestructive"
-	case TransientDecay:
-		return "TransientDecay"
-	case TemporaryRestored:
-		return "TemporaryRestored"
-	case PermanentDestructive:
-		return "PermanentDestructive"
-	}
-	return quoteGo(string(c))
-}
-
-func legsLiteral(l Legs) string {
-	switch l {
-	case AttackOnly:
-		return "AttackOnly"
-	case WatchOptional:
-		return "WatchOptional"
-	case WatchRequired:
-		return "WatchRequired"
-	}
-	return quoteGo(string(l))
-}
-
-// silence unused imports the AST path may pull in without all branches.
-var (
-	_ = fs.WalkDir
-	_ = os.ReadFile
-	_ = filepath.Join
-	_ = printer.Fprint
-	_ = sort.Strings
-)

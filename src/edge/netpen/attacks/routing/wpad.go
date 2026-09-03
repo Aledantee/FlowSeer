@@ -1,20 +1,6 @@
-// wpad.go implements the rogue WPAD proxy attack behavior.
-//
-// Durability (from the catalog): transient-decay. The attack announces a
-// rogue WPAD server via spoofed NBT-NS and LLMNR name-resolution responses
-// for "wpad", then serves a TTL-bound PAC (Proxy Auto-Configuration) response
-// from a minimal embedded TCP listener on a free port. The decay bound is
-// the PAC TTL — clients re-fetch after the TTL expires and the proxy is
-// gone, so no explicit teardown is armed (transient-decay carries no
-// restore; the catalog records the decay bound, announced at run start).
-//
-// Port collision: if the embedded proxy cannot bind its TCP listener
-// (port already in use), the behavior reports a named coded error
-// (netpen/wpad-port-collision) rather than crashing.
-//
-// Secret material: credentials harvested by the rogue proxy (e.g. NTLM
-// hashes from proxy authentication) are emitted as length+protocol only
-// via [findings.NewSecret] — never the value.
+// WPAD sends fixed NBT-NS and LLMNR responses and briefly serves a loopback PAC.
+// Finding credential metadata is simulated; the HTTP handler does not capture
+// authentication exchanges or forward proxy traffic.
 
 package routing
 
@@ -62,10 +48,11 @@ type wpadState struct {
 // RunWPAD performs the rogue WPAD proxy attack: announce via NBT-NS and
 // LLMNR, then serve a TTL-bound PAC from an embedded TCP listener.
 //
-// The in-memory test shape: send NBT-NS and LLMNR poison responses, start
-// the embedded proxy, serve the PAC, capture a simulated credential
-// (length+protocol only), then shut down the proxy. Port collision is
-// tested by pre-binding the chosen port.
+// It requires runner-provided dependencies and opens a temporary loopback
+// HTTP listener, closed before return. Finding credential metadata comes from
+// a fixed simulated value; no authentication exchange is captured. Bind errors
+// carry [catalog.ErrCodeWPADPortCollision]. Concurrent calls require separate
+// dependencies.
 func RunWPAD(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 	qname := "wpad"
@@ -101,9 +88,7 @@ func RunWPAD(ctx context.Context, deps runner.Deps) error {
 		return fmt.Errorf("wpad: send llmnr: %w", err)
 	}
 
-	// A victim sending proxy authentication (e.g. NTLM) to the rogue
-	// proxy would have credentials captured. The value never enters
-	// the finding — only length + protocol.
+	// The fixture exercises secret redaction without receiving credentials.
 	captured := []byte("NTLMSSP\x00\x03\x00\x00\x00")
 	secret := findings.NewSecret("ntlm", captured)
 

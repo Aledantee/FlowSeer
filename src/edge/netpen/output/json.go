@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
@@ -16,38 +15,39 @@ import (
 // write error mid-run, typically EPIPE when the consumer closed the pipe).
 var ErrCodeJSONWrite = errs.NewCode("netpen/json-write")
 
-// errStdoutClosed is the named error returned when a stdout write fails. It
-// carries ErrCodeJSONWrite so callers can branch on the code.
+// ErrCodeJSONMarshal identifies records that cannot be encoded as JSON.
+var ErrCodeJSONMarshal = errs.NewCode("netpen/json-marshal")
+
 var errStdoutClosed = errs.New().
 	Code(ErrCodeJSONWrite).
 	ExitCode(1).
 	Msg("stdout write failed")
 
-// JSONWriter emits findings records as JSONL on stdout. Stdout carries only
-// records — one JSON object per line, the run-header meta record first, and a
-// trailing summary. Human progress and diagnostics go to stderr. The writer is
-// single-use: one Run call per instance.
+// JSONWriter emits one JSON object per line. Use [JSONWriter.Run] for a batch,
+// or [JSONWriter.WriteMeta], [JSONWriter.Write], and [JSONWriter.WriteSummary]
+// for a stream. Callers report returned errors and supply the closing summary.
+// Construct it with [NewJSONWriter]; the zero value is unusable. Methods are
+// not safe for concurrent use, and each instance represents one run.
 type JSONWriter struct {
-	out    *bufio.Writer
-	stderr io.Writer
-	meta   *findings.Meta
+	out  *bufio.Writer
+	meta *findings.Meta
 }
 
-// NewJSONWriter constructs a JSONWriter that writes records to stdout and
-// diagnostics to stderr. The meta record is emitted as the first line of the
-// run.
-func NewJSONWriter(stdout, stderr io.Writer, meta findings.Meta) *JSONWriter {
+// NewJSONWriter buffers records for a non-nil stdout. It copies meta without
+// writing it; use [JSONWriter.Run] or [JSONWriter.WriteMeta] to emit the header.
+// stderr is unused; callers decide where to report returned errors.
+func NewJSONWriter(stdout, _ io.Writer, meta findings.Meta) *JSONWriter {
 	return &JSONWriter{
-		out:    bufio.NewWriter(stdout),
-		stderr: stderr,
-		meta:   &meta,
+		out:  bufio.NewWriter(stdout),
+		meta: &meta,
 	}
 }
 
-// Run writes the meta header, then each record from recs as one JSONL line,
-// then flushes. It returns a named coded error if a stdout write fails
-// (typically EPIPE when the consumer closes the pipe); the error carries
-// ErrCodeJSONWrite.
+// Run writes the meta header followed by recs and flushes on success. recs must
+// exclude the header and include the closing summary. It stops at the first
+// error, leaving any buffered records unflushed. Errors wrap the original cause
+// with [ErrCodeJSONWrite] for stdout failures or [ErrCodeJSONMarshal] for invalid
+// JSON. A failed stdout writer must be discarded.
 func (w *JSONWriter) Run(recs []findings.Record) error {
 	header := findings.NewRecord(findings.KindMeta)
 	header.Time = w.meta.Started
@@ -62,35 +62,27 @@ func (w *JSONWriter) Run(recs []findings.Record) error {
 		}
 	}
 
-	if err := w.out.Flush(); err != nil {
-		return errStdoutClosed
-	}
-	return nil
+	return w.Flush()
 }
 
-// writeRecord marshals and writes one record as a JSONL line. A write failure
-// (EPIPE, closed pipe) is wrapped into the named coded error so the caller
-// degrades rather than panicking.
 func (w *JSONWriter) writeRecord(r findings.Record) error {
 	data, err := json.Marshal(r)
 	if err != nil {
-		fmt.Fprintf(w.stderr, "json marshal error: %v\n", err)
-		return errStdoutClosed
+		return errs.From(err).Code(ErrCodeJSONMarshal).Msg("marshal JSONL record")
 	}
 
 	if _, err := w.out.Write(data); err != nil {
-		return errStdoutClosed
+		return stdoutWriteError(err)
 	}
 	if _, err := w.out.Write([]byte("\n")); err != nil {
-		return errStdoutClosed
+		return stdoutWriteError(err)
 	}
 	return nil
 }
 
-// Write marshals and writes one record as a JSONL line and flushes the
-// buffer, so a streaming consumer sees each record as it arrives (live
-// arrival). A write failure returns the named coded error so the caller
-// can degrade rather than panic. Use [Run] for the buffered batch path.
+// Write emits and flushes one record so a streaming consumer sees it immediately.
+// Errors have the same codes and causes as [JSONWriter.Run]. Invalid JSON emits
+// no bytes for that record and leaves the writer usable.
 func (w *JSONWriter) Write(r findings.Record) error {
 	if err := w.writeRecord(r); err != nil {
 		return err
@@ -98,9 +90,8 @@ func (w *JSONWriter) Write(r findings.Record) error {
 	return w.Flush()
 }
 
-// WriteMeta writes only the run-header meta record and flushes. It is the
-// empty-run path: a run with no findings still emits the meta record followed
-// by a summary.
+// WriteMeta emits and flushes the run header. Call it once before streaming
+// records. Errors have the same codes and causes as [JSONWriter.Run].
 func (w *JSONWriter) WriteMeta() error {
 	header := findings.NewRecord(findings.KindMeta)
 	header.Time = w.meta.Started
@@ -108,13 +99,11 @@ func (w *JSONWriter) WriteMeta() error {
 	if err := w.writeRecord(header); err != nil {
 		return err
 	}
-	if err := w.out.Flush(); err != nil {
-		return errStdoutClosed
-	}
-	return nil
+	return w.Flush()
 }
 
-// WriteSummary writes a closing summary record and flushes.
+// WriteSummary emits and flushes a closing summary with the current timestamp.
+// Errors have the same codes and causes as [JSONWriter.Run].
 func (w *JSONWriter) WriteSummary(s findings.Summary) error {
 	rec := findings.NewRecord(findings.KindSummary)
 	rec.Time = time.Now()
@@ -122,21 +111,24 @@ func (w *JSONWriter) WriteSummary(s findings.Summary) error {
 	if err := w.writeRecord(rec); err != nil {
 		return err
 	}
-	if err := w.out.Flush(); err != nil {
-		return errStdoutClosed
-	}
-	return nil
+	return w.Flush()
 }
 
-// Flush flushes the buffered writer to stdout.
+// Flush writes buffered records to stdout. Errors wrap the underlying write
+// failure with [ErrCodeJSONWrite]; discard the writer after a stdout failure.
 func (w *JSONWriter) Flush() error {
 	if err := w.out.Flush(); err != nil {
-		return errStdoutClosed
+		return stdoutWriteError(err)
 	}
 	return nil
 }
 
-// IsStdoutClosed reports whether err is the named stdout-closed error.
+func stdoutWriteError(err error) error {
+	return errs.From(err).Code(ErrCodeJSONWrite).ExitCode(1).Msg("stdout write failed")
+}
+
+// IsStdoutClosed reports whether err wraps a stdout write failure identified by
+// [ErrCodeJSONWrite]. It matches any stdout failure, including a short write.
 func IsStdoutClosed(err error) bool {
 	return errors.Is(err, errStdoutClosed)
 }

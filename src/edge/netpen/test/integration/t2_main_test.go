@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -18,6 +19,10 @@ import (
 //
 // This mirrors the snmp t4 pattern (operator-supplied live device).
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(m.Run())
+	}
 	if !testenv.HasDocker() {
 		fmt.Fprintln(os.Stderr, "[netpen_t2] docker not on PATH; skipping tier")
 		os.Exit(0)

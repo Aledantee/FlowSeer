@@ -1,19 +1,3 @@
-// arpspoof.go implements the ARP cache poisoning attack behavior.
-//
-// Durability (from the catalog): temporary-restored. The attack enables
-// IP forwarding on the attacker and sends unicast ARP replies to poison the
-// victim's and gateway's ARP caches. The teardown restores host-local
-// ip_forward FIRST, then sends neighbor-cache unicast repair replies:
-// host-local state restores ahead of neighbor-cache repairs.
-//
-// The restore order differs from the baseline's arpspoof_cmd finally
-// block (l2l3-audit), where set_ip_forward(old_fwd) runs AFTER the
-// neighbor repairs: here the steps are ordered reverse-dependency,
-// least-dependent first, so host-local state — which depends on nothing
-// on the wire — is restored first. The teardown arms ip-forward-restore
-// first (executed first), then the neighbor-unicast-repair step
-// (executed second).
-
 package fh
 
 import (
@@ -34,9 +18,10 @@ type arpSpoofFinding struct {
 	Restore string   `json:"restore"`
 }
 
-// RunARPSpoof poisons ARP caches for the victim<->gateway pair. It arms
-// the restore steps (ip-forward first, then neighbor repairs) before the
-// first poison frame.
+// RunARPSpoof sends ARP replies for the fixed victim and gateway pair after
+// arming neighbor repairs on the runner's teardown handle. The preceding
+// ip-forward-restore step is a no-op because this behavior does not change
+// host forwarding. Craft and send failures include operation context.
 func RunARPSpoof(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 
@@ -47,9 +32,6 @@ func RunARPSpoof(ctx context.Context, deps runner.Deps) error {
 	// depend on the attacker's own stack being in a known state, so
 	// ip_forward goes first.
 	deps.Teardown.Arm("ip-forward-restore", func(_ context.Context) error {
-		// Restoring the original ip_forward sysctl value is host-side
-		// state with no wire effect; the in-memory harness observes the
-		// restore via the teardown step name and the recorded TX.
 		return nil
 	})
 

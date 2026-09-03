@@ -1,26 +1,32 @@
-// Package bench holds netpen's advisory performance benchmarks for the
-// decode hot path and the flood-craft pool loop.
+// Package bench measures Netpen packet decoding and frame serialization offline.
+// It belongs to the standalone src/edge/netpen module. From the repository root:
 //
-// The suite follows the snmp bench shape (committed baseline + advisory
-// comparison): allocs/op and B/op are measured, but the Success Criteria
-// disclaims a performance budget, so the comparison is report-only and
-// never hard-fails. The Taskfile `bench` task runs the benchmarks and
-// prints a benchstat comparison against the committed baseline in
-// testdata/baseline.txt.
+//	go -C src/edge/netpen test -race -tags=netpen_bench ./bench
+//	go -C src/edge/netpen test -tags=netpen_bench -run '^$' -bench . -benchtime=1x ./bench
 //
-// # Build tag
+// The netpen_bench tag enables both the benchmarks and their fixture checks.
+// The one-iteration command checks that the workloads run; use repeated longer
+// runs for performance comparisons. No benchmark opens a link or sends traffic.
 //
-// Benchmarks are gated by the `netpen_bench` build tag so they never run
-// in the default `go test ./...` pass — they are opt-in via
-// `task bench` or `go test -tags=netpen_bench -bench .`.
+// # Workloads
 //
-// # Hot paths
+// Decode benchmarks load every pcap from ../layers/testdata before timing and
+// register Netpen's owned protocol decoders in gopacket. Serial and parallel
+// loops rotate through the same corpus, including its intentionally malformed
+// protocol messages. Unreadable or truncated capture files fail setup; protocol
+// decode failures within a valid capture remain part of the measured workload.
 //
-//   - Decode: gopacket's full packet decoder over the layer testdata
-//     fixtures (DTP, VTP, MVRP, PAgP, LACP, EIGRP, HSRP, GLBP). This is
-//     the receive-side hot path: every frame the leg delivers is decoded
-//     through the owned layer decoders.
-//   - Flood-craft: the attack craft functions build raw frames (Ethernet
-//     → IP → protocol). The pool loop measures the alloc/byte cost of
-//     crafting a burst of frames, the send-side hot path.
+// The frame benchmarks serialize a fixed Ethernet/ARP request. PoolLoop allocates
+// a fresh SerializeBuffer per frame; ReuseBuffer keeps one warmed buffer across
+// iterations. They measure serialization and allocation costs, without calling
+// attack-specific craft functions or measuring link I/O.
+//
+// # Comparisons
+//
+// testdata/baseline.txt is a committed reference for advisory comparisons.
+// The parent module's Taskfile bench task runs the suite and reports a benchstat
+// comparison when benchstat is installed. There is no hard threshold for timing
+// or allocation changes; fixture and serialization errors still fail a run.
+// Compare only captures with the same corpus and decoder registrations. Refresh
+// the baseline deliberately after reviewing a workload change.
 package bench

@@ -16,9 +16,8 @@ import (
 	"github.com/gopacket/gopacket"
 )
 
-// FixtureSrcMAC is the source MAC the harvest script uses for all routing
-// fixtures. Behaviors use it as the default source when no attack-leg
-// MAC is available (in-memory tests).
+// FixtureSrcMAC is the fixed source MAC used by all routing behaviors and
+// their fixtures. Callers must not mutate it while a behavior is running.
 var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 // Well-known multicast destinations.

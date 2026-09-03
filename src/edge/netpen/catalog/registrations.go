@@ -1,9 +1,7 @@
 package catalog
 
-// registrations.go owns the full 35-behavior metadata registration table. Every
-// CLI command name and the 8 superset attacks are registered here with
-// the correctness commitment: each (behavior, mode) pair's class, legs,
-// and teardown match the durability oracle row-for-row.
+// registrations.go owns the behavior metadata table. Each (behavior, mode)
+// pair's class and teardown must match the durability oracle in catalog_test.go.
 //
 // This file is the production registration path for [Register]. Attack packages
 // contain the run functions and expose runner behavior maps; they do not call

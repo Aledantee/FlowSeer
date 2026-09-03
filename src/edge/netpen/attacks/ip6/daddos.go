@@ -37,6 +37,7 @@ type dadDOSFinding struct {
 // behavior observes a defending Neighbor Advertisement from the
 // legitimate owner (the host completed DAD before the attack window),
 // it reports resisted rather than failed open.
+// Cancellation while observing returns ctx.Err(); terminal receive errors are wrapped.
 func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 	src := srcMAC()
 	target := net.ParseIP("fd00::dead")
@@ -57,7 +58,13 @@ func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 	ch := deps.AttackLeg.Receive(ctx)
 	select {
 	case frame, ok := <-ch:
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if ok {
+			if frame.Err != nil {
+				return fmt.Errorf("daddos: receive defense: %w", frame.Err)
+			}
 			na, err := decodeNA(frame.Data)
 			if err == nil && na.TargetAddress.Equal(target) {
 				// The legitimate owner is defending — resisted.
@@ -68,6 +75,9 @@ func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 		// No defending NA within the window — attack proceeds.
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	detail, _ := json.Marshal(dadDOSFinding{

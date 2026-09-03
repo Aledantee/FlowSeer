@@ -1,15 +1,3 @@
-// register.go exports the DHCP/IPv6 behavior functions for the runner's
-// [runner.Options.Behaviors] map. Each behavior is a thin function over
-// the toolkit; durability metadata (class, legs, teardown) lives in the
-// catalog (registered in catalog/registrations.go) and is the
-// single source the runner's gate consults.
-//
-// The catalog rows for these 9 behavior pairs are already registered
-// in catalog/registrations.go and verified by the oracle test
-// (TestOracleDurabilityClassification). This file adds only the run
-// functions; it does not re-register metadata — the catalog is the
-// single registration mechanism.
-
 package ip6
 
 import "go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -18,6 +6,7 @@ import "go.aledante.io/FlowSeer/src/edge/netpen/runner"
 // [runner.Options.Behaviors]. The keys are the attack names the
 // catalog registered: dhcpstarve, roguedhcp, roguedhcp6, daddos,
 // ndpspoof, raguard, roguera, raflood, mld.
+// Each call returns a new map that callers may modify independently.
 func Behaviors() map[string]runner.Behavior {
 	return map[string]runner.Behavior{
 		"dhcpstarve": RunDHCPStarve,

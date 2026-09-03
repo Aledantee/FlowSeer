@@ -1011,3 +1011,64 @@ func TestTeardownCompletionHappyPath(t *testing.T) {
 		}
 	}
 }
+
+func TestCancellationPreservesTeardownContext(t *testing.T) {
+	for _, source := range []string{"caller", "timeout", "consumer"} {
+		t.Run(source, func(t *testing.T) {
+			leg := newMockLeg()
+			closeLeg(t, leg)
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			armed := make(chan struct{})
+			restored := false
+			opts := runner.Options{
+				AttackLeg:      leg,
+				Attacks:        []runner.AttackRef{{Name: "arpspoof"}},
+				TeardownBudget: time.Second,
+				Behaviors: map[string]runner.Behavior{
+					"arpspoof": func(ctx context.Context, deps runner.Deps) error {
+						deps.Teardown.Arm("restore", func(ctx context.Context) error {
+							if err := ctx.Err(); err != nil {
+								return err
+							}
+							if _, ok := ctx.Deadline(); !ok {
+								t.Error("teardown context has no deadline")
+							}
+							restored = true
+							return nil
+						})
+						close(armed)
+						<-ctx.Done()
+						return ctx.Err()
+					},
+				},
+			}
+			wantErr := context.Canceled
+			switch source {
+			case "timeout":
+				opts.Timeout = 50 * time.Millisecond
+				wantErr = context.DeadlineExceeded
+			case "consumer":
+				wantErr = nil
+			}
+			r := runner.NewRunner(opts)
+			result := make(chan error, 1)
+			go func() { result <- r.Run(ctx) }()
+			<-armed
+			switch source {
+			case "caller":
+				cancel()
+			case "consumer":
+				if err := r.Stream().Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := <-result; err != wantErr {
+				t.Errorf("Run error = %v, want %v", err, wantErr)
+			}
+			if !restored {
+				t.Error("cancellation prevented restoration")
+			}
+		})
+	}
+}

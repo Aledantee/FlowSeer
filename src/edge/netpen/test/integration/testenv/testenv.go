@@ -1,32 +1,30 @@
-// Package testenv holds the shared environment plumbing for the netpen
-// integration test suite: Docker / containerlab availability gates and
-// the per-tier target address plumbing.
-//
-// Tiers reach the wire through the real link.Open + runner path; there is
-// no backend-swap seam. The test environment provides the Docker
-// orchestration (containerlab topology or plain docker compose) and the
-// target address the tests connect to.
+// Package testenv shares lab targets and checks Docker/containerlab tools
+// for netpen integration tiers. Tier packages own lab setup and teardown.
 package testenv
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os/exec"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // target carries the lab target address established by a tier's TestMain.
 var target atomic.Value // string
 
 // SetTarget records the lab target a tier's TestMain has brought online.
+// It is safe to call concurrently with Target or another SetTarget call.
 func SetTarget(addr string) {
 	target.Store(addr)
 }
 
-// Target returns the lab target previously set by SetTarget, or "".
+// Target returns the lab target previously set by [SetTarget], or "".
+// It is safe for concurrent use.
 func Target() string {
 	if v, ok := target.Load().(string); ok {
 		return v
@@ -47,16 +45,10 @@ func HasContainerlab() bool {
 }
 
 // DockerDaemonRunning reports whether the Docker daemon is responsive.
-// HasDocker only checks the CLI binary; this probes the actual socket.
+// The CLI call has a five-second deadline and at most one second to drain
+// its output pipes. A failed or empty response returns false.
 func DockerDaemonRunning() bool {
-	if !HasDocker() {
-		return false
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "info", "--format", "{{.ServerVersion}}")
-	out, err := cmd.Output()
-	return err == nil && len(strings.TrimSpace(string(out))) > 0
+	return dockerOutput("info", "--format", "{{.ServerVersion}}") != ""
 }
 
 // SkipIfNoDocker calls t.Skip when Docker is not available.
@@ -67,13 +59,19 @@ func SkipIfNoDocker(t testing.TB) {
 	}
 }
 
-// DockerComposeVersion returns the `docker compose version` output, or
-// empty if docker compose is unavailable.
+// DockerComposeVersion returns the trimmed Compose version, or an empty
+// string when the CLI fails, returns no version, or exceeds the five-second
+// deadline. Output pipes have at most one additional second to drain.
 func DockerComposeVersion() string {
-	if !HasDocker() {
-		return ""
-	}
-	out, err := exec.Command("docker", "compose", "version", "--format", "{{.Version}}").Output()
+	return dockerOutput("compose", "version", "--format", "{{.Version}}")
+}
+
+func dockerOutput(args ...string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.WaitDelay = time.Second
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
@@ -83,9 +81,9 @@ func DockerComposeVersion() string {
 // ErrDockerUnavailable is returned by tier start functions when the
 // Docker daemon is not running, so TestMain can distinguish "skip" from
 // "fail".
-var ErrDockerUnavailable = fmt.Errorf("docker daemon not running")
+var ErrDockerUnavailable = errs.Msg("docker daemon not running")
 
-// IsDockerUnavailable reports whether err is ErrDockerUnavailable.
+// IsDockerUnavailable reports whether err wraps [ErrDockerUnavailable].
 func IsDockerUnavailable(err error) bool {
-	return err == ErrDockerUnavailable
+	return errors.Is(err, ErrDockerUnavailable)
 }
