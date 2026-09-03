@@ -26,6 +26,7 @@ message SubscriptionContract {
   // Prior persisted names that remain decodable as type_name.
   repeated string aliases = 3 [
     (buf.validate.field).repeated.max_items = 256,
+    (buf.validate.field).repeated.unique = true,
     (buf.validate.field).repeated.items.string.max_len = 256,
     (buf.validate.field).repeated.items.string.pattern = "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$"
   ];
@@ -70,34 +71,45 @@ message RuntimeManifest {
   // Service tenancy namespace.
   string service_namespace = 1 [
     (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 255
   ];
   // Service identity within service_namespace.
   string service_name = 2 [
     (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 255
   ];
   // Private JetStream domain derived from the service identity.
   string domain = 3 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^v1_[a-z2-7]+$"
   ];
   // Fully-qualified durable envelope name.
   string envelope_type = 4 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.max_len = 256
+    (buf.validate.field).string.max_len = 256,
+    (buf.validate.field).string.pattern = "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$"
   ];
   // Runtime envelope encoding version.
-  uint32 envelope_version = 5 [(buf.validate.field).required = true];
+  uint32 envelope_version = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 1
+  ];
   // Private subject encoding version.
-  uint32 subject_version = 6 [(buf.validate.field).required = true];
+  uint32 subject_version = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 1
+  ];
   // Exact embedded NATS server version that last committed the manifest.
   string nats_version = 7 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+].+)?$"
   ];
   // Static leaf contracts, including currently disabled leaves.
-  repeated ModuleContract modules = 8;
+  repeated ModuleContract modules = 8 [(buf.validate.field).repeated.min_items = 1];
 }
 
 // The last durable phase completed by an idempotent reconciliation.
@@ -140,18 +152,31 @@ message ReconciliationRecord {
 // The stable provenance sidecar checked before a NATS version opens a store.
 message StoreProvenance {
   // Sidecar layout version.
-  uint32 format_version = 1 [(buf.validate.field).required = true];
+  uint32 format_version = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 1
+  ];
   // NATS server version allowed to open this store without an operator backup.
   string nats_version = 2 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+].+)?$"
   ];
   // Service namespace that owns the store.
-  string service_namespace = 3 [(buf.validate.field).required = true];
+  string service_namespace = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
   // Service name that owns the store.
-  string service_name = 4 [(buf.validate.field).required = true];
+  string service_name = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
   // JetStream domain that owns the store.
-  string domain = 5 [(buf.validate.field).required = true];
+  string domain = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^v1_[a-z2-7]+$"
+  ];
 }
 
 // The durable terminal intent for a mailbox delivery.
@@ -171,7 +196,8 @@ message Settlement {
   // Canonical target mailbox path.
   string target_path = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.max_len = 255
+    (buf.validate.field).string.max_len = 255,
+    (buf.validate.field).string.pattern = "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:_[a-z0-9]+)*)*$"
   ];
   // Stable UUID of the logical message.
   string message_id = 2 [

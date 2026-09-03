@@ -1379,12 +1379,12 @@ var File_flowseer_service_v1_bus_proto protoreflect.FileDescriptor
 
 const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\n" +
-	"\x1dflowseer/service/v1/bus.proto\x12\x13flowseer.service.v1\x1a!flowseer/service/v1/message.proto\"\xbe\x02\n" +
+	"\x1dflowseer/service/v1/bus.proto\x12\x13flowseer.service.v1\x1a!flowseer/service/v1/message.proto\"\xc0\x02\n" +
 	"\x14SubscriptionContract\x12C\n" +
 	"\x04kind\x18\x01 \x01(\x0e2 .flowseer.service.v1.MessageKindB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12]\n" +
-	"\ttype_name\x18\x02 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\btypeName\x12_\n" +
-	"\aaliases\x18\x03 \x03(\tBE\xbaHB\x92\x01?\x10\x80\x02\":r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\aaliases\x12!\n" +
+	"\ttype_name\x18\x02 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\btypeName\x12a\n" +
+	"\aaliases\x18\x03 \x03(\tBG\xbaHD\x92\x01A\x10\x80\x02\x18\x01\":r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\aaliases\x12!\n" +
 	"\aretries\x18\x04 \x01(\rB\a\xbaH\x04*\x02\x18dR\aretries\"\x83\x03\n" +
 	"\x0eModuleContract\x12c\n" +
 	"\x04path\x18\x01 \x01(\tBO\xbaHL\xc8\x01\x01rG\x18\xff\x012B^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:_[a-z0-9]+)*)*$R\x04path\x12<\n" +
@@ -1392,35 +1392,39 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"path_token\x18\x02 \x01(\tB\x1d\xbaH\x1a\xc8\x01\x01r\x15\x18\xd4\x022\x10^[A-Za-z0-9_-]+$R\tpathToken\x12<\n" +
 	"\fdurable_name\x18\x03 \x01(\tB\x19\xbaH\x16\xc8\x01\x01r\x11\x18@2\r^[a-z0-9_-]+$R\vdurableName\x12O\n" +
 	"\rsubscriptions\x18\x04 \x03(\v2).flowseer.service.v1.SubscriptionContractR\rsubscriptions\x12?\n" +
-	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\xa3\x03\n" +
-	"\x0fRuntimeManifest\x128\n" +
-	"\x11service_namespace\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\x18\xff\x01R\x10serviceNamespace\x12.\n" +
-	"\fservice_name\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\x18\xff\x01R\vserviceName\x12\"\n" +
-	"\x06domain\x18\x03 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x18@R\x06domain\x120\n" +
-	"\renvelope_type\x18\x04 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\x18\x80\x02R\fenvelopeType\x121\n" +
-	"\x10envelope_version\x18\x05 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x0fenvelopeVersion\x12/\n" +
-	"\x0fsubject_version\x18\x06 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x0esubjectVersion\x12-\n" +
-	"\fnats_version\x18\a \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x18@R\vnatsVersion\x12=\n" +
-	"\amodules\x18\b \x03(\v2#.flowseer.service.v1.ModuleContractR\amodules\"\xa6\x02\n" +
+	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\xa3\x04\n" +
+	"\x0fRuntimeManifest\x12:\n" +
+	"\x11service_namespace\x18\x01 \x01(\tB\r\xbaH\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\xff\x01R\x10serviceNamespace\x120\n" +
+	"\fservice_name\x18\x02 \x01(\tB\r\xbaH\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\xff\x01R\vserviceName\x122\n" +
+	"\x06domain\x18\x03 \x01(\tB\x1a\xbaH\x17\xc8\x01\x01r\x12\x18@2\x0e^v1_[a-z2-7]+$R\x06domain\x12e\n" +
+	"\renvelope_type\x18\x04 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\fenvelopeType\x125\n" +
+	"\x10envelope_version\x18\x05 \x01(\rB\n" +
+	"\xbaH\a\xc8\x01\x01*\x02(\x01R\x0fenvelopeVersion\x123\n" +
+	"\x0fsubject_version\x18\x06 \x01(\rB\n" +
+	"\xbaH\a\xc8\x01\x01*\x02(\x01R\x0esubjectVersion\x12R\n" +
+	"\fnats_version\x18\a \x01(\tB/\xbaH,\xc8\x01\x01r'\x18@2#^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+].+)?$R\vnatsVersion\x12G\n" +
+	"\amodules\x18\b \x03(\v2#.flowseer.service.v1.ModuleContractB\b\xbaH\x05\x92\x01\x02\b\x01R\amodules\"\xa6\x02\n" +
 	"\x14ReconciliationRecord\x12@\n" +
 	"\bprevious\x18\x01 \x01(\v2$.flowseer.service.v1.RuntimeManifestR\bprevious\x12F\n" +
 	"\adesired\x18\x02 \x01(\v2$.flowseer.service.v1.RuntimeManifestB\x06\xbaH\x03\xc8\x01\x01R\adesired\x125\n" +
 	"\x10desired_checksum\x18\x03 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02h R\x0fdesiredChecksum\x12M\n" +
 	"\x05phase\x18\x04 \x01(\x0e2(.flowseer.service.v1.ReconciliationPhaseB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x05phase\"\xef\x01\n" +
-	"\x0fStoreProvenance\x12-\n" +
-	"\x0eformat_version\x18\x01 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\rformatVersion\x12-\n" +
-	"\fnats_version\x18\x02 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x18@R\vnatsVersion\x123\n" +
-	"\x11service_namespace\x18\x03 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x10serviceNamespace\x12)\n" +
-	"\fservice_name\x18\x04 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\vserviceName\x12\x1e\n" +
-	"\x06domain\x18\x05 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x06domain\"\x86\x02\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x05phase\"\xb2\x02\n" +
+	"\x0fStoreProvenance\x121\n" +
+	"\x0eformat_version\x18\x01 \x01(\rB\n" +
+	"\xbaH\a\xc8\x01\x01*\x02(\x01R\rformatVersion\x12R\n" +
+	"\fnats_version\x18\x02 \x01(\tB/\xbaH,\xc8\x01\x01r'\x18@2#^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+].+)?$R\vnatsVersion\x127\n" +
+	"\x11service_namespace\x18\x03 \x01(\tB\n" +
+	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\x10serviceNamespace\x12-\n" +
+	"\fservice_name\x18\x04 \x01(\tB\n" +
+	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\vserviceName\x120\n" +
+	"\x06domain\x18\x05 \x01(\tB\x18\xbaH\x15\xc8\x01\x01r\x102\x0e^v1_[a-z2-7]+$R\x06domain\"\xca\x02\n" +
 	"\n" +
-	"Settlement\x12,\n" +
-	"\vtarget_path\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\x18\xff\x01R\n" +
+	"Settlement\x12p\n" +
+	"\vtarget_path\x18\x01 \x01(\tBO\xbaHL\xc8\x01\x01rG\x18\xff\x012B^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:_[a-z0-9]+)*)*$R\n" +
 	"targetPath\x12*\n" +
 	"\n" +
 	"message_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tmessageId\x12\x1f\n" +
