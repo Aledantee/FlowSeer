@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -274,7 +275,8 @@ func TestDeliveryFailureBeforeRunnerStartTerminatesAttempt(t *testing.T) {
 	}
 	done := make(chan result, 1)
 	go func() {
-		outcome, _, err := runLeafAttempt(context.Background(), runtime.modules[0], attemptRuntime)
+		module := runtime.modules[0]
+		outcome, _, err := runLeafAttempt(context.Background(), module, telemetry.view(module.telemetryPolicy), attemptRuntime)
 		done <- result{outcome: outcome, err: err}
 	}()
 	select {
@@ -656,6 +658,187 @@ func TestRunNestedEscalationResamplesBranchGates(t *testing.T) {
 	}
 	if probes.Load() != 2 {
 		t.Fatalf("gate probes = %d, want startup plus owning-supervisor reconstruction", probes.Load())
+	}
+}
+
+func TestLeafRetryRetainsTelemetryPolicySnapshot(t *testing.T) {
+	localLogger, localSink := newRecordingLogger()
+	exportLogger, exportSink := newRecordingLogger()
+	var policyReads atomic.Int32
+	var attempts atomic.Int32
+	replacementStarted := make(chan struct{})
+	options := immediateSupervisorOptions()
+	options.lookup = func(key string) (string, bool) {
+		if key != "FLOWSEER_EDGE_WORKER_LOGS_ENABLED" {
+			return "", false
+		}
+		if policyReads.Add(1) == 1 {
+			return "false", true
+		}
+		return "true", true
+	}
+	config := Config{
+		Identity:   testIdentity(),
+		Logger:     localLogger,
+		LogHandler: exportLogger.Handler(),
+		Modules: []Module{{
+			Name: "worker",
+			Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				attempt := attempts.Add(1)
+				return Attempt{Runner: func(ctx context.Context) error {
+					Logger(ctx).InfoContext(ctx, fmt.Sprintf("attempt %d", attempt))
+					if attempt == 1 {
+						return errors.New("retry")
+					}
+					close(replacementStarted)
+					<-ctx.Done()
+					return ctx.Err()
+				}}, nil
+			}},
+		}},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- runWithOptions(ctx, config, options) }()
+	<-replacementStarted
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("runWithOptions() error: %v", err)
+	}
+	if got := policyReads.Load(); got != 1 {
+		t.Fatalf("leaf policy reads = %d, want one owning-generation snapshot", got)
+	}
+	if _, ok := localSink.find("attempt 1"); !ok {
+		t.Fatal("first attempt did not reach local logger")
+	}
+	if _, ok := localSink.find("attempt 2"); !ok {
+		t.Fatal("replacement attempt did not reach local logger")
+	}
+	if _, ok := exportSink.find("attempt 1"); ok {
+		t.Fatal("first attempt reached export handler")
+	}
+	if _, ok := exportSink.find("attempt 2"); ok {
+		t.Fatal("leaf retry resampled its telemetry policy")
+	}
+}
+
+func TestBranchReconstructionResamplesDescendantTelemetryAndRetainsBranch(t *testing.T) {
+	localLogger, _ := newRecordingLogger()
+	exportLogger, exportSink := newRecordingLogger()
+	var branchPolicyReads atomic.Int32
+	var leafPolicyReads atomic.Int32
+	var attempts atomic.Int32
+	replacementStarted := make(chan struct{})
+	options := immediateSupervisorOptions()
+	options.lookup = func(key string) (string, bool) {
+		switch key {
+		case "FLOWSEER_EDGE_GROUP_LOGS_ENABLED":
+			branchPolicyReads.Add(1)
+			return "false", true
+		case "FLOWSEER_EDGE_GROUP_WORKER_LOGS_ENABLED":
+			if leafPolicyReads.Add(1) == 1 {
+				return "false", true
+			}
+			return "true", true
+		default:
+			return "", false
+		}
+	}
+	config := Config{
+		Identity:   testIdentity(),
+		Logger:     localLogger,
+		LogHandler: exportLogger.Handler(),
+		Modules: []Module{{
+			Name:   "group",
+			Policy: Policy{Error: OutcomePolicy{Action: Restart}},
+			Branch: &Branch{Children: []Module{{
+				Name:   "worker",
+				Policy: Policy{Error: OutcomePolicy{Action: Escalate}},
+				Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+					attempt := attempts.Add(1)
+					return Attempt{Runner: func(ctx context.Context) error {
+						Logger(ctx).InfoContext(ctx, fmt.Sprintf("branch attempt %d", attempt))
+						if attempt == 1 {
+							return errors.New("reconstruct")
+						}
+						close(replacementStarted)
+						<-ctx.Done()
+						return ctx.Err()
+					}}, nil
+				}},
+			}}},
+		}},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- runWithOptions(ctx, config, options) }()
+	<-replacementStarted
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("runWithOptions() error: %v", err)
+	}
+	if got := branchPolicyReads.Load(); got != 1 {
+		t.Fatalf("branch policy reads = %d, want retained parent snapshot", got)
+	}
+	if got := leafPolicyReads.Load(); got != 2 {
+		t.Fatalf("descendant policy reads = %d, want startup plus branch reconstruction", got)
+	}
+	if _, ok := exportSink.find("branch attempt 1"); ok {
+		t.Fatal("initial disabled descendant reached export handler")
+	}
+	if _, ok := exportSink.find("branch attempt 2"); !ok {
+		t.Fatal("reconstructed enabled descendant did not reach export handler")
+	}
+}
+
+func TestBranchReconstructionTelemetryConfigFailureIsFatal(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		logHandler slog.Handler
+		second     string
+		category   string
+	}{
+		{name: "malformed", logHandler: slog.DiscardHandler, second: "yes", category: "malformed"},
+		{name: "unavailable", second: "true", category: "unavailable"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var policyReads atomic.Int32
+			var attempts atomic.Int32
+			options := immediateSupervisorOptions()
+			options.lookup = func(key string) (string, bool) {
+				if key != "FLOWSEER_EDGE_GROUP_WORKER_LOGS_ENABLED" {
+					return "", false
+				}
+				if policyReads.Add(1) == 1 {
+					return "false", true
+				}
+				return tt.second, true
+			}
+			err := runWithOptions(context.Background(), Config{
+				Identity:   testIdentity(),
+				Logger:     slog.New(slog.DiscardHandler),
+				LogHandler: tt.logHandler,
+				Modules: []Module{{
+					Name:   "group",
+					Policy: Policy{Error: OutcomePolicy{Action: Restart, Budget: RestartBudget{Max: 10, Window: time.Hour}}},
+					Branch: &Branch{Children: []Module{{
+						Name:   "worker",
+						Policy: Policy{Error: OutcomePolicy{Action: Escalate}},
+						Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+							attempts.Add(1)
+							return Attempt{Runner: func(context.Context) error { return errors.New("reconstruct") }}, nil
+						}},
+					}}},
+				}},
+			}, options)
+			assertTelemetryConfigError(t, err, "FLOWSEER_EDGE_GROUP_WORKER_LOGS_ENABLED", tt.category, tt.second)
+			if got := policyReads.Load(); got != 2 {
+				t.Fatalf("policy reads = %d, want startup plus one reconstruction", got)
+			}
+			if got := attempts.Load(); got != 1 {
+				t.Fatalf("attempts = %d, want no restart loop after fatal configuration", got)
+			}
+		})
 	}
 }
 

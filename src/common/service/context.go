@@ -61,6 +61,10 @@ func valuesFromContext(ctx context.Context) contextValues {
 	return values
 }
 
+func contextWithoutRecordingSpan(ctx context.Context) context.Context {
+	return trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(ctx))
+}
+
 // Name returns the service name attached to ctx, or an empty string when ctx
 // does not belong to a service attempt.
 func Name(ctx context.Context) string {

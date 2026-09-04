@@ -4,27 +4,35 @@ import (
 	"context"
 	"log/slog"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestAttemptContextAccessors(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	tracer := tracenoop.NewTracerProvider().Tracer(instrumentationScope)
-	meter := noop.NewMeterProvider().Meter(instrumentationScope)
+	tracerProvider := tracenoop.NewTracerProvider()
+	meterProvider := noop.NewMeterProvider()
+	tracer := tracerProvider.Tracer(instrumentationScope)
+	meter := meterProvider.Meter(instrumentationScope)
 	propagator := propagation.TraceContext{}
 	messageBus := &MessageBus{sourcePath: "edge/ingest/syslog"}
 	values := contextValues{
-		identity:   testIdentity(),
-		modulePath: "edge/ingest/syslog",
-		envPrefix:  "FLOWSEER_EDGE_",
-		logger:     logger,
-		tracer:     tracer,
-		meter:      meter,
-		propagator: propagator,
-		bus:        messageBus,
+		identity:       testIdentity(),
+		modulePath:     "edge/ingest/syslog",
+		envPrefix:      "FLOWSEER_EDGE_",
+		logger:         logger,
+		tracer:         tracer,
+		meter:          meter,
+		tracerProvider: tracerProvider,
+		meterProvider:  meterProvider,
+		propagator:     propagator,
+		bus:            messageBus,
 	}
 	ctx := context.WithoutCancel(withContextValues(context.Background(), values))
 
@@ -55,11 +63,52 @@ func TestAttemptContextAccessors(t *testing.T) {
 	if Meter(ctx) != meter {
 		t.Error("Meter() did not preserve the attempt meter")
 	}
+	if TracerProvider(ctx) != tracerProvider || MeterProvider(ctx) != meterProvider {
+		t.Error("provider accessors did not preserve attempt provider identity")
+	}
 	if _, ok := Propagator(ctx).(propagation.TraceContext); !ok {
 		t.Errorf("Propagator() type = %T, want propagation.TraceContext", Propagator(ctx))
 	}
 	if Bus(ctx) != messageBus {
 		t.Error("Bus() did not preserve the attempt message bus")
+	}
+}
+
+func TestContextWithoutRecordingSpanPreservesContextButIsolatesSpan(t *testing.T) {
+	type identityKey struct{}
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	deadline := time.Now().Add(time.Minute)
+	parent, cancel := context.WithDeadline(context.WithValue(context.Background(), identityKey{}, "caller"), deadline)
+	defer cancel()
+	parent, parentSpan := provider.Tracer("parent").Start(parent, "parent")
+
+	got := contextWithoutRecordingSpan(parent)
+	if got.Value(identityKey{}) != "caller" {
+		t.Fatal("context identity was not preserved")
+	}
+	if gotDeadline, ok := got.Deadline(); !ok || !gotDeadline.Equal(deadline) {
+		t.Fatalf("deadline = %v, %t, want %v", gotDeadline, ok, deadline)
+	}
+	if gotSpanContext := trace.SpanContextFromContext(got); !gotSpanContext.Equal(parentSpan.SpanContext()) {
+		t.Fatalf("span context = %v, want %v", gotSpanContext, parentSpan.SpanContext())
+	}
+	isolated := trace.SpanFromContext(got)
+	if isolated == parentSpan || isolated.IsRecording() {
+		t.Fatal("context retained the mutable recording parent span")
+	}
+	isolated.End()
+	if len(recorder.Ended()) != 0 {
+		t.Fatal("ending the isolated span ended the parent")
+	}
+	parentSpan.End()
+
+	canceled, cancelNow := context.WithCancel(got)
+	cancelNow()
+	select {
+	case <-canceled.Done():
+	case <-time.After(time.Second):
+		t.Fatal("cancellation was not preserved")
 	}
 }
 

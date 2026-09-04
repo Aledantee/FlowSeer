@@ -70,6 +70,7 @@ func (o lifecycleOutcome) string() (string, bool) {
 }
 
 type telemetry struct {
+	owner          *telemetryOwner
 	logger         *slog.Logger
 	tracer         trace.Tracer
 	meter          metric.Meter
@@ -236,17 +237,10 @@ func (t telemetry) recordDisposition(ctx context.Context, modulePath, typeName s
 
 func (t telemetry) values(identity Identity, envPrefix, modulePath string) contextValues {
 	return contextValues{
-		identity:   identity,
-		modulePath: modulePath,
-		envPrefix:  envPrefix,
-		// The attempt logger carries the identity the runtime records so that a
-		// module never has to restate it on every call.
-		logger: t.logger.With(
-			slog.String(string(semconv.ServiceNameKey), identity.Name),
-			slog.String(string(semconv.ServiceNamespaceKey), identity.Namespace),
-			slog.String(string(semconv.ServiceVersionKey), identity.Version),
-			slog.String(modulePathKey, modulePath),
-		),
+		identity:       identity,
+		modulePath:     modulePath,
+		envPrefix:      envPrefix,
+		logger:         moduleLogger(t.logger, identity, modulePath),
 		tracer:         t.tracer,
 		meter:          t.meter,
 		tracerProvider: t.tracerProvider,
@@ -256,8 +250,30 @@ func (t telemetry) values(identity Identity, envPrefix, modulePath string) conte
 	}
 }
 
+func moduleLogger(logger *slog.Logger, identity Identity, modulePath string) *slog.Logger {
+	return logger.With(
+		slog.String(string(semconv.ServiceNameKey), identity.Name),
+		slog.String(string(semconv.ServiceNamespaceKey), identity.Namespace),
+		slog.String(string(semconv.ServiceVersionKey), identity.Version),
+		slog.String(modulePathKey, modulePath),
+	)
+}
+
 func (t telemetry) recordLifecycle(
 	ctx context.Context,
+	identity Identity,
+	modulePath string,
+	action lifecycleAction,
+	outcome lifecycleOutcome,
+) error {
+	return recordLifecycle(ctx, t.logger, t.lifecycle, true, identity, modulePath, action, outcome)
+}
+
+func recordLifecycle(
+	ctx context.Context,
+	logger *slog.Logger,
+	lifecycle metric.Int64Counter,
+	recordMetric bool,
 	identity Identity,
 	modulePath string,
 	action lifecycleAction,
@@ -272,14 +288,16 @@ func (t telemetry) recordLifecycle(
 		return fmt.Errorf("unknown lifecycle outcome %d", outcome)
 	}
 
-	t.lifecycle.Add(ctx, 1,
-		metric.WithAttributeSet(identityAttributes(identity, modulePath)),
-		metric.WithAttributes(
-			attribute.String("service.lifecycle.action", actionName),
-			attribute.String("service.lifecycle.outcome", outcomeName),
-		),
-	)
-	t.logger.InfoContext(ctx, "module lifecycle",
+	if recordMetric {
+		lifecycle.Add(ctx, 1,
+			metric.WithAttributeSet(identityAttributes(identity, modulePath)),
+			metric.WithAttributes(
+				attribute.String("service.lifecycle.action", actionName),
+				attribute.String("service.lifecycle.outcome", outcomeName),
+			),
+		)
+	}
+	logger.InfoContext(ctx, "module lifecycle",
 		string(semconv.ServiceNameKey), identity.Name,
 		string(semconv.ServiceNamespaceKey), identity.Namespace,
 		string(semconv.ServiceVersionKey), identity.Version,

@@ -91,6 +91,7 @@ type childResult struct {
 
 type childSlot struct {
 	module     plannedModule
+	telemetry  telemetryView
 	active     bool
 	generation uint64
 	cancel     context.CancelCauseFunc
@@ -116,7 +117,7 @@ func newSupervisorState(
 ) *supervisorState {
 	slots := make([]childSlot, len(modules))
 	for i, module := range modules {
-		slots[i] = childSlot{module: module, active: module.enabled}
+		slots[i] = childSlot{module: module, telemetry: runtime.telemetry.view(module.telemetryPolicy), active: module.enabled}
 		outcomes := [...]normalizedOutcomePolicy{module.policy.normal, module.policy.failure, module.policy.panic}
 		for outcomeIndex, outcome := range outcomes {
 			slots[i].budgets[outcomeIndex].limit = outcome.budget
@@ -206,7 +207,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 		if s.runtime.admission != nil {
 			s.runtime.admission.setModuleState(slot.module, moduleStopped)
 		}
-		return s.record(slot.module, lifecycleActionStop, result.outcome)
+		return s.record(slot.module, slot.telemetry, lifecycleActionStop, result.outcome)
 	case Escalate:
 		return causalOutcomeError(slot.module.path, "escalated", result.err)
 	case Restart:
@@ -227,7 +228,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 		}
 	}
 	s.quiesce(affected)
-	if err := s.record(slot.module, lifecycleActionRestart, result.outcome); err != nil {
+	if err := s.record(slot.module, slot.telemetry, lifecycleActionRestart, result.outcome); err != nil {
 		return err
 	}
 	delay := exponentialBackoff(policy.backoff, slot.backoffs[outcomeIndex])
@@ -317,7 +318,17 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 	slot := &s.slots[index]
 	module := slot.module
 	if reconstructed && module.leaf == nil {
-		children, enabledLeaves, err := snapshotGates(parent, module.children, s.runtime.options.lookup, true)
+		children, err := resolveTelemetryPolicies(
+			module.children,
+			s.runtime.options.lookup,
+			module.telemetryPolicy,
+			s.runtime.telemetry.availableSignals(),
+		)
+		if err != nil {
+			s.publishImmediateFatal(index, err)
+			return
+		}
+		children, enabledLeaves, err := snapshotGates(parent, children, s.runtime.options.lookup, true)
 		if err != nil {
 			s.publishImmediate(index, lifecycleOutcomeError, err)
 			return
@@ -338,26 +349,35 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 	childCtx, cancel := context.WithCancelCause(parent)
 	slot.cancel = cancel
 	slot.done = make(chan struct{})
+	telemetry := slot.telemetry
 	if s.runtime.admission != nil {
 		s.runtime.admission.setModuleState(module, moduleRunning)
 	}
 	s.transition("setup", module.path)
 	go func(done chan struct{}) {
 		defer close(done)
-		result := runChild(childCtx, index, generation, module, s.runtime)
+		result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
 		s.results <- result
 	}(slot.done)
 	s.transition("start", module.path)
-	_ = s.record(module, lifecycleActionStart, lifecycleOutcomeRunning)
+	_ = s.record(module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning)
 }
 
 func (s *supervisorState) publishImmediate(index int, outcome lifecycleOutcome, err error) {
+	s.publishImmediateResult(index, outcome, err, false)
+}
+
+func (s *supervisorState) publishImmediateFatal(index int, err error) {
+	s.publishImmediateResult(index, lifecycleOutcomeError, err, true)
+}
+
+func (s *supervisorState) publishImmediateResult(index int, outcome lifecycleOutcome, err error, fatal bool) {
 	slot := &s.slots[index]
 	slot.generation++
 	slot.cancel = func(error) {}
 	slot.done = make(chan struct{})
 	close(slot.done)
-	s.results <- childResult{index: index, generation: slot.generation, outcome: outcome, err: err}
+	s.results <- childResult{index: index, generation: slot.generation, outcome: outcome, err: err, fatal: fatal}
 }
 
 func (s *supervisorState) transition(operation, modulePath string) {
@@ -375,8 +395,8 @@ func (s *supervisorState) hasActiveChild() bool {
 	return false
 }
 
-func (s *supervisorState) record(module plannedModule, action lifecycleAction, outcome lifecycleOutcome) error {
-	return s.runtime.telemetry.recordLifecycle(
+func (s *supervisorState) record(module plannedModule, telemetry telemetryView, action lifecycleAction, outcome lifecycleOutcome) error {
+	return telemetry.recordLifecycle(
 		context.Background(),
 		s.runtime.identity,
 		module.path,
@@ -390,10 +410,12 @@ func runChild(
 	index int,
 	generation uint64,
 	module plannedModule,
+	telemetry telemetryView,
 	runtime supervisorRuntime,
 ) (result childResult) {
 	result.index = index
 	result.generation = generation
+	ctx = telemetry.context(ctx)
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			result.outcome = lifecycleOutcomePanic
@@ -403,7 +425,7 @@ func runChild(
 	}()
 
 	if module.leaf != nil {
-		result.outcome, result.healthyFor, result.err = runLeafAttempt(ctx, module, runtime)
+		result.outcome, result.healthyFor, result.err = runLeafAttempt(ctx, module, telemetry, runtime)
 		return result
 	}
 	startedAt := runtime.options.clock.Now()
@@ -503,9 +525,9 @@ func (c *attemptCoordinator) stop(cause error) {
 	c.owned.Wait()
 }
 
-func runLeafAttempt(ctx context.Context, module plannedModule, runtime supervisorRuntime) (lifecycleOutcome, time.Duration, error) {
+func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemetryView, runtime supervisorRuntime) (lifecycleOutcome, time.Duration, error) {
 	coordinator := newAttemptCoordinator(ctx, module.path)
-	values := runtime.telemetry.values(runtime.identity, runtime.envPrefix, module.path)
+	values := telemetry.values(runtime.identity, runtime.envPrefix, module.path)
 	if runtime.messages != nil {
 		values.bus = runtime.messages.capability(module.path, coordinator.ctx)
 	}

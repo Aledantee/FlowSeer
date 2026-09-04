@@ -168,6 +168,7 @@ func newRunTelemetry(
 		return unwind(err)
 	}
 	owner.telemetry = capabilities
+	owner.telemetry.owner = owner
 	owner.tracerProvider = tracerProvider
 	owner.meterProvider = meterProvider
 	return owner, nil
