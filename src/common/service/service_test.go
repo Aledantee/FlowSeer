@@ -3,9 +3,15 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
+	"time"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestRunCancelsAndWaitsBeforeTelemetryShutdown(t *testing.T) {
@@ -48,6 +54,81 @@ func TestRunCancelsAndWaitsBeforeTelemetryShutdown(t *testing.T) {
 	case <-shutdown:
 	default:
 		t.Fatal("telemetry shutdown was not called")
+	}
+}
+
+func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+	workerReady := make(chan struct{})
+	runnerSeen := make(chan struct{}, 1)
+	taskSeen := make(chan struct{}, 1)
+	handlerSeen := make(chan struct{}, 1)
+	check := func(ctx context.Context, wantPath string, seen chan<- struct{}) error {
+		if ModulePath(ctx) != wantPath {
+			return errors.New("attempt module path is unavailable")
+		}
+		if Logger(ctx) != logger {
+			return errors.New("attempt logger is unavailable")
+		}
+		if Bus(ctx) == disabledMessageBus {
+			return errors.New("attempt bus is unavailable")
+		}
+		seen <- struct{}{}
+		return nil
+	}
+	cfg := Config{
+		Identity: Identity{Namespace: "flowseer", Name: "context_runtime", Version: "1.0.0"},
+		Logger:   logger,
+		Bus:      &BusConfig{StoreDir: filepath.Join(t.TempDir(), "bus")},
+		Modules: []Module{
+			{Name: "publisher", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				return Attempt{Runner: func(ctx context.Context) error {
+					<-workerReady
+					if err := check(ctx, "context_runtime/publisher", runnerSeen); err != nil {
+						return err
+					}
+					return Bus(ctx).Command(ctx, "context_runtime/worker", &emptypb.Empty{})
+				}}, nil
+			}}},
+			{Name: "worker", Leaf: &Leaf{
+				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}},
+				Setup: func(ctx context.Context) (Attempt, error) {
+					if err := Go(ctx, func(ctx context.Context) error {
+						if err := check(ctx, "context_runtime/worker", taskSeen); err != nil {
+							return err
+						}
+						<-ctx.Done()
+						return ctx.Err()
+					}); err != nil {
+						return Attempt{}, err
+					}
+					close(workerReady)
+					return Attempt{
+						Runner: func(ctx context.Context) error {
+							<-ctx.Done()
+							return ctx.Err()
+						},
+						Handlers: []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(ctx context.Context, _ proto.Message) error {
+							return check(ctx, "context_runtime/worker", handlerSeen)
+						}}},
+					}, nil
+				},
+			}},
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	done := make(chan error, 1)
+	go func() { done <- Run(ctx, cfg) }()
+	for name, seen := range map[string]<-chan struct{}{"runner": runnerSeen, "task": taskSeen, "handler": handlerSeen} {
+		select {
+		case <-seen:
+		case <-ctx.Done():
+			t.Fatalf("%s did not observe attempt capabilities: %v", name, ctx.Err())
+		}
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("Run() error: %v", err)
 	}
 }
 

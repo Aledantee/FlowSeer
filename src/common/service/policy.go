@@ -51,7 +51,7 @@ type RestartBudget struct {
 }
 
 // Backoff configures full-jitter exponential restart delay. Its zero value
-// selects the KTD6 defaults.
+// starts at one second, caps at 30 seconds, and resets after one healthy minute.
 type Backoff struct {
 	Initial    time.Duration
 	Maximum    time.Duration

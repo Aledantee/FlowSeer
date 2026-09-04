@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -12,6 +14,49 @@ import (
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
+
+func TestAtomicPublishAdmissionHonorsCanceledContext(t *testing.T) {
+	runtime := &messageRuntime{atomicPermit: make(chan struct{}, 1)}
+	runtime.atomicPermit <- struct{}{}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := runtime.publishAtomic(ctx, nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("publishAtomic() error = %v, want canceled context", err)
+	}
+}
+
+func TestAtomicPublishValidatesEveryRecordBeforeStaging(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resources, closeBus := startMessageTestBus(ctx, t)
+	defer closeBus()
+	runtime := newMessageRuntime(resources, nil, nil, telemetry{})
+	makeEnvelope := func(id, target string, payload []byte) *servicev1.Message {
+		return servicev1.Message_builder{
+			Kind:          messageKindEvent.Enum(),
+			MessageId:     proto.String(id),
+			CorrelationId: proto.String(id),
+			SourcePath:    proto.String("edge/publisher"),
+			TargetPath:    proto.String(target),
+			TypeName:      proto.String("google.protobuf.Empty"),
+			Payload:       payload,
+		}.Build()
+	}
+	err := runtime.publishAtomic(ctx, []*servicev1.Message{
+		makeEnvelope("3eb8263d-f907-4637-802b-597c86974949", "edge/first", []byte{}),
+		makeEnvelope("3eb8263d-f907-4637-802b-597c86974949", "edge/second", make([]byte, int(resources.connection.MaxPayload()))),
+	})
+	if err == nil {
+		t.Fatal("oversized atomic publish succeeded")
+	}
+	info, err := resources.mailbox.Info(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.State.Msgs != 0 {
+		t.Fatalf("failed atomic preflight staged %d records", info.State.Msgs)
+	}
+}
 
 func TestValidateSubscriptionsBuildsExplicitResolverAndRoutes(t *testing.T) {
 	setup := testSetup()
@@ -34,7 +79,7 @@ func TestValidateSubscriptionsBuildsExplicitResolverAndRoutes(t *testing.T) {
 	if ok := declaration.registry.target("edge/replies", servicev1.MessageKind_MESSAGE_KIND_REPLY, "google.protobuf.Empty"); !ok {
 		t.Error("reply target is not registered")
 	}
-	if got := declaration.registry.eventSubscribers("google.protobuf.Duration"); !equalStrings(got, []string{"edge/events_a", "edge/events_b"}) {
+	if got, ok := declaration.registry.eventSubscribers("google.protobuf.Duration"); !ok || !equalStrings(got, []string{"edge/events_a", "edge/events_b"}) {
 		t.Errorf("event subscribers = %v", got)
 	}
 	message, canonical, ok := declaration.registry.resolver.resolve("legacy.Empty")
@@ -48,9 +93,9 @@ func TestValidateSubscriptionsBuildsExplicitResolverAndRoutes(t *testing.T) {
 	if !ok || message == second {
 		t.Fatal("resolver did not construct a fresh protobuf message")
 	}
-	events := declaration.registry.eventSubscribers("google.protobuf.Duration")
+	events, _ := declaration.registry.eventSubscribers("google.protobuf.Duration")
 	events[0] = "mutated"
-	if got := declaration.registry.eventSubscribers("google.protobuf.Duration"); got[0] != "edge/events_a" {
+	if got, ok := declaration.registry.eventSubscribers("google.protobuf.Duration"); !ok || got[0] != "edge/events_a" {
 		t.Errorf("registry event subscribers were mutable: %v", got)
 	}
 	if got := declaration.modules[3].leaf.deliveryConcurrency; got != 4 {
@@ -177,6 +222,19 @@ func TestAdmissionRevisionMatrixAndImmutability(t *testing.T) {
 	}
 	assertAdmission(t, old.withPhase(admissionShuttingDown), false)
 	assertAdmission(t, old, true)
+}
+
+func TestAdmissionRevisionRejectsUnregisteredEvent(t *testing.T) {
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Setup: testSetup()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive)
+	if _, err := revision.admitEvent("google.protobuf.Empty"); err == nil {
+		t.Fatal("unregistered event was admitted")
+	} else if code, ok := errs.CodeOf(err); !ok || code != errCodeMessageType {
+		t.Fatalf("unregistered event code = %q, %t; want %q", code, ok, errCodeMessageType)
+	}
 }
 
 func assertAdmission(t *testing.T, revision *admissionRevision, want bool) {

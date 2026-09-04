@@ -264,13 +264,14 @@ func (x *SubscriptionContract) ClearRetries() {
 type SubscriptionContract_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The routing kind used by this subscription.
+	// The routing kind used by this subscription. Must be present.
 	Kind *MessageKind
-	// The canonical protobuf full name accepted by the handler.
+	// The canonical protobuf full name accepted by the handler. Must be present.
 	TypeName *string
 	// Prior persisted names that remain decodable as type_name.
 	Aliases []string
-	// Committed retries allowed after the initial handler call.
+	// Committed retries allowed after the initial handler call. When absent, no
+	// retries are allowed.
 	Retries *uint32
 }
 
@@ -454,15 +455,15 @@ func (x *ModuleContract) ClearDeliveryConcurrency() {
 type ModuleContract_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Canonical slash-separated module path.
+	// Canonical slash-separated module path. Must be present.
 	Path *string
-	// Collision-free path token used in private subjects.
+	// Collision-free path token used in private subjects. Must be present.
 	PathToken *string
-	// Stable JetStream durable consumer name.
+	// Stable JetStream durable consumer name. Must be present.
 	DurableName *string
 	// Static subscriptions in declaration order.
 	Subscriptions []*SubscriptionContract
-	// Fixed mailbox worker bound.
+	// Fixed mailbox worker bound. Must be present.
 	DeliveryConcurrency *uint32
 }
 
@@ -924,37 +925,39 @@ func (x *RuntimeManifest) ClearDuplicateWindowSeconds() {
 type RuntimeManifest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Service tenancy namespace.
+	// Service tenancy namespace. Must be present.
 	ServiceNamespace *string
-	// Service identity within service_namespace.
+	// Service identity within service_namespace. Must be present.
 	ServiceName *string
-	// Private JetStream domain derived from the service identity.
+	// Private JetStream domain derived from the service identity. Must be present.
 	Domain *string
-	// Fully-qualified durable envelope name.
+	// Fully-qualified durable envelope name. Must be present.
 	EnvelopeType *string
-	// Runtime envelope encoding version.
+	// Runtime envelope encoding version. Must be present.
 	EnvelopeVersion *uint32
-	// Private subject encoding version.
+	// Private subject encoding version. Must be present.
 	SubjectVersion *uint32
-	// Exact embedded NATS server version that last committed the manifest.
+	// Exact embedded NATS server version that last committed the manifest. Must
+	// be present.
 	NatsVersion *string
 	// Static leaf contracts, including currently disabled leaves.
 	Modules []*ModuleContract
 	// Every canonical module path, including branch supervisors.
 	ModulePaths []string
-	// Stable mailbox stream identity.
+	// Stable mailbox stream identity. Must be present.
 	MailboxStream *string
-	// Stable runtime-metadata stream identity.
+	// Stable runtime-metadata stream identity. Must be present.
 	MetadataStream *string
-	// Logical JetStream store ceiling in bytes.
+	// Logical JetStream store ceiling in bytes. Must be present.
 	MaxStoreBytes *uint64
-	// Logical mailbox stream ceiling in bytes.
+	// Logical mailbox stream ceiling in bytes. Must be present.
 	MailboxMaxBytes *uint64
-	// Logical metadata stream ceiling in bytes.
+	// Logical metadata stream ceiling in bytes. Must be present.
 	MetadataMaxBytes *uint64
-	// Capacity reserved outside the two owned streams.
+	// Capacity reserved outside the two owned streams. Must be present.
 	ReserveBytes *uint64
-	// Deduplication window shared by persisted publish identities.
+	// Deduplication window shared by persisted publish identities. Must be
+	// present.
 	DuplicateWindowSeconds *uint64
 }
 
@@ -1163,11 +1166,11 @@ type ReconciliationRecord_builder struct {
 
 	// Previously committed manifest. It is absent for the first generation.
 	Previous *RuntimeManifest
-	// Desired manifest for the starting binary.
+	// Desired manifest for the starting binary. Must be present.
 	Desired *RuntimeManifest
-	// SHA-256 of the deterministic desired encoding.
+	// SHA-256 of the deterministic desired encoding. Must be present.
 	DesiredChecksum []byte
-	// Last completed reconciliation phase.
+	// Last completed reconciliation phase. Must be present.
 	Phase *ReconciliationPhase
 }
 
@@ -1362,15 +1365,16 @@ func (x *StoreProvenance) ClearDomain() {
 type StoreProvenance_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Sidecar layout version.
+	// Sidecar layout version. Must be present.
 	FormatVersion *uint32
 	// NATS server version allowed to open this store without an operator backup.
+	// Must be present.
 	NatsVersion *string
-	// Service namespace that owns the store.
+	// Service namespace that owns the store. Must be present.
 	ServiceNamespace *string
-	// Service name that owns the store.
+	// Service name that owns the store. Must be present.
 	ServiceName *string
-	// JetStream domain that owns the store.
+	// JetStream domain that owns the store. Must be present.
 	Domain *string
 }
 
@@ -1574,15 +1578,16 @@ func (x *Settlement) ClearState() {
 type Settlement_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Canonical target mailbox path.
+	// Canonical target mailbox path. Must be present.
 	TargetPath *string
-	// Stable UUID of the logical message.
+	// Stable UUID of the logical message. Must be present.
 	MessageId *string
-	// Number of committed retry transitions.
+	// Number of committed retry transitions. When absent, no retry transition
+	// has been committed.
 	RetryCount *uint32
-	// Stable UUID for deduplicating disposition telemetry.
+	// Stable UUID for deduplicating disposition telemetry. Must be present.
 	DispositionId *string
-	// Durable action to resume.
+	// Durable action to resume. Must be present.
 	State *SettlementState
 }
 
@@ -1630,7 +1635,7 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"path_token\x18\x02 \x01(\tB\x1d\xbaH\x1a\xc8\x01\x01r\x15\x18\xd4\x022\x10^[A-Za-z0-9_-]+$R\tpathToken\x12<\n" +
 	"\fdurable_name\x18\x03 \x01(\tB\x19\xbaH\x16\xc8\x01\x01r\x11\x18@2\r^[a-z0-9_-]+$R\vdurableName\x12O\n" +
 	"\rsubscriptions\x18\x04 \x03(\v2).flowseer.service.v1.SubscriptionContractR\rsubscriptions\x12?\n" +
-	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\x8b\b\n" +
+	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\x9a\b\n" +
 	"\x0fRuntimeManifest\x12:\n" +
 	"\x11service_namespace\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\xff\x01R\x10serviceNamespace\x120\n" +
@@ -1647,12 +1652,17 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\fmodule_paths\x18\t \x03(\tBU\xbaHR\x92\x01O\b\x01\x18\x01\"IrG\x18\xff\x012B^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:_[a-z0-9]+)*)*$R\vmodulePaths\x12-\n" +
 	"\x0emailbox_stream\x18\n" +
 	" \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rmailboxStream\x12/\n" +
-	"\x0fmetadata_stream\x18\v \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x0emetadataStream\x12/\n" +
-	"\x0fmax_store_bytes\x18\f \x01(\x04B\a\xbaH\x042\x02(\x01R\rmaxStoreBytes\x123\n" +
-	"\x11mailbox_max_bytes\x18\r \x01(\x04B\a\xbaH\x042\x02(\x01R\x0fmailboxMaxBytes\x125\n" +
-	"\x12metadata_max_bytes\x18\x0e \x01(\x04B\a\xbaH\x042\x02(\x01R\x10metadataMaxBytes\x12,\n" +
-	"\rreserve_bytes\x18\x0f \x01(\x04B\a\xbaH\x042\x02(\x01R\freserveBytes\x12A\n" +
-	"\x18duplicate_window_seconds\x18\x10 \x01(\x04B\a\xbaH\x042\x02(\x01R\x16duplicateWindowSeconds\"\xa6\x02\n" +
+	"\x0fmetadata_stream\x18\v \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x0emetadataStream\x122\n" +
+	"\x0fmax_store_bytes\x18\f \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\rmaxStoreBytes\x126\n" +
+	"\x11mailbox_max_bytes\x18\r \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\x0fmailboxMaxBytes\x128\n" +
+	"\x12metadata_max_bytes\x18\x0e \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\x10metadataMaxBytes\x12/\n" +
+	"\rreserve_bytes\x18\x0f \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\freserveBytes\x12D\n" +
+	"\x18duplicate_window_seconds\x18\x10 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\x16duplicateWindowSeconds\"\xa6\x02\n" +
 	"\x14ReconciliationRecord\x12@\n" +
 	"\bprevious\x18\x01 \x01(\v2$.flowseer.service.v1.RuntimeManifestR\bprevious\x12F\n" +
 	"\adesired\x18\x02 \x01(\v2$.flowseer.service.v1.RuntimeManifestB\x06\xbaH\x03\xc8\x01\x01R\adesired\x125\n" +

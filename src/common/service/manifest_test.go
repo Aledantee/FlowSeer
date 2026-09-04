@@ -113,6 +113,92 @@ func TestStoreProvenanceRejectsDifferentNATSPinBeforeOpen(t *testing.T) {
 	}
 }
 
+func TestStoreProvenanceIgnoresInterruptedOwnedTemporaryFile(t *testing.T) {
+	storeDir := t.TempDir()
+	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: storeDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	temporary := filepath.Join(storeDir, storeProvenanceFile+".new-interrupted")
+	if err := os.WriteFile(temporary, []byte("partial"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := reconcileStoreProvenance(config); err != nil {
+		t.Fatalf("owned temporary file blocked provenance creation: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(storeDir, storeProvenanceFile)); err != nil {
+		t.Fatalf("provenance was not created: %v", err)
+	}
+}
+
+func TestPreparedManifestCanResumeOrRestore(t *testing.T) {
+	for _, restorePrevious := range []bool{false, true} {
+		name := "resume_desired"
+		if restorePrevious {
+			name = "restore_previous"
+		}
+		t.Run(name, func(t *testing.T) {
+			storeDir := t.TempDir()
+			baseConfig := manifestTestConfigWithStore(storeDir, []Module{{Name: "first", Leaf: &Leaf{Setup: testSetup()}}})
+			additiveConfig := manifestTestConfigWithStore(storeDir, []Module{
+				{Name: "first", Leaf: &Leaf{Setup: testSetup()}},
+				{Name: "second", Leaf: &Leaf{Setup: testSetup()}},
+			})
+			base, err := preflight(context.Background(), baseConfig, mapLookup(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			additive, err := preflight(context.Background(), additiveConfig, mapLookup(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			bus, err := startLocalBus(ctx, *base.bus, reconcileRuntimeManifest(base))
+			if err != nil {
+				t.Fatal(err)
+			}
+			current, sequence, err := readReconciliation(ctx, bus.resources.metadata)
+			if err != nil {
+				t.Fatal(err)
+			}
+			desired, err := runtimeManifest(additive)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prepared, err := newReconciliation(current.GetDesired(), desired, servicev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := publishReconciliation(ctx, bus.resources, prepared, sequence); err != nil {
+				t.Fatal(err)
+			}
+			closeBus(t, bus, true)
+
+			starting := additive
+			if restorePrevious {
+				starting = base
+			}
+			bus, err = startLocalBus(ctx, *starting.bus, reconcileRuntimeManifest(starting))
+			if err != nil {
+				t.Fatalf("reconcile prepared manifest: %v", err)
+			}
+			defer closeBus(t, bus, true)
+			committed, _, err := readReconciliation(ctx, bus.resources.metadata)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := runtimeManifest(starting)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if committed.GetPhase() != servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED || !proto.Equal(committed.GetDesired(), want) {
+				t.Fatalf("committed manifest = %v, want %v", committed, want)
+			}
+		})
+	}
+}
+
 func TestSettlementReconciliationRemovesOnlyOrphans(t *testing.T) {
 	config := manifestTestConfig(t, []Module{{Name: "worker", Leaf: &Leaf{Setup: testSetup()}}})
 	runtime, err := preflight(context.Background(), config, mapLookup(nil))

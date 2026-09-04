@@ -13,7 +13,10 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
+	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -312,6 +315,10 @@ func TestBrokerHelperProcess(t *testing.T) {
 		t.Skip("subprocess helper")
 	}
 	storeDir := os.Getenv("FLOWSEER_BROKER_HELPER_STORE")
+	if mode == "delivery_crash" || mode == "delivery_reopen" {
+		runDeliveryCrashHelper(t, mode, storeDir)
+		return
+	}
 	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: storeDir})
 	if err != nil {
 		t.Fatal(err)
@@ -347,6 +354,53 @@ func TestBrokerHelperProcess(t *testing.T) {
 		closeBus(t, bus, true)
 	default:
 		t.Fatalf("unknown helper mode %q", mode)
+	}
+}
+
+func runDeliveryCrashHelper(t *testing.T, mode, storeDir string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	config := Config{
+		Identity: testBusIdentity(),
+		Bus:      &BusConfig{StoreDir: storeDir},
+		Modules: []Module{{
+			Name: "worker",
+			Leaf: &Leaf{
+				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}},
+				Setup: func(attemptCtx context.Context) (Attempt, error) {
+					if mode == "delivery_crash" {
+						if err := Bus(attemptCtx).Command(attemptCtx, "bus_test/worker", &emptypb.Empty{}); err != nil {
+							return Attempt{}, err
+						}
+					}
+					return Attempt{
+						Runner: func(runCtx context.Context) error {
+							<-runCtx.Done()
+							return runCtx.Err()
+						},
+						Handlers: []Handler{{
+							Kind:    servicev1.MessageKind_MESSAGE_KIND_COMMAND,
+							Message: &emptypb.Empty{},
+							Handle: func(context.Context, proto.Message) error {
+								if mode == "delivery_crash" {
+									fmt.Println("HANDLED before-crash")
+									_ = os.Stdout.Sync()
+									_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+									return nil
+								}
+								fmt.Println("RECOVERED after-crash")
+								_ = os.Stdout.Sync()
+								cancel()
+								return nil
+							},
+						}},
+					}, nil
+				},
+			},
+		}},
+	}
+	if err := Run(ctx, config); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -55,8 +54,11 @@ var (
 )
 
 // MessageBus is an attempt-scoped capability for durable service-local
-// messaging. Its implementation and broker connection are intentionally
-// private.
+// messaging. Its zero value is disabled, and a handle expires when its owning
+// attempt ends. A handle may be shared by that attempt's goroutines. Every
+// method returns a structured service error for disabled or expired handles,
+// invalid or unregistered payloads, rejected admission, and persistence
+// failures. The implementation and broker connection are intentionally private.
 type MessageBus struct {
 	runtime     *messageRuntime
 	sourcePath  string
@@ -66,15 +68,30 @@ type MessageBus struct {
 var disabledMessageBus = &MessageBus{}
 
 type messageRuntime struct {
-	resources busResources
-	registry  *staticRegistry
-	admission func() *admissionRevision
-	telemetry telemetry
-	atomicMu  sync.Mutex
+	resources        busResources
+	registry         *staticRegistry
+	admission        func() *admissionRevision
+	telemetry        telemetry
+	atomicPermit     chan struct{}
+	progressInterval time.Duration
 }
 
 func newMessageRuntime(resources busResources, registry *staticRegistry, admission func() *admissionRevision, telemetry telemetry) *messageRuntime {
-	return &messageRuntime{resources: resources, registry: registry, admission: admission, telemetry: telemetry}
+	return &messageRuntime{
+		resources:        resources,
+		registry:         registry,
+		admission:        admission,
+		telemetry:        telemetry,
+		atomicPermit:     make(chan struct{}, 1),
+		progressInterval: defaultProgressInterval,
+	}
+}
+
+func (r *messageRuntime) deliveryProgressInterval() time.Duration {
+	if r.progressInterval > 0 {
+		return r.progressInterval
+	}
+	return defaultProgressInterval
 }
 
 func (r *messageRuntime) capability(sourcePath string, attempt ...context.Context) *MessageBus {
@@ -88,13 +105,16 @@ func (r *messageRuntime) capability(sourcePath string, attempt ...context.Contex
 	return &MessageBus{runtime: r, sourcePath: sourcePath, attemptDone: done}
 }
 
-// Command durably publishes payload to one statically registered target.
+// Command synchronously persists payload for one statically registered and
+// admitted target. Cancellation can stop the call before persistence; a nil
+// return means the broker accepted the durable record.
 func (b *MessageBus) Command(ctx context.Context, target string, payload proto.Message) error {
 	return b.publishAddressed(ctx, messageKindCommand, target, payload)
 }
 
-// Publish durably publishes one atomic event snapshot to every currently
-// admitted subscriber.
+// Publish synchronously persists one atomic event snapshot for every currently
+// admitted subscriber. A registered event with no admitted subscribers is a
+// successful no-op. Cancellation can stop the call before the atomic commit.
 func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err error) {
 	if err = b.available(ctx); err != nil {
 		return err
@@ -140,8 +160,9 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	return nil
 }
 
-// Reply durably replies to the source of the message being handled by ctx.
-// It reports an error when ctx is not a delivery context.
+// Reply synchronously persists payload for the source of the message being
+// handled by ctx. It reports an error when ctx is not a delivery context or the
+// source is no longer admitted.
 func (b *MessageBus) Reply(ctx context.Context, payload proto.Message) error {
 	delivery, ok := deliveryFromContext(ctx)
 	if !ok {
@@ -306,12 +327,17 @@ type atomicPubAck struct {
 }
 
 func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*servicev1.Message) error {
-	r.atomicMu.Lock()
-	defer r.atomicMu.Unlock()
+	select {
+	case r.atomicPermit <- struct{}{}:
+		defer func() { <-r.atomicPermit }()
+	case <-ctx.Done():
+		return publicationError(messageKindEvent, "", "wait for atomic event publisher").Cause(context.Cause(ctx)).Msg("publish event snapshot")
+	}
 	batchID, err := newUUID()
 	if err != nil {
 		return err
 	}
+	messages := make([]*nats.Msg, len(envelopes))
 	for i, envelope := range envelopes {
 		if err := validateOutboundEnvelope(envelope); err != nil {
 			return err
@@ -335,7 +361,11 @@ func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*service
 		if int64(message.Size()) > r.resources.connection.MaxPayload() {
 			return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "persisted event record exceeds the broker payload bound").Msg("publish event snapshot")
 		}
-		if i+1 < len(envelopes) {
+		messages[i] = message
+	}
+	for i, message := range messages {
+		envelope := envelopes[i]
+		if i+1 < len(messages) {
 			if err := r.resources.connection.PublishMsg(message); err != nil {
 				return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "stage atomic event").Cause(err).Msg("publish event snapshot")
 			}
@@ -344,12 +374,11 @@ func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*service
 		response, requestErr := r.resources.connection.RequestMsgWithContext(ctx, message)
 		if requestErr != nil {
 			probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
-			stored := r.atomicSnapshotStored(probeCtx, envelopes)
+			response, err = r.resources.connection.RequestMsgWithContext(probeCtx, message)
 			cancel()
-			if stored {
-				return nil
+			if err != nil {
+				return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "confirm atomic event").Cause(requestErr).Msg("publish event snapshot")
 			}
-			return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "confirm atomic event").Cause(requestErr).Msg("publish event snapshot")
 		}
 		var ack atomicPubAck
 		if err := json.Unmarshal(response.Data, &ack); err != nil {
@@ -382,24 +411,6 @@ func validateOutboundEnvelope(message *servicev1.Message) error {
 		return publicationError(message.GetKind(), protoreflect.FullName(message.GetTypeName()), "injected tracestate is too long").Msg("publish message")
 	}
 	return nil
-}
-
-func (r *messageRuntime) atomicSnapshotStored(ctx context.Context, envelopes []*servicev1.Message) bool {
-	for _, envelope := range envelopes {
-		subject, err := mailboxSubject(envelope.GetTargetPath(), envelope.GetKind(), envelope.GetTypeName())
-		if err != nil {
-			return false
-		}
-		message, err := r.resources.mailbox.GetLastMsgForSubject(ctx, subject)
-		if err != nil || message.Header.Get(jetstream.MsgIDHeader) != recordID(envelope.GetMessageId(), envelope.GetTargetPath()) {
-			return false
-		}
-		stored := &servicev1.Message{}
-		if err := proto.Unmarshal(message.Data, stored); err != nil || !proto.Equal(stored, envelope) {
-			return false
-		}
-	}
-	return true
 }
 
 func mailboxSubject(path string, kind servicev1.MessageKind, fullName string) (string, error) {
@@ -634,8 +645,9 @@ func (r *staticRegistry) target(path string, kind servicev1.MessageKind, fullNam
 	return ok
 }
 
-func (r *staticRegistry) eventSubscribers(fullName protoreflect.FullName) []string {
-	return append([]string(nil), r.events[fullName]...)
+func (r *staticRegistry) eventSubscribers(fullName protoreflect.FullName) ([]string, bool) {
+	paths, ok := r.events[fullName]
+	return append([]string(nil), paths...), ok
 }
 
 func validateSubscription(path string, subscription Subscription) (plannedSubscription, error) {
@@ -919,7 +931,12 @@ func (r *admissionRevision) admitEvent(fullName protoreflect.FullName) ([]string
 		return nil, admissionError("", servicev1.MessageKind_MESSAGE_KIND_EVENT, fullName, r.phase.String(), "").
 			Msg("service is not accepting new events")
 	}
-	paths := r.registry.eventSubscribers(fullName)
+	paths, registered := r.registry.eventSubscribers(fullName)
+	if !registered {
+		return nil, messageTypeError("", fullName, "event type is not registered").
+			Attr("message_kind", messageKindEvent.String()).
+			Msgf("service does not accept event message %s", fullName)
+	}
 	admitted := make([]string, 0, len(paths))
 	for _, path := range paths {
 		if isAdmitted(r.states[path]) {

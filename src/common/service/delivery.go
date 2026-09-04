@@ -31,7 +31,10 @@ const (
 	deliveryInstrumentationSuffix = ".delivery"
 )
 
-var errCodeDelivery = errs.NewCode("service/delivery")
+var (
+	errCodeDelivery      = errs.NewCode("service/delivery")
+	errSettlementChanged = errors.New("durable settlement changed concurrently")
+)
 
 type deliveryHandler struct {
 	handle  HandlerFunc
@@ -46,12 +49,13 @@ func (r *messageRuntime) runDelivery(ctx context.Context, module plannedModule, 
 		<-ctx.Done()
 		return nil
 	}
+	progressInterval := r.deliveryProgressInterval()
 	consumer, err := r.resources.mailbox.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Name:            module.durableName,
 		Durable:         module.durableName,
 		DeliverPolicy:   jetstream.DeliverAllPolicy,
 		AckPolicy:       jetstream.AckExplicitPolicy,
-		AckWait:         defaultProgressInterval * 3,
+		AckWait:         progressInterval * 3,
 		MaxDeliver:      -1,
 		FilterSubject:   mailboxSubjectRoot + ".v1." + module.pathToken + ".>",
 		ReplayPolicy:    jetstream.ReplayInstantPolicy,
@@ -198,7 +202,14 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 			sourcePath:    envelope.GetSourcePath(),
 		})
 		r.telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageDelivered)
-		panicked, handlerErr := callHandler(deliveryCtx, handler.handle, payload)
+		panicked, handlerErr, progressErr := callHandlerWithProgress(deliveryCtx, brokerMessage, r.deliveryProgressInterval(), handler.handle, proto.Clone(payload))
+		if progressErr != nil {
+			span.End()
+			if ctx.Err() != nil {
+				return nil
+			}
+			return deliveryError(module.path, "extend delivery during handler execution", progressErr)
+		}
 		if handlerErr != nil {
 			span.RecordError(handlerErr)
 			span.SetStatus(codes.Error, "message handler failed")
@@ -207,18 +218,21 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 			span.End()
 			return nil
 		}
-		if handlerErr == nil {
+		switch deliverySettlementState(panicked, handlerErr, retry, handler.retries) {
+		case servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
 			desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE)
 			if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
 				span.End()
+				if errors.Is(err, errSettlementChanged) {
+					return nil
+				}
 				return deliveryError(module.path, "record acknowledgement settlement", err)
 			}
 			r.telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
 			err := r.finishSettlement(ctx, brokerMessage, settlementSubject, false)
 			span.End()
 			return err
-		}
-		if (panicked || errs.Retryable(handlerErr)) && retry < uint32(handler.retries) {
+		case servicev1.SettlementState_SETTLEMENT_STATE_RETRY:
 			if err := waitForRetry(ctx, brokerMessage, retryBackoff(retry+1)); err != nil {
 				span.End()
 				if ctx.Err() != nil {
@@ -231,6 +245,9 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 			storedSequence, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired)
 			if err != nil {
 				span.End()
+				if errors.Is(err, errSettlementChanged) {
+					return nil
+				}
 				return deliveryError(module.path, "record retry settlement", err)
 			}
 			currentSequence = storedSequence
@@ -241,6 +258,9 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 		desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_DISCARD)
 		if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
 			span.End()
+			if errors.Is(err, errSettlementChanged) {
+				return nil
+			}
 			return deliveryError(module.path, "record discard settlement", err)
 		}
 		r.telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
@@ -248,6 +268,46 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 		span.End()
 		return err
 	}
+}
+
+func deliverySettlementState(panicked bool, handlerErr error, retry uint32, maximumRetries int) servicev1.SettlementState {
+	if handlerErr == nil {
+		return servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE
+	}
+	if (panicked || errs.Retryable(handlerErr)) && retry < uint32(maximumRetries) {
+		return servicev1.SettlementState_SETTLEMENT_STATE_RETRY
+	}
+	return servicev1.SettlementState_SETTLEMENT_STATE_DISCARD
+}
+
+func callHandlerWithProgress(
+	ctx context.Context,
+	message jetstream.Msg,
+	progressInterval time.Duration,
+	handler HandlerFunc,
+	payload proto.Message,
+) (panicked bool, handlerErr error, progressErr error) {
+	progressCtx, cancel := context.WithCancel(ctx)
+	progressDone := make(chan error, 1)
+	go func() {
+		ticker := time.NewTicker(progressInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-progressCtx.Done():
+				progressDone <- nil
+				return
+			case <-ticker.C:
+				if err := message.InProgress(); err != nil {
+					progressDone <- err
+					return
+				}
+			}
+		}
+	}()
+	panicked, handlerErr = callHandler(ctx, handler, payload)
+	cancel()
+	return panicked, handlerErr, <-progressDone
 }
 
 func (r *messageRuntime) decodeDelivery(module plannedModule, handlers map[messageKey]deliveryHandler, brokerMessage jetstream.Msg) (*servicev1.Message, proto.Message, deliveryHandler, error) {
@@ -462,6 +522,9 @@ func (r *messageRuntime) commitSettlement(ctx context.Context, subject string, p
 	stored, sequence, readErr := r.loadSettlement(ctx, subject)
 	if readErr == nil && proto.Equal(stored, settlement) {
 		return sequence, nil
+	}
+	if readErr == nil && stored != nil {
+		return 0, errSettlementChanged
 	}
 	return 0, err
 }

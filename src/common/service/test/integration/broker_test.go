@@ -37,3 +37,24 @@ func TestBrokerStoreSurvivesAbruptProcessExit(t *testing.T) {
 		t.Fatalf("reopened helper failed: %v\n%s", err, reopened.stderr.String())
 	}
 }
+
+func TestDurableHandlerResumesAfterAbruptProcessExit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("subprocess durability test")
+	}
+	executable := buildBrokerHelper(t)
+	storeDir := t.TempDir()
+	first := startBrokerHelper(t, executable, "delivery_crash", storeDir, "")
+	if got := first.waitForPrefix(t, "HANDLED "); got != "HANDLED before-crash" {
+		t.Fatalf("first delivery output = %q", got)
+	}
+	first.killAndWait(t)
+
+	second := startBrokerHelper(t, executable, "delivery_reopen", storeDir, "")
+	if got := second.waitForPrefix(t, "RECOVERED "); got != "RECOVERED after-crash" {
+		t.Fatalf("recovered delivery output = %q", got)
+	}
+	if err := second.command.Wait(); err != nil {
+		t.Fatalf("recovery helper failed: %v\n%s", err, second.stderr.String())
+	}
+}

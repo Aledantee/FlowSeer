@@ -61,6 +61,24 @@ func TestServiceBusControlRecordValidation(t *testing.T) {
 	runValidationCases(t, cases)
 }
 
+func TestRuntimeManifestRequiresCapacityAndDeduplicationFields(t *testing.T) {
+	fields := []protoreflect.Name{
+		"max_store_bytes",
+		"mailbox_max_bytes",
+		"metadata_max_bytes",
+		"reserve_bytes",
+		"duplicate_window_seconds",
+	}
+	for _, name := range fields {
+		t.Run(string(name), func(t *testing.T) {
+			manifest := validRuntimeManifest()
+			field := manifest.ProtoReflect().Descriptor().Fields().ByName(name)
+			manifest.ProtoReflect().Clear(field)
+			runValidationCases(t, []validationCase{{name: "absent", message: manifest}})
+		})
+	}
+}
+
 func validRuntimeManifest() *servicev1.RuntimeManifest {
 	return servicev1.RuntimeManifest_builder{
 		ServiceNamespace:       proto.String("flowseer"),

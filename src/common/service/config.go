@@ -36,13 +36,24 @@ type SetupFunc func(ctx context.Context) (Attempt, error)
 // uses the documented private store location and logical capacity defaults.
 // StoreDir, when set, must be absolute.
 type BusConfig struct {
-	StoreDir         string
-	MaxStoreBytes    int64
-	MailboxMaxBytes  int64
+	// StoreDir is the private file-store directory. Empty selects the service
+	// state directory; a non-empty value must be absolute.
+	StoreDir string
+	// MaxStoreBytes is the total logical store ceiling. Zero selects 1 GiB.
+	MaxStoreBytes int64
+	// MailboxMaxBytes is the mailbox stream ceiling. Zero selects 75 percent of
+	// MaxStoreBytes and must leave room for metadata and reserve capacity.
+	MailboxMaxBytes int64
+	// MetadataMaxBytes is the control-record stream ceiling. Zero selects 10
+	// percent of MaxStoreBytes and must be smaller than the total ceiling.
 	MetadataMaxBytes int64
-	ReserveBytes     int64
-	StartupTimeout   time.Duration
-	HealthInterval   time.Duration
+	// ReserveBytes is capacity held outside the owned streams. Zero selects 15
+	// percent of MaxStoreBytes.
+	ReserveBytes int64
+	// StartupTimeout bounds broker startup and readiness. Zero selects 10 seconds.
+	StartupTimeout time.Duration
+	// HealthInterval controls broker and stream health probes. Zero selects 5 seconds.
+	HealthInterval time.Duration
 }
 
 // Config declares one service run. Callers must choose either Setup for an

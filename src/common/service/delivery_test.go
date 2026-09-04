@@ -4,13 +4,19 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -94,6 +100,66 @@ func TestMessageBusPersistsCommandAndAtomicEventSnapshot(t *testing.T) {
 	}
 	if seen["edge/commands"] != messageKindCommand || seen["edge/events_one"] != messageKindEvent || seen["edge/events_two"] != messageKindEvent {
 		t.Fatalf("persisted targets = %v", seen)
+	}
+}
+
+func TestAtomicEventCapacityFailureCommitsNoTarget(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{
+		{Name: "one", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
+		{Name: "two", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := normalizeBusConfig(testIdentity(), BusConfig{
+		StoreDir:         t.TempDir(),
+		MaxStoreBytes:    4 << 20,
+		MailboxMaxBytes:  64 << 10,
+		MetadataMaxBytes: 1 << 20,
+		ReserveBytes:     1 << 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	local, err := startLocalBus(ctx, config, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeBus(t, local, false)
+	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive)
+	for _, path := range []string{"edge/one", "edge/two"} {
+		revision = revision.withModuleState(path, moduleRunning)
+	}
+	telemetry, err := newTelemetry(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := newMessageRuntime(local.resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+	err = runtime.capability("edge/publisher").Publish(ctx, wrapperspb.Bytes(make([]byte, 40<<10)))
+	if err == nil {
+		t.Fatal("event larger than the atomic stream capacity succeeded")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != errCodeBusCapacity {
+		t.Fatalf("capacity error code = %q, %t; want %q: %v", code, ok, errCodeBusCapacity, err)
+	}
+	info, err := local.resources.mailbox.Info(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.State.Msgs != 0 {
+		t.Fatalf("failed atomic event committed %d targets", info.State.Msgs)
+	}
+	if err := runtime.capability("edge/publisher").Publish(ctx, wrapperspb.Bytes([]byte("small"))); err != nil {
+		t.Fatalf("valid event after capacity failure: %v", err)
+	}
+	info, err = local.resources.mailbox.Info(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.State.Msgs != 2 {
+		t.Fatalf("valid atomic event committed %d targets, want 2", info.State.Msgs)
 	}
 }
 
@@ -274,6 +340,392 @@ func TestCancellationDuringBackoffDoesNotCommitRetry(t *testing.T) {
 	}
 }
 
+func TestDeliveryRetryReceivesFreshPayload(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &wrapperspb.StringValue{}, Retries: 1}}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources, closeBus := startMessageTestBus(ctx, t)
+	defer closeBus()
+	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
+	telemetry, err := newTelemetry(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := newMessageRuntime(resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+	if err := runtime.capability("edge/publisher").Command(ctx, "edge/worker", wrapperspb.String("original")); err != nil {
+		t.Fatal(err)
+	}
+
+	deliveryCtx, stopDelivery := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	values := make(chan string, 2)
+	var calls atomic.Int32
+	go func() {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &wrapperspb.StringValue{}, Handle: func(_ context.Context, payload proto.Message) error {
+			value := payload.(*wrapperspb.StringValue)
+			values <- value.GetValue()
+			if calls.Add(1) == 1 {
+				value.Value = "mutated"
+				return errs.New().Retryable().Msg("retry")
+			}
+			return nil
+		}}})
+	}()
+	for range 2 {
+		select {
+		case got := <-values:
+			if got != "original" {
+				t.Fatalf("handler payload = %q, want original", got)
+			}
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
+	}
+	eventually(ctx, t, func() bool {
+		info, infoErr := resources.mailbox.Info(ctx)
+		return infoErr == nil && info.State.Msgs == 0
+	})
+	stopDelivery()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeliveryExtendsAckDeadlineWhileHandlerRuns(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 2, Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources, closeBus := startMessageTestBus(ctx, t)
+	defer closeBus()
+	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
+	telemetry, err := newTelemetry(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := newMessageRuntime(resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+	runtime.progressInterval = 10 * time.Millisecond
+	if err := runtime.capability("edge/publisher").Command(ctx, "edge/worker", &emptypb.Empty{}); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls atomic.Int32
+	var active atomic.Int32
+	var maximum atomic.Int32
+	deliveryCtx, stopDelivery := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+			calls.Add(1)
+			current := active.Add(1)
+			for observed := maximum.Load(); current > observed && !maximum.CompareAndSwap(observed, current); observed = maximum.Load() {
+			}
+			time.Sleep(100 * time.Millisecond)
+			active.Add(-1)
+			return nil
+		}}})
+	}()
+	eventually(ctx, t, func() bool {
+		info, infoErr := resources.mailbox.Info(ctx)
+		return infoErr == nil && info.State.Msgs == 0
+	})
+	stopDelivery()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("handler calls = %d, want 1", got)
+	}
+	if got := maximum.Load(); got != 1 {
+		t.Fatalf("simultaneous handlers = %d, want 1", got)
+	}
+}
+
+func TestDeliveryWorkerBoundsAndSequentialOrder(t *testing.T) {
+	t.Run("sequential order", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+			Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 1, Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &wrapperspb.Int32Value{}}}},
+		}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		resources, closeBus := startMessageTestBus(ctx, t)
+		defer closeBus()
+		revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
+		telemetry, err := newTelemetry(Config{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtime := newMessageRuntime(resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+		for i := range int32(6) {
+			if err := runtime.capability("edge/publisher").Command(ctx, "edge/worker", wrapperspb.Int32(i)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		deliveryCtx, stopDelivery := context.WithCancel(ctx)
+		done := make(chan error, 1)
+		var mu sync.Mutex
+		var completed []int32
+		go func() {
+			done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &wrapperspb.Int32Value{}, Handle: func(_ context.Context, payload proto.Message) error {
+				mu.Lock()
+				completed = append(completed, payload.(*wrapperspb.Int32Value).GetValue())
+				mu.Unlock()
+				return nil
+			}}})
+		}()
+		eventually(ctx, t, func() bool {
+			info, infoErr := resources.mailbox.Info(ctx)
+			return infoErr == nil && info.State.Msgs == 0
+		})
+		stopDelivery()
+		if err := <-done; err != nil {
+			t.Fatal(err)
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if len(completed) != 6 {
+			t.Fatalf("completed values = %v", completed)
+		}
+		for i, got := range completed {
+			if got != int32(i) {
+				t.Fatalf("completed values = %v, want stream order", completed)
+			}
+		}
+	})
+
+	t.Run("parallel bound", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+			Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 4, Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+		}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		resources, closeBus := startMessageTestBus(ctx, t)
+		defer closeBus()
+		revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
+		telemetry, err := newTelemetry(Config{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtime := newMessageRuntime(resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+		for range 8 {
+			if err := runtime.capability("edge/publisher").Command(ctx, "edge/worker", &emptypb.Empty{}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var active atomic.Int32
+		var maximum atomic.Int32
+		entered := make(chan struct{}, 8)
+		release := make(chan struct{})
+		deliveryCtx, stopDelivery := context.WithCancel(ctx)
+		done := make(chan error, 1)
+		go func() {
+			done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+				current := active.Add(1)
+				for observed := maximum.Load(); current > observed && !maximum.CompareAndSwap(observed, current); observed = maximum.Load() {
+				}
+				entered <- struct{}{}
+				<-release
+				active.Add(-1)
+				return nil
+			}}})
+		}()
+		for range 4 {
+			select {
+			case <-entered:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+		}
+		if got := maximum.Load(); got != 4 {
+			t.Fatalf("maximum active handlers = %d, want 4", got)
+		}
+		close(release)
+		eventually(ctx, t, func() bool {
+			info, infoErr := resources.mailbox.Info(ctx)
+			return infoErr == nil && info.State.Msgs == 0
+		})
+		stopDelivery()
+		if err := <-done; err != nil {
+			t.Fatal(err)
+		}
+		if got := maximum.Load(); got > 4 {
+			t.Fatalf("maximum active handlers = %d, want at most 4", got)
+		}
+	})
+}
+
+func TestDeliveryDiscardsMalformedRecordWithoutHandler(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources, closeBus := startMessageTestBus(ctx, t)
+	defer closeBus()
+	subject, err := mailboxSubject("edge/worker", messageKindCommand, "google.protobuf.Empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resources.jetStream.Publish(ctx, subject, []byte("not protobuf")); err != nil {
+		t.Fatal(err)
+	}
+	telemetry, err := newTelemetry(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := newMessageRuntime(resources, declaration.registry, nil, telemetry)
+	deliveryCtx, stopDelivery := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	var calls atomic.Int32
+	go func() {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+			calls.Add(1)
+			return nil
+		}}})
+	}()
+	eventually(ctx, t, func() bool {
+		info, infoErr := resources.mailbox.Info(ctx)
+		return infoErr == nil && info.State.Msgs == 0
+	})
+	stopDelivery()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("malformed record reached handler %d times", got)
+	}
+}
+
+func TestDeliveryDecodesPersistedAliasesForEveryMessageKind(t *testing.T) {
+	kinds := []servicev1.MessageKind{messageKindCommand, messageKindEvent, messageKindReply}
+	ids := []string{
+		"b80f5119-d54b-48e7-83ea-fc349d90dc24",
+		"21822291-3057-458b-89e2-a8cab468e450",
+		"85cadbf6-5ddc-4e83-b888-49199e20a95d",
+	}
+	for i, kind := range kinds {
+		t.Run(kind.String(), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+				Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: kind, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"legacy.Empty"}}}},
+			}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			resources, closeBus := startMessageTestBus(ctx, t)
+			defer closeBus()
+			envelope := servicev1.Message_builder{
+				Kind:          kind.Enum(),
+				MessageId:     proto.String(ids[i]),
+				CorrelationId: proto.String(ids[i]),
+				SourcePath:    proto.String("edge/source"),
+				TargetPath:    proto.String("edge/worker"),
+				TypeName:      proto.String("legacy.Empty"),
+				Payload:       []byte{},
+			}.Build()
+			data, err := proto.MarshalOptions{Deterministic: true}.Marshal(envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			subject, err := mailboxSubject("edge/worker", kind, "legacy.Empty")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := resources.jetStream.Publish(ctx, subject, data); err != nil {
+				t.Fatal(err)
+			}
+			telemetry, err := newTelemetry(Config{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			runtime := newMessageRuntime(resources, declaration.registry, nil, telemetry)
+			deliveryCtx, stopDelivery := context.WithCancel(ctx)
+			done := make(chan error, 1)
+			delivered := make(chan struct{}, 1)
+			go func() {
+				done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: kind, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+					delivered <- struct{}{}
+					return nil
+				}}})
+			}()
+			select {
+			case <-delivered:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			eventually(ctx, t, func() bool {
+				info, infoErr := resources.mailbox.Info(ctx)
+				return infoErr == nil && info.State.Msgs == 0
+			})
+			stopDelivery()
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources, closeBus := startMessageTestBus(ctx, t)
+	defer closeBus()
+	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
+	telemetry, err := newTelemetry(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := newMessageRuntime(resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+	if err := runtime.capability("edge/publisher").Command(ctx, "edge/worker", &emptypb.Empty{}); err != nil {
+		t.Fatal(err)
+	}
+	deliveryCtx, stopDelivery := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	var calls atomic.Int32
+	go func() {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+			calls.Add(1)
+			panic("handler panic")
+		}}})
+	}()
+	eventually(ctx, t, func() bool {
+		info, infoErr := resources.mailbox.Info(ctx)
+		return infoErr == nil && info.State.Msgs == 0
+	})
+	stopDelivery()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("handler calls = %d, want initial call plus one retry", got)
+	}
+}
+
 func TestInvalidTraceContextDoesNotMakePersistedMessageMalformed(t *testing.T) {
 	message := &servicev1.Message{}
 	message.SetKind(messageKindCommand)
@@ -418,6 +870,78 @@ func TestReplyPreservesCorrelationAndTargetsRequestSource(t *testing.T) {
 	stopDelivery()
 	if err := <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources, closeBus := startMessageTestBus(ctx, t)
+	defer closeBus()
+	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
+	telemetry, err := newTelemetry(Config{TracerProvider: provider, Propagator: propagation.TraceContext{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := newMessageRuntime(resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+	publisherValues := telemetry.values(testIdentity(), "FLOWSEER_EDGE_", "edge/publisher")
+	publisherValues.bus = runtime.capability("edge/publisher")
+	publisherCtx := withContextValues(ctx, publisherValues)
+	publisherCtx, parent := telemetry.tracer.Start(publisherCtx, "parent")
+	if err := Bus(publisherCtx).Command(publisherCtx, "edge/worker", &emptypb.Empty{}); err != nil {
+		t.Fatal(err)
+	}
+	parent.End()
+
+	workerValues := telemetry.values(testIdentity(), "FLOWSEER_EDGE_", "edge/worker")
+	workerValues.bus = runtime.capability("edge/worker")
+	deliveryCtx, stopDelivery := context.WithCancel(withContextValues(ctx, workerValues))
+	done := make(chan error, 1)
+	delivered := make(chan struct{}, 1)
+	go func() {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+			delivered <- struct{}{}
+			return nil
+		}}})
+	}()
+	select {
+	case <-delivered:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	eventually(ctx, t, func() bool {
+		info, infoErr := resources.mailbox.Info(ctx)
+		return infoErr == nil && info.State.Msgs == 0
+	})
+	stopDelivery()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	var publicationTraceID trace.TraceID
+	var deliveryLinks []sdktrace.Link
+	for _, span := range recorder.Ended() {
+		switch span.Name() {
+		case instrumentationScope + ".publish":
+			publicationTraceID = span.SpanContext().TraceID()
+		case instrumentationScope + deliveryInstrumentationSuffix:
+			deliveryLinks = span.Links()
+		}
+	}
+	if !publicationTraceID.IsValid() {
+		t.Fatal("publication span was not recorded")
+	}
+	if len(deliveryLinks) != 1 || deliveryLinks[0].SpanContext.TraceID() != publicationTraceID {
+		t.Fatalf("delivery links = %v, want publication trace %s", deliveryLinks, publicationTraceID)
 	}
 }
 

@@ -418,10 +418,11 @@ func runChild(
 type attemptCoordinatorKey struct{}
 
 type attemptCoordinator struct {
-	ctx      context.Context
-	cancel   context.CancelCauseFunc
-	path     string
-	terminal chan attemptTermination
+	ctx        context.Context
+	attemptCtx context.Context
+	cancel     context.CancelCauseFunc
+	path       string
+	terminal   chan attemptTermination
 
 	mu        sync.Mutex
 	accepting bool
@@ -469,7 +470,7 @@ func (c *attemptCoordinator) launch(task Runner) error {
 
 	go func() {
 		defer c.owned.Done()
-		outcome, err := callOwned(c.ctx, c.path, "task", task)
+		outcome, err := callOwned(c.attemptCtx, c.path, "task", task)
 		if outcome == lifecycleOutcomeNormal || outcome == lifecycleOutcomeCanceled {
 			return
 		}
@@ -502,6 +503,7 @@ func runLeafAttempt(ctx context.Context, module plannedModule, runtime superviso
 	}
 	attemptCtx := withContextValues(coordinator.ctx, values)
 	attemptCtx = context.WithValue(attemptCtx, attemptCoordinatorKey{}, coordinator)
+	coordinator.attemptCtx = attemptCtx
 
 	attempt, setupOutcome, setupErr := callSetup(attemptCtx, module)
 	if setupErr != nil {
@@ -524,7 +526,7 @@ func runLeafAttempt(ctx context.Context, module plannedModule, runtime superviso
 		coordinator.owned.Add(1)
 		go func() {
 			defer coordinator.owned.Done()
-			if err := runtime.messages.runDelivery(coordinator.ctx, module, attempt.Handlers); err != nil {
+			if err := runtime.messages.runDelivery(attemptCtx, module, attempt.Handlers); err != nil {
 				if runtime.infrastructureFailure != nil {
 					runtime.infrastructureFailure(err)
 				}
@@ -548,7 +550,7 @@ func runLeafAttempt(ctx context.Context, module plannedModule, runtime superviso
 	coordinator.mu.Unlock()
 	go func() {
 		defer coordinator.owned.Done()
-		outcome, err := callOwned(coordinator.ctx, module.path, "runner", attempt.Runner)
+		outcome, err := callOwned(attemptCtx, module.path, "runner", attempt.Runner)
 		coordinator.terminate(attemptTermination{outcome: outcome, err: err})
 	}()
 

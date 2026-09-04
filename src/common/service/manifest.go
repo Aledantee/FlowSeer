@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"buf.build/go/protovalidate"
@@ -74,7 +75,8 @@ func storeContainsBrokerData(storeDir string) (bool, error) {
 		return false, err
 	}
 	for _, entry := range entries {
-		if entry.Name() != ".lock" && entry.Name() != storeProvenanceFile {
+		name := entry.Name()
+		if name != ".lock" && name != storeProvenanceFile && !strings.HasPrefix(name, storeProvenanceFile+".new-") {
 			return true, nil
 		}
 	}
@@ -215,6 +217,16 @@ func reconcileRuntimeManifest(config runtimeConfig) busReconciler {
 				return err
 			}
 			if current.GetPhase() == servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED && proto.Equal(current.GetDesired(), desired) {
+				return reconcileSettlements(ctx, resources)
+			}
+			if current.GetPhase() == servicev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED && proto.Equal(current.GetPrevious(), desired) {
+				committed, commitErr := newReconciliation(current.GetPrevious(), desired, servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED)
+				if commitErr != nil {
+					return commitErr
+				}
+				if _, commitErr = publishReconciliation(ctx, resources, committed, sequence); commitErr != nil {
+					return commitErr
+				}
 				return reconcileSettlements(ctx, resources)
 			}
 			if !manifestAdditionCompatible(current.GetDesired(), desired) {

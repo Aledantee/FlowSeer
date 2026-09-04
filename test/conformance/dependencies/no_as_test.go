@@ -32,11 +32,20 @@ func TestNoASDependency(t *testing.T) {
 		}
 	}
 
-	err := filepath.WalkDir(filepath.Join(root, "src"), func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+		if entry.IsDir() {
+			switch entry.Name() {
+			case ".git", "vendor", "testdata":
+				if path != root {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 
@@ -45,7 +54,7 @@ func TestNoASDependency(t *testing.T) {
 			return err
 		}
 		for _, module := range forbiddenModules {
-			if strings.Contains(string(data), `"`+module+`"`) {
+			if importsModule(string(data), module) {
 				t.Errorf("%s imports %s", path, module)
 			}
 		}
@@ -53,6 +62,24 @@ func TestNoASDependency(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("scanning production Go source: %v", err)
+	}
+}
+
+func importsModule(source, module string) bool {
+	return strings.Contains(source, `"`+module+`"`) || strings.Contains(source, `"`+module+`/`)
+}
+
+func TestImportsModule(t *testing.T) {
+	for _, source := range []string{
+		`import "go.aledante.io/as"`,
+		`import "go.aledante.io/as/logging"`,
+	} {
+		if !importsModule(source, "go.aledante.io/as") {
+			t.Fatalf("forbidden import was not detected: %s", source)
+		}
+	}
+	if importsModule(`import "go.aledante.io/assert"`, "go.aledante.io/as") {
+		t.Fatal("module prefix without a path boundary was rejected")
 	}
 }
 
