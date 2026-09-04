@@ -51,7 +51,7 @@ documents. A decoder reached from a generated table walker has no fallback.
 
 So when a value is malformed but its *meaning* is still recoverable, coerce it
 rather than erroring. `DecodeBitSet` truncates at `MaxBitSetOctets` for exactly
-this reason, and says so at `src/protocol/snmp/bits.go:68-73`:
+this reason, and says so at `src/protocol/snmp/bits.go:67-72`:
 
 ```go
 // A value longer than [MaxBitSetOctets] is truncated to the bound rather
@@ -80,15 +80,16 @@ preserves rows 1 and 2, even if all three arrived in one GETBULK response.
 validation can fail before any of that response's rows are delivered.
 
 **A fatal table can void unrelated data.** In the LLDP mapper, an
-`lldpRemTable` walk error is marked fatal (`src/common/snmpmap/lldp.go:382-386`),
+`lldpRemTable` walk error is marked fatal (`src/common/snmpmap/lldp.go:414-417`),
 and that marker makes `LLDP` return an empty `LLDPFacts{}`
-(`src/common/snmpmap/lldp.go:149-157`) — discarding ports and the local system
-block that were already collected successfully. One malformed capability bitmap
-on one neighbor loses the device.
+(`src/common/snmpmap/lldp.go:151-162`), discarding ports and the local system
+block that were already collected successfully.
 
-The full chain, verified end to end: oversized bitmap → `DecodeBitSet` error →
-`derr` set (`generated/go/mib/lldpmib/mib.go:2413-2416`) → `tw.rw.Fail(derr)` →
-`walk.Err() != nil` → `fatalWalk` → `LLDPFacts{}`.
+The oversized-bitmap chain is the historical failure this change prevents:
+oversized bitmap → `DecodeBitSet` error → `derr` set
+(`generated/go/mib/lldpmib/mib.go:2169-2184`) → `tw.rw.Fail(derr)` →
+`walk.Err() != nil` → `fatalWalk` → `LLDPFacts{}`. Current `DecodeBitSet`
+truncates the oversized value, so the first error no longer occurs.
 
 ## When to Apply
 
@@ -102,13 +103,13 @@ generated on top of them, since a generated column can reach all of them:
   `DecodePhysAddress`
 - `src/protocol/snmp/bits.go` — `DecodeBitSet`
 
-`RawVarBind.Decode` (`src/protocol/snmp/rawwalk.go:47`) sits on the same arm: a
+`RawVarBind.Decode` (`src/protocol/snmp/rawwalk.go:46`) sits on the same arm: a
 wire-level failure also sets `derr` and kills the walk.
 
-`DecodeDateAndTime` is the neighbor most worth a look — its tests
-(`src/protocol/snmp/tc.go:124-157`) show it declines on bad length, bad direction,
-and out-of-range fields, so three separate odd values from one agent can each
-void a whole table.
+`DecodeDateAndTime` is the neighbor most worth a look. Its tests show errors for
+bad length, bad direction, and out-of-range fields
+(`src/protocol/snmp/tc_test.go:123-156`), so three separate odd values from one
+agent can each void a whole table.
 
 Malformed selected-column indexes, including an empty suffix, terminate the
 streaming walk. Spillover outside a selected column is discarded and ends that
@@ -118,10 +119,10 @@ column. No rows are discovered solely through unselected columns.
 
 The guard is executable, at two levels.
 
-Unit — `src/protocol/snmp/bits_test.go:176`, `TestDecodeBitSet_OversizedTruncates`:
+Unit — `src/protocol/snmp/bits_test.go:175`, `TestDecodeBitSet_OversizedTruncates`:
 an over-limit value returns a set truncated to the bound rather than an error.
 
-End-to-end — `src/common/snmpmap/lldp_test.go:320-337`,
+End-to-end — `src/common/snmpmap/lldp_test.go:319-335`,
 `TestLLDP_OversizedCapabilityBitmapKeepsFacts`, which is the one that would have
 caught the original defect:
 
@@ -145,20 +146,21 @@ erroring version.
   — its Convention 1 "declining costs nothing" is scoped to the fused fast path,
   where a decline always falls back to the generic decoder. That claim does not
   extend to the generic path documented here.
-- [gosmi drops BITS member numbers](gosmi-drops-bits-member-numbers.md) — the
-  other BITS learning in this area, unrelated in mechanism (codegen-time member
-  numbering) but likely to be reached from the same starting symptom.
+- [Declaration-level SMI recovery preserves declared semantics](gosmi-drops-bits-member-numbers.md)
+  — the other BITS learning in this area, covering parser recovery and
+  codegen-time member numbering rather than runtime decode blast radius.
 
-## Open
+## Current Contract
 
-No package-level statement of this contract exists. `src/protocol/snmp/doc.go`
-describes terminal-error latching but says nothing about decode-failure blast
-radius, so the reasoning currently lives only in `bits.go` and in the docstring
-emitted onto every generated walker (`emit_table.go:324-328`). Stating it in
-`doc.go` would be an addition, not a correction.
+The package documentation states that a later decoder or transport failure
+preserves rows already delivered but does not imply a complete scan
+(`src/protocol/snmp/doc.go:90-92`). The README also says that a column decode
+error terminates a generated walk and that callers must check `Err` even after
+receiving rows (`src/protocol/snmp/README.md:45-48`). The generator emits the
+same contract on every generated walker
+(`src/protocol/snmp/cmd/mibgen/emit_table.go:256-259`).
 
-The watcher's merge path silently dropping decode errors
-(`emit_watch.go:154-186`) is deliberate — partial-fetch ticks report through
-`Watcher.LastTickErr` at call-site granularity — but it means the same decoder
-behaves oppositely depending on which generated path calls it. Nothing currently
-warns a decoder author about that split.
+Watcher partial-fetch merges intentionally use different semantics: an
+individual VarBind decode failure is skipped rather than propagated, while
+`Watcher.LastTickErr` is the call-site transient-error surface. The generator
+documents that split at `src/protocol/snmp/cmd/mibgen/emit_watch.go:147-158`.

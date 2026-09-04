@@ -1,144 +1,122 @@
 ---
-title: gosmi Drops BITS Member Numbers, So Generated Bit Positions Are a Guess
-date: 2026-08-30
+title: Declaration-Level SMI Recovery Preserves Declared Semantics
+date: 2026-09-04
 category: architecture-patterns
-module: src/protocol/snmp/cmd/mibgen
-problem_type: tooling_decision
+module: src/protocol/smi
+problem_type: architecture_pattern
 component: code_generation
 severity: medium
 applies_when:
-  - "weighing whether to replace a parsing dependency, where error recovery is the property in question"
-  - "reading a verdict in this store that a later change overturned"
-  - "tracing why src/protocol/smi exists rather than a gosmi fork"
+  - "evaluating whether an SMI parser dependency fits the shipped MIB corpus"
+  - "changing declaration-level recovery in src/protocol/smi"
+  - "changing how BITS members flow from the parser into mibgen"
+  - "using gosmi as a differential reference"
 related_components:
   - snmp_library
-  - code_generation
   - third_party_dependencies
-tags: [gosmi, snmp, mibgen, bits, code-generation, third-party, known-limitation, textual-convention]
+tags: [smi, parser, error-recovery, bits, mibgen, gosmi, code-generation]
 ---
 
-# gosmi Drops BITS Member Numbers, So Generated Bit Positions Are a Guess
-
-## Superseded: the replacement landed
-
-`gosmi` is gone. `src/protocol/smi` is a hand-written SMIv1/SMIv2 parser and
-`mibgen` renders from it, so a `BITS` member now carries the number the MIB
-wrote and the emitted positions are read rather than inferred. The two
-`-- FlowSeer local patch:` edits in the vendored IEEE MIBs are reverted, the
-`DEFVAL { { } }` panic is gone, and a numbering-gap fixture exists.
-
-The diagnosis below is correct and worth keeping: the loss really is in
-`gosmi`'s conversion layer, there really is no override seam, and the
-consequence really is a silent mis-decode. What did not survive is the verdict
-in **Why nothing was changed** — that writing a replacement parser is the wrong
-move regardless, because the grammar is only ~700 declarative lines against a
-bulk of resolution code that would be rebuilt for no benefit.
-
-That reasoning holds against a like-for-like replacement, and the work that
-landed is not one. The verdict weighed this defect alone. The property actually
-bought was error recovery: a participle grammar has no error recovery and
-cannot gain it by patching, forking, or fixing individual defects, because the
-first syntax error ends the file. That is a different kind of component, not a
-cheaper version of the same one — and the resolution code the verdict counted
-as wasted rebuild is what makes recovery mean anything, since a declaration
-that survives its neighbour's failure still has to resolve.
-
-The corpus settled the size of it. 4,994 of 5,650 `BITS` types under
-`spec/mib/` are not numbered consecutively from zero, so the coincidence this
-document rests on holds for today's configured modules and almost nothing else.
-And with the two vendored patches reverted, `gosmi` panics on 78 of 1,680
-files — a panic takes the process, not the module.
-
-Read the rest as the record of how the dependency behaved and why the decision
-looked right at the time. Two of its **Traps** are closed: the `emit_bits.go`
-comment that misattributed the cause to libsmi is corrected, and a
-numbering-gap fixture now exists. **Prevention** is obsolete; adding a MIB with
-gapped `BITS` members needs no check.
+# Declaration-Level SMI Recovery Preserves Declared Semantics
 
 ## Context
 
-`mibgen` emits a named `snmp.BitPos` constant for each member of a MIB `BITS`
-type. The bit position it emits comes from the member's index in the parsed
-slice — declaration order — not from the number written in the MIB.
+`src/protocol/smi` is FlowSeer's production SMIv1/SMIv2 parser. Its model keeps
+the meaning written in each declaration, and its recovery boundary lets later
+declarations survive a malformed neighbour.
 
-That works today only by coincidence. Every `BITS` type currently generated
-numbers its members consecutively from zero, so declaration order and the
-declared numbers agree. `LldpSystemCapabilitiesMap` is the driving case:
-`other(0)` through `stationOnly(7)`, no gaps.
+The gapped `BITS` fixture is a small example of both properties:
 
-The first MIB that skips a position breaks silently. A device reporting bit 5
-would decode as whichever member happens to sit fifth in the file, and nothing
-in the pipeline would flag the mismatch.
-
-## What actually happens
-
-gosmi parses the number correctly and then discards it during conversion.
-Confirmed by executing a probe against `testdata/mibs/FAKE-MIB.mib`, whose
-`FakeCapabilities` declares `alpha(0), beta(1), gamma(2)`:
-
-```
-type FakeCapabilities   base=Enum  enum=true
-    member alpha    Value=0
-    member beta     Value=0
-    member gamma    Value=0
+```text
+SYNTAX BITS { alpha(0), gamma(4), delta(7) }
 ```
 
-Every member arrives as zero.
+The semantic expectation records the same declared positions:
 
-The loss is in `smi/internal/type.go`:
-
-```go
-func GetValue(value string, baseType types.BaseType) types.SmiValue {
-	v := types.SmiValue{BaseType: baseType}
-	switch baseType {
-	case types.BaseTypeInteger32:  // and Integer64, Unsigned32, Unsigned64
-		v.Value = GetValueInt32(value)
-	}
-	return v  // anything else: Value stays nil
-}
+```text
+syntax-members TEST-BITS-MIB.features alpha(0) gamma(4) delta(7)
 ```
 
-`GetValue` receives the number as a string and populates `Value` only for the
-four integer base types. A `BITS` member is not among them, so `Value` is left
-nil.
+Each member reaches the model as an `smi.Member` with its declared `Number`.
+`mibgen` emits that number as the `snmp.BitPos` value. It does not reconstruct
+positions from declaration order.
 
-Two corrections to the obvious reading of this, both of which cost real time to
-discover:
+## Guidance
 
-- **`convertValue` in `type.go` is not the bug.** It is downstream, and its
-  existing `uint32` case would work fine if the value were ever populated.
-  Patching it alone changes nothing.
-- **gosmi reports the type's base as `Enum`, not `Bits`.** So neither the fix
-  nor any detection logic can simply key on `types.BaseTypeBits` at this layer.
+Treat declaration-level recovery as a defining parser contract. A malformed
+declaration should cost that declaration while the parser continues with the
+rest of the module. Unterminated strings, unterminated comments, a missing
+module header, and configured resource limits are the file-level exceptions.
 
-## Why nothing was changed
+Keep source semantics explicit in the model. For `BITS`, the number belongs to
+the member even when positions are sparse. Code generators should consume that
+number directly rather than infer it from a slice index.
 
-Reaching `GetValue` means owning a fork: gosmi is an external module and the
-function lives in an internal package, so there is no override seam. The fork
-buys more than this one fix — it would also let us patch the `DEFVAL { { } }`
-parser panic and delete the `-- FlowSeer local patch:` edits in the vendored
-IEEE MIBs that must otherwise be re-applied on every upstream re-sync. But it is
-a standing maintenance commitment, and no MIB in `mibgen.yaml` needs it yet.
+Evaluate parser dependencies against the corpus and the required failure
+boundary. The replacement decision rests on whether one bad declaration
+prevents useful declarations from loading. An isolated syntax or conversion
+defect supplies supporting evidence, but does not measure that property.
 
-Worth knowing if that decision is revisited: gosmi is pure Go, roughly 6,700
-lines, MIT licensed, with no cgo anywhere. It is not a libsmi binding. Writing a
-replacement parser is the wrong move regardless — the grammar is ~700
-declarative lines, while the bulk of the library is import resolution, type
-resolution, and OID assembly that we would rebuild for no benefit.
+Keep comparison dependencies outside the production module. `gosmi` remains in
+the standalone `src/protocol/smi/differential` module as a reference
+implementation. The SNMP benchmark uses the same module-boundary pattern for
+its own external comparand.
 
-## Traps
+## Why This Matters
 
-- **The comment in `emit_bits.go` attributes the loss to libsmi.** That is
-  wrong; libsmi is not in the dependency tree. The loss is in gosmi's own
-  conversion layer. The comment is otherwise accurate about the consequence.
-- **The `FakeCapabilities` fixture cannot catch this.** It numbers its bits
-  `0,1,2`, so declaration order and true values coincide. Any fix must add a
-  fixture with a deliberate gap, or it will pass against a still-broken parser.
-- **Current generated output is not evidence either way.** Correct bit
-  positions today prove only that every current MIB is consecutive.
+The previous parser made the failure boundary too large. The committed gosmi
+census classifies 1,680 corpus files as 1,567 loaded, 35 failed, and 78
+panicked. One pinned panic comes from the valid empty-BITS default
+`DEFVAL { { } }`. A parser that stops at the first error can discard valid
+declarations after the fault, even when the application could use them.
 
-## Prevention
+The historical BITS defect shows the separate semantic risk. Gosmi parsed
+member numbers but dropped them during conversion, so its model reported zero
+for each member. The differential suite keeps that divergence explicit. The
+current parser retains the numbers, and `emit_bits.go` reads them.
 
-Before adding a MIB with a `BITS` type, check whether its members are numbered
-consecutively from zero. If they are not, the emitted positions will be wrong,
-and the fork becomes necessary rather than optional.
+`TestConfiguredModulesFitGosmiBitsReconstruction` still passes. That result is
+narrow: the modules configured for `mibgen` currently use BITS shapes that the
+gosmi member list can reconstruct. It says nothing about the wider corpus or a
+future module.
+
+## When to Apply
+
+- Review recovery boundaries when adding grammar productions or changing parser
+  synchronization.
+- Preserve declared numbers when changing `smi.Member`, type resolution, or
+  BITS emission.
+- Use corpus outcomes when deciding whether to adopt, fork, or replace an SMI
+  parser.
+- Keep differential-only and benchmark-only dependencies in their standalone
+  modules.
+
+## Examples
+
+The focused production checks are:
+
+```sh
+go test ./src/protocol/smi \
+  -run 'TestSemanticFixtures|TestVendoredEmptyBitsDefaultsResolve'
+```
+
+The semantic fixture pins positions `0`, `4`, and `7`, and the vendored test
+pins recovery of empty-BITS defaults. There is currently no end-to-end
+`mibgen` golden fixture with gapped BITS. The parser fixture and the emitter's
+direct use of `Member.Number` cover the two ends separately.
+
+Historical comparator behavior lives in the isolated module:
+
+```sh
+cd src/protocol/smi/differential
+go test ./... \
+  -run 'TestBitsNumberingDivergencePreservesMembers|TestPanickingModuleIsRecordedAndTheRunContinues|TestConfiguredModulesFitGosmiBitsReconstruction'
+```
+
+## Related
+
+- [`src/protocol/smi` package contract](../../../src/protocol/smi/doc.go)
+- [`smi.Member` model](../../../src/protocol/smi/model.go)
+- [`mibgen` BITS emission](../../../src/protocol/snmp/cmd/mibgen/emit_bits.go)
+- [Gapped BITS semantic fixture](../../../src/protocol/smi/testdata/semantic/bits-numbering/expect.txt)
+- [Gosmi differential census](../../../src/protocol/smi/differential/testdata/census.txt)

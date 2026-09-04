@@ -2,7 +2,7 @@
 title: SNMP Collection Library — Architecture and Fast-Path Conventions
 date: 2026-08-17
 category: architecture-patterns
-module: common/snmp
+module: src/protocol/snmp
 problem_type: architecture_pattern
 component: service_layer
 severity: high
@@ -49,14 +49,12 @@ rather than a comment. A newcomer who reads only the happy path will delete a
 `return nil, false` and change decode semantics for real devices, or add a corpus
 row that silently vanishes from the generated coverage map.
 
-One caveat before trusting in-tree prose: `src/protocol/snmp/README.md` has drifted.
-It documents a `backend/gosnmp/` package and `gosnmp.Dial`
-(`src/protocol/snmp/README.md:68`), while the wire implementation now lives in the
-package behind `NewSession` (`src/protocol/snmp/backend.go:59`) and a test asserts no
-gosnmp identifier survives under the package
-(`src/protocol/snmp/no_gosnmp_test.go:15`). It also points at a nonexistent
-`docs/conventions/` (`README.md:118`) and an "AGENTS.md R14" rule (`README.md:85`).
-**`doc.go` is authoritative**, as the README itself says (`README.md:21`).
+`src/protocol/snmp/README.md` now describes the current public API, generation
+workflow, and test entry points. It links `doc.go` as the authority for API and
+lifecycle contracts (`src/protocol/snmp/README.md:59`). The wire implementation
+remains behind `NewSession` (`src/protocol/snmp/backend.go:58`), and
+`TestNoGosnmpIdentifierLeaks` guards the production package from dependency
+regression (`src/protocol/snmp/no_gosnmp_test.go:33`).
 
 ## Guidance
 
@@ -94,7 +92,7 @@ be `pduGetRequest` / `pduGetNextRequest` / `pduGetBulkRequest`
 trap, or any valued varbind declines. The win comes from `berWrapTail`, which
 wraps `buf[mark:]` in a TLV header in place with one overlapping copy, so the
 datagram assembles in a single buffer instead of one slice per nesting level
-(`pdu.go:743`).
+(`pdu.go:740-743`).
 
 The raw walk path applies the rule per varbind. `RawVarBind` carries undecoded BER
 name and value octets aliasing the response buffer
@@ -164,7 +162,7 @@ byte-prefix equals arc-prefix. `TestOID_WireByteOrder_Property` checks 20 000
 random pairs across all base-128 length classes against `OID.Compare`
 (`src/protocol/snmp/rawwalk_test.go:16`). `cmpOIDWire` documents why plain
 `bytes.Compare` is *not* arc order — groups of differing length must compare
-length-first (`src/protocol/snmp/rawwalk.go:186`).
+length-first (`src/protocol/snmp/rawwalk.go:192`).
 
 ### 3 — Wire bytes are the dispatch key, computed once
 
@@ -191,11 +189,14 @@ package (`emit_dispatch.go:15`, `emit_tier.go:61`). New hot-path lookups key on
 `mibgen` emits one package per MIB module using only `snmp`'s exported surface:
 typed scalar accessors, `snmp.NewColumn`, row structs and Walkers, SMI enums, the
 dispatch map, `snmp.Decode*` for textual conventions
-(`src/protocol/snmp/cmd/mibgen/doc.go:1`). Generated table walkers use the exported
-`snmp.WalkColumns` bounded merge. Native sessions supply raw batches through a
-package-private capability; alternate sessions use `GetBulk` and `GetNext`
-without an expanded `Session` interface. Each typed column still has a fused arm
-with a generic fallback in `emit_table.go`.
+(`src/protocol/snmp/cmd/mibgen/doc.go:1`). Generated table walkers use the
+exported `snmp.WalkColumns` bounded merge. `BulkWalkRaw` is part of the public
+`Session` interface (`src/protocol/snmp/session.go:45-52`). Native sessions
+supply raw batches directly; alternate sessions can implement the method by
+adapting `BulkWalk` through `RawWalkerFromWalker`
+(`src/protocol/snmp/rawwalk.go:328-330`), as the integration fake does
+(`src/protocol/snmp/test/integration/assertions_test.go:68-69`). Each typed
+column still has a fused arm with a generic fallback in `emit_table.go`.
 
 The merge requests selected columns, retains one batch per column, and joins by
 numeric index suffix before decoding a row. `Walk` is lazy and empty selection
@@ -209,14 +210,14 @@ apply the generated-walk memory bound to it.
   directive, so `go generate .` at the root is the normal entry point. There is
   no `tool` directive for mibgen in `go.mod`.
 - **`search_paths` resolve relative to the config file's own directory**
-  (`src/protocol/snmp/cmd/mibgen/config.go:183`). `mibgen.yaml` lives at the
+  (`src/protocol/snmp/cmd/mibgen/config.go:193-194`). `mibgen.yaml` lives at the
   repository root, so its entries are bare repo-relative paths (`spec/mib/ietf`).
   Moving the config changes that depth.
 - An emitter change is not done until the golden fixture is refreshed:
   `go test ./src/protocol/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden`
   (`src/protocol/snmp/cmd/mibgen/doc.go:26`).
 - **Change-indicator discovery is structural first, config only as the
-  exception** (`emit_discovery.go:94`). Precedence: (1) a per-row column inside
+  exception** (`emit_discovery.go:80-89`). Precedence: (1) a per-row column inside
   the table matching the indicator name-suffix heuristic; (2) a `mibgen.yaml`
   `indicators:` declaration; (3) a module scalar named `<table><suffix>` or
   `<base><suffix>` with a trailing `Table` stripped (`ifStackLastChange` →
@@ -261,7 +262,7 @@ The two raw-path rows show the discipline, as the corpus records it:
   (`conformance_rawpath_test.go:185`).
 
 Committed state: 33 covered, 3 accepted-risk, 0 pending, 36 total
-(`src/protocol/snmp/CONFORMANCE.md:6`).
+(`src/protocol/snmp/CONFORMANCE.md:5`).
 
 ### 6 — The matrix generator's one truncation hazard is guarded
 
@@ -338,9 +339,10 @@ you have not first seen in a profile (`src/protocol/snmp/bench/Taskfile.yml`,
 | Integration t1–t4 | `src/protocol/snmp/test/integration/` | tags `snmp_integration_t1..t4` |
 | Perf | `src/protocol/snmp/bench/bench-gate.sh` | `task bench:gate` |
 
-Bare `go test ./...` runs zero integration tests by design; each tier owns its
-container/lab lifecycle and selecting two tier tags at once is a deliberate
-compile error (`src/protocol/snmp/README.md:109`).
+Bare `go test ./...` includes the offline integration harness. Select exactly
+one tag to run an external tier; selecting two tier tags produces a deliberate
+compile error because each defines `TestMain`
+(`src/protocol/snmp/test/integration/README.md:32-40`).
 
 ## Why This Matters
 
@@ -404,8 +406,8 @@ emitted package at once.
 (`src/protocol/snmp/rawwalk.go:135`): reject pre-decoded (`rv.VB != nil`), reject a
 non-matching tag, reject decode error and range overflow — all as `ok=false`. Wire
 `RawFuse` into the emitter's column info
-(`src/protocol/snmp/cmd/mibgen/emit_table.go:410`) so the generated switch emits the
-fused arm with its generic `else` (`emit_table.go:359`), regenerate, and extend
+(`src/protocol/snmp/cmd/mibgen/emit_table.go:164` and `:284-290`) so the generated
+switch emits the fused arm with its generic `else`, regenerate, and extend
 `TestRawPrimitives_FusedAndDecline` (`src/protocol/snmp/rawwalk_test.go:234`) on both
 the accepting and declining sides.
 
@@ -428,7 +430,7 @@ optimization*, not by loosening validation.
 
 **Adapting a non-wire `Session`.** `RawWalkerFromWalker` re-encodes each
 `(OID, VarBind)` pair into a pre-decoded `RawVarBind` with `VB` set
-(`src/protocol/snmp/rawwalk.go:309`); fakes, recorders, and middleware satisfy
+(`src/protocol/snmp/rawwalk.go:330`); fakes, recorders, and middleware satisfy
 `BulkWalkRaw` this way and consumers take their generic arm for every varbind.
 That is why `rv.VB != nil` is the first check in every fused primitive.
 
@@ -450,8 +452,3 @@ pinning test, and an allowlist entry (`conformance_corpus_test.go:90`, `:132`).
   (`docs/code-style.md:280`) and merge gate (`:270`) govern every change here.
 - `src/protocol/snmp/test/integration/README.md` — per-tier prerequisites and
   walkthroughs.
-- Stale prose to fix when next in the area: `src/protocol/snmp/README.md:68`
-  (gosnmp backend section), `:85` (AGENTS.md R14), `:118` (`docs/conventions/`);
-  and `src/protocol/snmp/test/integration/doc.go:8`, which says "Three independent
-  tiers" and documents only t1–t3 while a build-tag-gated, opt-in t4 live-device
-  tier exists (`src/protocol/snmp/test/integration/t4_main_test.go:1`).
