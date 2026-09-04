@@ -10,9 +10,8 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
-	"go.aledante.io/as"
-
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 )
 
 // usm_priv.go is the USM privacy (encryption) codec. It composes
@@ -67,7 +66,7 @@ func newPrivContext(ctx context.Context, proto PrivProtocol, key []byte) (*privC
 		pc.salt.Store(binary.BigEndian.Uint64(seed[:]))
 	}
 	if proto == Priv3DES && weakTripleDESKey(key) {
-		as.Logger(pc.logCtx).WarnContext(pc.logCtx,
+		service.Logger(pc.logCtx).WarnContext(pc.logCtx,
 			"snmp: 3DES localized key has non-distinct sub-keys (accepted for interop)")
 	}
 	return pc, nil
