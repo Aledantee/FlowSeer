@@ -152,6 +152,23 @@ func TestPreflightExplicitTelemetryConfigOverridesEnvironment(t *testing.T) {
 	}
 }
 
+func TestPreflightDerivesTransportSecurityFromEndpointScheme(t *testing.T) {
+	got, err := preflight(context.Background(), Config{
+		Identity: testIdentity(),
+		Setup:    testSetup(),
+		Telemetry: TelemetryConfig{
+			Endpoint: "http://collector.example:4317",
+			Protocol: "grpc",
+		},
+	}, mapLookup(nil))
+	if err != nil {
+		t.Fatalf("preflight() error: %v", err)
+	}
+	if !got.telemetry.connection.insecure {
+		t.Fatal("HTTP endpoint did not select an insecure gRPC transport")
+	}
+}
+
 func TestPreflightResolvesTelemetryPolicyInheritanceAndEnvironment(t *testing.T) {
 	cfg := Config{
 		Identity: testIdentity(),

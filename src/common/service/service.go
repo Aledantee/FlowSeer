@@ -39,20 +39,28 @@ func run(ctx context.Context, config Config) error {
 }
 
 func runWithOptions(ctx context.Context, config Config, options supervisorOptions) (runErr error) {
+	return runWithOptionsAndTelemetryFactories(ctx, config, options, defaultTelemetryFactories)
+}
+
+func runWithOptionsAndTelemetryFactories(
+	ctx context.Context,
+	config Config,
+	options supervisorOptions,
+	factories telemetryFactorySet,
+) (runErr error) {
 	options = options.withDefaults()
 	normalized, err := preflight(ctx, config, options.lookup)
 	if err != nil {
 		return err
 	}
-	telemetry, err := newTelemetry(config)
+	telemetryOwner, err := newRunTelemetry(ctx, normalized.identity, normalized.telemetry, factories)
 	if err != nil {
 		return err
 	}
-	if normalized.telemetryShutdown != nil {
-		defer func() {
-			runErr = errors.Join(runErr, normalized.telemetryShutdown(context.WithoutCancel(ctx)))
-		}()
-	}
+	telemetry := telemetryOwner.telemetry
+	defer func() {
+		runErr = errors.Join(runErr, telemetryOwner.shutdown(context.WithoutCancel(ctx)))
+	}()
 	if ctx.Err() != nil {
 		return nil
 	}

@@ -128,7 +128,12 @@ func newTelemetry(config Config) (telemetry, error) {
 	if logger == nil {
 		logger = defaultLogger
 	}
-	logger = slog.New(traceLogHandler{Handler: logger.Handler()})
+	localHandler := traceLogHandler{Handler: logger.Handler()}
+	if config.LogHandler != nil {
+		logger = slog.New(multiSlogHandler{handlers: []slog.Handler{localHandler, config.LogHandler}})
+	} else {
+		logger = slog.New(localHandler)
+	}
 	propagator := config.Propagator
 	if propagator == nil {
 		propagator = defaultPropagator
@@ -139,6 +144,21 @@ func newTelemetry(config Config) (telemetry, error) {
 		tracerProvider = defaultTracerProvider
 	}
 	meterProvider := config.MeterProvider
+	if meterProvider == nil {
+		meterProvider = defaultMeterProvider
+	}
+	return telemetryFromComponents(logger, tracerProvider, meterProvider, propagator)
+}
+
+func telemetryFromComponents(
+	logger *slog.Logger,
+	tracerProvider trace.TracerProvider,
+	meterProvider metric.MeterProvider,
+	propagator propagation.TextMapPropagator,
+) (telemetry, error) {
+	if tracerProvider == nil {
+		tracerProvider = defaultTracerProvider
+	}
 	if meterProvider == nil {
 		meterProvider = defaultMeterProvider
 	}

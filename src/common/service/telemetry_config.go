@@ -144,6 +144,12 @@ type telemetrySetting struct {
 	setting string
 }
 
+type telemetryBoolSetting struct {
+	value    bool
+	explicit bool
+	setting  string
+}
+
 func normalizeTelemetryConfig(config Config, envPrefix string, lookup envLookup) (normalizedTelemetryConfig, error) {
 	if err := rejectSignalSpecificOTLPEnvironment(lookup); err != nil {
 		return normalizedTelemetryConfig{}, err
@@ -250,18 +256,21 @@ func normalizeOTLPConnection(config TelemetryConfig, lookup envLookup) (normaliz
 	}
 	normalized.timeout = timeout
 
-	insecure, insecureSetting, err := normalizeTelemetryInsecure(config.Insecure, lookup)
+	insecure, err := normalizeTelemetryInsecure(config.Insecure, lookup)
 	if err != nil {
 		return normalizedOTLPConnection{}, false, err
 	}
-	normalized.insecure = insecure
+	if !insecure.explicit && normalized.endpoint != nil {
+		insecure.value = normalized.endpoint.Scheme == "http"
+	}
+	normalized.insecure = insecure.value
 
 	rootCAs, clientTLS, err := normalizeTelemetryTLS(certificate, clientCertificate, clientKey)
 	if err != nil {
 		return normalizedOTLPConnection{}, false, err
 	}
-	if insecure && (rootCAs != nil || clientTLS != nil) {
-		return normalizedOTLPConnection{}, false, telemetryConfigError(insecureSetting, "conflict")
+	if insecure.value && (rootCAs != nil || clientTLS != nil) {
+		return normalizedOTLPConnection{}, false, telemetryConfigError(insecure.setting, "conflict")
 	}
 	normalized.rootCAs = rootCAs
 	normalized.clientCertificate = clientTLS
@@ -374,23 +383,23 @@ func normalizeTelemetryTimeout(configured time.Duration, lookup envLookup) (time
 	return timeout, nil
 }
 
-func normalizeTelemetryInsecure(configured *bool, lookup envLookup) (bool, string, error) {
+func normalizeTelemetryInsecure(configured *bool, lookup envLookup) (telemetryBoolSetting, error) {
 	setting := "Telemetry.Insecure"
 	if configured != nil {
-		return *configured, setting, nil
+		return telemetryBoolSetting{value: *configured, explicit: true, setting: setting}, nil
 	}
 	value, ok := lookupTelemetryEnvironment(lookup, "OTEL_EXPORTER_OTLP_INSECURE")
 	if !ok || value == "" {
-		return false, setting, nil
+		return telemetryBoolSetting{setting: setting}, nil
 	}
 	setting = "OTEL_EXPORTER_OTLP_INSECURE"
 	switch value {
 	case "true":
-		return true, setting, nil
+		return telemetryBoolSetting{value: true, explicit: true, setting: setting}, nil
 	case "false":
-		return false, setting, nil
+		return telemetryBoolSetting{explicit: true, setting: setting}, nil
 	default:
-		return false, setting, telemetryConfigError(setting, "malformed")
+		return telemetryBoolSetting{}, telemetryConfigError(setting, "malformed")
 	}
 }
 

@@ -162,12 +162,11 @@ func validateDeclaration(config Config) (runtimeConfig, error) {
 	}
 
 	return runtimeConfig{
-		identity:          config.Identity,
-		envPrefix:         envPrefix,
-		modules:           modules,
-		registry:          registry.build(),
-		rootSupervisor:    rootSupervisor,
-		telemetryShutdown: config.TelemetryShutdown,
+		identity:       config.Identity,
+		envPrefix:      envPrefix,
+		modules:        modules,
+		registry:       registry.build(),
+		rootSupervisor: rootSupervisor,
 	}, nil
 }
 

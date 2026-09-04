@@ -111,15 +111,14 @@ type Config struct {
 }
 
 type runtimeConfig struct {
-	identity          Identity
-	envPrefix         string
-	modules           []plannedModule
-	registry          *staticRegistry
-	admission         *admissionRevision
-	bus               *normalizedBusConfig
-	rootSupervisor    normalizedSupervisor
-	telemetry         normalizedTelemetryConfig
-	telemetryShutdown func(context.Context) error
+	identity       Identity
+	envPrefix      string
+	modules        []plannedModule
+	registry       *staticRegistry
+	admission      *admissionRevision
+	bus            *normalizedBusConfig
+	rootSupervisor normalizedSupervisor
+	telemetry      normalizedTelemetryConfig
 }
 
 func normalizeEnvPrefix(config Config) (string, error) {
