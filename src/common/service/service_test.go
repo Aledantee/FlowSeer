@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -58,7 +57,6 @@ func TestRunCancelsAndWaitsBeforeTelemetryShutdown(t *testing.T) {
 }
 
 func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
 	workerReady := make(chan struct{})
 	runnerSeen := make(chan struct{}, 1)
 	taskSeen := make(chan struct{}, 1)
@@ -67,8 +65,12 @@ func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
 		if ModulePath(ctx) != wantPath {
 			return errors.New("attempt module path is unavailable")
 		}
-		if Logger(ctx) != logger {
+		if Logger(ctx) == defaultLogger {
 			return errors.New("attempt logger is unavailable")
+		}
+		attributes := Attributes(ctx)
+		if got, ok := attributes.Value(modulePathKey); !ok || got.AsString() != wantPath {
+			return errors.New("attempt attributes do not identify the module")
 		}
 		if Bus(ctx) == disabledMessageBus {
 			return errors.New("attempt bus is unavailable")
@@ -78,7 +80,6 @@ func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
 	}
 	cfg := Config{
 		Identity: Identity{Namespace: "flowseer", Name: "context_runtime", Version: "1.0.0"},
-		Logger:   logger,
 		Bus:      &BusConfig{StoreDir: filepath.Join(t.TempDir(), "bus")},
 		Modules: []Module{
 			{Name: "publisher", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
@@ -91,7 +92,7 @@ func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
 				}}, nil
 			}}},
 			{Name: "worker", Leaf: &Leaf{
-				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}},
+				Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}},
 				Setup: func(ctx context.Context) (Attempt, error) {
 					if err := Go(ctx, func(ctx context.Context) error {
 						if err := check(ctx, "context_runtime/worker", taskSeen); err != nil {
@@ -108,7 +109,7 @@ func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
 							<-ctx.Done()
 							return ctx.Err()
 						},
-						Handlers: []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(ctx context.Context, _ proto.Message) error {
+						Handlers: []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(ctx context.Context, _ proto.Message) error {
 							return check(ctx, "context_runtime/worker", handlerSeen)
 						}}},
 					}, nil

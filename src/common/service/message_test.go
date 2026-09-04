@@ -33,7 +33,7 @@ func TestAtomicPublishValidatesEveryRecordBeforeStaging(t *testing.T) {
 	runtime := newMessageRuntime(resources, nil, nil, telemetry{})
 	makeEnvelope := func(id, target string, payload []byte) *servicev1.Message {
 		return servicev1.Message_builder{
-			Kind:          messageKindEvent.Enum(),
+			Kind:          MessageKindEvent.Enum(),
 			MessageId:     proto.String(id),
 			CorrelationId: proto.String(id),
 			SourcePath:    proto.String("edge/publisher"),

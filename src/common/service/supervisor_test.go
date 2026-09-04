@@ -232,7 +232,7 @@ func TestDeliveryFailureBeforeRunnerStartTerminatesAttempt(t *testing.T) {
 		Modules: []Module{{
 			Name: "worker",
 			Leaf: &Leaf{
-				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}},
+				Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}},
 				Setup: func(context.Context) (Attempt, error) {
 					return Attempt{
 						Runner: func(ctx context.Context) error {
@@ -240,7 +240,7 @@ func TestDeliveryFailureBeforeRunnerStartTerminatesAttempt(t *testing.T) {
 							<-ctx.Done()
 							return ctx.Err()
 						},
-						Handlers: []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error { return nil }}},
+						Handlers: []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error { return nil }}},
 					}, nil
 				},
 			},

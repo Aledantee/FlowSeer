@@ -37,9 +37,9 @@ func benchmarkMessageBus(b *testing.B, eventSubscribers int) *MessageBus {
 	b.Helper()
 	modules := make([]Module, eventSubscribers)
 	for index := range modules {
-		subscriptions := []Subscription{{Kind: messageKindEvent, Message: &emptypb.Empty{}}}
+		subscriptions := []Subscription{{Kind: MessageKindEvent, Message: &emptypb.Empty{}}}
 		if index == 0 {
-			subscriptions = append(subscriptions, Subscription{Kind: messageKindCommand, Message: &emptypb.Empty{}})
+			subscriptions = append(subscriptions, Subscription{Kind: MessageKindCommand, Message: &emptypb.Empty{}})
 		}
 		modules[index] = Module{
 			Name: "target_" + strconv.Itoa(index),

@@ -17,8 +17,8 @@ func TestStaticRegistryRejectsSameNameWithDifferentSchema(t *testing.T) {
 	_, err := validateDeclaration(Config{
 		Identity: testIdentity(),
 		Modules: []Module{
-			{Name: "first", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindEvent, Message: first.New().Interface()}}}},
-			{Name: "second", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindEvent, Message: second.New().Interface()}}}},
+			{Name: "first", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: first.New().Interface()}}}},
+			{Name: "second", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: second.New().Interface()}}}},
 		},
 	})
 	if err == nil {
@@ -33,14 +33,14 @@ func TestAttemptHandlerRejectsSameNameWithDifferentSchema(t *testing.T) {
 		Identity: testIdentity(),
 		Modules: []Module{{Name: "worker", Leaf: &Leaf{
 			Setup:         testSetup(),
-			Subscriptions: []Subscription{{Kind: messageKindCommand, Message: declared.New().Interface()}},
+			Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: declared.New().Interface()}},
 		}}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	err = validateAttemptHandlers(declaration.modules[0].path, declaration.modules[0].leaf.subscriptions, []Handler{{
-		Kind:    messageKindCommand,
+		Kind:    MessageKindCommand,
 		Message: handler.New().Interface(),
 		Handle:  func(context.Context, proto.Message) error { return nil },
 	}})

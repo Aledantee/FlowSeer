@@ -35,11 +35,42 @@ and `_ENABLED`. For example, `FLOWSEER_EDGE_INGEST_SYSLOG_ENABLED=false`
 disables `edge/ingest/syslog`. An override is evaluated before a fixed or
 probed gate, so it can reverse a fixed decision and prevents a probe call.
 
-`service.Logger(ctx)`, `service.Tracer(ctx)`, `service.Meter(ctx)`, and
-`service.Propagator(ctx)` read the capabilities attached to the current attempt.
-They return safe no-op values outside the runtime and never consult process
-globals. `context.WithoutCancel` retains these values, which lets background
-protocol objects keep their service logger without keeping the attempt alive.
+## Instrumentation
+
+Module code reads its instrumentation from the attempt context rather than from
+process globals. `service.Logger(ctx)`, `service.Tracer(ctx)`,
+`service.Meter(ctx)`, `service.TracerProvider(ctx)`,
+`service.MeterProvider(ctx)`, `service.Propagator(ctx)`, and
+`service.Attributes(ctx)` all return safe no-op values outside the runtime.
+`context.WithoutCancel` retains them, which lets background protocol objects
+keep their service logger without keeping the attempt alive.
+
+The attempt logger already carries `service.name`, `service.namespace`,
+`service.version`, and `service.module.path`, so a module never restates its own
+identity. Records written with a recording span also carry `trace_id` and
+`span_id`; a module that opens a `slog` group before logging nests those two
+under the group, because `slog` cannot add a record attribute above an open
+group.
+
+`Tracer` and `Meter` are scoped to the service runtime. A module that owns an
+instrumentation scope should name it itself and attach the runtime's dimensions:
+
+```go
+meter := service.MeterProvider(ctx).Meter("go.aledante.io/FlowSeer/src/edge/ingest/syslog")
+received, err := meter.Int64Counter("flowseer.syslog.messages")
+if err != nil {
+    return service.Attempt{}, err
+}
+return service.Attempt{Runner: func(ctx context.Context) error {
+    received.Add(ctx, 1, metric.WithAttributeSet(service.Attributes(ctx)))
+    ...
+}}, nil
+```
+
+`service.Attributes` returns the same bounded set the runtime records for that
+module, which keeps module metrics joinable with
+`flowseer.service.module.lifecycle`. `attribute.Set` methods have pointer
+receivers, so assign it to a variable before calling `Value` or `ToSlice`.
 
 Callers that own telemetry exporters may set `TelemetryShutdown`. It runs after
 all module work has stopped. Shared providers should be shut down there as one

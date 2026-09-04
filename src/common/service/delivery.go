@@ -402,7 +402,7 @@ func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.
 	options := []trace.SpanStartOption{
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
-			attribute.String("service.module.path", envelope.GetTargetPath()),
+			attribute.String(modulePathKey, envelope.GetTargetPath()),
 			attribute.String("messaging.message.type", envelope.GetTypeName()),
 			attribute.String("messaging.message.kind", messageKindToken(envelope.GetKind())),
 			attribute.Int64("messaging.delivery.attempt", int64(delivered)),
