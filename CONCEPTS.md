@@ -60,6 +60,24 @@ A reference to one entity whose kind is decided at runtime, as a kind plus an id
 
 A supervised runtime unit within one service. A leaf owns one setup function; a branch owns a supervisor containing one or more child modules. Its full path within the service is stable identity for gates, durable messaging, and telemetry. This is separate from a MIB Module, which is an SMI definition block.
 
+### Local Bus
+
+The private, file-backed message bus a service runs for its own Service Modules: listener-free, scoped to one process, and persisting messages so inter-module work resumes after a crash, reboot, or upgrade. Delivery is at-least-once, so a handler must tolerate seeing the same message twice. Durability is a service-wide runtime setting: the default survives a process kill but may lose the most recent writes on power loss, and a service that needs every acknowledged record to survive a power cut opts into flushing per message.
+
+### Runtime Manifest
+
+The persisted record of what a Local Bus store *is*: the service identity, its module paths, subscriptions, subject encoding, and broker provenance. Startup compares the stored manifest with the running binary and accepts only additive changes; anything else marks the store migration-required. Because the comparison covers the whole record, the manifest holds only what defines the store, such as identity, routing, and its capacity ceiling, and not operational settings an operator may change between starts.
+
+### Settlement
+
+The durable record of what a delivery decided about one message on the Local Bus: retry, acknowledge, or discard, with the count of committed retries. It is written before the broker is told, so an interrupted delivery resumes from its last committed decision instead of restarting the retry budget. A Settlement can be lost independently of its message on power loss, in which case the message is handled again.
+
+### Signal Policy
+
+Whether one Service Module emits each telemetry signal (logs, metrics, traces). Each is declared as inherit, enabled, or disabled; a child inherits its parent's effective value, an environment override beats the declaration, and enabling a signal that has no export backing is a startup error. The policy is snapshotted per module generation, so a running attempt never changes what it emits mid-flight.
+
+Disabling traces suppresses span creation only. A trace-disabled module still carries inbound trace context and forwards it on anything it publishes, so modules downstream of it keep end-to-end continuity. Across a durable delivery the downstream span links to the publication rather than descending from it, because the delivery may happen later, more than once, or for many subscribers.
+
 ## Network model
 
 ### Facet
