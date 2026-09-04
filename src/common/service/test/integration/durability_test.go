@@ -74,13 +74,23 @@ func TestAcknowledgedPublishesSurviveAbruptProcessExit(t *testing.T) {
 	for _, policy := range []string{"periodic", "per_message"} {
 		t.Run(policy, func(t *testing.T) {
 			storeDir := t.TempDir()
-			publisher := startBrokerHelperConfigured(t, executable, "batch_publish", storeDir, "", policy, "v1")
+			publisher := startBrokerHelperWithConfig(t, executable, brokerHelperConfig{
+				mode:        "batch_publish",
+				storeDir:    storeDir,
+				fsyncPolicy: policy,
+				version:     "v1",
+			})
 			if got := publisher.waitForPrefix(t, "READY "); got != "READY 100" {
 				t.Fatalf("publisher output = %q", got)
 			}
 			publisher.killAndWait(t)
 
-			reopened := startBrokerHelperConfigured(t, executable, "batch_reopen", storeDir, "", policy, "v1")
+			reopened := startBrokerHelperWithConfig(t, executable, brokerHelperConfig{
+				mode:        "batch_reopen",
+				storeDir:    storeDir,
+				fsyncPolicy: policy,
+				version:     "v1",
+			})
 			if got := reopened.waitForPrefix(t, "FOUND "); got != "FOUND 100" {
 				t.Fatalf("reopened helper output = %q", got)
 			}
@@ -97,13 +107,23 @@ func TestPerMessageStoreOpensUnderDefaultPolicyAfterUpgrade(t *testing.T) {
 	}
 	executable := buildBrokerHelper(t)
 	storeDir := t.TempDir()
-	publisher := startBrokerHelperConfigured(t, executable, "batch_publish", storeDir, "", "per_message", "v1")
+	publisher := startBrokerHelperWithConfig(t, executable, brokerHelperConfig{
+		mode:        "batch_publish",
+		storeDir:    storeDir,
+		fsyncPolicy: "per_message",
+		version:     "v1",
+	})
 	if got := publisher.waitForPrefix(t, "READY "); got != "READY 100" {
 		t.Fatalf("publisher output = %q", got)
 	}
 	publisher.closeAndWait(t)
 
-	reopened := startBrokerHelperConfigured(t, executable, "batch_reopen", storeDir, "", "periodic", "v2")
+	reopened := startBrokerHelperWithConfig(t, executable, brokerHelperConfig{
+		mode:        "batch_reopen",
+		storeDir:    storeDir,
+		fsyncPolicy: "periodic",
+		version:     "v2",
+	})
 	if got := reopened.waitForPrefix(t, "FOUND "); got != "FOUND 100" {
 		t.Fatalf("reopened helper output = %q", got)
 	}

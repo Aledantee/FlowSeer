@@ -20,6 +20,14 @@ type brokerHelper struct {
 	stdin   io.WriteCloser
 }
 
+type brokerHelperConfig struct {
+	mode        string
+	storeDir    string
+	sequence    string
+	fsyncPolicy string
+	version     string
+}
+
 func buildBrokerHelper(t *testing.T) string {
 	t.Helper()
 	_, source, _, ok := runtime.Caller(0)
@@ -41,18 +49,22 @@ func buildBrokerHelper(t *testing.T) string {
 }
 
 func startBrokerHelper(t *testing.T, executable, mode, storeDir, sequence string) *brokerHelper {
-	return startBrokerHelperConfigured(t, executable, mode, storeDir, sequence, "", "")
+	return startBrokerHelperWithConfig(t, executable, brokerHelperConfig{
+		mode:     mode,
+		storeDir: storeDir,
+		sequence: sequence,
+	})
 }
 
-func startBrokerHelperConfigured(t *testing.T, executable, mode, storeDir, sequence, policy, version string) *brokerHelper {
+func startBrokerHelperWithConfig(t *testing.T, executable string, config brokerHelperConfig) *brokerHelper {
 	t.Helper()
 	command := exec.Command(executable, "-test.run=^TestBrokerHelperProcess$", "-test.count=1")
 	command.Env = append(os.Environ(),
-		"FLOWSEER_BROKER_HELPER_MODE="+mode,
-		"FLOWSEER_BROKER_HELPER_STORE="+storeDir,
-		"FLOWSEER_BROKER_HELPER_SEQUENCE="+sequence,
-		"FLOWSEER_BROKER_HELPER_FSYNC_POLICY="+policy,
-		"FLOWSEER_BROKER_HELPER_VERSION="+version,
+		"FLOWSEER_BROKER_HELPER_MODE="+config.mode,
+		"FLOWSEER_BROKER_HELPER_STORE="+config.storeDir,
+		"FLOWSEER_BROKER_HELPER_SEQUENCE="+config.sequence,
+		"FLOWSEER_BROKER_HELPER_FSYNC_POLICY="+config.fsyncPolicy,
+		"FLOWSEER_BROKER_HELPER_VERSION="+config.version,
 	)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
