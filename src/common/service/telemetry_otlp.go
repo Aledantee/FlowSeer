@@ -116,19 +116,19 @@ func (t *httpOTLPTransport) upload(ctx context.Context, endpoint string, message
 	if err != nil {
 		return errors.New("telemetry encoding failed")
 	}
-	return retryOTLP(ctx, t.timeout, func(attemptCtx context.Context) (time.Duration, bool, error) {
-		body := payload
-		if t.compression {
-			var compressed bytes.Buffer
-			writer := gzip.NewWriter(&compressed)
-			if _, writeErr := writer.Write(payload); writeErr != nil {
-				return 0, false, errors.New("telemetry compression failed")
-			}
-			if closeErr := writer.Close(); closeErr != nil {
-				return 0, false, errors.New("telemetry compression failed")
-			}
-			body = compressed.Bytes()
+	body := payload
+	if t.compression {
+		var compressed bytes.Buffer
+		writer := gzip.NewWriter(&compressed)
+		if _, err := writer.Write(payload); err != nil {
+			return errors.New("telemetry compression failed")
 		}
+		if err := writer.Close(); err != nil {
+			return errors.New("telemetry compression failed")
+		}
+		body = compressed.Bytes()
+	}
+	return retryOTLP(ctx, t.timeout, func(attemptCtx context.Context) (time.Duration, bool, error) {
 		request, requestErr := http.NewRequestWithContext(attemptCtx, http.MethodPost, endpoint, bytes.NewReader(body))
 		if requestErr != nil {
 			return 0, false, errors.New("telemetry request failed")

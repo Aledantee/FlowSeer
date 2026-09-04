@@ -304,7 +304,6 @@ func newTelemetryPolicyTestOwner(
 	owner := &telemetryOwner{
 		telemetry:      capabilities,
 		localLogger:    slog.New(traceLogHandler{Handler: localLogger.Handler()}),
-		logHandler:     exportLogger.Handler(),
 		tracerProvider: tracerProvider,
 		meterProvider:  meterProvider,
 		logsBacking:    logsBacking,

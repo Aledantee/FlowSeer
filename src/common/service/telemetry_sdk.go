@@ -66,7 +66,6 @@ var defaultTelemetryFactories = telemetryFactorySet{
 type telemetryOwner struct {
 	telemetry      telemetry
 	localLogger    *slog.Logger
-	logHandler     slog.Handler
 	tracerProvider trace.TracerProvider
 	meterProvider  metric.MeterProvider
 	logsBacking    signalBacking
@@ -139,11 +138,9 @@ func newRunTelemetry(
 			return unwind(fmt.Errorf("create telemetry logs: %w", err))
 		}
 		closeLogs = shutdown
-		owner.logHandler = sanitizeSlogHandler{Handler: handler}
 		owner.shutdowns = prependShutdown(owner.shutdowns, closeLogs)
 		logHandler = multiSlogHandler{handlers: []slog.Handler{localHandler, sanitizeSlogHandler{Handler: handler}}}
 	case signalInjected:
-		owner.logHandler = config.logs.handler
 		logHandler = multiSlogHandler{handlers: []slog.Handler{localHandler, config.logs.handler}}
 	}
 	if config.metrics.backing == signalManaged {
