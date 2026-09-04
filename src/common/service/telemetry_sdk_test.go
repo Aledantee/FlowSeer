@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -26,6 +29,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	flowerrs "go.aledante.io/FlowSeer/src/common/errs"
 )
 
 type failingOTLPTransport struct{}
@@ -40,6 +45,212 @@ func (failingOTLPTransport) uploadMetrics(context.Context, *collectormetricspb.E
 
 func (failingOTLPTransport) uploadTraces(context.Context, []*tracepb.ResourceSpans) error {
 	return errors.New("collector unavailable")
+}
+
+type blockingOTLPTransport struct {
+	started     chan struct{}
+	release     chan struct{}
+	startedOnce sync.Once
+	releaseOnce sync.Once
+}
+
+type stalledRetryOTLPTransport struct {
+	requestTimeout time.Duration
+	attempts       int
+	waits          int
+	remaining      []time.Duration
+	attemptErrors  []error
+}
+
+func (t *stalledRetryOTLPTransport) uploadLogs(ctx context.Context, _ *collectorlogspb.ExportLogsServiceRequest) error {
+	return retryOTLPWithPolicy(ctx, t.requestTimeout, telemetryRetryPolicy{
+		limit:       time.Hour,
+		initialWait: time.Nanosecond,
+		maximumWait: time.Nanosecond,
+		wait: func(context.Context, time.Duration) error {
+			t.waits++
+			if t.waits == 2 {
+				return context.DeadlineExceeded
+			}
+			return nil
+		},
+	}, func(attemptCtx context.Context) (time.Duration, bool, error) {
+		t.attempts++
+		deadline, ok := attemptCtx.Deadline()
+		if !ok {
+			return 0, false, errors.New("export attempt has no deadline")
+		}
+		t.remaining = append(t.remaining, time.Until(deadline))
+		<-attemptCtx.Done()
+		t.attemptErrors = append(t.attemptErrors, attemptCtx.Err())
+		return 0, true, errors.New("telemetry request stalled")
+	})
+}
+
+func (*stalledRetryOTLPTransport) uploadMetrics(context.Context, *collectormetricspb.ExportMetricsServiceRequest) error {
+	return nil
+}
+
+func (*stalledRetryOTLPTransport) uploadTraces(context.Context, []*tracepb.ResourceSpans) error {
+	return nil
+}
+
+func newBlockingOTLPTransport() *blockingOTLPTransport {
+	return &blockingOTLPTransport{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+}
+
+func (t *blockingOTLPTransport) uploadLogs(ctx context.Context, _ *collectorlogspb.ExportLogsServiceRequest) error {
+	return t.block(ctx)
+}
+
+func (t *blockingOTLPTransport) uploadMetrics(ctx context.Context, _ *collectormetricspb.ExportMetricsServiceRequest) error {
+	return t.block(ctx)
+}
+
+func (t *blockingOTLPTransport) uploadTraces(ctx context.Context, _ []*tracepb.ResourceSpans) error {
+	return t.block(ctx)
+}
+
+func (t *blockingOTLPTransport) block(ctx context.Context) error {
+	t.startedOnce.Do(func() { close(t.started) })
+	select {
+	case <-t.release:
+		return errors.New("collector unavailable")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (t *blockingOTLPTransport) unblock() {
+	t.releaseOnce.Do(func() { close(t.release) })
+}
+
+func waitForTelemetryTestSignal(t *testing.T, signal <-chan struct{}, description string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	select {
+	case <-signal:
+	case <-ctx.Done():
+		t.Fatalf("timed out waiting for %s", description)
+	}
+}
+
+func telemetryTestError(message string) *flowerrs.Error {
+	return flowerrs.New().Msg(message).(*flowerrs.Error)
+}
+
+func TestManagedTelemetryConstructionFailuresUnwindTypedErrorsInReverseOrder(t *testing.T) {
+	tests := []struct {
+		name       string
+		failure    string
+		wantEvents []string
+		wantClosed []string
+	}{
+		{
+			name:       "transport",
+			failure:    "transport",
+			wantEvents: []string{"resource", "transport", "close injected"},
+			wantClosed: []string{"injected"},
+		},
+		{
+			name:       "logs",
+			failure:    "logs",
+			wantEvents: []string{"resource", "transport", "logs", "close transport", "close injected"},
+			wantClosed: []string{"transport", "injected"},
+		},
+		{
+			name:       "metrics",
+			failure:    "metrics",
+			wantEvents: []string{"resource", "transport", "logs", "metrics", "close logs", "close transport", "close injected"},
+			wantClosed: []string{"logs", "transport", "injected"},
+		},
+		{
+			name:       "traces",
+			failure:    "traces",
+			wantEvents: []string{"resource", "transport", "logs", "metrics", "traces", "close metrics", "close logs", "close transport", "close injected"},
+			wantClosed: []string{"metrics", "logs", "transport", "injected"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cause := telemetryTestError(tt.failure + " construction failed")
+			cleanupErrors := map[string]*flowerrs.Error{
+				"injected":  telemetryTestError("injected cleanup failed"),
+				"transport": telemetryTestError("transport cleanup failed"),
+				"logs":      telemetryTestError("logs cleanup failed"),
+				"metrics":   telemetryTestError("metrics cleanup failed"),
+			}
+			var events []string
+			cleanup := func(name string) telemetryShutdown {
+				return func(context.Context) error {
+					events = append(events, "close "+name)
+					return cleanupErrors[name]
+				}
+			}
+			factories := telemetryFactorySet{
+				newResource: func(Identity) (*resource.Resource, error) {
+					events = append(events, "resource")
+					return resource.Empty(), nil
+				},
+				newTransport: func(context.Context, normalizedOTLPConnection) (otlpTransport, telemetryShutdown, error) {
+					events = append(events, "transport")
+					if tt.failure == "transport" {
+						return nil, nil, cause
+					}
+					return failingOTLPTransport{}, cleanup("transport"), nil
+				},
+				newLogs: func(*resource.Resource, otlpTransport, *telemetryDiagnostics, normalizedOTLPConnection) (slog.Handler, telemetryShutdown, error) {
+					events = append(events, "logs")
+					if tt.failure == "logs" {
+						return nil, nil, cause
+					}
+					return slog.DiscardHandler, cleanup("logs"), nil
+				},
+				newMetrics: func(*resource.Resource, otlpTransport, *telemetryDiagnostics, normalizedOTLPConnection) (metric.MeterProvider, telemetryShutdown, error) {
+					events = append(events, "metrics")
+					if tt.failure == "metrics" {
+						return nil, nil, cause
+					}
+					return defaultMeterProvider, cleanup("metrics"), nil
+				},
+				newTraces: func(*resource.Resource, otlpTransport, *telemetryDiagnostics, normalizedOTLPConnection) (trace.TracerProvider, telemetryShutdown, error) {
+					events = append(events, "traces")
+					if tt.failure == "traces" {
+						return nil, nil, cause
+					}
+					return defaultTracerProvider, nil, nil
+				},
+			}
+
+			_, err := newRunTelemetry(context.Background(), testIdentity(), normalizedTelemetryConfig{
+				connection:       normalizedOTLPConnection{},
+				localLogger:      slog.New(slog.DiscardHandler),
+				logs:             normalizedLogSignal{backing: signalManaged},
+				metrics:          normalizedMetricSignal{backing: signalManaged},
+				traces:           normalizedTraceSignal{backing: signalManaged},
+				injectedShutdown: cleanup("injected"),
+			}, factories)
+			if !errors.Is(err, cause) {
+				t.Fatalf("newRunTelemetry() error = %v, want construction cause", err)
+			}
+			for _, name := range tt.wantClosed {
+				if !errors.Is(err, cleanupErrors[name]) {
+					t.Errorf("newRunTelemetry() error = %v, want %s cleanup cause", err, name)
+				}
+			}
+			var first *flowerrs.Error
+			if !errors.As(err, &first) || first != cause {
+				t.Errorf("errors.As() = %v, want causal construction error %v", first, cause)
+			}
+			if !reflect.DeepEqual(events, tt.wantEvents) {
+				t.Fatalf("events = %v, want %v", events, tt.wantEvents)
+			}
+		})
+	}
 }
 
 func TestManagedTelemetryConstructionFailureUnwindsInReverseOrder(t *testing.T) {
@@ -143,23 +354,58 @@ func TestManagedTelemetryFactoriesShareOneResource(t *testing.T) {
 }
 
 func TestInvalidTelemetryConfigCallsNoFactories(t *testing.T) {
-	var calls atomic.Int32
-	factories := telemetryFactorySet{
-		newResource: func(Identity) (*resource.Resource, error) {
-			calls.Add(1)
-			return resource.Empty(), nil
+	tests := []struct {
+		name      string
+		telemetry TelemetryConfig
+		env       map[string]string
+		modules   []Module
+	}{
+		{name: "malformed endpoint", telemetry: TelemetryConfig{Endpoint: "not-an-endpoint"}},
+		{name: "unsupported common environment", env: map[string]string{"OTEL_EXPORTER_OTLP_PROTOCOL": "http/json"}},
+		{name: "signal-specific environment", env: map[string]string{"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": "https://logs.example"}},
+		{
+			name: "malformed module override",
+			env:  map[string]string{"FLOWSEER_EDGE_WORKER_LOGS_ENABLED": "yes"},
+			modules: []Module{{Name: "worker", Leaf: &Leaf{
+				Setup: testSetup(),
+			}}},
 		},
+		{name: "unavailable explicit signal", telemetry: TelemetryConfig{Signals: TelemetryPolicy{Traces: TelemetryEnabled}}},
 	}
-	err := runWithOptionsAndTelemetryFactories(context.Background(), Config{
-		Identity:  testIdentity(),
-		Setup:     testSetup(),
-		Telemetry: TelemetryConfig{Endpoint: "not-an-endpoint"},
-	}, supervisorOptions{}, factories)
-	if err == nil {
-		t.Fatal("runWithOptionsAndTelemetryFactories() error = nil, want config error")
-	}
-	if got := calls.Load(); got != 0 {
-		t.Fatalf("factory calls = %d, want 0", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var factoryCalls atomic.Int32
+			var setupCalls atomic.Int32
+			storeDir := filepath.Join(t.TempDir(), "bus")
+			factories := telemetryFactorySet{
+				newResource: func(Identity) (*resource.Resource, error) {
+					factoryCalls.Add(1)
+					return resource.Empty(), nil
+				},
+			}
+			err := runWithOptionsAndTelemetryFactories(context.Background(), Config{
+				Identity:  testIdentity(),
+				Bus:       &BusConfig{StoreDir: storeDir},
+				Telemetry: tt.telemetry,
+				Modules:   tt.modules,
+				Setup: func(context.Context) (Attempt, error) {
+					setupCalls.Add(1)
+					return Attempt{}, nil
+				},
+			}, supervisorOptions{lookup: mapLookup(tt.env)}, factories)
+			if err == nil {
+				t.Fatal("runWithOptionsAndTelemetryFactories() error = nil, want config error")
+			}
+			if got := factoryCalls.Load(); got != 0 {
+				t.Fatalf("factory calls = %d, want 0", got)
+			}
+			if got := setupCalls.Load(); got != 0 {
+				t.Fatalf("setup calls = %d, want 0", got)
+			}
+			if _, statErr := os.Stat(storeDir); !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("bus store stat error = %v, want not exist", statErr)
+			}
+		})
 	}
 }
 
@@ -235,6 +481,70 @@ func TestManagedTelemetryShutdownAttemptsEverySignalInOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("second shutdown repeated cleanup: %v", events)
+	}
+}
+
+func TestServiceFailureRemainsFirstTypedCauseAfterTelemetryShutdown(t *testing.T) {
+	serviceErr := telemetryTestError("service setup failed")
+	cleanupErrors := map[string]*flowerrs.Error{
+		"injected":  telemetryTestError("injected shutdown failed"),
+		"transport": telemetryTestError("transport shutdown failed"),
+		"logs":      telemetryTestError("logs shutdown failed"),
+		"metrics":   telemetryTestError("metrics shutdown failed"),
+		"traces":    telemetryTestError("traces shutdown failed"),
+	}
+	var events []string
+	cleanup := func(name string) telemetryShutdown {
+		return func(context.Context) error {
+			events = append(events, name)
+			return cleanupErrors[name]
+		}
+	}
+	factories := telemetryFactorySet{
+		newResource: func(Identity) (*resource.Resource, error) { return resource.Empty(), nil },
+		newTransport: func(context.Context, normalizedOTLPConnection) (otlpTransport, telemetryShutdown, error) {
+			return failingOTLPTransport{}, cleanup("transport"), nil
+		},
+		newLogs: func(*resource.Resource, otlpTransport, *telemetryDiagnostics, normalizedOTLPConnection) (slog.Handler, telemetryShutdown, error) {
+			return slog.DiscardHandler, cleanup("logs"), nil
+		},
+		newMetrics: func(*resource.Resource, otlpTransport, *telemetryDiagnostics, normalizedOTLPConnection) (metric.MeterProvider, telemetryShutdown, error) {
+			return defaultMeterProvider, cleanup("metrics"), nil
+		},
+		newTraces: func(*resource.Resource, otlpTransport, *telemetryDiagnostics, normalizedOTLPConnection) (trace.TracerProvider, telemetryShutdown, error) {
+			return defaultTracerProvider, cleanup("traces"), nil
+		},
+	}
+
+	err := runWithOptionsAndTelemetryFactories(context.Background(), Config{
+		Identity: testIdentity(),
+		Telemetry: TelemetryConfig{
+			Endpoint: "https://collector.example",
+		},
+		TelemetryShutdown: cleanup("injected"),
+		Modules: []Module{{
+			Name:   "worker",
+			Policy: Policy{Error: OutcomePolicy{Action: Escalate}},
+			Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				return Attempt{}, serviceErr
+			}},
+		}},
+	}, supervisorOptions{lookup: mapLookup(nil)}, factories)
+	if !errors.Is(err, serviceErr) {
+		t.Fatalf("runWithOptionsAndTelemetryFactories() error = %v, want service cause", err)
+	}
+	for name, cleanupErr := range cleanupErrors {
+		if !errors.Is(err, cleanupErr) {
+			t.Errorf("run error = %v, want %s cleanup cause", err, name)
+		}
+	}
+	var first *flowerrs.Error
+	if !errors.As(err, &first) || first != serviceErr {
+		t.Errorf("errors.As() = %v, want causal service error %v", first, serviceErr)
+	}
+	wantEvents := []string{"traces", "metrics", "logs", "transport", "injected"}
+	if !reflect.DeepEqual(events, wantEvents) {
+		t.Fatalf("shutdown events = %v, want %v", events, wantEvents)
 	}
 }
 
@@ -385,6 +695,174 @@ func TestTelemetryDiagnosticsAreRateLimitedAndSanitized(t *testing.T) {
 	}
 	if strings.Contains(output.String(), "do-not-leak") {
 		t.Fatal("diagnostic echoed untrusted detail")
+	}
+}
+
+func TestManagedTelemetryBlockedExportersDoNotBlockProducers(t *testing.T) {
+	t.Run("logs bounded queue", func(t *testing.T) {
+		transport := newBlockingOTLPTransport()
+		defer transport.unblock()
+		var diagnostics bytes.Buffer
+		handler, shutdown, err := newManagedLogProvider(
+			resource.Empty(),
+			transport,
+			newTelemetryDiagnostics(&diagnostics),
+			normalizedOTLPConnection{},
+		)
+		if err != nil {
+			t.Fatalf("newManagedLogProvider() error: %v", err)
+		}
+		logger := slog.New(handler)
+		for range telemetryBatchSize {
+			logger.Info("queue probe")
+		}
+		waitForTelemetryTestSignal(t, transport.started, "blocked log export")
+
+		producerDone := make(chan struct{})
+		go func() {
+			for range telemetryQueueSize + telemetryBatchSize + 1 {
+				logger.Info("queue overflow probe")
+			}
+			close(producerDone)
+		}()
+		waitForTelemetryTestSignal(t, producerDone, "log producer to finish while export is blocked")
+
+		transport.unblock()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdown(shutdownCtx); err != nil {
+			t.Fatalf("log shutdown: %v", err)
+		}
+		if got := strings.Count(diagnostics.String(), "telemetry export failed"); got != 1 {
+			t.Fatalf("log export diagnostics = %d, want one rate-limited warning", got)
+		}
+	})
+
+	t.Run("traces bounded queue", func(t *testing.T) {
+		transport := newBlockingOTLPTransport()
+		defer transport.unblock()
+		var diagnostics bytes.Buffer
+		provider, shutdown, err := newManagedTraceProvider(
+			resource.Empty(),
+			transport,
+			newTelemetryDiagnostics(&diagnostics),
+			normalizedOTLPConnection{},
+		)
+		if err != nil {
+			t.Fatalf("newManagedTraceProvider() error: %v", err)
+		}
+		tracer := provider.Tracer("telemetry-queue-test")
+		for range telemetryBatchSize {
+			_, span := tracer.Start(context.Background(), "queue probe")
+			span.End()
+		}
+		waitForTelemetryTestSignal(t, transport.started, "blocked trace export")
+
+		producerDone := make(chan struct{})
+		go func() {
+			for range telemetryQueueSize + telemetryBatchSize + 1 {
+				_, span := tracer.Start(context.Background(), "queue overflow probe")
+				span.End()
+			}
+			close(producerDone)
+		}()
+		waitForTelemetryTestSignal(t, producerDone, "trace producer to finish while export is blocked")
+
+		transport.unblock()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdown(shutdownCtx); err != nil {
+			t.Fatalf("trace shutdown: %v", err)
+		}
+		if got := strings.Count(diagnostics.String(), "telemetry export failed"); got != 1 {
+			t.Fatalf("trace export diagnostics = %d, want one rate-limited warning", got)
+		}
+	})
+
+	t.Run("metrics synchronous recording", func(t *testing.T) {
+		transport := newBlockingOTLPTransport()
+		defer transport.unblock()
+		var diagnostics bytes.Buffer
+		provider, shutdown, err := newManagedMetricProvider(
+			resource.Empty(),
+			transport,
+			newTelemetryDiagnostics(&diagnostics),
+			normalizedOTLPConnection{},
+		)
+		if err != nil {
+			t.Fatalf("newManagedMetricProvider() error: %v", err)
+		}
+		counter, err := provider.Meter("telemetry-queue-test").Int64Counter("flowseer.test.operations")
+		if err != nil {
+			t.Fatalf("create counter: %v", err)
+		}
+		counter.Add(context.Background(), 1)
+		flusher, ok := provider.(interface{ ForceFlush(context.Context) error })
+		if !ok {
+			t.Fatal("managed metric provider has no ForceFlush method")
+		}
+		flushDone := make(chan error, 1)
+		go func() { flushDone <- flusher.ForceFlush(context.Background()) }()
+		waitForTelemetryTestSignal(t, transport.started, "blocked metric export")
+
+		producerDone := make(chan struct{})
+		go func() {
+			for range telemetryQueueSize + telemetryBatchSize + 1 {
+				counter.Add(context.Background(), 1)
+			}
+			close(producerDone)
+		}()
+		waitForTelemetryTestSignal(t, producerDone, "metric producer to finish while export is blocked")
+
+		transport.unblock()
+		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer flushCancel()
+		select {
+		case err := <-flushDone:
+			if err != nil {
+				t.Fatalf("metric force flush: %v", err)
+			}
+		case <-flushCtx.Done():
+			t.Fatal("timed out waiting for metric force flush")
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdown(shutdownCtx); err != nil {
+			t.Fatalf("metric shutdown: %v", err)
+		}
+		if got := strings.Count(diagnostics.String(), "telemetry export failed"); got != 1 {
+			t.Fatalf("metric export diagnostics = %d, want one rate-limited warning", got)
+		}
+	})
+}
+
+func TestManagedTelemetryStalledRequestsUsePerAttemptTimeout(t *testing.T) {
+	const requestTimeout = 5 * time.Millisecond
+	transport := &stalledRetryOTLPTransport{requestTimeout: requestTimeout}
+	var diagnostics bytes.Buffer
+	exporter := &managedLogExporter{
+		transport:   transport,
+		diagnostics: newTelemetryDiagnostics(&diagnostics),
+	}
+
+	if err := exporter.Export(context.Background(), nil); err != nil {
+		t.Fatalf("routine Export() error = %v, want nonfatal outage", err)
+	}
+	if transport.attempts != 2 || transport.waits != 2 {
+		t.Fatalf("stalled attempts/waits = %d/%d, want 2/2", transport.attempts, transport.waits)
+	}
+	for i, remaining := range transport.remaining {
+		if remaining > requestTimeout {
+			t.Errorf("attempt %d deadline remaining = %v, want no more than %v", i, remaining, requestTimeout)
+		}
+	}
+	for i, err := range transport.attemptErrors {
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("attempt %d error = %v, want request deadline", i, err)
+		}
+	}
+	if got := strings.Count(diagnostics.String(), "telemetry export failed"); got != 1 {
+		t.Fatalf("stalled request diagnostics = %d, want one nonfatal warning", got)
 	}
 }
 

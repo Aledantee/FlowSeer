@@ -124,9 +124,9 @@ func newRunTelemetry(
 		var closeTransport telemetryShutdown
 		transport, closeTransport, err = factories.newTransport(ctx, config.connection)
 		if err != nil {
-			return nil, fmt.Errorf("create telemetry transport: %w", err)
+			return unwind(fmt.Errorf("create telemetry transport: %w", err))
 		}
-		owner.shutdowns = append(owner.shutdowns, closeTransport)
+		owner.shutdowns = prependShutdown(owner.shutdowns, closeTransport)
 	}
 
 	diagnostics := newTelemetryDiagnostics(os.Stderr)
