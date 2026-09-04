@@ -27,6 +27,7 @@ const (
 	defaultMailboxMaxBytes  = int64(768 << 20)
 	defaultMetadataMaxBytes = int64(64 << 20)
 	defaultBusReserveBytes  = int64(192 << 20)
+	defaultBusFsyncInterval = 5 * time.Second
 
 	mailboxStreamName  = "FLOWSEER_MAILBOX"
 	metadataStreamName = "FLOWSEER_METADATA"
@@ -52,6 +53,8 @@ type normalizedBusConfig struct {
 	reserveBytes     int64
 	startupTimeout   time.Duration
 	healthInterval   time.Duration
+	fsyncPolicy      BusFsyncPolicy
+	fsyncInterval    time.Duration
 }
 
 // busResources are available to reconciliation after both durable streams
@@ -120,6 +123,26 @@ func normalizeBusConfig(identity Identity, config BusConfig) (normalizedBusConfi
 		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus timeouts must be positive")
 	}
 
+	fsyncPolicy := config.FsyncPolicy
+	if fsyncPolicy > BusFsyncPerMessage {
+		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync policy is invalid")
+	}
+	fsyncInterval := time.Duration(0)
+	switch fsyncPolicy {
+	case BusFsyncPeriodic:
+		fsyncInterval = defaultBusFsyncInterval
+		if config.FsyncInterval != nil {
+			fsyncInterval = *config.FsyncInterval
+		}
+		if fsyncInterval <= 0 {
+			return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync interval must be positive")
+		}
+	case BusFsyncPerMessage:
+		if config.FsyncInterval != nil {
+			return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync interval requires periodic sync")
+		}
+	}
+
 	return normalizedBusConfig{
 		serviceNamespace: identity.Namespace,
 		serviceName:      identity.Name,
@@ -131,6 +154,8 @@ func normalizeBusConfig(identity Identity, config BusConfig) (normalizedBusConfi
 		reserveBytes:     reserve,
 		startupTimeout:   startupTimeout,
 		healthInterval:   healthInterval,
+		fsyncPolicy:      fsyncPolicy,
+		fsyncInterval:    fsyncInterval,
 	}, nil
 }
 
@@ -206,23 +231,7 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 		return nil, err
 	}
 
-	options := &server.Options{
-		ServerName:             config.domain,
-		DontListen:             true,
-		NoSigs:                 true,
-		NoLog:                  true,
-		JetStream:              true,
-		JetStreamMaxStore:      config.maxStoreBytes,
-		JetStreamDomain:        config.domain,
-		StoreDir:               config.storeDir,
-		SyncAlways:             true,
-		DisableJetStreamBanner: true,
-		JetStreamLimits: server.JSLimitOpts{
-			Duplicates:                24 * time.Hour,
-			MaxBatchInflightPerStream: 1,
-			MaxBatchInflightTotal:     1,
-		},
-	}
+	options := localBusServerOptions(config)
 	bus.server, err = server.NewServer(options)
 	if err != nil {
 		return nil, busUnhealthy(err, "construct local bus server")
@@ -292,6 +301,27 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 	bus.monitorCancel = cancel
 	go bus.monitor(monitorCtx)
 	return bus, nil
+}
+
+func localBusServerOptions(config normalizedBusConfig) *server.Options {
+	return &server.Options{
+		ServerName:             config.domain,
+		DontListen:             true,
+		NoSigs:                 true,
+		NoLog:                  true,
+		JetStream:              true,
+		JetStreamMaxStore:      config.maxStoreBytes,
+		JetStreamDomain:        config.domain,
+		StoreDir:               config.storeDir,
+		SyncAlways:             config.fsyncPolicy == BusFsyncPerMessage,
+		SyncInterval:           config.fsyncInterval,
+		DisableJetStreamBanner: true,
+		JetStreamLimits: server.JSLimitOpts{
+			Duplicates:                24 * time.Hour,
+			MaxBatchInflightPerStream: 1,
+			MaxBatchInflightTotal:     1,
+		},
+	}
 }
 
 func openOwnedStream(ctx context.Context, js jetstream.JetStream, desired jetstream.StreamConfig) (jetstream.Stream, error) {

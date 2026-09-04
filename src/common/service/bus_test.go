@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -38,6 +39,9 @@ func TestNormalizeBusConfigUsesStablePrivateDefaults(t *testing.T) {
 	if got.maxStoreBytes != 1<<30 || got.mailboxMaxBytes != 768<<20 || got.metadataMaxBytes != 64<<20 || got.reserveBytes != 192<<20 {
 		t.Fatalf("unexpected default capacity: %+v", got)
 	}
+	if got.fsyncPolicy != BusFsyncPeriodic || got.fsyncInterval != 5*time.Second {
+		t.Fatalf("default fsync policy = %v at %s, want periodic at 5s", got.fsyncPolicy, got.fsyncInterval)
+	}
 
 	identity.Version = "v2"
 	upgraded, err := normalizeBusConfig(identity, BusConfig{})
@@ -51,10 +55,17 @@ func TestNormalizeBusConfigUsesStablePrivateDefaults(t *testing.T) {
 
 func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 	identity := testBusIdentity()
+	zero := time.Duration(0)
+	negative := -time.Second
+	custom := time.Second
 	tests := []BusConfig{
 		{StoreDir: "relative"},
 		{MaxStoreBytes: 100, MailboxMaxBytes: 80, MetadataMaxBytes: 20, ReserveBytes: 1},
 		{HealthInterval: -time.Second},
+		{FsyncInterval: &zero},
+		{FsyncInterval: &negative},
+		{FsyncPolicy: BusFsyncPolicy(99)},
+		{FsyncPolicy: BusFsyncPerMessage, FsyncInterval: &custom},
 	}
 	for _, config := range tests {
 		_, err := normalizeBusConfig(identity, config)
@@ -64,6 +75,67 @@ func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 		if code, ok := errs.CodeOf(err); !ok || code != errCodeBusConfig {
 			t.Fatalf("error code = %q, %v; want %q", code, ok, errCodeBusConfig)
 		}
+	}
+}
+
+func TestNormalizeBusConfigCarriesDeclaredFsyncPolicy(t *testing.T) {
+	interval := 750 * time.Millisecond
+	periodic, err := normalizeBusConfig(testBusIdentity(), BusConfig{
+		StoreDir:      t.TempDir(),
+		FsyncInterval: &interval,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if periodic.fsyncPolicy != BusFsyncPeriodic || periodic.fsyncInterval != interval {
+		t.Fatalf("periodic policy = %v at %s, want periodic at %s", periodic.fsyncPolicy, periodic.fsyncInterval, interval)
+	}
+
+	perMessage, err := normalizeBusConfig(testBusIdentity(), BusConfig{
+		StoreDir:    t.TempDir(),
+		FsyncPolicy: BusFsyncPerMessage,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perMessage.fsyncPolicy != BusFsyncPerMessage || perMessage.fsyncInterval != 0 {
+		t.Fatalf("per-message policy = %v at %s, want per-message with no interval", perMessage.fsyncPolicy, perMessage.fsyncInterval)
+	}
+}
+
+func TestLocalBusServerOptionsCarryFsyncPolicy(t *testing.T) {
+	defaultConfig := testNormalizedBusConfig(t)
+	defaultOptions := localBusServerOptions(defaultConfig)
+	if defaultOptions.SyncAlways || defaultOptions.SyncInterval != 5*time.Second {
+		t.Fatalf("default server fsync options = always:%t interval:%s, want always:false interval:5s", defaultOptions.SyncAlways, defaultOptions.SyncInterval)
+	}
+	customConfig := defaultConfig
+	customConfig.fsyncInterval = 750 * time.Millisecond
+	customOptions := localBusServerOptions(customConfig)
+	if customOptions.SyncAlways || customOptions.SyncInterval != customConfig.fsyncInterval {
+		t.Fatalf("custom server fsync options = always:%t interval:%s, want always:false interval:%s", customOptions.SyncAlways, customOptions.SyncInterval, customConfig.fsyncInterval)
+	}
+
+	perMessageConfig := defaultConfig
+	perMessageConfig.fsyncPolicy = BusFsyncPerMessage
+	perMessageConfig.fsyncInterval = 0
+	perMessageOptions := localBusServerOptions(perMessageConfig)
+	if !perMessageOptions.SyncAlways || perMessageOptions.SyncInterval != 0 {
+		t.Fatalf("per-message server fsync options = always:%t interval:%s, want always:true interval:0s", perMessageOptions.SyncAlways, perMessageOptions.SyncInterval)
+	}
+}
+
+func TestFsyncPolicyDoesNotChangeOwnedStreamConfigs(t *testing.T) {
+	periodic := testNormalizedBusConfig(t)
+	perMessage := periodic
+	perMessage.fsyncPolicy = BusFsyncPerMessage
+	perMessage.fsyncInterval = 0
+
+	if got, want := mailboxStreamConfig(periodic.mailboxMaxBytes), mailboxStreamConfig(perMessage.mailboxMaxBytes); !reflect.DeepEqual(got, want) {
+		t.Fatalf("mailbox config changed with fsync policy:\nperiodic:   %+v\nper-message: %+v", got, want)
+	}
+	if got, want := metadataStreamConfig(periodic.metadataMaxBytes), metadataStreamConfig(perMessage.metadataMaxBytes); !reflect.DeepEqual(got, want) {
+		t.Fatalf("metadata config changed with fsync policy:\nperiodic:   %+v\nper-message: %+v", got, want)
 	}
 }
 

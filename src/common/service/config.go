@@ -35,6 +35,17 @@ type Attempt struct {
 // reused by sibling modules must be safe for concurrent calls.
 type SetupFunc func(ctx context.Context) (Attempt, error)
 
+// BusFsyncPolicy selects how the local bus flushes file-backed stream writes.
+// Its zero value selects periodic sync. Values are safe to copy.
+type BusFsyncPolicy uint8
+
+const (
+	// BusFsyncPeriodic flushes pending stream writes at a configured interval.
+	BusFsyncPeriodic BusFsyncPolicy = iota
+	// BusFsyncPerMessage flushes each stream write before acknowledging it.
+	BusFsyncPerMessage
+)
+
 // BusConfig opts a service into its durable local message bus. The zero value
 // uses the documented private store location and logical capacity defaults.
 // StoreDir, when set, must be absolute. Callers must not mutate a BusConfig
@@ -59,6 +70,11 @@ type BusConfig struct {
 	StartupTimeout time.Duration
 	// HealthInterval controls broker and stream health probes. Zero selects 30 seconds.
 	HealthInterval time.Duration
+	// FsyncPolicy selects periodic or per-message flushing. Zero selects periodic.
+	FsyncPolicy BusFsyncPolicy
+	// FsyncInterval overrides the five-second periodic-sync interval. Nil selects
+	// the default; a non-nil value must be positive and requires periodic sync.
+	FsyncInterval *time.Duration
 }
 
 // Config declares one service run. Callers must choose either Setup for an
