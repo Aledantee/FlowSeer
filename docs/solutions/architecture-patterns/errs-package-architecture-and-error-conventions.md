@@ -2,7 +2,7 @@
 title: The errs Package — FlowSeer's Owned Error Type and Its Conventions
 date: 2026-08-20
 category: architecture-patterns
-module: common/errs
+module: src/common/errs
 problem_type: architecture_pattern
 component: service_layer
 severity: high
@@ -11,7 +11,7 @@ applies_when:
   - declaring a new errs.Code — the append-only, never-renamed, never-reused wire contract
   - deciding whether a fact belongs on the error payload, as an attribute, or only in a log
   - attaching attributes near secret material, or exposing an error across an untrusted boundary
-  - migrating remaining go.aledante.io/ae usage (cmd/mibgen, generated/go/mib) or building the wire codec
+  - implementing the deferred errs wire codec or transport-boundary mapping
 related_components:
   - observability
   - api_layer
@@ -87,16 +87,16 @@ client-facing, process-facing, and retry-facing payload*, merged to `master` as
 ### The builder shape and its terminals
 
 `Builder` is a defined type over the error struct — `type Builder Error`
-(`src/common/errs/builder.go:9`), not a type alias — so the terminal is a
+(`src/common/errs/builder.go:11`), not a type alias — so the terminal is a
 conversion rather than a field copy. Every builder method takes a value
 receiver and returns a new `Builder`, which makes a partially built value
 reusable as the base of several errors — a property
 `TestBuilderReuseDoesNotAlias` (`src/common/errs/builder_test.go:60`) pins, and
-which `clip` (`src/common/errs/builder.go:142`) makes safe by capping the slice so
+which `clip` (`src/common/errs/builder.go:146`) makes safe by capping the slice so
 the next append copies rather than writing into a sibling's backing array.
 
-The chain terminates only in `Msg` or `Msgf` (`src/common/errs/builder.go:111`,
-`:117`), both returning `error`, not `Builder`. There is no `.Build()`. The
+The chain terminates only in `Msg` or `Msgf` (`src/common/errs/builder.go:115`,
+`:121`), both returning `error`, not `Builder`. There is no `.Build()`. The
 canonical shape, from `src/common/errs/doc.go:40`:
 
 ```go
@@ -120,7 +120,7 @@ a call site can wrap unconditionally (`src/common/errs/wrap.go:10`, `:20`).
 The struct is nine fields (`src/common/errs/errs.go:19`): message, code, attrs,
 causes; then `userMsg`, `hint`, `exitCode`, `retry`; then the stack. The doc
 comment states the bar explicitly (`src/common/errs/doc.go:12`) and the README
-repeats it as a convention (`src/common/errs/README.md:78`): *a field earns a
+repeats it as a convention (`src/common/errs/README.md:80-82`): *a field earns a
 place only if a mechanism consumes it* — the process, a retry loop, `errors.Is`,
 or the boundary filter — not because a reader might find it interesting. Facts a
 reader merely finds interesting are attributes.
@@ -134,11 +134,11 @@ payload.
 
 ### Stdlib-native composition
 
-Errors implement `Unwrap() []error` (`src/common/errs/errs.go:85`) and nothing
-else. There is no parallel matching API, no `errs.Match`, no second non-matching
-cause channel. Causes attached with `From` or `.Cause` join the `errors.Is` chain,
-full stop (`src/common/errs/builder.go:19`, `:44`) — which is how the
-`Cause`/`CauseUnwrap` split is closed.
+Cause composition is exposed through `Unwrap() []error`
+(`src/common/errs/errs.go:85`), with no parallel matching API, no `errs.Match`,
+and no second non-matching cause channel. Causes attached with `From` or `.Cause`
+join the `errors.Is` chain, full stop (`src/common/errs/builder.go:21`, `:48`) —
+which is how the `Cause`/`CauseUnwrap` split is closed.
 
 `Unwrap` returns the error's own slice rather than a copy, and the doc comment
 states the aliasing rule the caller must honor instead of claiming immutability
@@ -193,22 +193,22 @@ qualifier, with `src/common/errs/testdata/scan/` fixtures covering an aliased im
 import, and an unrelated same-named function
 (`src/common/errs/code_test.go:369`). The gate can only read string literals, so
 the README states the corresponding author obligation: declare codes with a
-literal or the gate cannot check them (`src/common/errs/README.md:84`).
+literal or the gate cannot check them (`src/common/errs/README.md:86-87`).
 
 ### Client-safe attribute marking
 
 Attributes are flat key-value pairs on an append-only slice, merged only at
-extraction (`src/common/errs/attr.go:5`, `:19`). `.Attr` is internal; `.PubAttr`
-sets a `safe` bit at the point of attachment (`src/common/errs/builder.go:31`,
-`:38`). Safety is decided where the value is attached, never guessed at the
+extraction (`src/common/errs/attr.go:5-8`, `:22`). `.Attr` is internal; `.PubAttr`
+sets a `safe` bit at the point of attachment (`src/common/errs/builder.go:34`,
+`:42`). Safety is decided where the value is attached, never guessed at the
 boundary.
 
 The traversal is fixed and shared: outermost error first, joined branches left to
-right, first value seen for a key wins (`src/common/errs/attr.go:76-98`, with
-`walkBranch` at `:102`). Foreign errors are unwrapped *through* but contribute
-nothing (`src/common/errs/attr.go:79`).
+right, first value seen for a key wins (`src/common/errs/attr.go:80-104`).
+Foreign errors are unwrapped *through* but contribute nothing in that same
+traversal.
 
-The subtlety worth preserving is in `collect` (`src/common/errs/attr.go:34-59`): a
+The subtlety worth preserving is in `collect` (`src/common/errs/attr.go:37-62`): a
 key is claimed by the first attribute that carries it *whether or not that
 attribute is safe*, and only then is the safe filter applied. `SafeAttributes` is
 therefore a strict subset of `Attributes` — a key the merge awards to an internal
@@ -241,7 +241,7 @@ Note that internal attributes *do* reach the log — logs are a trusted surface
 (`src/common/errs/slog.go:28`). The `PubAttr` distinction exists for the client
 boundary, not for logging.
 
-### Origin-only lazy stacks
+### Origin-only stacks with lazy symbolization
 
 `capture()` records unsymbolized program counters, at most 32 frames, skipping
 four (`src/common/errs/stack.go:10`, `:20-25`). It is called only from
@@ -257,7 +257,7 @@ func (b Builder) build(msg string) error {
 	return &e
 }
 ```
-(`src/common/errs/builder.go:123-133`)
+(`src/common/errs/builder.go:127-137`)
 
 Because `Wrap`/`Wrapf` route through `From(err).build(...)`
 (`src/common/errs/wrap.go:15`, `:25`), a wrap over a stack-carrying error captures
@@ -268,7 +268,7 @@ by `stackAttr` (`src/common/errs/slog.go:102`). Symbolization is deferred to
 `frames()` (`src/common/errs/stack.go:29`) because most errors are handled, not
 logged. The frame-skip count in `capture` is load-bearing and documented as such:
 its callers must sit exactly one frame below the call site the stack should name
-(`src/common/errs/builder.go:121`).
+(`src/common/errs/builder.go:125`).
 
 ### Extraction, uniformly outermost-first
 
@@ -285,7 +285,7 @@ Two of these carry non-obvious defaults, both deliberate:
 - `ExitCode` returns `0` for `nil`, the outermost set value, and `1` otherwise
   (`src/common/errs/exitcode.go:13-23`) — so `main` may exit on any error without
   first asking whether a status was named. `.ExitCode(0)` and `.ExitCode(-1)` are
-  ignored rather than stored (`src/common/errs/builder.go:86-92`), since zero
+  ignored rather than stored (`src/common/errs/builder.go:90-96`), since zero
   means "unset" and would report success.
 - `retry` is tri-state internally — `retryUnset`, `retryYes`, `retryNo`
   (`src/common/errs/retry.go:6-12`) — because a bool cannot distinguish "not
@@ -330,13 +330,13 @@ opaque leaf preserving message and code rather than failing (session history).
 **Attribute safety marked at creation, not scrubbed at the edge.** Boundary-time
 sanitization means a heuristic deciding, at the worst possible moment, whether
 `engine_id` is safe to show a stranger. Marking at attachment
-(`src/common/errs/builder.go:38`) lets the future RPC boundary filter mechanically
+(`src/common/errs/builder.go:42`) lets the future RPC boundary filter mechanically
 with `SafeAttributes`.
 
 **The wire layer ships design-ready, not implemented.** No consumer exists yet, so
 a codec would be speculative — but codes and attribute safety land *now* because
 they shape the core API and cannot be retrofitted without breaking every call
-site. The `# Wire design` section (`src/common/errs/doc.go:145-178`) is the
+site. The `# Wire design` section (`src/common/errs/doc.go:148-180`) is the
 specification the eventual codec must follow.
 
 ### The failure modes this design avoids
@@ -345,8 +345,8 @@ specification the eventual codec must follow.
   compounds across every in-scope `Wrapf` call site. The migration moved the error
   first at all of them.
 - **Per-wrap map re-cloning.** `errs` appends to a slice and merges only at
-  extraction (`src/common/errs/attr.go:34`), and `clip`
-  (`src/common/errs/builder.go:142`) keeps builder reuse safe without a copy per
+  extraction (`src/common/errs/attr.go:37`), and `clip`
+  (`src/common/errs/builder.go:146`) keeps builder reuse safe without a copy per
   method call.
 - **The `Cause`/`CauseUnwrap` split.** Two similarly named methods with different
   `errors.Is` visibility is a trap that only bites at the moment someone needs
@@ -362,7 +362,7 @@ specification the eventual codec must follow.
   `TestNilReceiverIsSafe` and `TestLogValueToleratesOddValues`
   (`src/common/errs/slog_test.go:142`, `:112`).
 - **Duplicate stacks per wrap** — the pkg/errors lesson: capture once at origin
-  (`src/common/errs/builder.go:126`), never per wrap.
+  (`src/common/errs/builder.go:127-137`), never per wrap.
 
 ### A usage inventory measures today's code, not the intended system
 
@@ -403,7 +403,7 @@ new package, rather than defects in the migration, are worth carrying forward:
 
 - `SafeAttributes` was not the subset it claimed to be. Fixed by having `collect`
   claim a key *before* applying the safety filter
-  (`src/common/errs/attr.go:40-56`); the fix was validated by reverting to the old
+  (`src/common/errs/attr.go:43-59`); the fix was validated by reverting to the old
   logic to prove the new test actually fails (session history).
 - The code-uniqueness gate resolved calls by identifier spelling, so an aliased or
   dot import evaded it entirely. Rewritten to resolve by import path
@@ -447,7 +447,7 @@ reused for a different meaning (`src/common/errs/code.go:15`,
 `src/common/errs/doc.go:56-58`). Declare at package level with a string literal
 argument, or the repo-wide scan gate cannot see it. The first real users are the
 MIB parser's diagnostics: `src/protocol/smi/internal/diag/zz_generated_codes.go`
-declares every `smi/...` code, generated from the table in
+declares every code in the `smi` namespace, generated from the table in
 `src/protocol/smi/internal/catalog/catalog.go` precisely so the literal the scan
 gate needs exists in ordinary source and lives in exactly one place. That set
 also learned something the rule above does not say: append-only is a claim
@@ -455,7 +455,7 @@ nothing enforces on its own, so the catalog carries a committed golden of
 shipped codes that fails when one disappears.
 
 **Crossing a process boundary.** Read `# Wire design`
-(`src/common/errs/doc.go:145-178`) before designing anything. The rules it fixes:
+(`src/common/errs/doc.go:148-180`) before designing anything. The rules it fixes:
 the proto message carries code, message, safe attributes, user message, hint,
 retry disposition, and the cause chain; the stack field is populated only on
 trusted internal transit and always absent toward a client; the exit code is not
@@ -470,18 +470,12 @@ the chain carries none. Decoded errors are accepted only from authenticated,
 integrity-protected peers, and peer-supplied codes and attributes never drive
 authorization decisions.
 
-**Migrating the remaining `ae` call sites.** `go.aledante.io/ae v0.3.0` is still a
-direct requirement in the root `go.mod:9`, and in `src/protocol/snmp/bench/go.mod:45`
-it has dropped to `// indirect`. The generator's own three imports
-(`config.go`, `load.go`, `emit.go`) have since migrated. What remains is the
-`aeImport` constant the emitter writes into generated code
-(`src/protocol/snmp/cmd/mibgen/emit.go:29`) and the golden fixture that embeds it
-(`src/protocol/snmp/cmd/mibgen/testdata/golden/fakemib/mib.go:16`). This interacts
-with the standing rule that generated code consumes only the host library's public
-API — `errs` is public within the module, so the emitter constant can point at it,
-but regenerating `generated/go/mib` is part of the same follow-up. Even after
-mibgen migrates, `ae` cannot leave the module graph until `go.aledante.io/as`
-v0.4.3 drops its own `ae` dependency or is vendored.
+**The `ae` migration is complete.** `cmd/mibgen`, its golden fixture, and
+`generated/go/mib` now use `src/common/errs`. Neither the root module nor the
+standalone SNMP benchmark module contains `go.aledante.io/ae` or
+`go.aledante.io/as`. `test/conformance/dependencies/no_as_test.go` scans both
+module files and production Go imports so neither dependency can return
+unnoticed.
 
 **Implementing the deferred wire layer.** Four pieces were deferred: the proto
 message and `Encode`/`Decode`, the Connect boundary interceptor, the
@@ -549,7 +543,7 @@ own merits — session history.)
 
 ### The secret-material rule
 
-This is the convention `src/common/errs/doc.go:126-129` codifies and the migration
+This is the convention `src/common/errs/doc.go:129-131` codifies and the migration
 was required to audit against: raw secret material never becomes an attribute and
 never reaches a message — no keys, salts, passwords, or derived key bytes. Attach
 the length and the protocol name instead.
@@ -598,6 +592,7 @@ list sees the constraint before they add to it.
   migration oracle; its unchanged test suite is what proved the rename
   behavior-preserving. The `doc.go`-is-authoritative documentation convention used
   here is borrowed from that package.
-- `docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md` — the source
-  plan, with the full requirement list and prior-art survey. Untracked in git, so
-  treat it as provenance rather than a durable reference.
+- `docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md` — the tracked
+  source plan, with the full requirement list and prior-art survey. Use it for
+  historical provenance; the current package contract lives in
+  `src/common/errs/doc.go`.
