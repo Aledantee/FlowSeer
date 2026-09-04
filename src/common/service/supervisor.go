@@ -9,6 +9,8 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -87,6 +89,7 @@ type childResult struct {
 	err        error
 	fatal      bool
 	healthyFor time.Duration
+	span       trace.SpanContext
 }
 
 type childSlot struct {
@@ -134,10 +137,17 @@ func newSupervisorState(
 }
 
 func (s *supervisorState) run(ctx context.Context) error {
+	return s.runWithStarted(ctx, nil)
+}
+
+func (s *supervisorState) runWithStarted(ctx context.Context, started chan<- struct{}) error {
 	for i := range s.slots {
 		if s.slots[i].active {
 			s.start(ctx, i, false)
 		}
+	}
+	if started != nil {
+		close(started)
 	}
 	for {
 		if ctx.Err() != nil {
@@ -207,7 +217,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 		if s.runtime.admission != nil {
 			s.runtime.admission.setModuleState(slot.module, moduleStopped)
 		}
-		return s.record(slot.module, slot.telemetry, lifecycleActionStop, result.outcome)
+		return s.record(ctx, slot.module, slot.telemetry, lifecycleActionStop, result.outcome, result.span)
 	case Escalate:
 		return causalOutcomeError(slot.module.path, "escalated", result.err)
 	case Restart:
@@ -228,7 +238,10 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 		}
 	}
 	s.quiesce(affected)
-	if err := s.record(slot.module, slot.telemetry, lifecycleActionRestart, result.outcome); err != nil {
+	if ctx.Err() != nil {
+		return nil
+	}
+	if err := s.record(ctx, slot.module, slot.telemetry, lifecycleActionRestart, result.outcome, result.span); err != nil {
 		return err
 	}
 	delay := exponentialBackoff(policy.backoff, slot.backoffs[outcomeIndex])
@@ -250,6 +263,9 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 			return nil
 		}
 		return fmt.Errorf("module %s restart backoff: %w", slot.module.path, err)
+	}
+	if ctx.Err() != nil {
+		return nil
 	}
 	for _, index := range affected {
 		s.start(ctx, index, true)
@@ -347,6 +363,7 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 	slot.generation++
 	generation := slot.generation
 	childCtx, cancel := context.WithCancelCause(parent)
+	childCtx = slot.telemetry.context(childCtx)
 	slot.cancel = cancel
 	slot.done = make(chan struct{})
 	telemetry := slot.telemetry
@@ -354,13 +371,34 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 		s.runtime.admission.setModuleState(module, moduleRunning)
 	}
 	s.transition("setup", module.path)
+	if module.leaf != nil {
+		var attemptSpan trace.Span
+		childCtx, attemptSpan = startLifecycleSpan(
+			childCtx,
+			telemetry.tracer,
+			s.runtime.identity,
+			module.path,
+			attemptSpanName,
+			lifecycleActionStart,
+		)
+		_ = s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
+		go func(done chan struct{}) {
+			defer close(done)
+			result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
+			result.span = attemptSpan.SpanContext()
+			endLifecycleSpan(attemptSpan, result.outcome)
+			s.results <- result
+		}(slot.done)
+		s.transition("start", module.path)
+		return
+	}
+	_ = s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
 	go func(done chan struct{}) {
 		defer close(done)
 		result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
 		s.results <- result
 	}(slot.done)
 	s.transition("start", module.path)
-	_ = s.record(module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning)
 }
 
 func (s *supervisorState) publishImmediate(index int, outcome lifecycleOutcome, err error) {
@@ -395,9 +433,20 @@ func (s *supervisorState) hasActiveChild() bool {
 	return false
 }
 
-func (s *supervisorState) record(module plannedModule, telemetry telemetryView, action lifecycleAction, outcome lifecycleOutcome) error {
+func (s *supervisorState) record(
+	ctx context.Context,
+	module plannedModule,
+	telemetry telemetryView,
+	action lifecycleAction,
+	outcome lifecycleOutcome,
+	related trace.SpanContext,
+) error {
+	ctx = telemetry.context(ctx)
+	if related.IsValid() {
+		ctx = trace.ContextWithSpanContext(ctx, related)
+	}
 	return telemetry.recordLifecycle(
-		context.Background(),
+		ctx,
 		s.runtime.identity,
 		module.path,
 		action,
@@ -415,7 +464,6 @@ func runChild(
 ) (result childResult) {
 	result.index = index
 	result.generation = generation
-	ctx = telemetry.context(ctx)
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			result.outcome = lifecycleOutcomePanic

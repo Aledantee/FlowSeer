@@ -508,6 +508,46 @@ func TestCancellationDuringBackoffPreservesCallerCause(t *testing.T) {
 	}
 }
 
+func TestCancellationDuringQuiesceDoesNotStartReplacement(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	peerStarted := make(chan struct{})
+	var failingSetups atomic.Int32
+	var peerSetups atomic.Int32
+	err := runWithOptions(ctx, Config{
+		Identity: testIdentity(),
+		Strategy: OneForAll,
+		Modules: []Module{
+			{Name: "failing", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				failingSetups.Add(1)
+				return Attempt{Runner: func(context.Context) error {
+					<-peerStarted
+					return errors.New("failure")
+				}}, nil
+			}}},
+			{Name: "peer", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				peerSetups.Add(1)
+				return Attempt{Runner: func(ctx context.Context) error {
+					close(peerStarted)
+					<-ctx.Done()
+					if errors.Is(context.Cause(ctx), errSupervisorRestart) {
+						cancel()
+					}
+					return ctx.Err()
+				}}, nil
+			}}},
+		},
+	}, supervisorOptions{})
+	if err != nil {
+		t.Fatalf("runWithOptions() cancellation error = %v", err)
+	}
+	if got := failingSetups.Load(); got != 1 {
+		t.Errorf("failing module setups = %d, want 1", got)
+	}
+	if got := peerSetups.Load(); got != 1 {
+		t.Errorf("peer module setups = %d, want 1", got)
+	}
+}
+
 func TestRunFencesSimultaneousSiblingResults(t *testing.T) {
 	release := make(chan struct{})
 	var firstSetups atomic.Int32

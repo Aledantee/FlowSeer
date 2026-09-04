@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -17,9 +18,36 @@ import (
 const (
 	instrumentationScope   = "go.aledante.io/FlowSeer/src/common/service"
 	instrumentationVersion = "1.0.0"
+	startupSpanName        = "flowseer.service.startup"
+	attemptSpanName        = "flowseer.service.module.attempt"
+	shutdownSpanName       = "flowseer.service.shutdown"
 
 	modulePathKey = "service.module.path"
 )
+
+func startLifecycleSpan(
+	ctx context.Context,
+	tracer trace.Tracer,
+	identity Identity,
+	modulePath string,
+	name string,
+	action lifecycleAction,
+) (context.Context, trace.Span) {
+	actionName, _ := action.string()
+	identitySet := identityAttributes(identity, modulePath)
+	attributes := identitySet.ToSlice()
+	attributes = append(attributes, attribute.String("service.lifecycle.action", actionName))
+	return tracer.Start(ctx, name, trace.WithAttributes(attributes...))
+}
+
+func endLifecycleSpan(span trace.Span, outcome lifecycleOutcome) {
+	outcomeName, _ := outcome.string()
+	span.SetAttributes(attribute.String("service.lifecycle.outcome", outcomeName))
+	if outcome == lifecycleOutcomeError || outcome == lifecycleOutcomePanic {
+		span.SetStatus(codes.Error, outcomeName)
+	}
+	span.End()
+}
 
 type lifecycleAction uint8
 

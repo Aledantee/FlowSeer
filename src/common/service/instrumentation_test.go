@@ -272,6 +272,164 @@ func TestLifecycleMetricsCarryIdentityAndOutcome(t *testing.T) {
 	}
 }
 
+func TestRuntimeLifecycleSpansAreFiniteCallerSiblings(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	callerCtx, callerSpan := provider.Tracer("caller").Start(context.Background(), "caller")
+	ready := make(chan struct{})
+	taskCanceled := make(chan struct{})
+	releaseTask := make(chan struct{})
+	config := Config{
+		Identity:       Identity{Name: "edge", Namespace: "flowseer", Version: "v1"},
+		TracerProvider: provider,
+		Setup: func(ctx context.Context) (Attempt, error) {
+			if err := Go(ctx, func(ctx context.Context) error {
+				<-ctx.Done()
+				close(taskCanceled)
+				<-releaseTask
+				return ctx.Err()
+			}); err != nil {
+				return Attempt{}, err
+			}
+			return Attempt{Runner: func(ctx context.Context) error {
+				close(ready)
+				<-ctx.Done()
+				return ctx.Err()
+			}}, nil
+		},
+	}
+
+	runCtx, cancel := context.WithCancel(callerCtx)
+	done := make(chan error, 1)
+	go func() { done <- run(runCtx, config) }()
+	<-ready
+	cancel()
+	<-taskCanceled
+	for _, span := range recorder.Ended() {
+		if span.Name() == "flowseer.service.module.attempt" || span.Name() == "flowseer.service.shutdown" {
+			t.Errorf("%s ended before attempt-owned work joined", span.Name())
+		}
+	}
+	close(releaseTask)
+	if err := <-done; err != nil {
+		t.Fatalf("run() error: %v", err)
+	}
+
+	wantNames := []string{
+		"flowseer.service.startup",
+		"flowseer.service.module.attempt",
+		"flowseer.service.shutdown",
+	}
+	wantDimensions := map[string]map[string]string{
+		"flowseer.service.startup":        {"service.lifecycle.action": "start", "service.lifecycle.outcome": "running"},
+		"flowseer.service.module.attempt": {"service.lifecycle.action": "start", "service.lifecycle.outcome": "canceled"},
+		"flowseer.service.shutdown":       {"service.lifecycle.action": "stop", "service.lifecycle.outcome": "canceled"},
+	}
+	spans := recorder.Ended()
+	for _, name := range wantNames {
+		span := findRecordedSpan(spans, name)
+		if span == nil {
+			t.Errorf("runtime span %q was not recorded", name)
+			continue
+		}
+		if got, want := span.Parent().SpanID(), callerSpan.SpanContext().SpanID(); got != want {
+			t.Errorf("%s parent = %s, want caller %s", name, got, want)
+		}
+		if got, ok := spanAttribute(span, modulePathKey); !ok || got != "edge" {
+			t.Errorf("%s module path = %q, %v, want edge", name, got, ok)
+		}
+		for key, want := range wantDimensions[name] {
+			if got, ok := spanAttribute(span, key); !ok || got != want {
+				t.Errorf("%s %s = %q, %v, want %q", name, key, got, ok, want)
+			}
+		}
+	}
+	callerSpan.End()
+}
+
+func TestTraceDisabledRootEmitsNoRuntimeLifecycleSpans(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	ready := make(chan struct{})
+	config := Config{
+		Identity:       testIdentity(),
+		TracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)),
+		Telemetry: TelemetryConfig{Signals: TelemetryPolicy{
+			Traces: TelemetryDisabled,
+		}},
+		Setup: func(context.Context) (Attempt, error) {
+			return Attempt{Runner: func(ctx context.Context) error {
+				close(ready)
+				<-ctx.Done()
+				return ctx.Err()
+			}}, nil
+		},
+	}
+
+	if err := runUntil(t, config, ready); err != nil {
+		t.Fatalf("run() error: %v", err)
+	}
+	if spans := recorder.Ended(); len(spans) != 0 {
+		t.Errorf("trace-disabled runtime ended %d spans, want none", len(spans))
+	}
+}
+
+func TestModuleAttemptSpanRecordsTerminalOutcome(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   SetupFunc
+		policy  Policy
+		outcome string
+	}{
+		{
+			name: "normal",
+			setup: func(context.Context) (Attempt, error) {
+				return Attempt{Runner: func(context.Context) error { return nil }}, nil
+			},
+			outcome: "normal",
+		},
+		{
+			name: "setup error",
+			setup: func(context.Context) (Attempt, error) {
+				return Attempt{}, context.DeadlineExceeded
+			},
+			policy:  Policy{Error: OutcomePolicy{Action: Stop}},
+			outcome: "error",
+		},
+		{
+			name: "setup panic",
+			setup: func(context.Context) (Attempt, error) {
+				panic("setup panic")
+			},
+			policy:  Policy{Panic: OutcomePolicy{Action: Stop}},
+			outcome: "panic",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := tracetest.NewSpanRecorder()
+			err := run(context.Background(), Config{
+				Identity:       testIdentity(),
+				TracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)),
+				Modules: []Module{{
+					Name:   "worker",
+					Policy: tt.policy,
+					Leaf:   &Leaf{Setup: tt.setup},
+				}},
+			})
+			if err != nil {
+				t.Fatalf("run() error: %v", err)
+			}
+			span := findRecordedSpan(recorder.Ended(), attemptSpanName)
+			if span == nil {
+				t.Fatal("module attempt span was not recorded")
+			}
+			if got, ok := spanAttribute(span, "service.lifecycle.outcome"); !ok || got != tt.outcome {
+				t.Errorf("attempt outcome = %q, %v, want %q", got, ok, tt.outcome)
+			}
+		})
+	}
+}
+
 func TestInstrumentationAccessorsAreSafeOutsideAnAttempt(t *testing.T) {
 	ctx := context.Background()
 

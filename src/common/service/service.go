@@ -64,18 +64,24 @@ func runWithOptionsAndTelemetryFactories(
 	if ctx.Err() != nil {
 		return nil
 	}
+	rootTelemetry := telemetry.view(normalized.telemetry.rootPolicy)
+	lifecycleCtx := rootTelemetry.context(ctx)
+	_, startupSpan := startLifecycleSpan(
+		lifecycleCtx,
+		rootTelemetry.tracer,
+		normalized.identity,
+		normalized.identity.Name,
+		startupSpanName,
+		lifecycleActionStart,
+	)
 	var bus *localBus
 	busHealthy := true
 	if normalized.bus != nil {
 		bus, err = startLocalBus(ctx, *normalized.bus, reconcileRuntimeManifest(normalized))
 		if err != nil {
+			endLifecycleSpan(startupSpan, lifecycleOutcomeError)
 			return err
 		}
-		defer func() {
-			closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), normalized.bus.startupTimeout)
-			defer cancel()
-			runErr = errors.Join(runErr, bus.close(closeCtx, busHealthy))
-		}()
 	}
 	admission := newAdmissionState(normalized.admission.withModuleSnapshot(normalized.modules))
 	var messages *messageRuntime
@@ -83,36 +89,74 @@ func runWithOptionsAndTelemetryFactories(
 		messages = newMessageRuntime(bus.resources, normalized.registry, admission.load, telemetry)
 	}
 	runtime := supervisorRuntime{
-		identity:              normalized.identity,
-		envPrefix:             normalized.envPrefix,
-		telemetry:             telemetry,
-		options:               options,
-		admission:             admission,
-		messages:              messages,
-		infrastructureFailure: func(err error) { bus.reportFailure(err) },
+		identity:  normalized.identity,
+		envPrefix: normalized.envPrefix,
+		telemetry: telemetry,
+		options:   options,
+		admission: admission,
+		messages:  messages,
+	}
+	if bus != nil {
+		runtime.infrastructureFailure = bus.reportFailure
 	}
 	supervisor := newSupervisorState(normalized.identity.Name, normalized.rootSupervisor, normalized.modules, runtime)
-	if bus == nil {
-		return supervisor.run(ctx)
-	}
-
 	runCtx, cancel := context.WithCancelCause(ctx)
 	defer cancel(context.Cause(ctx))
 	done := make(chan error, 1)
-	go func() { done <- supervisor.run(runCtx) }()
-	select {
-	case err := <-done:
-		admission.setPhase(admissionShuttingDown)
-		cancel(err)
-		return err
-	case err := <-bus.failures():
-		admission.setPhase(admissionShuttingDown)
-		busHealthy = false
-		cancel(err)
-		return errors.Join(err, <-done)
-	case <-ctx.Done():
-		admission.setPhase(admissionShuttingDown)
-		cancel(context.Cause(ctx))
-		return <-done
+	started := make(chan struct{})
+	go func() { done <- supervisor.runWithStarted(runCtx, started) }()
+	<-started
+	endLifecycleSpan(startupSpan, lifecycleOutcomeRunning)
+
+	var failures <-chan error
+	if bus != nil {
+		failures = bus.failures()
 	}
+	shutdownOutcome := lifecycleOutcomeNormal
+	var shutdownCause error
+	supervisorDone := false
+	select {
+	case runErr = <-done:
+		supervisorDone = true
+		shutdownCause = runErr
+		if runErr != nil {
+			shutdownOutcome = lifecycleOutcomeError
+		}
+	case err = <-failures:
+		busHealthy = false
+		shutdownCause = err
+		shutdownOutcome = lifecycleOutcomeError
+	case <-ctx.Done():
+		shutdownCause = context.Cause(ctx)
+		shutdownOutcome = lifecycleOutcomeCanceled
+	}
+	admission.setPhase(admissionShuttingDown)
+	_, shutdownSpan := startLifecycleSpan(
+		lifecycleCtx,
+		rootTelemetry.tracer,
+		normalized.identity,
+		normalized.identity.Name,
+		shutdownSpanName,
+		lifecycleActionStop,
+	)
+	cancel(shutdownCause)
+	if !supervisorDone {
+		supervisorErr := <-done
+		if shutdownOutcome == lifecycleOutcomeError {
+			runErr = errors.Join(shutdownCause, supervisorErr)
+		} else {
+			runErr = supervisorErr
+		}
+	}
+	if bus != nil {
+		closeCtx, closeCancel := context.WithTimeout(context.WithoutCancel(ctx), normalized.bus.startupTimeout)
+		closeErr := bus.close(closeCtx, busHealthy)
+		closeCancel()
+		runErr = errors.Join(runErr, closeErr)
+		if closeErr != nil {
+			shutdownOutcome = lifecycleOutcomeError
+		}
+	}
+	endLifecycleSpan(shutdownSpan, shutdownOutcome)
+	return runErr
 }
