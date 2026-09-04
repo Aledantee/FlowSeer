@@ -2,7 +2,7 @@
 title: Device Service, Integrations, and Inventory - Direction
 type: direction
 date: 2026-08-20
-updated: 2026-08-20
+updated: 2026-09-03
 topic: device-service-and-inventory
 status: accepted-direction
 ---
@@ -391,6 +391,39 @@ snapshots.
   2025 Synadia dispute (stewardship and trademarks assigned to the Linux
   Foundation); two active release branches with ~monthly patches. Passes the
   OSS / fully self-hostable / EU-deployable rule.
+
+### Local service runtime boundary
+
+The shared `src/common/service` runtime owns process-local module supervision
+and an optional durable bus. A service declares a non-empty tree of leaves and
+branch supervisors. Leaf setup constructs fresh attempt state after a failure;
+branch policy decides which children are reconstructed. Module gates and stable
+slash-separated paths are evaluated before setup, so a bad declaration or an
+empty enabled tree has no partial module side effects.
+
+The local bus is distinct from the edge leaf-node and central integration
+fabric above. It is listener-free, has no central credentials, and persists
+protobuf envelopes only for modules in one service process. Its embedded NATS
+server is pinned with `SyncAlways`; accepted commands, replies, and snapshotted
+event copies therefore survive a process crash under the local filesystem's
+durability guarantee. Services without local messaging do not start NATS or
+create a store.
+
+The default logical budget is 1 GiB: 768 MiB for module mailboxes, 64 MiB for
+runtime metadata, and 192 MiB reserved for broker state and atomic publication.
+These limits reject new work before evicting accepted records, but do not cap
+filesystem metadata or temporary allocation. Deployments needing a physical
+ceiling must place the store on a quota or bounded volume. A filesystem call
+stuck in the kernel also remains an external process-supervisor or device-reboot
+recovery boundary; runtime contexts can bound publication and health failure,
+not force that syscall to return.
+
+Module paths, protobuf full names, subject encoding, the envelope, and the NATS
+server pin are storage identities. Compatible additions reconcile through a
+durable protobuf journal. A queued removal or rename requires an explicit
+migration, and a future NATS pin must preserve a store backup before the new
+server version opens it. Subscription aliases are the compatibility mechanism
+for protobuf type renames.
 
 ## Rules the contract must keep
 

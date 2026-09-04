@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.aledante.io/as"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 )
 
 // reactor.go is the per-session UDP transport. A single read-loop
@@ -715,7 +715,7 @@ func (r *reactor) readLoop() {
 		}
 		if r.validateSrc && !sameUDPAddr(src, r.peer) {
 			r.dropped.Add(1)
-			as.Logger(r.logCtx).DebugContext(r.logCtx,
+			service.Logger(r.logCtx).DebugContext(r.logCtx,
 				"snmp: dropping reply from unexpected source",
 				"expected", r.peer.String(), "got", src.String())
 			continue
@@ -743,7 +743,7 @@ func (r *reactor) readLoop() {
 		// is never logged or embedded in an error.
 		if m.version != r.version || m.community != r.community {
 			r.dropped.Add(1)
-			as.Logger(r.logCtx).DebugContext(r.logCtx,
+			service.Logger(r.logCtx).DebugContext(r.logCtx,
 				"snmp: dropping reply with mismatched version/community",
 				"expected_version", r.version.String(), "got_version", m.version.String())
 			continue
@@ -784,7 +784,7 @@ func (r *reactor) readLoop() {
 		// delivered reply (post-demux) so a flood of unmatched datagrams cannot
 		// amplify into unbounded warning logs.
 		for _, w := range m.warnings {
-			as.Logger(r.logCtx).WarnContext(r.logCtx,
+			service.Logger(r.logCtx).WarnContext(r.logCtx,
 				"snmp: tolerated decode warning", "warning", w.Error())
 		}
 	}

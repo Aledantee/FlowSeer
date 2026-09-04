@@ -10,9 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.aledante.io/as"
-
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 )
 
 // trap_listen.go is the v1/v2c/v3 trap listener. It owns the UDP
@@ -204,7 +203,7 @@ func (l *listener) handlePacket(msg []byte, remote *net.UDPAddr) {
 		// listener running. A packet that cannot be decoded is exactly the
 		// "could not turn into a Trap" drop case.
 		l.ts.recordDropped()
-		as.Logger(l.logCtx).DebugContext(l.logCtx,
+		service.Logger(l.logCtx).DebugContext(l.logCtx,
 			"snmp: dropping undecodable trap", slog.Any("error", err))
 		return
 	}
@@ -217,7 +216,7 @@ func (l *listener) handlePacket(msg []byte, remote *net.UDPAddr) {
 	// preserved and pushed, but the spec breach is logged, not silently swallowed
 	// (enc-counter64-v1).
 	for _, w := range v1v2.warnings {
-		as.Logger(l.logCtx).WarnContext(l.logCtx,
+		service.Logger(l.logCtx).WarnContext(l.logCtx,
 			"snmp: tolerated decode warning", slog.String("warning", w.Error()))
 	}
 	l.ts.Push(translateTrap(v1v2, remote))
