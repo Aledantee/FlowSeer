@@ -48,9 +48,9 @@ func TestMessageBusPersistsCommandAndAtomicEventSnapshot(t *testing.T) {
 	defer cancel()
 	setup := testSetup()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{
-		{Name: "commands", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}}},
-		{Name: "events_one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &emptypb.Empty{}}}}},
-		{Name: "events_two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &emptypb.Empty{}}}}},
+		{Name: "commands", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}}},
+		{Name: "events_one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: &emptypb.Empty{}}}}},
+		{Name: "events_two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: &emptypb.Empty{}}}}},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestMessageBusPersistsCommandAndAtomicEventSnapshot(t *testing.T) {
 			t.Errorf("incomplete envelope: %v", envelope)
 		}
 	}
-	if seen["edge/commands"] != messageKindCommand || seen["edge/events_one"] != messageKindEvent || seen["edge/events_two"] != messageKindEvent {
+	if seen["edge/commands"] != MessageKindCommand || seen["edge/events_one"] != MessageKindEvent || seen["edge/events_two"] != MessageKindEvent {
 		t.Fatalf("persisted targets = %v", seen)
 	}
 }
@@ -107,8 +107,8 @@ func TestAtomicEventCapacityFailureCommitsNoTarget(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{
-		{Name: "one", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
-		{Name: "two", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
+		{Name: "one", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
+		{Name: "two", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +167,7 @@ func TestMessageBusRejectsDisabledTargetWithoutPersistence(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "commands", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+		Name: "commands", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -201,8 +201,8 @@ func TestAtomicEventRejectsOversizedRecordBeforeStaging(t *testing.T) {
 	defer cancel()
 	setup := testSetup()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{
-		{Name: "one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
-		{Name: "two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: messageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
+		{Name: "one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
+		{Name: "two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: MessageKindEvent, Message: &wrapperspb.BytesValue{}}}}},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +235,7 @@ func TestDeliveryRetriesOnlyAfterCommittedTransitionAndAcknowledges(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestDeliveryRetriesOnlyAfterCommittedTransitionAndAcknowledges(t *testing.T
 	done := make(chan error, 1)
 	calls := make(chan int, 2)
 	call := 0
-	handlers := []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+	handlers := []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 		call++
 		calls <- call
 		if call == 1 {
@@ -297,7 +297,7 @@ func TestCancellationDuringBackoffDoesNotCommitRetry(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -317,7 +317,7 @@ func TestCancellationDuringBackoffDoesNotCommitRetry(t *testing.T) {
 	done := make(chan error, 1)
 	failed := make(chan struct{})
 	go func() {
-		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 			close(failed)
 			return errs.New().Retryable().Msg("try again")
 		}}})
@@ -344,7 +344,7 @@ func TestDeliveryRetryReceivesFreshPayload(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &wrapperspb.StringValue{}, Retries: 1}}},
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &wrapperspb.StringValue{}, Retries: 1}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -366,7 +366,7 @@ func TestDeliveryRetryReceivesFreshPayload(t *testing.T) {
 	values := make(chan string, 2)
 	var calls atomic.Int32
 	go func() {
-		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &wrapperspb.StringValue{}, Handle: func(_ context.Context, payload proto.Message) error {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &wrapperspb.StringValue{}, Handle: func(_ context.Context, payload proto.Message) error {
 			value := payload.(*wrapperspb.StringValue)
 			values <- value.GetValue()
 			if calls.Add(1) == 1 {
@@ -400,7 +400,7 @@ func TestDeliveryExtendsAckDeadlineWhileHandlerRuns(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 2, Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 2, Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -424,7 +424,7 @@ func TestDeliveryExtendsAckDeadlineWhileHandlerRuns(t *testing.T) {
 	deliveryCtx, stopDelivery := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() {
-		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 			calls.Add(1)
 			current := active.Add(1)
 			for observed := maximum.Load(); current > observed && !maximum.CompareAndSwap(observed, current); observed = maximum.Load() {
@@ -455,7 +455,7 @@ func TestDeliveryWorkerBoundsAndSequentialOrder(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-			Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 1, Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &wrapperspb.Int32Value{}}}},
+			Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 1, Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &wrapperspb.Int32Value{}}}},
 		}}})
 		if err != nil {
 			t.Fatal(err)
@@ -478,7 +478,7 @@ func TestDeliveryWorkerBoundsAndSequentialOrder(t *testing.T) {
 		var mu sync.Mutex
 		var completed []int32
 		go func() {
-			done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &wrapperspb.Int32Value{}, Handle: func(_ context.Context, payload proto.Message) error {
+			done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &wrapperspb.Int32Value{}, Handle: func(_ context.Context, payload proto.Message) error {
 				mu.Lock()
 				completed = append(completed, payload.(*wrapperspb.Int32Value).GetValue())
 				mu.Unlock()
@@ -509,7 +509,7 @@ func TestDeliveryWorkerBoundsAndSequentialOrder(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-			Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 4, Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+			Name: "worker", Leaf: &Leaf{Setup: testSetup(), DeliveryConcurrency: 4, Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}},
 		}}})
 		if err != nil {
 			t.Fatal(err)
@@ -534,7 +534,7 @@ func TestDeliveryWorkerBoundsAndSequentialOrder(t *testing.T) {
 		deliveryCtx, stopDelivery := context.WithCancel(ctx)
 		done := make(chan error, 1)
 		go func() {
-			done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+			done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 				current := active.Add(1)
 				for observed := maximum.Load(); current > observed && !maximum.CompareAndSwap(observed, current); observed = maximum.Load() {
 				}
@@ -573,14 +573,14 @@ func TestDeliveryDiscardsMalformedRecordWithoutHandler(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	resources, closeBus := startMessageTestBus(ctx, t)
 	defer closeBus()
-	subject, err := mailboxSubject("edge/worker", messageKindCommand, "google.protobuf.Empty")
+	subject, err := mailboxSubject("edge/worker", MessageKindCommand, "google.protobuf.Empty")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -596,7 +596,7 @@ func TestDeliveryDiscardsMalformedRecordWithoutHandler(t *testing.T) {
 	done := make(chan error, 1)
 	var calls atomic.Int32
 	go func() {
-		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 			calls.Add(1)
 			return nil
 		}}})
@@ -615,7 +615,7 @@ func TestDeliveryDiscardsMalformedRecordWithoutHandler(t *testing.T) {
 }
 
 func TestDeliveryDecodesPersistedAliasesForEveryMessageKind(t *testing.T) {
-	kinds := []servicev1.MessageKind{messageKindCommand, messageKindEvent, messageKindReply}
+	kinds := []servicev1.MessageKind{MessageKindCommand, MessageKindEvent, MessageKindReply}
 	ids := []string{
 		"b80f5119-d54b-48e7-83ea-fc349d90dc24",
 		"21822291-3057-458b-89e2-a8cab468e450",
@@ -688,7 +688,7 @@ func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -708,7 +708,7 @@ func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 	done := make(chan error, 1)
 	var calls atomic.Int32
 	go func() {
-		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 			calls.Add(1)
 			panic("handler panic")
 		}}})
@@ -728,7 +728,7 @@ func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 
 func TestInvalidTraceContextDoesNotMakePersistedMessageMalformed(t *testing.T) {
 	message := &servicev1.Message{}
-	message.SetKind(messageKindCommand)
+	message.SetKind(MessageKindCommand)
 	message.SetMessageId("123e4567-e89b-12d3-a456-426614174000")
 	message.SetCorrelationId("123e4567-e89b-12d3-a456-426614174000")
 	message.SetSourcePath("edge/source")
@@ -753,7 +753,7 @@ func TestDeliveryResumesTerminalSettlementWithoutCallingHandler(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-				Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+				Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}},
 			}}})
 			if err != nil {
 				t.Fatal(err)
@@ -770,11 +770,11 @@ func TestDeliveryResumesTerminalSettlementWithoutCallingHandler(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			envelope := runtime.capability("edge/publisher").envelope(ctx, messageKindCommand, id, "edge/worker", "google.protobuf.Empty", nil)
+			envelope := runtime.capability("edge/publisher").envelope(ctx, MessageKindCommand, id, "edge/worker", "google.protobuf.Empty", nil)
 			if err := runtime.publishOne(ctx, envelope); err != nil {
 				t.Fatal(err)
 			}
-			subject, _ := mailboxSubject("edge/worker", messageKindCommand, "google.protobuf.Empty")
+			subject, _ := mailboxSubject("edge/worker", MessageKindCommand, "google.protobuf.Empty")
 			raw, err := resources.mailbox.GetLastMsgForSubject(ctx, subject)
 			if err != nil {
 				t.Fatal(err)
@@ -788,7 +788,7 @@ func TestDeliveryResumesTerminalSettlementWithoutCallingHandler(t *testing.T) {
 			done := make(chan error, 1)
 			called := make(chan struct{}, 1)
 			go func() {
-				done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+				done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 					called <- struct{}{}
 					return nil
 				}}})
@@ -814,8 +814,8 @@ func TestReplyPreservesCorrelationAndTargetsRequestSource(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{
-		{Name: "requester", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindReply, Message: &emptypb.Empty{}}}}},
-		{Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}}},
+		{Name: "requester", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindReply, Message: &emptypb.Empty{}}}}},
+		{Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}}},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -834,7 +834,7 @@ func TestReplyPreservesCorrelationAndTargetsRequestSource(t *testing.T) {
 	if err := runtime.capability("edge/requester").Command(ctx, "edge/worker", &emptypb.Empty{}); err != nil {
 		t.Fatal(err)
 	}
-	commandSubject, _ := mailboxSubject("edge/worker", messageKindCommand, "google.protobuf.Empty")
+	commandSubject, _ := mailboxSubject("edge/worker", MessageKindCommand, "google.protobuf.Empty")
 	commandRaw, err := resources.mailbox.GetLastMsgForSubject(ctx, commandSubject)
 	if err != nil {
 		t.Fatal(err)
@@ -850,11 +850,11 @@ func TestReplyPreservesCorrelationAndTargetsRequestSource(t *testing.T) {
 	deliveryCtx = withContextValues(deliveryCtx, values)
 	done := make(chan error, 1)
 	go func() {
-		done <- runtime.runDelivery(deliveryCtx, declaration.modules[1], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(handlerCtx context.Context, _ proto.Message) error {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[1], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(handlerCtx context.Context, _ proto.Message) error {
 			return Bus(handlerCtx).Reply(handlerCtx, &emptypb.Empty{})
 		}}})
 	}()
-	replySubject, _ := mailboxSubject("edge/requester", messageKindReply, "google.protobuf.Empty")
+	replySubject, _ := mailboxSubject("edge/requester", MessageKindReply, "google.protobuf.Empty")
 	var reply *servicev1.Message
 	eventually(ctx, t, func() bool {
 		raw, err := resources.mailbox.GetLastMsgForSubject(ctx, replySubject)
@@ -880,7 +880,7 @@ func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
 	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
 	defer func() { _ = provider.Shutdown(context.Background()) }()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
-		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}}},
+		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -908,7 +908,7 @@ func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
 	done := make(chan error, 1)
 	delivered := make(chan struct{}, 1)
 	go func() {
-		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
+		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 			delivered <- struct{}{}
 			return nil
 		}}})
@@ -995,7 +995,7 @@ func TestCaseInsensitiveHeaderCarrier(t *testing.T) {
 }
 
 func TestMailboxSubjectKeepsPathAndTypeAsSingleTokens(t *testing.T) {
-	got, err := mailboxSubject("edge/worker", messageKindCommand, "google.protobuf.Empty")
+	got, err := mailboxSubject("edge/worker", MessageKindCommand, "google.protobuf.Empty")
 	if err != nil {
 		t.Fatal(err)
 	}

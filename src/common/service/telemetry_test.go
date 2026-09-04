@@ -30,7 +30,7 @@ func TestTelemetryDoesNotChangeGlobals(t *testing.T) {
 }
 
 func TestTelemetryPreservesInjectedCapabilities(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
+	logger, sink := newRecordingLogger()
 	tracerProvider := tracenoop.NewTracerProvider()
 	meterProvider := metricnoop.NewMeterProvider()
 	propagator := propagation.TraceContext{}
@@ -44,8 +44,12 @@ func TestTelemetryPreservesInjectedCapabilities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newTelemetry() error: %v", err)
 	}
-	if got.logger != logger {
-		t.Error("newTelemetry() did not preserve the logger")
+	if got.logger == nil {
+		t.Fatal("newTelemetry() did not derive a logger from the injected one")
+	}
+	got.logger.Info("probe")
+	if _, ok := sink.find("probe"); !ok {
+		t.Error("newTelemetry() did not derive its logger from the injected one")
 	}
 	if _, ok := got.propagator.(propagation.TraceContext); !ok {
 		t.Errorf("propagator type = %T, want propagation.TraceContext", got.propagator)

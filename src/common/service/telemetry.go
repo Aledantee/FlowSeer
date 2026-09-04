@@ -17,6 +17,8 @@ import (
 const (
 	instrumentationScope   = "go.aledante.io/FlowSeer/src/common/service"
 	instrumentationVersion = "1.0.0"
+
+	modulePathKey = "service.module.path"
 )
 
 type lifecycleAction uint8
@@ -68,12 +70,57 @@ func (o lifecycleOutcome) string() (string, bool) {
 }
 
 type telemetry struct {
-	logger     *slog.Logger
-	tracer     trace.Tracer
-	meter      metric.Meter
-	propagator propagation.TextMapPropagator
-	lifecycle  metric.Int64Counter
-	messages   metric.Int64Counter
+	logger         *slog.Logger
+	tracer         trace.Tracer
+	meter          metric.Meter
+	tracerProvider trace.TracerProvider
+	meterProvider  metric.MeterProvider
+	propagator     propagation.TextMapPropagator
+	lifecycle      metric.Int64Counter
+	messages       metric.Int64Counter
+}
+
+// traceLogHandler links a log record to the span that produced it so a record
+// can be found from its trace and the reverse. Records written without a
+// recording span, and records written outside the runtime, are unchanged. A
+// module that opens a slog group before logging nests the two identifiers in
+// that group, because slog offers no way to add a record attribute above an
+// open group.
+type traceLogHandler struct {
+	slog.Handler
+}
+
+func (h traceLogHandler) Handle(ctx context.Context, record slog.Record) error {
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		// Copies of a Record share state, so a handler that adds attributes has
+		// to clone first. Cloning inside the branch keeps the far more common
+		// no-span path free of the copy.
+		record = record.Clone()
+		record.AddAttrs(
+			slog.String("trace_id", span.TraceID().String()),
+			slog.String("span_id", span.SpanID().String()),
+		)
+	}
+	return h.Handler.Handle(ctx, record)
+}
+
+func (h traceLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return traceLogHandler{Handler: h.Handler.WithAttrs(attrs)}
+}
+
+func (h traceLogHandler) WithGroup(name string) slog.Handler {
+	return traceLogHandler{Handler: h.Handler.WithGroup(name)}
+}
+
+// identityAttributes returns the bounded dimension set shared by runtime
+// telemetry and by module instruments that read it through [Attributes].
+func identityAttributes(identity Identity, modulePath string) attribute.Set {
+	return attribute.NewSet(
+		semconv.ServiceName(identity.Name),
+		semconv.ServiceNamespace(identity.Namespace),
+		semconv.ServiceVersion(identity.Version),
+		attribute.String(modulePathKey, modulePath),
+	)
 }
 
 func newTelemetry(config Config) (telemetry, error) {
@@ -81,19 +128,22 @@ func newTelemetry(config Config) (telemetry, error) {
 	if logger == nil {
 		logger = defaultLogger
 	}
+	logger = slog.New(traceLogHandler{Handler: logger.Handler()})
 	propagator := config.Propagator
 	if propagator == nil {
 		propagator = defaultPropagator
 	}
 
-	tracer := defaultTracer
-	if config.TracerProvider != nil {
-		tracer = config.TracerProvider.Tracer(instrumentationScope, trace.WithInstrumentationVersion(instrumentationVersion))
+	tracerProvider := config.TracerProvider
+	if tracerProvider == nil {
+		tracerProvider = defaultTracerProvider
 	}
-	meter := defaultMeter
-	if config.MeterProvider != nil {
-		meter = config.MeterProvider.Meter(instrumentationScope, metric.WithInstrumentationVersion(instrumentationVersion))
+	meterProvider := config.MeterProvider
+	if meterProvider == nil {
+		meterProvider = defaultMeterProvider
 	}
+	tracer := tracerProvider.Tracer(instrumentationScope, trace.WithInstrumentationVersion(instrumentationVersion))
+	meter := meterProvider.Meter(instrumentationScope, metric.WithInstrumentationVersion(instrumentationVersion))
 	lifecycle, err := meter.Int64Counter(
 		"flowseer.service.module.lifecycle",
 		metric.WithDescription("Module lifecycle transitions"),
@@ -110,12 +160,14 @@ func newTelemetry(config Config) (telemetry, error) {
 	}
 
 	return telemetry{
-		logger:     logger,
-		tracer:     tracer,
-		meter:      meter,
-		propagator: propagator,
-		lifecycle:  lifecycle,
-		messages:   messages,
+		logger:         logger,
+		tracer:         tracer,
+		meter:          meter,
+		tracerProvider: tracerProvider,
+		meterProvider:  meterProvider,
+		propagator:     propagator,
+		lifecycle:      lifecycle,
+		messages:       messages,
 	}, nil
 }
 
@@ -132,13 +184,13 @@ const (
 
 func (t telemetry) recordMessage(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, action messageAction) {
 	attrs := []attribute.KeyValue{
-		attribute.String("service.module.path", modulePath),
+		attribute.String(modulePathKey, modulePath),
 		attribute.String("messaging.message.type", typeName),
 		attribute.String("messaging.message.kind", messageKindToken(kind)),
 		attribute.String("messaging.operation", string(action)),
 	}
 	t.messages.Add(ctx, 1, metric.WithAttributes(attrs...))
-	t.logger.DebugContext(ctx, "message lifecycle", "module", modulePath, "message_type", typeName, "message_kind", messageKindToken(kind), "action", action)
+	t.logger.DebugContext(ctx, "message lifecycle", modulePathKey, modulePath, "message_type", typeName, "message_kind", messageKindToken(kind), "action", action)
 }
 
 func (t telemetry) recordDisposition(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, settlement *servicev1.Settlement) {
@@ -148,7 +200,7 @@ func (t telemetry) recordDisposition(ctx context.Context, modulePath, typeName s
 	}
 	t.recordMessage(ctx, modulePath, typeName, kind, action)
 	t.logger.InfoContext(ctx, "message disposition",
-		"module", modulePath,
+		modulePathKey, modulePath,
 		"message_type", typeName,
 		"message_kind", messageKindToken(kind),
 		"disposition", settlement.GetState().String(),
@@ -167,10 +219,20 @@ func (t telemetry) values(identity Identity, envPrefix, modulePath string) conte
 		identity:   identity,
 		modulePath: modulePath,
 		envPrefix:  envPrefix,
-		logger:     t.logger,
-		tracer:     t.tracer,
-		meter:      t.meter,
-		propagator: t.propagator,
+		// The attempt logger carries the identity the runtime records so that a
+		// module never has to restate it on every call.
+		logger: t.logger.With(
+			slog.String(string(semconv.ServiceNameKey), identity.Name),
+			slog.String(string(semconv.ServiceNamespaceKey), identity.Namespace),
+			slog.String(string(semconv.ServiceVersionKey), identity.Version),
+			slog.String(modulePathKey, modulePath),
+		),
+		tracer:         t.tracer,
+		meter:          t.meter,
+		tracerProvider: t.tracerProvider,
+		meterProvider:  t.meterProvider,
+		propagator:     t.propagator,
+		attributes:     identityAttributes(identity, modulePath),
 	}
 }
 
@@ -190,20 +252,18 @@ func (t telemetry) recordLifecycle(
 		return fmt.Errorf("unknown lifecycle outcome %d", outcome)
 	}
 
-	attrs := []attribute.KeyValue{
-		semconv.ServiceName(identity.Name),
-		semconv.ServiceNamespace(identity.Namespace),
-		semconv.ServiceVersion(identity.Version),
-		attribute.String("service.module.path", modulePath),
-		attribute.String("service.lifecycle.action", actionName),
-		attribute.String("service.lifecycle.outcome", outcomeName),
-	}
-	t.lifecycle.Add(ctx, 1, metric.WithAttributes(attrs...))
+	t.lifecycle.Add(ctx, 1,
+		metric.WithAttributeSet(identityAttributes(identity, modulePath)),
+		metric.WithAttributes(
+			attribute.String("service.lifecycle.action", actionName),
+			attribute.String("service.lifecycle.outcome", outcomeName),
+		),
+	)
 	t.logger.InfoContext(ctx, "module lifecycle",
-		"service", identity.Name,
-		"namespace", identity.Namespace,
-		"version", identity.Version,
-		"module", modulePath,
+		string(semconv.ServiceNameKey), identity.Name,
+		string(semconv.ServiceNamespaceKey), identity.Namespace,
+		string(semconv.ServiceVersionKey), identity.Version,
+		modulePathKey, modulePath,
 		"action", actionName,
 		"outcome", outcomeName,
 	)

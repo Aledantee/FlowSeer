@@ -34,10 +34,6 @@ const (
 	maxSubscriptionAliasCount = 256
 	maxAtomicEventTargets     = 1000
 
-	messageKindCommand = servicev1.MessageKind_MESSAGE_KIND_COMMAND
-	messageKindEvent   = servicev1.MessageKind_MESSAGE_KIND_EVENT
-	messageKindReply   = servicev1.MessageKind_MESSAGE_KIND_REPLY
-
 	atomicBatchIDHeader       = "Nats-Batch-Id"
 	atomicBatchSequenceHeader = "Nats-Batch-Sequence"
 	atomicBatchCommitHeader   = "Nats-Batch-Commit"
@@ -110,7 +106,7 @@ func (r *messageRuntime) capability(sourcePath string, attempt ...context.Contex
 // admitted target. Cancellation can stop the call before persistence; a nil
 // return means the broker accepted the durable record.
 func (b *MessageBus) Command(ctx context.Context, target string, payload proto.Message) error {
-	return b.publishAddressed(ctx, messageKindCommand, target, payload)
+	return b.publishAddressed(ctx, MessageKindCommand, target, payload)
 }
 
 // Publish synchronously persists one atomic event snapshot for every currently
@@ -120,7 +116,7 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	if err = b.available(ctx); err != nil {
 		return err
 	}
-	ctx, span := startPublicationTrace(ctx, messageKindEvent)
+	ctx, span := startPublicationTrace(ctx, MessageKindEvent)
 	defer func() {
 		if err != nil {
 			span.RecordError(err)
@@ -135,29 +131,29 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	revision := b.runtime.admissionRevision()
 	targets, err := revision.admitEvent(fullName)
 	if err != nil {
-		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), messageKindEvent, messageRejected)
+		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messageRejected)
 		return err
 	}
 	if len(targets) == 0 {
 		return nil
 	}
 	if len(targets) > maxAtomicEventTargets {
-		return publicationError(messageKindEvent, fullName, "event snapshot exceeds the broker atomic batch bound").
+		return publicationError(MessageKindEvent, fullName, "event snapshot exceeds the broker atomic batch bound").
 			Attr("target_count", len(targets)).Msg("publish event snapshot")
 	}
 	logicalID, err := newUUID()
 	if err != nil {
-		return publicationError(messageKindEvent, fullName, "generate message identifier").Cause(err).Msg("publish event")
+		return publicationError(MessageKindEvent, fullName, "generate message identifier").Cause(err).Msg("publish event")
 	}
 	envelopes := make([]*servicev1.Message, len(targets))
 	for i, target := range targets {
-		envelopes[i] = b.envelope(ctx, messageKindEvent, logicalID, target, fullName, payloadBytes)
+		envelopes[i] = b.envelope(ctx, MessageKindEvent, logicalID, target, fullName, payloadBytes)
 	}
 	if err := b.runtime.publishAtomic(ctx, envelopes); err != nil {
-		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), messageKindEvent, messageRejected)
+		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messageRejected)
 		return err
 	}
-	b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), messageKindEvent, messagePublished)
+	b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messagePublished)
 	return nil
 }
 
@@ -169,7 +165,7 @@ func (b *MessageBus) Reply(ctx context.Context, payload proto.Message) error {
 	if !ok {
 		return errs.New().Code(errCodePublication).Msg("reply requires a message delivery context")
 	}
-	return b.publishAddressed(ctx, messageKindReply, delivery.sourcePath, payload)
+	return b.publishAddressed(ctx, MessageKindReply, delivery.sourcePath, payload)
 }
 
 func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.MessageKind, target string, payload proto.Message) (err error) {
@@ -208,7 +204,7 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 
 func startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (context.Context, trace.Span) {
 	options := []trace.SpanStartOption{trace.WithSpanKind(trace.SpanKindProducer)}
-	if kind == messageKindEvent {
+	if kind == MessageKindEvent {
 		if link := trace.LinkFromContext(ctx); link.SpanContext.IsValid() {
 			options = append(options, trace.WithLinks(link))
 		}
@@ -332,7 +328,7 @@ func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*service
 	case r.atomicPermit <- struct{}{}:
 		defer func() { <-r.atomicPermit }()
 	case <-ctx.Done():
-		return publicationError(messageKindEvent, "", "wait for atomic event publisher").Cause(context.Cause(ctx)).Msg("publish event snapshot")
+		return publicationError(MessageKindEvent, "", "wait for atomic event publisher").Cause(context.Cause(ctx)).Msg("publish event snapshot")
 	}
 	batchID, err := newUUID()
 	if err != nil {
@@ -424,11 +420,11 @@ func mailboxSubject(path string, kind servicev1.MessageKind, fullName string) (s
 
 func messageKindToken(kind servicev1.MessageKind) string {
 	switch kind {
-	case messageKindCommand:
+	case MessageKindCommand:
 		return "command"
-	case messageKindEvent:
+	case MessageKindEvent:
 		return "event"
-	case messageKindReply:
+	case MessageKindReply:
 		return "reply"
 	default:
 		return "unknown"
@@ -523,6 +519,18 @@ func deliveryFromContext(ctx context.Context) (deliveryContext, bool) {
 	delivery, ok := ctx.Value(deliveryContextKey{}).(deliveryContext)
 	return delivery, ok
 }
+
+// MessageKind selects how the bus routes a persisted message. Declaring a
+// subscription or a handler with one of these values keeps a module declaration
+// independent of the generated schema package.
+const (
+	// MessageKindCommand addresses one statically declared target module.
+	MessageKindCommand = servicev1.MessageKind_MESSAGE_KIND_COMMAND
+	// MessageKindEvent addresses every enabled subscriber at publication time.
+	MessageKindEvent = servicev1.MessageKind_MESSAGE_KIND_EVENT
+	// MessageKindReply addresses the source of the message being handled.
+	MessageKindReply = servicev1.MessageKind_MESSAGE_KIND_REPLY
+)
 
 // Subscription declares one static protobuf handler and its durable delivery
 // policy. Retries counts committed retries after the initial handler call.
@@ -938,7 +946,7 @@ func (r *admissionRevision) admitEvent(fullName protoreflect.FullName) ([]string
 	paths, registered := r.registry.eventSubscribers(fullName)
 	if !registered {
 		return nil, messageTypeError("", fullName, "event type is not registered").
-			Attr("message_kind", messageKindEvent.String()).
+			Attr("message_kind", MessageKindEvent.String()).
 			Msgf("service does not accept event message %s", fullName)
 	}
 	admitted := make([]string, 0, len(paths))

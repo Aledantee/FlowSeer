@@ -53,9 +53,9 @@ func TestRuntimeManifestSortsSubscriptionsByKindAndType(t *testing.T) {
 		Leaf: &Leaf{
 			Setup: testSetup(),
 			Subscriptions: []Subscription{
-				{Kind: messageKindEvent, Message: &wrapperspb.Int32Value{}},
-				{Kind: messageKindCommand, Message: &wrapperspb.Int32Value{}},
-				{Kind: messageKindCommand, Message: &emptypb.Empty{}},
+				{Kind: MessageKindEvent, Message: &wrapperspb.Int32Value{}},
+				{Kind: MessageKindCommand, Message: &wrapperspb.Int32Value{}},
+				{Kind: MessageKindCommand, Message: &emptypb.Empty{}},
 			},
 		},
 	}})
@@ -71,7 +71,7 @@ func TestRuntimeManifestSortsSubscriptionsByKindAndType(t *testing.T) {
 	if len(subscriptions) != 3 {
 		t.Fatalf("manifest subscriptions = %v, want three", subscriptions)
 	}
-	wantKinds := []servicev1.MessageKind{messageKindCommand, messageKindCommand, messageKindEvent}
+	wantKinds := []servicev1.MessageKind{MessageKindCommand, MessageKindCommand, MessageKindEvent}
 	wantTypes := []string{"google.protobuf.Empty", "google.protobuf.Int32Value", "google.protobuf.Int32Value"}
 	for i, subscription := range subscriptions {
 		if subscription.GetKind() != wantKinds[i] || subscription.GetTypeName() != wantTypes[i] {

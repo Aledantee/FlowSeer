@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
@@ -15,14 +16,17 @@ import (
 type contextKey struct{}
 
 type contextValues struct {
-	identity   Identity
-	modulePath string
-	envPrefix  string
-	logger     *slog.Logger
-	tracer     trace.Tracer
-	meter      metric.Meter
-	propagator propagation.TextMapPropagator
-	bus        *MessageBus
+	identity       Identity
+	modulePath     string
+	envPrefix      string
+	logger         *slog.Logger
+	tracer         trace.Tracer
+	meter          metric.Meter
+	tracerProvider trace.TracerProvider
+	meterProvider  metric.MeterProvider
+	propagator     propagation.TextMapPropagator
+	attributes     attribute.Set
+	bus            *MessageBus
 }
 
 // Bus returns the attempt-scoped durable message bus. Outside a bus-enabled
@@ -37,10 +41,12 @@ func Bus(ctx context.Context) *MessageBus {
 }
 
 var (
-	defaultLogger     = slog.New(slog.DiscardHandler)
-	defaultTracer     = tracenoop.NewTracerProvider().Tracer(instrumentationScope)
-	defaultMeter      = metricnoop.NewMeterProvider().Meter(instrumentationScope)
-	defaultPropagator = propagation.NewCompositeTextMapPropagator()
+	defaultLogger         = slog.New(slog.DiscardHandler)
+	defaultTracerProvider = tracenoop.NewTracerProvider()
+	defaultMeterProvider  = metricnoop.NewMeterProvider()
+	defaultTracer         = defaultTracerProvider.Tracer(instrumentationScope)
+	defaultMeter          = defaultMeterProvider.Meter(instrumentationScope)
+	defaultPropagator     = propagation.NewCompositeTextMapPropagator()
 )
 
 func withContextValues(ctx context.Context, values contextValues) context.Context {
@@ -126,6 +132,30 @@ func Meter(ctx context.Context) metric.Meter {
 	return meter
 }
 
+// TracerProvider returns the attempt tracer provider attached to ctx. A module
+// that owns an instrumentation scope creates its own tracer from it rather than
+// reusing [Tracer], whose scope names the service runtime. It returns a no-op
+// provider when ctx does not belong to a service attempt.
+func TracerProvider(ctx context.Context) trace.TracerProvider {
+	provider := valuesFromContext(ctx).tracerProvider
+	if provider == nil {
+		return defaultTracerProvider
+	}
+	return provider
+}
+
+// MeterProvider returns the attempt meter provider attached to ctx. A module
+// that owns an instrumentation scope creates its own meter from it rather than
+// reusing [Meter], whose scope names the service runtime. It returns a no-op
+// provider when ctx does not belong to a service attempt.
+func MeterProvider(ctx context.Context) metric.MeterProvider {
+	provider := valuesFromContext(ctx).meterProvider
+	if provider == nil {
+		return defaultMeterProvider
+	}
+	return provider
+}
+
 // Propagator returns the attempt text-map propagator attached to ctx. It
 // returns an empty propagator when ctx does not belong to a service attempt.
 func Propagator(ctx context.Context) propagation.TextMapPropagator {
@@ -134,4 +164,18 @@ func Propagator(ctx context.Context) propagation.TextMapPropagator {
 		return defaultPropagator
 	}
 	return propagator
+}
+
+// Attributes returns the identity attributes of the current module attempt:
+// service name, namespace, version, and module path. Module-owned instruments
+// and spans should carry it so their dimensions match the ones the runtime
+// records for the same module. The set is bounded by the static module tree.
+// It returns an empty set when ctx does not belong to a service attempt.
+//
+// The accessors of [attribute.Set] take a pointer receiver, so assign the
+// result before reading it: attrs := service.Attributes(ctx) followed by
+// attrs.ToSlice(). Calling a method on the return value directly does not
+// compile.
+func Attributes(ctx context.Context) attribute.Set {
+	return valuesFromContext(ctx).attributes
 }

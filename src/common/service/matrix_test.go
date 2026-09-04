@@ -147,7 +147,7 @@ func assertRuntimeMatrixTuple(
 		Setup:               testSetup(),
 		DeliveryConcurrency: concurrency,
 		Subscriptions: []Subscription{{
-			Kind:    messageKindEvent,
+			Kind:    MessageKindEvent,
 			Message: &emptypb.Empty{},
 			Retries: retries,
 		}},

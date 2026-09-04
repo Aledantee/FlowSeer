@@ -366,7 +366,7 @@ func runDeliveryCrashHelper(t *testing.T, mode, storeDir string) {
 		Modules: []Module{{
 			Name: "worker",
 			Leaf: &Leaf{
-				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Retries: deliveryHelperRetries(mode)}},
+				Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Retries: deliveryHelperRetries(mode)}},
 				Setup: func(attemptCtx context.Context) (Attempt, error) {
 					if mode == "delivery_crash" || mode == "delivery_retry_crash" {
 						if err := Bus(attemptCtx).Command(attemptCtx, "bus_test/worker", &emptypb.Empty{}); err != nil {
