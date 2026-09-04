@@ -269,7 +269,7 @@ func exerciseMatrixSupervisor(
 		t.Fatal("escalated matrix outcome returned nil")
 	case action == Restart && exhausted && err == nil:
 		t.Fatal("exhausted matrix restart returned nil")
-	case action != Escalate && !(action == Restart && exhausted) && err != nil:
+	case action != Escalate && (action != Restart || !exhausted) && err != nil:
 		t.Fatalf("matrix decision failed: %v", err)
 	case action == Stop && state.slots[fixtureIndex].active:
 		t.Fatal("stopped matrix fixture remained active")

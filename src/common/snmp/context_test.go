@@ -21,9 +21,9 @@ func TestServiceLoggerReachesBackgroundSNMPPaths(t *testing.T) {
 		Identity: service.Identity{Name: "snmp_context_test", Namespace: "flowseer", Version: "test"},
 		Logger:   logger,
 		Setup: func(ctx context.Context) (service.Attempt, error) {
-			exerciseReactorLogger(t, ctx)
-			exerciseTrapLogger(t, ctx)
-			exercisePrivacyLogger(t, ctx)
+			exerciseReactorLogger(ctx, t)
+			exerciseTrapLogger(ctx, t)
+			exercisePrivacyLogger(ctx, t)
 			return service.Attempt{Runner: func(context.Context) error { return nil }}, nil
 		},
 	})
@@ -45,7 +45,7 @@ func TestServiceLoggerReachesBackgroundSNMPPaths(t *testing.T) {
 	}
 }
 
-func exerciseReactorLogger(t *testing.T, ctx context.Context) {
+func exerciseReactorLogger(ctx context.Context, t *testing.T) {
 	t.Helper()
 
 	peer := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 1}
@@ -84,7 +84,7 @@ func exerciseReactorLogger(t *testing.T, ctx context.Context) {
 	}
 }
 
-func exerciseTrapLogger(t *testing.T, ctx context.Context) {
+func exerciseTrapLogger(ctx context.Context, t *testing.T) {
 	t.Helper()
 
 	ts := NewTrapStream(ctx, 1)
@@ -101,7 +101,7 @@ func exerciseTrapLogger(t *testing.T, ctx context.Context) {
 	}
 }
 
-func exercisePrivacyLogger(t *testing.T, ctx context.Context) {
+func exercisePrivacyLogger(ctx context.Context, t *testing.T) {
 	t.Helper()
 
 	block := []byte{1, 1, 1, 1, 1, 1, 1, 1}
