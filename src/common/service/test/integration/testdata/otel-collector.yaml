@@ -1,0 +1,48 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  otlp/base_path:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4328
+        traces_url_path: /collector/v1/traces
+        metrics_url_path: /collector/v1/metrics
+        logs_url_path: /collector/v1/logs
+
+exporters:
+  file/logs:
+    path: /output/logs.json
+    format: json
+    append: true
+    flush_interval: 100ms
+  file/metrics:
+    path: /output/metrics.json
+    format: json
+    append: true
+    flush_interval: 100ms
+  file/traces:
+    path: /output/traces.json
+    format: json
+    append: true
+    flush_interval: 100ms
+
+service:
+  extensions: [health_check]
+  pipelines:
+    logs:
+      receivers: [otlp, otlp/base_path]
+      exporters: [file/logs]
+    metrics:
+      receivers: [otlp, otlp/base_path]
+      exporters: [file/metrics]
+    traces:
+      receivers: [otlp, otlp/base_path]
+      exporters: [file/traces]
