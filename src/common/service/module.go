@@ -35,6 +35,9 @@ type Module struct {
 	// Policy controls how the owning supervisor handles this module's outcomes.
 	// Its zero value stops normal returns and restarts errors and panics.
 	Policy Policy
+	// Telemetry declares which signals this module and its descendants emit.
+	// Each zero-valued signal inherits its effective parent setting.
+	Telemetry TelemetryPolicy
 	// Leaf declares attempt-local execution.
 	Leaf *Leaf
 	// Branch declares a nested supervisor and its children.
@@ -67,16 +70,18 @@ type Branch struct {
 }
 
 type plannedModule struct {
-	path        string
-	envKey      string
-	pathToken   string
-	durableName string
-	gate        Gate
-	policy      normalizedPolicy
-	supervisor  normalizedSupervisor
-	leaf        *plannedLeaf
-	children    []plannedModule
-	enabled     bool
+	path                 string
+	envKey               string
+	pathToken            string
+	durableName          string
+	gate                 Gate
+	policy               normalizedPolicy
+	supervisor           normalizedSupervisor
+	leaf                 *plannedLeaf
+	children             []plannedModule
+	enabled              bool
+	telemetryDeclaration TelemetryPolicy
+	telemetryPolicy      resolvedTelemetryPolicy
 }
 
 type plannedLeaf struct {
@@ -115,6 +120,9 @@ func (s *derivedIdentitySet) add(kind, value, path string) error {
 
 func validateDeclaration(config Config) (runtimeConfig, error) {
 	if err := validateIdentity(config.Identity); err != nil {
+		return runtimeConfig{}, err
+	}
+	if err := validateTelemetryPolicy(config.Telemetry.Signals, "Telemetry.Signals"); err != nil {
 		return runtimeConfig{}, err
 	}
 
@@ -220,6 +228,9 @@ func validateModule(
 	if err := validateGate(path, module.Gate); err != nil {
 		return plannedModule{}, err
 	}
+	if err := validateTelemetryPolicy(module.Telemetry, "Module.Telemetry"); err != nil {
+		return plannedModule{}, err
+	}
 	policy, err := normalizePolicy(module.Policy)
 	if err != nil {
 		return plannedModule{}, errs.From(err).
@@ -266,12 +277,13 @@ func validateModule(
 	}
 
 	planned := plannedModule{
-		path:        path,
-		envKey:      envKey,
-		pathToken:   pathToken,
-		durableName: durableName,
-		gate:        module.Gate,
-		policy:      policy,
+		path:                 path,
+		envKey:               envKey,
+		pathToken:            pathToken,
+		durableName:          durableName,
+		gate:                 module.Gate,
+		policy:               policy,
+		telemetryDeclaration: module.Telemetry,
 	}
 	if isLeaf {
 		leaf, err := validateLeaf(path, *module.Leaf, registry)
@@ -361,6 +373,16 @@ func preflight(ctx context.Context, config Config, lookup envLookup) (runtimeCon
 	if err != nil {
 		return runtimeConfig{}, err
 	}
+	telemetryConfig, err := normalizeTelemetryConfig(config, declaration.envPrefix, lookup)
+	if err != nil {
+		return runtimeConfig{}, err
+	}
+	modules, err := resolveTelemetryPolicies(declaration.modules, lookup, telemetryConfig.rootPolicy, telemetryConfig.availableSignals())
+	if err != nil {
+		return runtimeConfig{}, err
+	}
+	declaration.modules = modules
+	declaration.telemetry = telemetryConfig
 
 	modules, enabledLeaves, err := snapshotGates(ctx, declaration.modules, lookup, true)
 	if err != nil {

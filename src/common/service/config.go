@@ -74,14 +74,24 @@ type Config struct {
 	// derives NAMESPACE_NAME_ from Identity.
 	EnvPrefix string
 
-	// Logger receives structured runtime and module records. Nil discards logs.
+	// Logger receives structured local runtime and module records. Nil selects a
+	// service-owned structured stderr logger.
 	Logger *slog.Logger
-	// TracerProvider creates attempt tracers. Nil selects a no-op provider.
+	// LogHandler exports caller-owned OpenTelemetry log records. Nil leaves log
+	// export unavailable unless Telemetry configures a managed endpoint.
+	LogHandler slog.Handler
+	// TracerProvider creates caller-owned attempt tracers. Nil selects a managed
+	// provider when Telemetry has an endpoint and otherwise leaves traces unavailable.
 	TracerProvider trace.TracerProvider
-	// MeterProvider creates bounded runtime instruments. Nil selects a no-op provider.
+	// MeterProvider creates caller-owned runtime instruments. Nil selects a managed
+	// provider when Telemetry has an endpoint and otherwise leaves metrics unavailable.
 	MeterProvider metric.MeterProvider
-	// Propagator carries trace context through durable messages. Nil selects an empty propagator.
+	// Propagator carries trace context through durable messages. Nil selects a
+	// run-scoped W3C Trace Context propagator.
 	Propagator propagation.TextMapPropagator
+	// Telemetry configures the managed OTLP connection and root signal policy.
+	// Its zero value keeps managed export off.
+	Telemetry TelemetryConfig
 
 	// TelemetryShutdown flushes and closes telemetry owned by the caller. It
 	// runs after all service-owned work has stopped.
@@ -108,6 +118,7 @@ type runtimeConfig struct {
 	admission         *admissionRevision
 	bus               *normalizedBusConfig
 	rootSupervisor    normalizedSupervisor
+	telemetry         normalizedTelemetryConfig
 	telemetryShutdown func(context.Context) error
 }
 

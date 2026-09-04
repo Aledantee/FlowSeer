@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 )
 
@@ -103,6 +104,21 @@ func TestNormalizeConfigRejectsInvalidIdentity(t *testing.T) {
 		if err == nil {
 			t.Errorf("normalizeConfig(%+v) succeeded, want error", identity)
 		}
+	}
+}
+
+func TestConfigTelemetryInjectionSurfaceIsAdditive(t *testing.T) {
+	config := Config{
+		Identity:   testIdentity(),
+		Setup:      testSetup(),
+		LogHandler: slog.DiscardHandler,
+		Telemetry: TelemetryConfig{
+			Endpoint: "https://collector.example",
+			Signals:  TelemetryPolicy{Logs: TelemetryEnabled},
+		},
+	}
+	if config.Logger != nil || config.TracerProvider != nil || config.MeterProvider != nil || config.Propagator != nil {
+		t.Fatal("new telemetry configuration changed existing injection fields")
 	}
 }
 

@@ -180,6 +180,18 @@ func TestDerivedModuleIdentitiesAreCollisionSafe(t *testing.T) {
 	}
 }
 
+func TestValidateDeclarationRejectsInvalidTelemetryDeclaration(t *testing.T) {
+	_, err := validateDeclaration(Config{
+		Identity: testIdentity(),
+		Modules: []Module{{
+			Name:      "worker",
+			Telemetry: TelemetryPolicy{Logs: TelemetryDeclaration(255)},
+			Leaf:      &Leaf{Setup: testSetup()},
+		}},
+	})
+	assertTelemetryConfigError(t, err, "Module.Telemetry.Logs", "invalid_declaration", "")
+}
+
 func TestValidateAttemptHandlersExactStaticDeclaration(t *testing.T) {
 	subscriptions := []plannedSubscription{
 		{kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, fullName: "google.protobuf.Empty", typeOf: (&emptypb.Empty{}).ProtoReflect().Type()},
