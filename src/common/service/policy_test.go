@@ -25,7 +25,7 @@ func TestPolicyDefaults(t *testing.T) {
 			t.Errorf("%s budget = %+v, want three per minute", name, outcome.budget)
 		}
 		if outcome.backoff != (Backoff{Initial: time.Second, Maximum: 30 * time.Second, ResetAfter: time.Minute}) {
-			t.Errorf("%s backoff = %+v, want KTD6 defaults", name, outcome.backoff)
+			t.Errorf("%s backoff = %+v, want one-second initial, 30-second maximum, one-minute reset", name, outcome.backoff)
 		}
 	}
 }

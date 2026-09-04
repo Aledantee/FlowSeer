@@ -20,7 +20,9 @@ var envPrefixPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*_$`)
 type Runner func(ctx context.Context) error
 
 // Attempt contains the fresh runner and canonical handlers constructed by one
-// Setup call. Its values are owned by that attempt and need not be reusable.
+// Setup call. Its values are owned by that attempt and need not be safe for
+// concurrent use, except that handlers may run concurrently when the leaf
+// declares parallel delivery.
 type Attempt struct {
 	// Runner performs the module's non-message work.
 	Runner Runner
@@ -29,36 +31,41 @@ type Attempt struct {
 }
 
 // SetupFunc constructs the mutable state for one module attempt. Each call
-// must return a fresh Attempt whose lifetime is bounded by ctx.
+// must return a fresh Attempt whose lifetime is bounded by ctx. A SetupFunc
+// reused by sibling modules must be safe for concurrent calls.
 type SetupFunc func(ctx context.Context) (Attempt, error)
 
 // BusConfig opts a service into its durable local message bus. The zero value
 // uses the documented private store location and logical capacity defaults.
-// StoreDir, when set, must be absolute.
+// StoreDir, when set, must be absolute. Callers must not mutate a BusConfig
+// while a Run using it is active. When MaxStoreBytes changes, callers must set
+// the component limits too if the fixed defaults do not fit the new ceiling.
 type BusConfig struct {
 	// StoreDir is the private file-store directory. Empty selects the service
 	// state directory; a non-empty value must be absolute.
 	StoreDir string
 	// MaxStoreBytes is the total logical store ceiling. Zero selects 1 GiB.
 	MaxStoreBytes int64
-	// MailboxMaxBytes is the mailbox stream ceiling. Zero selects 75 percent of
-	// MaxStoreBytes and must leave room for metadata and reserve capacity.
+	// MailboxMaxBytes is the mailbox stream ceiling. Zero selects 768 MiB. A
+	// custom MaxStoreBytes does not rescale this default.
 	MailboxMaxBytes int64
-	// MetadataMaxBytes is the control-record stream ceiling. Zero selects 10
-	// percent of MaxStoreBytes and must be smaller than the total ceiling.
+	// MetadataMaxBytes is the control-record stream ceiling. Zero selects 64 MiB.
+	// A custom MaxStoreBytes does not rescale this default.
 	MetadataMaxBytes int64
-	// ReserveBytes is capacity held outside the owned streams. Zero selects 15
-	// percent of MaxStoreBytes.
+	// ReserveBytes is capacity held outside the owned streams. Zero selects
+	// 192 MiB. A custom MaxStoreBytes does not rescale this default.
 	ReserveBytes int64
 	// StartupTimeout bounds broker startup and readiness. Zero selects 10 seconds.
 	StartupTimeout time.Duration
-	// HealthInterval controls broker and stream health probes. Zero selects 5 seconds.
+	// HealthInterval controls broker and stream health probes. Zero selects 30 seconds.
 	HealthInterval time.Duration
 }
 
 // Config declares one service run. Callers must choose either Setup for an
-// implicit singleton or Modules for explicit top-level modules. Config is
-// copied during preflight and may be reused after Run returns.
+// implicit singleton or Modules for explicit top-level modules. Run copies the
+// declaration before starting modules. Callers must not mutate Config or any
+// referenced declaration slices until Run returns. A Config may be reused by
+// concurrent runs only when its callbacks are safe for concurrent calls.
 type Config struct {
 	// Identity is the service identity attached to every module attempt.
 	Identity Identity

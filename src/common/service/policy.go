@@ -18,7 +18,7 @@ const (
 
 // Action chooses what the owning supervisor does after a module attempt ends.
 // The zero value selects the outcome default: Stop for a normal return and
-// Restart for an error or panic.
+// Restart for an error or panic. Action values are safe to reuse concurrently.
 type Action uint8
 
 const (
@@ -32,6 +32,7 @@ const (
 )
 
 // Strategy selects which active siblings are reconstructed after a Restart.
+// Strategy values are safe to reuse concurrently.
 type Strategy uint8
 
 const (
@@ -44,7 +45,8 @@ const (
 )
 
 // RestartBudget limits restart decisions within a rolling window. Its zero
-// value selects the runtime default for the field where it is used.
+// value selects the runtime default for the field where it is used. Values are
+// copied during preflight and are safe to reuse when callers do not mutate them.
 type RestartBudget struct {
 	Max    int
 	Window time.Duration
@@ -52,6 +54,7 @@ type RestartBudget struct {
 
 // Backoff configures full-jitter exponential restart delay. Its zero value
 // starts at one second, caps at 30 seconds, and resets after one healthy minute.
+// Values are copied during preflight and are safe to reuse when not mutated.
 type Backoff struct {
 	Initial    time.Duration
 	Maximum    time.Duration
@@ -59,7 +62,8 @@ type Backoff struct {
 }
 
 // OutcomePolicy configures one attempt outcome. Each outcome owns independent
-// budget and backoff state.
+// budget and backoff state. Values are copied during preflight and are safe to
+// reuse when callers do not mutate them.
 type OutcomePolicy struct {
 	Action  Action
 	Budget  RestartBudget
@@ -67,7 +71,8 @@ type OutcomePolicy struct {
 }
 
 // Policy configures normal returns, returned errors, and recovered panics.
-// Its zero value stops normal returns and restarts errors and panics.
+// Its zero value stops normal returns and restarts errors and panics. Values
+// are copied during preflight and are safe to reuse when not mutated.
 type Policy struct {
 	Normal OutcomePolicy
 	Error  OutcomePolicy

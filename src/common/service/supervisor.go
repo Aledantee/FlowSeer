@@ -40,10 +40,11 @@ func (realSupervisorClock) Wait(ctx context.Context, delay time.Duration) error 
 }
 
 type supervisorOptions struct {
-	clock      supervisorClock
-	jitter     func(time.Duration) time.Duration
-	lookup     envLookup
-	transition func(supervisorPath, operation, modulePath string)
+	clock             supervisorClock
+	jitter            func(time.Duration) time.Duration
+	lookup            envLookup
+	transition        func(supervisorPath, operation, modulePath string)
+	beforeRunnerStart func()
 }
 
 func (o supervisorOptions) withDefaults() supervisorOptions {
@@ -75,6 +76,7 @@ type supervisorRuntime struct {
 	options               supervisorOptions
 	admission             *admissionState
 	messages              *messageRuntime
+	delivery              func(context.Context, plannedModule, []Handler) error
 	infrastructureFailure func(error)
 }
 
@@ -162,7 +164,12 @@ func (s *supervisorState) run(ctx context.Context) error {
 				return result.err
 			}
 			if result.outcome == lifecycleOutcomeCanceled {
-				continue
+				err := result.err
+				if err == nil {
+					err = fmt.Errorf("module %s stopped without supervisor cancellation", s.slots[result.index].module.path)
+				}
+				s.stopAll(err)
+				return err
 			}
 			if err := s.decide(ctx, result); err != nil {
 				s.stopAll(err)
@@ -424,6 +431,7 @@ type attemptCoordinator struct {
 	path       string
 	terminal   chan attemptTermination
 
+	// mu guards accepting and serializes owned.Add with stop's owned.Wait.
 	mu        sync.Mutex
 	accepting bool
 	owned     sync.WaitGroup
@@ -523,16 +531,23 @@ func runLeafAttempt(ctx context.Context, module plannedModule, runtime superviso
 		return lifecycleOutcomeError, 0, err
 	}
 	if runtime.messages != nil {
+		runDelivery := runtime.messages.runDelivery
+		if runtime.delivery != nil {
+			runDelivery = runtime.delivery
+		}
 		coordinator.owned.Add(1)
 		go func() {
 			defer coordinator.owned.Done()
-			if err := runtime.messages.runDelivery(attemptCtx, module, attempt.Handlers); err != nil {
+			if err := runDelivery(attemptCtx, module, attempt.Handlers); err != nil {
 				if runtime.infrastructureFailure != nil {
 					runtime.infrastructureFailure(err)
 				}
-				coordinator.cancel(err)
+				coordinator.terminate(attemptTermination{outcome: lifecycleOutcomeError, err: err})
 			}
 		}()
+	}
+	if runtime.options.beforeRunnerStart != nil {
+		runtime.options.beforeRunnerStart()
 	}
 
 	coordinator.mu.Lock()

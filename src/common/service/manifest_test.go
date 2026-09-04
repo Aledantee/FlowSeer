@@ -10,6 +10,8 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -42,6 +44,39 @@ func TestRuntimeManifestIsDeterministicAndIncludesDisabledModules(t *testing.T) 
 	}
 	if got := first.GetModules(); len(got) != 2 || got[0].GetPath() != "bus_test/alpha" || got[1].GetPath() != "bus_test/zeta" {
 		t.Fatalf("manifest modules = %v, want sorted static leaves", got)
+	}
+}
+
+func TestRuntimeManifestSortsSubscriptionsByKindAndType(t *testing.T) {
+	config := manifestTestConfig(t, []Module{{
+		Name: "worker",
+		Leaf: &Leaf{
+			Setup: testSetup(),
+			Subscriptions: []Subscription{
+				{Kind: messageKindEvent, Message: &wrapperspb.Int32Value{}},
+				{Kind: messageKindCommand, Message: &wrapperspb.Int32Value{}},
+				{Kind: messageKindCommand, Message: &emptypb.Empty{}},
+			},
+		},
+	}})
+	runtime, err := preflight(context.Background(), config, mapLookup(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := runtimeManifest(runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	subscriptions := manifest.GetModules()[0].GetSubscriptions()
+	if len(subscriptions) != 3 {
+		t.Fatalf("manifest subscriptions = %v, want three", subscriptions)
+	}
+	wantKinds := []servicev1.MessageKind{messageKindCommand, messageKindCommand, messageKindEvent}
+	wantTypes := []string{"google.protobuf.Empty", "google.protobuf.Int32Value", "google.protobuf.Int32Value"}
+	for i, subscription := range subscriptions {
+		if subscription.GetKind() != wantKinds[i] || subscription.GetTypeName() != wantTypes[i] {
+			t.Fatalf("manifest subscription %d = (%v, %q), want (%v, %q)", i, subscription.GetKind(), subscription.GetTypeName(), wantKinds[i], wantTypes[i])
+		}
 	}
 }
 

@@ -11,7 +11,8 @@ var identityPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$`)
 
 // Identity names one service independently of any process incarnation.
 // Name and Namespace are lower-snake-case path segments. Version is an
-// opaque release identifier. The zero value is invalid.
+// opaque release identifier. The zero value is invalid. Identity values are
+// immutable declarations and are safe to copy and reuse concurrently.
 type Identity struct {
 	// Name is the service's stable logical root path segment.
 	Name string

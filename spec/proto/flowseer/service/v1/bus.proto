@@ -55,7 +55,7 @@ message ModuleContract {
     (buf.validate.field).string.max_len = 64,
     (buf.validate.field).string.pattern = "^[a-z0-9_-]+$"
   ];
-  // Static subscriptions in declaration order.
+  // Static subscriptions in message-kind and canonical type-name order.
   repeated SubscriptionContract subscriptions = 4;
   // Fixed mailbox worker bound. Must be present.
   uint32 delivery_concurrency = 5 [

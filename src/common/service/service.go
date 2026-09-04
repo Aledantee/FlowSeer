@@ -8,9 +8,11 @@ import (
 	"syscall"
 )
 
-// Run validates config and runs its modules until a module returns, the caller
-// cancels ctx, or the process receives an interrupt or termination signal. Run
-// waits for every started module before flushing caller-owned telemetry.
+// Run validates config and runs its enabled modules until they all stop, root
+// supervision fails or exhausts policy, the caller cancels ctx, or the process
+// receives an interrupt or termination signal. Run waits for every started
+// module before flushing caller-owned telemetry. Graceful cancellation returns
+// nil; lifecycle and shutdown failures are returned.
 func Run(ctx context.Context, config Config) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()

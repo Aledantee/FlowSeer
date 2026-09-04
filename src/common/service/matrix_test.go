@@ -161,7 +161,7 @@ func assertRuntimeMatrixTuple(
 	}
 	if depth == "nested" {
 		fixture.Gate = Gate{}
-		fixture = Module{Name: "fixture", Gate: gate, Branch: &Branch{Strategy: strategy, Children: []Module{{Name: "nested", Branch: &Branch{Strategy: strategy, Children: []Module{fixture}}}}}}
+		fixture = Module{Name: "fixture", Gate: gate, Policy: policy, Branch: &Branch{Strategy: strategy, Children: []Module{{Name: "nested", Branch: &Branch{Strategy: strategy, Children: []Module{fixture}}}}}}
 	}
 	config := Config{
 		Identity:  Identity{Namespace: "flowseer", Name: "matrix", Version: "1.0.0"},
@@ -201,7 +201,7 @@ func assertRuntimeMatrixTuple(
 	if runtime.rootSupervisor.strategy != strategy {
 		t.Fatalf("root strategy = %d, want %d", runtime.rootSupervisor.strategy, strategy)
 	}
-	exerciseMatrixSupervisor(t, *planned, runtime, gateEnabled, exitIndex, action, exhausted, telemetry)
+	exerciseMatrixSupervisor(t, runtime.modules, runtime, gateEnabled, exitIndex, action, exhausted, telemetry)
 
 	var handler HandlerFunc
 	switch settlementState {
@@ -222,7 +222,7 @@ func assertRuntimeMatrixTuple(
 
 func exerciseMatrixSupervisor(
 	t *testing.T,
-	module plannedModule,
+	modules []plannedModule,
 	runtime runtimeConfig,
 	enabled bool,
 	exitIndex int,
@@ -231,13 +231,17 @@ func exerciseMatrixSupervisor(
 	telemetry telemetry,
 ) {
 	t.Helper()
-	state := newSupervisorState("matrix", runtime.rootSupervisor, []plannedModule{module}, supervisorRuntime{
+	state := newSupervisorState("matrix", runtime.rootSupervisor, modules, supervisorRuntime{
 		identity:  runtime.identity,
 		envPrefix: runtime.envPrefix,
 		telemetry: telemetry,
 		options:   immediateSupervisorOptions(),
 	})
-	const fixtureIndex = 0
+	const fixtureIndex = 1
+	const anchorIndex = 0
+	if !state.slots[anchorIndex].active {
+		t.Fatal("supervisor anchor is inactive")
+	}
 	if state.slots[fixtureIndex].active != enabled {
 		t.Fatalf("supervisor fixture active = %t, want %t", state.slots[fixtureIndex].active, enabled)
 	}
@@ -273,6 +277,18 @@ func exerciseMatrixSupervisor(
 		t.Fatalf("matrix decision failed: %v", err)
 	case action == Stop && state.slots[fixtureIndex].active:
 		t.Fatal("stopped matrix fixture remained active")
+	}
+	if action == Restart && !exhausted {
+		wantAnchorGeneration := uint64(0)
+		if runtime.rootSupervisor.strategy == OneForAll {
+			wantAnchorGeneration = 1
+		}
+		if got := state.slots[anchorIndex].generation; got != wantAnchorGeneration {
+			t.Fatalf("anchor generation = %d, want %d for strategy %d", got, wantAnchorGeneration, runtime.rootSupervisor.strategy)
+		}
+		if got := state.slots[fixtureIndex].generation; got != 1 {
+			t.Fatalf("fixture generation = %d, want 1 for strategy %d", got, runtime.rootSupervisor.strategy)
+		}
 	}
 	state.stopAll(errors.New("matrix complete"))
 }

@@ -508,8 +508,9 @@ func busUnhealthy(err error, message string) error {
 
 type busServerLogger struct {
 	fatal chan error
-	mu    sync.Mutex
-	last  error
+	// mu guards last.
+	mu   sync.Mutex
+	last error
 }
 
 func newBusServerLogger() *busServerLogger {

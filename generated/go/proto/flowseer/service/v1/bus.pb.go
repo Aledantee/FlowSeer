@@ -461,7 +461,7 @@ type ModuleContract_builder struct {
 	PathToken *string
 	// Stable JetStream durable consumer name. Must be present.
 	DurableName *string
-	// Static subscriptions in declaration order.
+	// Static subscriptions in message-kind and canonical type-name order.
 	Subscriptions []*SubscriptionContract
 	// Fixed mailbox worker bound. Must be present.
 	DeliveryConcurrency *uint32

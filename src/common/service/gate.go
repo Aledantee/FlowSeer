@@ -17,7 +17,8 @@ const (
 )
 
 // Gate is an immutable module admission decision. Its zero value enables the
-// module. Construct non-default gates with [FixedGate] or [ProbeGate].
+// module. Construct non-default gates with [FixedGate] or [ProbeGate]. Gate
+// values are safe to copy and reuse concurrently.
 type Gate struct {
 	kind    gateKind
 	enabled bool
@@ -25,16 +26,19 @@ type Gate struct {
 }
 
 // GateProbe derives one gate decision for a supervisor generation. It must
-// not start module work or retain ctx after returning.
+// not start module work or retain ctx after returning. A probe reused by
+// sibling modules must be safe for concurrent calls.
 type GateProbe func(ctx context.Context) (bool, error)
 
-// FixedGate returns a gate with the supplied fixed decision.
+// FixedGate returns a gate with the supplied fixed decision. A generated
+// environment override for the module takes precedence over enabled.
 func FixedGate(enabled bool) Gate {
 	return Gate{kind: gateFixed, enabled: enabled}
 }
 
 // ProbeGate returns a gate evaluated when its owning supervisor snapshots a
-// generation. A nil probe makes the declaration invalid.
+// generation. A generated environment override takes precedence and prevents
+// the probe call. A nil probe makes the declaration invalid.
 func ProbeGate(probe GateProbe) Gate {
 	return Gate{kind: gateProbe, probe: probe}
 }

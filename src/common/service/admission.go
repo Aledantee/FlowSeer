@@ -9,6 +9,7 @@ import (
 // root coordinator. Readers linearize against one revision without sharing a
 // mutable map with supervisor goroutines.
 type admissionState struct {
+	// mu serializes writers that derive and publish a new immutable revision.
 	mu      sync.Mutex
 	current atomic.Pointer[admissionRevision]
 }

@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestRunCrossesOutcomesAndActions(t *testing.T) {
@@ -216,6 +219,76 @@ func TestRunContainsSafeTaskFailureAndWaitsForOwnedTasks(t *testing.T) {
 	case <-taskStopped:
 	default:
 		t.Fatal("run returned before safe-launched task stopped")
+	}
+}
+
+func TestDeliveryFailureBeforeRunnerStartTerminatesAttempt(t *testing.T) {
+	deliveryFailure := errors.New("delivery startup failed")
+	deliveryReturned := make(chan struct{})
+	runnerStarted := make(chan struct{})
+	config := Config{
+		Identity: testIdentity(),
+		Bus:      &BusConfig{StoreDir: t.TempDir()},
+		Modules: []Module{{
+			Name: "worker",
+			Leaf: &Leaf{
+				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}},
+				Setup: func(context.Context) (Attempt, error) {
+					return Attempt{
+						Runner: func(ctx context.Context) error {
+							close(runnerStarted)
+							<-ctx.Done()
+							return ctx.Err()
+						},
+						Handlers: []Handler{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error { return nil }}},
+					}, nil
+				},
+			},
+		}},
+	}
+	runtime, err := preflight(context.Background(), config, mapLookup(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	telemetry, err := newTelemetry(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := immediateSupervisorOptions()
+	options.beforeRunnerStart = func() { <-deliveryReturned }
+	attemptRuntime := supervisorRuntime{
+		identity:  runtime.identity,
+		envPrefix: runtime.envPrefix,
+		telemetry: telemetry,
+		options:   options,
+		messages:  &messageRuntime{},
+		delivery: func(context.Context, plannedModule, []Handler) error {
+			close(deliveryReturned)
+			return deliveryFailure
+		},
+	}
+
+	type result struct {
+		outcome lifecycleOutcome
+		err     error
+	}
+	done := make(chan result, 1)
+	go func() {
+		outcome, _, err := runLeafAttempt(context.Background(), runtime.modules[0], attemptRuntime)
+		done <- result{outcome: outcome, err: err}
+	}()
+	select {
+	case got := <-done:
+		if got.outcome != lifecycleOutcomeError || !errors.Is(got.err, deliveryFailure) {
+			t.Fatalf("delivery failure result = (%v, %v), want error outcome wrapping %v", got.outcome, got.err, deliveryFailure)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("delivery failure did not terminate the attempt")
+	}
+	select {
+	case <-runnerStarted:
+		t.Fatal("runner started after delivery had already failed")
+	default:
 	}
 }
 

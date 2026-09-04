@@ -58,3 +58,24 @@ func TestDurableHandlerResumesAfterAbruptProcessExit(t *testing.T) {
 		t.Fatalf("recovery helper failed: %v\n%s", err, second.stderr.String())
 	}
 }
+
+func TestCommittedRetryResumesAfterAbruptProcessExit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("subprocess durability test")
+	}
+	executable := buildBrokerHelper(t)
+	storeDir := t.TempDir()
+	first := startBrokerHelper(t, executable, "delivery_retry_crash", storeDir, "")
+	if got := first.waitForPrefix(t, "RETRIED "); got != "RETRIED after-settlement" {
+		t.Fatalf("retry delivery output = %q", got)
+	}
+	first.killAndWait(t)
+
+	second := startBrokerHelper(t, executable, "delivery_retry_reopen", storeDir, "")
+	if got := second.waitForPrefix(t, "RECOVERED "); got != "RECOVERED retry-after-crash" {
+		t.Fatalf("recovered retry output = %q", got)
+	}
+	if err := second.command.Wait(); err != nil {
+		t.Fatalf("retry recovery helper failed: %v\n%s", err, second.stderr.String())
+	}
+}

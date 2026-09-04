@@ -315,7 +315,7 @@ func TestBrokerHelperProcess(t *testing.T) {
 		t.Skip("subprocess helper")
 	}
 	storeDir := os.Getenv("FLOWSEER_BROKER_HELPER_STORE")
-	if mode == "delivery_crash" || mode == "delivery_reopen" {
+	if mode == "delivery_crash" || mode == "delivery_reopen" || mode == "delivery_retry_crash" || mode == "delivery_retry_reopen" {
 		runDeliveryCrashHelper(t, mode, storeDir)
 		return
 	}
@@ -366,13 +366,14 @@ func runDeliveryCrashHelper(t *testing.T, mode, storeDir string) {
 		Modules: []Module{{
 			Name: "worker",
 			Leaf: &Leaf{
-				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}}},
+				Subscriptions: []Subscription{{Kind: messageKindCommand, Message: &emptypb.Empty{}, Retries: deliveryHelperRetries(mode)}},
 				Setup: func(attemptCtx context.Context) (Attempt, error) {
-					if mode == "delivery_crash" {
+					if mode == "delivery_crash" || mode == "delivery_retry_crash" {
 						if err := Bus(attemptCtx).Command(attemptCtx, "bus_test/worker", &emptypb.Empty{}); err != nil {
 							return Attempt{}, err
 						}
 					}
+					handlerCalls := 0
 					return Attempt{
 						Runner: func(runCtx context.Context) error {
 							<-runCtx.Done()
@@ -382,10 +383,26 @@ func runDeliveryCrashHelper(t *testing.T, mode, storeDir string) {
 							Kind:    servicev1.MessageKind_MESSAGE_KIND_COMMAND,
 							Message: &emptypb.Empty{},
 							Handle: func(context.Context, proto.Message) error {
+								handlerCalls++
 								if mode == "delivery_crash" {
 									fmt.Println("HANDLED before-crash")
 									_ = os.Stdout.Sync()
 									_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+									return nil
+								}
+								if mode == "delivery_retry_crash" {
+									if handlerCalls == 1 {
+										return errs.New().Retryable().Msg("retry before crash")
+									}
+									fmt.Println("RETRIED after-settlement")
+									_ = os.Stdout.Sync()
+									_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+									return nil
+								}
+								if mode == "delivery_retry_reopen" {
+									fmt.Println("RECOVERED retry-after-crash")
+									_ = os.Stdout.Sync()
+									cancel()
 									return nil
 								}
 								fmt.Println("RECOVERED after-crash")
@@ -402,6 +419,13 @@ func runDeliveryCrashHelper(t *testing.T, mode, storeDir string) {
 	if err := Run(ctx, config); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func deliveryHelperRetries(mode string) int {
+	if mode == "delivery_retry_crash" || mode == "delivery_retry_reopen" {
+		return 1
+	}
+	return 0
 }
 
 func testBusIdentity() Identity {

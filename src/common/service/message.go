@@ -56,9 +56,10 @@ var (
 // MessageBus is an attempt-scoped capability for durable service-local
 // messaging. Its zero value is disabled, and a handle expires when its owning
 // attempt ends. A handle may be shared by that attempt's goroutines. Every
-// method returns a structured service error for disabled or expired handles,
-// invalid or unregistered payloads, rejected admission, and persistence
-// failures. The implementation and broker connection are intentionally private.
+// method returns a structured service error for configuration, admission,
+// payload, and persistence failures. Caller cancellation is returned unchanged;
+// an expired attempt returns [context.Canceled]. The implementation and broker
+// connection are intentionally private.
 type MessageBus struct {
 	runtime     *messageRuntime
 	sourcePath  string
@@ -525,6 +526,7 @@ func deliveryFromContext(ctx context.Context) (deliveryContext, bool) {
 
 // Subscription declares one static protobuf handler and its durable delivery
 // policy. Retries counts committed retries after the initial handler call.
+// Callers must not mutate a Subscription or its aliases while Run is active.
 type Subscription struct {
 	// Kind selects command, event, or reply routing.
 	Kind servicev1.MessageKind
@@ -538,11 +540,13 @@ type Subscription struct {
 
 // HandlerFunc handles one decoded protobuf message. It may be called more than
 // once for the same logical message and need not be safe for concurrent use
-// when its leaf's delivery concurrency is one.
+// when its leaf's delivery concurrency is one. A higher delivery concurrency
+// permits concurrent calls and requires a concurrency-safe HandlerFunc.
 type HandlerFunc func(ctx context.Context, message proto.Message) error
 
 // Handler binds one attempt-local function to a canonical static subscription.
-// Aliases never name handlers. The zero value is invalid.
+// Aliases never name handlers. The zero value is invalid. Handler values are
+// read-only after setup; Handle may run concurrently when the leaf allows it.
 type Handler struct {
 	// Kind must match the static subscription kind.
 	Kind servicev1.MessageKind

@@ -29,6 +29,12 @@ runner must cooperate with context cancellation; the runtime waits for it and
 will not overlap it with another attempt. The runner owns cleanup for resources
 created by setup, including closing `client` before it returns.
 
+Every module gate has a generated environment override. The key combines the
+service prefix, the relative module path with slashes replaced by underscores,
+and `_ENABLED`. For example, `FLOWSEER_EDGE_INGEST_SYSLOG_ENABLED=false`
+disables `edge/ingest/syslog`. An override is evaluated before a fixed or
+probed gate, so it can reverse a fixed decision and prevents a probe call.
+
 `service.Logger(ctx)`, `service.Tracer(ctx)`, `service.Meter(ctx)`, and
 `service.Propagator(ctx)` read the capabilities attached to the current attempt.
 They return safe no-op values outside the runtime and never consult process

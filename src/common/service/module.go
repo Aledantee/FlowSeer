@@ -24,7 +24,8 @@ var (
 )
 
 // Module declares one stable node in a service's supervision tree. Exactly
-// one of Leaf or Branch must be set. The zero value is invalid.
+// one of Leaf or Branch must be set. The zero value is invalid. Callers must
+// not mutate a Module declaration while a Run using it is active.
 type Module struct {
 	// Name is the module's stable lower-snake-case path segment.
 	Name string
@@ -41,7 +42,8 @@ type Module struct {
 }
 
 // Leaf declares the static contract for a module that performs work. Setup is
-// called once for each attempt. The zero value is invalid.
+// called once for each attempt. The zero value is invalid. Callers must not
+// mutate a Leaf or its subscriptions while a Run using it is active.
 type Leaf struct {
 	// Setup constructs one fresh attempt.
 	Setup SetupFunc
@@ -52,7 +54,8 @@ type Leaf struct {
 }
 
 // Branch declares a nested supervisor. It must contain at least one child.
-// The zero value is invalid.
+// The zero value is invalid. Callers must not mutate a Branch or its children
+// while a Run using it is active.
 type Branch struct {
 	// Strategy selects the affected sibling set. The zero value is one-for-one.
 	Strategy Strategy
