@@ -54,6 +54,12 @@ The origin of one live response or event — which Binding answered and when the
 
 A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic — a statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
 
+## Runtime
+
+### Service Module
+
+A supervised runtime unit within one service. A leaf owns one setup function; a branch owns a supervisor containing one or more child modules. Its full path within the service is stable identity for gates, durable messaging, and telemetry. This is separate from a MIB Module, which is an SMI definition block.
+
 ## Network model
 
 ### Facet
