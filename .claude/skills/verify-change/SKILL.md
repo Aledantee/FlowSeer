@@ -35,6 +35,25 @@ single-module work.
 .claude/skills/verify-change/scripts/verify-change.sh --full
 ```
 
+Full verification and telemetry-sensitive paths run the Docker-backed service
+OpenTelemetry tier through `tools/test/service-otel-integration.sh`. The selected
+paths are service Go sources, its Collector integration sources and fixture,
+the wrapper, and the root `go.mod` or `go.sum`. Docker is a required tool for
+these scopes; an unavailable daemon is a failed gate.
+
+Policy fixtures can inspect that decision without running any gate:
+
+```bash
+.claude/skills/verify-change/scripts/verify-change.sh --print-selection -- \
+  src/common/service/telemetry_config.go
+```
+
+`--print-selection` emits `service_otel_integration=true` or `false` and exits
+before creating temporary build state, checking tools, starting Docker, running
+hook tests, or updating verification markers and receipts. An explicit empty
+path set after `--` is valid in this mode and reports `false`; it remains an
+error during normal verification.
+
 Treat a missing required tool as a failed gate. Do not silently replace a failed
 race test with a non-race test or skip lint. Fix the failure or report the exact
 blocked command and reason.

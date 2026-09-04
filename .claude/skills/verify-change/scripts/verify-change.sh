@@ -4,14 +4,16 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: verify-change.sh [--full] [--base REF] [-- PATH...]
+Usage: verify-change.sh [--full] [--print-selection] [--base REF] [-- PATH...]
 
 Without explicit paths, verify files changed from REF (default: HEAD), including
 untracked files. --full verifies every Go module plus protobuf and agent hook tooling.
+--print-selection reports the selected gates without running them or writing a receipt.
 USAGE
 }
 
 full=false
+print_selection=false
 base=HEAD
 explicit=false
 paths=()
@@ -20,6 +22,10 @@ while (($#)); do
   case "$1" in
     --full)
       full=true
+      shift
+      ;;
+    --print-selection)
+      print_selection=true
       shift
       ;;
     --base)
@@ -52,9 +58,6 @@ cd "$root"
 for index in "${!paths[@]}"; do
   paths[index]=${paths[index]#./}
 done
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
-trap 'rm -rf "$build_dir"' EXIT
-
 add_path() {
   local candidate=${1#./}
   local existing
@@ -75,11 +78,19 @@ if [[ $explicit == false && $full == false ]]; then
 fi
 
 if [[ $explicit == true && ${#paths[@]} -eq 0 ]]; then
+  if [[ $print_selection == true ]]; then
+    echo "service_otel_integration=false"
+    exit 0
+  fi
   echo "no paths supplied after --" >&2
   exit 2
 fi
 
 if [[ $full == false && ${#paths[@]} -eq 0 ]]; then
+  if [[ $print_selection == true ]]; then
+    echo "service_otel_integration=false"
+    exit 0
+  fi
   echo "No changed paths to verify."
   exit 0
 fi
@@ -115,6 +126,7 @@ proto=false
 hook_tooling=false
 mib=false
 serena=false
+service_otel_integration=false
 
 add_module() {
   local candidate=$1
@@ -150,6 +162,7 @@ if [[ $full == true ]]; then
   hook_tooling=true
   mib=true
   serena=true
+  service_otel_integration=true
 else
   for path in "${paths[@]}"; do
     case "$path" in
@@ -187,8 +200,21 @@ else
     case "$path" in
       tools/serena/*) serena=true ;;
     esac
+    case "$path" in
+      go.mod|go.sum|src/common/service/*.go|src/common/service/test/integration/otel*|src/common/service/test/integration/testdata/otel-collector.yaml|tools/test/service-otel-integration.sh)
+        service_otel_integration=true
+        ;;
+    esac
   done
 fi
+
+if [[ $print_selection == true ]]; then
+  printf 'service_otel_integration=%s\n' "$service_otel_integration"
+  exit 0
+fi
+
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
+trap 'rm -rf "$build_dir"' EXIT
 
 if ((${#markdown_files[@]})); then
   need_tool python3
@@ -327,6 +353,10 @@ if [[ $serena == true ]]; then
   else
     echo "serena is not on PATH; skipping the optional project-config smoke check."
   fi
+fi
+
+if [[ $service_otel_integration == true ]]; then
+  run tools/test/service-otel-integration.sh
 fi
 
 if [[ $full == true ]]; then

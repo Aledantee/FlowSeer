@@ -352,4 +352,191 @@ assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$bash_mark_inp
 grep -qx '<Bash mutation; verify with --full>' "$fixture/.git/flowseer-verification-dirty"
 ok "Bash source mutations require a full receipt"
 
+selection_fixture="$fixture_parent/selection fixture"
+mkdir -p "$selection_fixture"
+git -C "$selection_fixture" init -q
+printf '# selection fixture\n' >"$selection_fixture/README.md"
+printf 'module example.invalid/selection\n\ngo 1.27\n' >"$selection_fixture/go.mod"
+git -C "$selection_fixture" add README.md go.mod
+git -C "$selection_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm init
+
+selection_script=$repo_root/.claude/skills/verify-change/scripts/verify-change.sh
+selection_receipt=$selection_fixture/.git/flowseer-verification-receipt
+selection_side_effect=$selection_fixture/docker-called
+selection_go_side_effect=$selection_fixture/go-called
+selection_bin=$selection_fixture/selection-bin
+selection_tmp=$selection_fixture/selection-tmp
+mkdir -p "$selection_bin" "$selection_tmp"
+printf '#!/usr/bin/env bash\n: >%q\nexit 97\n' "$selection_side_effect" >"$selection_bin/docker"
+printf '#!/usr/bin/env bash\n: >%q\nexit 98\n' "$selection_go_side_effect" >"$selection_bin/go"
+chmod +x "$selection_bin/docker" "$selection_bin/go"
+
+select_verifier() {
+  (cd "$selection_fixture" && PATH="$selection_bin:$PATH" TMPDIR="$selection_tmp" \
+    "$selection_script" --print-selection "$@")
+}
+
+selection_output=$(select_verifier --full)
+[[ $selection_output == 'service_otel_integration=true' ]]
+[[ ! -e $selection_receipt ]]
+ok "verifier selection includes the Collector tier for full verification"
+
+telemetry_paths=(
+  go.mod
+  src/common/service/telemetry_config.go
+  src/common/service/test/integration/otel_test.go
+  src/common/service/test/integration/testdata/otel-collector.yaml
+  tools/test/service-otel-integration.sh
+)
+for telemetry_path in "${telemetry_paths[@]}"; do
+  selection_output=$(select_verifier -- "$telemetry_path")
+  [[ $selection_output == 'service_otel_integration=true' ]]
+done
+[[ ! -e $selection_receipt ]]
+ok "verifier selection includes every telemetry-sensitive path category"
+
+for unrelated_path in docs/notes.md src/common/errs/example.go 'docs/path with spaces.md'; do
+  selection_output=$(select_verifier -- "$unrelated_path")
+  [[ $selection_output == 'service_otel_integration=false' ]]
+done
+[[ ! -e $selection_receipt ]]
+ok "verifier selection skips unrelated paths and preserves spaces"
+
+selection_output=$(select_verifier --)
+[[ $selection_output == 'service_otel_integration=false' ]]
+[[ ! -e $selection_receipt ]]
+ok "verifier selection handles an empty changed-path set without a receipt"
+
+selection_output=$(select_verifier -- tools/hooks/tests/run.sh)
+[[ $selection_output == 'service_otel_integration=false' ]]
+[[ ! -e $selection_receipt ]]
+[[ ! -e $selection_side_effect ]]
+[[ ! -e $selection_go_side_effect ]]
+selection_build_dirs=$(find "$selection_tmp" -maxdepth 1 -name 'flowseer-build.*' -print -quit)
+[[ -z $selection_build_dirs ]]
+ok "verifier selection exits before recursively running hook tests"
+
+otel_wrapper=$repo_root/tools/test/service-otel-integration.sh
+wrapper_tmp=$fixture_parent/wrapper-tmp
+wrapper_bin=$fixture_parent/wrapper-bin
+scan_error_bin=$fixture_parent/scan-error-bin
+mkdir -p "$wrapper_tmp" "$wrapper_bin" "$scan_error_bin"
+
+printf '%s\n' '#!/usr/bin/env bash' \
+  "exit \"\${FLOWSEER_FAKE_DOCKER_RC:-0}\"" >"$wrapper_bin/docker"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'while IFS="=" read -r name _; do' \
+  "  if [[ \$name == OTEL_* ]]; then : >\"\$FLOWSEER_FAKE_OTEL_LEAK\"; exit 96; fi" \
+  'done < <(env)' \
+  "if [[ \${FLOWSEER_WRAPPER_CONTROL:-} != preserved ]]; then : >\"\$FLOWSEER_FAKE_CONTROL_MISSING\"; exit 95; fi" \
+  ": >\"\$FLOWSEER_FAKE_GO_CALLED\"" \
+  "printf \"%s\\n\" \"\$FLOWSEER_OTEL_TEST_ARTIFACT_DIR\" >\"\$FLOWSEER_FAKE_GO_CAPTURE\"" \
+  "printf \"%s\\n\" \"\$*\" >\"\$FLOWSEER_FAKE_GO_ARGS\"" \
+  "case \"\$FLOWSEER_FAKE_GO_MODE\" in" \
+  '  success) exit 0 ;;' \
+  "  safe-failure) printf \"%s\\n\" \"bounded Collector diagnostic\" >\"\$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/collector.log\"; exit 7 ;;" \
+  "  sentinel-failure) printf \"%s\\n\" \"flowseer-otel-artifact-secret\" >\"\$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/collector.log\"; exit 8 ;;" \
+  "  scan-failure) printf \"%s\\n\" \"bounded Collector diagnostic\" >\"\$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/collector.log\"; exit 9 ;;" \
+  'esac' \
+  'exit 99' >"$wrapper_bin/go"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 2' >"$scan_error_bin/grep"
+chmod +x "$wrapper_bin/docker" "$wrapper_bin/go" "$scan_error_bin/grep"
+
+wrapper_otel_leak=$fixture_parent/wrapper-otel-leaked
+wrapper_control_missing=$fixture_parent/wrapper-control-missing
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://ambient.example
+export OTEL_EXPORTER_OTLP_HEADERS=authorization=ambient-secret
+export OTEL_SERVICE_NAME=ambient-service
+export FLOWSEER_FAKE_OTEL_LEAK=$wrapper_otel_leak
+export FLOWSEER_FAKE_CONTROL_MISSING=$wrapper_control_missing
+export FLOWSEER_WRAPPER_CONTROL=preserved
+
+set +e
+wrapper_output=$(PATH="$no_buf" "$otel_wrapper" 2>&1)
+wrapper_rc=$?
+set -e
+[[ $wrapper_rc -eq 1 ]]
+[[ $wrapper_output == 'Docker is required for the service OpenTelemetry integration tier.' ]]
+ok "service OpenTelemetry wrapper reports a missing Docker command"
+
+daemon_go_marker=$fixture_parent/daemon-go-called
+set +e
+wrapper_output=$(PATH="$wrapper_bin:$PATH" FLOWSEER_FAKE_DOCKER_RC=23 \
+  FLOWSEER_FAKE_GO_CALLED="$daemon_go_marker" "$otel_wrapper" 2>&1)
+wrapper_rc=$?
+set -e
+[[ $wrapper_rc -eq 1 ]]
+[[ $wrapper_output == 'Docker is installed but its daemon is unavailable.' ]]
+[[ ! -e $daemon_go_marker ]]
+ok "service OpenTelemetry wrapper stops before Go when the Docker daemon is unavailable"
+
+success_capture=$fixture_parent/success-artifact-path
+success_args=$fixture_parent/success-go-args
+success_go_marker=$fixture_parent/success-go-called
+PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" FLOWSEER_FAKE_DOCKER_RC=0 \
+  FLOWSEER_FAKE_GO_MODE=success FLOWSEER_FAKE_GO_CAPTURE="$success_capture" \
+  FLOWSEER_FAKE_GO_ARGS="$success_args" FLOWSEER_FAKE_GO_CALLED="$success_go_marker" \
+  "$otel_wrapper"
+success_artifact_dir=$(<"$success_capture")
+[[ -e $success_go_marker ]]
+[[ ! -e $success_artifact_dir ]]
+[[ ! -e $wrapper_otel_leak && ! -e $wrapper_control_missing ]]
+grep -qx -- 'test -race -count=1 -tags=service_otel_integration ./src/common/service/test/integration/...' \
+  "$success_args"
+ok "service OpenTelemetry wrapper removes success artifacts after the tagged race command"
+
+safe_capture=$fixture_parent/safe-artifact-path
+safe_args=$fixture_parent/safe-go-args
+safe_go_marker=$fixture_parent/safe-go-called
+set +e
+wrapper_output=$(PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" FLOWSEER_FAKE_DOCKER_RC=0 \
+  FLOWSEER_FAKE_GO_MODE=safe-failure FLOWSEER_FAKE_GO_CAPTURE="$safe_capture" \
+  FLOWSEER_FAKE_GO_ARGS="$safe_args" FLOWSEER_FAKE_GO_CALLED="$safe_go_marker" \
+  "$otel_wrapper" 2>&1)
+wrapper_rc=$?
+set -e
+safe_artifact_dir=$(<"$safe_capture")
+[[ $wrapper_rc -eq 7 ]]
+[[ -e $safe_go_marker && -f $safe_artifact_dir/collector.log ]]
+[[ $wrapper_output == "Collector failure artifacts retained at: $safe_artifact_dir" ]]
+case "$safe_artifact_dir" in
+  "$wrapper_tmp"/flowseer-service-otel.*) ;;
+  *) echo "wrapper retained an artifact directory outside its fixture root" >&2; exit 1 ;;
+esac
+rm -rf "$safe_artifact_dir"
+[[ ! -e $safe_artifact_dir ]]
+ok "service OpenTelemetry wrapper retains and reports scrubbed failure artifacts"
+
+sentinel_capture=$fixture_parent/sentinel-artifact-path
+sentinel_args=$fixture_parent/sentinel-go-args
+sentinel_go_marker=$fixture_parent/sentinel-go-called
+set +e
+wrapper_output=$(PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" FLOWSEER_FAKE_DOCKER_RC=0 \
+  FLOWSEER_FAKE_GO_MODE=sentinel-failure FLOWSEER_FAKE_GO_CAPTURE="$sentinel_capture" \
+  FLOWSEER_FAKE_GO_ARGS="$sentinel_args" FLOWSEER_FAKE_GO_CALLED="$sentinel_go_marker" \
+  "$otel_wrapper" 2>&1)
+wrapper_rc=$?
+set -e
+sentinel_artifact_dir=$(<"$sentinel_capture")
+[[ $wrapper_rc -eq 8 ]]
+[[ -e $sentinel_go_marker && ! -e $sentinel_artifact_dir ]]
+[[ $wrapper_output == 'Collector artifacts contained the synthetic secret sentinel and were removed.' ]]
+ok "service OpenTelemetry wrapper removes artifacts rejected by the sentinel scan"
+
+scan_capture=$fixture_parent/scan-error-artifact-path
+scan_args=$fixture_parent/scan-error-go-args
+scan_go_marker=$fixture_parent/scan-error-go-called
+set +e
+wrapper_output=$(PATH="$scan_error_bin:$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" \
+  FLOWSEER_FAKE_DOCKER_RC=0 FLOWSEER_FAKE_GO_MODE=scan-failure \
+  FLOWSEER_FAKE_GO_CAPTURE="$scan_capture" FLOWSEER_FAKE_GO_ARGS="$scan_args" \
+  FLOWSEER_FAKE_GO_CALLED="$scan_go_marker" "$otel_wrapper" 2>&1)
+wrapper_rc=$?
+set -e
+scan_artifact_dir=$(<"$scan_capture")
+[[ $wrapper_rc -eq 9 ]]
+[[ -e $scan_go_marker && ! -e $scan_artifact_dir ]]
+[[ $wrapper_output == 'Collector artifacts could not be scanned safely and were removed.' ]]
+ok "service OpenTelemetry wrapper removes artifacts after a scan error"
+
 printf '1..%d\n' "$passed"
