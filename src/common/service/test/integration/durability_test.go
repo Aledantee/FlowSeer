@@ -65,3 +65,49 @@ func TestPublicBusPublishesAndDeliversDurableCommand(t *testing.T) {
 		t.Fatalf("Run() error: %v", err)
 	}
 }
+
+func TestAcknowledgedPublishesSurviveAbruptProcessExit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("subprocess durability test")
+	}
+	executable := buildBrokerHelper(t)
+	for _, policy := range []string{"periodic", "per_message"} {
+		t.Run(policy, func(t *testing.T) {
+			storeDir := t.TempDir()
+			publisher := startBrokerHelperConfigured(t, executable, "batch_publish", storeDir, "", policy, "v1")
+			if got := publisher.waitForPrefix(t, "READY "); got != "READY 100" {
+				t.Fatalf("publisher output = %q", got)
+			}
+			publisher.killAndWait(t)
+
+			reopened := startBrokerHelperConfigured(t, executable, "batch_reopen", storeDir, "", policy, "v1")
+			if got := reopened.waitForPrefix(t, "FOUND "); got != "FOUND 100" {
+				t.Fatalf("reopened helper output = %q", got)
+			}
+			if err := reopened.command.Wait(); err != nil {
+				t.Fatalf("reopened helper failed: %v\n%s", err, reopened.stderr.String())
+			}
+		})
+	}
+}
+
+func TestPerMessageStoreOpensUnderDefaultPolicyAfterUpgrade(t *testing.T) {
+	if testing.Short() {
+		t.Skip("subprocess durability test")
+	}
+	executable := buildBrokerHelper(t)
+	storeDir := t.TempDir()
+	publisher := startBrokerHelperConfigured(t, executable, "batch_publish", storeDir, "", "per_message", "v1")
+	if got := publisher.waitForPrefix(t, "READY "); got != "READY 100" {
+		t.Fatalf("publisher output = %q", got)
+	}
+	publisher.closeAndWait(t)
+
+	reopened := startBrokerHelperConfigured(t, executable, "batch_reopen", storeDir, "", "periodic", "v2")
+	if got := reopened.waitForPrefix(t, "FOUND "); got != "FOUND 100" {
+		t.Fatalf("reopened helper output = %q", got)
+	}
+	if err := reopened.command.Wait(); err != nil {
+		t.Fatalf("reopened helper failed: %v\n%s", err, reopened.stderr.String())
+	}
+}

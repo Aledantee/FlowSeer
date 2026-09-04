@@ -391,7 +391,19 @@ func TestBrokerHelperProcess(t *testing.T) {
 		runDeliveryCrashHelper(t, mode, storeDir)
 		return
 	}
-	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: storeDir})
+	identity := testBusIdentity()
+	if version := os.Getenv("FLOWSEER_BROKER_HELPER_VERSION"); version != "" {
+		identity.Version = version
+	}
+	busConfig := BusConfig{StoreDir: storeDir}
+	switch policy := os.Getenv("FLOWSEER_BROKER_HELPER_FSYNC_POLICY"); policy {
+	case "", "periodic":
+	case "per_message":
+		busConfig.FsyncPolicy = BusFsyncPerMessage
+	default:
+		t.Fatalf("unknown helper fsync policy %q", policy)
+	}
+	config, err := normalizeBusConfig(identity, busConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,6 +415,56 @@ func TestBrokerHelperProcess(t *testing.T) {
 	}
 
 	switch mode {
+	case "batch_publish":
+		var firstSequence uint64
+		for index := 1; index <= 100; index++ {
+			payload := fmt.Appendf(nil, "durable-%03d", index)
+			ack, err := bus.resources.jetStream.Publish(ctx, mailboxSubjectRoot+".subprocess", payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if index == 1 {
+				firstSequence = ack.Sequence
+			}
+			if want := firstSequence + uint64(index-1); ack.Sequence != want {
+				t.Fatalf("publish %d sequence = %d, want %d", index, ack.Sequence, want)
+			}
+		}
+		fmt.Println("READY 100")
+		_ = os.Stdout.Sync()
+		_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+		closeBus(t, bus, true)
+	case "batch_reopen":
+		mailbox, err := bus.resources.mailbox.Info(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := mailboxStreamConfig(config.mailboxMaxBytes); !ownedStreamConfigEqual(mailbox.Config, want) {
+			t.Fatalf("mailbox stream drifted: got %+v, want %+v", mailbox.Config, want)
+		}
+		metadata, err := bus.resources.metadata.Info(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := metadataStreamConfig(config.metadataMaxBytes); !ownedStreamConfigEqual(metadata.Config, want) {
+			t.Fatalf("metadata stream drifted: got %+v, want %+v", metadata.Config, want)
+		}
+		if mailbox.State.Msgs != 100 {
+			t.Fatalf("reopened mailbox messages = %d, want 100", mailbox.State.Msgs)
+		}
+		for index := 1; index <= 100; index++ {
+			sequence := mailbox.State.FirstSeq + uint64(index-1)
+			message, err := bus.resources.mailbox.GetMsg(ctx, sequence)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := string(message.Data), fmt.Sprintf("durable-%03d", index); got != want {
+				t.Fatalf("message %d = %q, want %q", index, got, want)
+			}
+		}
+		fmt.Println("FOUND 100")
+		_ = os.Stdout.Sync()
+		closeBus(t, bus, true)
 	case "hold":
 		ack, err := bus.resources.jetStream.Publish(ctx, mailboxSubjectRoot+".subprocess", []byte("durable"))
 		if err != nil {

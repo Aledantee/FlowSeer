@@ -41,12 +41,18 @@ func buildBrokerHelper(t *testing.T) string {
 }
 
 func startBrokerHelper(t *testing.T, executable, mode, storeDir, sequence string) *brokerHelper {
+	return startBrokerHelperConfigured(t, executable, mode, storeDir, sequence, "", "")
+}
+
+func startBrokerHelperConfigured(t *testing.T, executable, mode, storeDir, sequence, policy, version string) *brokerHelper {
 	t.Helper()
 	command := exec.Command(executable, "-test.run=^TestBrokerHelperProcess$", "-test.count=1")
 	command.Env = append(os.Environ(),
 		"FLOWSEER_BROKER_HELPER_MODE="+mode,
 		"FLOWSEER_BROKER_HELPER_STORE="+storeDir,
 		"FLOWSEER_BROKER_HELPER_SEQUENCE="+sequence,
+		"FLOWSEER_BROKER_HELPER_FSYNC_POLICY="+policy,
+		"FLOWSEER_BROKER_HELPER_VERSION="+version,
 	)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
@@ -94,6 +100,19 @@ func (h *brokerHelper) killAndWait(t *testing.T) {
 	}
 	if err := h.command.Wait(); err == nil {
 		t.Fatal("killed broker helper exited successfully")
+	}
+}
+
+func (h *brokerHelper) closeAndWait(t *testing.T) {
+	t.Helper()
+	if _, err := io.WriteString(h.stdin, "close\n"); err != nil {
+		t.Fatalf("request broker helper shutdown: %v", err)
+	}
+	if err := h.stdin.Close(); err != nil {
+		t.Fatalf("close broker helper input: %v", err)
+	}
+	if err := h.command.Wait(); err != nil {
+		t.Fatalf("broker helper failed: %v\n%s", err, h.stderr.String())
 	}
 }
 
