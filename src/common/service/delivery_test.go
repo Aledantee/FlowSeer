@@ -1,9 +1,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -40,6 +44,18 @@ func TestMessageBusHandleExpiresWithAttempt(t *testing.T) {
 	cancel()
 	if err := bus.Command(context.Background(), "edge/target", &emptypb.Empty{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Command() error = %v, want canceled attempt", err)
+	}
+}
+
+func TestNilMessageRuntimeCapabilitiesRemainDisabled(t *testing.T) {
+	var runtime *messageRuntime
+	if bus := runtime.capability("edge/worker"); bus != disabledMessageBus {
+		t.Fatalf("nil runtime capability = %p, want disabled capability", bus)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := runtime.runDelivery(ctx, plannedModule{}, nil); err != nil {
+		t.Fatalf("nil runtime delivery error = %v, want nil", err)
 	}
 }
 
@@ -234,6 +250,9 @@ func TestAtomicEventRejectsOversizedRecordBeforeStaging(t *testing.T) {
 func TestDeliveryRetriesOnlyAfterCommittedTransitionAndAcknowledges(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
 		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
 	}}})
@@ -243,7 +262,7 @@ func TestDeliveryRetriesOnlyAfterCommittedTransitionAndAcknowledges(t *testing.T
 	resources, closeBus := startMessageTestBus(ctx, t)
 	defer closeBus()
 	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
-	telemetry, err := newTelemetry(Config{})
+	telemetry, err := newTelemetry(Config{TracerProvider: provider})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,11 +275,12 @@ func TestDeliveryRetriesOnlyAfterCommittedTransitionAndAcknowledges(t *testing.T
 	done := make(chan error, 1)
 	calls := make(chan int, 2)
 	call := 0
+	privateHandlerError := "private-handler-error-b71f2c3a"
 	handlers := []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 		call++
 		calls <- call
 		if call == 1 {
-			return errs.New().Retryable().Msg("try again")
+			return errs.New().Retryable().Msg(privateHandlerError)
 		}
 		info, err := resources.metadata.Info(ctx)
 		if err != nil || info.State.Msgs == 0 {
@@ -291,6 +311,11 @@ func TestDeliveryRetriesOnlyAfterCommittedTransitionAndAcknowledges(t *testing.T
 		info, err := resources.metadata.Info(ctx)
 		return err == nil && info.State.Msgs == 0
 	})
+	for _, ended := range recorder.Ended() {
+		if recorded := fmt.Sprint(ended.Attributes(), ended.Events(), ended.Status()); strings.Contains(recorded, privateHandlerError) {
+			t.Fatalf("private handler error appeared in span %q: %s", ended.Name(), recorded)
+		}
+	}
 }
 
 func TestCancellationDuringBackoffDoesNotCommitRetry(t *testing.T) {
@@ -687,6 +712,9 @@ func TestDeliveryDecodesPersistedAliasesForEveryMessageKind(t *testing.T) {
 func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
 		Name: "worker", Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Retries: 1}}},
 	}}})
@@ -696,7 +724,7 @@ func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 	resources, closeBus := startMessageTestBus(ctx, t)
 	defer closeBus()
 	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive).withModuleState("edge/worker", moduleRunning)
-	telemetry, err := newTelemetry(Config{})
+	telemetry, err := newTelemetry(Config{TracerProvider: provider})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -707,10 +735,11 @@ func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 	deliveryCtx, stopDelivery := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	var calls atomic.Int32
+	privatePanic := "private-handler-panic-9d177bf2"
 	go func() {
 		done <- runtime.runDelivery(deliveryCtx, declaration.modules[0], []Handler{{Kind: MessageKindCommand, Message: &emptypb.Empty{}, Handle: func(context.Context, proto.Message) error {
 			calls.Add(1)
-			panic("handler panic")
+			panic(privatePanic)
 		}}})
 	}()
 	eventually(ctx, t, func() bool {
@@ -723,6 +752,11 @@ func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 	}
 	if got := calls.Load(); got != 2 {
 		t.Fatalf("handler calls = %d, want initial call plus one retry", got)
+	}
+	for _, ended := range recorder.Ended() {
+		if recorded := fmt.Sprint(ended.Attributes(), ended.Events(), ended.Status()); strings.Contains(recorded, privatePanic) {
+			t.Fatalf("private handler panic appeared in span %q: %s", ended.Name(), recorded)
+		}
 	}
 }
 
@@ -943,6 +977,187 @@ func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
 	if len(deliveryLinks) != 1 || deliveryLinks[0].SpanContext.TraceID() != publicationTraceID {
 		t.Fatalf("delivery links = %v, want publication trace %s", deliveryLinks, publicationTraceID)
 	}
+}
+
+func TestTraceContextRelayAcrossDisabledModule(t *testing.T) {
+	for _, kind := range []servicev1.MessageKind{MessageKindCommand, MessageKindReply, MessageKindEvent} {
+		t.Run(messageKindToken(kind), func(t *testing.T) {
+			recorder := tracetest.NewSpanRecorder()
+			provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+			defer func() { _ = provider.Shutdown(context.Background()) }()
+			observability, err := newTelemetry(Config{TracerProvider: provider, Propagator: propagation.TraceContext{}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			enabled := observability.view(resolvedTelemetryPolicy{logs: true, metrics: true, traces: true})
+			disabled := observability.view(resolvedTelemetryPolicy{logs: true, metrics: true})
+			runtime := newMessageRuntime(busResources{}, nil, nil, observability)
+
+			upstreamCtx, upstream := enabled.tracer.Start(context.Background(), "upstream")
+			publisher := runtime.capabilityWithTelemetry("edge/publisher", enabled)
+			publicationCtx, publication := publisher.startPublicationTrace(upstreamCtx, kind)
+			envelope := publisher.envelope(publicationCtx, kind, deterministicUUID("published", messageKindToken(kind)), "edge/relay", "google.protobuf.Empty", nil)
+			publicationContext := trace.SpanContextFromContext(publicationCtx)
+			propagatedContext := publicationContext.WithRemote(true)
+			publication.End()
+			upstream.End()
+
+			attemptCtx, attempt := enabled.tracer.Start(context.Background(), "relay attempt")
+			disabledCtx, disabledDelivery := runtime.deliveryTrace(attemptCtx, envelope, 1, disabled)
+			if disabledDelivery.IsRecording() {
+				t.Fatal("trace-disabled delivery created a recording span")
+			}
+			if got := trace.SpanContextFromContext(disabledCtx); !got.Equal(propagatedContext) {
+				t.Fatalf("disabled delivery context = %v, want %v", got, propagatedContext)
+			}
+			relay := runtime.capabilityWithTelemetry("edge/relay", disabled)
+			relayCtx, disabledPublication := relay.startPublicationTrace(disabledCtx, kind)
+			if disabledPublication.IsRecording() {
+				t.Fatal("trace-disabled publication created a recording span")
+			}
+			relayed := relay.envelope(relayCtx, kind, deterministicUUID("relayed", messageKindToken(kind)), "edge/consumer", "google.protobuf.Empty", nil)
+			if got, want := relayed.GetTraceparent(), envelope.GetTraceparent(); got != want {
+				t.Fatalf("relayed traceparent = %q, want %q", got, want)
+			}
+			if got, want := relayed.GetTracestate(), envelope.GetTracestate(); got != want {
+				t.Fatalf("relayed tracestate = %q, want %q", got, want)
+			}
+			for _, delivered := range []uint64{1, 2} {
+				retryCtx, retrySpan := runtime.deliveryTrace(attemptCtx, relayed, delivered, disabled)
+				if retrySpan.IsRecording() || !trace.SpanContextFromContext(retryCtx).Equal(propagatedContext) {
+					t.Fatalf("trace-disabled delivery %d did not preserve context", delivered)
+				}
+			}
+			attempt.End()
+
+			downstreamCtx, downstream := runtime.deliveryTrace(context.Background(), relayed, 1, enabled)
+			if !downstream.IsRecording() {
+				t.Fatal("trace-enabled downstream delivery did not create a recording span")
+			}
+			if trace.SpanContextFromContext(downstreamCtx).TraceID() == publicationContext.TraceID() {
+				t.Fatal("durable delivery unexpectedly retained the publication parent")
+			}
+			downstream.End()
+			links := recorder.Ended()[len(recorder.Ended())-1].Links()
+			if len(links) != 1 || !links[0].SpanContext.Equal(propagatedContext) {
+				t.Fatalf("downstream links = %v, want publication context %v", links, propagatedContext)
+			}
+
+			if got := len(recorder.Ended()); got != 4 {
+				t.Fatalf("ended span count = %d, want upstream, publication, relay attempt, and downstream only", got)
+			}
+		})
+	}
+}
+
+func TestTraceDisabledRelayPreservesUnsampledContextAndIgnoresInvalidCarrier(t *testing.T) {
+	provider := sdktrace.NewTracerProvider()
+	defer func() { _ = provider.Shutdown(context.Background()) }()
+	observability, err := newTelemetry(Config{TracerProvider: provider, Propagator: propagation.TraceContext{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabled := observability.view(resolvedTelemetryPolicy{logs: true, metrics: true})
+	runtime := newMessageRuntime(busResources{}, nil, nil, observability)
+	relay := runtime.capabilityWithTelemetry("edge/relay", disabled)
+
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1},
+		SpanID:     trace.SpanID{2},
+		TraceFlags: 0,
+		TraceState: mustTraceState(t, "vendor=value"),
+		Remote:     true,
+	})
+	carrier := caseInsensitiveHeaderCarrier(nats.Header{})
+	propagation.TraceContext{}.Inject(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), carrier)
+	for _, kind := range []servicev1.MessageKind{MessageKindCommand, MessageKindReply, MessageKindEvent} {
+		envelope := &servicev1.Message{}
+		envelope.SetKind(kind)
+		envelope.SetTraceparent(carrier.Get("traceparent"))
+		envelope.SetTracestate(carrier.Get("tracestate"))
+		deliveryCtx, span := runtime.deliveryTrace(context.Background(), envelope, 1, disabled)
+		if span.IsRecording() {
+			t.Fatal("unsampled disabled delivery created a recording span")
+		}
+		relayCtx, publication := relay.startPublicationTrace(deliveryCtx, kind)
+		if publication.IsRecording() {
+			t.Fatal("unsampled disabled publication created a recording span")
+		}
+		relayed := relay.envelope(relayCtx, kind, deterministicUUID("unsampled", messageKindToken(kind)), "edge/consumer", "google.protobuf.Empty", nil)
+		if got, want := relayed.GetTraceparent(), carrier.Get("traceparent"); got != want {
+			t.Fatalf("relayed traceparent = %q, want %q", got, want)
+		}
+		if got, want := relayed.GetTracestate(), carrier.Get("tracestate"); got != want {
+			t.Fatalf("relayed tracestate = %q, want %q", got, want)
+		}
+	}
+
+	attemptCtx, attempt := observability.tracer.Start(context.Background(), "attempt")
+	invalid := &servicev1.Message{}
+	invalid.SetTraceparent("not-a-traceparent")
+	extracted, span := runtime.deliveryTrace(attemptCtx, invalid, 1, disabled)
+	defer attempt.End()
+	if span.IsRecording() || trace.SpanContextFromContext(extracted).IsValid() {
+		t.Fatal("invalid carrier retained the local attempt span")
+	}
+}
+
+func TestMessageTelemetryOmitsPrivateDispositionAndErrorData(t *testing.T) {
+	var logs bytes.Buffer
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
+	observability, err := newTelemetry(Config{
+		Logger:         slog.New(slog.NewTextHandler(&logs, nil)),
+		TracerProvider: provider,
+		Propagator:     propagation.TraceContext{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := observability.view(resolvedTelemetryPolicy{logs: true, metrics: true, traces: true})
+	ctx, span := view.tracer.Start(context.Background(), "delivery")
+	privateDispositionID := "private-disposition-2d739e61"
+	settlement := servicev1.Settlement_builder{
+		State:         servicev1.SettlementState_SETTLEMENT_STATE_DISCARD.Enum(),
+		DispositionId: proto.String(privateDispositionID),
+		RetryCount:    proto.Uint32(2),
+	}.Build()
+	view.recordDisposition(ctx, "edge/worker", "google.protobuf.Empty", MessageKindCommand, settlement)
+	span.End()
+
+	privatePublicationError := "publish a nil protobuf message"
+	runtime := newMessageRuntime(busResources{}, nil, nil, observability)
+	bus := runtime.capabilityWithTelemetry("edge/publisher", view)
+	if err := bus.Command(context.Background(), "edge/worker", nil); err == nil {
+		t.Fatal("nil publication unexpectedly succeeded")
+	} else if !strings.Contains(err.Error(), "nil protobuf") {
+		t.Fatalf("publication error = %v", err)
+	}
+	for _, ended := range recorder.Ended() {
+		recorded := fmt.Sprint(ended.Attributes(), ended.Events(), ended.Links(), ended.Status())
+		if strings.Contains(recorded, privateDispositionID) || strings.Contains(recorded, privatePublicationError) {
+			t.Fatalf("private data appeared in span %q: %s", ended.Name(), recorded)
+		}
+		for _, event := range ended.Events() {
+			if event.Name == "exception" {
+				t.Fatalf("raw error exception appeared in span %q: %v", ended.Name(), event)
+			}
+		}
+	}
+	recordedLogs := logs.String()
+	if strings.Contains(recordedLogs, privateDispositionID) || strings.Contains(recordedLogs, "disposition_id") {
+		t.Fatalf("private disposition data appeared in logs: %s", recordedLogs)
+	}
+}
+
+func mustTraceState(t *testing.T, value string) trace.TraceState {
+	t.Helper()
+	state, err := trace.ParseTraceState(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state
 }
 
 func eventually(ctx context.Context, t *testing.T, condition func() bool) {

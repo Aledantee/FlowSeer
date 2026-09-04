@@ -52,6 +52,12 @@ func TestMessageV1Compatibility(t *testing.T) {
 	if got, want := message.ProtoReflect().Descriptor().FullName(), protoreflect.FullName("flowseer.service.v1.Message"); got != want {
 		t.Fatalf("message full name = %q, want %q", got, want)
 	}
+	if got, want := message.GetTraceparent(), "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"; got != want {
+		t.Fatalf("traceparent = %q, want %q", got, want)
+	}
+	if got, want := message.GetTracestate(), "vendor=value"; got != want {
+		t.Fatalf("tracestate = %q, want %q", got, want)
+	}
 
 	payloadType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(message.GetTypeName()))
 	if err != nil {

@@ -60,6 +60,7 @@ type MessageBus struct {
 	runtime     *messageRuntime
 	sourcePath  string
 	attemptDone <-chan struct{}
+	telemetry   telemetryView
 }
 
 var disabledMessageBus = &MessageBus{}
@@ -95,11 +96,18 @@ func (r *messageRuntime) capability(sourcePath string, attempt ...context.Contex
 	if r == nil {
 		return disabledMessageBus
 	}
+	return r.capabilityWithTelemetry(sourcePath, r.telemetry.view(r.telemetry.availableSignals()), attempt...)
+}
+
+func (r *messageRuntime) capabilityWithTelemetry(sourcePath string, telemetry telemetryView, attempt ...context.Context) *MessageBus {
+	if r == nil {
+		return disabledMessageBus
+	}
 	var done <-chan struct{}
 	if len(attempt) > 0 && attempt[0] != nil {
 		done = attempt[0].Done()
 	}
-	return &MessageBus{runtime: r, sourcePath: sourcePath, attemptDone: done}
+	return &MessageBus{runtime: r, sourcePath: sourcePath, attemptDone: done, telemetry: telemetry}
 }
 
 // Command synchronously persists payload for one statically registered and
@@ -116,10 +124,9 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	if err = b.available(ctx); err != nil {
 		return err
 	}
-	ctx, span := startPublicationTrace(ctx, MessageKindEvent)
+	ctx, span := b.startPublicationTrace(ctx, MessageKindEvent)
 	defer func() {
 		if err != nil {
-			span.RecordError(err)
 			span.SetStatus(codes.Error, "event publication failed")
 		}
 		span.End()
@@ -131,7 +138,7 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	revision := b.runtime.admissionRevision()
 	targets, err := revision.admitEvent(fullName)
 	if err != nil {
-		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messageRejected)
+		b.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messageRejected)
 		return err
 	}
 	if len(targets) == 0 {
@@ -150,10 +157,10 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 		envelopes[i] = b.envelope(ctx, MessageKindEvent, logicalID, target, fullName, payloadBytes)
 	}
 	if err := b.runtime.publishAtomic(ctx, envelopes); err != nil {
-		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messageRejected)
+		b.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messageRejected)
 		return err
 	}
-	b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messagePublished)
+	b.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), MessageKindEvent, messagePublished)
 	return nil
 }
 
@@ -172,10 +179,9 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 	if err = b.available(ctx); err != nil {
 		return err
 	}
-	ctx, span := startPublicationTrace(ctx, kind)
+	ctx, span := b.startPublicationTrace(ctx, kind)
 	defer func() {
 		if err != nil {
-			span.RecordError(err)
 			span.SetStatus(codes.Error, "message publication failed")
 		}
 		span.End()
@@ -186,7 +192,7 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 	}
 	revision := b.runtime.admissionRevision()
 	if err := revision.admitTarget(target, kind, fullName); err != nil {
-		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messageRejected)
+		b.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messageRejected)
 		return err
 	}
 	logicalID, err := newUUID()
@@ -195,14 +201,18 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 	}
 	envelope := b.envelope(ctx, kind, logicalID, target, fullName, payloadBytes)
 	if err := b.runtime.publishOne(ctx, envelope); err != nil {
-		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messageRejected)
+		b.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messageRejected)
 		return err
 	}
-	b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messagePublished)
+	b.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messagePublished)
 	return nil
 }
 
-func startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (context.Context, trace.Span) {
+func (b *MessageBus) startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (context.Context, trace.Span) {
+	if !b.telemetry.policy.traces {
+		ctx = contextWithoutRecordingSpan(ctx)
+		return ctx, trace.SpanFromContext(ctx)
+	}
 	options := []trace.SpanStartOption{trace.WithSpanKind(trace.SpanKindProducer)}
 	if kind == MessageKindEvent {
 		if link := trace.LinkFromContext(ctx); link.SpanContext.IsValid() {
@@ -210,7 +220,7 @@ func startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (con
 		}
 		ctx = trace.ContextWithSpanContext(ctx, trace.SpanContext{})
 	}
-	return Tracer(ctx).Start(ctx, instrumentationScope+".publish", options...)
+	return b.telemetry.tracer.Start(ctx, instrumentationScope+".publish", options...)
 }
 
 func (b *MessageBus) available(ctx context.Context) error {
@@ -265,7 +275,11 @@ func (b *MessageBus) envelope(ctx context.Context, kind servicev1.MessageKind, i
 		causation = delivery.messageID
 	}
 	carrier := caseInsensitiveHeaderCarrier(nats.Header{})
-	Propagator(ctx).Inject(ctx, carrier)
+	propagator := b.telemetry.propagator
+	if propagator == nil {
+		propagator = propagation.TraceContext{}
+	}
+	propagator.Inject(ctx, carrier)
 	message := &servicev1.Message{}
 	message.SetKind(kind)
 	message.SetMessageId(id)

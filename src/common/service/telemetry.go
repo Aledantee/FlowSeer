@@ -231,34 +231,34 @@ const (
 	messageRejected     messageAction = "rejected"
 )
 
-func (t telemetry) recordMessage(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, action messageAction) {
+func (v telemetryView) recordMessage(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, action messageAction) {
 	attrs := []attribute.KeyValue{
 		attribute.String(modulePathKey, modulePath),
 		attribute.String("messaging.message.type", typeName),
 		attribute.String("messaging.message.kind", messageKindToken(kind)),
 		attribute.String("messaging.operation", string(action)),
 	}
-	t.messages.Add(ctx, 1, metric.WithAttributes(attrs...))
-	t.logger.DebugContext(ctx, "message lifecycle", modulePathKey, modulePath, "message_type", typeName, "message_kind", messageKindToken(kind), "action", action)
+	if v.policy.metrics {
+		v.messages.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}
+	v.logger.DebugContext(ctx, "message lifecycle", modulePathKey, modulePath, "message_type", typeName, "message_kind", messageKindToken(kind), "action", action)
 }
 
-func (t telemetry) recordDisposition(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, settlement *servicev1.Settlement) {
+func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, settlement *servicev1.Settlement) {
 	action := messageAcknowledged
 	if settlement.GetState() == servicev1.SettlementState_SETTLEMENT_STATE_DISCARD {
 		action = messageDiscarded
 	}
-	t.recordMessage(ctx, modulePath, typeName, kind, action)
-	t.logger.InfoContext(ctx, "message disposition",
+	v.recordMessage(ctx, modulePath, typeName, kind, action)
+	v.logger.InfoContext(ctx, "message disposition",
 		modulePathKey, modulePath,
 		"message_type", typeName,
 		"message_kind", messageKindToken(kind),
 		"disposition", settlement.GetState().String(),
-		"disposition_id", settlement.GetDispositionId(),
 		"retry_count", settlement.GetRetryCount(),
 	)
 	trace.SpanFromContext(ctx).AddEvent("message disposition", trace.WithAttributes(
 		attribute.String("messaging.disposition", settlement.GetState().String()),
-		attribute.String("messaging.disposition.id", settlement.GetDispositionId()),
 		attribute.Int64("messaging.retry.count", int64(settlement.GetRetryCount())),
 	))
 }

@@ -577,7 +577,7 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 	coordinator := newAttemptCoordinator(ctx, module.path)
 	values := telemetry.values(runtime.identity, runtime.envPrefix, module.path)
 	if runtime.messages != nil {
-		values.bus = runtime.messages.capability(module.path, coordinator.ctx)
+		values.bus = runtime.messages.capabilityWithTelemetry(module.path, telemetry, coordinator.ctx)
 	}
 	attemptCtx := withContextValues(coordinator.ctx, values)
 	attemptCtx = context.WithValue(attemptCtx, attemptCoordinatorKey{}, coordinator)
@@ -601,7 +601,9 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 		return lifecycleOutcomeError, 0, err
 	}
 	if runtime.messages != nil {
-		runDelivery := runtime.messages.runDelivery
+		runDelivery := func(ctx context.Context, module plannedModule, handlers []Handler) error {
+			return runtime.messages.runDeliveryWithTelemetry(ctx, module, handlers, telemetry)
+		}
 		if runtime.delivery != nil {
 			runDelivery = runtime.delivery
 		}

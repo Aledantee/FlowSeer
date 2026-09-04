@@ -13,6 +13,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -45,6 +46,14 @@ type deliveryHandler struct {
 // only for cancellation or a bus-infrastructure failure; handler outcomes are
 // settled on the delivery path.
 func (r *messageRuntime) runDelivery(ctx context.Context, module plannedModule, handlers []Handler) error {
+	if r == nil {
+		<-ctx.Done()
+		return nil
+	}
+	return r.runDeliveryWithTelemetry(ctx, module, handlers, r.telemetry.view(r.telemetry.availableSignals()))
+}
+
+func (r *messageRuntime) runDeliveryWithTelemetry(ctx context.Context, module plannedModule, handlers []Handler, telemetry telemetryView) error {
 	if r == nil || module.leaf == nil || len(module.leaf.subscriptions) == 0 {
 		<-ctx.Done()
 		return nil
@@ -85,7 +94,7 @@ func (r *messageRuntime) runDelivery(ctx context.Context, module plannedModule, 
 		go func() {
 			defer workers.Done()
 			for message := range jobs {
-				if err := r.deliver(workerCtx, module, handlerSet, message); err != nil {
+				if err := r.deliver(workerCtx, module, handlerSet, message, telemetry); err != nil {
 					select {
 					case failures <- err:
 						cancel()
@@ -150,7 +159,7 @@ func bindDeliveryHandlers(module plannedModule, handlers []Handler) map[messageK
 	return bindings
 }
 
-func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, handlers map[messageKey]deliveryHandler, brokerMessage jetstream.Msg) error {
+func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, handlers map[messageKey]deliveryHandler, brokerMessage jetstream.Msg, telemetry telemetryView) error {
 	metadata, err := brokerMessage.Metadata()
 	if err != nil {
 		return deliveryError(module.path, "read broker delivery metadata", err)
@@ -172,14 +181,14 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 			if malformed != nil {
 				typeName = "unknown"
 			}
-			r.telemetry.recordDisposition(ctx, module.path, typeName, envelope.GetKind(), current)
+			telemetry.recordDisposition(ctx, module.path, typeName, envelope.GetKind(), current)
 			return r.finishSettlement(ctx, brokerMessage, settlementSubject, false)
 		case servicev1.SettlementState_SETTLEMENT_STATE_DISCARD:
 			typeName := envelope.GetTypeName()
 			if malformed != nil {
 				typeName = "unknown"
 			}
-			r.telemetry.recordDisposition(ctx, module.path, typeName, envelope.GetKind(), current)
+			telemetry.recordDisposition(ctx, module.path, typeName, envelope.GetKind(), current)
 			return r.finishSettlement(ctx, brokerMessage, settlementSubject, true)
 		}
 	}
@@ -189,19 +198,19 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 		if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
 			return deliveryError(module.path, "record malformed-message settlement", err)
 		}
-		r.telemetry.recordDisposition(ctx, module.path, "unknown", envelope.GetKind(), desired)
+		telemetry.recordDisposition(ctx, module.path, "unknown", envelope.GetKind(), desired)
 		return r.finishSettlement(ctx, brokerMessage, settlementSubject, true)
 	}
 
 	retry := retryCount(current)
 	for {
-		deliveryCtx, span := r.deliveryTrace(ctx, envelope, metadata.NumDelivered)
+		deliveryCtx, span := r.deliveryTrace(ctx, envelope, metadata.NumDelivered, telemetry)
 		deliveryCtx = withDeliveryContext(deliveryCtx, deliveryContext{
 			messageID:     envelope.GetMessageId(),
 			correlationID: envelope.GetCorrelationId(),
 			sourcePath:    envelope.GetSourcePath(),
 		})
-		r.telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageDelivered)
+		telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageDelivered)
 		panicked, handlerErr, progressErr := callHandlerWithProgress(deliveryCtx, brokerMessage, r.deliveryProgressInterval(), handler.handle, proto.Clone(payload))
 		if progressErr != nil {
 			span.End()
@@ -211,7 +220,6 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 			return deliveryError(module.path, "extend delivery during handler execution", progressErr)
 		}
 		if handlerErr != nil {
-			span.RecordError(handlerErr)
 			span.SetStatus(codes.Error, "message handler failed")
 		}
 		if ctx.Err() != nil {
@@ -228,7 +236,7 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 				}
 				return deliveryError(module.path, "record acknowledgement settlement", err)
 			}
-			r.telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
+			telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
 			err := r.finishSettlement(ctx, brokerMessage, settlementSubject, false)
 			span.End()
 			return err
@@ -251,7 +259,7 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 				return deliveryError(module.path, "record retry settlement", err)
 			}
 			currentSequence = storedSequence
-			r.telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageRetry)
+			telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageRetry)
 			span.End()
 			continue
 		}
@@ -263,7 +271,7 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 			}
 			return deliveryError(module.path, "record discard settlement", err)
 		}
-		r.telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
+		telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
 		err := r.finishSettlement(ctx, brokerMessage, settlementSubject, true)
 		span.End()
 		return err
@@ -389,7 +397,7 @@ func validUUID(value string) bool {
 	return true
 }
 
-func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.Message, delivered uint64) (context.Context, trace.Span) {
+func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.Message, delivered uint64, telemetry telemetryView) (context.Context, trace.Span) {
 	carrier := caseInsensitiveHeaderCarrier(nats.Header{})
 	if envelope.HasTraceparent() {
 		carrier.Set("traceparent", envelope.GetTraceparent())
@@ -397,8 +405,16 @@ func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.
 	if envelope.HasTracestate() {
 		carrier.Set("tracestate", envelope.GetTracestate())
 	}
-	extracted := r.telemetry.propagator.Extract(ctx, carrier)
+	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContext{})
+	propagator := telemetry.propagator
+	if propagator == nil {
+		propagator = propagation.TraceContext{}
+	}
+	extracted := propagator.Extract(ctx, carrier)
 	spanContext := trace.SpanContextFromContext(extracted)
+	if !telemetry.policy.traces {
+		return extracted, trace.SpanFromContext(extracted)
+	}
 	options := []trace.SpanStartOption{
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
@@ -411,8 +427,7 @@ func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.
 	if spanContext.IsValid() {
 		options = append(options, trace.WithLinks(trace.Link{SpanContext: spanContext}))
 	}
-	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContext{})
-	return r.telemetry.tracer.Start(ctx, instrumentationScope+deliveryInstrumentationSuffix, options...)
+	return telemetry.tracer.Start(ctx, instrumentationScope+deliveryInstrumentationSuffix, options...)
 }
 
 func callHandler(ctx context.Context, handler HandlerFunc, payload proto.Message) (panicked bool, err error) {
