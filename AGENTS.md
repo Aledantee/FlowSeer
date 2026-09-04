@@ -17,6 +17,10 @@ Binding on humans and agents equally; each doc states its own scope.
 - [`docs/conventions/protobuf.md`](docs/conventions/protobuf.md) — message shapes:
   Config/State/Event triad, LocalRef/GlobalRef pair, ambient tenancy, provenance,
   enum placement, typed variants.
+- [`docs/conventions/observability.md`](docs/conventions/observability.md) —
+  logging, OpenTelemetry events, traces, metrics, semantic-convention versions,
+  namespacing, cardinality, correlation, and privacy; read before adding or
+  changing instrumentation.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — TypeScript web frontend
   (`frontend/web/`; own toolchain, Go rules do not apply).
 - [`docs/doc-style.md`](docs/doc-style.md) — all prose: docs, READMEs, schema

@@ -14,6 +14,7 @@ designing a change.
 | --- | --- |
 | [`architecture/`](architecture/) | Accepted system direction and the reasons behind package or service boundaries. |
 | [`conventions/`](conventions/) | Cross-cutting shapes and workflows, including protobuf and test layout. |
+| [`conventions/observability.md`](conventions/observability.md) | Binding logging, OpenTelemetry event, trace, metric, namespacing, and semantic-convention rules. |
 | [`code-style.md`](code-style.md) | Go API, error, concurrency, comment, and test conventions. |
 | [`code-style-proto.md`](code-style-proto.md) | Protobuf syntax, evolution, validation, and generation rules. |
 | [`code-style-web.md`](code-style-web.md) | Frontend TypeScript conventions. |

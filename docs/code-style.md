@@ -201,6 +201,9 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
 
 ## Errors
 
+- When error handling emits telemetry, follow the [observability
+  conventions](conventions/observability.md) for signal selection, severity,
+  message formulation, attributes, and span status.
 - **Handle every error.** Handle it or return it — never both (no log-and-return:
   the caller will log it again). `_ =` discards must be justifiable in review.
 - The project's own `src/common/errs` package is the norm: `errs.Msg` for sentinels,

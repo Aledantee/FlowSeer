@@ -37,6 +37,13 @@ probed gate, so it can reverse a fixed decision and prevents a probe call.
 
 ## Instrumentation
 
+Follow the repository's [observability
+conventions](../../../docs/conventions/observability.md) before adding or
+changing a log record, named event, span, or metric. That document owns signal
+selection, message and attribute formulation, namespacing, cardinality, units,
+privacy, and the current semantic-convention version. This section explains how
+module code obtains the runtime's instrumentation.
+
 Module code reads its instrumentation from the attempt context rather than from
 process globals. `service.Logger(ctx)`, `service.Tracer(ctx)`,
 `service.Meter(ctx)`, `service.TracerProvider(ctx)`,
@@ -52,25 +59,46 @@ identity. Records written with a recording span also carry `trace_id` and
 under the group, because `slog` cannot add a record attribute above an open
 group.
 
+`service.module.path` describes the current runtime output. It is a legacy
+custom key in an OpenTelemetry-owned namespace and must not be copied as a
+precedent. New custom attributes use `flowseer.*`; an eventual telemetry-schema
+migration will replace the legacy key.
+
 `Tracer` and `Meter` are scoped to the service runtime. A module that owns an
-instrumentation scope should name it itself and attach the runtime's dimensions:
+instrumentation scope should name it itself and attach only the bounded
+occurrence dimensions it needs:
 
 ```go
-meter := service.MeterProvider(ctx).Meter("go.aledante.io/FlowSeer/src/edge/ingest/syslog")
-received, err := meter.Int64Counter("flowseer.syslog.messages")
+meter := service.MeterProvider(ctx).Meter(
+    "go.aledante.io/FlowSeer/src/edge/ingest/syslog",
+    metric.WithSchemaURL(semconv.SchemaURL),
+)
+received, err := meter.Int64Counter(
+    "flowseer.syslog.messages.accepted",
+    metric.WithUnit("{message}"),
+    metric.WithDescription("Messages accepted by the syslog receiver"),
+)
 if err != nil {
     return service.Attempt{}, err
 }
 return service.Attempt{Runner: func(ctx context.Context) error {
-    received.Add(ctx, 1, metric.WithAttributeSet(service.Attributes(ctx)))
+    received.Add(ctx, 1, metric.WithAttributes(
+        attribute.String("flowseer.module.path", service.ModulePath(ctx)),
+    ))
     ...
 }}, nil
 ```
 
-`service.Attributes` returns the same bounded set the runtime records for that
-module, which keeps module metrics joinable with
-`flowseer.service.module.lifecycle`. `attribute.Set` methods have pointer
-receivers, so assign it to a variable before calling `Value` or `ToSlice`.
+Here `semconv` is the newest generated package available in the pinned
+OpenTelemetry Go module, currently
+`go.opentelemetry.io/otel/semconv/v1.43.0`. Check the convention before copying
+the version because the package and `SchemaURL` advance together.
+
+`service.Attributes` is a compatibility helper for existing instrumentation. It
+contains the legacy module key and repeats Resource identity, so new instruments
+should attach only the bounded occurrence attributes they need, as the example
+does. `attribute.Set` methods have pointer receivers, so assign a returned set
+to a variable before calling `Value` or `ToSlice`.
 
 Callers that own telemetry exporters may set `TelemetryShutdown`. It runs after
 all module work has stopped. Shared providers should be shut down there as one
