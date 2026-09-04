@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -13,6 +14,41 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/service"
 )
+
+// A common endpoint gives the service one managed destination for all three
+// signals. The root inherits the available managed backings. A branch can turn
+// one signal off while a descendant explicitly turns it back on.
+func ExampleConfig_managedTelemetry() {
+	config := service.Config{
+		Identity: service.Identity{Name: "edge", Namespace: "flowseer", Version: "v1"},
+		Telemetry: service.TelemetryConfig{
+			Endpoint: "https://collector.example/flowseer",
+			Protocol: "http/protobuf",
+		},
+		Modules: []service.Module{{
+			Name:      "ingest",
+			Telemetry: service.TelemetryPolicy{Logs: service.TelemetryDisabled},
+			Branch: &service.Branch{Children: []service.Module{
+				{Name: "syslog", Leaf: &service.Leaf{Setup: serve}},
+				{
+					Name:      "audit",
+					Telemetry: service.TelemetryPolicy{Logs: service.TelemetryEnabled},
+					Leaf:      &service.Leaf{Setup: serve},
+				},
+			}},
+		}},
+	}
+
+	fmt.Println(config.Telemetry.Endpoint)
+	fmt.Println(config.Telemetry.Signals.Logs == service.TelemetryInherit)
+	fmt.Println(config.Modules[0].Telemetry.Logs == service.TelemetryDisabled)
+	fmt.Println(config.Modules[0].Branch.Children[1].Telemetry.Logs == service.TelemetryEnabled)
+	// Output:
+	// https://collector.example/flowseer
+	// true
+	// true
+	// true
+}
 
 // A service with one unit of work declares it with Setup. The runtime names the
 // implicit module after the service.

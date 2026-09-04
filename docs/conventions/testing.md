@@ -82,3 +82,21 @@ harness; tagged tiers connect to containers or configured lab devices. See the
 [SNMP integration guide](../../src/protocol/snmp/test/integration/README.md) and
 [netpen validation matrix](../../src/edge/netpen/test/integration/VALIDATION_MATRIX.md)
 for their prerequisites.
+
+## Service OpenTelemetry tier
+
+Run the Collector-backed service checks through the repository wrapper:
+
+```sh
+tools/test/service-otel-integration.sh
+```
+
+The wrapper checks that Docker is installed and its daemon is running, clears
+inherited `OTEL_*` variables, and invokes the package with the race detector and
+the `service_otel_integration` build tag. The first run may need registry access
+to fetch the Collector image pinned by tag and digest in the test helper.
+
+The wrapper owns the failure-artifact directory. It deletes that directory on
+success. After a failure, it retains the directory and prints its path only when
+no file contains the suite's synthetic secret sentinel. A failed sentinel check
+removes the artifacts instead of exposing them.
