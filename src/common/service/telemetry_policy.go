@@ -12,7 +12,6 @@ import (
 )
 
 type telemetryView struct {
-	telemetry
 	policy         resolvedTelemetryPolicy
 	logger         *slog.Logger
 	tracer         trace.Tracer
@@ -20,6 +19,8 @@ type telemetryView struct {
 	tracerProvider trace.TracerProvider
 	meterProvider  metric.MeterProvider
 	propagator     propagation.TextMapPropagator
+	lifecycle      metric.Int64Counter
+	messages       metric.Int64Counter
 }
 
 type borrowingTracerProvider struct {
@@ -72,7 +73,6 @@ func (o *telemetryOwner) view(policy resolvedTelemetryPolicy) telemetryView {
 		}
 	}
 	return telemetryView{
-		telemetry:      o.telemetry,
 		policy:         policy,
 		logger:         logger,
 		tracer:         tracer,
@@ -80,6 +80,8 @@ func (o *telemetryOwner) view(policy resolvedTelemetryPolicy) telemetryView {
 		tracerProvider: tracerProvider,
 		meterProvider:  meterProvider,
 		propagator:     o.telemetry.propagator,
+		lifecycle:      o.telemetry.lifecycle,
+		messages:       o.telemetry.messages,
 	}
 }
 

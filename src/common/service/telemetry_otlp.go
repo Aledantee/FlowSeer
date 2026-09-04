@@ -276,7 +276,7 @@ func retryOTLP(
 		limit:       telemetryRetryLimit,
 		initialWait: telemetryRetryInitialWait,
 		maximumWait: telemetryRetryMaxWait,
-		wait:        waitForTelemetryRetry,
+		wait:        realSupervisorClock{}.Wait,
 	}, attempt)
 }
 
@@ -310,16 +310,5 @@ func retryOTLPWithPolicy(
 			return errors.New("telemetry retry deadline exceeded")
 		}
 		wait = min(wait*2, policy.maximumWait)
-	}
-}
-
-func waitForTelemetryRetry(ctx context.Context, wait time.Duration) error {
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
 	}
 }

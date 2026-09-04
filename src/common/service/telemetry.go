@@ -119,8 +119,8 @@ type telemetry struct {
 }
 
 // traceLogHandler links a log record to the span that produced it so a record
-// can be found from its trace and the reverse. Records written without a
-// recording span, and records written outside the runtime, are unchanged. A
+// can be found from its trace and the reverse. Records written without a valid
+// span context, and records written outside the runtime, are unchanged. A
 // module that opens a slog group before logging nests the two identifiers in
 // that group, because slog offers no way to add a record attribute above an
 // open group.
@@ -248,13 +248,13 @@ const (
 )
 
 func (v telemetryView) recordMessage(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, action messageAction) {
-	attrs := []attribute.KeyValue{
-		attribute.String(modulePathKey, modulePath),
-		attribute.String(messageTypeKey, typeName),
-		attribute.String(messageKindKey, messageKindToken(kind)),
-		attribute.String(messageOperationKey, string(action)),
-	}
 	if v.policy.metrics {
+		attrs := []attribute.KeyValue{
+			attribute.String(modulePathKey, modulePath),
+			attribute.String(messageTypeKey, typeName),
+			attribute.String(messageKindKey, messageKindToken(kind)),
+			attribute.String(messageOperationKey, string(action)),
+		}
 		v.messages.Add(ctx, 1, metric.WithAttributes(attrs...))
 	}
 	v.logger.DebugContext(ctx, "message lifecycle",
@@ -278,10 +278,12 @@ func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeNa
 		messageDispositionKey, settlement.GetState().String(),
 		messageRetryCountKey, settlement.GetRetryCount(),
 	)
-	trace.SpanFromContext(ctx).AddEvent("message disposition", trace.WithAttributes(
-		attribute.String(messageDispositionKey, settlement.GetState().String()),
-		attribute.Int64(messageRetryCountKey, int64(settlement.GetRetryCount())),
-	))
+	if v.policy.traces {
+		trace.SpanFromContext(ctx).AddEvent("message disposition", trace.WithAttributes(
+			attribute.String(messageDispositionKey, settlement.GetState().String()),
+			attribute.Int64(messageRetryCountKey, int64(settlement.GetRetryCount())),
+		))
+	}
 }
 
 func (t telemetry) values(identity Identity, envPrefix, modulePath string) contextValues {

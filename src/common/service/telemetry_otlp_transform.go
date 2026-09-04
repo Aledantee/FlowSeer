@@ -100,7 +100,7 @@ func transformLogRecord(record sdklog.Record) *logspb.LogRecord {
 		if len(attrs) < telemetryAttributeLimit && !prohibitedTelemetryKey(string(value.Key)) {
 			attrs = append(attrs, value)
 		}
-		return true
+		return len(attrs) < telemetryAttributeLimit
 	})
 	result := &logspb.LogRecord{
 		TimeUnixNano:           telemetryUnixNano(record.Timestamp()),
@@ -377,7 +377,10 @@ func sanitizeResourceSpans(resources []*tracepb.ResourceSpans) {
 func sanitizeOTLPKeyValues(values []*commonpb.KeyValue) []*commonpb.KeyValue {
 	result := make([]*commonpb.KeyValue, 0, min(len(values), telemetryAttributeLimit))
 	for _, value := range values {
-		if value == nil || prohibitedTelemetryKey(value.Key) || len(result) >= telemetryAttributeLimit {
+		if len(result) >= telemetryAttributeLimit {
+			break
+		}
+		if value == nil || prohibitedTelemetryKey(value.Key) {
 			continue
 		}
 		result = append(result, &commonpb.KeyValue{Key: truncateTelemetryString(value.Key), Value: sanitizeOTLPValue(value.Value)})
