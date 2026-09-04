@@ -130,16 +130,15 @@ process globals. `service.Logger(ctx)`, `service.Tracer(ctx)`,
 keep their service logger without keeping the attempt alive.
 
 The attempt logger already carries `service.name`, `service.namespace`,
-`service.version`, and `service.module.path`, so a module never restates its own
+`service.version`, and `flowseer.module.path`, so a module never restates its own
 identity. Records written with a recording span also carry `trace_id` and
 `span_id`; a module that opens a `slog` group before logging nests those two
 under the group, because `slog` cannot add a record attribute above an open
 group.
 
-`service.module.path` describes the current runtime output. It is a legacy
-custom key in an OpenTelemetry-owned namespace and must not be copied as a
-precedent. New custom attributes use `flowseer.*`; an eventual telemetry-schema
-migration will replace the legacy key.
+`flowseer.module.path` describes the current runtime output. The older
+`service.module.path` key remains only in the `service.Attributes` compatibility
+set and must not be copied into new instrumentation.
 
 `Tracer` and `Meter` are scoped to the service runtime. A module that owns an
 instrumentation scope should name it itself and attach only the bounded
@@ -172,10 +171,34 @@ OpenTelemetry Go module, currently
 the version because the package and `SchemaURL` advance together.
 
 `service.Attributes` is a compatibility helper for existing instrumentation. It
-contains the legacy module key and repeats Resource identity, so new instruments
-should attach only the bounded occurrence attributes they need, as the example
-does. `attribute.Set` methods have pointer receivers, so assign a returned set
-to a variable before calling `Value` or `ToSlice`.
+retains `service.name`, `service.namespace`, `service.version`, and the legacy
+`service.module.path` key exactly. New instruments should attach only the
+bounded occurrence attributes they need, as the example does. `attribute.Set`
+methods have pointer receivers, so assign a returned set to a variable before
+calling `Value` or `ToSlice`.
+
+### Telemetry schema migration
+
+Managed telemetry uses the repository's namespaced schema. Existing dashboards,
+alerts, and saved queries must update these selectors before deploying this
+revision:
+
+| Previous selector | Current selector |
+| --- | --- |
+| Metric `flowseer.service.module.lifecycle` | `flowseer.service.module.lifecycle.transitions` |
+| Metric `flowseer.service.message.lifecycle` | `flowseer.service.message.operations` |
+| Span `go.aledante.io/FlowSeer/src/common/service.publish` | `flowseer.message.publish` |
+| Span `go.aledante.io/FlowSeer/src/common/service.delivery` | `flowseer.message.deliver` |
+| Attribute `service.module.path` | `flowseer.module.path` |
+| Attributes `service.lifecycle.action` and `service.lifecycle.outcome` | `flowseer.module.lifecycle.action` and `flowseer.module.lifecycle.outcome` |
+| Attributes `messaging.message.type`, `messaging.message.kind`, and `messaging.operation` | `flowseer.message.type`, `flowseer.message.kind`, and `flowseer.message.operation` |
+| Attributes `messaging.disposition`, `messaging.retry.count`, and `messaging.delivery.attempt` | `flowseer.message.disposition`, `flowseer.message.retry_count`, and `flowseer.message.delivery_attempt` |
+
+The runtime does not emit both schemas because duplicate counters would
+double-count operations. `messaging.disposition.id` has no replacement; the
+runtime no longer exports that unbounded identifier. The `service.Attributes`
+helper is the sole compatibility exception and continues returning the previous
+four-key set for caller-owned instruments.
 
 Callers that own telemetry exporters may set `TelemetryShutdown`. It runs after
 all module work has stopped. Shared providers should be shut down there as one

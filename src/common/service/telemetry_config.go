@@ -263,7 +263,24 @@ func normalizeOTLPConnection(config TelemetryConfig, lookup envLookup) (normaliz
 	if !insecure.explicit && normalized.endpoint != nil {
 		insecure.value = normalized.endpoint.Scheme == "http"
 	}
+	if insecure.explicit && normalized.protocol == "http/protobuf" && normalized.endpoint != nil && insecure.value != (normalized.endpoint.Scheme == "http") {
+		return normalizedOTLPConnection{}, false, telemetryConfigError(insecure.setting, "conflict")
+	}
 	normalized.insecure = insecure.value
+	if normalized.protocol == "http/protobuf" && normalized.endpoint != nil && normalized.endpoint.Scheme == "http" {
+		if certificate.value != "" {
+			return normalizedOTLPConnection{}, false, telemetryConfigError(certificate.setting, "conflict")
+		}
+		if clientCertificate.value != "" || clientKey.value != "" {
+			setting := "Telemetry.ClientTLS"
+			if strings.HasPrefix(clientCertificate.setting, "OTEL_") {
+				setting = clientCertificate.setting
+			} else if strings.HasPrefix(clientKey.setting, "OTEL_") {
+				setting = clientKey.setting
+			}
+			return normalizedOTLPConnection{}, false, telemetryConfigError(setting, "conflict")
+		}
+	}
 
 	rootCAs, clientTLS, err := normalizeTelemetryTLS(certificate, clientCertificate, clientKey)
 	if err != nil {

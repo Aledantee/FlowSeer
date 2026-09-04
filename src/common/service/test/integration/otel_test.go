@@ -372,7 +372,7 @@ func TestManagedTelemetryUnreachableEndpoint(t *testing.T) {
 	if elapsed := time.Since(started); elapsed > 47*time.Second {
 		t.Fatalf("Run() took %s with unreachable telemetry endpoint, want at most 47s", elapsed)
 	}
-	if !strings.Contains(stderr, "telemetry export failed") || !strings.Contains(stderr, `"signal":"logs"`) {
+	if !strings.Contains(stderr, "telemetry export failed") || !strings.Contains(stderr, `"flowseer.telemetry.signal":"logs"`) {
 		t.Fatalf("stderr has no bounded log export warning: %s", stderr)
 	}
 }

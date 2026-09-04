@@ -104,7 +104,7 @@ func ExampleRun_moduleTree() {
 
 // Module code reads its instrumentation from the attempt context. The logger
 // already carries the service identity and module path, and [service.Attributes]
-// gives module-owned instruments the same dimensions the runtime records.
+// preserves the legacy four-key dimension set for existing instruments.
 func ExampleAttributes() {
 	setup := func(ctx context.Context) (service.Attempt, error) {
 		// A module that owns an instrumentation scope names it itself.

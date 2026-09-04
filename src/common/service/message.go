@@ -16,6 +16,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -135,6 +136,7 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	if err != nil {
 		return err
 	}
+	span.SetAttributes(attribute.String(messageTypeKey, string(fullName)))
 	revision := b.runtime.admissionRevision()
 	targets, err := revision.admitEvent(fullName)
 	if err != nil {
@@ -190,6 +192,7 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 	if err != nil {
 		return err
 	}
+	span.SetAttributes(attribute.String(messageTypeKey, string(fullName)))
 	revision := b.runtime.admissionRevision()
 	if err := revision.admitTarget(target, kind, fullName); err != nil {
 		b.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messageRejected)
@@ -208,12 +211,20 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 	return nil
 }
 
+// startPublicationTrace starts a producer span. Events link to the current span
+// so fan-out does not make each delivery a child of the publisher operation.
 func (b *MessageBus) startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (context.Context, trace.Span) {
 	if !b.telemetry.policy.traces {
 		ctx = contextWithoutRecordingSpan(ctx)
 		return ctx, trace.SpanFromContext(ctx)
 	}
-	options := []trace.SpanStartOption{trace.WithSpanKind(trace.SpanKindProducer)}
+	options := []trace.SpanStartOption{
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String(modulePathKey, b.sourcePath),
+			attribute.String(messageKindKey, messageKindToken(kind)),
+		),
+	}
 	if kind == MessageKindEvent {
 		if link := trace.LinkFromContext(ctx); link.SpanContext.IsValid() {
 			options = append(options, trace.WithLinks(link))

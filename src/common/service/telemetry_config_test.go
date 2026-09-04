@@ -169,6 +169,112 @@ func TestPreflightDerivesTransportSecurityFromEndpointScheme(t *testing.T) {
 	}
 }
 
+func TestPreflightRejectsContradictoryHTTPTransportSecurity(t *testing.T) {
+	secure := false
+	insecure := true
+	tests := []struct {
+		name     string
+		endpoint string
+		value    *bool
+		env      map[string]string
+		setting  string
+	}{
+		{name: "HTTPS explicitly insecure", endpoint: "https://collector.example", value: &insecure, setting: "Telemetry.Insecure"},
+		{name: "HTTP explicitly secure", endpoint: "http://collector.example", value: &secure, setting: "Telemetry.Insecure"},
+		{name: "HTTPS environment insecure", endpoint: "https://collector.example", env: map[string]string{"OTEL_EXPORTER_OTLP_INSECURE": "true"}, setting: "OTEL_EXPORTER_OTLP_INSECURE"},
+		{name: "HTTP environment secure", endpoint: "http://collector.example", env: map[string]string{"OTEL_EXPORTER_OTLP_INSECURE": "false"}, setting: "OTEL_EXPORTER_OTLP_INSECURE"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := preflight(context.Background(), Config{
+				Identity: testIdentity(),
+				Setup:    testSetup(),
+				Telemetry: TelemetryConfig{
+					Endpoint: tt.endpoint,
+					Insecure: tt.value,
+				},
+			}, mapLookup(tt.env))
+			assertTelemetryConfigError(t, err, tt.setting, "conflict", "")
+		})
+	}
+}
+
+func TestPreflightPreservesExplicitGRPCTransportSecurity(t *testing.T) {
+	secure := false
+	insecure := true
+	tests := []struct {
+		name         string
+		endpoint     string
+		value        *bool
+		wantInsecure bool
+	}{
+		{name: "HTTPS authority with plaintext gRPC", endpoint: "https://collector.example:4317", value: &insecure, wantInsecure: true},
+		{name: "HTTP authority with TLS gRPC", endpoint: "http://collector.example:4317", value: &secure},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := preflight(context.Background(), Config{
+				Identity: testIdentity(),
+				Setup:    testSetup(),
+				Telemetry: TelemetryConfig{
+					Endpoint: tt.endpoint,
+					Protocol: "grpc",
+					Insecure: tt.value,
+				},
+			}, mapLookup(nil))
+			if err != nil {
+				t.Fatalf("preflight() error: %v", err)
+			}
+			if got.telemetry.connection.insecure != tt.wantInsecure {
+				t.Errorf("insecure = %t, want %t", got.telemetry.connection.insecure, tt.wantInsecure)
+			}
+		})
+	}
+}
+
+func TestPreflightRejectsTLSMaterialForPlaintextHTTP(t *testing.T) {
+	certificatePEM, keyPEM := testTLSMaterial(t)
+	directory := t.TempDir()
+	certificateFile := filepath.Join(directory, "certificate.pem")
+	keyFile := filepath.Join(directory, "key.pem")
+	writeTestFile(t, certificateFile, certificatePEM)
+	writeTestFile(t, keyFile, keyPEM)
+
+	tests := []struct {
+		name      string
+		telemetry TelemetryConfig
+		setting   string
+	}{
+		{
+			name: "CA certificate",
+			telemetry: TelemetryConfig{
+				Endpoint:        "http://collector.example",
+				CertificateFile: certificateFile,
+			},
+			setting: "Telemetry.CertificateFile",
+		},
+		{
+			name: "client certificate",
+			telemetry: TelemetryConfig{
+				Endpoint:              "http://collector.example",
+				ClientCertificateFile: certificateFile,
+				ClientKeyFile:         keyFile,
+			},
+			setting: "Telemetry.ClientTLS",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := preflight(context.Background(), Config{
+				Identity:  testIdentity(),
+				Setup:     testSetup(),
+				Telemetry: tt.telemetry,
+			}, mapLookup(nil))
+			assertTelemetryConfigError(t, err, tt.setting, "conflict", "")
+		})
+	}
+}
+
 func TestPreflightResolvesTelemetryPolicyInheritanceAndEnvironment(t *testing.T) {
 	cfg := Config{
 		Identity: testIdentity(),

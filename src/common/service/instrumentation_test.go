@@ -217,8 +217,8 @@ func TestModuleInstrumentsUseAttemptProviders(t *testing.T) {
 	if got := span.InstrumentationScope().Name; got != moduleScope {
 		t.Errorf("module span scope = %q, want %q", got, moduleScope)
 	}
-	if got, ok := spanAttribute(span, modulePathKey); !ok || got != "edge/syslog" {
-		t.Errorf("module span %s = %q, want %q", modulePathKey, got, "edge/syslog")
+	if got, ok := spanAttribute(span, legacyModulePathKey); !ok || got != "edge/syslog" {
+		t.Errorf("module span %s = %q, want %q", legacyModulePathKey, got, "edge/syslog")
 	}
 
 	sums := collectCounters(t, reader)
@@ -226,8 +226,8 @@ func TestModuleInstrumentsUseAttemptProviders(t *testing.T) {
 	if !ok {
 		t.Fatalf("the module counter was not collected, got %v", sums)
 	}
-	if got, ok := moduleSum.Attributes.Value(modulePathKey); !ok || got.AsString() != "edge/syslog" {
-		t.Errorf("module counter %s = %v, want %q", modulePathKey, got, "edge/syslog")
+	if got, ok := moduleSum.Attributes.Value(legacyModulePathKey); !ok || got.AsString() != "edge/syslog" {
+		t.Errorf("module counter %s = %v, want %q", legacyModulePathKey, got, "edge/syslog")
 	}
 }
 

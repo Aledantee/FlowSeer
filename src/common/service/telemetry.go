@@ -25,6 +25,7 @@ const (
 	deliverySpanName       = "flowseer.message.deliver"
 
 	modulePathKey             = "flowseer.module.path"
+	legacyModulePathKey       = "service.module.path"
 	moduleLifecycleActionKey  = "flowseer.module.lifecycle.action"
 	moduleLifecycleOutcomeKey = "flowseer.module.lifecycle.outcome"
 	messageTypeKey            = "flowseer.message.type"
@@ -155,6 +156,18 @@ func (h traceLogHandler) WithGroup(name string) slog.Handler {
 func moduleAttributes(modulePath string) attribute.Set {
 	return attribute.NewSet(
 		attribute.String(modulePathKey, modulePath),
+	)
+}
+
+// compatibilityAttributes preserves the public [Attributes] schema while
+// runtime-owned telemetry uses Resource identity and namespaced occurrence
+// attributes.
+func compatibilityAttributes(identity Identity, modulePath string) attribute.Set {
+	return attribute.NewSet(
+		semconv.ServiceName(identity.Name),
+		semconv.ServiceNamespace(identity.Namespace),
+		semconv.ServiceVersion(identity.Version),
+		attribute.String(legacyModulePathKey, modulePath),
 	)
 }
 
@@ -297,7 +310,7 @@ func (t telemetry) values(identity Identity, envPrefix, modulePath string) conte
 		tracerProvider: t.tracerProvider,
 		meterProvider:  t.meterProvider,
 		propagator:     t.propagator,
-		attributes:     moduleAttributes(modulePath),
+		attributes:     compatibilityAttributes(identity, modulePath),
 	}
 }
 

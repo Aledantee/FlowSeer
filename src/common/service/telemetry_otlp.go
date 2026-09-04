@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,6 +38,8 @@ const (
 	telemetryResponseLimit    = 1 << 20
 )
 
+var errTelemetryExportRejected = errors.New("telemetry export rejected")
+
 func newDirectOTLPTransport(
 	_ context.Context,
 	config normalizedOTLPConnection,
@@ -59,14 +62,21 @@ type httpOTLPTransport struct {
 	headers     map[string]string
 	compression bool
 	timeout     time.Duration
+	now         func() time.Time
+	retryPolicy telemetryRetryPolicy
 }
 
 func newHTTPOTLPTransport(config normalizedOTLPConnection) *httpOTLPTransport {
 	tlsConfig := telemetryTLSConfig(config)
-	client := &http.Client{Transport: &http.Transport{
-		Proxy:           nil,
-		TLSClientConfig: tlsConfig,
-	}}
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy:           nil,
+			TLSClientConfig: tlsConfig,
+		},
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	return &httpOTLPTransport{
 		client:      client,
 		logsURL:     telemetrySignalURL(config.endpoint, "logs"),
@@ -75,6 +85,8 @@ func newHTTPOTLPTransport(config normalizedOTLPConnection) *httpOTLPTransport {
 		headers:     config.headers,
 		compression: config.compression == "gzip",
 		timeout:     config.timeout,
+		now:         time.Now,
+		retryPolicy: defaultTelemetryRetryPolicy(),
 	}
 }
 
@@ -100,18 +112,33 @@ func telemetryTLSConfig(config normalizedOTLPConnection) *tls.Config {
 }
 
 func (t *httpOTLPTransport) uploadLogs(ctx context.Context, request *collectorlogspb.ExportLogsServiceRequest) error {
-	return t.upload(ctx, t.logsURL, request)
+	response := new(collectorlogspb.ExportLogsServiceResponse)
+	return t.upload(ctx, t.logsURL, request, response, func() int64 {
+		return response.GetPartialSuccess().GetRejectedLogRecords()
+	})
 }
 
 func (t *httpOTLPTransport) uploadMetrics(ctx context.Context, request *collectormetricspb.ExportMetricsServiceRequest) error {
-	return t.upload(ctx, t.metricsURL, request)
+	response := new(collectormetricspb.ExportMetricsServiceResponse)
+	return t.upload(ctx, t.metricsURL, request, response, func() int64 {
+		return response.GetPartialSuccess().GetRejectedDataPoints()
+	})
 }
 
 func (t *httpOTLPTransport) uploadTraces(ctx context.Context, spans []*tracepb.ResourceSpans) error {
-	return t.upload(ctx, t.tracesURL, &collectortracepb.ExportTraceServiceRequest{ResourceSpans: spans})
+	response := new(collectortracepb.ExportTraceServiceResponse)
+	return t.upload(ctx, t.tracesURL, &collectortracepb.ExportTraceServiceRequest{ResourceSpans: spans}, response, func() int64 {
+		return response.GetPartialSuccess().GetRejectedSpans()
+	})
 }
 
-func (t *httpOTLPTransport) upload(ctx context.Context, endpoint string, message proto.Message) error {
+func (t *httpOTLPTransport) upload(
+	ctx context.Context,
+	endpoint string,
+	message proto.Message,
+	responseMessage proto.Message,
+	rejectedCount func() int64,
+) error {
 	payload, err := proto.Marshal(message)
 	if err != nil {
 		return errors.New("telemetry encoding failed")
@@ -128,7 +155,7 @@ func (t *httpOTLPTransport) upload(ctx context.Context, endpoint string, message
 		}
 		body = compressed.Bytes()
 	}
-	return retryOTLP(ctx, t.timeout, func(attemptCtx context.Context) (time.Duration, bool, error) {
+	return retryOTLPWithPolicy(ctx, t.timeout, t.retryPolicy, func(attemptCtx context.Context) (time.Duration, bool, error) {
 		request, requestErr := http.NewRequestWithContext(attemptCtx, http.MethodPost, endpoint, bytes.NewReader(body))
 		if requestErr != nil {
 			return 0, false, errors.New("telemetry request failed")
@@ -144,16 +171,22 @@ func (t *httpOTLPTransport) upload(ctx context.Context, endpoint string, message
 		if requestErr != nil {
 			return 0, true, errors.New("telemetry request failed")
 		}
-		_, copyErr := io.Copy(io.Discard, io.LimitReader(response.Body, telemetryResponseLimit))
+		responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, telemetryResponseLimit+1))
 		closeErr := response.Body.Close()
-		if copyErr != nil || closeErr != nil {
+		if readErr != nil || closeErr != nil || len(responseBody) > telemetryResponseLimit {
 			return 0, true, errors.New("telemetry response failed")
 		}
 		if response.StatusCode >= 200 && response.StatusCode < 300 {
+			if err := proto.Unmarshal(responseBody, responseMessage); err != nil {
+				return 0, false, errors.New("telemetry response failed")
+			}
+			if rejectedCount() > 0 {
+				return 0, false, errTelemetryExportRejected
+			}
 			return 0, false, nil
 		}
 		retry := response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusBadGateway || response.StatusCode == http.StatusServiceUnavailable || response.StatusCode == http.StatusGatewayTimeout
-		return parseRetryAfter(response.Header.Get("Retry-After"), time.Now()), retry, fmt.Errorf("telemetry response status %d", response.StatusCode)
+		return parseRetryAfter(response.Header.Get("Retry-After"), t.now()), retry, fmt.Errorf("telemetry response status %d", response.StatusCode)
 	})
 }
 
@@ -212,31 +245,52 @@ func newGRPCOTLPTransport(config normalizedOTLPConnection) (otlpTransport, telem
 }
 
 func (t *grpcOTLPTransport) uploadLogs(ctx context.Context, request *collectorlogspb.ExportLogsServiceRequest) error {
-	return t.upload(ctx, func(attemptCtx context.Context) error {
-		_, err := t.logs.Export(metadata.NewOutgoingContext(attemptCtx, t.headers), request)
-		return err
+	return t.upload(ctx, func(attemptCtx context.Context) (int64, error) {
+		response, err := t.logs.Export(metadata.NewOutgoingContext(attemptCtx, t.headers), request)
+		if err != nil {
+			return 0, err
+		}
+		if response == nil {
+			return 0, errors.New("telemetry response failed")
+		}
+		return response.GetPartialSuccess().GetRejectedLogRecords(), nil
 	})
 }
 
 func (t *grpcOTLPTransport) uploadMetrics(ctx context.Context, request *collectormetricspb.ExportMetricsServiceRequest) error {
-	return t.upload(ctx, func(attemptCtx context.Context) error {
-		_, err := t.metrics.Export(metadata.NewOutgoingContext(attemptCtx, t.headers), request)
-		return err
+	return t.upload(ctx, func(attemptCtx context.Context) (int64, error) {
+		response, err := t.metrics.Export(metadata.NewOutgoingContext(attemptCtx, t.headers), request)
+		if err != nil {
+			return 0, err
+		}
+		if response == nil {
+			return 0, errors.New("telemetry response failed")
+		}
+		return response.GetPartialSuccess().GetRejectedDataPoints(), nil
 	})
 }
 
 func (t *grpcOTLPTransport) uploadTraces(ctx context.Context, spans []*tracepb.ResourceSpans) error {
 	request := &collectortracepb.ExportTraceServiceRequest{ResourceSpans: spans}
-	return t.upload(ctx, func(attemptCtx context.Context) error {
-		_, err := t.traces.Export(metadata.NewOutgoingContext(attemptCtx, t.headers), request)
-		return err
+	return t.upload(ctx, func(attemptCtx context.Context) (int64, error) {
+		response, err := t.traces.Export(metadata.NewOutgoingContext(attemptCtx, t.headers), request)
+		if err != nil {
+			return 0, err
+		}
+		if response == nil {
+			return 0, errors.New("telemetry response failed")
+		}
+		return response.GetPartialSuccess().GetRejectedSpans(), nil
 	})
 }
 
-func (t *grpcOTLPTransport) upload(ctx context.Context, export func(context.Context) error) error {
+func (t *grpcOTLPTransport) upload(ctx context.Context, export func(context.Context) (int64, error)) error {
 	return retryOTLP(ctx, t.timeout, func(attemptCtx context.Context) (time.Duration, bool, error) {
-		err := export(attemptCtx)
+		rejected, err := export(attemptCtx)
 		if err == nil {
+			if rejected > 0 {
+				return 0, false, errTelemetryExportRejected
+			}
 			return 0, false, nil
 		}
 		return grpcRetryDelay(err), retryGRPCError(err), errors.New("telemetry RPC failed")
@@ -267,26 +321,36 @@ func grpcRetryDelay(err error) time.Duration {
 	return 0
 }
 
+// retryOTLP bounds the complete retry loop separately from each export request.
 func retryOTLP(
 	ctx context.Context,
 	requestTimeout time.Duration,
 	attempt func(context.Context) (time.Duration, bool, error),
 ) error {
-	return retryOTLPWithPolicy(ctx, requestTimeout, telemetryRetryPolicy{
+	return retryOTLPWithPolicy(ctx, requestTimeout, defaultTelemetryRetryPolicy(), attempt)
+}
+
+func defaultTelemetryRetryPolicy() telemetryRetryPolicy {
+	return telemetryRetryPolicy{
 		limit:       telemetryRetryLimit,
 		initialWait: telemetryRetryInitialWait,
 		maximumWait: telemetryRetryMaxWait,
+		jitter:      telemetryFullJitter,
 		wait:        realSupervisorClock{}.Wait,
-	}, attempt)
+	}
 }
 
 type telemetryRetryPolicy struct {
 	limit       time.Duration
 	initialWait time.Duration
 	maximumWait time.Duration
+	jitter      func(time.Duration) time.Duration
 	wait        func(context.Context, time.Duration) error
 }
 
+// retryOTLPWithPolicy retries only attempts classified as transient, honors a
+// bounded server delay, and applies full-jitter capped exponential backoff
+// otherwise.
 func retryOTLPWithPolicy(
 	ctx context.Context,
 	requestTimeout time.Duration,
@@ -295,7 +359,11 @@ func retryOTLPWithPolicy(
 ) error {
 	retryCtx, cancel := context.WithTimeout(ctx, policy.limit)
 	defer cancel()
-	wait := policy.initialWait
+	backoff := policy.initialWait
+	jitter := policy.jitter
+	if jitter == nil {
+		jitter = func(delay time.Duration) time.Duration { return delay }
+	}
 	for {
 		attemptCtx, attemptCancel := context.WithTimeout(retryCtx, requestTimeout)
 		retryAfter, retry, err := attempt(attemptCtx)
@@ -303,12 +371,27 @@ func retryOTLPWithPolicy(
 		if err == nil || !retry {
 			return err
 		}
-		if retryAfter > 0 {
-			wait = retryAfter
+		wait := retryAfter
+		if wait <= 0 {
+			wait = jitter(backoff)
 		}
 		if err := policy.wait(retryCtx, wait); err != nil {
 			return errors.New("telemetry retry deadline exceeded")
 		}
-		wait = min(wait*2, policy.maximumWait)
+		backoff = min(backoff*2, policy.maximumWait)
 	}
+}
+
+func telemetryFullJitter(backoff time.Duration) time.Duration {
+	if backoff <= 0 {
+		return 0
+	}
+	return time.Duration(rand.Int64N(int64(backoff)))
+}
+
+func telemetryExportFailureCategory(err error) string {
+	if errors.Is(err, errTelemetryExportRejected) {
+		return "rejected"
+	}
+	return "unavailable"
 }

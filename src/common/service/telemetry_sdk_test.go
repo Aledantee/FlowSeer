@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -16,11 +17,14 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 	collectorlogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
@@ -46,6 +50,28 @@ func (failingOTLPTransport) uploadMetrics(context.Context, *collectormetricspb.E
 func (failingOTLPTransport) uploadTraces(context.Context, []*tracepb.ResourceSpans) error {
 	return errors.New("collector unavailable")
 }
+
+type rejectedOTLPTransport struct{}
+
+func (rejectedOTLPTransport) uploadLogs(context.Context, *collectorlogspb.ExportLogsServiceRequest) error {
+	return errTelemetryExportRejected
+}
+
+func (rejectedOTLPTransport) uploadMetrics(context.Context, *collectormetricspb.ExportMetricsServiceRequest) error {
+	return errTelemetryExportRejected
+}
+
+func (rejectedOTLPTransport) uploadTraces(context.Context, []*tracepb.ResourceSpans) error {
+	return errTelemetryExportRejected
+}
+
+type rejectedSpanExporter struct{}
+
+func (rejectedSpanExporter) ExportSpans(context.Context, []sdktrace.ReadOnlySpan) error {
+	return errTelemetryExportRejected
+}
+
+func (rejectedSpanExporter) Shutdown(context.Context) error { return nil }
 
 type blockingOTLPTransport struct {
 	started     chan struct{}
@@ -472,8 +498,8 @@ func TestManagedTelemetryShutdownAttemptsEverySignalInOrder(t *testing.T) {
 		t.Fatalf("events = %v, want %v", events, want)
 	}
 	for i := 1; i < len(deadlines); i++ {
-		if deadlines[i] != deadlines[0] {
-			t.Fatalf("shutdown deadline %d = %v, want shared %v", i, deadlines[i], deadlines[0])
+		if !deadlines[i].After(deadlines[i-1]) {
+			t.Fatalf("shutdown deadline %d = %v, want after %v", i, deadlines[i], deadlines[i-1])
 		}
 	}
 	if secondErr := owner.shutdown(context.Background()); !errors.Is(secondErr, errTrace) || !errors.Is(secondErr, errLog) {
@@ -481,6 +507,34 @@ func TestManagedTelemetryShutdownAttemptsEverySignalInOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("second shutdown repeated cleanup: %v", events)
+	}
+}
+
+func TestTelemetryShutdownGivesEveryDependencyTimeWithinTotalBound(t *testing.T) {
+	const totalTimeout = 60 * time.Millisecond
+	var attempts atomic.Int32
+	shutdowns := make([]telemetryShutdown, 3)
+	for i := range shutdowns {
+		shutdowns[i] = func(ctx context.Context) error {
+			attempts.Add(1)
+			if !isFinalTelemetryExport(ctx) {
+				t.Error("shutdown context is missing final-export marker")
+			}
+			<-ctx.Done()
+			return ctx.Err()
+		}
+	}
+
+	started := time.Now()
+	err := runTelemetryShutdowns(context.Background(), shutdowns, totalTimeout)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("runTelemetryShutdowns() error = %v, want deadline exceeded", err)
+	}
+	if got := attempts.Load(); got != int32(len(shutdowns)) {
+		t.Fatalf("shutdown attempts = %d, want %d", got, len(shutdowns))
+	}
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Fatalf("shutdown elapsed = %v, want bounded near %v", elapsed, totalTimeout)
 	}
 }
 
@@ -667,7 +721,14 @@ func TestManagedLogSanitizerPreservesLocalDetailsOnly(t *testing.T) {
 	}
 	defer func() { _ = owner.shutdown(context.Background()) }()
 	longValue := strings.Repeat("x", telemetryValueLimit+20)
+	owner.telemetry.logger.Debug("debug detail")
 	owner.telemetry.logger.Info("credential secret body", "password", "do-not-leak", "safe", longValue)
+	if _, ok := localSink.find("debug detail"); !ok {
+		t.Fatal("local logger did not retain debug record")
+	}
+	if _, ok := exportSink.find("debug detail"); ok {
+		t.Fatal("managed export retained production-disabled debug record")
+	}
 	if attrs, ok := localSink.find("credential secret body"); !ok || attrs["password"] != "do-not-leak" || attrs["safe"] != longValue {
 		t.Fatalf("local record = %v, %v; want trusted details", attrs, ok)
 	}
@@ -683,9 +744,23 @@ func TestManagedLogSanitizerPreservesLocalDetailsOnly(t *testing.T) {
 	}
 }
 
+func TestTruncateTelemetryStringPreservesUTF8(t *testing.T) {
+	value := strings.Repeat("x", telemetryValueLimit-1) + "€"
+	got := truncateTelemetryString(value)
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncateTelemetryString() = %q, want valid UTF-8", got)
+	}
+	if len(got) > telemetryValueLimit {
+		t.Fatalf("truncateTelemetryString() length = %d, want at most %d", len(got), telemetryValueLimit)
+	}
+	if got != strings.Repeat("x", telemetryValueLimit-1) {
+		t.Fatalf("truncateTelemetryString() = %q, want complete-rune prefix", got)
+	}
+}
+
 func TestTelemetryDiagnosticsAreRateLimitedAndSanitized(t *testing.T) {
 	var output bytes.Buffer
-	diagnostics := newTelemetryDiagnostics(&output)
+	diagnostics := newServiceTelemetryDiagnostics(&output, testIdentity())
 	now := time.Unix(1_000, 0)
 	diagnostics.now = func() time.Time { return now }
 	diagnostics.report("logs", "unavailable")
@@ -695,6 +770,20 @@ func TestTelemetryDiagnosticsAreRateLimitedAndSanitized(t *testing.T) {
 	}
 	if strings.Contains(output.String(), "do-not-leak") {
 		t.Fatal("diagnostic echoed untrusted detail")
+	}
+	for _, field := range []string{
+		`"service.name":"edge"`,
+		`"flowseer.telemetry.signal":"logs"`,
+		`"flowseer.telemetry.category":"unavailable"`,
+		`"flowseer.telemetry.count":1`,
+		`"flowseer.telemetry.suppressed":0`,
+	} {
+		if !strings.Contains(output.String(), field) {
+			t.Errorf("diagnostic = %q, want field %s", output.String(), field)
+		}
+	}
+	if got := strings.Count(output.String(), `"time":`); got != 1 {
+		t.Errorf("diagnostic time fields = %d, want only the handler timestamp", got)
 	}
 }
 
@@ -769,6 +858,15 @@ func TestManagedTelemetryBlockedExportersDoNotBlockProducers(t *testing.T) {
 		waitForTelemetryTestSignal(t, producerDone, "trace producer to finish while export is blocked")
 
 		transport.unblock()
+		flusher, ok := provider.(interface{ ForceFlush(context.Context) error })
+		if !ok {
+			t.Fatal("managed trace provider has no ForceFlush method")
+		}
+		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer flushCancel()
+		if err := flusher.ForceFlush(flushCtx); err != nil {
+			t.Fatalf("trace force flush: %v", err)
+		}
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := shutdown(shutdownCtx); err != nil {
@@ -836,6 +934,35 @@ func TestManagedTelemetryBlockedExportersDoNotBlockProducers(t *testing.T) {
 	})
 }
 
+func TestManagedTraceShutdownCancelsBlockedExport(t *testing.T) {
+	transport := newBlockingOTLPTransport()
+	defer transport.unblock()
+	provider, shutdown, err := newManagedTraceProvider(
+		resource.Empty(),
+		transport,
+		newTelemetryDiagnostics(io.Discard),
+		normalizedOTLPConnection{},
+	)
+	if err != nil {
+		t.Fatalf("newManagedTraceProvider() error: %v", err)
+	}
+	tracer := provider.Tracer("telemetry-shutdown-test")
+	for range telemetryBatchSize {
+		_, span := tracer.Start(context.Background(), "blocked shutdown probe")
+		span.End()
+	}
+	waitForTelemetryTestSignal(t, transport.started, "blocked trace export")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := shutdown(shutdownCtx); err == nil || !strings.Contains(err.Error(), "traces telemetry export failed") {
+		t.Fatalf("trace shutdown error = %v, want final export failure", err)
+	}
+	if err := shutdownCtx.Err(); err != nil {
+		t.Fatalf("trace shutdown consumed its deadline: %v", err)
+	}
+}
+
 func TestManagedTelemetryStalledRequestsUsePerAttemptTimeout(t *testing.T) {
 	const requestTimeout = 5 * time.Millisecond
 	transport := &stalledRetryOTLPTransport{requestTimeout: requestTimeout}
@@ -879,7 +1006,49 @@ func TestRoutineExporterFailureIsNonfatalButFinalFailureIsReturned(t *testing.T)
 	if err := exporter.Export(finalCtx, nil); err == nil {
 		t.Fatal("final Export() error = nil, want final drain error")
 	}
-	if !strings.Contains(output.String(), `"signal":"logs"`) {
+	if !strings.Contains(output.String(), `"flowseer.telemetry.signal":"logs"`) {
 		t.Fatalf("routine failure diagnostic = %q, want fixed log signal", output.String())
+	}
+}
+
+func TestRoutineExporterRejectionUsesRejectedCategory(t *testing.T) {
+	tests := []struct {
+		name   string
+		export func(*telemetryDiagnostics) error
+	}{
+		{
+			name: "logs",
+			export: func(diagnostics *telemetryDiagnostics) error {
+				return (&managedLogExporter{transport: rejectedOTLPTransport{}, diagnostics: diagnostics}).Export(context.Background(), nil)
+			},
+		},
+		{
+			name: "metrics",
+			export: func(diagnostics *telemetryDiagnostics) error {
+				return (&managedMetricExporter{transport: rejectedOTLPTransport{}, diagnostics: diagnostics}).Export(context.Background(), &metricdata.ResourceMetrics{})
+			},
+		},
+		{
+			name: "traces",
+			export: func(diagnostics *telemetryDiagnostics) error {
+				exporter := &managedTraceExporter{
+					SpanExporter: rejectedSpanExporter{},
+					diagnostics:  diagnostics,
+					active:       make(map[uint64]context.CancelFunc),
+				}
+				return exporter.ExportSpans(context.Background(), nil)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var output bytes.Buffer
+			if err := tt.export(newTelemetryDiagnostics(&output)); err != nil {
+				t.Fatalf("routine export error = %v, want nonfatal rejection", err)
+			}
+			if !strings.Contains(output.String(), `"flowseer.telemetry.category":"rejected"`) {
+				t.Fatalf("routine rejection diagnostic = %q, want rejected category", output.String())
+			}
+		})
 	}
 }

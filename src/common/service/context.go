@@ -170,11 +170,11 @@ func Propagator(ctx context.Context) propagation.TextMapPropagator {
 	return propagator
 }
 
-// Attributes returns the identity attributes of the current module attempt:
-// service name, namespace, version, and module path. Module-owned instruments
-// and spans should carry it so their dimensions match the ones the runtime
-// records for the same module. The set is bounded by the static module tree.
-// It returns an empty set when ctx does not belong to a service attempt.
+// Attributes returns the compatibility attribute set for the current module
+// attempt. It contains service name, namespace, version, and the legacy module
+// path key. New instrumentation should keep service identity on the Resource
+// and use flowseer.module.path for the bounded occurrence dimension. It is
+// empty when ctx does not belong to a service attempt.
 //
 // The accessors of [attribute.Set] take a pointer receiver, so assign the
 // result before reading it: attrs := service.Attributes(ctx) followed by

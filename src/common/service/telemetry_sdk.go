@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -35,6 +36,7 @@ const (
 	telemetryAttributeLimit  = 32
 	telemetryValueLimit      = 256
 	telemetryMetricCardLimit = 2000
+	telemetryLogLevel        = slog.LevelInfo
 )
 
 type telemetryShutdown func(context.Context) error
@@ -63,6 +65,9 @@ var defaultTelemetryFactories = telemetryFactorySet{
 	newTraces:    newManagedTraceProvider,
 }
 
+// telemetryOwner exclusively owns managed pipelines and borrowed-shutdown
+// callbacks for one run. Module views may borrow capabilities but cannot close
+// them.
 type telemetryOwner struct {
 	telemetry      telemetry
 	localLogger    *slog.Logger
@@ -76,18 +81,38 @@ type telemetryOwner struct {
 	err            error
 }
 
+// shutdown closes each owned dependency once under one cancellation-independent
+// deadline and returns the same combined result to every caller.
 func (o *telemetryOwner) shutdown(ctx context.Context) error {
 	o.once.Do(func() {
-		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), telemetryShutdownTimeout)
-		defer cancel()
-		shutdownCtx = context.WithValue(shutdownCtx, telemetryFinalExportKey{}, true)
-		for _, shutdown := range o.shutdowns {
-			o.err = errors.Join(o.err, shutdown(shutdownCtx))
-		}
+		o.err = runTelemetryShutdowns(ctx, o.shutdowns, telemetryShutdownTimeout)
 	})
 	return o.err
 }
 
+// runTelemetryShutdowns ignores prior cancellation and divides one deadline
+// among the remaining callbacks so an early shutdown cannot consume every
+// later callback's opportunity to run.
+func runTelemetryShutdowns(ctx context.Context, shutdowns []telemetryShutdown, timeout time.Duration) error {
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
+	defer cancel()
+	shutdownCtx = context.WithValue(shutdownCtx, telemetryFinalExportKey{}, true)
+
+	var err error
+	for i, shutdown := range shutdowns {
+		deadline, _ := shutdownCtx.Deadline()
+		remaining := time.Until(deadline)
+		entryTimeout := remaining / time.Duration(len(shutdowns)-i)
+		entryCtx, entryCancel := context.WithTimeout(shutdownCtx, max(entryTimeout, time.Nanosecond))
+		err = errors.Join(err, shutdown(entryCtx))
+		entryCancel()
+	}
+	return err
+}
+
+// newRunTelemetry constructs one run's local and exported signal graph. Any
+// partial construction failure unwinds already-created dependencies in reverse
+// ownership order.
 func newRunTelemetry(
 	ctx context.Context,
 	identity Identity,
@@ -129,7 +154,7 @@ func newRunTelemetry(
 		owner.shutdowns = prependShutdown(owner.shutdowns, closeTransport)
 	}
 
-	diagnostics := newTelemetryDiagnostics(os.Stderr)
+	diagnostics := newServiceTelemetryDiagnostics(os.Stderr, identity)
 	var closeLogs, closeMetrics, closeTraces telemetryShutdown
 	switch config.logs.backing {
 	case signalManaged:
@@ -139,7 +164,8 @@ func newRunTelemetry(
 		}
 		closeLogs = shutdown
 		owner.shutdowns = prependShutdown(owner.shutdowns, closeLogs)
-		logHandler = multiSlogHandler{handlers: []slog.Handler{localHandler, sanitizeSlogHandler{Handler: handler}}}
+		exportHandler := minimumSlogLevelHandler{Handler: handler, minimum: telemetryLogLevel}
+		logHandler = multiSlogHandler{handlers: []slog.Handler{localHandler, sanitizeSlogHandler{Handler: exportHandler}}}
 	case signalInjected:
 		logHandler = multiSlogHandler{handlers: []slog.Handler{localHandler, config.logs.handler}}
 	}
@@ -171,6 +197,8 @@ func newRunTelemetry(
 	return owner, nil
 }
 
+// prependShutdown keeps dependents ahead of their dependencies in shutdown
+// order.
 func prependShutdown(existing []telemetryShutdown, shutdowns ...telemetryShutdown) []telemetryShutdown {
 	result := make([]telemetryShutdown, 0, len(shutdowns)+len(existing))
 	for _, shutdown := range shutdowns {
@@ -262,7 +290,11 @@ func newManagedTraceProvider(
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize trace exporter: %w", err)
 	}
-	guarded := &managedTraceExporter{SpanExporter: exporter, diagnostics: diagnostics}
+	guarded := &managedTraceExporter{
+		SpanExporter: exporter,
+		diagnostics:  diagnostics,
+		active:       make(map[uint64]context.CancelFunc),
+	}
 	processor := sdktrace.NewBatchSpanProcessor(
 		guarded,
 		sdktrace.WithMaxQueueSize(telemetryQueueSize),
@@ -285,14 +317,35 @@ func newManagedTraceProvider(
 		sdktrace.WithSpanProcessor(processor),
 	)
 	shutdown := func(ctx context.Context) error {
-		// BatchSpanProcessor.Shutdown reports a queued export failure through the
-		// global SDK handler instead of returning it. ForceFlush is required here
-		// to keep the final export error on the service-owned shutdown path.
-		return errors.Join(provider.ForceFlush(ctx), provider.Shutdown(ctx))
+		guarded.beginShutdown(ctx)
+		return errors.Join(provider.Shutdown(ctx), guarded.finalError())
 	}
 	return provider, shutdown, nil
 }
 
+type minimumSlogLevelHandler struct {
+	slog.Handler
+	minimum slog.Level
+}
+
+func (h minimumSlogLevelHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return level >= h.minimum && h.Handler.Enabled(ctx, level)
+}
+
+func (h minimumSlogLevelHandler) Handle(ctx context.Context, record slog.Record) error {
+	return h.Handler.Handle(ctx, record)
+}
+
+func (h minimumSlogLevelHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return minimumSlogLevelHandler{Handler: h.Handler.WithAttrs(attrs), minimum: h.minimum}
+}
+
+func (h minimumSlogLevelHandler) WithGroup(name string) slog.Handler {
+	return minimumSlogLevelHandler{Handler: h.Handler.WithGroup(name), minimum: h.minimum}
+}
+
+// multiSlogHandler fans one record out to independently enabled handlers and
+// clones it so one branch cannot mutate another branch's view.
 type multiSlogHandler struct {
 	handlers []slog.Handler
 }
@@ -332,6 +385,8 @@ func (h multiSlogHandler) WithGroup(name string) slog.Handler {
 	return multiSlogHandler{handlers: handlers}
 }
 
+// telemetryDiagnostics rate-limits export warnings independently per signal.
+// mu guards state and calls to now.
 type telemetryDiagnostics struct {
 	logger *slog.Logger
 	now    func() time.Time
@@ -345,6 +400,8 @@ type telemetryDiagnosticState struct {
 	suppressed uint64
 }
 
+// managedLogExporter reports and absorbs routine export failures so telemetry
+// cannot fail service work. A final drain returns a stable shutdown error.
 type managedLogExporter struct {
 	transport   otlpTransport
 	diagnostics *telemetryDiagnostics
@@ -356,7 +413,7 @@ func (e *managedLogExporter) Export(ctx context.Context, records []log.Record) e
 		if isFinalTelemetryExport(ctx) {
 			return errors.New("logs telemetry export failed")
 		}
-		e.diagnostics.report("logs", "unavailable")
+		e.diagnostics.report("logs", telemetryExportFailureCategory(err))
 	}
 	return nil
 }
@@ -369,6 +426,9 @@ func (e *managedLogExporter) Shutdown(context.Context) error {
 	return nil
 }
 
+// managedMetricExporter reports and absorbs routine export failures so
+// telemetry cannot fail service work. A final drain returns a stable shutdown
+// error.
 type managedMetricExporter struct {
 	transport   otlpTransport
 	diagnostics *telemetryDiagnostics
@@ -391,7 +451,7 @@ func (e *managedMetricExporter) Export(ctx context.Context, data *metricdata.Res
 		if isFinalTelemetryExport(ctx) {
 			return errors.New("metrics telemetry export failed")
 		}
-		e.diagnostics.report("metrics", "unavailable")
+		e.diagnostics.report("metrics", telemetryExportFailureCategory(err))
 	}
 	return nil
 }
@@ -421,17 +481,77 @@ func (c *managedTraceClient) UploadTraces(ctx context.Context, spans []*tracepb.
 	return c.transport.uploadTraces(ctx, spans)
 }
 
+// managedTraceExporter reports and absorbs routine export failures so
+// telemetry cannot fail service work. Shutdown cancels active exports and
+// routes any final flush failure through the owner's shutdown result.
 type managedTraceExporter struct {
 	sdktrace.SpanExporter
 	diagnostics *telemetryDiagnostics
+	mu          sync.Mutex
+	shutdownCtx context.Context
+	active      map[uint64]context.CancelFunc
+	nextExport  uint64
+	finalFailed bool
 }
 
 func (e *managedTraceExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
-	if err := e.SpanExporter.ExportSpans(ctx, spans); err != nil {
-		if isFinalTelemetryExport(ctx) {
+	exportCtx, finish := e.startExport(ctx)
+	defer finish()
+	if err := e.SpanExporter.ExportSpans(exportCtx, spans); err != nil {
+		final, suppress := e.recordFinalFailureIfShuttingDown(ctx)
+		if final {
+			if suppress {
+				return nil
+			}
 			return errors.New("traces telemetry export failed")
 		}
-		e.diagnostics.report("traces", "unavailable")
+		e.diagnostics.report("traces", telemetryExportFailureCategory(err))
+	}
+	return nil
+}
+
+func (e *managedTraceExporter) startExport(ctx context.Context) (context.Context, context.CancelFunc) {
+	e.mu.Lock()
+	if e.shutdownCtx != nil {
+		ctx = e.shutdownCtx
+	}
+	exportCtx, cancel := context.WithCancel(ctx)
+	id := e.nextExport
+	e.nextExport++
+	e.active[id] = cancel
+	e.mu.Unlock()
+	return exportCtx, func() {
+		cancel()
+		e.mu.Lock()
+		delete(e.active, id)
+		e.mu.Unlock()
+	}
+}
+
+func (e *managedTraceExporter) beginShutdown(ctx context.Context) {
+	e.mu.Lock()
+	e.shutdownCtx = ctx
+	for _, cancel := range e.active {
+		cancel()
+	}
+	e.mu.Unlock()
+}
+
+func (e *managedTraceExporter) recordFinalFailureIfShuttingDown(ctx context.Context) (final, suppress bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.shutdownCtx != nil {
+		e.finalFailed = true
+		return true, true
+	}
+	return isFinalTelemetryExport(ctx), false
+}
+
+func (e *managedTraceExporter) finalError() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.finalFailed {
+		return errors.New("traces telemetry export failed")
 	}
 	return nil
 }
@@ -453,6 +573,14 @@ func newTelemetryDiagnostics(writer io.Writer) *telemetryDiagnostics {
 	}
 }
 
+func newServiceTelemetryDiagnostics(writer io.Writer, identity Identity) *telemetryDiagnostics {
+	diagnostics := newTelemetryDiagnostics(writer)
+	diagnostics.logger = slog.New(diagnostics.logger.Handler().WithAttrs(serviceIdentityLogAttrs(identity)))
+	return diagnostics
+}
+
+// report emits at most one warning per signal per minute and includes the
+// number suppressed since the preceding warning.
 func (d *telemetryDiagnostics) report(signal, category string) {
 	switch signal {
 	case "logs", "metrics", "traces":
@@ -479,14 +607,15 @@ func (d *telemetryDiagnostics) report(signal, category string) {
 	d.state[signal] = state
 	d.mu.Unlock()
 	d.logger.Warn("telemetry export failed",
-		"signal", signal,
-		"category", category,
-		"count", state.count,
-		"suppressed", suppressed,
-		"time", now.UTC().Format(time.RFC3339),
+		"flowseer.telemetry.signal", signal,
+		"flowseer.telemetry.category", category,
+		"flowseer.telemetry.count", state.count,
+		"flowseer.telemetry.suppressed", suppressed,
 	)
 }
 
+// sanitizeSlogHandler bounds and redacts the managed-export branch without
+// changing trusted local records.
 type sanitizeSlogHandler struct {
 	slog.Handler
 }
@@ -559,5 +688,9 @@ func truncateTelemetryString(value string) string {
 	if len(value) <= telemetryValueLimit {
 		return value
 	}
-	return value[:telemetryValueLimit]
+	limit := telemetryValueLimit
+	for limit > 0 && !utf8.RuneStart(value[limit]) {
+		limit--
+	}
+	return value[:limit]
 }

@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 )
@@ -218,11 +219,20 @@ func TestMessageTelemetrySchema(t *testing.T) {
 		t.Fatalf("telemetryFromComponents() error: %v", err)
 	}
 	view := telemetry.view(resolvedTelemetryPolicy{logs: true, metrics: true, traces: true})
-	view.recordMessage(context.Background(), "edge/publisher", "google.protobuf.Empty", MessageKindCommand, messagePublished)
-
-	publisher := &MessageBus{telemetry: view}
-	_, publication := publisher.startPublicationTrace(context.Background(), MessageKindCommand)
-	publication.End()
+	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{{
+		Name: "worker",
+		Leaf: &Leaf{Setup: testSetup(), Subscriptions: []Subscription{{
+			Kind: MessageKindCommand, Message: &emptypb.Empty{},
+		}}},
+	}}})
+	if err != nil {
+		t.Fatalf("validateDeclaration() error: %v", err)
+	}
+	revision := newAdmissionRevision(declaration.registry).withPhase(admissionActive)
+	runtime := newMessageRuntime(busResources{}, declaration.registry, func() *admissionRevision { return revision }, telemetry)
+	if err := runtime.capabilityWithTelemetry("edge/publisher", view).Command(context.Background(), "edge/worker", &emptypb.Empty{}); err == nil {
+		t.Fatal("Command() unexpectedly succeeded for an inactive target")
+	}
 	envelope := servicev1.Message_builder{
 		Kind:       MessageKindCommand.Enum(),
 		TargetPath: proto.String("edge/worker"),
@@ -262,7 +272,21 @@ func TestMessageTelemetrySchema(t *testing.T) {
 	spans := recorder.Ended()
 	publicationSpan := findRecordedSpan(spans, "flowseer.message.publish")
 	if publicationSpan == nil {
-		t.Error("message publication span was not recorded with the stable operation name")
+		t.Fatal("message publication span was not recorded with the stable operation name")
+	}
+	assertAttributeKeys(t, "message publication span", publicationSpan.Attributes(), []string{
+		"flowseer.message.kind",
+		"flowseer.message.type",
+		"flowseer.module.path",
+	})
+	for key, want := range map[string]string{
+		messageKindKey: "command",
+		messageTypeKey: "google.protobuf.Empty",
+		modulePathKey:  "edge/publisher",
+	} {
+		if got, ok := spanAttribute(publicationSpan, key); !ok || got != want {
+			t.Errorf("message publication span %s = %q, want %q", key, got, want)
+		}
 	}
 	deliverySpan := findRecordedSpan(spans, "flowseer.message.deliver")
 	if deliverySpan == nil {

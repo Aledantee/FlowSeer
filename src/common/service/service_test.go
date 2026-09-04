@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -69,8 +71,23 @@ func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
 			return errors.New("attempt logger is unavailable")
 		}
 		attributes := Attributes(ctx)
-		if got, ok := attributes.Value(modulePathKey); !ok || got.AsString() != wantPath {
-			return errors.New("attempt attributes do not identify the module")
+		wantAttributes := map[attribute.Key]string{
+			"service.name":      "context_runtime",
+			"service.namespace": "flowseer",
+			"service.version":   "1.0.0",
+			legacyModulePathKey: wantPath,
+		}
+		if attributes.Len() != len(wantAttributes) {
+			return fmt.Errorf("attempt attribute count = %d, want %d", attributes.Len(), len(wantAttributes))
+		}
+		for key, want := range wantAttributes {
+			got, ok := attributes.Value(key)
+			if !ok {
+				return fmt.Errorf("attempt attribute %s is missing", key)
+			}
+			if got.AsString() != want {
+				return fmt.Errorf("attempt attribute %s = %q, want %q", key, got.AsString(), want)
+			}
 		}
 		if Bus(ctx) == disabledMessageBus {
 			return errors.New("attempt bus is unavailable")

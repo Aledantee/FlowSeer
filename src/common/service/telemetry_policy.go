@@ -126,7 +126,7 @@ func (v telemetryView) values(identity Identity, envPrefix, modulePath string) c
 		tracerProvider: v.tracerProvider,
 		meterProvider:  v.meterProvider,
 		propagator:     v.propagator,
-		attributes:     moduleAttributes(modulePath),
+		attributes:     compatibilityAttributes(identity, modulePath),
 	}
 }
 
