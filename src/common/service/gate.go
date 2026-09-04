@@ -61,20 +61,13 @@ func snapshotGates(
 	enabledLeaves := 0
 	for i, module := range modules {
 		snapshot[i] = module
-		if !parentEnabled {
-			snapshot[i].enabled = false
-			children, leaves, err := snapshotGates(ctx, module.children, lookup, false)
+		enabled := false
+		if parentEnabled {
+			var err error
+			enabled, err = evaluateGate(ctx, module, lookup)
 			if err != nil {
 				return nil, 0, err
 			}
-			snapshot[i].children = children
-			enabledLeaves += leaves
-			continue
-		}
-
-		enabled, err := evaluateGate(ctx, module, lookup)
-		if err != nil {
-			return nil, 0, err
 		}
 		snapshot[i].enabled = enabled
 		children, leaves, err := snapshotGates(ctx, module.children, lookup, enabled)
@@ -116,7 +109,7 @@ func evaluateGate(ctx context.Context, module plannedModule, lookup envLookup) (
 	case gateFixed:
 		return module.gate.enabled, nil
 	case gateProbe:
-		enabled, err := module.gate.probe(ctx)
+		enabled, err := callGateProbe(ctx, module.path, module.gate.probe)
 		if err != nil {
 			return false, errs.From(err).
 				Code(errCodeGate).
@@ -132,4 +125,13 @@ func evaluateGate(ctx context.Context, module plannedModule, lookup envLookup) (
 			Attr("module_path", module.path).
 			Msgf("module %s has an invalid gate", module.path)
 	}
+}
+
+func callGateProbe(ctx context.Context, path string, probe GateProbe) (enabled bool, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = newPanicDiagnostic(path, "gate", recovered)
+		}
+	}()
+	return probe(ctx)
 }

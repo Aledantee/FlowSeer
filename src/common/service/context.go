@@ -22,6 +22,18 @@ type contextValues struct {
 	tracer     trace.Tracer
 	meter      metric.Meter
 	propagator propagation.TextMapPropagator
+	bus        *MessageBus
+}
+
+// Bus returns the attempt-scoped durable message bus. Outside a bus-enabled
+// attempt it returns a safe handle whose operations report that messaging is
+// unavailable.
+func Bus(ctx context.Context) *MessageBus {
+	bus := valuesFromContext(ctx).bus
+	if bus == nil {
+		return disabledMessageBus
+	}
+	return bus
 }
 
 var (

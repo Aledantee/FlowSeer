@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
@@ -31,6 +32,19 @@ type Attempt struct {
 // must return a fresh Attempt whose lifetime is bounded by ctx.
 type SetupFunc func(ctx context.Context) (Attempt, error)
 
+// BusConfig opts a service into its durable local message bus. The zero value
+// uses the documented private store location and logical capacity defaults.
+// StoreDir, when set, must be absolute.
+type BusConfig struct {
+	StoreDir         string
+	MaxStoreBytes    int64
+	MailboxMaxBytes  int64
+	MetadataMaxBytes int64
+	ReserveBytes     int64
+	StartupTimeout   time.Duration
+	HealthInterval   time.Duration
+}
+
 // Config declares one service run. Callers must choose either Setup for an
 // implicit singleton or Modules for explicit top-level modules. Config is
 // copied during preflight and may be reused after Run returns.
@@ -54,6 +68,9 @@ type Config struct {
 	// TelemetryShutdown flushes and closes telemetry owned by the caller. It
 	// runs after all service-owned work has stopped.
 	TelemetryShutdown func(context.Context) error
+	// Bus opts into a private file-backed message bus. Nil disables it without
+	// resolving a store path or starting broker work.
+	Bus *BusConfig
 
 	// Setup declares an implicit singleton named for the service.
 	Setup SetupFunc
@@ -71,6 +88,7 @@ type runtimeConfig struct {
 	modules           []plannedModule
 	registry          *staticRegistry
 	admission         *admissionRevision
+	bus               *normalizedBusConfig
 	rootSupervisor    normalizedSupervisor
 	telemetryShutdown func(context.Context) error
 }

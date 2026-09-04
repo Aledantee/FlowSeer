@@ -143,6 +143,33 @@ func TestPreflightRejectsAllDisabledBeforeSetup(t *testing.T) {
 	}
 }
 
+func TestGateProbePanicBecomesCodedError(t *testing.T) {
+	_, err := preflight(context.Background(), Config{
+		Identity: testIdentity(),
+		Modules: []Module{{
+			Name: "worker",
+			Gate: ProbeGate(func(context.Context) (bool, error) {
+				panic(typedPanic("gate failed"))
+			}),
+			Leaf: &Leaf{Setup: testSetup()},
+		}},
+	}, mapLookup(nil))
+	if err == nil {
+		t.Fatal("preflight returned no error after gate panic")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != errCodeGate {
+		t.Fatalf("gate panic error code = %q, %t; want %q", code, ok, errCodeGate)
+	}
+	var diagnostic *panicDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("gate panic error = %v, want panic diagnostic", err)
+	}
+	value, typed := diagnostic.value.(typedPanic)
+	if !typed || value != "gate failed" || len(diagnostic.stack) == 0 {
+		t.Fatalf("gate panic diagnostic = %#v, want typed value and stack", diagnostic)
+	}
+}
+
 func mapLookup(values map[string]string) envLookup {
 	return func(key string) (string, bool) {
 		value, ok := values[key]

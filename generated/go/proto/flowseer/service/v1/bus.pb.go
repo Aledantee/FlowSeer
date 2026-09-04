@@ -492,19 +492,27 @@ func (b0 ModuleContract_builder) Build() *ModuleContract {
 
 // The complete persisted routing and broker contract for one service binary.
 type RuntimeManifest struct {
-	state                       protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ServiceNamespace *string                `protobuf:"bytes,1,opt,name=service_namespace,json=serviceNamespace"`
-	xxx_hidden_ServiceName      *string                `protobuf:"bytes,2,opt,name=service_name,json=serviceName"`
-	xxx_hidden_Domain           *string                `protobuf:"bytes,3,opt,name=domain"`
-	xxx_hidden_EnvelopeType     *string                `protobuf:"bytes,4,opt,name=envelope_type,json=envelopeType"`
-	xxx_hidden_EnvelopeVersion  uint32                 `protobuf:"varint,5,opt,name=envelope_version,json=envelopeVersion"`
-	xxx_hidden_SubjectVersion   uint32                 `protobuf:"varint,6,opt,name=subject_version,json=subjectVersion"`
-	xxx_hidden_NatsVersion      *string                `protobuf:"bytes,7,opt,name=nats_version,json=natsVersion"`
-	xxx_hidden_Modules          *[]*ModuleContract     `protobuf:"bytes,8,rep,name=modules"`
-	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
-	XXX_presence                [1]uint32
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
+	state                             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ServiceNamespace       *string                `protobuf:"bytes,1,opt,name=service_namespace,json=serviceNamespace"`
+	xxx_hidden_ServiceName            *string                `protobuf:"bytes,2,opt,name=service_name,json=serviceName"`
+	xxx_hidden_Domain                 *string                `protobuf:"bytes,3,opt,name=domain"`
+	xxx_hidden_EnvelopeType           *string                `protobuf:"bytes,4,opt,name=envelope_type,json=envelopeType"`
+	xxx_hidden_EnvelopeVersion        uint32                 `protobuf:"varint,5,opt,name=envelope_version,json=envelopeVersion"`
+	xxx_hidden_SubjectVersion         uint32                 `protobuf:"varint,6,opt,name=subject_version,json=subjectVersion"`
+	xxx_hidden_NatsVersion            *string                `protobuf:"bytes,7,opt,name=nats_version,json=natsVersion"`
+	xxx_hidden_Modules                *[]*ModuleContract     `protobuf:"bytes,8,rep,name=modules"`
+	xxx_hidden_ModulePaths            []string               `protobuf:"bytes,9,rep,name=module_paths,json=modulePaths"`
+	xxx_hidden_MailboxStream          *string                `protobuf:"bytes,10,opt,name=mailbox_stream,json=mailboxStream"`
+	xxx_hidden_MetadataStream         *string                `protobuf:"bytes,11,opt,name=metadata_stream,json=metadataStream"`
+	xxx_hidden_MaxStoreBytes          uint64                 `protobuf:"varint,12,opt,name=max_store_bytes,json=maxStoreBytes"`
+	xxx_hidden_MailboxMaxBytes        uint64                 `protobuf:"varint,13,opt,name=mailbox_max_bytes,json=mailboxMaxBytes"`
+	xxx_hidden_MetadataMaxBytes       uint64                 `protobuf:"varint,14,opt,name=metadata_max_bytes,json=metadataMaxBytes"`
+	xxx_hidden_ReserveBytes           uint64                 `protobuf:"varint,15,opt,name=reserve_bytes,json=reserveBytes"`
+	xxx_hidden_DuplicateWindowSeconds uint64                 `protobuf:"varint,16,opt,name=duplicate_window_seconds,json=duplicateWindowSeconds"`
+	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
+	XXX_presence                      [1]uint32
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
 }
 
 func (x *RuntimeManifest) Reset() {
@@ -605,43 +613,144 @@ func (x *RuntimeManifest) GetModules() []*ModuleContract {
 	return nil
 }
 
+func (x *RuntimeManifest) GetModulePaths() []string {
+	if x != nil {
+		return x.xxx_hidden_ModulePaths
+	}
+	return nil
+}
+
+func (x *RuntimeManifest) GetMailboxStream() string {
+	if x != nil {
+		if x.xxx_hidden_MailboxStream != nil {
+			return *x.xxx_hidden_MailboxStream
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *RuntimeManifest) GetMetadataStream() string {
+	if x != nil {
+		if x.xxx_hidden_MetadataStream != nil {
+			return *x.xxx_hidden_MetadataStream
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *RuntimeManifest) GetMaxStoreBytes() uint64 {
+	if x != nil {
+		return x.xxx_hidden_MaxStoreBytes
+	}
+	return 0
+}
+
+func (x *RuntimeManifest) GetMailboxMaxBytes() uint64 {
+	if x != nil {
+		return x.xxx_hidden_MailboxMaxBytes
+	}
+	return 0
+}
+
+func (x *RuntimeManifest) GetMetadataMaxBytes() uint64 {
+	if x != nil {
+		return x.xxx_hidden_MetadataMaxBytes
+	}
+	return 0
+}
+
+func (x *RuntimeManifest) GetReserveBytes() uint64 {
+	if x != nil {
+		return x.xxx_hidden_ReserveBytes
+	}
+	return 0
+}
+
+func (x *RuntimeManifest) GetDuplicateWindowSeconds() uint64 {
+	if x != nil {
+		return x.xxx_hidden_DuplicateWindowSeconds
+	}
+	return 0
+}
+
 func (x *RuntimeManifest) SetServiceNamespace(v string) {
 	x.xxx_hidden_ServiceNamespace = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 16)
 }
 
 func (x *RuntimeManifest) SetServiceName(v string) {
 	x.xxx_hidden_ServiceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 16)
 }
 
 func (x *RuntimeManifest) SetDomain(v string) {
 	x.xxx_hidden_Domain = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 16)
 }
 
 func (x *RuntimeManifest) SetEnvelopeType(v string) {
 	x.xxx_hidden_EnvelopeType = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 16)
 }
 
 func (x *RuntimeManifest) SetEnvelopeVersion(v uint32) {
 	x.xxx_hidden_EnvelopeVersion = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 16)
 }
 
 func (x *RuntimeManifest) SetSubjectVersion(v uint32) {
 	x.xxx_hidden_SubjectVersion = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 16)
 }
 
 func (x *RuntimeManifest) SetNatsVersion(v string) {
 	x.xxx_hidden_NatsVersion = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 16)
 }
 
 func (x *RuntimeManifest) SetModules(v []*ModuleContract) {
 	x.xxx_hidden_Modules = &v
+}
+
+func (x *RuntimeManifest) SetModulePaths(v []string) {
+	x.xxx_hidden_ModulePaths = v
+}
+
+func (x *RuntimeManifest) SetMailboxStream(v string) {
+	x.xxx_hidden_MailboxStream = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 16)
+}
+
+func (x *RuntimeManifest) SetMetadataStream(v string) {
+	x.xxx_hidden_MetadataStream = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 16)
+}
+
+func (x *RuntimeManifest) SetMaxStoreBytes(v uint64) {
+	x.xxx_hidden_MaxStoreBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 16)
+}
+
+func (x *RuntimeManifest) SetMailboxMaxBytes(v uint64) {
+	x.xxx_hidden_MailboxMaxBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 16)
+}
+
+func (x *RuntimeManifest) SetMetadataMaxBytes(v uint64) {
+	x.xxx_hidden_MetadataMaxBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 13, 16)
+}
+
+func (x *RuntimeManifest) SetReserveBytes(v uint64) {
+	x.xxx_hidden_ReserveBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 14, 16)
+}
+
+func (x *RuntimeManifest) SetDuplicateWindowSeconds(v uint64) {
+	x.xxx_hidden_DuplicateWindowSeconds = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 15, 16)
 }
 
 func (x *RuntimeManifest) HasServiceNamespace() bool {
@@ -693,6 +802,55 @@ func (x *RuntimeManifest) HasNatsVersion() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
 }
 
+func (x *RuntimeManifest) HasMailboxStream() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
+}
+
+func (x *RuntimeManifest) HasMetadataStream() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 10)
+}
+
+func (x *RuntimeManifest) HasMaxStoreBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 11)
+}
+
+func (x *RuntimeManifest) HasMailboxMaxBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 12)
+}
+
+func (x *RuntimeManifest) HasMetadataMaxBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 13)
+}
+
+func (x *RuntimeManifest) HasReserveBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 14)
+}
+
+func (x *RuntimeManifest) HasDuplicateWindowSeconds() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 15)
+}
+
 func (x *RuntimeManifest) ClearServiceNamespace() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ServiceNamespace = nil
@@ -728,6 +886,41 @@ func (x *RuntimeManifest) ClearNatsVersion() {
 	x.xxx_hidden_NatsVersion = nil
 }
 
+func (x *RuntimeManifest) ClearMailboxStream() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
+	x.xxx_hidden_MailboxStream = nil
+}
+
+func (x *RuntimeManifest) ClearMetadataStream() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 10)
+	x.xxx_hidden_MetadataStream = nil
+}
+
+func (x *RuntimeManifest) ClearMaxStoreBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 11)
+	x.xxx_hidden_MaxStoreBytes = 0
+}
+
+func (x *RuntimeManifest) ClearMailboxMaxBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 12)
+	x.xxx_hidden_MailboxMaxBytes = 0
+}
+
+func (x *RuntimeManifest) ClearMetadataMaxBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 13)
+	x.xxx_hidden_MetadataMaxBytes = 0
+}
+
+func (x *RuntimeManifest) ClearReserveBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 14)
+	x.xxx_hidden_ReserveBytes = 0
+}
+
+func (x *RuntimeManifest) ClearDuplicateWindowSeconds() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 15)
+	x.xxx_hidden_DuplicateWindowSeconds = 0
+}
+
 type RuntimeManifest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -747,6 +940,22 @@ type RuntimeManifest_builder struct {
 	NatsVersion *string
 	// Static leaf contracts, including currently disabled leaves.
 	Modules []*ModuleContract
+	// Every canonical module path, including branch supervisors.
+	ModulePaths []string
+	// Stable mailbox stream identity.
+	MailboxStream *string
+	// Stable runtime-metadata stream identity.
+	MetadataStream *string
+	// Logical JetStream store ceiling in bytes.
+	MaxStoreBytes *uint64
+	// Logical mailbox stream ceiling in bytes.
+	MailboxMaxBytes *uint64
+	// Logical metadata stream ceiling in bytes.
+	MetadataMaxBytes *uint64
+	// Capacity reserved outside the two owned streams.
+	ReserveBytes *uint64
+	// Deduplication window shared by persisted publish identities.
+	DuplicateWindowSeconds *uint64
 }
 
 func (b0 RuntimeManifest_builder) Build() *RuntimeManifest {
@@ -754,34 +963,63 @@ func (b0 RuntimeManifest_builder) Build() *RuntimeManifest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.ServiceNamespace != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 16)
 		x.xxx_hidden_ServiceNamespace = b.ServiceNamespace
 	}
 	if b.ServiceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 16)
 		x.xxx_hidden_ServiceName = b.ServiceName
 	}
 	if b.Domain != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 16)
 		x.xxx_hidden_Domain = b.Domain
 	}
 	if b.EnvelopeType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 16)
 		x.xxx_hidden_EnvelopeType = b.EnvelopeType
 	}
 	if b.EnvelopeVersion != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 16)
 		x.xxx_hidden_EnvelopeVersion = *b.EnvelopeVersion
 	}
 	if b.SubjectVersion != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 16)
 		x.xxx_hidden_SubjectVersion = *b.SubjectVersion
 	}
 	if b.NatsVersion != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 16)
 		x.xxx_hidden_NatsVersion = b.NatsVersion
 	}
 	x.xxx_hidden_Modules = &b.Modules
+	x.xxx_hidden_ModulePaths = b.ModulePaths
+	if b.MailboxStream != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 16)
+		x.xxx_hidden_MailboxStream = b.MailboxStream
+	}
+	if b.MetadataStream != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 16)
+		x.xxx_hidden_MetadataStream = b.MetadataStream
+	}
+	if b.MaxStoreBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 16)
+		x.xxx_hidden_MaxStoreBytes = *b.MaxStoreBytes
+	}
+	if b.MailboxMaxBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 16)
+		x.xxx_hidden_MailboxMaxBytes = *b.MailboxMaxBytes
+	}
+	if b.MetadataMaxBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 13, 16)
+		x.xxx_hidden_MetadataMaxBytes = *b.MetadataMaxBytes
+	}
+	if b.ReserveBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 14, 16)
+		x.xxx_hidden_ReserveBytes = *b.ReserveBytes
+	}
+	if b.DuplicateWindowSeconds != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 15, 16)
+		x.xxx_hidden_DuplicateWindowSeconds = *b.DuplicateWindowSeconds
+	}
 	return m0
 }
 
@@ -1392,7 +1630,7 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"path_token\x18\x02 \x01(\tB\x1d\xbaH\x1a\xc8\x01\x01r\x15\x18\xd4\x022\x10^[A-Za-z0-9_-]+$R\tpathToken\x12<\n" +
 	"\fdurable_name\x18\x03 \x01(\tB\x19\xbaH\x16\xc8\x01\x01r\x11\x18@2\r^[a-z0-9_-]+$R\vdurableName\x12O\n" +
 	"\rsubscriptions\x18\x04 \x03(\v2).flowseer.service.v1.SubscriptionContractR\rsubscriptions\x12?\n" +
-	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\xa3\x04\n" +
+	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\x8b\b\n" +
 	"\x0fRuntimeManifest\x12:\n" +
 	"\x11service_namespace\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\xff\x01R\x10serviceNamespace\x120\n" +
@@ -1405,7 +1643,16 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\x0fsubject_version\x18\x06 \x01(\rB\n" +
 	"\xbaH\a\xc8\x01\x01*\x02(\x01R\x0esubjectVersion\x12R\n" +
 	"\fnats_version\x18\a \x01(\tB/\xbaH,\xc8\x01\x01r'\x18@2#^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+].+)?$R\vnatsVersion\x12G\n" +
-	"\amodules\x18\b \x03(\v2#.flowseer.service.v1.ModuleContractB\b\xbaH\x05\x92\x01\x02\b\x01R\amodules\"\xa6\x02\n" +
+	"\amodules\x18\b \x03(\v2#.flowseer.service.v1.ModuleContractB\b\xbaH\x05\x92\x01\x02\b\x01R\amodules\x12x\n" +
+	"\fmodule_paths\x18\t \x03(\tBU\xbaHR\x92\x01O\b\x01\x18\x01\"IrG\x18\xff\x012B^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:_[a-z0-9]+)*)*$R\vmodulePaths\x12-\n" +
+	"\x0emailbox_stream\x18\n" +
+	" \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rmailboxStream\x12/\n" +
+	"\x0fmetadata_stream\x18\v \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x0emetadataStream\x12/\n" +
+	"\x0fmax_store_bytes\x18\f \x01(\x04B\a\xbaH\x042\x02(\x01R\rmaxStoreBytes\x123\n" +
+	"\x11mailbox_max_bytes\x18\r \x01(\x04B\a\xbaH\x042\x02(\x01R\x0fmailboxMaxBytes\x125\n" +
+	"\x12metadata_max_bytes\x18\x0e \x01(\x04B\a\xbaH\x042\x02(\x01R\x10metadataMaxBytes\x12,\n" +
+	"\rreserve_bytes\x18\x0f \x01(\x04B\a\xbaH\x042\x02(\x01R\freserveBytes\x12A\n" +
+	"\x18duplicate_window_seconds\x18\x10 \x01(\x04B\a\xbaH\x042\x02(\x01R\x16duplicateWindowSeconds\"\xa6\x02\n" +
 	"\x14ReconciliationRecord\x12@\n" +
 	"\bprevious\x18\x01 \x01(\v2$.flowseer.service.v1.RuntimeManifestR\bprevious\x12F\n" +
 	"\adesired\x18\x02 \x01(\v2$.flowseer.service.v1.RuntimeManifestB\x06\xbaH\x03\xc8\x01\x01R\adesired\x125\n" +

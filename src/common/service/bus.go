@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -40,19 +41,9 @@ var (
 	errCodeBusUnhealthy   = errs.NewCode("service/bus-unhealthy")
 )
 
-// busConfig is the runtime's pre-public configuration seam. Config owns the
-// opt-in decision; this type owns only settings for a bus that will start.
-type busConfig struct {
-	storeDir         string
-	maxStoreBytes    int64
-	mailboxMaxBytes  int64
-	metadataMaxBytes int64
-	reserveBytes     int64
-	startupTimeout   time.Duration
-	healthInterval   time.Duration
-}
-
 type normalizedBusConfig struct {
+	serviceNamespace string
+	serviceName      string
 	storeDir         string
 	domain           string
 	maxStoreBytes    int64
@@ -75,27 +66,26 @@ type busResources struct {
 type busReconciler func(context.Context, busResources) error
 
 type localBus struct {
-	config         normalizedBusConfig
+	healthInterval time.Duration
 	server         *server.Server
 	connection     *nats.Conn
 	resources      busResources
-	lock           storeLock
+	lock           *fileStoreLock
 	logger         *busServerLogger
 	failure        chan error
 	monitorDone    chan struct{}
 	serverDone     chan struct{}
-	monitorStarted bool
 	monitorCancel  context.CancelFunc
 	closeOnce      sync.Once
 	closeErr       error
 }
 
-func normalizeBusConfig(identity Identity, config busConfig) (normalizedBusConfig, error) {
+func normalizeBusConfig(identity Identity, config BusConfig) (normalizedBusConfig, error) {
 	if err := validateIdentity(identity); err != nil {
 		return normalizedBusConfig{}, errs.From(err).Code(errCodeBusConfig).Msg("normalize local bus identity")
 	}
 
-	storeDir := config.storeDir
+	storeDir := config.StoreDir
 	if storeDir == "" {
 		root, err := privateStateDir()
 		if err != nil {
@@ -107,10 +97,10 @@ func normalizeBusConfig(identity Identity, config busConfig) (normalizedBusConfi
 	}
 	storeDir = filepath.Clean(storeDir)
 
-	maxStore := defaultedPositive(config.maxStoreBytes, defaultBusMaxStoreBytes)
-	mailboxMax := defaultedPositive(config.mailboxMaxBytes, defaultMailboxMaxBytes)
-	metadataMax := defaultedPositive(config.metadataMaxBytes, defaultMetadataMaxBytes)
-	reserve := defaultedPositive(config.reserveBytes, defaultBusReserveBytes)
+	maxStore := defaultedPositive(config.MaxStoreBytes, defaultBusMaxStoreBytes)
+	mailboxMax := defaultedPositive(config.MailboxMaxBytes, defaultMailboxMaxBytes)
+	metadataMax := defaultedPositive(config.MetadataMaxBytes, defaultMetadataMaxBytes)
+	reserve := defaultedPositive(config.ReserveBytes, defaultBusReserveBytes)
 	if maxStore <= 0 || mailboxMax <= 0 || metadataMax <= 0 || reserve <= 0 {
 		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus capacity values must be positive")
 	}
@@ -118,11 +108,11 @@ func normalizeBusConfig(identity Identity, config busConfig) (normalizedBusConfi
 		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus stream limits and reserve exceed the server limit")
 	}
 
-	startupTimeout := config.startupTimeout
+	startupTimeout := config.StartupTimeout
 	if startupTimeout == 0 {
 		startupTimeout = 10 * time.Second
 	}
-	healthInterval := config.healthInterval
+	healthInterval := config.HealthInterval
 	if healthInterval == 0 {
 		healthInterval = 30 * time.Second
 	}
@@ -131,6 +121,8 @@ func normalizeBusConfig(identity Identity, config busConfig) (normalizedBusConfi
 	}
 
 	return normalizedBusConfig{
+		serviceNamespace: identity.Namespace,
+		serviceName:      identity.Name,
 		storeDir:         storeDir,
 		domain:           busDomain(identity),
 		maxStoreBytes:    maxStore,
@@ -168,7 +160,14 @@ func privateStateDir() (string, error) {
 			return dir, nil
 		}
 	}
-	return os.UserConfigDir()
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	if !filepath.IsAbs(dir) {
+		return "", fmt.Errorf("user config directory is not absolute")
+	}
+	return dir, nil
 }
 
 func busDomain(identity Identity) string {
@@ -189,12 +188,12 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 		return nil, err
 	}
 	bus := &localBus{
-		config:      config,
-		lock:        lock,
-		logger:      newBusServerLogger(),
-		failure:     make(chan error, 1),
-		monitorDone: make(chan struct{}),
-		serverDone:  make(chan struct{}),
+		healthInterval: config.healthInterval,
+		lock:           lock,
+		logger:         newBusServerLogger(),
+		failure:        make(chan error, 1),
+		monitorDone:    make(chan struct{}),
+		serverDone:     make(chan struct{}),
 	}
 	defer func() {
 		if err != nil {
@@ -203,6 +202,9 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 			err = errors.Join(err, bus.close(cleanupCtx, false))
 		}
 	}()
+	if err := reconcileStoreProvenance(config); err != nil {
+		return nil, err
+	}
 
 	options := &server.Options{
 		ServerName:             config.domain,
@@ -259,12 +261,18 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 		return nil, busUnhealthy(err, "read local JetStream account information")
 	}
 
-	mailbox, err := js.CreateOrUpdateStream(ctx, mailboxStreamConfig(config.mailboxMaxBytes))
+	mailbox, err := openOwnedStream(ctx, js, mailboxStreamConfig(config.mailboxMaxBytes))
 	if err != nil {
+		if code, ok := errs.CodeOf(err); ok && code == errCodeBusMigration {
+			return nil, err
+		}
 		return nil, busUnhealthy(err, "reconcile local bus mailbox stream")
 	}
-	metadata, err := js.CreateOrUpdateStream(ctx, metadataStreamConfig(config.metadataMaxBytes))
+	metadata, err := openOwnedStream(ctx, js, metadataStreamConfig(config.metadataMaxBytes))
 	if err != nil {
+		if code, ok := errs.CodeOf(err); ok && code == errCodeBusMigration {
+			return nil, err
+		}
 		return nil, busUnhealthy(err, "reconcile local bus metadata stream")
 	}
 	bus.resources = busResources{connection: bus.connection, jetStream: js, mailbox: mailbox, metadata: metadata}
@@ -281,10 +289,44 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 	}
 
 	monitorCtx, cancel := context.WithCancel(context.Background())
-	bus.monitorStarted = true
 	bus.monitorCancel = cancel
 	go bus.monitor(monitorCtx)
 	return bus, nil
+}
+
+func openOwnedStream(ctx context.Context, js jetstream.JetStream, desired jetstream.StreamConfig) (jetstream.Stream, error) {
+	stream, err := js.Stream(ctx, desired.Name)
+	if errors.Is(err, jetstream.ErrStreamNotFound) {
+		return js.CreateStream(ctx, desired)
+	}
+	if err != nil {
+		return nil, err
+	}
+	info, err := stream.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ownedStreamConfigEqual(info.Config, desired) {
+		return nil, migrationRequired().
+			Attr("stream_name", desired.Name).
+			Msg("local bus stream configuration does not match the persisted contract")
+	}
+	return stream, nil
+}
+
+func ownedStreamConfigEqual(actual, desired jetstream.StreamConfig) bool {
+	return actual.Name == desired.Name &&
+		slices.Equal(actual.Subjects, desired.Subjects) &&
+		actual.Retention == desired.Retention &&
+		actual.MaxConsumers == desired.MaxConsumers &&
+		actual.MaxMsgs == desired.MaxMsgs &&
+		actual.MaxBytes == desired.MaxBytes &&
+		actual.Discard == desired.Discard &&
+		actual.MaxMsgsPerSubject == desired.MaxMsgsPerSubject &&
+		actual.Storage == desired.Storage &&
+		actual.Replicas == desired.Replicas &&
+		actual.Duplicates == desired.Duplicates &&
+		actual.AllowAtomicPublish == desired.AllowAtomicPublish
 }
 
 func mailboxStreamConfig(maxBytes int64) jetstream.StreamConfig {
@@ -352,7 +394,7 @@ func (b *localBus) checkHealth() error {
 
 func (b *localBus) monitor(ctx context.Context) {
 	defer close(b.monitorDone)
-	ticker := time.NewTicker(b.config.healthInterval)
+	ticker := time.NewTicker(b.healthInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -378,7 +420,7 @@ func (b *localBus) monitor(ctx context.Context) {
 				b.reportFailure(err)
 				return
 			}
-			checkCtx, cancel := context.WithTimeout(ctx, b.config.healthInterval)
+			checkCtx, cancel := context.WithTimeout(ctx, b.healthInterval)
 			err := b.checkWritable(checkCtx)
 			cancel()
 			if err != nil {
@@ -415,12 +457,15 @@ func (b *localBus) close(ctx context.Context, healthy bool) error {
 				closed := b.connection.StatusChanged(nats.CLOSED)
 				if err := b.connection.Drain(); err != nil {
 					b.closeErr = errors.Join(b.closeErr, err)
-				}
-				select {
-				case <-closed:
-				case <-ctx.Done():
 					b.connection.Close()
-					b.closeErr = errors.Join(b.closeErr, ctx.Err())
+				}
+				if !b.connection.IsClosed() {
+					select {
+					case <-closed:
+					case <-ctx.Done():
+						b.connection.Close()
+						b.closeErr = errors.Join(b.closeErr, ctx.Err())
+					}
 				}
 			} else {
 				b.connection.Close()
@@ -434,7 +479,7 @@ func (b *localBus) close(ctx context.Context, healthy bool) error {
 				b.closeErr = errors.Join(b.closeErr, ctx.Err())
 			}
 		}
-		if b.monitorStarted {
+		if b.monitorCancel != nil {
 			select {
 			case <-b.monitorDone:
 			case <-ctx.Done():

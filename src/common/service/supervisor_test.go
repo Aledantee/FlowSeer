@@ -370,6 +370,63 @@ func TestRunBackoffCapHealthyResetAndCancellation(t *testing.T) {
 	}
 }
 
+func TestSlowFailingSetupDoesNotResetHealthyBudget(t *testing.T) {
+	clock := newFakeSupervisorClock()
+	var attempts atomic.Int32
+	err := runWithOptions(context.Background(), Config{
+		Identity:  testIdentity(),
+		Intensity: RestartBudget{Max: 10, Window: time.Hour},
+		Modules: []Module{{
+			Name: "worker",
+			Policy: Policy{Error: OutcomePolicy{
+				Budget:  RestartBudget{Max: 1, Window: time.Hour},
+				Backoff: Backoff{Initial: time.Nanosecond, Maximum: time.Nanosecond, ResetAfter: 10 * time.Second},
+			}},
+			Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				attempts.Add(1)
+				clock.advance(10 * time.Second)
+				return Attempt{}, errors.New("setup failed")
+			}},
+		}},
+	}, supervisorOptions{clock: clock, jitter: func(time.Duration) time.Duration { return 0 }})
+	if err == nil || attempts.Load() != 2 {
+		t.Fatalf("slow setup run = (%d attempts, %v), want outcome budget exhaustion after two failures", attempts.Load(), err)
+	}
+}
+
+func TestCancellationDuringBackoffPreservesCallerCause(t *testing.T) {
+	clock := newBlockingSupervisorClock()
+	cause := errors.New("caller stopped service")
+	peerCause := make(chan error, 1)
+	ctx, cancel := context.WithCancelCause(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- runWithOptions(ctx, Config{
+			Identity: testIdentity(),
+			Modules: []Module{
+				{Name: "failing", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+					return Attempt{Runner: func(context.Context) error { return errors.New("failure") }}, nil
+				}}},
+				{Name: "peer", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+					return Attempt{Runner: func(ctx context.Context) error {
+						<-ctx.Done()
+						peerCause <- context.Cause(ctx)
+						return ctx.Err()
+					}}, nil
+				}}},
+			},
+		}, supervisorOptions{clock: clock, jitter: func(limit time.Duration) time.Duration { return limit }})
+	}()
+	<-clock.waiting
+	cancel(cause)
+	if err := <-done; err != nil {
+		t.Fatalf("runWithOptions() cancellation error = %v", err)
+	}
+	if got := <-peerCause; !errors.Is(got, cause) {
+		t.Fatalf("unaffected sibling cancellation cause = %v, want %v", got, cause)
+	}
+}
+
 func TestRunFencesSimultaneousSiblingResults(t *testing.T) {
 	release := make(chan struct{})
 	var firstSetups atomic.Int32

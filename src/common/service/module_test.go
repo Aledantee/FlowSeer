@@ -182,8 +182,8 @@ func TestDerivedModuleIdentitiesAreCollisionSafe(t *testing.T) {
 
 func TestValidateAttemptHandlersExactStaticDeclaration(t *testing.T) {
 	subscriptions := []plannedSubscription{
-		{kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, fullName: "google.protobuf.Empty"},
-		{kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, fullName: "google.protobuf.Empty"},
+		{kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, fullName: "google.protobuf.Empty", typeOf: (&emptypb.Empty{}).ProtoReflect().Type()},
+		{kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, fullName: "google.protobuf.Empty", typeOf: (&emptypb.Empty{}).ProtoReflect().Type()},
 	}
 	handle := func(context.Context, proto.Message) error { return nil }
 	tests := []struct {

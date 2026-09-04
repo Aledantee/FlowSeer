@@ -15,6 +15,7 @@ func TestAttemptContextAccessors(t *testing.T) {
 	tracer := tracenoop.NewTracerProvider().Tracer(instrumentationScope)
 	meter := noop.NewMeterProvider().Meter(instrumentationScope)
 	propagator := propagation.TraceContext{}
+	messageBus := &MessageBus{sourcePath: "edge/ingest/syslog"}
 	values := contextValues{
 		identity:   testIdentity(),
 		modulePath: "edge/ingest/syslog",
@@ -23,6 +24,7 @@ func TestAttemptContextAccessors(t *testing.T) {
 		tracer:     tracer,
 		meter:      meter,
 		propagator: propagator,
+		bus:        messageBus,
 	}
 	ctx := context.WithoutCancel(withContextValues(context.Background(), values))
 
@@ -56,12 +58,15 @@ func TestAttemptContextAccessors(t *testing.T) {
 	if _, ok := Propagator(ctx).(propagation.TraceContext); !ok {
 		t.Errorf("Propagator() type = %T, want propagation.TraceContext", Propagator(ctx))
 	}
+	if Bus(ctx) != messageBus {
+		t.Error("Bus() did not preserve the attempt message bus")
+	}
 }
 
 func TestContextAccessorsHaveSafeDefaults(t *testing.T) {
 	ctx := context.Background()
 
-	if Logger(ctx) == nil || Tracer(ctx) == nil || Meter(ctx) == nil || Propagator(ctx) == nil {
+	if Logger(ctx) == nil || Tracer(ctx) == nil || Meter(ctx) == nil || Propagator(ctx) == nil || Bus(ctx) == nil {
 		t.Fatal("context accessors returned a nil default")
 	}
 	if Name(ctx) != "" || Namespace(ctx) != "" || Version(ctx) != "" || ModulePath(ctx) != "" || EnvPrefix(ctx) != "" {

@@ -69,10 +69,13 @@ func envLookupFromOS(key string) (string, bool) {
 }
 
 type supervisorRuntime struct {
-	identity  Identity
-	envPrefix string
-	telemetry telemetry
-	options   supervisorOptions
+	identity              Identity
+	envPrefix             string
+	telemetry             telemetry
+	options               supervisorOptions
+	admission             *admissionState
+	messages              *messageRuntime
+	infrastructureFailure func(error)
 }
 
 type childResult struct {
@@ -81,6 +84,7 @@ type childResult struct {
 	outcome    lifecycleOutcome
 	err        error
 	fatal      bool
+	healthyFor time.Duration
 }
 
 type childSlot struct {
@@ -89,15 +93,12 @@ type childSlot struct {
 	generation uint64
 	cancel     context.CancelCauseFunc
 	done       chan struct{}
-	startedAt  time.Time
-
-	budgets  [3]rollingBudget
-	backoffs [3]int
+	budgets    [3]rollingBudget
+	backoffs   [3]int
 }
 
 type supervisorState struct {
 	path      string
-	root      bool
 	policy    normalizedSupervisor
 	runtime   supervisorRuntime
 	results   chan childResult
@@ -107,7 +108,6 @@ type supervisorState struct {
 
 func newSupervisorState(
 	path string,
-	root bool,
 	policy normalizedSupervisor,
 	modules []plannedModule,
 	runtime supervisorRuntime,
@@ -122,7 +122,6 @@ func newSupervisorState(
 	}
 	return &supervisorState{
 		path:      path,
-		root:      root,
 		policy:    policy,
 		runtime:   runtime,
 		results:   make(chan childResult, len(modules)*2+1),
@@ -139,7 +138,7 @@ func (s *supervisorState) run(ctx context.Context) error {
 	}
 	for {
 		if ctx.Err() != nil {
-			s.stopAll(errSupervisorRestart)
+			s.stopAll(context.Cause(ctx))
 			return nil
 		}
 		if !s.hasActiveChild() {
@@ -189,7 +188,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 	}
 
 	now := s.runtime.options.clock.Now()
-	if now.Sub(slot.startedAt) >= policy.backoff.ResetAfter {
+	if result.healthyFor >= policy.backoff.ResetAfter {
 		slot.budgets[outcomeIndex].reset()
 		slot.backoffs[outcomeIndex] = 0
 	}
@@ -197,6 +196,9 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 	case Stop:
 		slot.active = false
 		s.wait(result.index)
+		if s.runtime.admission != nil {
+			s.runtime.admission.setModuleState(slot.module, moduleStopped)
+		}
 		return s.record(slot.module, lifecycleActionStop, result.outcome)
 	case Escalate:
 		return causalOutcomeError(slot.module.path, "escalated", result.err)
@@ -212,6 +214,11 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 	}
 
 	affected := s.affected(result.index)
+	if s.runtime.admission != nil {
+		for _, index := range affected {
+			s.runtime.admission.setModuleState(s.slots[index].module, moduleRestarting)
+		}
+	}
 	s.quiesce(affected)
 	if err := s.record(slot.module, lifecycleActionRestart, result.outcome); err != nil {
 		return err
@@ -224,6 +231,11 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 	}
 	if delay > policy.backoff.Maximum {
 		delay = policy.backoff.Maximum
+	}
+	if s.runtime.admission != nil {
+		for _, index := range affected {
+			s.runtime.admission.setModuleState(s.slots[index].module, moduleBackoff)
+		}
 	}
 	if err := s.runtime.options.clock.Wait(ctx, delay); err != nil {
 		if ctx.Err() != nil {
@@ -281,18 +293,16 @@ func (s *supervisorState) wait(index int) {
 }
 
 func (s *supervisorState) stopAll(cause error) {
-	indices := make([]int, 0, len(s.slots))
-	for i := range s.slots {
+	for i := len(s.slots) - 1; i >= 0; i-- {
 		if s.slots[i].active {
-			indices = append(indices, i)
+			s.slots[i].cancel(cause)
 		}
 	}
-	for i := len(indices) - 1; i >= 0; i-- {
-		s.slots[indices[i]].cancel(cause)
-	}
-	for i := len(indices) - 1; i >= 0; i-- {
-		s.wait(indices[i])
-		s.slots[indices[i]].active = false
+	for i := len(s.slots) - 1; i >= 0; i-- {
+		if s.slots[i].active {
+			s.wait(i)
+			s.slots[i].active = false
+		}
 	}
 }
 
@@ -311,6 +321,9 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 		}
 		module.children = children
 		slot.module = module
+		if s.runtime.admission != nil {
+			s.runtime.admission.setModuleSnapshot(children)
+		}
 	}
 
 	slot.generation++
@@ -318,7 +331,9 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 	childCtx, cancel := context.WithCancelCause(parent)
 	slot.cancel = cancel
 	slot.done = make(chan struct{})
-	slot.startedAt = s.runtime.options.clock.Now()
+	if s.runtime.admission != nil {
+		s.runtime.admission.setModuleState(module, moduleRunning)
+	}
 	s.transition("setup", module.path)
 	go func(done chan struct{}) {
 		defer close(done)
@@ -335,7 +350,6 @@ func (s *supervisorState) publishImmediate(index int, outcome lifecycleOutcome, 
 	slot.cancel = func(error) {}
 	slot.done = make(chan struct{})
 	close(slot.done)
-	slot.startedAt = s.runtime.options.clock.Now()
 	s.results <- childResult{index: index, generation: slot.generation, outcome: outcome, err: err}
 }
 
@@ -382,10 +396,12 @@ func runChild(
 	}()
 
 	if module.leaf != nil {
-		result.outcome, result.err = runLeafAttempt(ctx, module, runtime)
+		result.outcome, result.healthyFor, result.err = runLeafAttempt(ctx, module, runtime)
 		return result
 	}
-	err := newSupervisorState(module.path, false, module.supervisor, module.children, runtime).run(ctx)
+	startedAt := runtime.options.clock.Now()
+	err := newSupervisorState(module.path, module.supervisor, module.children, runtime).run(ctx)
+	result.healthyFor = runtime.options.clock.Now().Sub(startedAt)
 	if ctx.Err() != nil {
 		result.outcome = lifecycleOutcomeCanceled
 		return result
@@ -404,7 +420,7 @@ type attemptCoordinatorKey struct{}
 type attemptCoordinator struct {
 	ctx      context.Context
 	cancel   context.CancelCauseFunc
-	module   plannedModule
+	path     string
 	terminal chan attemptTermination
 
 	mu        sync.Mutex
@@ -417,12 +433,12 @@ type attemptTermination struct {
 	err     error
 }
 
-func newAttemptCoordinator(parent context.Context, module plannedModule) *attemptCoordinator {
+func newAttemptCoordinator(parent context.Context, path string) *attemptCoordinator {
 	ctx, cancel := context.WithCancelCause(parent)
 	return &attemptCoordinator{
 		ctx:       ctx,
 		cancel:    cancel,
-		module:    module,
+		path:      path,
 		terminal:  make(chan attemptTermination, 1),
 		accepting: true,
 	}
@@ -453,7 +469,7 @@ func (c *attemptCoordinator) launch(task Runner) error {
 
 	go func() {
 		defer c.owned.Done()
-		outcome, err := callOwned(c.ctx, c.module.path, "task", task)
+		outcome, err := callOwned(c.ctx, c.path, "task", task)
 		if outcome == lifecycleOutcomeNormal || outcome == lifecycleOutcomeCanceled {
 			return
 		}
@@ -478,9 +494,12 @@ func (c *attemptCoordinator) stop(cause error) {
 	c.owned.Wait()
 }
 
-func runLeafAttempt(ctx context.Context, module plannedModule, runtime supervisorRuntime) (lifecycleOutcome, error) {
-	coordinator := newAttemptCoordinator(ctx, module)
+func runLeafAttempt(ctx context.Context, module plannedModule, runtime supervisorRuntime) (lifecycleOutcome, time.Duration, error) {
+	coordinator := newAttemptCoordinator(ctx, module.path)
 	values := runtime.telemetry.values(runtime.identity, runtime.envPrefix, module.path)
+	if runtime.messages != nil {
+		values.bus = runtime.messages.capability(module.path, coordinator.ctx)
+	}
 	attemptCtx := withContextValues(coordinator.ctx, values)
 	attemptCtx = context.WithValue(attemptCtx, attemptCoordinatorKey{}, coordinator)
 
@@ -488,18 +507,30 @@ func runLeafAttempt(ctx context.Context, module plannedModule, runtime superviso
 	if setupErr != nil {
 		coordinator.stop(setupErr)
 		if ctx.Err() != nil {
-			return lifecycleOutcomeCanceled, nil
+			return lifecycleOutcomeCanceled, 0, nil
 		}
-		return setupOutcome, setupErr
+		return setupOutcome, 0, setupErr
 	}
 	if attempt.Runner == nil {
 		err := fmt.Errorf("module %s setup returned a nil runner", module.path)
 		coordinator.stop(err)
-		return lifecycleOutcomeError, err
+		return lifecycleOutcomeError, 0, err
 	}
 	if err := validateAttemptHandlers(module.path, module.leaf.subscriptions, attempt.Handlers); err != nil {
 		coordinator.stop(err)
-		return lifecycleOutcomeError, err
+		return lifecycleOutcomeError, 0, err
+	}
+	if runtime.messages != nil {
+		coordinator.owned.Add(1)
+		go func() {
+			defer coordinator.owned.Done()
+			if err := runtime.messages.runDelivery(coordinator.ctx, module, attempt.Handlers); err != nil {
+				if runtime.infrastructureFailure != nil {
+					runtime.infrastructureFailure(err)
+				}
+				coordinator.cancel(err)
+			}
+		}()
 	}
 
 	coordinator.mu.Lock()
@@ -507,11 +538,12 @@ func runLeafAttempt(ctx context.Context, module plannedModule, runtime superviso
 		coordinator.mu.Unlock()
 		coordinator.stop(context.Cause(coordinator.ctx))
 		if ctx.Err() != nil {
-			return lifecycleOutcomeCanceled, nil
+			return lifecycleOutcomeCanceled, 0, nil
 		}
 		terminal := <-coordinator.terminal
-		return terminal.outcome, terminal.err
+		return terminal.outcome, 0, terminal.err
 	}
+	runnerStartedAt := runtime.options.clock.Now()
 	coordinator.owned.Add(1)
 	coordinator.mu.Unlock()
 	go func() {
@@ -530,7 +562,7 @@ func runLeafAttempt(ctx context.Context, module plannedModule, runtime superviso
 		}
 	}
 	coordinator.stop(terminal.err)
-	return terminal.outcome, terminal.err
+	return terminal.outcome, runtime.options.clock.Now().Sub(runnerStartedAt), terminal.err
 }
 
 func callSetup(ctx context.Context, module plannedModule) (attempt Attempt, outcome lifecycleOutcome, err error) {

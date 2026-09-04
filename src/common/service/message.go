@@ -2,9 +2,26 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"reflect"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
@@ -16,13 +33,484 @@ const (
 	maxDeliveryConcurrency    = 64
 	maxMessageNameLength      = 256
 	maxSubscriptionAliasCount = 256
+	maxAtomicEventTargets     = 1000
+
+	messageKindCommand = servicev1.MessageKind_MESSAGE_KIND_COMMAND
+	messageKindEvent   = servicev1.MessageKind_MESSAGE_KIND_EVENT
+	messageKindReply   = servicev1.MessageKind_MESSAGE_KIND_REPLY
+
+	atomicBatchIDHeader       = "Nats-Batch-Id"
+	atomicBatchSequenceHeader = "Nats-Batch-Sequence"
+	atomicBatchCommitHeader   = "Nats-Batch-Commit"
+	atomicDuplicateErrorCode  = jetstream.ErrorCode(10201)
 )
 
 var (
 	errCodeSubscription = errs.NewCode("service/subscription")
 	errCodeMessageType  = errs.NewCode("service/message-type")
 	errCodeAdmission    = errs.NewCode("service/admission")
+	errCodeBusDisabled  = errs.NewCode("service/bus-disabled")
+	errCodePublication  = errs.NewCode("service/publication")
+	traceparentPattern  = regexp.MustCompile(`^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}(?:-.+)?$`)
 )
+
+// MessageBus is an attempt-scoped capability for durable service-local
+// messaging. Its implementation and broker connection are intentionally
+// private.
+type MessageBus struct {
+	runtime     *messageRuntime
+	sourcePath  string
+	attemptDone <-chan struct{}
+}
+
+var disabledMessageBus = &MessageBus{}
+
+type messageRuntime struct {
+	resources busResources
+	registry  *staticRegistry
+	admission func() *admissionRevision
+	telemetry telemetry
+	atomicMu  sync.Mutex
+}
+
+func newMessageRuntime(resources busResources, registry *staticRegistry, admission func() *admissionRevision, telemetry telemetry) *messageRuntime {
+	return &messageRuntime{resources: resources, registry: registry, admission: admission, telemetry: telemetry}
+}
+
+func (r *messageRuntime) capability(sourcePath string, attempt ...context.Context) *MessageBus {
+	if r == nil {
+		return disabledMessageBus
+	}
+	var done <-chan struct{}
+	if len(attempt) > 0 && attempt[0] != nil {
+		done = attempt[0].Done()
+	}
+	return &MessageBus{runtime: r, sourcePath: sourcePath, attemptDone: done}
+}
+
+// Command durably publishes payload to one statically registered target.
+func (b *MessageBus) Command(ctx context.Context, target string, payload proto.Message) error {
+	return b.publishAddressed(ctx, messageKindCommand, target, payload)
+}
+
+// Publish durably publishes one atomic event snapshot to every currently
+// admitted subscriber.
+func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err error) {
+	if err = b.available(ctx); err != nil {
+		return err
+	}
+	ctx, span := startPublicationTrace(ctx, messageKindEvent)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "event publication failed")
+		}
+		span.End()
+	}()
+	fullName, payloadBytes, err := marshalPayload(payload)
+	if err != nil {
+		return err
+	}
+	revision := b.runtime.admissionRevision()
+	targets, err := revision.admitEvent(fullName)
+	if err != nil {
+		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), messageKindEvent, messageRejected)
+		return err
+	}
+	if len(targets) == 0 {
+		return nil
+	}
+	if len(targets) > maxAtomicEventTargets {
+		return publicationError(messageKindEvent, fullName, "event snapshot exceeds the broker atomic batch bound").
+			Attr("target_count", len(targets)).Msg("publish event snapshot")
+	}
+	logicalID, err := newUUID()
+	if err != nil {
+		return publicationError(messageKindEvent, fullName, "generate message identifier").Cause(err).Msg("publish event")
+	}
+	envelopes := make([]*servicev1.Message, len(targets))
+	for i, target := range targets {
+		envelopes[i] = b.envelope(ctx, messageKindEvent, logicalID, target, fullName, payloadBytes)
+	}
+	if err := b.runtime.publishAtomic(ctx, envelopes); err != nil {
+		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), messageKindEvent, messageRejected)
+		return err
+	}
+	b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), messageKindEvent, messagePublished)
+	return nil
+}
+
+// Reply durably replies to the source of the message being handled by ctx.
+// It reports an error when ctx is not a delivery context.
+func (b *MessageBus) Reply(ctx context.Context, payload proto.Message) error {
+	delivery, ok := deliveryFromContext(ctx)
+	if !ok {
+		return errs.New().Code(errCodePublication).Msg("reply requires a message delivery context")
+	}
+	return b.publishAddressed(ctx, messageKindReply, delivery.sourcePath, payload)
+}
+
+func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.MessageKind, target string, payload proto.Message) (err error) {
+	if err = b.available(ctx); err != nil {
+		return err
+	}
+	ctx, span := startPublicationTrace(ctx, kind)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "message publication failed")
+		}
+		span.End()
+	}()
+	fullName, payloadBytes, err := marshalPayload(payload)
+	if err != nil {
+		return err
+	}
+	revision := b.runtime.admissionRevision()
+	if err := revision.admitTarget(target, kind, fullName); err != nil {
+		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messageRejected)
+		return err
+	}
+	logicalID, err := newUUID()
+	if err != nil {
+		return publicationError(kind, fullName, "generate message identifier").Cause(err).Msg("publish message")
+	}
+	envelope := b.envelope(ctx, kind, logicalID, target, fullName, payloadBytes)
+	if err := b.runtime.publishOne(ctx, envelope); err != nil {
+		b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messageRejected)
+		return err
+	}
+	b.runtime.telemetry.recordMessage(ctx, b.sourcePath, string(fullName), kind, messagePublished)
+	return nil
+}
+
+func startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (context.Context, trace.Span) {
+	options := []trace.SpanStartOption{trace.WithSpanKind(trace.SpanKindProducer)}
+	if kind == messageKindEvent {
+		if link := trace.LinkFromContext(ctx); link.SpanContext.IsValid() {
+			options = append(options, trace.WithLinks(link))
+		}
+		ctx = trace.ContextWithSpanContext(ctx, trace.SpanContext{})
+	}
+	return Tracer(ctx).Start(ctx, instrumentationScope+".publish", options...)
+}
+
+func (b *MessageBus) available(ctx context.Context) error {
+	if ctx == nil {
+		return errs.New().Code(errCodeBusDisabled).Msg("message bus is unavailable")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b == nil || b.runtime == nil || b.sourcePath == "" {
+		return errs.New().Code(errCodeBusDisabled).Msg("message bus is unavailable")
+	}
+	if b.attemptDone != nil {
+		select {
+		case <-b.attemptDone:
+			return context.Canceled
+		default:
+		}
+	}
+	return nil
+}
+
+func (r *messageRuntime) admissionRevision() *admissionRevision {
+	if r.admission != nil {
+		return r.admission()
+	}
+	return &admissionRevision{phase: admissionActive, registry: r.registry, states: map[string]moduleState{}}
+}
+
+func marshalPayload(payload proto.Message) (protoreflect.FullName, []byte, error) {
+	if isNilMessage(payload) {
+		return "", nil, errs.New().Code(errCodePublication).Msg("publish a nil protobuf message")
+	}
+	fullName := payload.ProtoReflect().Descriptor().FullName()
+	if !fullName.IsValid() || len(fullName) > maxMessageNameLength {
+		return "", nil, publicationError(servicev1.MessageKind_MESSAGE_KIND_UNSPECIFIED, fullName, "protobuf full name is invalid").Msg("publish message")
+	}
+	data, err := (proto.MarshalOptions{Deterministic: true}).Marshal(payload)
+	if err != nil {
+		return "", nil, publicationError(servicev1.MessageKind_MESSAGE_KIND_UNSPECIFIED, fullName, "marshal protobuf payload").Cause(err).Msg("publish message")
+	}
+	return fullName, data, nil
+}
+
+func (b *MessageBus) envelope(ctx context.Context, kind servicev1.MessageKind, id, target string, fullName protoreflect.FullName, payload []byte) *servicev1.Message {
+	correlation := id
+	causation := ""
+	if delivery, ok := deliveryFromContext(ctx); ok {
+		if delivery.correlationID != "" {
+			correlation = delivery.correlationID
+		}
+		causation = delivery.messageID
+	}
+	carrier := caseInsensitiveHeaderCarrier(nats.Header{})
+	Propagator(ctx).Inject(ctx, carrier)
+	message := &servicev1.Message{}
+	message.SetKind(kind)
+	message.SetMessageId(id)
+	message.SetCorrelationId(correlation)
+	if causation != "" {
+		message.SetCausationId(causation)
+	}
+	message.SetSourcePath(b.sourcePath)
+	message.SetTargetPath(target)
+	message.SetTypeName(string(fullName))
+	message.SetPayload(payload)
+	if value := carrier.Get("traceparent"); value != "" {
+		message.SetTraceparent(value)
+	}
+	if value := carrier.Get("tracestate"); value != "" {
+		message.SetTracestate(value)
+	}
+	return message
+}
+
+func (r *messageRuntime) publishOne(ctx context.Context, envelope *servicev1.Message) error {
+	if err := validateOutboundEnvelope(envelope); err != nil {
+		return err
+	}
+	subject, err := mailboxSubject(envelope.GetTargetPath(), envelope.GetKind(), envelope.GetTypeName())
+	if err != nil {
+		return err
+	}
+	data, err := (proto.MarshalOptions{Deterministic: true}).Marshal(envelope)
+	if err != nil {
+		return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "marshal persisted envelope").Cause(err).Msg("persist message")
+	}
+	message := nats.NewMsg(subject)
+	message.Data = data
+	message.Header.Set(jetstream.MsgIDHeader, recordID(envelope.GetMessageId(), envelope.GetTargetPath()))
+	message.Header.Set(jetstream.ExpectedStreamHeader, mailboxStreamName)
+	if int64(message.Size()) > r.resources.connection.MaxPayload() {
+		return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "persisted message exceeds the broker payload bound").Msg("persist message")
+	}
+	_, err = r.resources.jetStream.PublishMsg(ctx, message)
+	if err != nil {
+		if isCapacityError(err) {
+			return busCapacity(err)
+		}
+		return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "persist message").Cause(err).Msg("persist message")
+	}
+	return nil
+}
+
+type atomicPubAck struct {
+	Error     *jetstream.APIError `json:"error,omitempty"`
+	Stream    string              `json:"stream"`
+	Sequence  uint64              `json:"seq"`
+	BatchID   string              `json:"batch"`
+	BatchSize uint64              `json:"count"`
+}
+
+func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*servicev1.Message) error {
+	r.atomicMu.Lock()
+	defer r.atomicMu.Unlock()
+	batchID, err := newUUID()
+	if err != nil {
+		return err
+	}
+	for i, envelope := range envelopes {
+		if err := validateOutboundEnvelope(envelope); err != nil {
+			return err
+		}
+		subject, subjectErr := mailboxSubject(envelope.GetTargetPath(), envelope.GetKind(), envelope.GetTypeName())
+		if subjectErr != nil {
+			return subjectErr
+		}
+		data, marshalErr := (proto.MarshalOptions{Deterministic: true}).Marshal(envelope)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		message := nats.NewMsg(subject)
+		message.Data = data
+		message.Header.Set(atomicBatchIDHeader, batchID)
+		message.Header.Set(atomicBatchSequenceHeader, strconv.Itoa(i+1))
+		message.Header.Set(jetstream.MsgIDHeader, recordID(envelope.GetMessageId(), envelope.GetTargetPath()))
+		if i+1 == len(envelopes) {
+			message.Header.Set(atomicBatchCommitHeader, "1")
+		}
+		if int64(message.Size()) > r.resources.connection.MaxPayload() {
+			return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "persisted event record exceeds the broker payload bound").Msg("publish event snapshot")
+		}
+		if i+1 < len(envelopes) {
+			if err := r.resources.connection.PublishMsg(message); err != nil {
+				return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "stage atomic event").Cause(err).Msg("publish event snapshot")
+			}
+			continue
+		}
+		response, requestErr := r.resources.connection.RequestMsgWithContext(ctx, message)
+		if requestErr != nil {
+			probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			stored := r.atomicSnapshotStored(probeCtx, envelopes)
+			cancel()
+			if stored {
+				return nil
+			}
+			return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "confirm atomic event").Cause(requestErr).Msg("publish event snapshot")
+		}
+		var ack atomicPubAck
+		if err := json.Unmarshal(response.Data, &ack); err != nil {
+			return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "decode atomic publish acknowledgement").Cause(err).Msg("publish event snapshot")
+		}
+		if ack.Error != nil {
+			if ack.Error.ErrorCode == atomicDuplicateErrorCode {
+				return nil
+			}
+			if isCapacityError(ack.Error) {
+				return busCapacity(ack.Error)
+			}
+			return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "commit atomic event").Cause(ack.Error).Msg("publish event snapshot")
+		}
+		if ack.Stream != mailboxStreamName || ack.Sequence == 0 || ack.BatchID != batchID || ack.BatchSize != uint64(len(envelopes)) {
+			return publicationError(envelope.GetKind(), protoreflect.FullName(envelope.GetTypeName()), "atomic publish acknowledgement does not match the batch").Msg("publish event snapshot")
+		}
+	}
+	return nil
+}
+
+func validateOutboundEnvelope(message *servicev1.Message) error {
+	if err := validatePersistedEnvelope(message); err != nil {
+		return publicationError(message.GetKind(), protoreflect.FullName(message.GetTypeName()), err.Error()).Msg("publish message")
+	}
+	if message.HasTraceparent() && (len(message.GetTraceparent()) > 128 || !traceparentPattern.MatchString(message.GetTraceparent())) {
+		return publicationError(message.GetKind(), protoreflect.FullName(message.GetTypeName()), "injected traceparent is invalid").Msg("publish message")
+	}
+	if message.HasTracestate() && len(message.GetTracestate()) > 512 {
+		return publicationError(message.GetKind(), protoreflect.FullName(message.GetTypeName()), "injected tracestate is too long").Msg("publish message")
+	}
+	return nil
+}
+
+func (r *messageRuntime) atomicSnapshotStored(ctx context.Context, envelopes []*servicev1.Message) bool {
+	for _, envelope := range envelopes {
+		subject, err := mailboxSubject(envelope.GetTargetPath(), envelope.GetKind(), envelope.GetTypeName())
+		if err != nil {
+			return false
+		}
+		message, err := r.resources.mailbox.GetLastMsgForSubject(ctx, subject)
+		if err != nil || message.Header.Get(jetstream.MsgIDHeader) != recordID(envelope.GetMessageId(), envelope.GetTargetPath()) {
+			return false
+		}
+		stored := &servicev1.Message{}
+		if err := proto.Unmarshal(message.Data, stored); err != nil || !proto.Equal(stored, envelope) {
+			return false
+		}
+	}
+	return true
+}
+
+func mailboxSubject(path string, kind servicev1.MessageKind, fullName string) (string, error) {
+	kindToken := messageKindToken(kind)
+	if kindToken == "unknown" || path == "" || fullName == "" {
+		return "", errs.New().Code(errCodePublication).Msg("message subject identity is invalid")
+	}
+	return strings.Join([]string{mailboxSubjectRoot, "v1", encodeSubjectToken(path), kindToken, encodeSubjectToken(fullName)}, "."), nil
+}
+
+func messageKindToken(kind servicev1.MessageKind) string {
+	switch kind {
+	case messageKindCommand:
+		return "command"
+	case messageKindEvent:
+		return "event"
+	case messageKindReply:
+		return "reply"
+	default:
+		return "unknown"
+	}
+}
+
+func recordID(messageID, target string) string {
+	sum := sha256.Sum256([]byte("message\x00" + messageID + "\x00" + target))
+	return "v1_" + hex.EncodeToString(sum[:])
+}
+
+func newUUID() (string, error) {
+	var value [16]byte
+	if _, err := rand.Read(value[:]); err != nil {
+		return "", err
+	}
+	value[6] = value[6]&0x0f | 0x40
+	value[8] = value[8]&0x3f | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", value[0:4], value[4:6], value[6:8], value[8:10], value[10:16]), nil
+}
+
+func deterministicUUID(parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	sum[6] = sum[6]&0x0f | 0x50
+	sum[8] = sum[8]&0x3f | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", sum[0:4], sum[4:6], sum[6:8], sum[8:10], sum[10:16])
+}
+
+func publicationError(kind servicev1.MessageKind, fullName protoreflect.FullName, detail string) errs.Builder {
+	return errs.New().Code(errCodePublication).Attr("message_kind", messageKindToken(kind)).Attr("message_type", string(fullName)).Attr("validation_detail", detail)
+}
+
+type caseInsensitiveHeaderCarrier nats.Header
+
+var _ propagation.TextMapCarrier = caseInsensitiveHeaderCarrier{}
+
+func (c caseInsensitiveHeaderCarrier) Get(key string) string {
+	if values := nats.Header(c)[key]; len(values) > 0 {
+		return values[0]
+	}
+	keys := make([]string, 0, len(c))
+	for candidate := range c {
+		if strings.EqualFold(candidate, key) {
+			keys = append(keys, candidate)
+		}
+	}
+	sort.Strings(keys)
+	if len(keys) == 0 || len(c[keys[0]]) == 0 {
+		return ""
+	}
+	return c[keys[0]][0]
+}
+
+func (c caseInsensitiveHeaderCarrier) Set(key, value string) {
+	for candidate := range c {
+		if strings.EqualFold(candidate, key) {
+			delete(c, candidate)
+		}
+	}
+	c[strings.ToLower(key)] = []string{value}
+}
+
+func (c caseInsensitiveHeaderCarrier) Keys() []string {
+	seen := make(map[string]struct{}, len(c))
+	for key := range c {
+		seen[strings.ToLower(key)] = struct{}{}
+	}
+	keys := make([]string, 0, len(seen))
+	for key := range seen {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+type deliveryContext struct {
+	messageID     string
+	correlationID string
+	sourcePath    string
+}
+
+type deliveryContextKey struct{}
+
+func withDeliveryContext(ctx context.Context, delivery deliveryContext) context.Context {
+	return context.WithValue(ctx, deliveryContextKey{}, delivery)
+}
+
+func deliveryFromContext(ctx context.Context) (deliveryContext, bool) {
+	if ctx == nil {
+		return deliveryContext{}, false
+	}
+	delivery, ok := ctx.Value(deliveryContextKey{}).(deliveryContext)
+	return delivery, ok
+}
 
 // Subscription declares one static protobuf handler and its durable delivery
 // policy. Retries counts committed retries after the initial handler call.
@@ -72,19 +560,15 @@ type targetKey struct {
 	messageKey
 }
 
-type staticModule struct {
-	leaf bool
-}
-
 type staticRegistry struct {
-	modules  map[string]staticModule
+	modules  map[string]struct{}
 	targets  map[targetKey]struct{}
 	events   map[protoreflect.FullName][]string
 	resolver payloadResolver
 }
 
 type staticRegistryBuilder struct {
-	modules  map[string]staticModule
+	modules  map[string]struct{}
 	targets  map[targetKey]struct{}
 	events   map[protoreflect.FullName][]string
 	resolver payloadResolverBuilder
@@ -92,7 +576,7 @@ type staticRegistryBuilder struct {
 
 func newStaticRegistryBuilder() *staticRegistryBuilder {
 	return &staticRegistryBuilder{
-		modules: make(map[string]staticModule),
+		modules: make(map[string]struct{}),
 		targets: make(map[targetKey]struct{}),
 		events:  make(map[protoreflect.FullName][]string),
 		resolver: payloadResolverBuilder{
@@ -101,8 +585,8 @@ func newStaticRegistryBuilder() *staticRegistryBuilder {
 	}
 }
 
-func (b *staticRegistryBuilder) addModule(path string, leaf bool) {
-	b.modules[path] = staticModule{leaf: leaf}
+func (b *staticRegistryBuilder) addModule(path string) {
+	b.modules[path] = struct{}{}
 }
 
 func (b *staticRegistryBuilder) addSubscriptions(path string, subscriptions []Subscription) ([]plannedSubscription, error) {
@@ -137,19 +621,12 @@ func (b *staticRegistryBuilder) addSubscriptions(path string, subscriptions []Su
 }
 
 func (b *staticRegistryBuilder) build() *staticRegistry {
-	modules := make(map[string]staticModule, len(b.modules))
-	for path, module := range b.modules {
-		modules[path] = module
+	return &staticRegistry{
+		modules:  b.modules,
+		targets:  b.targets,
+		events:   b.events,
+		resolver: payloadResolver{entries: b.resolver.entries},
 	}
-	targets := make(map[targetKey]struct{}, len(b.targets))
-	for key := range b.targets {
-		targets[key] = struct{}{}
-	}
-	events := make(map[protoreflect.FullName][]string, len(b.events))
-	for name, paths := range b.events {
-		events[name] = append([]string(nil), paths...)
-	}
-	return &staticRegistry{modules: modules, targets: targets, events: events, resolver: b.resolver.build()}
 }
 
 func (r *staticRegistry) target(path string, kind servicev1.MessageKind, fullName protoreflect.FullName) bool {
@@ -265,23 +742,17 @@ func (b *payloadResolverBuilder) add(path string, subscription plannedSubscripti
 	payload := payloadType{canonical: subscription.fullName, typeOf: subscription.typeOf}
 	names := append([]protoreflect.FullName{subscription.fullName}, subscription.aliases...)
 	for _, name := range names {
-		if previous, ok := b.entries[name]; ok && previous.canonical != payload.canonical {
-			return messageTypeError(path, subscription.fullName, "protobuf name resolves to conflicting canonical types").
-				Attr("message_alias", string(name)).
-				Attr("conflicting_message_type", string(previous.canonical)).
-				Msgf("protobuf name %s resolves to conflicting message types", name)
+		if previous, ok := b.entries[name]; ok {
+			if previous.canonical != payload.canonical || !sameMessageDescriptor(previous.typeOf.Descriptor(), payload.typeOf.Descriptor()) {
+				return messageTypeError(path, subscription.fullName, "protobuf name resolves to conflicting message schemas").
+					Attr("message_alias", string(name)).
+					Attr("conflicting_message_type", string(previous.canonical)).
+					Msgf("protobuf name %s resolves to conflicting message schemas", name)
+			}
 		}
 		b.entries[name] = payload
 	}
 	return nil
-}
-
-func (b *payloadResolverBuilder) build() payloadResolver {
-	entries := make(map[protoreflect.FullName]payloadType, len(b.entries))
-	for name, payload := range b.entries {
-		entries[name] = payload
-	}
-	return payloadResolver{entries: entries}
 }
 
 func (r payloadResolver) resolve(name protoreflect.FullName) (proto.Message, protoreflect.FullName, bool) {
@@ -293,9 +764,9 @@ func (r payloadResolver) resolve(name protoreflect.FullName) (proto.Message, pro
 }
 
 func validateAttemptHandlers(path string, subscriptions []plannedSubscription, handlers []Handler) error {
-	expected := make(map[messageKey]struct{}, len(subscriptions))
+	expected := make(map[messageKey]protoreflect.MessageDescriptor, len(subscriptions))
 	for _, subscription := range subscriptions {
-		expected[messageKey{kind: subscription.kind, fullName: subscription.fullName}] = struct{}{}
+		expected[messageKey{kind: subscription.kind, fullName: subscription.fullName}] = subscription.typeOf.Descriptor()
 	}
 	actual := make(map[messageKey]struct{}, len(handlers))
 	for _, handler := range handlers {
@@ -304,8 +775,12 @@ func validateAttemptHandlers(path string, subscriptions []plannedSubscription, h
 		}
 		fullName := handler.Message.ProtoReflect().Descriptor().FullName()
 		key := messageKey{kind: handler.Kind, fullName: fullName}
-		if _, ok := expected[key]; !ok {
+		descriptor, ok := expected[key]
+		if !ok {
 			return handlerMismatch(path, "handler is not statically declared", handler.Kind, fullName)
+		}
+		if !sameMessageDescriptor(descriptor, handler.Message.ProtoReflect().Descriptor()) {
+			return handlerMismatch(path, "handler schema differs from its static declaration", handler.Kind, fullName)
 		}
 		if _, ok := actual[key]; ok {
 			return handlerMismatch(path, "handler is declared more than once", handler.Kind, fullName)
@@ -321,6 +796,10 @@ func validateAttemptHandlers(path string, subscriptions []plannedSubscription, h
 			Msgf("module %s attempt handlers do not match its static declaration", path)
 	}
 	return nil
+}
+
+func sameMessageDescriptor(left, right protoreflect.MessageDescriptor) bool {
+	return proto.Equal(protodesc.ToDescriptorProto(left), protodesc.ToDescriptorProto(right))
 }
 
 func handlerMismatch(path, detail string, kind servicev1.MessageKind, fullName protoreflect.FullName) error {

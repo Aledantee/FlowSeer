@@ -25,7 +25,7 @@ func TestNormalizeBusConfigUsesStablePrivateDefaults(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", stateRoot)
 	identity := Identity{Namespace: "flowseer", Name: "edge_agent", Version: "v1"}
 
-	got, err := normalizeBusConfig(identity, busConfig{})
+	got, err := normalizeBusConfig(identity, BusConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestNormalizeBusConfigUsesStablePrivateDefaults(t *testing.T) {
 	}
 
 	identity.Version = "v2"
-	upgraded, err := normalizeBusConfig(identity, busConfig{})
+	upgraded, err := normalizeBusConfig(identity, BusConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,10 +48,10 @@ func TestNormalizeBusConfigUsesStablePrivateDefaults(t *testing.T) {
 
 func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 	identity := testBusIdentity()
-	tests := []busConfig{
-		{storeDir: "relative"},
-		{maxStoreBytes: 100, mailboxMaxBytes: 80, metadataMaxBytes: 20, reserveBytes: 1},
-		{healthInterval: -time.Second},
+	tests := []BusConfig{
+		{StoreDir: "relative"},
+		{MaxStoreBytes: 100, MailboxMaxBytes: 80, MetadataMaxBytes: 20, ReserveBytes: 1},
+		{HealthInterval: -time.Second},
 	}
 	for _, config := range tests {
 		_, err := normalizeBusConfig(identity, config)
@@ -61,6 +61,55 @@ func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 		if code, ok := errs.CodeOf(err); !ok || code != errCodeBusConfig {
 			t.Fatalf("error code = %q, %v; want %q", code, ok, errCodeBusConfig)
 		}
+	}
+}
+
+func TestServiceBusOptInStartsBeforeSetupAndNilStartsNothing(t *testing.T) {
+	unusedStore := filepath.Join(t.TempDir(), "unused")
+	if _, err := preflight(context.Background(), Config{
+		Identity: testBusIdentity(),
+		Setup:    testSetup(),
+	}, mapLookup(nil)); err != nil {
+		t.Fatalf("preflight without bus: %v", err)
+	}
+	if _, err := os.Stat(unusedStore); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("bus-disabled store stat error = %v, want not exist", err)
+	}
+
+	storeDir := filepath.Join(t.TempDir(), "enabled")
+	setupSawStore := false
+	err := runWithOptions(context.Background(), Config{
+		Identity: testBusIdentity(),
+		Bus:      &BusConfig{StoreDir: storeDir},
+		Setup: func(context.Context) (Attempt, error) {
+			_, statErr := os.Stat(storeDir)
+			setupSawStore = statErr == nil
+			return Attempt{Runner: func(context.Context) error { return nil }}, nil
+		},
+	}, immediateSupervisorOptions())
+	if err != nil {
+		t.Fatalf("runWithOptions() with bus: %v", err)
+	}
+	if !setupSawStore {
+		t.Fatal("module setup ran before the local bus store existed")
+	}
+}
+
+func TestInvalidBusConfigFailsBeforeSetup(t *testing.T) {
+	setupCalls := 0
+	_, err := preflight(context.Background(), Config{
+		Identity: testBusIdentity(),
+		Bus:      &BusConfig{StoreDir: "relative"},
+		Setup: func(context.Context) (Attempt, error) {
+			setupCalls++
+			return Attempt{}, nil
+		},
+	}, mapLookup(nil))
+	if err == nil {
+		t.Fatal("preflight accepted a relative bus store")
+	}
+	if setupCalls != 0 {
+		t.Fatalf("setup calls = %d, want zero", setupCalls)
 	}
 }
 
@@ -159,12 +208,12 @@ func TestStartLocalBusCleansUpAfterReconciliationFailure(t *testing.T) {
 func TestStartLocalBusRejectsExhaustedMetadataReserve(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	config, err := normalizeBusConfig(testBusIdentity(), busConfig{
-		storeDir:         t.TempDir(),
-		maxStoreBytes:    4 << 20,
-		mailboxMaxBytes:  1 << 20,
-		metadataMaxBytes: 512,
-		reserveBytes:     1 << 20,
+	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{
+		StoreDir:         t.TempDir(),
+		MaxStoreBytes:    4 << 20,
+		MailboxMaxBytes:  1 << 20,
+		MetadataMaxBytes: 512,
+		ReserveBytes:     1 << 20,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -225,12 +274,12 @@ func TestCapacityErrorClassification(t *testing.T) {
 func TestMailboxRejectsNewRecordsAtCapacity(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	config, err := normalizeBusConfig(testBusIdentity(), busConfig{
-		storeDir:         t.TempDir(),
-		maxStoreBytes:    4 << 20,
-		mailboxMaxBytes:  64 << 10,
-		metadataMaxBytes: 1 << 20,
-		reserveBytes:     1 << 20,
+	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{
+		StoreDir:         t.TempDir(),
+		MaxStoreBytes:    4 << 20,
+		MailboxMaxBytes:  64 << 10,
+		MetadataMaxBytes: 1 << 20,
+		ReserveBytes:     1 << 20,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -263,7 +312,7 @@ func TestBrokerHelperProcess(t *testing.T) {
 		t.Skip("subprocess helper")
 	}
 	storeDir := os.Getenv("FLOWSEER_BROKER_HELPER_STORE")
-	config, err := normalizeBusConfig(testBusIdentity(), busConfig{storeDir: storeDir})
+	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: storeDir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,13 +356,13 @@ func testBusIdentity() Identity {
 
 func testNormalizedBusConfig(t *testing.T) normalizedBusConfig {
 	t.Helper()
-	config, err := normalizeBusConfig(testBusIdentity(), busConfig{
-		storeDir:         t.TempDir(),
-		maxStoreBytes:    8 << 20,
-		mailboxMaxBytes:  4 << 20,
-		metadataMaxBytes: 2 << 20,
-		reserveBytes:     2 << 20,
-		healthInterval:   10 * time.Millisecond,
+	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{
+		StoreDir:         t.TempDir(),
+		MaxStoreBytes:    8 << 20,
+		MailboxMaxBytes:  4 << 20,
+		MetadataMaxBytes: 2 << 20,
+		ReserveBytes:     2 << 20,
+		HealthInterval:   10 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatal(err)

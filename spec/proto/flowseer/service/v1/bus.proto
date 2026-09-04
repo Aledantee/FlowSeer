@@ -110,6 +110,27 @@ message RuntimeManifest {
   ];
   // Static leaf contracts, including currently disabled leaves.
   repeated ModuleContract modules = 8 [(buf.validate.field).repeated.min_items = 1];
+  // Every canonical module path, including branch supervisors.
+  repeated string module_paths = 9 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.string.max_len = 255,
+    (buf.validate.field).repeated.items.string.pattern = "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:_[a-z0-9]+)*)*$"
+  ];
+  // Stable mailbox stream identity.
+  string mailbox_stream = 10 [(buf.validate.field).required = true];
+  // Stable runtime-metadata stream identity.
+  string metadata_stream = 11 [(buf.validate.field).required = true];
+  // Logical JetStream store ceiling in bytes.
+  uint64 max_store_bytes = 12 [(buf.validate.field).uint64.gte = 1];
+  // Logical mailbox stream ceiling in bytes.
+  uint64 mailbox_max_bytes = 13 [(buf.validate.field).uint64.gte = 1];
+  // Logical metadata stream ceiling in bytes.
+  uint64 metadata_max_bytes = 14 [(buf.validate.field).uint64.gte = 1];
+  // Capacity reserved outside the two owned streams.
+  uint64 reserve_bytes = 15 [(buf.validate.field).uint64.gte = 1];
+  // Deduplication window shared by persisted publish identities.
+  uint64 duplicate_window_seconds = 16 [(buf.validate.field).uint64.gte = 1];
 }
 
 // The last durable phase completed by an idempotent reconciliation.

@@ -11,16 +11,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-type storeLock interface {
-	Close() error
-}
-
 type fileStoreLock struct {
 	file       *os.File
 	overlapped windows.Overlapped
 }
 
-func acquireStoreLock(path string) (storeLock, error) {
+func acquireStoreLock(path string) (*fileStoreLock, error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, busUnhealthy(err, "open local bus store lock")

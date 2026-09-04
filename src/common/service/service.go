@@ -32,7 +32,7 @@ func runWithSignalChannel(ctx context.Context, config Config, signals <-chan os.
 	return run(ctx, config)
 }
 
-func run(ctx context.Context, config Config) (runErr error) {
+func run(ctx context.Context, config Config) error {
 	return runWithOptions(ctx, config, supervisorOptions{})
 }
 
@@ -54,11 +54,55 @@ func runWithOptions(ctx context.Context, config Config, options supervisorOption
 	if ctx.Err() != nil {
 		return nil
 	}
-	runtime := supervisorRuntime{
-		identity:  normalized.identity,
-		envPrefix: normalized.envPrefix,
-		telemetry: telemetry,
-		options:   options,
+	var bus *localBus
+	busHealthy := true
+	if normalized.bus != nil {
+		bus, err = startLocalBus(ctx, *normalized.bus, reconcileRuntimeManifest(normalized))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), normalized.bus.startupTimeout)
+			defer cancel()
+			runErr = errors.Join(runErr, bus.close(closeCtx, busHealthy))
+		}()
 	}
-	return newSupervisorState(normalized.identity.Name, true, normalized.rootSupervisor, normalized.modules, runtime).run(ctx)
+	admission := newAdmissionState(normalized.admission.withModuleSnapshot(normalized.modules))
+	var messages *messageRuntime
+	if bus != nil {
+		messages = newMessageRuntime(bus.resources, normalized.registry, admission.load, telemetry)
+	}
+	runtime := supervisorRuntime{
+		identity:              normalized.identity,
+		envPrefix:             normalized.envPrefix,
+		telemetry:             telemetry,
+		options:               options,
+		admission:             admission,
+		messages:              messages,
+		infrastructureFailure: func(err error) { bus.reportFailure(err) },
+	}
+	supervisor := newSupervisorState(normalized.identity.Name, normalized.rootSupervisor, normalized.modules, runtime)
+	if bus == nil {
+		return supervisor.run(ctx)
+	}
+
+	runCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Cause(ctx))
+	done := make(chan error, 1)
+	go func() { done <- supervisor.run(runCtx) }()
+	select {
+	case err := <-done:
+		admission.setPhase(admissionShuttingDown)
+		cancel(err)
+		return err
+	case err := <-bus.failures():
+		admission.setPhase(admissionShuttingDown)
+		busHealthy = false
+		cancel(err)
+		return errors.Join(err, <-done)
+	case <-ctx.Done():
+		admission.setPhase(admissionShuttingDown)
+		cancel(context.Cause(ctx))
+		return <-done
+	}
 }

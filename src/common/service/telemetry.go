@@ -10,6 +10,8 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
+
+	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 )
 
 const (
@@ -71,6 +73,7 @@ type telemetry struct {
 	meter      metric.Meter
 	propagator propagation.TextMapPropagator
 	lifecycle  metric.Int64Counter
+	messages   metric.Int64Counter
 }
 
 func newTelemetry(config Config) (telemetry, error) {
@@ -98,6 +101,13 @@ func newTelemetry(config Config) (telemetry, error) {
 	if err != nil {
 		return telemetry{}, fmt.Errorf("create service lifecycle counter: %w", err)
 	}
+	messages, err := meter.Int64Counter(
+		"flowseer.service.message.lifecycle",
+		metric.WithDescription("Durable message lifecycle transitions"),
+	)
+	if err != nil {
+		return telemetry{}, fmt.Errorf("create service message lifecycle counter: %w", err)
+	}
 
 	return telemetry{
 		logger:     logger,
@@ -105,7 +115,51 @@ func newTelemetry(config Config) (telemetry, error) {
 		meter:      meter,
 		propagator: propagator,
 		lifecycle:  lifecycle,
+		messages:   messages,
 	}, nil
+}
+
+type messageAction string
+
+const (
+	messagePublished    messageAction = "published"
+	messageDelivered    messageAction = "delivered"
+	messageRetry        messageAction = "retry"
+	messageAcknowledged messageAction = "acknowledged"
+	messageDiscarded    messageAction = "discarded"
+	messageRejected     messageAction = "rejected"
+)
+
+func (t telemetry) recordMessage(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, action messageAction) {
+	attrs := []attribute.KeyValue{
+		attribute.String("service.module.path", modulePath),
+		attribute.String("messaging.message.type", typeName),
+		attribute.String("messaging.message.kind", messageKindToken(kind)),
+		attribute.String("messaging.operation", string(action)),
+	}
+	t.messages.Add(ctx, 1, metric.WithAttributes(attrs...))
+	t.logger.DebugContext(ctx, "message lifecycle", "module", modulePath, "message_type", typeName, "message_kind", messageKindToken(kind), "action", action)
+}
+
+func (t telemetry) recordDisposition(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, settlement *servicev1.Settlement) {
+	action := messageAcknowledged
+	if settlement.GetState() == servicev1.SettlementState_SETTLEMENT_STATE_DISCARD {
+		action = messageDiscarded
+	}
+	t.recordMessage(ctx, modulePath, typeName, kind, action)
+	t.logger.InfoContext(ctx, "message disposition",
+		"module", modulePath,
+		"message_type", typeName,
+		"message_kind", messageKindToken(kind),
+		"disposition", settlement.GetState().String(),
+		"disposition_id", settlement.GetDispositionId(),
+		"retry_count", settlement.GetRetryCount(),
+	)
+	trace.SpanFromContext(ctx).AddEvent("message disposition", trace.WithAttributes(
+		attribute.String("messaging.disposition", settlement.GetState().String()),
+		attribute.String("messaging.disposition.id", settlement.GetDispositionId()),
+		attribute.Int64("messaging.retry.count", int64(settlement.GetRetryCount())),
+	))
 }
 
 func (t telemetry) values(identity Identity, envPrefix, modulePath string) contextValues {

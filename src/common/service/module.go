@@ -276,11 +276,11 @@ func validateModule(
 			return plannedModule{}, err
 		}
 		planned.leaf = leaf
-		registry.addModule(path, true)
+		registry.addModule(path)
 		return planned, nil
 	}
 
-	registry.addModule(path, false)
+	registry.addModule(path)
 	supervisor, err := normalizeSupervisor(module.Branch.Strategy, module.Branch.Intensity)
 	if err != nil {
 		return plannedModule{}, errs.From(err).
@@ -371,6 +371,13 @@ func preflight(ctx context.Context, config Config, lookup envLookup) (runtimeCon
 	}
 
 	declaration.modules = modules
-	declaration.admission = newAdmissionRevision(declaration.registry).withModuleSnapshot(declaration.modules)
+	declaration.admission = newAdmissionRevision(declaration.registry)
+	if config.Bus != nil {
+		bus, err := normalizeBusConfig(config.Identity, *config.Bus)
+		if err != nil {
+			return runtimeConfig{}, err
+		}
+		declaration.bus = &bus
+	}
 	return declaration, nil
 }
