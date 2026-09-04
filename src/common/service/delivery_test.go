@@ -965,9 +965,9 @@ func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
 	var deliveryLinks []sdktrace.Link
 	for _, span := range recorder.Ended() {
 		switch span.Name() {
-		case instrumentationScope + ".publish":
+		case publicationSpanName:
 			publicationTraceID = span.SpanContext().TraceID()
-		case instrumentationScope + deliveryInstrumentationSuffix:
+		case deliverySpanName:
 			deliveryLinks = span.Links()
 		}
 	}

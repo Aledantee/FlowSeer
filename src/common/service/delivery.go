@@ -23,13 +23,12 @@ import (
 )
 
 const (
-	settlementSubjectRoot         = metadataSubject + ".settlement.v1"
-	mailboxSequenceHeader         = "FlowSeer-Mailbox-Sequence"
-	defaultRetryBackoff           = 100 * time.Millisecond
-	maximumRetryBackoff           = 30 * time.Second
-	defaultProgressInterval       = 5 * time.Second
-	confirmedTerminationPayload   = "+TERM"
-	deliveryInstrumentationSuffix = ".delivery"
+	settlementSubjectRoot       = metadataSubject + ".settlement.v1"
+	mailboxSequenceHeader       = "FlowSeer-Mailbox-Sequence"
+	defaultRetryBackoff         = 100 * time.Millisecond
+	maximumRetryBackoff         = 30 * time.Second
+	defaultProgressInterval     = 5 * time.Second
+	confirmedTerminationPayload = "+TERM"
 )
 
 var (
@@ -419,15 +418,15 @@ func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
 			attribute.String(modulePathKey, envelope.GetTargetPath()),
-			attribute.String("messaging.message.type", envelope.GetTypeName()),
-			attribute.String("messaging.message.kind", messageKindToken(envelope.GetKind())),
-			attribute.Int64("messaging.delivery.attempt", int64(delivered)),
+			attribute.String(messageTypeKey, envelope.GetTypeName()),
+			attribute.String(messageKindKey, messageKindToken(envelope.GetKind())),
+			attribute.Int64(messageDeliveryAttemptKey, int64(delivered)),
 		),
 	}
 	if spanContext.IsValid() {
 		options = append(options, trace.WithLinks(trace.Link{SpanContext: spanContext}))
 	}
-	return telemetry.tracer.Start(ctx, instrumentationScope+deliveryInstrumentationSuffix, options...)
+	return telemetry.tracer.Start(ctx, deliverySpanName, options...)
 }
 
 func callHandler(ctx context.Context, handler HandlerFunc, payload proto.Message) (panicked bool, err error) {

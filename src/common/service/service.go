@@ -69,7 +69,6 @@ func runWithOptionsAndTelemetryFactories(
 	_, startupSpan := startLifecycleSpan(
 		lifecycleCtx,
 		rootTelemetry.tracer,
-		normalized.identity,
 		normalized.identity.Name,
 		startupSpanName,
 		lifecycleActionStart,
@@ -134,7 +133,6 @@ func runWithOptionsAndTelemetryFactories(
 	_, shutdownSpan := startLifecycleSpan(
 		lifecycleCtx,
 		rootTelemetry.tracer,
-		normalized.identity,
 		normalized.identity.Name,
 		shutdownSpanName,
 		lifecycleActionStop,

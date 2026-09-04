@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
@@ -21,28 +21,37 @@ const (
 	startupSpanName        = "flowseer.service.startup"
 	attemptSpanName        = "flowseer.service.module.attempt"
 	shutdownSpanName       = "flowseer.service.shutdown"
+	publicationSpanName    = "flowseer.message.publish"
+	deliverySpanName       = "flowseer.message.deliver"
 
-	modulePathKey = "service.module.path"
+	modulePathKey             = "flowseer.module.path"
+	moduleLifecycleActionKey  = "flowseer.module.lifecycle.action"
+	moduleLifecycleOutcomeKey = "flowseer.module.lifecycle.outcome"
+	messageTypeKey            = "flowseer.message.type"
+	messageKindKey            = "flowseer.message.kind"
+	messageOperationKey       = "flowseer.message.operation"
+	messageDispositionKey     = "flowseer.message.disposition"
+	messageRetryCountKey      = "flowseer.message.retry_count"
+	messageDeliveryAttemptKey = "flowseer.message.delivery_attempt"
 )
 
 func startLifecycleSpan(
 	ctx context.Context,
 	tracer trace.Tracer,
-	identity Identity,
 	modulePath string,
 	name string,
 	action lifecycleAction,
 ) (context.Context, trace.Span) {
 	actionName, _ := action.string()
-	identitySet := identityAttributes(identity, modulePath)
-	attributes := identitySet.ToSlice()
-	attributes = append(attributes, attribute.String("service.lifecycle.action", actionName))
+	moduleSet := moduleAttributes(modulePath)
+	attributes := moduleSet.ToSlice()
+	attributes = append(attributes, attribute.String(moduleLifecycleActionKey, actionName))
 	return tracer.Start(ctx, name, trace.WithAttributes(attributes...))
 }
 
 func endLifecycleSpan(span trace.Span, outcome lifecycleOutcome) {
 	outcomeName, _ := outcome.string()
-	span.SetAttributes(attribute.String("service.lifecycle.outcome", outcomeName))
+	span.SetAttributes(attribute.String(moduleLifecycleOutcomeKey, outcomeName))
 	if outcome == lifecycleOutcomeError || outcome == lifecycleOutcomePanic {
 		span.SetStatus(codes.Error, outcomeName)
 	}
@@ -141,13 +150,10 @@ func (h traceLogHandler) WithGroup(name string) slog.Handler {
 	return traceLogHandler{Handler: h.Handler.WithGroup(name)}
 }
 
-// identityAttributes returns the bounded dimension set shared by runtime
+// moduleAttributes returns the bounded dimension set shared by runtime
 // telemetry and by module instruments that read it through [Attributes].
-func identityAttributes(identity Identity, modulePath string) attribute.Set {
+func moduleAttributes(modulePath string) attribute.Set {
 	return attribute.NewSet(
-		semconv.ServiceName(identity.Name),
-		semconv.ServiceNamespace(identity.Namespace),
-		semconv.ServiceVersion(identity.Version),
 		attribute.String(modulePathKey, modulePath),
 	)
 }
@@ -157,7 +163,7 @@ func newTelemetry(config Config) (telemetry, error) {
 	if logger == nil {
 		logger = defaultLogger
 	}
-	localHandler := traceLogHandler{Handler: logger.Handler()}
+	localHandler := traceLogHandler{Handler: logger.Handler().WithAttrs(serviceIdentityLogAttrs(config.Identity))}
 	if config.LogHandler != nil {
 		logger = slog.New(multiSlogHandler{handlers: []slog.Handler{localHandler, config.LogHandler}})
 	} else {
@@ -191,18 +197,28 @@ func telemetryFromComponents(
 	if meterProvider == nil {
 		meterProvider = defaultMeterProvider
 	}
-	tracer := tracerProvider.Tracer(instrumentationScope, trace.WithInstrumentationVersion(instrumentationVersion))
-	meter := meterProvider.Meter(instrumentationScope, metric.WithInstrumentationVersion(instrumentationVersion))
+	tracer := tracerProvider.Tracer(
+		instrumentationScope,
+		trace.WithInstrumentationVersion(instrumentationVersion),
+		trace.WithSchemaURL(semconv.SchemaURL),
+	)
+	meter := meterProvider.Meter(
+		instrumentationScope,
+		metric.WithInstrumentationVersion(instrumentationVersion),
+		metric.WithSchemaURL(semconv.SchemaURL),
+	)
 	lifecycle, err := meter.Int64Counter(
-		"flowseer.service.module.lifecycle",
-		metric.WithDescription("Module lifecycle transitions"),
+		"flowseer.service.module.lifecycle.transitions",
+		metric.WithUnit("{transition}"),
+		metric.WithDescription("Lifecycle transitions recorded after a module starts, stops, or restarts"),
 	)
 	if err != nil {
 		return telemetry{}, fmt.Errorf("create service lifecycle counter: %w", err)
 	}
 	messages, err := meter.Int64Counter(
-		"flowseer.service.message.lifecycle",
-		metric.WithDescription("Durable message lifecycle transitions"),
+		"flowseer.service.message.operations",
+		metric.WithUnit("{operation}"),
+		metric.WithDescription("Durable message operations recorded after publication, delivery, retry, acknowledgment, rejection, or discard"),
 	)
 	if err != nil {
 		return telemetry{}, fmt.Errorf("create service message lifecycle counter: %w", err)
@@ -234,14 +250,19 @@ const (
 func (v telemetryView) recordMessage(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, action messageAction) {
 	attrs := []attribute.KeyValue{
 		attribute.String(modulePathKey, modulePath),
-		attribute.String("messaging.message.type", typeName),
-		attribute.String("messaging.message.kind", messageKindToken(kind)),
-		attribute.String("messaging.operation", string(action)),
+		attribute.String(messageTypeKey, typeName),
+		attribute.String(messageKindKey, messageKindToken(kind)),
+		attribute.String(messageOperationKey, string(action)),
 	}
 	if v.policy.metrics {
 		v.messages.Add(ctx, 1, metric.WithAttributes(attrs...))
 	}
-	v.logger.DebugContext(ctx, "message lifecycle", modulePathKey, modulePath, "message_type", typeName, "message_kind", messageKindToken(kind), "action", action)
+	v.logger.DebugContext(ctx, "message lifecycle",
+		modulePathKey, modulePath,
+		messageTypeKey, typeName,
+		messageKindKey, messageKindToken(kind),
+		messageOperationKey, action,
+	)
 }
 
 func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, settlement *servicev1.Settlement) {
@@ -252,14 +273,14 @@ func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeNa
 	v.recordMessage(ctx, modulePath, typeName, kind, action)
 	v.logger.InfoContext(ctx, "message disposition",
 		modulePathKey, modulePath,
-		"message_type", typeName,
-		"message_kind", messageKindToken(kind),
-		"disposition", settlement.GetState().String(),
-		"retry_count", settlement.GetRetryCount(),
+		messageTypeKey, typeName,
+		messageKindKey, messageKindToken(kind),
+		messageDispositionKey, settlement.GetState().String(),
+		messageRetryCountKey, settlement.GetRetryCount(),
 	)
 	trace.SpanFromContext(ctx).AddEvent("message disposition", trace.WithAttributes(
-		attribute.String("messaging.disposition", settlement.GetState().String()),
-		attribute.Int64("messaging.retry.count", int64(settlement.GetRetryCount())),
+		attribute.String(messageDispositionKey, settlement.GetState().String()),
+		attribute.Int64(messageRetryCountKey, int64(settlement.GetRetryCount())),
 	))
 }
 
@@ -268,33 +289,35 @@ func (t telemetry) values(identity Identity, envPrefix, modulePath string) conte
 		identity:       identity,
 		modulePath:     modulePath,
 		envPrefix:      envPrefix,
-		logger:         moduleLogger(t.logger, identity, modulePath),
+		logger:         moduleLogger(t.logger, modulePath),
 		tracer:         t.tracer,
 		meter:          t.meter,
 		tracerProvider: t.tracerProvider,
 		meterProvider:  t.meterProvider,
 		propagator:     t.propagator,
-		attributes:     identityAttributes(identity, modulePath),
+		attributes:     moduleAttributes(modulePath),
 	}
 }
 
-func moduleLogger(logger *slog.Logger, identity Identity, modulePath string) *slog.Logger {
-	return logger.With(
+func moduleLogger(logger *slog.Logger, modulePath string) *slog.Logger {
+	return logger.With(slog.String(modulePathKey, modulePath))
+}
+
+func serviceIdentityLogAttrs(identity Identity) []slog.Attr {
+	return []slog.Attr{
 		slog.String(string(semconv.ServiceNameKey), identity.Name),
 		slog.String(string(semconv.ServiceNamespaceKey), identity.Namespace),
 		slog.String(string(semconv.ServiceVersionKey), identity.Version),
-		slog.String(modulePathKey, modulePath),
-	)
+	}
 }
 
 func (t telemetry) recordLifecycle(
 	ctx context.Context,
-	identity Identity,
 	modulePath string,
 	action lifecycleAction,
 	outcome lifecycleOutcome,
 ) error {
-	return recordLifecycle(ctx, t.logger, t.lifecycle, true, identity, modulePath, action, outcome)
+	return recordLifecycle(ctx, t.logger, t.lifecycle, true, modulePath, action, outcome)
 }
 
 func recordLifecycle(
@@ -302,7 +325,6 @@ func recordLifecycle(
 	logger *slog.Logger,
 	lifecycle metric.Int64Counter,
 	recordMetric bool,
-	identity Identity,
 	modulePath string,
 	action lifecycleAction,
 	outcome lifecycleOutcome,
@@ -318,20 +340,17 @@ func recordLifecycle(
 
 	if recordMetric {
 		lifecycle.Add(ctx, 1,
-			metric.WithAttributeSet(identityAttributes(identity, modulePath)),
+			metric.WithAttributeSet(moduleAttributes(modulePath)),
 			metric.WithAttributes(
-				attribute.String("service.lifecycle.action", actionName),
-				attribute.String("service.lifecycle.outcome", outcomeName),
+				attribute.String(moduleLifecycleActionKey, actionName),
+				attribute.String(moduleLifecycleOutcomeKey, outcomeName),
 			),
 		)
 	}
 	logger.InfoContext(ctx, "module lifecycle",
-		string(semconv.ServiceNameKey), identity.Name,
-		string(semconv.ServiceNamespaceKey), identity.Namespace,
-		string(semconv.ServiceVersionKey), identity.Version,
 		modulePathKey, modulePath,
-		"action", actionName,
-		"outcome", outcomeName,
+		moduleLifecycleActionKey, actionName,
+		moduleLifecycleOutcomeKey, outcomeName,
 	)
 
 	return nil

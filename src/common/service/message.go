@@ -220,7 +220,7 @@ func (b *MessageBus) startPublicationTrace(ctx context.Context, kind servicev1.M
 		}
 		ctx = trace.ContextWithSpanContext(ctx, trace.SpanContext{})
 	}
-	return b.telemetry.tracer.Start(ctx, instrumentationScope+".publish", options...)
+	return b.telemetry.tracer.Start(ctx, publicationSpanName, options...)
 }
 
 func (b *MessageBus) available(ctx context.Context) error {

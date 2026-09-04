@@ -62,10 +62,10 @@ func TestLifecycleTelemetryRejectsUnknownDimensions(t *testing.T) {
 		t.Fatalf("newTelemetry() error: %v", err)
 	}
 
-	if err := telemetry.recordLifecycle(context.Background(), testIdentity(), "edge", lifecycleAction(99), lifecycleOutcomeRunning); err == nil {
+	if err := telemetry.recordLifecycle(context.Background(), "edge", lifecycleAction(99), lifecycleOutcomeRunning); err == nil {
 		t.Fatal("recordLifecycle() accepted an unknown action")
 	}
-	if err := telemetry.recordLifecycle(context.Background(), testIdentity(), "edge", lifecycleActionStart, lifecycleOutcome(99)); err == nil {
+	if err := telemetry.recordLifecycle(context.Background(), "edge", lifecycleActionStart, lifecycleOutcome(99)); err == nil {
 		t.Fatal("recordLifecycle() accepted an unknown outcome")
 	}
 }

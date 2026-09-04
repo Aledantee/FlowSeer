@@ -376,7 +376,6 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 		childCtx, attemptSpan = startLifecycleSpan(
 			childCtx,
 			telemetry.tracer,
-			s.runtime.identity,
 			module.path,
 			attemptSpanName,
 			lifecycleActionStart,
@@ -447,7 +446,6 @@ func (s *supervisorState) record(
 	}
 	return telemetry.recordLifecycle(
 		ctx,
-		s.runtime.identity,
 		module.path,
 		action,
 		outcome,

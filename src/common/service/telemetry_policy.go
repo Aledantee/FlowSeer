@@ -118,22 +118,21 @@ func (v telemetryView) values(identity Identity, envPrefix, modulePath string) c
 		identity:       identity,
 		modulePath:     modulePath,
 		envPrefix:      envPrefix,
-		logger:         moduleLogger(v.logger, identity, modulePath),
+		logger:         moduleLogger(v.logger, modulePath),
 		tracer:         v.tracer,
 		meter:          v.meter,
 		tracerProvider: v.tracerProvider,
 		meterProvider:  v.meterProvider,
 		propagator:     v.propagator,
-		attributes:     identityAttributes(identity, modulePath),
+		attributes:     moduleAttributes(modulePath),
 	}
 }
 
 func (v telemetryView) recordLifecycle(
 	ctx context.Context,
-	identity Identity,
 	modulePath string,
 	action lifecycleAction,
 	outcome lifecycleOutcome,
 ) error {
-	return recordLifecycle(ctx, v.logger, v.lifecycle, v.policy.metrics, identity, modulePath, action, outcome)
+	return recordLifecycle(ctx, v.logger, v.lifecycle, v.policy.metrics, modulePath, action, outcome)
 }

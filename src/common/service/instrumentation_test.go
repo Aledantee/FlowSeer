@@ -231,7 +231,7 @@ func TestModuleInstrumentsUseAttemptProviders(t *testing.T) {
 	}
 }
 
-func TestLifecycleMetricsCarryIdentityAndOutcome(t *testing.T) {
+func TestLifecycleMetricsCarryModuleAndOutcome(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	ready := make(chan struct{})
 	config := Config{
@@ -251,18 +251,14 @@ func TestLifecycleMetricsCarryIdentityAndOutcome(t *testing.T) {
 	}
 
 	sums := collectCounters(t, reader)
-	point, ok := sums[instrumentationScope+"/flowseer.service.module.lifecycle"]
+	point, ok := sums[instrumentationScope+"/flowseer.service.module.lifecycle.transitions"]
 	if !ok {
 		t.Fatalf("the lifecycle counter was not collected, got %v", sums)
 	}
 	want := map[attribute.Key]string{
-		"service.name":      "edge",
-		"service.namespace": "flowseer",
-		"service.version":   "v1",
-		modulePathKey:       "edge",
-
-		"service.lifecycle.action":  "start",
-		"service.lifecycle.outcome": "running",
+		modulePathKey:             "edge",
+		moduleLifecycleActionKey:  "start",
+		moduleLifecycleOutcomeKey: "running",
 	}
 	for key, value := range want {
 		got, ok := point.Attributes.Value(key)
@@ -321,9 +317,9 @@ func TestRuntimeLifecycleSpansAreFiniteCallerSiblings(t *testing.T) {
 		"flowseer.service.shutdown",
 	}
 	wantDimensions := map[string]map[string]string{
-		"flowseer.service.startup":        {"service.lifecycle.action": "start", "service.lifecycle.outcome": "running"},
-		"flowseer.service.module.attempt": {"service.lifecycle.action": "start", "service.lifecycle.outcome": "canceled"},
-		"flowseer.service.shutdown":       {"service.lifecycle.action": "stop", "service.lifecycle.outcome": "canceled"},
+		"flowseer.service.startup":        {moduleLifecycleActionKey: "start", moduleLifecycleOutcomeKey: "running"},
+		"flowseer.service.module.attempt": {moduleLifecycleActionKey: "start", moduleLifecycleOutcomeKey: "canceled"},
+		"flowseer.service.shutdown":       {moduleLifecycleActionKey: "stop", moduleLifecycleOutcomeKey: "canceled"},
 	}
 	spans := recorder.Ended()
 	for _, name := range wantNames {
@@ -423,7 +419,7 @@ func TestModuleAttemptSpanRecordsTerminalOutcome(t *testing.T) {
 			if span == nil {
 				t.Fatal("module attempt span was not recorded")
 			}
-			if got, ok := spanAttribute(span, "service.lifecycle.outcome"); !ok || got != tt.outcome {
+			if got, ok := spanAttribute(span, moduleLifecycleOutcomeKey); !ok || got != tt.outcome {
 				t.Errorf("attempt outcome = %q, %v, want %q", got, ok, tt.outcome)
 			}
 		})

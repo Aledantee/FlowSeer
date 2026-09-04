@@ -19,7 +19,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	collectorlogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
@@ -106,7 +106,7 @@ func newRunTelemetry(
 		return nil, errors.Join(cause, owner.shutdown(context.WithoutCancel(ctx)))
 	}
 
-	localHandler := traceLogHandler{Handler: config.localLogger.Handler()}
+	localHandler := traceLogHandler{Handler: config.localLogger.Handler().WithAttrs(serviceIdentityLogAttrs(identity))}
 	owner.localLogger = slog.New(localHandler)
 	logHandler := slog.Handler(localHandler)
 	tracerProvider := config.traces.provider
@@ -191,7 +191,8 @@ func newTelemetryResource(identity Identity) (*resource.Resource, error) {
 			}
 		}
 	}
-	return resource.NewSchemaless(
+	return resource.NewWithAttributes(
+		semconv.SchemaURL,
 		semconv.ServiceName(identity.Name),
 		semconv.ServiceNamespace(identity.Namespace),
 		semconv.ServiceVersion(identity.Version),
@@ -225,6 +226,7 @@ func newManagedLogProvider(
 		instrumentationScope,
 		otelslog.WithLoggerProvider(provider),
 		otelslog.WithVersion(instrumentationVersion),
+		otelslog.WithSchemaURL(semconv.SchemaURL),
 	)
 	return handler, provider.Shutdown, nil
 }
