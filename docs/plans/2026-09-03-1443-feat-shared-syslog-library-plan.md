@@ -12,6 +12,10 @@ execution: code
 
 # Shared Syslog Library - Plan
 
+> Implemented. The library later moved from `src/common/syslog` to
+> `src/protocol/syslog`; use the current package and benchmark report for landed
+> behavior, and treat paths below as implementation history.
+
 ## Goal Capsule
 
 - **Objective:** Future edge agents and core services can receive and forward logs from heterogeneous network devices through one parsed message model, including when device clocks or message formats are unreliable.

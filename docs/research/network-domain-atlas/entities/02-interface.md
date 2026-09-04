@@ -499,9 +499,9 @@ Broad and mostly faithful to IEEE. Notable:
 
 ### FlowSeer status
 
-`spec/proto/flowseer/net/protocol/lacp/v1/` is an empty `.gitkeep`. The
+No `spec/proto/flowseer/net/protocol/lacp/v1/` package exists yet. The
 `AggregationFacet` deliberately excludes actor/partner facts, leaving them for
-this package. Nothing is modelled yet.
+that future package. Nothing is modelled yet.
 
 ---
 

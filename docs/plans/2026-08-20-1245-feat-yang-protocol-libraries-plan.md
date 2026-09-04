@@ -12,6 +12,11 @@ deepened: 2026-08-20
 
 # YANG Protocol Libraries - Plan
 
+> Code complete; live validation outstanding. The libraries described below
+> landed and later moved from `src/common/{yang,netconf,restconf,gnmi}` to the
+> corresponding `src/protocol/` packages. The recorded NETCONF and gNMI
+> hardware-validation rows remain open, so this plan is not marked implemented.
+
 ## Goal Capsule
 
 - **Objective:** Add NETCONF, RESTCONF, and gNMI client libraries alongside the SNMP library, sharing one generated YANG-bindings layer produced by an in-house `yanggen` covering the full vendored YANG surface of all three device families.

@@ -1,6 +1,6 @@
 ---
 name: Protobuf Model Conventions
-last_updated: 2026-08-21
+last_updated: 2026-09-04
 ---
 
 # FlowSeer — Protobuf Model Conventions
@@ -62,7 +62,7 @@ lets them find it.
 
 ## The ref pair
 
-Every Entity has exactly two ref messages, and they compose:
+Every UUID-identified Entity has exactly two ref messages, and they compose:
 
 - `<Entity>LocalRef` — the Entity's key *within its owning parent*. For a
   top-level Entity this is its own identifier and nothing else.
@@ -73,6 +73,11 @@ Uniform composition is the point. A field added to a `LocalRef` reaches every
 `GlobalRef` that contains it without a second edit, and the hook can check the
 pair mechanically because the shape never varies.
 
+The deliberately partial, keyless `Tenant` sketch is the only current
+exception. Its empty `TenantRef` is content, not an identity ref and not one
+half of a `LocalRef`/`GlobalRef` pair. The ordinary pair becomes mandatory in
+the same change that gives Tenant a FlowSeer identifier.
+
 **An Entity has at most one owning parent.** An Entity that relates several
 others — a `Binding` joining an integration to a device, a `Placement` joining
 a device to a site — is top-level, and carries the related Entities' `GlobalRef`s
@@ -81,8 +86,11 @@ Entity's own content.
 
 **Refs live beside the triad, in the Entity's own package.** There is no shared
 refs package: a package holding every ref would have to know every Entity above
-it, which is exactly the upward-import the layering forbids. `InterfaceRef`
-lives with the Interface *entity* in `device/v1`, not in `net/interface/v1`.
+it, which is exactly the upward-import the layering forbids. An eventual
+`InterfaceRef` lives with the Interface *entity*, not in `net/interface/v1`;
+the landed Device ref lives in `api/inventory/v1`. The Interface entity package
+is intentionally undecided. Do not add the entity or infer an `api/interface`
+package until an accepted direction record chooses that boundary.
 
 **Entity identifiers are UUID strings**, FlowSeer-assigned and opaque to the
 wire model. A top-level `LocalRef` holds them as:
@@ -107,8 +115,8 @@ every consumer party to that decision.
 
 The typed `LocalRef`/`GlobalRef` pair stays the norm for every reference whose
 target kind is known when the schema is written. `EntityRef` in
-`inventory/v1/entity.proto` exists for the one case the pair cannot express: a
-field that points at "some entity of a kind decided at runtime", such as the
+`api/inventory/v1/entity.proto` exists for the one case the pair cannot express:
+a field that points at "some entity of a kind decided at runtime", such as the
 owner of an attribute value:
 
 ```protobuf
@@ -128,10 +136,16 @@ Three boundaries keep it from eroding the typed refs:
   that reference it, and its store can answer the existence check a
   reference-value write needs. Landing a new top-level entity includes joining
   the enum in the same change; the hook does not police `EntityRef`, so this
-  rule is the only guard.
-- **A ref to a tenant is data, not scoping.** Tenancy stays ambient: an
-  `EntityRef` naming a tenant entity is content on the pointing entity and
-  never stands in for the request's tenant context.
+  rule is the only guard. `ENTITY_TYPE_TENANT` is the one transitional
+  exception: the wire schema admits it before Tenant has an addressable
+  identity or store. An `EntityRef` carrying it is syntactically valid but
+  cannot yet resolve to an existing entity. Producers must not emit that kind
+  until the Tenant identity and store land, and the inventory service rejects
+  it during semantic existence checks in the meantime. The enum value reserves
+  the future contract; it is not permission to invent a tenant identifier.
+- **A ref with the tenant kind is data, not scoping.** Tenancy stays ambient:
+  the ref is content on the pointing entity and never stands in for the
+  request's tenant context.
 
 ## Primitives refer to peers by key, never by ref
 
@@ -142,8 +156,10 @@ Entity and belongs further up the tree.
 
 ## Tenancy is ambient
 
-No `TenantRef` type exists, and no ref or entity message carries a tenant
-field. Tenancy is resolved from context at the edge of the system:
+The landed `api/inventory/v1/tenant.proto` defines a deliberately keyless
+`TenantRef` for content relationships. It carries no tenant identifier and
+never scopes a request or record. Tenancy is resolved from context at the edge
+of the system:
 
 - **RPC** — from the authenticated request context.
 - **Events and ingestion** — from the producing integration or binding, which
@@ -157,13 +173,12 @@ can lie about it.
 
 "Observed at" and "which binding answered" describe a *live response or an
 event*, not a stored thing. One provenance message is defined beside `Binding`
-in `inventory/v1`, and is embedded by value in the integration, service-response,
-and event envelopes.
+in `api/inventory/v1`, and is embedded by value in the integration,
+service-response, and event envelopes.
 
-It is never a field of an `<Entity>State` and never a field of a Primitive. Two
-consequences make this the load-bearing choice: `device/` never names a binding,
-so the `device ↔ inventory` reference cycle does not exist; and a `Vlan` or an
-`InterfaceAddress` row stays a value that any consumer can hold without
+It is never a field of an `<Entity>State` and never a field of a Primitive. This
+keeps `net/` packages independent of entity and binding packages, and a `Vlan`
+or an `InterfaceAddress` row stays a value that any consumer can hold without
 inheriting the story of how it was fetched.
 
 ## Enums
@@ -257,12 +272,13 @@ that way when a new message does not obviously match either shape.
 
 ## A worked example
 
-Not compiled, and not the real `device/v1` — that package is written when the
-first device slice lands. This shows the shapes the rules above produce
-together, for a `Device` that owns an `Interface`.
+Not compiled, and not the current `api/inventory/v1` package. The Device family
+has landed there, while the Interface entity has not. This example shows the
+shapes the rules above produce together for a `Device` that owns an
+`Interface`.
 
 ```protobuf
-// device/v1: the device entity, its owned interface, and their refs.
+// Illustrative entity package: a device, its owned interface, and their refs.
 
 message DeviceLocalRef {
   string id = 1 [
@@ -312,8 +328,9 @@ message DeviceEvent {
 ```
 
 Read it for four things: the ref pair composes (`InterfaceGlobalRef` = parent's
-`GlobalRef` + own `LocalRef`), no message carries a tenant, no message carries
-an `observed_at` or a binding, and the Primitive (`MacAddress`) is embedded by
-value from `net/addr` with nothing flowing back the other way.
+`GlobalRef` + own `LocalRef`), tenancy is ambient rather than a field on these
+messages, no message carries an `observed_at` or a binding, and the Primitive
+(`MacAddress`) is embedded by value from `net/addr` with nothing flowing back
+the other way.
 
 [facet]: ../architecture/2026-08-20-network-model-structure-direction.md#facets-versus-tables

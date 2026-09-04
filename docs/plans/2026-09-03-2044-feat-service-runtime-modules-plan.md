@@ -12,6 +12,9 @@ deepened: 2026-09-03
 
 # Service Runtime and Modules - Plan
 
+> Implemented. The runtime remains in `src/common/service`; SNMP references
+> below that use `src/common/snmp` predate its move to `src/protocol/snmp`.
+
 ## Goal Capsule
 
 - **Objective:** FlowSeer services, beginning with the edge agent, can run independently supervised capabilities and resume local inter-module work after a crash, reboot, or software upgrade.

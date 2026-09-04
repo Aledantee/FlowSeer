@@ -28,11 +28,13 @@ Measured against the 101 entities, from `spec/proto/flowseer/`.
 | lldp | `net/protocol/lldp/v1` |
 | — (substrate) | `net/packet/v1`, `net/addr/v1` |
 
-### Declared but empty
+### Not yet declared
 
-`net/protocol/lacp/v1`, `net/protocol/stp/v1`, `net/wlan/v1`, and the
+No schema packages currently exist for `net/protocol/lacp/v1`,
+`net/protocol/stp/v1`, `net/wlan/v1`, or the proposed
 `api/{firewall,interface,routing,switching,system,wireless}/v1` service
-directories — all `.gitkeep`.
+boundaries. Their former empty placeholder directories were removed because
+directory presence could be mistaken for an accepted package decision.
 
 ### Not modelled (83 entities)
 
@@ -51,8 +53,9 @@ Ranked by (operational value × vendor support × distance from what exists):
    name-keyed, `parent`-referencing shape is the target because it also fits the
    FASTPATH lineage, which has no `entPhysicalIndex` to borrow.
 2. **`stp`** — [03-switching](entities/03-switching.md#stp). Near-universal
-   vendor support, an empty package already reserved, and the root/designated
-   bridge IDs let you infer topology on networks with no discovery protocol.
+   vendor support, a package location reserved by the accepted direction, and
+   root/designated bridge IDs that let you infer topology on networks with no
+   discovery protocol.
 3. **`dot1x` sessions** — [07-security](entities/07-security.md#dot1x). The only
    entity in the corpus that attaches an *identity* to an endpoint. Every vendor
    here exposes it; no comparable open system models it.

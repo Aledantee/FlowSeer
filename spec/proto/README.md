@@ -6,7 +6,7 @@ split into two modules that share the `spec/proto/` root:
 ```
 spec/proto/
 ├── ruckus/      Vendored Ruckus SmartZone GPB telemetry schemas
-└── flowseer/    FlowSeer-owned schemas — edition 2024, conventions in docs/code-style-proto.md
+└── flowseer/    FlowSeer-owned schemas — edition 2024, indexed in flowseer/README.md
 ```
 
 Both modules are edition 2024. The `ruckus/` module is a vendored mirror
@@ -14,7 +14,8 @@ converted mechanically from the vendor's proto2 with feature pins that keep
 the wire format byte-identical; its source record lives in
 [`ruckus/README.md`](ruckus/README.md). It carries relaxed lint rules and
 `WIRE` breaking checks. The `flowseer/` module is held to the full style guide in
-[`docs/code-style-proto.md`](../../docs/code-style-proto.md).
+[`docs/code-style-proto.md`](../../docs/code-style-proto.md); its package map is
+[`flowseer/README.md`](flowseer/README.md).
 
 The SNMP MIBs for the same vendors live in [`../mib/README.md`](../mib/README.md),
 the YANG models in [`../yang/README.md`](../yang/README.md), and the OpenAPI

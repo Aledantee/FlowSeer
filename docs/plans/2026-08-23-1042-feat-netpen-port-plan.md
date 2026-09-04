@@ -12,6 +12,12 @@ deepened: 2026-08-23
 
 # netpen - Plan
 
+> Implementation landed; live validation outstanding. Netpen now lives under
+> `src/edge/netpen`, and dependency checks live under
+> `test/conformance/dependencies`. The T1/T2 acceptance evidence remains open in
+> `src/edge/netpen/test/integration/VALIDATION_MATRIX.md`, so this plan is not
+> marked implemented.
+
 ## Goal Capsule
 
 - **Objective:** Replace the Python `l2l3-audit` tool with netpen, a self-contained native Go L2/L3 security audit and attack binary built library-first: a protocol toolkit as the core, the full 27-command arsenal plus eight researched attacks as behaviors over it, a bubbletea v2 TUI, a versioned JSON machine contract, and a static-binary release with an embedded attack catalog.

@@ -10,6 +10,11 @@ execution: code
 
 # Streaming MIB Table Walks - Plan
 
+> Implemented. The current implementation is in `src/protocol/snmp`; references
+> below to `src/common/snmp` preserve the implementation-time layout. The
+> benchmark outcome is recorded in
+> `docs/benchmarks/2026-09-03-streaming-mib-walks.md`.
+
 ## Goal Capsule
 
 - Objective: Callers can process and stop large device-table reads promptly without paying for every row and unrequested column first.

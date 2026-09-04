@@ -3,11 +3,13 @@
 Cross-cutting foundations: packages every layer may depend on and that depend on
 nothing of FlowSeer's own.
 
-| Package             | What it does                                          |
-| ------------------- | ----------------------------------------------------- |
-| `errs`              | the error type, codes, boundary filtering              |
-| `pump`              | the shared work-pump concurrency primitive             |
-| `internal/netpenguard` | build guard: only `src/edge/netpen` may import the heavy dependency families |
+| Package                | What it does                                                        |
+| ---------------------- | ------------------------------------------------------------------- |
+| `errs`                 | error types, codes, and boundary filtering                           |
+| `pump`                 | shared work-pump concurrency primitive                              |
+| `service`              | process-local module runtime, supervision, delivery, and telemetry  |
+| `snmpmap`              | temporary SNMP-to-domain mapping exception described below          |
+| `internal/netpenguard` | build guard limiting heavy dependencies to `src/edge/netpen`        |
 
 ## What belongs here
 

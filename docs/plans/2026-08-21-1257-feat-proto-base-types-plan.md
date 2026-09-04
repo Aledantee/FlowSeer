@@ -11,10 +11,17 @@ execution: code
 
 # Protobuf Base Types - Plan
 
+> Implemented. This plan preserves the package names and assumptions used during
+> implementation. Later accepted direction superseded several of them: the
+> current Device schema is in `api/inventory/v1`, tenancy is ambient even though
+> a keyless `TenantRef` now exists, and the package for a future Interface entity
+> remains unsettled. Use the accepted architecture records, conventions, and
+> current schema tree for present-day decisions.
+
 ## Goal Capsule
 
 - **Objective:** Land the first FlowSeer-owned schema slice under `spec/proto/flowseer/`: the address primitives, the entity-foundation conventions every later package assumes (triads, ref pairs, tenancy, provenance), the import-layering test, and the amendment that removes `core/v1` from the accepted network-model direction.
-- **Product authority:** `docs/architecture/2026-08-20-network-model-structure-direction.md` fixes the package tree, the primitive/entity split, and protobuf conventions 1–11; this plan adopts it and records only its deltas. `docs/code-style-proto.md` governs every `.proto` file; `docs/code-style.md` governs Go and comments. The next slice (`net/phy`, `net/l2`, `net/l3`, `net/interface`, `device/v1`) is not active scope.
+- **Product authority:** `docs/architecture/2026-08-20-network-model-structure-direction.md` fixes the package tree, the primitive/entity split, and protobuf conventions 1–11; this plan adopts it and records only its deltas. `docs/code-style-proto.md` governs every `.proto` file; `docs/code-style.md` governs Go and comments. At planning time, the next slice (`net/phy`, `net/l2`, `net/l3`, `net/interface`, and the then-proposed `device/v1`) was not active scope.
 - **Execution profile:** five implementation units, one worktree branch, one commit per unit is fine; generated output lands in the same commit as its schema (R13). No network services, no migrations.
 - **Stop conditions:** stop and surface if `buf generate` with the repo's `buf.gen.yaml` cannot emit the owned module without also emitting the TS leg or the Ruckus module in a way `--path` scoping does not prevent; if protovalidate-go rejects any rule at compile time; or if the layering test cannot be made to fail on the AE3 fixture.
 - **Tail ownership:** the implementer runs the Verification Contract gates and leaves the branch ready to merge; merging into `master` is the user's step (worktree guard).
@@ -34,9 +41,9 @@ Write `net/addr/v1` (`Eui48Address`, `Eui64Address`, `MacAddress`, `Oui`, `Ipv4A
 
 ### Key Decisions
 
-- **No `core/v1`. Every ref lives in the package that owns the entity it refers to.** `net/` stays identity-free; `InterfaceRef` lives with the interface *entity* in `device/v1`, never in `net/interface/v1`. Governs R5, R6, R11. *(session-settled: user-directed — chosen over a shared refs package: a ref beside its triad is what Rule 1's hook checks, and a shared package would know every entity above it.)*
-- **Tenancy is ambient.** Tenant comes from the request context for RPC and from the producing integration for events; no `TenantRef` type exists on the wire and a global ref carries no tenant. Governs R7. *(session-settled: user-directed — chosen over tenant-in-every-GlobalRef: refs stay small and tenancy cannot drift between auth and payload.)*
-- **Provenance rides the envelope, not device State.** "observed_at + which binding answered" is a property of a live response or an event: one provenance message, defined beside `Binding` in `inventory/v1` and embedded by value in the `integration/`, `service/`, and `event/` envelopes; `device/` never names a binding, so the `device ↔ inventory` cycle disappears. Governs R8. *(session-settled: user-approved — chosen over `Observation` as a field of `<Entity>State`: rule 3 of the device-service direction describes responses, and the stored State would otherwise import inventory.)*
+- **No `core/v1`. Every ref lives in the package that owns the entity it refers to.** `net/` stays identity-free. This plan proposed putting `InterfaceRef` with an Interface entity in `device/v1`, never in `net/interface/v1`; that entity and its package have not landed, so current direction leaves the package unsettled. Governs R5, R6, R11. *(session-settled: user-directed — chosen over a shared refs package: a ref beside its triad is what Rule 1's hook checks, and a shared package would know every entity above it.)*
+- **Tenancy is ambient.** Tenant comes from the request context for RPC and from the producing integration for events; a global ref carries no tenant. A keyless `TenantRef` later landed as schema vocabulary without changing ambient tenancy. Governs R7. *(session-settled: user-directed — chosen over tenant-in-every-GlobalRef: refs stay small and tenancy cannot drift between auth and payload.)*
+- **Provenance rides the envelope, not Device State.** "observed_at + which binding answered" is a property of a live response or an event. This plan used the then-proposed `inventory/v1`, `integration/`, `service/`, and `event/` package names; current Device and Binding schemas are in `api/inventory/v1`, process-local runtime messages are in `service/v1`, and future boundary packages remain unsettled. Governs R8. *(session-settled: user-approved — chosen over `Observation` as a field of `<Entity>State`: rule 3 of the device-service direction describes responses, and stored State would otherwise import inventory.)*
 - **`net/addr` imports nothing but protovalidate, and `IpAddress` has no `zone`.** A link-local address is scoped by the interface column of whichever table carries it. Governs R1, R3. *(session-settled: user-approved — chosen over keeping `zone`: adding a field later is cheap, removing one is a `reserved`.)*
 - **Everything owned lives under one `flowseer/` superfolder.** Sources at `spec/proto/flowseer/<domain>/v1/`, packages `flowseer.<domain>.v1`, generated output under `generated/go/proto/flowseer/…` and the web tree's mirror. Governs R1, R13. *(session-settled: user-directed.)*
 - **Addresses are canonical bytes in structured messages.** Inherited from the direction's convention 3, not re-decided here; the choice is one-way. Governs R2, R3.

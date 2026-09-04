@@ -15,12 +15,27 @@ their versioned protobuf package names.
   membership, aggregation attributes, and unicast forwarding-database rows.
 - `flowseer.net.ip.v1` owns per-interface IPv4/IPv6 facets, assigned-address
   rows, and the ARP/IPv6-ND neighbor cache.
+- `flowseer.net.interface.v1` owns normalized interfaces, their kind-specific
+  attributes, status taxonomies, and generic traffic counters. It composes the
+  optional routed facet from `flowseer.net.ip.v1`.
+- `flowseer.net.protocol.lldp.v1` owns LLDP local-system, port, and neighbor
+  observations. Neighbor rows identify their local interface by device-local
+  name.
 
 Table rows deliberately carry device-local interface names instead of entity
-refs. Device identity, tenancy, observation time, and lifecycle belong to the
-entity or provenance envelope that carries these values. Network instances,
-RIBs, FIBs, and routes require future instance-aware packages rather than being
-folded into the L3 interface model.
+refs. Device identity and lifecycle belong to the entity. Observation time
+belongs to the provenance envelope, while tenancy remains ambient context.
+Network instances, RIBs, FIBs, and routes require future instance-aware
+packages rather than being folded into the L3 interface model.
+
+## Entity and runtime packages
+
+- `flowseer.api.inventory.v1` owns the landed inventory entities, their refs,
+  lifecycle events, and provenance. The `api` segment is part of the current
+  package name.
+- `flowseer.service.v1` owns the process-local durable mailbox and runtime
+  control records. It is not the future ConnectRPC service API; that boundary's
+  package remains unsettled.
 
 ## Standards grounding
 

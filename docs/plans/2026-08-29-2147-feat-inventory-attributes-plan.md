@@ -11,6 +11,10 @@ execution: code
 
 # Inventory Attributes - Plan
 
+> Implemented. A later cleanup consolidated the planned
+> `attribute_value.proto` contents into `attribute.proto`; the current package
+> README and schema tree are authoritative for file layout.
+
 ## Goal Capsule
 
 - **Objective:** Define the protobuf schema for typed, operator-defined attributes in `spec/proto/flowseer/api/inventory/v1/` across three files: `entity.proto` (new; the generic entity handle), `attribute.proto` (rewritten from the current stub; the definition family), and `attribute_value.proto` (new; the value-assignment family). The conventions doc, the package README, and regenerated `generated/` output land in the same change.

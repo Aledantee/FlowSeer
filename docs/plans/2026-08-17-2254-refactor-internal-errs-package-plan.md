@@ -11,6 +11,10 @@ execution: code
 
 # Internal errs Package - Plan
 
+> Implemented. The current package is `src/common/errs`. References below to
+> `src/common/snmp` preserve the implementation-time layout; SNMP later moved to
+> `src/protocol/snmp`, and the `ae` production dependency was removed.
+
 ## Goal Capsule
 
 - **Scope amendment (2026-08-19, user-directed):** exit codes, user messages, hints, and the retryable/fatal flag are reinstated as R14/R15 and unit U7, after U1–U6 had landed. Error codes were never dropped — they are R4/R9's `Code`.

@@ -7,9 +7,9 @@ scope: controllers, access points, radios, BSS/VAP, clients, RF, rogue/WIDS, mes
 
 # Wireless
 
-Eleven entities. FlowSeer manages APs and WLAN controllers, and
-`spec/proto/flowseer/net/wlan/v1/` is an empty `.gitkeep` — so unlike the
-switching side, nothing here is modelled and everything is open.
+Eleven entities. FlowSeer manages APs and WLAN controllers, but no
+`spec/proto/flowseer/net/wlan/v1/` package exists yet. Unlike the switching
+side, nothing here is modelled and everything is open.
 
 This is also the domain where **the controller, not the device, is the source of
 truth**, which changes the collection architecture: an AP's state is read from

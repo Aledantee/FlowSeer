@@ -11,6 +11,11 @@ product_contract_source: ce-plan-bootstrap
 
 # refactor: Clean up FlowSeer proto docs with qualified spec links
 
+> Implemented. This plan preserves package paths from before the network schema
+> rename. Current packages use `net/switching/v1` instead of `net/l2/v1` and
+> `net/ip/v1` instead of `net/l3/v1`; use the accepted architecture record and
+> current schema tree for present-day paths.
+
 ## Summary
 
 Bring every FlowSeer-owned schema under `spec/proto/flowseer/` (45 files, five

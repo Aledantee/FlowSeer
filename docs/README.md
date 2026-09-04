@@ -5,14 +5,40 @@ longer-lived material that contributors need after the quick start.
 
 Read [`CONCEPTS.md`](../CONCEPTS.md) first when a domain term is unfamiliar. For
 work on the device service, inventory, discovery, or ingestion planes, read the
-relevant accepted direction under [`architecture/`](architecture/) before
-designing a change.
+relevant accepted direction in the
+[`architecture` index](architecture/README.md) before designing a change.
+
+## Authority and freshness
+
+Binding conventions and records marked `status: accepted-direction` govern new
+design work. Scoped package READMEs explain how that direction applies to the
+code beside them, while current source and tests show what has actually landed.
+Plans and research preserve implementation choices and evidence; they do not
+override an accepted direction or binding convention.
+
+A package README and its source are one maintained contract, not competing
+authorities. If they disagree about what exists, the source and tests show the
+landed behavior and the README is stale; update the README in the same change.
+This does not let landed code silently overturn an accepted direction: record
+that mismatch and reconcile the direction explicitly.
+
+`artifact_readiness: implementation-ready` describes whether a plan contains
+enough detail to execute. It does not say that the work is still pending. Read
+the plan's outcome note and inspect the current source before treating it as a
+work queue. If an accepted record and the tree disagree, record the mismatch
+and reconcile the direction instead of guessing a new package or boundary.
+
+When a plan has shipped, add a short `> Implemented.` outcome note directly
+under its title. Keep `artifact_readiness` unchanged because it describes the
+plan's completeness, not its progress. Older plans may lack an outcome note;
+absence is not evidence that their work remains pending, so confirm against the
+current tree.
 
 ## Documentation map
 
 | Location | Use it for |
 | --- | --- |
-| [`architecture/`](architecture/) | Accepted system direction and the reasons behind package or service boundaries. |
+| [`architecture/`](architecture/README.md) | Accepted system direction, supporting research, and the status of each record. |
 | [`conventions/`](conventions/) | Cross-cutting shapes and workflows, including protobuf and test layout. |
 | [`conventions/observability.md`](conventions/observability.md) | Binding logging, OpenTelemetry event, trace, metric, namespacing, and semantic-convention rules. |
 | [`code-style.md`](code-style.md) | Go API, error, concurrency, comment, and test conventions. |
@@ -21,9 +47,9 @@ designing a change.
 | [`doc-style.md`](doc-style.md) | Prose rules for documentation, comments, commits, and pull requests. |
 | [`agent-steering.md`](agent-steering.md) | How repository instructions, hooks, skills, and agent roles fit together. |
 | [`agent-knowledge.md`](agent-knowledge.md) | Where durable facts and temporary agent memory belong. |
-| [`solutions/`](solutions/) | Verified lessons from problems that are likely to recur. |
+| [`solutions/`](solutions/README.md) | Verified lessons indexed by the conditions in which they apply. |
 | [`plans/`](plans/) | Implementation decision records for bounded changes. |
-| [`research/`](research/) | Evidence gathered before a design decision. |
+| [`research/`](research/README.md) | Indexed evidence gathered before a design decision. |
 | [`benchmarks/`](benchmarks/) | Reproducible performance results and their test conditions. |
 | [`attic/`](attic/) | Superseded material kept only for historical reference. |
 

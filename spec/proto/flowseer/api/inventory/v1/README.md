@@ -55,8 +55,11 @@ a shared foundation:
   admission to `EntityType` obliges. Capability and the value assignment
   stay outside the enum: one is a closed enum rather than an identified
   entity, and nothing points at an assignment. Tenant is in the enum ahead
-  of the tenant entity gaining an id surface; a ref to a tenant is content
-  on the pointing entity, never the request's tenancy scope.
+  of the tenant entity gaining an id surface. Producers must not emit a tenant
+  `EntityRef` until that identity and its store exist; the inventory service
+  rejects one during semantic existence checks in the meantime. Once
+  supported, such a ref is content on the pointing entity, never the request's
+  tenancy scope.
 - The definition family names the attribute: a display name, one value
   type (string, number, closed enum with the vocabulary as data on the
   definition, or entity reference), the entity kinds it targets, and the

@@ -20,9 +20,12 @@ mapper's job.
 Kinds with no surveyed source attributes are empty arm messages. They classify
 the interface and gain fields when a source provides them.
 
-Device identity, tenant, lifecycle, provenance, observation time, and the
-Interface entity's references belong to the entity or envelope that carries
-these values.
+Device identity and lifecycle belong to the entity model. Provenance and
+observation time belong to the carrying envelope, and tenancy remains ambient
+context. An Interface entity and its references have not landed; their future
+package remains unsettled. Do not add them to this primitive package or infer
+an `api/interface/v1` boundary. Amend the accepted network-model direction
+before adding the entity family.
 
 ## Sources
 

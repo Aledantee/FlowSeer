@@ -12,6 +12,10 @@ deepened: 2026-08-30
 
 # MIB Parser - Plan
 
+> Implemented. The parser and SNMP packages later moved from
+> `src/common/{smi,snmp}` to `src/protocol/{smi,snmp}`. Commands and paths below
+> preserve the implementation-time layout.
+
 ## Goal Capsule
 
 - **Objective:** Own the SMIv1/SMIv2 parsing and resolution layer under `src/common/smi`, replacing `gosmi`, with leniency toward malformed vendor MIBs as a first-class property rather than an afterthought.

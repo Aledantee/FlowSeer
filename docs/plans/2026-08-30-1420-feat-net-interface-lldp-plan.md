@@ -11,10 +11,16 @@ execution: code
 
 # Net Interface and LLDP Packages - Plan
 
+> Implemented. This file remains the decision record for the LLDP primitives,
+> SNMP mapper, and conformance coverage that landed from this plan. Current
+> architecture records, scoped READMEs, source, and tests govern follow-up work;
+> `artifact_readiness: implementation-ready` describes the plan's executable
+> detail, not whether its implementation is pending.
+
 ## Goal Capsule
 
 - **Objective:** Rename the layer packages to function names (`net/l2` → `net/switching`, `net/l3` → `net/ip`), then land the two missing building blocks the network-model direction calls for next — `net/interface/v1` and `net/protocol/lldp/v1` — each as a full slice: protos, regenerated code, conformance coverage, and an SNMP mapper with a wire-contract test. The MIB generator gains per-column presence and bit-string decoding first, because the mappers need both and the current bindings express neither.
-- **Product authority:** [The network-model direction record](../architecture/2026-08-20-network-model-structure-direction.md) (amended by this work to record the rename) and [the net core package research](../architecture/2026-08-26-net-core-package-research.md) fix the message shapes and conventions; [the protobuf model conventions](../conventions/protobuf.md), [the proto style guide](../code-style-proto.md), and [the doc style guide](../doc-style.md) govern schema shape and prose. `net/protocol/{stp,lacp}`, `net/wlan`, routing, and the `device/v1` entity slice are not active scope.
+- **Product authority:** [The network-model direction record](../architecture/2026-08-20-network-model-structure-direction.md) (amended by this work to record the rename) and [the net core package research](../architecture/2026-08-26-net-core-package-research.md) fix the message shapes and conventions; [the protobuf model conventions](../conventions/protobuf.md), [the proto style guide](../code-style-proto.md), and [the doc style guide](../doc-style.md) govern schema shape and prose. `net/protocol/{stp,lacp}`, `net/wlan`, routing, and the plan-era `device/v1` entity slice are not active scope. Device has since landed in `api/inventory/v1`; the accepted direction leaves the future Interface entity package unsettled.
 - **Stop conditions:** Surface instead of guessing when a change would alter product scope (R-IDs), reopen an accepted architecture decision beyond the recorded rename, or require a policy-surface edit (`buf.yaml`, hooks, `AGENTS.md`).
 - **Open blockers:** None.
 
@@ -93,7 +99,10 @@ flowchart TB
 
 - `net/protocol/{stp,lacp}` and `net/wlan` — future slices per the direction's sequencing.
 - Routing (routes, RIBs, network instances) — reserved future `net/routing` package; nothing lands under the name now (R2).
-- The `device/v1` entity slice (Device identity, Interface entity, refs) — the direction pairs it with `net/interface`, but this work is scoped to `net/`; the mappers and tests prove primitives only.
+- The Interface entity and its refs — not landed. Device identity has since
+  landed in `api/inventory/v1`, but the accepted direction does not assign the
+  future Interface entity a package. This work is scoped to `net/`; the mappers
+  and tests prove primitives only.
 - LLDP PDU decode, hardware-port components (ENTITY-MIB), and per-lane optics — deferred per the direction and research records.
 - SNMP integration-tier coverage (t1–t4 docker/containerlab/live tests) for the mappers — wire-contract tests use in-memory fixtures (KTD2); replay-tier coverage is follow-up work.
 
@@ -113,7 +122,9 @@ This plan owns the rename plus the `interface` and `lldp` packages. The surround
 - `net/protocol/{stp,lacp}` — depend on `net/interface` (they reference interfaces by name); can follow independently of each other.
 - `net/wlan` — depends on `net/interface` and `net/switching`; waits for a feeding integration.
 - `net/routing` — still to decide: needs the network-instance/VRF identity design before any schema lands.
-- `device/v1` entity slice — enabled by this work; wires the mappers' primitive output into the Device/Interface entities and their refs.
+- Interface entity slice — enabled by this work, but its package remains
+  unsettled. Device already lives in `api/inventory/v1`; follow-up work will wire
+  the mappers' primitive output into the entity model and its refs.
 
 ### Sources
 

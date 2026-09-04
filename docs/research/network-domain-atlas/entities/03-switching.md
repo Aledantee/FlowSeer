@@ -359,9 +359,9 @@ with `state/{role, port-state, edge-port, port-num, counters}`.
 
 ### FlowSeer status
 
-`spec/proto/flowseer/net/protocol/stp/v1/` is an empty `.gitkeep`. Nothing
-modelled. Given the topology-inference value and the near-universal vendor
-support, this is the highest-value unmodelled L2 protocol.
+No `spec/proto/flowseer/net/protocol/stp/v1/` package exists yet. Given the
+topology-inference value and the near-universal vendor support, this is the
+highest-value unmodelled L2 protocol.
 
 ---
 

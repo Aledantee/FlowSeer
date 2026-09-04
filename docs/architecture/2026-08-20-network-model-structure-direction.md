@@ -2,7 +2,7 @@
 title: Network Model Structure - Direction
 type: direction
 date: 2026-08-20
-updated: 2026-08-26
+updated: 2026-09-04
 topic: network-model-structure
 status: accepted-direction
 ---
@@ -30,10 +30,12 @@ switching, and ip boundary is recorded in the
 Two kinds of message, two trees, one import rule. **Primitives** under
 `flowseer/net/…` are networking *values* — an address, a VLAN, a neighbor
 entry, an interface — with no identity, tenant, lifecycle, or provenance.
-**Entities** under `flowseer/device/…`, `flowseer/inventory/…`, and above
-carry refs, lifecycle, the Config/State/Event triad, and embed primitives by
-value. Address types and packet-header values live in independent leaf
-packages; layer packages hold interface *facets* and protocol-agnostic
+**Entities** currently under `flowseer/api/inventory/v1` embed primitives by
+value. UUID-identified entities carry ref pairs; intended-and-observed families
+use the applicable lifecycle and Config/State/Event shapes. Deliberately partial
+families, including the keyless Tenant sketch, follow the exceptions in the
+protobuf model conventions. Address types and packet-header values live in
+independent leaf packages; layer packages hold interface *facets* and protocol-agnostic
 *tables*; each protocol owns its own package;
 the interface is one message whose kind is a `oneof` and whose routed persona
 is an optional cross-kind facet. Imports flow strictly upward according to the
@@ -52,17 +54,23 @@ spec/proto/flowseer/
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
-  device/v1/            Device, Interface entity, device-level tables as State
-  inventory/v1/         Integration, Binding, Placement, IntegrationScope
-  integration/v1/       announce / execute / events, first-party kind configs
-  service/v1/           ConnectRPC services
-  event/v1/             the event envelope
+  api/
+    inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
+  service/v1/           process-local runtime messages and durable mailbox contracts
 ```
 
-There is no base package. Every entity's ref pair and lifecycle enums live in
-the package that owns the entity; the rules that shape a package's messages
-live in [the protobuf model conventions](../conventions/protobuf.md), which
-this tree assumes throughout.
+This tree uses current names for landed packages. `wlan/v1` and protocol
+families beyond those present in the repository remain reserved locations.
+Separate central integration, ConnectRPC service, and event-envelope packages
+remain part of the system direction, but their protobuf paths are not settled. In particular,
+`flowseer.service.v1` now names the process-local service runtime contract; it
+must not be treated as the future ConnectRPC API package by inference.
+
+There is no base package. Ref pairs and lifecycle enums, when a family has
+them, live in the package that owns the entity. The rules and deliberate
+exceptions that shape a package's messages live in
+[the protobuf model conventions](../conventions/protobuf.md), which this tree
+assumes throughout.
 
 Import layering is acyclic. The foundational dependency graph is:
 
@@ -71,17 +79,20 @@ net/addr ← {net/switching, net/ip}
 net/packet ← net/switching
 {net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
 net/interface ← {net/protocol/*, net/wlan}
-{net/interface, net/protocol/*, net/wlan} ← device
-device ← inventory ← integration ← {service, event}
+{net/interface, net/protocol/*, net/wlan} ← api/inventory
 ```
 
-`net/*` never imports `device/` or above. Layers never import a protocol.
+`net/*` never imports `api/` or another entity or boundary package. Layers
+never import a protocol.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
 packages; `net/switching` imports address and packet values, while `net/ip`
-imports address values. Service and event packages are sibling boundary
-consumers and never import one another. The order's home for automated
-checking is `test/conformance/proto/`; `spec/proto/` holds only `.proto`
-and `README.md` files, so no test can sit beside the schemas.
+imports address values. Future integration, service API, and event packages
+consume the entity model without introducing a downward import. Their exact
+paths need an accepted amendment before the first schema lands. The service API
+and event envelope remain sibling boundary consumers and must not import one
+another. The order's home for automated checking is
+`test/conformance/proto/`; `spec/proto/` holds only `.proto` and `README.md`
+files, so no test can sit beside the schemas.
 
 ## Why this shape
 
@@ -415,24 +426,27 @@ API_OPAQUE`.
    permanent.
 8. **References inside a primitive are by local name; a ref lives in the
    package that owns its entity.** `net/` messages name other interfaces by
-   `name` and carry no ref at all. Every entity has a
+   `name` and carry no ref at all. Every UUID-identified entity has a
    `<Entity>LocalRef`/`<Entity>GlobalRef` pair beside its triad in its own
-   package — `InterfaceRef` is a `device/v1` concern, not a
-   `net/interface/v1` one — because a package holding every ref would have to
+   package — an eventual `InterfaceRef` is an entity-package concern, not a
+   `net/interface/v1` one; the landed Device ref lives in
+   `api/inventory/v1` — because a package holding every ref would have to
    know every entity above it, which is the upward import this layering
-   forbids. Refs carry no tenant: tenancy is ambient, resolved from the
-   request context for RPC and from the producing integration for events.
+   forbids. Refs do not carry tenancy scope: tenancy is ambient, resolved from
+   the request context for RPC and from the producing integration for events.
+   The keyless Tenant exception is defined in the model conventions.
    [The model conventions](../conventions/protobuf.md) hold the detail.
 9. **Provenance rides the envelope, not State.** `observed_at` and the
    answering binding describe a live response or an event, so they are one
-   message defined beside `Binding` in `inventory/v1` and embedded by the
+   message defined beside `Binding` in `api/inventory/v1` and embedded by the
    integration, service-response, and event envelopes — never a field of an
    `<Entity>State`, and never on a primitive. Rule 3 of
    [the device service direction](2026-08-20-device-service-and-inventory-direction.md)
-   is about responses, and putting the binding on stored State would make
-   `device/` import `inventory/` while `inventory/` already refers to devices.
+   is about responses, and putting the answering binding on stored State would
+   make reusable device state depend on inventory transport context.
    Observed-state systems that stamp each row (Netdisco `time_first/last`) do
-   so because rows are their unit of storage; FlowSeer's is the response.
+   so because rows are their unit of storage; FlowSeer's is the response or
+   event envelope.
 10. **Field numbers and symbol visibility.** Numbers 1–15 (single-byte tags)
     go to the fields every consumer reads; in a message where a `oneof` sits
     alongside other fields, arms and facets start at 10 and 20 upward in
@@ -478,14 +492,15 @@ one commit with regenerated `generated/`:
    `net/addr`, the independent `net/packet` header primitives, and repository
    conformance coverage outside the schema source tree.
 2. `net/phy` and `net/interface` with the `physical`, `lag`, `vlan`,
-   `loopback`, `other` arms; `device/v1` Device identity and the Interface
-   entity — proven by the hand-done R11 identity read via SNMP.
+   `loopback`, `other` arms. A separate Interface entity slice remains
+   unlanded; the Device family currently lives in `api/inventory/v1`.
 3. `net/switching` (the `vlan_id` rule, `Vlan`, `SwitchportFacet`,
    `AggregationFacet`, `FdbEntry`) and `net/protocol/lldp` — three of the five
    v1 capabilities (interfaces, neighbors, VLANs) via
    `qbridgemib`/`bridgemib`/`lldpmib`.
-4. `inventory/v1`, `integration/v1`, `service/v1` — once there is something
-   real to bind and route.
+4. `api/inventory/v1` for the landed Device, Integration, Binding, Placement,
+   and provenance families. Central integration execution, event envelopes,
+   and ConnectRPC APIs still need settled package paths.
 5. `net/ip` (`IpFacet`, `InterfaceAddress`, `NeighborEntry`) via `ipmib`; needed
    by discovery's table-walk sources anyway.
 6. Network-instance and routing packages when a real RIB capability is ready;
@@ -622,9 +637,10 @@ originally specified it, contradicted the record's own primitive/entity line.
   doing was breaking a `device ↔ inventory` cycle, and that cycle only existed
   because the answering binding was stored on device State. Off State, no
   cycle; no cycle, no need for a base package.
-- **Tenancy is ambient** — no `TenantRef` on the wire, and no tenant inside a
-  ref (convention 8). It cannot then drift between what auth decided and what
-  a payload claims.
+- **Tenancy is ambient.** The landed, keyless `TenantRef` may appear as content,
+  but it carries no tenant identity and never scopes a request or record. No
+  other ref contains a tenant (convention 8), so payload data cannot override
+  what authentication decided.
 - **Address primitives are typed variants** (convention 3) instead of one
   `bytes` payload validated by size, and `IpAddress` lost its `zone` field —
   which also settles the IPv6-zone open question, removed above.
@@ -657,3 +673,21 @@ opened by moving the two packages this record named after OSI layers.
   `spec/proto/` accepts only `.proto` and `README.md` files. The order's home
   for automated checking is `test/conformance/proto/`, where the rest of
   the schema gates already live.
+
+### 2026-09-04 — inventory is under `api`; boundary package names remain open
+
+The inventory work landed Device, Integration, Binding, Placement,
+IntegrationScope, and provenance together under
+`flowseer.api.inventory.v1`. That package is now the entity layer above the
+network primitives. The earlier package tree split those families across
+`device/v1`, `inventory/v1`, and `integration/v1`; those exact paths no longer
+describe the repository.
+
+The service runtime later claimed `flowseer.service.v1` for process-local
+module messages and durable mailbox contracts. This amendment does not choose
+new paths for the central integration execution API, ConnectRPC services, or
+the event envelope. Their separation remains accepted, while their protobuf
+names stay open until the first boundary schema is designed. It also does not
+choose a package for a future Interface entity and its refs. Do not infer that
+boundary from `net/interface/v1` or a former empty `api/interface/v1`
+placeholder; amend this accepted record before adding the entity family.

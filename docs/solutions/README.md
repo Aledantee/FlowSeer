@@ -1,0 +1,18 @@
+# Captured solutions
+
+Solutions preserve verified lessons that are easy to miss by reading the happy
+path. Use each document's `applies_when` frontmatter to decide whether to read
+it. Category and severity help with search and review priority; they do not make
+a solution override an accepted architecture record or binding convention.
+
+| Solution | Read when |
+| --- | --- |
+| [SNMP Collection Library: Architecture and Fast-Path Conventions](architecture-patterns/snmp-collection-library-architecture-and-fast-path-conventions.md) | Changing `src/protocol/snmp`, generated MIB bindings, the SNMP hot path, or its conformance and performance gates. |
+| [A Decoder's Decline Costs the Whole Table, Not the Field](architecture-patterns/decode-failure-blast-radius-in-generated-walks.md) | Tightening a generated-column decoder, choosing error versus coercion for malformed agent data, or investigating a table that unexpectedly returns no rows. |
+| [The errs Package: FlowSeer's Owned Error Type and Its Conventions](architecture-patterns/errs-package-architecture-and-error-conventions.md) | Creating or exposing Go errors, adding an `errs.Code`, or deciding whether diagnostic data belongs in an error, attribute, or log. |
+| [Declaration-Level SMI Recovery Preserves Declared Semantics](architecture-patterns/gosmi-drops-bits-member-numbers.md) | Changing SMI parser recovery, BITS member handling, MIB generation, or use of gosmi as a reference. |
+| [Documenting Intentional Protobuf Validation Deviations](conventions/document-intentional-schema-deviations-with-comment-and-test.md) | Deliberately departing from a package-wide validation pattern or preserving forward compatibility for enum and repeated-field validation. |
+
+Add a solution only after the behavior and lesson have been verified. Keep its
+frontmatter specific enough that an agent can reject unrelated documents
+without reading their full bodies.

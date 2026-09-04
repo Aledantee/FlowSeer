@@ -76,10 +76,10 @@ software-version}`.
 
 ### FlowSeer status
 
-Not modelled. `inventory/v1/device.proto` holds FlowSeer's own identity concept
-but there is no observed-system-identity message. The likely home is a future
-`flowseer.net.system.v1` (the `api/system/v1` directory is an empty
-`.gitkeep`).
+Not modelled. The current Device schema in `api/inventory/v1/device.proto`
+holds FlowSeer's own identity concept, but there is no
+observed-system-identity message. The likely home is a future
+`flowseer.net.system.v1`; no such package exists yet.
 
 ---
 
