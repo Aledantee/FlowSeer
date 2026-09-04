@@ -709,7 +709,7 @@ func TestLeafRetryRetainsTelemetryPolicySnapshot(t *testing.T) {
 	replacementStarted := make(chan struct{})
 	options := immediateSupervisorOptions()
 	options.lookup = func(key string) (string, bool) {
-		if key != "FLOWSEER_EDGE_WORKER_LOGS_ENABLED" {
+		if key != "FLOWSEER_EDGE_WORKER_TELEMETRY_LOGS_ENABLED" {
 			return "", false
 		}
 		if policyReads.Add(1) == 1 {
@@ -772,10 +772,10 @@ func TestBranchReconstructionResamplesDescendantTelemetryAndRetainsBranch(t *tes
 	options := immediateSupervisorOptions()
 	options.lookup = func(key string) (string, bool) {
 		switch key {
-		case "FLOWSEER_EDGE_GROUP_LOGS_ENABLED":
+		case "FLOWSEER_EDGE_GROUP_TELEMETRY_LOGS_ENABLED":
 			branchPolicyReads.Add(1)
 			return "false", true
-		case "FLOWSEER_EDGE_GROUP_WORKER_LOGS_ENABLED":
+		case "FLOWSEER_EDGE_GROUP_WORKER_TELEMETRY_LOGS_ENABLED":
 			if leafPolicyReads.Add(1) == 1 {
 				return "false", true
 			}
@@ -846,7 +846,7 @@ func TestBranchReconstructionTelemetryConfigFailureIsFatal(t *testing.T) {
 			var attempts atomic.Int32
 			options := immediateSupervisorOptions()
 			options.lookup = func(key string) (string, bool) {
-				if key != "FLOWSEER_EDGE_GROUP_WORKER_LOGS_ENABLED" {
+				if key != "FLOWSEER_EDGE_GROUP_WORKER_TELEMETRY_LOGS_ENABLED" {
 					return "", false
 				}
 				if policyReads.Add(1) == 1 {
@@ -871,7 +871,7 @@ func TestBranchReconstructionTelemetryConfigFailureIsFatal(t *testing.T) {
 					}}},
 				}},
 			}, options)
-			assertTelemetryConfigError(t, err, "FLOWSEER_EDGE_GROUP_WORKER_LOGS_ENABLED", tt.category, tt.second)
+			assertTelemetryConfigError(t, err, "FLOWSEER_EDGE_GROUP_WORKER_TELEMETRY_LOGS_ENABLED", tt.category, tt.second)
 			if got := policyReads.Load(); got != 2 {
 				t.Fatalf("policy reads = %d, want startup plus one reconstruction", got)
 			}

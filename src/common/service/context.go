@@ -61,6 +61,8 @@ func valuesFromContext(ctx context.Context) contextValues {
 	return values
 }
 
+// contextWithoutRecordingSpan removes ctx's recording span while preserving
+// its SpanContext for propagation.
 func contextWithoutRecordingSpan(ctx context.Context) context.Context {
 	return trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(ctx))
 }

@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -99,6 +100,43 @@ func TestPreflightNormalizesTelemetryBacking(t *testing.T) {
 	}
 }
 
+func TestNormalizeOTLPConnectionValidatesTraceSampling(t *testing.T) {
+	connection, _, err := normalizeOTLPConnection(TelemetryConfig{}, mapLookup(nil))
+	if err != nil {
+		t.Fatalf("normalizeOTLPConnection() error: %v", err)
+	}
+	if got := connection.traceSampleRatio; got != defaultTraceSampleRatio {
+		t.Errorf("default trace sample ratio = %v, want %v", got, defaultTraceSampleRatio)
+	}
+
+	for _, test := range []struct {
+		name    string
+		ratio   float64
+		wantErr bool
+	}{
+		{name: "none", ratio: 0},
+		{name: "all", ratio: 1},
+		{name: "negative", ratio: -0.01, wantErr: true},
+		{name: "above one", ratio: 1.01, wantErr: true},
+		{name: "not a number", ratio: math.NaN(), wantErr: true},
+		{name: "infinity", ratio: math.Inf(1), wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			connection, _, err := normalizeOTLPConnection(TelemetryConfig{TraceSampleRatio: &test.ratio}, mapLookup(nil))
+			if test.wantErr {
+				assertTelemetryConfigError(t, err, "Telemetry.TraceSampleRatio", "out_of_range", "")
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalizeOTLPConnection() error: %v", err)
+			}
+			if got := connection.traceSampleRatio; got != test.ratio {
+				t.Errorf("trace sample ratio = %v, want %v", got, test.ratio)
+			}
+		})
+	}
+}
+
 func TestPreflightRejectsSignalSpecificOTLPEnvironment(t *testing.T) {
 	settings := []string{
 		"ENDPOINT",
@@ -149,6 +187,35 @@ func TestPreflightExplicitTelemetryConfigOverridesEnvironment(t *testing.T) {
 	}
 	if got := connection.headers["authorization"]; got != "go-secret" {
 		t.Errorf("authorization header = %q, want Go configuration", got)
+	}
+}
+
+func TestPreflightRejectsTransportReservedTelemetryHeaders(t *testing.T) {
+	tests := []struct {
+		name     string
+		protocol string
+		headers  map[string]string
+		category string
+	}{
+		{name: "HTTP content type", headers: map[string]string{"Content-Type": "text/plain"}, category: "unsupported"},
+		{name: "HTTP content encoding", headers: map[string]string{"content-encoding": "br"}, category: "unsupported"},
+		{name: "gRPC reserved metadata", protocol: "grpc", headers: map[string]string{"grpc-timeout": "1S"}, category: "unsupported"},
+		{name: "gRPC HTTP-only name", protocol: "grpc", headers: map[string]string{"x-api$key": "value"}, category: "malformed"},
+		{name: "gRPC non-ASCII value", protocol: "grpc", headers: map[string]string{"authorization": "café"}, category: "malformed"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := preflight(context.Background(), Config{
+				Identity: testIdentity(),
+				Setup:    testSetup(),
+				Telemetry: TelemetryConfig{
+					Endpoint: "https://collector.example",
+					Protocol: tt.protocol,
+					Headers:  tt.headers,
+				},
+			}, mapLookup(nil))
+			assertTelemetryConfigError(t, err, "Telemetry.Headers", tt.category, "")
+		})
 	}
 }
 
@@ -294,11 +361,11 @@ func TestPreflightResolvesTelemetryPolicyInheritanceAndEnvironment(t *testing.T)
 		}},
 	}
 	env := map[string]string{
-		"OTEL_EXPORTER_OTLP_ENDPOINT":               "https://collector.example",
-		"FLOWSEER_EDGE_LOGS_ENABLED":                "true",
-		"FLOWSEER_EDGE_BRANCH_METRICS_ENABLED":      "true",
-		"FLOWSEER_EDGE_BRANCH_LEAF_METRICS_ENABLED": "false",
-		"FLOWSEER_EDGE_BRANCH_LEAF_TRACES_ENABLED":  "true",
+		"OTEL_EXPORTER_OTLP_ENDPOINT":                         "https://collector.example",
+		"FLOWSEER_EDGE_TELEMETRY_LOGS_ENABLED":                "true",
+		"FLOWSEER_EDGE_BRANCH_TELEMETRY_METRICS_ENABLED":      "true",
+		"FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_METRICS_ENABLED": "false",
+		"FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_TRACES_ENABLED":  "true",
 	}
 
 	got, err := preflight(context.Background(), cfg, mapLookup(env))
@@ -356,9 +423,9 @@ func TestPreflightValidatesTelemetryOverrideBelowDisabledGate(t *testing.T) {
 			}}},
 		}},
 	}, mapLookup(map[string]string{
-		"FLOWSEER_EDGE_BRANCH_LEAF_LOGS_ENABLED": "yes",
+		"FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_LOGS_ENABLED": "yes",
 	}))
-	assertTelemetryConfigError(t, err, "FLOWSEER_EDGE_BRANCH_LEAF_LOGS_ENABLED", "malformed", "yes")
+	assertTelemetryConfigError(t, err, "FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_LOGS_ENABLED", "malformed", "yes")
 }
 
 func TestPreflightTelemetryConfigErrorsAreBoundedAndNonleaking(t *testing.T) {

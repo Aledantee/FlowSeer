@@ -57,6 +57,7 @@ func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 	identity := testBusIdentity()
 	zero := time.Duration(0)
 	negative := -time.Second
+	submillisecond := time.Millisecond - time.Nanosecond
 	custom := time.Second
 	tests := []BusConfig{
 		{StoreDir: "relative"},
@@ -64,6 +65,7 @@ func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 		{HealthInterval: -time.Second},
 		{FsyncInterval: &zero},
 		{FsyncInterval: &negative},
+		{FsyncInterval: &submillisecond},
 		{FsyncPolicy: BusFsyncPolicy(99)},
 		{FsyncPolicy: BusFsyncPerMessage, FsyncInterval: &custom},
 	}
@@ -89,6 +91,17 @@ func TestNormalizeBusConfigCarriesDeclaredFsyncPolicy(t *testing.T) {
 	}
 	if periodic.fsyncPolicy != BusFsyncPeriodic || periodic.fsyncInterval != interval {
 		t.Fatalf("periodic policy = %v at %s, want periodic at %s", periodic.fsyncPolicy, periodic.fsyncInterval, interval)
+	}
+	minimum := minimumBusFsyncInterval
+	periodic, err = normalizeBusConfig(testBusIdentity(), BusConfig{
+		StoreDir:      t.TempDir(),
+		FsyncInterval: &minimum,
+	})
+	if err != nil {
+		t.Fatalf("minimum periodic interval: %v", err)
+	}
+	if periodic.fsyncInterval != minimum {
+		t.Fatalf("minimum periodic interval = %s, want %s", periodic.fsyncInterval, minimum)
 	}
 
 	perMessage, err := normalizeBusConfig(testBusIdentity(), BusConfig{
@@ -125,17 +138,87 @@ func TestLocalBusServerOptionsCarryFsyncPolicy(t *testing.T) {
 	}
 }
 
-func TestFsyncPolicyDoesNotChangeOwnedStreamConfigs(t *testing.T) {
-	periodic := testNormalizedBusConfig(t)
-	perMessage := periodic
-	perMessage.fsyncPolicy = BusFsyncPerMessage
-	perMessage.fsyncInterval = 0
-
-	if got, want := mailboxStreamConfig(periodic.mailboxMaxBytes), mailboxStreamConfig(perMessage.mailboxMaxBytes); !reflect.DeepEqual(got, want) {
-		t.Fatalf("mailbox config changed with fsync policy:\nperiodic:   %+v\nper-message: %+v", got, want)
+func TestStartedLocalBusCarriesFsyncPolicy(t *testing.T) {
+	tests := []struct {
+		name         string
+		policy       BusFsyncPolicy
+		wantAlways   bool
+		wantInterval time.Duration
+	}{
+		{name: "periodic default", policy: BusFsyncPeriodic, wantInterval: defaultBusFsyncInterval},
+		{name: "per message", policy: BusFsyncPerMessage, wantAlways: true},
 	}
-	if got, want := metadataStreamConfig(periodic.metadataMaxBytes), metadataStreamConfig(perMessage.metadataMaxBytes); !reflect.DeepEqual(got, want) {
-		t.Fatalf("metadata config changed with fsync policy:\nperiodic:   %+v\nper-message: %+v", got, want)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := testNormalizedBusConfig(t)
+			config.fsyncPolicy = test.policy
+			if test.policy == BusFsyncPerMessage {
+				config.fsyncInterval = 0
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			bus, err := startLocalBus(ctx, config, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				closeCtx, closeCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer closeCancel()
+				if err := bus.close(closeCtx, true); err != nil {
+					t.Error(err)
+				}
+			})
+
+			effective := bus.server.JetStreamConfig()
+			if effective == nil {
+				t.Fatal("started server has no JetStream configuration")
+			}
+			if effective.SyncAlways != test.wantAlways {
+				t.Errorf("started server SyncAlways = %t, want %t", effective.SyncAlways, test.wantAlways)
+			}
+			if !test.wantAlways && effective.SyncInterval != test.wantInterval {
+				t.Errorf("started server SyncInterval = %s, want %s", effective.SyncInterval, test.wantInterval)
+			}
+		})
+	}
+}
+
+func TestOwnedStreamConfigsHaveFrozenFsyncIndependentContract(t *testing.T) {
+	const maxBytes int64 = 1234
+	wantMailbox := jetstream.StreamConfig{
+		Name:               mailboxStreamName,
+		Subjects:           []string{mailboxSubjectRoot + ".>"},
+		Retention:          jetstream.WorkQueuePolicy,
+		MaxConsumers:       -1,
+		MaxMsgs:            -1,
+		MaxBytes:           maxBytes,
+		Discard:            jetstream.DiscardNew,
+		MaxMsgsPerSubject:  -1,
+		Storage:            jetstream.FileStorage,
+		Replicas:           1,
+		Duplicates:         24 * time.Hour,
+		AllowAtomicPublish: true,
+	}
+	if got := mailboxStreamConfig(maxBytes); !reflect.DeepEqual(got, wantMailbox) {
+		t.Fatalf("mailbox stream config = %+v, want frozen baseline %+v", got, wantMailbox)
+	}
+
+	wantMetadata := jetstream.StreamConfig{
+		Name:              metadataStreamName,
+		Subjects:          []string{metadataSubject + ".>"},
+		Retention:         jetstream.LimitsPolicy,
+		MaxConsumers:      -1,
+		MaxMsgs:           -1,
+		MaxBytes:          maxBytes,
+		Discard:           jetstream.DiscardNew,
+		MaxMsgsPerSubject: -1,
+		Storage:           jetstream.FileStorage,
+		Replicas:          1,
+		Duplicates:        24 * time.Hour,
+	}
+	if got := metadataStreamConfig(maxBytes); !reflect.DeepEqual(got, wantMetadata) {
+		t.Fatalf("metadata stream config = %+v, want frozen baseline %+v", got, wantMetadata)
 	}
 }
 

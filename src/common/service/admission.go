@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 )
 
-// admissionState serializes immutable admission revisions published by the
-// root coordinator. Readers linearize against one revision without sharing a
-// mutable map with supervisor goroutines.
+// admissionState serializes immutable admission revisions published by
+// concurrent supervisors. Readers linearize against one revision without
+// sharing mutable state with supervisor goroutines.
 type admissionState struct {
 	// mu serializes writers that derive and publish a new immutable revision.
 	mu      sync.Mutex
@@ -30,6 +30,7 @@ func (s *admissionState) setPhase(phase admissionPhase) {
 	s.current.Store(s.current.Load().withPhase(phase))
 }
 
+// setModuleState publishes state for module and all its descendants.
 func (s *admissionState) setModuleState(module plannedModule, state moduleState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -46,6 +47,8 @@ func (s *admissionState) setModuleState(module plannedModule, state moduleState)
 	s.current.Store(revision)
 }
 
+// setModuleSnapshot atomically publishes running or disabled states for every
+// module in the snapshot. A disabled parent forces all descendants disabled.
 func (s *admissionState) setModuleSnapshot(modules []plannedModule) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

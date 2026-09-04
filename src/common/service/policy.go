@@ -48,7 +48,11 @@ const (
 // value selects the runtime default for the field where it is used. Values are
 // copied during preflight and are safe to reuse when callers do not mutate them.
 type RestartBudget struct {
-	Max    int
+	// Max is the number of admitted restart decisions. A non-zero budget
+	// requires Max and Window to both be positive.
+	Max int
+	// Window is the rolling interval containing at most Max admitted decisions.
+	// It must be positive when Max is set.
 	Window time.Duration
 }
 
@@ -56,8 +60,13 @@ type RestartBudget struct {
 // starts at one second, caps at 30 seconds, and resets after one healthy minute.
 // Values are copied during preflight and are safe to reuse when not mutated.
 type Backoff struct {
-	Initial    time.Duration
-	Maximum    time.Duration
+	// Initial is the upper bound for the first full-jitter delay. A custom
+	// backoff requires every field to be positive.
+	Initial time.Duration
+	// Maximum caps the exponential delay and must be at least Initial.
+	Maximum time.Duration
+	// ResetAfter clears the exponent after an attempt remains healthy for this
+	// duration. It must be positive in a custom backoff.
 	ResetAfter time.Duration
 }
 
@@ -167,6 +176,8 @@ func normalizeBudget(name string, budget RestartBudget, defaultMax int, defaultW
 	return budget, nil
 }
 
+// rollingBudget admits at most limit.Max decisions whose timestamps fall in
+// limit.Window. Callers serialize access.
 type rollingBudget struct {
 	limit RestartBudget
 	uses  []time.Time

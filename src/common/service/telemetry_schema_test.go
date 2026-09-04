@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"slices"
 	"testing"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -82,7 +84,7 @@ func TestRuntimeTelemetrySchema(t *testing.T) {
 	if err := telemetry.recordLifecycle(ctx, "edge/worker", lifecycleActionStart, lifecycleOutcomeNormal); err != nil {
 		t.Fatalf("recordLifecycle() error: %v", err)
 	}
-	endLifecycleSpan(span, lifecycleOutcomeNormal)
+	endLifecycleSpan(span, lifecycleOutcomeNormal, nil)
 
 	ended := recorder.Ended()[0]
 	if got, want := ended.Name(), attemptSpanName; got != want {
@@ -122,6 +124,28 @@ func TestRuntimeTelemetrySchema(t *testing.T) {
 	})
 }
 
+func TestFailedRuntimeSpansIncludeErrorType(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	tracer := provider.Tracer("failed-span-schema-test")
+
+	_, lifecycle := startLifecycleSpan(context.Background(), tracer, "edge/worker", attemptSpanName, lifecycleActionStart)
+	endLifecycleSpan(lifecycle, lifecycleOutcomeError, deliveryError("edge/worker", "probe", errors.New("failure")))
+	_, delivery := tracer.Start(context.Background(), deliverySpanName)
+	recordSpanError(delivery, "message handler failed", errors.New("failure"))
+	delivery.End()
+
+	for _, span := range recorder.Ended() {
+		value, ok := spanAttribute(span, string(semconv.ErrorTypeKey))
+		if !ok || value == "" {
+			t.Errorf("failed span %q error.type = %q, %t; want bounded classification", span.Name(), value, ok)
+		}
+		if span.Status().Code != codes.Error {
+			t.Errorf("failed span %q status = %v, want error", span.Name(), span.Status().Code)
+		}
+	}
+}
+
 func TestManagedLogScopeAndResourceIdentityPlacement(t *testing.T) {
 	localLogger, localSink := newRecordingLogger()
 	capture := &telemetryRequestCapture{}
@@ -137,7 +161,7 @@ func TestManagedLogScopeAndResourceIdentityPlacement(t *testing.T) {
 		t.Fatalf("newRunTelemetry() error: %v", err)
 	}
 	view := owner.view(resolvedTelemetryPolicy{logs: true})
-	view.values(testIdentity(), "FLOWSEER_EDGE_", "edge/worker").logger.InfoContext(context.Background(), "schema probe")
+	view.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/worker").logger.InfoContext(context.Background(), "schema probe")
 	if err := view.recordLifecycle(context.Background(), "edge/worker", lifecycleActionStart, lifecycleOutcomeRunning); err != nil {
 		t.Fatalf("recordLifecycle() error: %v", err)
 	}
@@ -275,14 +299,16 @@ func TestMessageTelemetrySchema(t *testing.T) {
 		t.Fatal("message publication span was not recorded with the stable operation name")
 	}
 	assertAttributeKeys(t, "message publication span", publicationSpan.Attributes(), []string{
+		"error.type",
 		"flowseer.message.kind",
 		"flowseer.message.type",
 		"flowseer.module.path",
 	})
 	for key, want := range map[string]string{
-		messageKindKey: "command",
-		messageTypeKey: "google.protobuf.Empty",
-		modulePathKey:  "edge/publisher",
+		string(semconv.ErrorTypeKey): "service/admission",
+		messageKindKey:               "command",
+		messageTypeKey:               "google.protobuf.Empty",
+		modulePathKey:                "edge/publisher",
 	} {
 		if got, ok := spanAttribute(publicationSpan, key); !ok || got != want {
 			t.Errorf("message publication span %s = %q, want %q", key, got, want)

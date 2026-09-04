@@ -32,14 +32,24 @@ func BenchmarkCommandPublish(b *testing.B) {
 }
 
 func BenchmarkEventFanoutPublish(b *testing.B) {
-	bus := benchmarkMessageBus(b, 8, BusFsyncPeriodic)
-	ctx := context.Background()
-	payload := &emptypb.Empty{}
-	b.ResetTimer()
-	for range b.N {
-		if err := bus.Publish(ctx, payload); err != nil {
-			b.Fatal(err)
-		}
+	for _, benchmark := range []struct {
+		name   string
+		policy BusFsyncPolicy
+	}{
+		{name: "periodic_default", policy: BusFsyncPeriodic},
+		{name: "per_message", policy: BusFsyncPerMessage},
+	} {
+		b.Run(benchmark.name, func(b *testing.B) {
+			bus := benchmarkMessageBus(b, 8, benchmark.policy)
+			ctx := context.Background()
+			payload := &emptypb.Empty{}
+			b.ResetTimer()
+			for range b.N {
+				if err := bus.Publish(ctx, payload); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 

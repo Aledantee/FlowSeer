@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 const (
@@ -36,27 +37,51 @@ const (
 	messageDeliveryAttemptKey = "flowseer.message.delivery_attempt"
 )
 
+const (
+	busFsyncPolicyKey             = "flowseer.service.bus.fsync.policy"
+	busFsyncPeriodicIntervalMSKey = "flowseer.service.bus.fsync.periodic_interval_ms"
+)
+
 func startLifecycleSpan(
 	ctx context.Context,
 	tracer trace.Tracer,
 	modulePath string,
 	name string,
 	action lifecycleAction,
+	extraAttributes ...attribute.KeyValue,
 ) (context.Context, trace.Span) {
 	actionName, _ := action.string()
 	moduleSet := moduleAttributes(modulePath)
 	attributes := moduleSet.ToSlice()
 	attributes = append(attributes, attribute.String(moduleLifecycleActionKey, actionName))
+	attributes = append(attributes, extraAttributes...)
 	return tracer.Start(ctx, name, trace.WithAttributes(attributes...))
 }
 
-func endLifecycleSpan(span trace.Span, outcome lifecycleOutcome) {
+func endLifecycleSpan(span trace.Span, outcome lifecycleOutcome, err error) {
 	outcomeName, _ := outcome.string()
 	span.SetAttributes(attribute.String(moduleLifecycleOutcomeKey, outcomeName))
 	if outcome == lifecycleOutcomeError || outcome == lifecycleOutcomePanic {
+		errorType := outcomeName
+		if err != nil {
+			errorType = telemetryErrorType(err)
+		}
+		span.SetAttributes(semconv.ErrorTypeKey.String(errorType))
 		span.SetStatus(codes.Error, outcomeName)
 	}
 	span.End()
+}
+
+func recordSpanError(span trace.Span, description string, err error) {
+	span.SetAttributes(semconv.ErrorTypeKey.String(telemetryErrorType(err)))
+	span.SetStatus(codes.Error, description)
+}
+
+func telemetryErrorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return code.String()
+	}
+	return fmt.Sprintf("%T", err)
 }
 
 type lifecycleAction uint8
@@ -107,6 +132,8 @@ func (o lifecycleOutcome) string() (string, bool) {
 	}
 }
 
+// telemetry holds the run-scoped signal capabilities used to construct
+// module-attempt views and context values.
 type telemetry struct {
 	owner          *telemetryOwner
 	logger         *slog.Logger
@@ -151,12 +178,36 @@ func (h traceLogHandler) WithGroup(name string) slog.Handler {
 	return traceLogHandler{Handler: h.Handler.WithGroup(name)}
 }
 
-// moduleAttributes returns the bounded dimension set shared by runtime
-// telemetry and by module instruments that read it through [Attributes].
+// moduleAttributes returns the bounded module-path dimension used by runtime
+// telemetry.
 func moduleAttributes(modulePath string) attribute.Set {
 	return attribute.NewSet(
 		attribute.String(modulePathKey, modulePath),
 	)
+}
+
+func busFsyncSpanAttributes(config normalizedBusConfig) []attribute.KeyValue {
+	policy, intervalMS := busFsyncAttributeValues(config)
+	return []attribute.KeyValue{
+		attribute.String(busFsyncPolicyKey, policy),
+		attribute.Int64(busFsyncPeriodicIntervalMSKey, intervalMS),
+	}
+}
+
+func recordBusFsyncPolicy(ctx context.Context, logger *slog.Logger, config normalizedBusConfig) {
+	policy, intervalMS := busFsyncAttributeValues(config)
+	logger.InfoContext(ctx, "local bus durability configured",
+		busFsyncPolicyKey, policy,
+		busFsyncPeriodicIntervalMSKey, intervalMS,
+	)
+}
+
+func busFsyncAttributeValues(config normalizedBusConfig) (string, int64) {
+	policy := "periodic"
+	if config.fsyncPolicy == BusFsyncPerMessage {
+		policy = "per_message"
+	}
+	return policy, config.fsyncInterval.Milliseconds()
 }
 
 // compatibilityAttributes preserves the public [Attributes] schema while
@@ -284,7 +335,11 @@ func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeNa
 		action = messageDiscarded
 	}
 	v.recordMessage(ctx, modulePath, typeName, kind, action)
-	v.logger.InfoContext(ctx, "message disposition",
+	level := slog.LevelDebug
+	if action == messageDiscarded {
+		level = slog.LevelWarn
+	}
+	v.logger.Log(ctx, level, "message disposition",
 		modulePathKey, modulePath,
 		messageTypeKey, typeName,
 		messageKindKey, messageKindToken(kind),
@@ -299,7 +354,7 @@ func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeNa
 	}
 }
 
-func (t telemetry) values(identity Identity, envPrefix, modulePath string) contextValues {
+func (t telemetry) attemptContextValues(identity Identity, envPrefix, modulePath string) contextValues {
 	return contextValues{
 		identity:       identity,
 		modulePath:     modulePath,

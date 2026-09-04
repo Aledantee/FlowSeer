@@ -41,7 +41,8 @@ func TestManagedTelemetryHTTP(t *testing.T) {
 		Identity: identity,
 		Logger:   slog.New(slog.NewJSONHandler(io.Discard, nil)),
 		Telemetry: service.TelemetryConfig{
-			Endpoint: collector.httpEndpoint,
+			Endpoint:         collector.httpEndpoint,
+			TraceSampleRatio: fullTraceSampleRatio(),
 			Signals: service.TelemetryPolicy{
 				Logs:    service.TelemetryEnabled,
 				Metrics: service.TelemetryEnabled,
@@ -344,21 +345,18 @@ func TestManagedTelemetryUnreachableEndpoint(t *testing.T) {
 	}
 	started := time.Now()
 	stderr, warned, runErr := captureProcessStderr(func(warning <-chan struct{}) error {
-		done := make(chan error, 1)
-		go func() { done <- service.Run(ctx, config) }()
-		select {
-		case <-warning:
-		case <-time.After(35 * time.Second):
+		warningErr := make(chan error, 1)
+		go func() {
+			select {
+			case <-warning:
+				warningErr <- nil
+			case <-time.After(35 * time.Second):
+				warningErr <- errors.New("telemetry warning deadline exceeded")
+			}
 			cancel()
-			return errors.New("telemetry warning deadline exceeded")
-		}
-		cancel()
-		select {
-		case err := <-done:
-			return err
-		case <-time.After(12 * time.Second):
-			return errors.New("telemetry shutdown deadline exceeded")
-		}
+		}()
+		runErr := service.Run(ctx, config)
+		return errors.Join(runErr, <-warningErr)
 	})
 	if !completed.Load() {
 		t.Fatal("module work did not complete")
@@ -366,8 +364,8 @@ func TestManagedTelemetryUnreachableEndpoint(t *testing.T) {
 	if !warned {
 		t.Fatalf("stderr warning was not observed: %s", stderr)
 	}
-	if runErr == nil {
-		t.Fatal("Run() did not report final telemetry drain failure")
+	if runErr != nil {
+		t.Fatalf("Run() error = %v, want routine telemetry outage to remain nonfatal", runErr)
 	}
 	if elapsed := time.Since(started); elapsed > 47*time.Second {
 		t.Fatalf("Run() took %s with unreachable telemetry endpoint, want at most 47s", elapsed)
@@ -657,11 +655,17 @@ func managedTelemetryConfig(identity service.Identity, endpoint string, signals 
 		Identity: identity,
 		Logger:   slog.New(slog.NewJSONHandler(io.Discard, nil)),
 		Telemetry: service.TelemetryConfig{
-			Endpoint: endpoint,
-			Signals:  telemetryPolicy(signals),
+			Endpoint:         endpoint,
+			TraceSampleRatio: fullTraceSampleRatio(),
+			Signals:          telemetryPolicy(signals),
 		},
 		Setup: syntheticTelemetryAttempt,
 	}
+}
+
+func fullTraceSampleRatio() *float64 {
+	ratio := 1.0
+	return &ratio
 }
 
 func telemetryPolicy(signals telemetrySignalSet) service.TelemetryPolicy {

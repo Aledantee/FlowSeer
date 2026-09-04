@@ -28,6 +28,7 @@ const (
 	defaultMetadataMaxBytes = int64(64 << 20)
 	defaultBusReserveBytes  = int64(192 << 20)
 	defaultBusFsyncInterval = 5 * time.Second
+	minimumBusFsyncInterval = time.Millisecond
 
 	mailboxStreamName  = "FLOWSEER_MAILBOX"
 	metadataStreamName = "FLOWSEER_METADATA"
@@ -66,8 +67,13 @@ type busResources struct {
 	metadata   jetstream.Stream
 }
 
+// busReconciler validates persistent metadata after both owned streams open and
+// before startup health probes begin.
 type busReconciler func(context.Context, busResources) error
 
+// localBus owns the embedded server, client connection, health monitor, server
+// waiter, and store lock. close releases the lock after its shutdown waits
+// finish or their cleanup deadline expires.
 type localBus struct {
 	healthInterval time.Duration
 	server         *server.Server
@@ -134,8 +140,8 @@ func normalizeBusConfig(identity Identity, config BusConfig) (normalizedBusConfi
 		if config.FsyncInterval != nil {
 			fsyncInterval = *config.FsyncInterval
 		}
-		if fsyncInterval <= 0 {
-			return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync interval must be positive")
+		if fsyncInterval < minimumBusFsyncInterval {
+			return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync interval must be at least one millisecond")
 		}
 	case BusFsyncPerMessage:
 		if config.FsyncInterval != nil {
@@ -195,11 +201,15 @@ func privateStateDir() (string, error) {
 	return dir, nil
 }
 
+// busDomain derives the stable JetStream domain owned by one service identity.
 func busDomain(identity Identity) string {
 	sum := sha256.Sum256([]byte(identity.Namespace + "\x00" + identity.Name))
 	return "v1_" + strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sum[:]))
 }
 
+// startLocalBus acquires the store lock before opening durable state and returns
+// only after reconciliation and health checks succeed. Failure unwinds partial
+// state; success transfers cleanup ownership to localBus.close.
 func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile busReconciler) (_ *localBus, err error) {
 	if err := os.MkdirAll(config.storeDir, 0o700); err != nil {
 		return nil, busUnhealthy(err, "create local bus store directory")
@@ -324,6 +334,8 @@ func localBusServerOptions(config normalizedBusConfig) *server.Options {
 	}
 }
 
+// openOwnedStream creates a missing owned stream but refuses to modify a
+// persisted stream whose contract differs from desired.
 func openOwnedStream(ctx context.Context, js jetstream.JetStream, desired jetstream.StreamConfig) (jetstream.Stream, error) {
 	stream, err := js.Stream(ctx, desired.Name)
 	if errors.Is(err, jetstream.ErrStreamNotFound) {
@@ -392,6 +404,9 @@ func metadataStreamConfig(maxBytes int64) jetstream.StreamConfig {
 	}
 }
 
+// checkWritable probes both streams. Mailbox capacity exhaustion is healthy
+// publisher backpressure, but metadata must remain writable so settlement and
+// reconciliation can progress.
 func (b *localBus) checkWritable(ctx context.Context) error {
 	stamp := fmt.Sprintf("%x", time.Now().UnixNano())
 	if err := writeCanary(ctx, b.resources.jetStream, b.resources.mailbox, mailboxSubjectRoot+"._health."+stamp); err != nil && !isCapacityError(err) {
@@ -422,6 +437,8 @@ func (b *localBus) checkHealth() error {
 	return nil
 }
 
+// monitor reports the first unexpected server, connection, fatal-log, or health
+// failure and exits. close cancels and joins it.
 func (b *localBus) monitor(ctx context.Context) {
 	defer close(b.monitorDone)
 	ticker := time.NewTicker(b.healthInterval)
@@ -468,6 +485,8 @@ func (b *localBus) monitor(ctx context.Context) {
 	}
 }
 
+// reportFailure publishes at most one pending infrastructure failure and never
+// blocks.
 func (b *localBus) reportFailure(err error) {
 	select {
 	case b.failure <- err:
@@ -477,6 +496,9 @@ func (b *localBus) reportFailure(err error) {
 
 func (b *localBus) failures() <-chan error { return b.failure }
 
+// close idempotently stops bus-owned work. A healthy bus drains its client; an
+// unhealthy bus closes immediately. It releases the store lock after the
+// server and monitor shutdown waits, even when ctx ends first.
 func (b *localBus) close(ctx context.Context, healthy bool) error {
 	b.closeOnce.Do(func() {
 		if b.monitorCancel != nil {
@@ -536,6 +558,8 @@ func busUnhealthy(err error, message string) error {
 	return errs.From(err).Code(errCodeBusUnhealthy).Msg(message)
 }
 
+// busServerLogger suppresses routine embedded-server output while retaining and
+// signaling fatal records for startup and health supervision.
 type busServerLogger struct {
 	fatal chan error
 	// mu guards last.

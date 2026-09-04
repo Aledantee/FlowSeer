@@ -18,6 +18,8 @@ var (
 	errUnmanagedTask     = errors.New("service task is outside a managed module attempt")
 )
 
+// supervisorClock supplies supervisor time and cancellation-aware waits
+// independently of the wall clock.
 type supervisorClock interface {
 	Now() time.Time
 	Wait(context.Context, time.Duration) error
@@ -71,6 +73,8 @@ func envLookupFromOS(key string) (string, bool) {
 	return os.LookupEnv(key)
 }
 
+// supervisorRuntime carries the shared facilities used by every supervisor
+// generation in one service run.
 type supervisorRuntime struct {
 	identity              Identity
 	envPrefix             string
@@ -82,6 +86,8 @@ type supervisorRuntime struct {
 	infrastructureFailure func(error)
 }
 
+// childResult reports one child generation's terminal outcome. generation
+// identifies stale results; fatal bypasses module outcome policy.
 type childResult struct {
 	index      int
 	generation uint64
@@ -103,6 +109,8 @@ type childSlot struct {
 	backoffs   [3]int
 }
 
+// supervisorState is owned by its run loop. Child goroutines publish immutable,
+// generation-tagged results and never mutate slots directly.
 type supervisorState struct {
 	path      string
 	policy    normalizedSupervisor
@@ -140,6 +148,9 @@ func (s *supervisorState) run(ctx context.Context) error {
 	return s.runWithStarted(ctx, nil)
 }
 
+// runWithStarted runs until cancellation, policy exhaustion, or no active
+// children remain. It closes started after initial children are scheduled, not
+// after their Setup or Runner functions begin.
 func (s *supervisorState) runWithStarted(ctx context.Context, started chan<- struct{}) error {
 	for i := range s.slots {
 		if s.slots[i].active {
@@ -190,6 +201,8 @@ func (s *supervisorState) runWithStarted(ctx context.Context, started chan<- str
 	}
 }
 
+// current rejects results from child generations that have already been
+// replaced.
 func (s *supervisorState) current(result childResult) bool {
 	if result.index < 0 || result.index >= len(s.slots) {
 		return false
@@ -198,6 +211,8 @@ func (s *supervisorState) current(result childResult) bool {
 	return slot.active && slot.generation == result.generation
 }
 
+// decide applies the result's outcome action, rolling budget, and jittered
+// backoff, then reconstructs the strategy's affected children when required.
 func (s *supervisorState) decide(ctx context.Context, result childResult) error {
 	slot := &s.slots[result.index]
 	policy, outcomeIndex := outcomePolicy(slot.module.policy, result.outcome)
@@ -273,6 +288,8 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 	return nil
 }
 
+// affected returns active child indices selected by the restart strategy in
+// declaration order.
 func (s *supervisorState) affected(failed int) []int {
 	indices := make([]int, 0, len(s.slots))
 	for i := range s.slots {
@@ -295,6 +312,8 @@ func (s *supervisorState) affected(failed int) []int {
 	return indices
 }
 
+// quiesce cancels and joins affected children in reverse declaration order
+// before any replacement generation starts.
 func (s *supervisorState) quiesce(indices []int) {
 	for i := len(indices) - 1; i >= 0; i-- {
 		index := indices[i]
@@ -316,6 +335,7 @@ func (s *supervisorState) wait(index int) {
 	slot.done = nil
 }
 
+// stopAll cancels and joins every active child in reverse declaration order.
 func (s *supervisorState) stopAll(cause error) {
 	for i := len(s.slots) - 1; i >= 0; i-- {
 		if s.slots[i].active {
@@ -330,6 +350,8 @@ func (s *supervisorState) stopAll(cause error) {
 	}
 }
 
+// start launches one child generation. Reconstructed branches resolve fresh
+// telemetry policy and gate snapshots before starting descendants.
 func (s *supervisorState) start(parent context.Context, index int, reconstructed bool) {
 	slot := &s.slots[index]
 	module := slot.module
@@ -385,7 +407,7 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 			defer close(done)
 			result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
 			result.span = attemptSpan.SpanContext()
-			endLifecycleSpan(attemptSpan, result.outcome)
+			endLifecycleSpan(attemptSpan, result.outcome, result.err)
 			s.results <- result
 		}(slot.done)
 		s.transition("start", module.path)
@@ -452,6 +474,8 @@ func (s *supervisorState) record(
 	)
 }
 
+// runChild executes one leaf or nested-supervisor generation. A panic escaping
+// the user-code boundaries is a fatal runtime invariant failure.
 func runChild(
 	ctx context.Context,
 	index int,
@@ -492,6 +516,9 @@ func runChild(
 
 type attemptCoordinatorKey struct{}
 
+// attemptCoordinator owns runner, delivery, and Go-launched goroutines for one
+// leaf attempt. The first terminal result cancels their shared context; stop
+// prevents new work and joins everything already owned.
 type attemptCoordinator struct {
 	ctx        context.Context
 	attemptCtx context.Context
@@ -555,6 +582,8 @@ func (c *attemptCoordinator) launch(task Runner) error {
 	return nil
 }
 
+// terminate publishes the first terminal result and cancels the attempt. Later
+// terminal results lose the race and are ignored.
 func (c *attemptCoordinator) terminate(result attemptTermination) {
 	select {
 	case c.terminal <- result:
@@ -571,9 +600,12 @@ func (c *attemptCoordinator) stop(cause error) {
 	c.owned.Wait()
 }
 
+// runLeafAttempt constructs fresh setup state, starts delivery before Runner,
+// and returns only after the first terminal boundary cancels and joins all
+// attempt-owned work.
 func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemetryView, runtime supervisorRuntime) (lifecycleOutcome, time.Duration, error) {
 	coordinator := newAttemptCoordinator(ctx, module.path)
-	values := telemetry.values(runtime.identity, runtime.envPrefix, module.path)
+	values := telemetry.attemptContextValues(runtime.identity, runtime.envPrefix, module.path)
 	if runtime.messages != nil {
 		values.bus = runtime.messages.capabilityWithTelemetry(module.path, telemetry, coordinator.ctx)
 	}
@@ -652,6 +684,8 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 	return terminal.outcome, runtime.options.clock.Now().Sub(runnerStartedAt), terminal.err
 }
 
+// callSetup converts a setup panic into a lifecycle panic outcome with a
+// boundary diagnostic.
 func callSetup(ctx context.Context, module plannedModule) (attempt Attempt, outcome lifecycleOutcome, err error) {
 	outcome = lifecycleOutcomeError
 	defer func() {
@@ -664,6 +698,8 @@ func callSetup(ctx context.Context, module plannedModule) (attempt Attempt, outc
 	return attempt, outcome, err
 }
 
+// callOwned classifies cancellation after return ahead of any returned error.
+// It converts panics into lifecycle panic outcomes.
 func callOwned(ctx context.Context, modulePath, boundary string, runner Runner) (outcome lifecycleOutcome, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -681,6 +717,8 @@ func callOwned(ctx context.Context, modulePath, boundary string, runner Runner) 
 	return lifecycleOutcomeNormal, nil
 }
 
+// panicDiagnostic captures a recovered boundary and stack while exposing a
+// concise error string.
 type panicDiagnostic struct {
 	modulePath string
 	boundary   string

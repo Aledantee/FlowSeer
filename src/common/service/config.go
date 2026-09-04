@@ -15,8 +15,11 @@ import (
 
 var envPrefixPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*_$`)
 
-// Runner performs one module attempt. It must return after ctx is canceled.
-// A Runner may be called only once and need not be safe for concurrent use.
+// Runner performs one module attempt. A nil return is a normal lifecycle
+// outcome; a non-nil error is governed by the module's error [Policy]. Context
+// cancellation takes precedence over an error returned after ctx is canceled.
+// A Runner must return after cancellation. It may be called only once and need
+// not be safe for concurrent use.
 type Runner func(ctx context.Context) error
 
 // Attempt contains the fresh runner and canonical handlers constructed by one
@@ -30,7 +33,8 @@ type Attempt struct {
 	Handlers []Handler
 }
 
-// SetupFunc constructs the mutable state for one module attempt. Each call
+// SetupFunc constructs the mutable state for one module attempt. A non-nil
+// error selects the module's error [Policy] unless ctx was canceled. Each call
 // must return a fresh Attempt whose lifetime is bounded by ctx. A SetupFunc
 // reused by sibling modules must be safe for concurrent calls.
 type SetupFunc func(ctx context.Context) (Attempt, error)
@@ -48,7 +52,8 @@ const (
 
 // BusConfig opts a service into its durable local message bus. The zero value
 // uses the documented private store location and logical capacity defaults.
-// StoreDir, when set, must be absolute. Callers must not mutate a BusConfig
+// StoreDir, when set, must be absolute. Callers must use keyed literals and
+// must not mutate a BusConfig
 // while a Run using it is active. When MaxStoreBytes changes, callers must set
 // the component limits too if the fixed defaults do not fit the new ceiling.
 type BusConfig struct {
@@ -73,13 +78,15 @@ type BusConfig struct {
 	// FsyncPolicy selects periodic or per-message flushing. Zero selects periodic.
 	FsyncPolicy BusFsyncPolicy
 	// FsyncInterval overrides the five-second periodic-sync interval. Nil selects
-	// the default; a non-nil value must be positive and requires periodic sync.
+	// the default; a non-nil value must be at least one millisecond and requires
+	// periodic sync.
 	FsyncInterval *time.Duration
 }
 
 // Config declares one service run. Callers must choose either Setup for an
 // implicit singleton or Modules for explicit top-level modules. Run copies the
-// declaration before starting modules. Callers must not mutate Config or any
+// declaration before starting modules. Callers must use keyed literals and
+// must not mutate Config or any
 // referenced declaration slices until Run returns. A Config may be reused by
 // concurrent runs only when its callbacks are safe for concurrent calls.
 type Config struct {
@@ -106,7 +113,8 @@ type Config struct {
 	// run-scoped W3C Trace Context propagator.
 	Propagator propagation.TextMapPropagator
 	// Telemetry configures the managed OTLP connection and root signal policy.
-	// Its zero value keeps managed export off.
+	// Its zero value uses common OTLP environment settings and otherwise keeps
+	// managed export off.
 	Telemetry TelemetryConfig
 
 	// TelemetryShutdown flushes and closes telemetry owned by the caller. It
@@ -126,6 +134,7 @@ type Config struct {
 	Intensity RestartBudget
 }
 
+// runtimeConfig is the validated runtime plan assembled before service startup.
 type runtimeConfig struct {
 	identity       Identity
 	envPrefix      string

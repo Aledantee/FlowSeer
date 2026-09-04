@@ -25,9 +25,11 @@ type Gate struct {
 	probe   GateProbe
 }
 
-// GateProbe derives one gate decision for a supervisor generation. It must
-// not start module work or retain ctx after returning. A probe reused by
-// sibling modules must be safe for concurrent calls.
+// GateProbe derives one gate decision for a supervisor generation. A non-nil
+// error or panic rejects the snapshot: initial evaluation fails startup, while
+// reconstruction produces the branch's error outcome. It must not start module
+// work or retain ctx after returning. A probe reused by sibling modules must be
+// safe for concurrent calls.
 type GateProbe func(ctx context.Context) (bool, error)
 
 // FixedGate returns a gate with the supplied fixed decision. A generated
@@ -55,6 +57,8 @@ func validateGate(path string, gate Gate) error {
 	return nil
 }
 
+// snapshotGates evaluates parents before descendants, suppresses probes below
+// disabled branches, and returns the number of enabled leaves.
 func snapshotGates(
 	ctx context.Context,
 	modules []plannedModule,
@@ -131,6 +135,7 @@ func evaluateGate(ctx context.Context, module plannedModule, lookup envLookup) (
 	}
 }
 
+// callGateProbe converts a probe panic into a module-scoped error.
 func callGateProbe(ctx context.Context, path string, probe GateProbe) (enabled bool, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {

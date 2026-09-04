@@ -35,7 +35,43 @@ and `_ENABLED`. For example, `FLOWSEER_EDGE_INGEST_SYSLOG_ENABLED=false`
 disables `edge/ingest/syslog`. An override is evaluated before a fixed or
 probed gate, so it can reverse a fixed decision and prevents a probe call.
 
+## Local message bus
+
+A non-nil `Config.Bus` starts the service's private, file-backed message bus.
+The zero-valued bus configuration uses periodic fsync on a five-second cadence.
+Select per-message fsync when acknowledged records must retain the previous
+power-loss durability:
+
+```go
+func defaultPeriodicBus() *service.BusConfig {
+    return &service.BusConfig{}
+}
+
+func perMessageBus() *service.BusConfig {
+    return &service.BusConfig{
+        FsyncPolicy: service.BusFsyncPerMessage,
+    }
+}
+```
+
+`FsyncInterval: nil` selects the five-second default. To choose another
+periodic cadence, pass a pointer to a `time.Duration` of at least one
+millisecond; an interval is invalid with `BusFsyncPerMessage`. The interval
+controls when the embedded server asks to flush pending writes. It is not a hard
+maximum loss window, because operating-system scheduling and storage can delay
+a completed sync.
+
+Both policies preserve acknowledged records across a service-process crash:
+pending writes remain in the operating system's page cache. A power loss under
+periodic sync may lose message or settlement records written after the last
+completed sync. If the message survives but its settlement does not, its
+handler can run again under the bus's at-least-once delivery contract.
+
 ## Instrumentation
+
+`Config`, `Module`, and `BusConfig` are extensible option structs. Callers must
+construct them with keyed literals. Additive fields preserve keyed callers;
+unkeyed literals can stop compiling when the package adds an option.
 
 Follow the repository's [observability
 conventions](../../../docs/conventions/observability.md) before adding or
@@ -79,8 +115,11 @@ equivalent:
 | `Insecure` | `OTEL_EXPORTER_OTLP_INSECURE` | Derived from the endpoint scheme. |
 | `CertificateFile` | `OTEL_EXPORTER_OTLP_CERTIFICATE` | Use system roots. |
 | `ClientCertificateFile` and `ClientKeyFile` | `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE` and `OTEL_EXPORTER_OTLP_CLIENT_KEY` | No client certificate. Both values must be present together. |
+| `TraceSampleRatio` | None | Sample 10% of new root traces while honoring parent sampling decisions. |
 
-The request timeout must be positive and no greater than 30 seconds. Header
+The trace sample ratio must be between zero and one, inclusive. Use an explicit
+ratio of `1.0` for correctness tests that must observe every root span. The
+request timeout must be positive and no greater than 30 seconds. Header
 environment values use comma-separated, URL-escaped `key=value` members. An
 `https` endpoint uses TLS 1.2 or newer. A custom CA and client certificate may
 be supplied for TLS; setting insecure transport together with TLS files is an
@@ -96,9 +135,9 @@ effective value unless they override it. The root and every module can also be
 overridden by strict `true` or `false` environment values:
 
 ```text
-FLOWSEER_EDGE_LOGS_ENABLED=false
-FLOWSEER_EDGE_INGEST_LOGS_ENABLED=false
-FLOWSEER_EDGE_INGEST_AUDIT_LOGS_ENABLED=true
+FLOWSEER_EDGE_TELEMETRY_LOGS_ENABLED=false
+FLOWSEER_EDGE_INGEST_TELEMETRY_LOGS_ENABLED=false
+FLOWSEER_EDGE_INGEST_AUDIT_TELEMETRY_LOGS_ENABLED=true
 ```
 
 The prefix comes from `Config.EnvPrefix`, or from the uppercased namespace and

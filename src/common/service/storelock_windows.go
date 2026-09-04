@@ -16,6 +16,8 @@ type fileStoreLock struct {
 	overlapped windows.Overlapped
 }
 
+// acquireStoreLock takes a non-blocking exclusive lock on path. Contention maps
+// to errCodeBusStoreLocked; the caller must close the returned lock.
 func acquireStoreLock(path string) (*fileStoreLock, error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {

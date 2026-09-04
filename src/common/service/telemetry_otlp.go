@@ -160,12 +160,12 @@ func (t *httpOTLPTransport) upload(
 		if requestErr != nil {
 			return 0, false, errors.New("telemetry request failed")
 		}
+		for key, value := range t.headers {
+			request.Header.Set(key, value)
+		}
 		request.Header.Set("Content-Type", "application/x-protobuf")
 		if t.compression {
 			request.Header.Set("Content-Encoding", "gzip")
-		}
-		for key, value := range t.headers {
-			request.Header.Set(key, value)
 		}
 		response, requestErr := t.client.Do(request)
 		if requestErr != nil {

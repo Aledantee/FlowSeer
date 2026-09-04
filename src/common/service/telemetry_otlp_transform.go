@@ -339,6 +339,8 @@ func transformTemporality(value metricdata.Temporality) (metricspb.AggregationTe
 	}
 }
 
+// sanitizeResourceSpans redacts and bounds a trace export in place before the
+// transport observes it.
 func sanitizeResourceSpans(resources []*tracepb.ResourceSpans) {
 	for _, resource := range resources {
 		if resource.Resource != nil {

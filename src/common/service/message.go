@@ -17,7 +17,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
@@ -66,6 +65,8 @@ type MessageBus struct {
 
 var disabledMessageBus = &MessageBus{}
 
+// messageRuntime owns the shared registry, admission snapshot source, and
+// serialized atomic-event publisher for one bus-enabled run.
 type messageRuntime struct {
 	resources        busResources
 	registry         *staticRegistry
@@ -128,7 +129,7 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	ctx, span := b.startPublicationTrace(ctx, MessageKindEvent)
 	defer func() {
 		if err != nil {
-			span.SetStatus(codes.Error, "event publication failed")
+			recordSpanError(span, "event publication failed", err)
 		}
 		span.End()
 	}()
@@ -184,7 +185,7 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 	ctx, span := b.startPublicationTrace(ctx, kind)
 	defer func() {
 		if err != nil {
-			span.SetStatus(codes.Error, "message publication failed")
+			recordSpanError(span, "message publication failed", err)
 		}
 		span.End()
 	}()
@@ -276,6 +277,8 @@ func marshalPayload(payload proto.Message) (protoreflect.FullName, []byte, error
 	return fullName, data, nil
 }
 
+// envelope carries correlation, causation, and trace context from a delivery
+// into one persisted outbound message.
 func (b *MessageBus) envelope(ctx context.Context, kind servicev1.MessageKind, id, target string, fullName protoreflect.FullName, payload []byte) *servicev1.Message {
 	correlation := id
 	causation := ""
@@ -348,6 +351,9 @@ type atomicPubAck struct {
 	BatchSize uint64              `json:"count"`
 }
 
+// publishAtomic serializes event batches and commits their final record by
+// request so the broker exposes one durable snapshot. A duplicate commit
+// acknowledgement confirms that an earlier request already committed it.
 func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*servicev1.Message) error {
 	select {
 	case r.atomicPermit <- struct{}{}:
@@ -456,6 +462,8 @@ func messageKindToken(kind servicev1.MessageKind) string {
 	}
 }
 
+// recordID derives the JetStream idempotency key from a message identity and
+// target.
 func recordID(messageID, target string) string {
 	sum := sha256.Sum256([]byte("message\x00" + messageID + "\x00" + target))
 	return "v1_" + hex.EncodeToString(sum[:])
@@ -571,10 +579,15 @@ type Subscription struct {
 	Retries int
 }
 
-// HandlerFunc handles one decoded protobuf message. It may be called more than
-// once for the same logical message and need not be safe for concurrent use
-// when its leaf's delivery concurrency is one. A higher delivery concurrency
-// permits concurrent calls and requires a concurrency-safe HandlerFunc.
+// HandlerFunc handles one decoded protobuf message. A nil return is successful
+// handling; the runtime records acknowledgement intent before settling the
+// broker record. While ctx remains active, a panic or retryable error is retried
+// up to the subscription limit and any other error records discard intent.
+// Cancellation after return leaves the message unsettled for redelivery. The
+// function may be called more than once for the same logical message and need
+// not be safe for concurrent use when its leaf's delivery concurrency is one. A
+// higher delivery concurrency permits concurrent calls and requires a
+// concurrency-safe HandlerFunc.
 type HandlerFunc func(ctx context.Context, message proto.Message) error
 
 // Handler binds one attempt-local function to a canonical static subscription.
@@ -608,6 +621,8 @@ type targetKey struct {
 	messageKey
 }
 
+// staticRegistry is the immutable routing and payload-resolution index built
+// from the service declaration.
 type staticRegistry struct {
 	modules  map[string]struct{}
 	targets  map[targetKey]struct{}
@@ -779,6 +794,8 @@ type payloadType struct {
 	typeOf    protoreflect.MessageType
 }
 
+// payloadResolver maps canonical protobuf names and accepted aliases to fresh
+// canonical message instances.
 type payloadResolver struct {
 	entries map[protoreflect.FullName]payloadType
 }
@@ -787,6 +804,8 @@ type payloadResolverBuilder struct {
 	entries map[protoreflect.FullName]payloadType
 }
 
+// add rejects aliases that would resolve one persisted name to incompatible
+// canonical schemas.
 func (b *payloadResolverBuilder) add(path string, subscription plannedSubscription) error {
 	payload := payloadType{canonical: subscription.fullName, typeOf: subscription.typeOf}
 	names := append([]protoreflect.FullName{subscription.fullName}, subscription.aliases...)
@@ -899,6 +918,8 @@ func (s moduleState) String() string {
 	}
 }
 
+// admissionRevision is an immutable routing snapshot. Publishing a replacement
+// never mutates a revision already read by a message publisher.
 type admissionRevision struct {
 	number   uint64
 	phase    admissionPhase
@@ -1012,6 +1033,8 @@ func (p admissionPhase) String() string {
 	}
 }
 
+// isAdmitted keeps a module routable while setup, restart, or backoff can still
+// produce a future attempt.
 func isAdmitted(state moduleState) bool {
 	switch state {
 	case moduleRunning, moduleSetupFailed, moduleRestarting, moduleBackoff:

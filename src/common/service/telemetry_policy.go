@@ -11,6 +11,8 @@ import (
 	traceembedded "go.opentelemetry.io/otel/trace/embedded"
 )
 
+// telemetryView is an immutable, borrowing set of signal capabilities resolved
+// for one module generation.
 type telemetryView struct {
 	policy         resolvedTelemetryPolicy
 	logger         *slog.Logger
@@ -23,6 +25,8 @@ type telemetryView struct {
 	messages       metric.Int64Counter
 }
 
+// borrowingTracerProvider exposes tracing without exposing the managed SDK
+// provider's shutdown methods through a type assertion.
 type borrowingTracerProvider struct {
 	traceembedded.TracerProvider
 	provider trace.TracerProvider
@@ -32,6 +36,8 @@ func (p borrowingTracerProvider) Tracer(name string, options ...trace.TracerOpti
 	return p.provider.Tracer(name, options...)
 }
 
+// borrowingMeterProvider exposes metrics without exposing the managed SDK
+// provider's shutdown methods through a type assertion.
 type borrowingMeterProvider struct {
 	metricembedded.MeterProvider
 	provider metric.MeterProvider
@@ -115,7 +121,7 @@ func (v telemetryView) context(ctx context.Context) context.Context {
 	return contextWithoutRecordingSpan(ctx)
 }
 
-func (v telemetryView) values(identity Identity, envPrefix, modulePath string) contextValues {
+func (v telemetryView) attemptContextValues(identity Identity, envPrefix, modulePath string) contextValues {
 	return contextValues{
 		identity:       identity,
 		modulePath:     modulePath,

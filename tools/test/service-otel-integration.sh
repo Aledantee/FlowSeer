@@ -24,7 +24,7 @@ set +e
   done < <(env)
   export FLOWSEER_OTEL_TEST_ARTIFACT_DIR=$artifact_dir
   cd "$repo_root"
-  go test -race -count=1 -tags=service_otel_integration \
+  GOFLAGS= go test -race -count=1 -short=false -tags=service_otel_integration \
     ./src/common/service/test/integration/...
 )
 test_rc=$?

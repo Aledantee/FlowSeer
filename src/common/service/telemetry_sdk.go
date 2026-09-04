@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/log"
@@ -144,7 +145,7 @@ func newRunTelemetry(
 		var err error
 		res, err = factories.newResource(identity)
 		if err != nil {
-			return nil, fmt.Errorf("create telemetry resource: %w", err)
+			return unwind(fmt.Errorf("create telemetry resource: %w", err))
 		}
 		var closeTransport telemetryShutdown
 		transport, closeTransport, err = factories.newTransport(ctx, config.connection)
@@ -236,7 +237,11 @@ func newManagedLogProvider(
 	diagnostics *telemetryDiagnostics,
 	_ normalizedOTLPConnection,
 ) (slog.Handler, telemetryShutdown, error) {
-	exporter := &managedLogExporter{transport: transport, diagnostics: diagnostics}
+	exporter := &managedLogExporter{
+		transport:   transport,
+		diagnostics: diagnostics,
+		active:      make(map[uint64]context.CancelFunc),
+	}
 	processor := log.NewBatchProcessor(
 		exporter,
 		log.WithMaxQueueSize(telemetryQueueSize),
@@ -256,7 +261,11 @@ func newManagedLogProvider(
 		otelslog.WithVersion(instrumentationVersion),
 		otelslog.WithSchemaURL(semconv.SchemaURL),
 	)
-	return handler, provider.Shutdown, nil
+	shutdown := func(ctx context.Context) error {
+		exporter.beginShutdown(ctx)
+		return errors.Join(provider.Shutdown(ctx), exporter.finalError())
+	}
+	return handler, shutdown, nil
 }
 
 func newManagedMetricProvider(
@@ -275,6 +284,10 @@ func newManagedMetricProvider(
 		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(reader),
 		sdkmetric.WithCardinalityLimit(telemetryMetricCardLimit),
+		sdkmetric.WithView(sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "*"},
+			sdkmetric.Stream{AttributeFilter: managedMetricAttributeFilter},
+		)),
 	)
 	return provider, provider.Shutdown, nil
 }
@@ -283,7 +296,7 @@ func newManagedTraceProvider(
 	res *resource.Resource,
 	transport otlpTransport,
 	diagnostics *telemetryDiagnostics,
-	_ normalizedOTLPConnection,
+	config normalizedOTLPConnection,
 ) (trace.TracerProvider, telemetryShutdown, error) {
 	client := &managedTraceClient{transport: transport}
 	exporter, err := otlptrace.New(context.Background(), client)
@@ -312,7 +325,7 @@ func newManagedTraceProvider(
 	}
 	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.AlwaysSample())),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(config.traceSampleRatio))),
 		sdktrace.WithRawSpanLimits(limits),
 		sdktrace.WithSpanProcessor(processor),
 	)
@@ -405,15 +418,75 @@ type telemetryDiagnosticState struct {
 type managedLogExporter struct {
 	transport   otlpTransport
 	diagnostics *telemetryDiagnostics
+	mu          sync.Mutex
+	shutdownCtx context.Context
+	active      map[uint64]context.CancelFunc
+	nextExport  uint64
+	finalFailed bool
 }
 
 func (e *managedLogExporter) Export(ctx context.Context, records []log.Record) error {
+	exportCtx, finish := e.startExport(ctx)
+	defer finish()
 	request := transformLogRecords(records)
-	if err := e.transport.uploadLogs(ctx, request); err != nil {
-		if isFinalTelemetryExport(ctx) {
+	if err := e.transport.uploadLogs(exportCtx, request); err != nil {
+		final, suppress := e.recordFinalFailureIfShuttingDown(ctx)
+		if final {
+			if suppress {
+				return nil
+			}
 			return errors.New("logs telemetry export failed")
 		}
 		e.diagnostics.report("logs", telemetryExportFailureCategory(err))
+	}
+	return nil
+}
+
+func (e *managedLogExporter) startExport(ctx context.Context) (context.Context, context.CancelFunc) {
+	e.mu.Lock()
+	if e.shutdownCtx != nil {
+		ctx = e.shutdownCtx
+	}
+	if e.active == nil {
+		e.active = make(map[uint64]context.CancelFunc)
+	}
+	exportCtx, cancel := context.WithCancel(ctx)
+	id := e.nextExport
+	e.nextExport++
+	e.active[id] = cancel
+	e.mu.Unlock()
+	return exportCtx, func() {
+		cancel()
+		e.mu.Lock()
+		delete(e.active, id)
+		e.mu.Unlock()
+	}
+}
+
+func (e *managedLogExporter) beginShutdown(ctx context.Context) {
+	e.mu.Lock()
+	e.shutdownCtx = ctx
+	for _, cancel := range e.active {
+		cancel()
+	}
+	e.mu.Unlock()
+}
+
+func (e *managedLogExporter) recordFinalFailureIfShuttingDown(ctx context.Context) (final, suppress bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.shutdownCtx != nil {
+		e.finalFailed = true
+		return true, true
+	}
+	return isFinalTelemetryExport(ctx), false
+}
+
+func (e *managedLogExporter) finalError() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.finalFailed {
+		return errors.New("logs telemetry export failed")
 	}
 	return nil
 }
@@ -443,6 +516,9 @@ func (e *managedMetricExporter) Aggregation(kind sdkmetric.InstrumentKind) sdkme
 }
 
 func (e *managedMetricExporter) Export(ctx context.Context, data *metricdata.ResourceMetrics) error {
+	if !hasMetricData(data) {
+		return nil
+	}
 	request, err := transformResourceMetrics(data)
 	if err == nil {
 		err = e.transport.uploadMetrics(ctx, request)
@@ -456,12 +532,57 @@ func (e *managedMetricExporter) Export(ctx context.Context, data *metricdata.Res
 	return nil
 }
 
+func hasMetricData(data *metricdata.ResourceMetrics) bool {
+	if data == nil {
+		return false
+	}
+	for _, scope := range data.ScopeMetrics {
+		if len(scope.Metrics) != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *managedMetricExporter) ForceFlush(context.Context) error {
 	return nil
 }
 
 func (e *managedMetricExporter) Shutdown(context.Context) error {
 	return nil
+}
+
+func managedMetricAttributeFilter(value attribute.KeyValue) bool {
+	if prohibitedTelemetryKey(string(value.Key)) {
+		return false
+	}
+	return !telemetryAttributeValueContainsSecret(value.Value)
+}
+
+func telemetryAttributeValueContainsSecret(value attribute.Value) bool {
+	switch value.Type() {
+	case attribute.STRING:
+		return containsTelemetrySecretMarker(value.AsString())
+	case attribute.STRINGSLICE:
+		for _, member := range value.AsStringSlice() {
+			if containsTelemetrySecretMarker(member) {
+				return true
+			}
+		}
+	case attribute.SLICE:
+		for _, member := range value.AsSlice() {
+			if telemetryAttributeValueContainsSecret(member) {
+				return true
+			}
+		}
+	case attribute.MAP:
+		for _, member := range value.AsMap() {
+			if prohibitedTelemetryKey(string(member.Key)) || telemetryAttributeValueContainsSecret(member.Value) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type managedTraceClient struct {
@@ -672,7 +793,7 @@ func sanitizeSlogAttr(attr slog.Attr) (slog.Attr, bool) {
 	case slog.KindString:
 		attr.Value = slog.StringValue(sanitizeTelemetryString(attr.Value.String()))
 	case slog.KindAny:
-		attr.Value = slog.StringValue(sanitizeTelemetryString(fmt.Sprint(attr.Value.Any())))
+		return slog.Attr{}, false
 	}
 	return attr, true
 }

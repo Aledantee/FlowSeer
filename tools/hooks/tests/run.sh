@@ -428,6 +428,7 @@ printf '%s\n' '#!/usr/bin/env bash' \
   'while IFS="=" read -r name _; do' \
   "  if [[ \$name == OTEL_* ]]; then : >\"\$FLOWSEER_FAKE_OTEL_LEAK\"; exit 96; fi" \
   'done < <(env)' \
+  "if [[ -n \${GOFLAGS:-} ]]; then : >\"\$FLOWSEER_FAKE_GOFLAGS_LEAK\"; exit 94; fi" \
   "if [[ \${FLOWSEER_WRAPPER_CONTROL:-} != preserved ]]; then : >\"\$FLOWSEER_FAKE_CONTROL_MISSING\"; exit 95; fi" \
   ": >\"\$FLOWSEER_FAKE_GO_CALLED\"" \
   "printf \"%s\\n\" \"\$FLOWSEER_OTEL_TEST_ARTIFACT_DIR\" >\"\$FLOWSEER_FAKE_GO_CAPTURE\"" \
@@ -473,15 +474,17 @@ ok "service OpenTelemetry wrapper stops before Go when the Docker daemon is unav
 success_capture=$fixture_parent/success-artifact-path
 success_args=$fixture_parent/success-go-args
 success_go_marker=$fixture_parent/success-go-called
-PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" FLOWSEER_FAKE_DOCKER_RC=0 \
+success_goflags_leak=$fixture_parent/success-goflags-leaked
+PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" GOFLAGS=-short FLOWSEER_FAKE_DOCKER_RC=0 \
   FLOWSEER_FAKE_GO_MODE=success FLOWSEER_FAKE_GO_CAPTURE="$success_capture" \
   FLOWSEER_FAKE_GO_ARGS="$success_args" FLOWSEER_FAKE_GO_CALLED="$success_go_marker" \
+  FLOWSEER_FAKE_GOFLAGS_LEAK="$success_goflags_leak" \
   "$otel_wrapper"
 success_artifact_dir=$(<"$success_capture")
 [[ -e $success_go_marker ]]
 [[ ! -e $success_artifact_dir ]]
-[[ ! -e $wrapper_otel_leak && ! -e $wrapper_control_missing ]]
-grep -qx -- 'test -race -count=1 -tags=service_otel_integration ./src/common/service/test/integration/...' \
+[[ ! -e $wrapper_otel_leak && ! -e $wrapper_control_missing && ! -e $success_goflags_leak ]]
+grep -qx -- 'test -race -count=1 -short=false -tags=service_otel_integration ./src/common/service/test/integration/...' \
   "$success_args"
 ok "service OpenTelemetry wrapper removes success artifacts after the tagged race command"
 

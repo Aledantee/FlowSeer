@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -879,7 +880,7 @@ func TestReplyPreservesCorrelationAndTargetsRequestSource(t *testing.T) {
 	}
 
 	deliveryCtx, stopDelivery := context.WithCancel(ctx)
-	values := telemetry.values(testIdentity(), "FLOWSEER_EDGE_", "edge/worker")
+	values := telemetry.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/worker")
 	values.bus = runtime.capability("edge/worker")
 	deliveryCtx = withContextValues(deliveryCtx, values)
 	done := make(chan error, 1)
@@ -927,7 +928,7 @@ func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := newMessageRuntime(resources, declaration.registry, func() *admissionRevision { return revision }, telemetry)
-	publisherValues := telemetry.values(testIdentity(), "FLOWSEER_EDGE_", "edge/publisher")
+	publisherValues := telemetry.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/publisher")
 	publisherValues.bus = runtime.capability("edge/publisher")
 	publisherCtx := withContextValues(ctx, publisherValues)
 	publisherCtx, parent := telemetry.tracer.Start(publisherCtx, "parent")
@@ -936,7 +937,7 @@ func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
 	}
 	parent.End()
 
-	workerValues := telemetry.values(testIdentity(), "FLOWSEER_EDGE_", "edge/worker")
+	workerValues := telemetry.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/worker")
 	workerValues.bus = runtime.capability("edge/worker")
 	deliveryCtx, stopDelivery := context.WithCancel(withContextValues(ctx, workerValues))
 	done := make(chan error, 1)
@@ -1148,6 +1149,35 @@ func TestMessageTelemetryOmitsPrivateDispositionAndErrorData(t *testing.T) {
 	recordedLogs := logs.String()
 	if strings.Contains(recordedLogs, privateDispositionID) || strings.Contains(recordedLogs, "disposition_id") {
 		t.Fatalf("private disposition data appeared in logs: %s", recordedLogs)
+	}
+}
+
+func TestMessageDispositionLogLevelsSeparateSuccessFromDiscard(t *testing.T) {
+	logger, sink := newRecordingLogger()
+	observability, err := newTelemetry(Config{Logger: logger})
+	if err != nil {
+		t.Fatalf("newTelemetry() error: %v", err)
+	}
+	view := observability.view(resolvedTelemetryPolicy{logs: true})
+	for _, state := range []servicev1.SettlementState{
+		servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE,
+		servicev1.SettlementState_SETTLEMENT_STATE_DISCARD,
+	} {
+		view.recordDisposition(context.Background(), "edge/worker", "google.protobuf.Empty", MessageKindCommand, servicev1.Settlement_builder{
+			State: state.Enum(),
+		}.Build())
+	}
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	var levels []slog.Level
+	for _, record := range sink.records {
+		if record.Message == "message disposition" {
+			levels = append(levels, record.Level)
+		}
+	}
+	if want := []slog.Level{slog.LevelDebug, slog.LevelWarn}; !slices.Equal(levels, want) {
+		t.Errorf("message disposition levels = %v, want %v", levels, want)
 	}
 }
 

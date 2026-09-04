@@ -5,9 +5,11 @@ protocol libraries. The repository currently contains Go libraries for SNMP,
 NETCONF, RESTCONF, gNMI, and syslog; SMI and YANG tooling; protobuf schemas; and
 the `netpen` edge application.
 
-The control-plane services described in the architecture documents have not
-been implemented yet. This is a development repository rather than a released,
-end-to-end FlowSeer distribution.
+The central control-plane service processes described in the architecture
+documents have not been implemented yet. The process-local service runtime in
+`src/common/service/` has landed; it is infrastructure for those future
+processes, not a control-plane service. This is a development repository rather
+than a released, end-to-end FlowSeer distribution.
 
 ## Get the repository green
 

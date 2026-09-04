@@ -24,9 +24,9 @@ func TestTelemetryPolicyResolutionMatrixIsComplete(t *testing.T) {
 		leafEnv   string
 	}
 	signals := []signalCase{
-		{name: "logs", set: func(p *TelemetryPolicy, d TelemetryDeclaration) { p.Logs = d }, read: func(p resolvedTelemetryPolicy) bool { return p.logs }, rootEnv: "FLOWSEER_EDGE_LOGS_ENABLED", branchEnv: "FLOWSEER_EDGE_BRANCH_LOGS_ENABLED", leafEnv: "FLOWSEER_EDGE_BRANCH_LEAF_LOGS_ENABLED"},
-		{name: "metrics", set: func(p *TelemetryPolicy, d TelemetryDeclaration) { p.Metrics = d }, read: func(p resolvedTelemetryPolicy) bool { return p.metrics }, rootEnv: "FLOWSEER_EDGE_METRICS_ENABLED", branchEnv: "FLOWSEER_EDGE_BRANCH_METRICS_ENABLED", leafEnv: "FLOWSEER_EDGE_BRANCH_LEAF_METRICS_ENABLED"},
-		{name: "traces", set: func(p *TelemetryPolicy, d TelemetryDeclaration) { p.Traces = d }, read: func(p resolvedTelemetryPolicy) bool { return p.traces }, rootEnv: "FLOWSEER_EDGE_TRACES_ENABLED", branchEnv: "FLOWSEER_EDGE_BRANCH_TRACES_ENABLED", leafEnv: "FLOWSEER_EDGE_BRANCH_LEAF_TRACES_ENABLED"},
+		{name: "logs", set: func(p *TelemetryPolicy, d TelemetryDeclaration) { p.Logs = d }, read: func(p resolvedTelemetryPolicy) bool { return p.logs }, rootEnv: "FLOWSEER_EDGE_TELEMETRY_LOGS_ENABLED", branchEnv: "FLOWSEER_EDGE_BRANCH_TELEMETRY_LOGS_ENABLED", leafEnv: "FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_LOGS_ENABLED"},
+		{name: "metrics", set: func(p *TelemetryPolicy, d TelemetryDeclaration) { p.Metrics = d }, read: func(p resolvedTelemetryPolicy) bool { return p.metrics }, rootEnv: "FLOWSEER_EDGE_TELEMETRY_METRICS_ENABLED", branchEnv: "FLOWSEER_EDGE_BRANCH_TELEMETRY_METRICS_ENABLED", leafEnv: "FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_METRICS_ENABLED"},
+		{name: "traces", set: func(p *TelemetryPolicy, d TelemetryDeclaration) { p.Traces = d }, read: func(p resolvedTelemetryPolicy) bool { return p.traces }, rootEnv: "FLOWSEER_EDGE_TELEMETRY_TRACES_ENABLED", branchEnv: "FLOWSEER_EDGE_BRANCH_TELEMETRY_TRACES_ENABLED", leafEnv: "FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_TRACES_ENABLED"},
 	}
 	declarations := []TelemetryDeclaration{TelemetryInherit, TelemetryEnabled, TelemetryDisabled}
 	environment := []string{"", "true", "false"}
@@ -71,7 +71,7 @@ func TestTelemetryPolicyResolutionMatrixIsComplete(t *testing.T) {
 
 									availablePolicy := resolvedTelemetryPolicy{}
 									setResolvedSignal(&availablePolicy, signal.name, available)
-									root, rootErr := resolveTelemetryPolicy(rootPolicy, "Telemetry.Signals", "FLOWSEER_EDGE_", mapLookup(env), availablePolicy, availablePolicy)
+									root, rootErr := resolveTelemetryPolicy(rootPolicy, "Telemetry.Signals", "FLOWSEER_EDGE_TELEMETRY_", mapLookup(env), availablePolicy, availablePolicy)
 									wantRoot, wantRootErr := expectedResolvedSignal(rootDeclaration, rootEnvironment, available, available)
 									if (rootErr != nil) != wantRootErr {
 										t.Fatalf("%s root declaration=%d env=%q available=%t error=%v, want error=%t", signal.name, rootDeclaration, rootEnvironment, available, rootErr, wantRootErr)
@@ -117,7 +117,7 @@ func TestTelemetryPolicyReconstructionUsesRetainedParent(t *testing.T) {
 		path: "edge/branch/leaf", envKey: "FLOWSEER_EDGE_BRANCH_LEAF_ENABLED",
 		telemetryDeclaration: TelemetryPolicy{Logs: TelemetryInherit, Metrics: TelemetryEnabled, Traces: TelemetryDisabled},
 	}
-	env := map[string]string{"FLOWSEER_EDGE_BRANCH_LEAF_LOGS_ENABLED": "true"}
+	env := map[string]string{"FLOWSEER_EDGE_BRANCH_LEAF_TELEMETRY_LOGS_ENABLED": "true"}
 	resolved, err := resolveTelemetryPolicies([]plannedModule{module}, mapLookup(env), resolvedTelemetryPolicy{metrics: false, traces: true}, resolvedTelemetryPolicy{logs: true, metrics: true, traces: true})
 	if err != nil {
 		t.Fatalf("resolveTelemetryPolicies() error: %v", err)
@@ -130,7 +130,7 @@ func TestTelemetryPolicyReconstructionUsesRetainedParent(t *testing.T) {
 func TestTelemetryViewDisablesExportButRetainsLocalTraceCorrelation(t *testing.T) {
 	owner, localSink, exportSink, _, _ := newTelemetryPolicyTestOwner(t, signalInjected, signalInjected, signalInjected)
 	view := owner.view(resolvedTelemetryPolicy{metrics: true, traces: true})
-	ctx := withContextValues(context.Background(), view.values(testIdentity(), "FLOWSEER_EDGE_", "edge/worker"))
+	ctx := withContextValues(context.Background(), view.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/worker"))
 	spanCtx, span := Tracer(ctx).Start(ctx, "work")
 	Logger(spanCtx).InfoContext(spanCtx, "local only")
 	span.End()
@@ -150,7 +150,7 @@ func TestTelemetryViewDisablesExportButRetainsLocalTraceCorrelation(t *testing.T
 func TestTelemetryViewDisablesModuleAndRuntimeMetrics(t *testing.T) {
 	owner, _, _, reader, _ := newTelemetryPolicyTestOwner(t, signalInjected, signalInjected, signalInjected)
 	view := owner.view(resolvedTelemetryPolicy{logs: true, traces: true})
-	ctx := withContextValues(context.Background(), view.values(testIdentity(), "FLOWSEER_EDGE_", "edge/worker"))
+	ctx := withContextValues(context.Background(), view.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/worker"))
 	if MeterProvider(ctx) != defaultMeterProvider {
 		t.Fatal("disabled metrics did not expose the no-op meter provider")
 	}
@@ -175,7 +175,7 @@ func TestTelemetryViewDisablesModuleAndRuntimeMetrics(t *testing.T) {
 func TestTelemetryViewManagedProvidersAreBorrowedFacades(t *testing.T) {
 	owner, _, _, _, _ := newTelemetryPolicyTestOwner(t, signalManaged, signalManaged, signalManaged)
 	view := owner.view(resolvedTelemetryPolicy{logs: true, metrics: true, traces: true})
-	ctx := withContextValues(context.Background(), view.values(testIdentity(), "", "edge/worker"))
+	ctx := withContextValues(context.Background(), view.attemptContextValues(testIdentity(), "", "edge/worker"))
 	if _, ok := TracerProvider(ctx).(interface{ Shutdown(context.Context) error }); ok {
 		t.Fatal("managed tracer provider exposed Shutdown")
 	}
@@ -193,7 +193,7 @@ func TestTelemetryViewManagedProvidersAreBorrowedFacades(t *testing.T) {
 func TestTelemetryViewInjectedProvidersPreserveIdentity(t *testing.T) {
 	owner, _, _, _, _ := newTelemetryPolicyTestOwner(t, signalInjected, signalInjected, signalInjected)
 	view := owner.view(resolvedTelemetryPolicy{logs: true, metrics: true, traces: true})
-	ctx := withContextValues(context.Background(), view.values(testIdentity(), "", "edge/worker"))
+	ctx := withContextValues(context.Background(), view.attemptContextValues(testIdentity(), "", "edge/worker"))
 	if TracerProvider(ctx) != owner.tracerProvider || MeterProvider(ctx) != owner.meterProvider {
 		t.Fatal("enabled injected providers did not preserve caller identity")
 	}
@@ -210,7 +210,7 @@ func TestTelemetryViewTraceDisablementPreservesContextAndIsolatesParentSpan(t *t
 	parent, parentSpan := owner.tracerProvider.Tracer("parent").Start(parent, "parent")
 	parentSpanContext := parentSpan.SpanContext()
 	isolated := view.context(parent)
-	viewCtx := withContextValues(isolated, view.values(testIdentity(), "FLOWSEER_EDGE_", "edge/worker"))
+	viewCtx := withContextValues(isolated, view.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/worker"))
 	if TracerProvider(viewCtx) != defaultTracerProvider {
 		t.Fatal("disabled traces did not expose the no-op tracer provider")
 	}

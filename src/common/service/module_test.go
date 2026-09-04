@@ -180,6 +180,54 @@ func TestDerivedModuleIdentitiesAreCollisionSafe(t *testing.T) {
 	}
 }
 
+func TestValidateDeclarationRejectsTelemetryEnvironmentCollisions(t *testing.T) {
+	tests := []struct {
+		name    string
+		modules []Module
+		wantKey string
+	}{
+		{
+			name: "service root telemetry key and module gate",
+			modules: []Module{{
+				Name: "telemetry",
+				Branch: &Branch{Children: []Module{{
+					Name: "logs",
+					Leaf: &Leaf{Setup: testSetup()},
+				}}},
+			}},
+			wantKey: "FLOWSEER_EDGE_TELEMETRY_LOGS_ENABLED",
+		},
+		{
+			name: "module telemetry key and descendant gate",
+			modules: []Module{{
+				Name: "group",
+				Branch: &Branch{Children: []Module{{
+					Name: "telemetry",
+					Branch: &Branch{Children: []Module{{
+						Name: "logs",
+						Leaf: &Leaf{Setup: testSetup()},
+					}}},
+				}}},
+			}},
+			wantKey: "FLOWSEER_EDGE_GROUP_TELEMETRY_LOGS_ENABLED",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := validateDeclaration(Config{Identity: testIdentity(), Modules: test.modules})
+			if err == nil {
+				t.Fatal("validateDeclaration() succeeded, want telemetry environment collision")
+			}
+			if code, ok := errs.CodeOf(err); !ok || code.String() != "service/module-collision" {
+				t.Fatalf("error code = %q, %t, want service/module-collision", code, ok)
+			}
+			if got := errs.Attributes(err)["derived_identity"]; got != test.wantKey {
+				t.Errorf("derived identity = %v, want %s", got, test.wantKey)
+			}
+		})
+	}
+}
+
 func TestValidateDeclarationRejectsInvalidTelemetryDeclaration(t *testing.T) {
 	_, err := validateDeclaration(Config{
 		Identity: testIdentity(),

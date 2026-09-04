@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // Run validates config and runs its enabled modules until they all stop, root
@@ -42,6 +44,9 @@ func runWithOptions(ctx context.Context, config Config, options supervisorOption
 	return runWithOptionsAndTelemetryFactories(ctx, config, options, defaultTelemetryFactories)
 }
 
+// runWithOptionsAndTelemetryFactories owns validation, telemetry, bus,
+// admission, and root-supervisor lifetime. Cleanup ignores run cancellation,
+// follows dependency order, and combines lifecycle and shutdown errors.
 func runWithOptionsAndTelemetryFactories(
 	ctx context.Context,
 	config Config,
@@ -66,21 +71,27 @@ func runWithOptionsAndTelemetryFactories(
 	}
 	rootTelemetry := telemetry.view(normalized.telemetry.rootPolicy)
 	lifecycleCtx := rootTelemetry.context(ctx)
-	_, startupSpan := startLifecycleSpan(
+	var startupAttributes []attribute.KeyValue
+	if normalized.bus != nil {
+		startupAttributes = busFsyncSpanAttributes(*normalized.bus)
+	}
+	startupCtx, startupSpan := startLifecycleSpan(
 		lifecycleCtx,
 		rootTelemetry.tracer,
 		normalized.identity.Name,
 		startupSpanName,
 		lifecycleActionStart,
+		startupAttributes...,
 	)
 	var bus *localBus
 	busHealthy := true
 	if normalized.bus != nil {
 		bus, err = startLocalBus(ctx, *normalized.bus, reconcileRuntimeManifest(normalized))
 		if err != nil {
-			endLifecycleSpan(startupSpan, lifecycleOutcomeError)
+			endLifecycleSpan(startupSpan, lifecycleOutcomeError, err)
 			return err
 		}
+		recordBusFsyncPolicy(startupCtx, rootTelemetry.logger, *normalized.bus)
 	}
 	admission := newAdmissionState(normalized.admission.withModuleSnapshot(normalized.modules))
 	var messages *messageRuntime
@@ -105,7 +116,7 @@ func runWithOptionsAndTelemetryFactories(
 	started := make(chan struct{})
 	go func() { done <- supervisor.runWithStarted(runCtx, started) }()
 	<-started
-	endLifecycleSpan(startupSpan, lifecycleOutcomeRunning)
+	endLifecycleSpan(startupSpan, lifecycleOutcomeRunning, nil)
 
 	var failures <-chan error
 	if bus != nil {
@@ -120,6 +131,9 @@ func runWithOptionsAndTelemetryFactories(
 		shutdownCause = runErr
 		if runErr != nil {
 			shutdownOutcome = lifecycleOutcomeError
+		} else if ctx.Err() != nil {
+			shutdownCause = context.Cause(ctx)
+			shutdownOutcome = lifecycleOutcomeCanceled
 		}
 	case err = <-failures:
 		busHealthy = false
@@ -155,6 +169,6 @@ func runWithOptionsAndTelemetryFactories(
 			shutdownOutcome = lifecycleOutcomeError
 		}
 	}
-	endLifecycleSpan(shutdownSpan, shutdownOutcome)
+	endLifecycleSpan(shutdownSpan, shutdownOutcome, runErr)
 	return runErr
 }

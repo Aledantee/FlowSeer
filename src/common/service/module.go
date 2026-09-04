@@ -25,7 +25,8 @@ var (
 
 // Module declares one stable node in a service's supervision tree. Exactly
 // one of Leaf or Branch must be set. The zero value is invalid. Callers must
-// not mutate a Module declaration while a Run using it is active.
+// use keyed literals and must not mutate a Module declaration while a Run
+// using it is active.
 type Module struct {
 	// Name is the module's stable lower-snake-case path segment.
 	Name string
@@ -69,6 +70,8 @@ type Branch struct {
 	Children []Module
 }
 
+// plannedModule is the validated runtime form of a declared module, including
+// its derived persistent identities.
 type plannedModule struct {
 	path                 string
 	envKey               string
@@ -90,6 +93,8 @@ type plannedLeaf struct {
 	deliveryConcurrency int
 }
 
+// derivedIdentitySet rejects collisions among module identities derived for
+// environment, subject, and durable-consumer namespaces.
 type derivedIdentitySet struct {
 	values map[string]map[string]string
 }
@@ -118,6 +123,8 @@ func (s *derivedIdentitySet) add(kind, value, path string) error {
 	return nil
 }
 
+// validateDeclaration compiles a static declaration into stable module,
+// registry, and supervisor plans.
 func validateDeclaration(config Config) (runtimeConfig, error) {
 	if err := validateIdentity(config.Identity); err != nil {
 		return runtimeConfig{}, err
@@ -146,6 +153,11 @@ func validateDeclaration(config Config) (runtimeConfig, error) {
 
 	registry := newStaticRegistryBuilder()
 	identities := newDerivedIdentitySet()
+	for _, environmentKey := range telemetrySignalEnvironmentKeys(telemetryEnvironmentBase(envPrefix)) {
+		if err := identities.add("environment_key", environmentKey, config.Identity.Name); err != nil {
+			return runtimeConfig{}, err
+		}
+	}
 	var modules []plannedModule
 	if hasImplicit {
 		module := Module{Name: config.Identity.Name, Leaf: &Leaf{Setup: config.Setup}}
@@ -267,6 +279,9 @@ func validateModule(
 		value string
 	}{
 		{kind: "environment_key", value: envKey},
+		{kind: "environment_key", value: telemetryModuleEnvironmentBase(envKey) + "LOGS_ENABLED"},
+		{kind: "environment_key", value: telemetryModuleEnvironmentBase(envKey) + "METRICS_ENABLED"},
+		{kind: "environment_key", value: telemetryModuleEnvironmentBase(envKey) + "TRACES_ENABLED"},
 		{kind: "subject_token", value: pathToken},
 		{kind: "durable_name", value: durableName},
 	} {
@@ -357,16 +372,28 @@ func moduleEnvKey(prefix, rootPath, path string) string {
 	return prefix + strings.ToUpper(strings.ReplaceAll(relative, "/", "_")) + "_ENABLED"
 }
 
+func telemetrySignalEnvironmentKeys(base string) []string {
+	return []string{
+		base + "LOGS_ENABLED",
+		base + "METRICS_ENABLED",
+		base + "TRACES_ENABLED",
+	}
+}
+
 func encodeSubjectToken(value string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(value))
 }
 
+// durableConsumerName derives the versioned persistent consumer identity from
+// a module path.
 func durableConsumerName(path string) string {
 	sum := sha256.Sum256([]byte(path))
 	digest := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sum[:])
 	return "v1_" + strings.ToLower(digest)
 }
 
+// preflight resolves telemetry and gates, rejects an empty effective tree, and
+// produces the runtime startup plan.
 func preflight(ctx context.Context, config Config, lookup envLookup) (runtimeConfig, error) {
 	declaration, err := validateDeclaration(config)
 	if err != nil {

@@ -32,6 +32,8 @@ var (
 	errCodeBusMigration = errs.NewCode("service/bus-migration-required")
 )
 
+// reconcileStoreProvenance prevents opening a populated store whose service,
+// domain, format, or NATS version does not match this runtime.
 func reconcileStoreProvenance(config normalizedBusConfig) error {
 	want := servicev1.StoreProvenance_builder{
 		FormatVersion:    proto.Uint32(manifestVersion),
@@ -83,6 +85,8 @@ func storeContainsBrokerData(storeDir string) (bool, error) {
 	return false, nil
 }
 
+// writeProvenance publishes a fully written and synced temporary file by rename
+// so readers never observe a partial store marker.
 func writeProvenance(path string, provenance *servicev1.StoreProvenance) error {
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(provenance)
 	if err != nil {
@@ -202,6 +206,9 @@ func stringCompare(left, right string) int {
 	}
 }
 
+// reconcileRuntimeManifest repairs or advances the PREPARED/COMMITTED journal
+// before startup. It permits only additive changes that preserve persisted
+// module and subscription identities.
 func reconcileRuntimeManifest(config runtimeConfig) busReconciler {
 	return func(ctx context.Context, resources busResources) error {
 		desired, err := runtimeManifest(config)
@@ -337,6 +344,8 @@ func settlementMatchesMailbox(ctx context.Context, mailbox jetstream.Stream, mes
 		message.Subject() == settlementSubject(settlement.GetTargetPath(), settlement.GetMessageId()), nil
 }
 
+// readReconciliation returns the latest manifest journal record and its
+// sequence. An absent record returns nil and zero.
 func readReconciliation(ctx context.Context, metadata jetstream.Stream) (*servicev1.ReconciliationRecord, uint64, error) {
 	message, err := metadata.GetLastMsgForSubject(ctx, manifestSubject)
 	if errors.Is(err, jetstream.ErrMsgNotFound) {
@@ -410,6 +419,8 @@ func publishReconciliation(ctx context.Context, resources busResources, record *
 	return ack.Sequence, nil
 }
 
+// manifestAdditionCompatible permits only additive changes that preserve every
+// persisted module path and contract.
 func manifestAdditionCompatible(previous, desired *servicev1.RuntimeManifest) bool {
 	if previous == nil || desired == nil {
 		return previous == nil
@@ -440,6 +451,8 @@ func manifestAdditionCompatible(previous, desired *servicev1.RuntimeManifest) bo
 	return true
 }
 
+// moduleAdditionCompatible permits added subscriptions and aliases while
+// preserving each persisted module contract.
 func moduleAdditionCompatible(previous, desired *servicev1.ModuleContract) bool {
 	previousCopy := proto.Clone(previous).(*servicev1.ModuleContract)
 	desiredCopy := proto.Clone(desired).(*servicev1.ModuleContract)

@@ -57,6 +57,31 @@ type recordingHandler struct {
 	attrs []slog.Attr
 }
 
+type startupAttributeSampler struct {
+	sdktrace.Sampler
+	mu         sync.Mutex
+	attributes []attribute.KeyValue
+}
+
+func newStartupAttributeSampler() *startupAttributeSampler {
+	return &startupAttributeSampler{Sampler: sdktrace.AlwaysSample()}
+}
+
+func (s *startupAttributeSampler) ShouldSample(parameters sdktrace.SamplingParameters) sdktrace.SamplingResult {
+	if parameters.Name == startupSpanName {
+		s.mu.Lock()
+		s.attributes = slices.Clone(parameters.Attributes)
+		s.mu.Unlock()
+	}
+	return s.Sampler.ShouldSample(parameters)
+}
+
+func (s *startupAttributeSampler) startupAttributes() []attribute.KeyValue {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.attributes)
+}
+
 func (h recordingHandler) Enabled(context.Context, slog.Level) bool { return true }
 
 func (h recordingHandler) Handle(_ context.Context, record slog.Record) error {
@@ -343,6 +368,131 @@ func TestRuntimeLifecycleSpansAreFiniteCallerSiblings(t *testing.T) {
 	callerSpan.End()
 }
 
+func TestStartupSpanCarriesEffectiveBusFsyncPolicy(t *testing.T) {
+	customInterval := 750 * time.Millisecond
+	tests := []struct {
+		name           string
+		policy         BusFsyncPolicy
+		interval       *time.Duration
+		wantPolicy     string
+		wantIntervalMS int64
+	}{
+		{
+			name:           "periodic default",
+			policy:         BusFsyncPeriodic,
+			wantPolicy:     "periodic",
+			wantIntervalMS: 5000,
+		},
+		{
+			name:           "periodic custom interval",
+			policy:         BusFsyncPeriodic,
+			interval:       &customInterval,
+			wantPolicy:     "periodic",
+			wantIntervalMS: 750,
+		},
+		{
+			name:           "per message",
+			policy:         BusFsyncPerMessage,
+			wantPolicy:     "per_message",
+			wantIntervalMS: 0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := tracetest.NewSpanRecorder()
+			sampler := newStartupAttributeSampler()
+			ready := make(chan struct{})
+			storeDir := t.TempDir()
+			config := Config{
+				Identity: testIdentity(),
+				TracerProvider: sdktrace.NewTracerProvider(
+					sdktrace.WithSampler(sampler),
+					sdktrace.WithSpanProcessor(recorder),
+				),
+				Bus: &BusConfig{
+					StoreDir:      storeDir,
+					FsyncPolicy:   test.policy,
+					FsyncInterval: test.interval,
+				},
+				Setup: func(context.Context) (Attempt, error) {
+					return Attempt{Runner: func(ctx context.Context) error {
+						close(ready)
+						<-ctx.Done()
+						return ctx.Err()
+					}}, nil
+				},
+			}
+
+			if err := runUntil(t, config, ready); err != nil {
+				t.Fatalf("run() error: %v", err)
+			}
+			span := findRecordedSpan(recorder.Ended(), startupSpanName)
+			if span == nil {
+				t.Fatal("the startup span was not recorded")
+			}
+			if got, ok := spanAttribute(span, busFsyncPolicyKey); !ok || got != test.wantPolicy {
+				t.Errorf("startup span %s = %q, %v, want %q", busFsyncPolicyKey, got, ok, test.wantPolicy)
+			}
+			if got, ok := spanInt64Attribute(span, busFsyncPeriodicIntervalMSKey); !ok || got != test.wantIntervalMS {
+				t.Errorf("startup span %s = %d, %v, want %d", busFsyncPeriodicIntervalMSKey, got, ok, test.wantIntervalMS)
+			}
+			initialAttributes := attribute.NewSet(sampler.startupAttributes()...)
+			if got, ok := initialAttributes.Value(attribute.Key(busFsyncPolicyKey)); !ok || got.AsString() != test.wantPolicy {
+				t.Errorf("startup sampler %s = %q, %v, want %q", busFsyncPolicyKey, got.AsString(), ok, test.wantPolicy)
+			}
+			if got, ok := initialAttributes.Value(attribute.Key(busFsyncPeriodicIntervalMSKey)); !ok || got.AsInt64() != test.wantIntervalMS {
+				t.Errorf("startup sampler %s = %d, %v, want %d", busFsyncPeriodicIntervalMSKey, got.AsInt64(), ok, test.wantIntervalMS)
+			}
+			for _, attr := range span.Attributes() {
+				if attr.Value.AsString() == storeDir {
+					t.Errorf("startup span %s exposes the bus store path", attr.Key)
+				}
+			}
+		})
+	}
+}
+
+func TestStartupLogCarriesBusFsyncPolicyWhenTracingIsDisabled(t *testing.T) {
+	logger, handler := newRecordingLogger()
+	ready := make(chan struct{})
+	storeDir := t.TempDir()
+	config := Config{
+		Identity: testIdentity(),
+		Logger:   logger,
+		Telemetry: TelemetryConfig{Signals: TelemetryPolicy{
+			Traces: TelemetryDisabled,
+		}},
+		Bus: &BusConfig{StoreDir: storeDir},
+		Setup: func(context.Context) (Attempt, error) {
+			return Attempt{Runner: func(ctx context.Context) error {
+				close(ready)
+				<-ctx.Done()
+				return ctx.Err()
+			}}, nil
+		},
+	}
+
+	if err := runUntil(t, config, ready); err != nil {
+		t.Fatalf("run() error: %v", err)
+	}
+	attrs, ok := handler.find("local bus durability configured")
+	if !ok {
+		t.Fatal("the local bus durability record was not emitted")
+	}
+	if got := attrs[busFsyncPolicyKey]; got != "periodic" {
+		t.Errorf("startup log %s = %q, want periodic", busFsyncPolicyKey, got)
+	}
+	if got := attrs[busFsyncPeriodicIntervalMSKey]; got != "5000" {
+		t.Errorf("startup log %s = %q, want 5000", busFsyncPeriodicIntervalMSKey, got)
+	}
+	for key, value := range attrs {
+		if value == storeDir {
+			t.Errorf("startup log %s exposes the bus store path", key)
+		}
+	}
+}
+
 func TestTraceDisabledRootEmitsNoRuntimeLifecycleSpans(t *testing.T) {
 	recorder := tracetest.NewSpanRecorder()
 	ready := make(chan struct{})
@@ -451,12 +601,22 @@ func findRecordedSpan(spans []sdktrace.ReadOnlySpan, name string) sdktrace.ReadO
 }
 
 func spanAttribute(span sdktrace.ReadOnlySpan, key string) (string, bool) {
+	value, ok := spanAttributeValue(span, key)
+	return value.AsString(), ok
+}
+
+func spanInt64Attribute(span sdktrace.ReadOnlySpan, key string) (int64, bool) {
+	value, ok := spanAttributeValue(span, key)
+	return value.AsInt64(), ok
+}
+
+func spanAttributeValue(span sdktrace.ReadOnlySpan, key string) (attribute.Value, bool) {
 	for _, attr := range span.Attributes() {
 		if string(attr.Key) == key {
-			return attr.Value.AsString(), true
+			return attr.Value, true
 		}
 	}
-	return "", false
+	return attribute.Value{}, false
 }
 
 // collectCounters returns one data point per collected counter, keyed by

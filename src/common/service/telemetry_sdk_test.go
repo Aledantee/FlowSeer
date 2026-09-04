@@ -20,6 +20,7 @@ import (
 	"unicode/utf8"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -177,6 +178,12 @@ func TestManagedTelemetryConstructionFailuresUnwindTypedErrorsInReverseOrder(t *
 		wantClosed []string
 	}{
 		{
+			name:       "resource",
+			failure:    "resource",
+			wantEvents: []string{"resource", "close injected"},
+			wantClosed: []string{"injected"},
+		},
+		{
 			name:       "transport",
 			failure:    "transport",
 			wantEvents: []string{"resource", "transport", "close injected"},
@@ -220,6 +227,9 @@ func TestManagedTelemetryConstructionFailuresUnwindTypedErrorsInReverseOrder(t *
 			factories := telemetryFactorySet{
 				newResource: func(Identity) (*resource.Resource, error) {
 					events = append(events, "resource")
+					if tt.failure == "resource" {
+						return nil, cause
+					}
 					return resource.Empty(), nil
 				},
 				newTransport: func(context.Context, normalizedOTLPConnection) (otlpTransport, telemetryShutdown, error) {
@@ -276,6 +286,25 @@ func TestManagedTelemetryConstructionFailuresUnwindTypedErrorsInReverseOrder(t *
 				t.Fatalf("events = %v, want %v", events, tt.wantEvents)
 			}
 		})
+	}
+}
+
+func TestManagedMetricExporterSkipsEmptyCollections(t *testing.T) {
+	transport := &metricUploadCounter{err: errors.New("collector unavailable")}
+	var diagnostics bytes.Buffer
+	exporter := &managedMetricExporter{
+		transport:   transport,
+		diagnostics: newTelemetryDiagnostics(&diagnostics),
+	}
+
+	if err := exporter.Export(context.Background(), &metricdata.ResourceMetrics{}); err != nil {
+		t.Fatalf("Export() error: %v", err)
+	}
+	if got := transport.calls.Load(); got != 0 {
+		t.Fatalf("metric uploads = %d, want 0", got)
+	}
+	if diagnostics.Len() != 0 {
+		t.Fatalf("empty export diagnostic = %q, want none", diagnostics.String())
 	}
 }
 
@@ -380,6 +409,7 @@ func TestManagedTelemetryFactoriesShareOneResource(t *testing.T) {
 }
 
 func TestInvalidTelemetryConfigCallsNoFactories(t *testing.T) {
+	invalidTraceSampleRatio := 1.01
 	tests := []struct {
 		name      string
 		telemetry TelemetryConfig
@@ -389,9 +419,10 @@ func TestInvalidTelemetryConfigCallsNoFactories(t *testing.T) {
 		{name: "malformed endpoint", telemetry: TelemetryConfig{Endpoint: "not-an-endpoint"}},
 		{name: "unsupported common environment", env: map[string]string{"OTEL_EXPORTER_OTLP_PROTOCOL": "http/json"}},
 		{name: "signal-specific environment", env: map[string]string{"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": "https://logs.example"}},
+		{name: "invalid trace sample ratio", telemetry: TelemetryConfig{TraceSampleRatio: &invalidTraceSampleRatio}},
 		{
 			name: "malformed module override",
-			env:  map[string]string{"FLOWSEER_EDGE_WORKER_LOGS_ENABLED": "yes"},
+			env:  map[string]string{"FLOWSEER_EDGE_WORKER_TELEMETRY_LOGS_ENABLED": "yes"},
 			modules: []Module{{Name: "worker", Leaf: &Leaf{
 				Setup: testSetup(),
 			}}},
@@ -722,14 +753,15 @@ func TestManagedLogSanitizerPreservesLocalDetailsOnly(t *testing.T) {
 	defer func() { _ = owner.shutdown(context.Background()) }()
 	longValue := strings.Repeat("x", telemetryValueLimit+20)
 	owner.telemetry.logger.Debug("debug detail")
-	owner.telemetry.logger.Info("credential secret body", "password", "do-not-leak", "safe", longValue)
+	opaque := struct{ Credential string }{Credential: "do-not-leak"}
+	owner.telemetry.logger.Info("credential secret body", "password", "do-not-leak", "safe", longValue, "opaque", opaque)
 	if _, ok := localSink.find("debug detail"); !ok {
 		t.Fatal("local logger did not retain debug record")
 	}
 	if _, ok := exportSink.find("debug detail"); ok {
 		t.Fatal("managed export retained production-disabled debug record")
 	}
-	if attrs, ok := localSink.find("credential secret body"); !ok || attrs["password"] != "do-not-leak" || attrs["safe"] != longValue {
+	if attrs, ok := localSink.find("credential secret body"); !ok || attrs["password"] != "do-not-leak" || attrs["safe"] != longValue || attrs["opaque"] == "" {
 		t.Fatalf("local record = %v, %v; want trusted details", attrs, ok)
 	}
 	attrs, ok := exportSink.find("[redacted]")
@@ -738,6 +770,9 @@ func TestManagedLogSanitizerPreservesLocalDetailsOnly(t *testing.T) {
 	}
 	if _, exists := attrs["password"]; exists {
 		t.Fatal("managed export retained prohibited password attribute")
+	}
+	if _, exists := attrs["opaque"]; exists {
+		t.Fatal("managed export stringified an opaque slog.Any attribute")
 	}
 	if len(attrs["safe"]) != telemetryValueLimit {
 		t.Fatalf("managed safe value length = %d, want %d", len(attrs["safe"]), telemetryValueLimit)
@@ -819,11 +854,8 @@ func TestManagedTelemetryBlockedExportersDoNotBlockProducers(t *testing.T) {
 		transport.unblock()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := shutdown(shutdownCtx); err != nil {
-			t.Fatalf("log shutdown: %v", err)
-		}
-		if got := strings.Count(diagnostics.String(), "telemetry export failed"); got != 1 {
-			t.Fatalf("log export diagnostics = %d, want one rate-limited warning", got)
+		if err := shutdown(shutdownCtx); err == nil || !strings.Contains(err.Error(), "logs telemetry export failed") {
+			t.Fatalf("log shutdown error = %v, want final export failure", err)
 		}
 	})
 
@@ -835,7 +867,7 @@ func TestManagedTelemetryBlockedExportersDoNotBlockProducers(t *testing.T) {
 			resource.Empty(),
 			transport,
 			newTelemetryDiagnostics(&diagnostics),
-			normalizedOTLPConnection{},
+			normalizedOTLPConnection{traceSampleRatio: 1},
 		)
 		if err != nil {
 			t.Fatalf("newManagedTraceProvider() error: %v", err)
@@ -941,7 +973,7 @@ func TestManagedTraceShutdownCancelsBlockedExport(t *testing.T) {
 		resource.Empty(),
 		transport,
 		newTelemetryDiagnostics(io.Discard),
-		normalizedOTLPConnection{},
+		normalizedOTLPConnection{traceSampleRatio: 1},
 	)
 	if err != nil {
 		t.Fatalf("newManagedTraceProvider() error: %v", err)
@@ -960,6 +992,150 @@ func TestManagedTraceShutdownCancelsBlockedExport(t *testing.T) {
 	}
 	if err := shutdownCtx.Err(); err != nil {
 		t.Fatalf("trace shutdown consumed its deadline: %v", err)
+	}
+}
+
+func TestManagedTraceSamplingHonorsConfiguredRootsAndParents(t *testing.T) {
+	provider, shutdown, err := newManagedTraceProvider(
+		resource.Empty(),
+		&telemetryRequestCapture{},
+		newTelemetryDiagnostics(io.Discard),
+		normalizedOTLPConnection{traceSampleRatio: 0},
+	)
+	if err != nil {
+		t.Fatalf("newManagedTraceProvider() error: %v", err)
+	}
+	defer func() {
+		if err := shutdown(context.Background()); err != nil {
+			t.Errorf("trace shutdown: %v", err)
+		}
+	}()
+
+	tracer := provider.Tracer("sampling-test")
+	_, root := tracer.Start(context.Background(), "unsampled root")
+	if root.IsRecording() {
+		t.Fatal("zero root sample ratio recorded a root span")
+	}
+	root.End()
+
+	parent := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1},
+		SpanID:     trace.SpanID{1},
+		TraceFlags: trace.FlagsSampled,
+		Remote:     true,
+	})
+	ctx := trace.ContextWithRemoteSpanContext(context.Background(), parent)
+	_, child := tracer.Start(ctx, "sampled child")
+	if !child.IsRecording() {
+		t.Fatal("parent-based sampler dropped a child of a sampled remote parent")
+	}
+	child.End()
+}
+
+func TestManagedLogShutdownCancelsBlockedExport(t *testing.T) {
+	transport := newBlockingOTLPTransport()
+	defer transport.unblock()
+	handler, shutdown, err := newManagedLogProvider(
+		resource.Empty(),
+		transport,
+		newTelemetryDiagnostics(io.Discard),
+		normalizedOTLPConnection{},
+	)
+	if err != nil {
+		t.Fatalf("newManagedLogProvider() error: %v", err)
+	}
+	logger := slog.New(handler)
+	for range telemetryBatchSize {
+		logger.Info("blocked shutdown probe")
+	}
+	waitForTelemetryTestSignal(t, transport.started, "blocked log export")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := shutdown(shutdownCtx); err == nil || !strings.Contains(err.Error(), "logs telemetry export failed") {
+		t.Fatalf("log shutdown error = %v, want final export failure", err)
+	}
+	if err := shutdownCtx.Err(); err != nil {
+		t.Fatalf("log shutdown consumed its deadline: %v", err)
+	}
+}
+
+func TestManagedMetricAttributesAreFilteredBeforeAggregation(t *testing.T) {
+	transport := &metricRequestCapture{}
+	provider, shutdown, err := newManagedMetricProvider(
+		resource.Empty(),
+		transport,
+		newTelemetryDiagnostics(io.Discard),
+		normalizedOTLPConnection{},
+	)
+	if err != nil {
+		t.Fatalf("newManagedMetricProvider() error: %v", err)
+	}
+	defer func() {
+		if err := shutdown(context.Background()); err != nil {
+			t.Errorf("metric shutdown: %v", err)
+		}
+	}()
+
+	meter := provider.Meter("aggregation-redaction-test")
+	counter, err := meter.Int64Counter("flowseer.test.filtered.sum")
+	if err != nil {
+		t.Fatalf("create counter: %v", err)
+	}
+	histogram, err := meter.Int64Histogram("flowseer.test.filtered.histogram")
+	if err != nil {
+		t.Fatalf("create histogram: %v", err)
+	}
+	first := metric.WithAttributes(
+		attribute.String("flowseer.safe", "stable"),
+		attribute.String("credential", "first"),
+	)
+	second := metric.WithAttributes(
+		attribute.String("flowseer.safe", "stable"),
+		attribute.String("credential", "second"),
+	)
+	counter.Add(context.Background(), 2, first)
+	counter.Add(context.Background(), 3, second)
+	histogram.Record(context.Background(), 2, first)
+	histogram.Record(context.Background(), 3, second)
+	flusher, ok := provider.(interface{ ForceFlush(context.Context) error })
+	if !ok {
+		t.Fatal("managed metric provider has no ForceFlush")
+	}
+	if err := flusher.ForceFlush(context.Background()); err != nil {
+		t.Fatalf("metric force flush: %v", err)
+	}
+
+	request := transport.request()
+	if request == nil || len(request.GetResourceMetrics()) != 1 || len(request.GetResourceMetrics()[0].GetScopeMetrics()) != 1 {
+		t.Fatalf("metric request = %+v, want one resource and scope", request)
+	}
+	metrics := request.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
+	if len(metrics) != 2 {
+		t.Fatalf("exported metrics = %+v, want sum and histogram", metrics)
+	}
+	seen := make(map[string]bool, 2)
+	for _, exported := range metrics {
+		seen[exported.GetName()] = true
+		switch exported.GetName() {
+		case "flowseer.test.filtered.sum":
+			points := exported.GetSum().GetDataPoints()
+			if len(points) != 1 || points[0].GetAsInt() != 5 {
+				t.Errorf("aggregated sum points = %+v, want one point totaling 5", points)
+			} else if len(points[0].GetAttributes()) != 1 || points[0].GetAttributes()[0].GetKey() != "flowseer.safe" {
+				t.Errorf("sum attributes = %+v, want only flowseer.safe", points[0].GetAttributes())
+			}
+		case "flowseer.test.filtered.histogram":
+			points := exported.GetHistogram().GetDataPoints()
+			if len(points) != 1 || points[0].GetCount() != 2 || points[0].GetSum() != 5 {
+				t.Errorf("aggregated histogram points = %+v, want one point with count 2 and sum 5", points)
+			} else if len(points[0].GetAttributes()) != 1 || points[0].GetAttributes()[0].GetKey() != "flowseer.safe" {
+				t.Errorf("histogram attributes = %+v, want only flowseer.safe", points[0].GetAttributes())
+			}
+		}
+	}
+	if !seen["flowseer.test.filtered.sum"] || !seen["flowseer.test.filtered.histogram"] {
+		t.Errorf("exported metric names = %v, want sum and histogram", seen)
 	}
 }
 
@@ -1025,7 +1201,7 @@ func TestRoutineExporterRejectionUsesRejectedCategory(t *testing.T) {
 		{
 			name: "metrics",
 			export: func(diagnostics *telemetryDiagnostics) error {
-				return (&managedMetricExporter{transport: rejectedOTLPTransport{}, diagnostics: diagnostics}).Export(context.Background(), &metricdata.ResourceMetrics{})
+				return (&managedMetricExporter{transport: rejectedOTLPTransport{}, diagnostics: diagnostics}).Export(context.Background(), testResourceMetrics())
 			},
 		},
 		{
@@ -1051,4 +1227,60 @@ func TestRoutineExporterRejectionUsesRejectedCategory(t *testing.T) {
 			}
 		})
 	}
+}
+
+func testResourceMetrics() *metricdata.ResourceMetrics {
+	return &metricdata.ResourceMetrics{
+		Resource: resource.Empty(),
+		ScopeMetrics: []metricdata.ScopeMetrics{{
+			Metrics: []metricdata.Metrics{{
+				Name: "flowseer.test.value",
+				Data: metricdata.Gauge[int64]{DataPoints: []metricdata.DataPoint[int64]{{Value: 1}}},
+			}},
+		}},
+	}
+}
+
+type metricUploadCounter struct {
+	calls atomic.Int32
+	err   error
+}
+
+type metricRequestCapture struct {
+	mu      sync.Mutex
+	metrics *collectormetricspb.ExportMetricsServiceRequest
+}
+
+func (*metricRequestCapture) uploadLogs(context.Context, *collectorlogspb.ExportLogsServiceRequest) error {
+	return nil
+}
+
+func (c *metricRequestCapture) uploadMetrics(_ context.Context, request *collectormetricspb.ExportMetricsServiceRequest) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.metrics = request
+	return nil
+}
+
+func (*metricRequestCapture) uploadTraces(context.Context, []*tracepb.ResourceSpans) error {
+	return nil
+}
+
+func (c *metricRequestCapture) request() *collectormetricspb.ExportMetricsServiceRequest {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.metrics
+}
+
+func (*metricUploadCounter) uploadLogs(context.Context, *collectorlogspb.ExportLogsServiceRequest) error {
+	return nil
+}
+
+func (t *metricUploadCounter) uploadMetrics(context.Context, *collectormetricspb.ExportMetricsServiceRequest) error {
+	t.calls.Add(1)
+	return t.err
+}
+
+func (*metricUploadCounter) uploadTraces(context.Context, []*tracepb.ResourceSpans) error {
+	return nil
 }

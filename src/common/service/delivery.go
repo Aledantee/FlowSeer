@@ -12,7 +12,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
@@ -158,6 +157,9 @@ func bindDeliveryHandlers(module plannedModule, handlers []Handler) map[messageK
 	return bindings
 }
 
+// deliver records durable retry or terminal intent before settling the mailbox
+// record. Redelivery resumes a recorded acknowledgement or discard without
+// invoking the handler again.
 func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, handlers map[messageKey]deliveryHandler, brokerMessage jetstream.Msg, telemetry telemetryView) error {
 	metadata, err := brokerMessage.Metadata()
 	if err != nil {
@@ -212,6 +214,7 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 		telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageDelivered)
 		panicked, handlerErr, progressErr := callHandlerWithProgress(deliveryCtx, brokerMessage, r.deliveryProgressInterval(), handler.handle, proto.Clone(payload))
 		if progressErr != nil {
+			recordSpanError(span, "message progress failed", progressErr)
 			span.End()
 			if ctx.Err() != nil {
 				return nil
@@ -219,7 +222,7 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 			return deliveryError(module.path, "extend delivery during handler execution", progressErr)
 		}
 		if handlerErr != nil {
-			span.SetStatus(codes.Error, "message handler failed")
+			recordSpanError(span, "message handler failed", handlerErr)
 		}
 		if ctx.Err() != nil {
 			span.End()
@@ -229,32 +232,41 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 		case servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
 			desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE)
 			if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
-				span.End()
 				if errors.Is(err, errSettlementChanged) {
+					span.End()
 					return nil
 				}
+				recordSpanError(span, "message settlement failed", err)
+				span.End()
 				return deliveryError(module.path, "record acknowledgement settlement", err)
 			}
 			telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
 			err := r.finishSettlement(ctx, brokerMessage, settlementSubject, false)
+			if err != nil {
+				recordSpanError(span, "message settlement failed", err)
+			}
 			span.End()
 			return err
 		case servicev1.SettlementState_SETTLEMENT_STATE_RETRY:
 			if err := waitForRetry(ctx, brokerMessage, retryBackoff(retry+1)); err != nil {
-				span.End()
 				if ctx.Err() != nil {
+					span.End()
 					return nil
 				}
+				recordSpanError(span, "message progress failed", err)
+				span.End()
 				return deliveryError(module.path, "extend delivery during retry backoff", err)
 			}
 			retry++
 			desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_RETRY)
 			storedSequence, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired)
 			if err != nil {
-				span.End()
 				if errors.Is(err, errSettlementChanged) {
+					span.End()
 					return nil
 				}
+				recordSpanError(span, "message settlement failed", err)
+				span.End()
 				return deliveryError(module.path, "record retry settlement", err)
 			}
 			currentSequence = storedSequence
@@ -264,19 +276,26 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 		}
 		desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_DISCARD)
 		if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
-			span.End()
 			if errors.Is(err, errSettlementChanged) {
+				span.End()
 				return nil
 			}
+			recordSpanError(span, "message settlement failed", err)
+			span.End()
 			return deliveryError(module.path, "record discard settlement", err)
 		}
 		telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
 		err := r.finishSettlement(ctx, brokerMessage, settlementSubject, true)
+		if err != nil {
+			recordSpanError(span, "message settlement failed", err)
+		}
 		span.End()
 		return err
 	}
 }
 
+// deliverySettlementState retries only panics and retryable handler errors
+// within the subscription limit; all other failures are discarded.
 func deliverySettlementState(panicked bool, handlerErr error, retry uint32, maximumRetries int) servicev1.SettlementState {
 	if handlerErr == nil {
 		return servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE
@@ -287,6 +306,8 @@ func deliverySettlementState(panicked bool, handlerErr error, retry uint32, maxi
 	return servicev1.SettlementState_SETTLEMENT_STATE_DISCARD
 }
 
+// callHandlerWithProgress keeps the broker delivery alive while the handler
+// runs, then waits for its progress goroutine to exit.
 func callHandlerWithProgress(
 	ctx context.Context,
 	message jetstream.Msg,
@@ -317,6 +338,8 @@ func callHandlerWithProgress(
 	return panicked, handlerErr, <-progressDone
 }
 
+// decodeDelivery validates a persisted envelope, resolves aliases to their
+// canonical payload type, and selects the attempt-local handler.
 func (r *messageRuntime) decodeDelivery(module plannedModule, handlers map[messageKey]deliveryHandler, brokerMessage jetstream.Msg) (*servicev1.Message, proto.Message, deliveryHandler, error) {
 	envelope := &servicev1.Message{}
 	if err := proto.Unmarshal(brokerMessage.Data(), envelope); err != nil {
@@ -396,6 +419,8 @@ func validUUID(value string) bool {
 	return true
 }
 
+// deliveryTrace extracts durable trace context and links it to the consumer span
+// instead of making the persisted message its parent.
 func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.Message, delivered uint64, telemetry telemetryView) (context.Context, trace.Span) {
 	carrier := caseInsensitiveHeaderCarrier(nats.Header{})
 	if envelope.HasTraceparent() {
@@ -429,6 +454,8 @@ func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.
 	return telemetry.tracer.Start(ctx, deliverySpanName, options...)
 }
 
+// callHandler converts a handler panic into an error so delivery can apply its
+// retry policy.
 func callHandler(ctx context.Context, handler HandlerFunc, payload proto.Message) (panicked bool, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -450,6 +477,8 @@ func retryBackoff(retry uint32) time.Duration {
 	return backoff
 }
 
+// waitForRetry renews broker delivery progress until delay elapses so the
+// message remains owned during retry backoff.
 func waitForRetry(ctx context.Context, message jetstream.Msg, delay time.Duration) error {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
@@ -480,6 +509,8 @@ func retryCount(settlement *servicev1.Settlement) uint32 {
 	return settlement.GetRetryCount()
 }
 
+// newSettlement derives a deterministic disposition identity so repeated
+// settlement commits are idempotent.
 func newSettlement(path, messageID string, retries uint32, state servicev1.SettlementState) *servicev1.Settlement {
 	dispositionID := deterministicUUID(path, messageID, strconv.FormatUint(uint64(retries), 10), state.String())
 	settlement := &servicev1.Settlement{}
@@ -491,6 +522,8 @@ func newSettlement(path, messageID string, retries uint32, state servicev1.Settl
 	return settlement
 }
 
+// loadSettlement returns the latest valid settlement and its stream sequence. A
+// missing settlement returns nil and zero.
 func (r *messageRuntime) loadSettlement(ctx context.Context, subject string) (*servicev1.Settlement, uint64, error) {
 	message, err := r.resources.metadata.GetLastMsgForSubject(ctx, subject)
 	if errors.Is(err, jetstream.ErrMsgNotFound) {
@@ -517,6 +550,8 @@ func (r *messageRuntime) loadSettlement(ctx context.Context, subject string) (*s
 	return settlement, message.Sequence, nil
 }
 
+// commitSettlement conditionally appends a settlement and treats an identical
+// stored record as a successful idempotent commit.
 func (r *messageRuntime) commitSettlement(ctx context.Context, subject string, previousSequence, mailboxSequence uint64, settlement *servicev1.Settlement) (uint64, error) {
 	data, err := (proto.MarshalOptions{Deterministic: true}).Marshal(settlement)
 	if err != nil {

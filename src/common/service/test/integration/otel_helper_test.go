@@ -9,20 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/mount"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	collectorlogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	collectortracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
@@ -35,10 +29,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/service/test/integration/testenv"
 )
 
 const (
-	otelCollectorImage = "otel/opentelemetry-collector-contrib:0.160.0@sha256:799dc6cf12c96192af37b5bdba804da8c10b3bc563b43cb90c3f3c58d9572ad6"
 	otelArtifactDirEnv = "FLOWSEER_OTEL_TEST_ARTIFACT_DIR"
 
 	telemetrySecretSentinel = "flowseer-otel-artifact-secret"
@@ -76,7 +70,7 @@ func (s telemetrySignalSet) String() string {
 
 type otelCollector struct {
 	t            *testing.T
-	container    testcontainers.Container
+	environment  *testenv.OTelCollector
 	outputDir    string
 	httpEndpoint string
 	grpcEndpoint string
@@ -87,83 +81,21 @@ var telemetryIdentitySequence atomic.Uint64
 
 func startOTelCollector(t *testing.T) *otelCollector {
 	t.Helper()
-	if testing.Short() {
-		t.Skip("Collector integration test")
+	environment := testenv.StartOTelCollector(t)
+	collector := &otelCollector{
+		t:            t,
+		environment:  environment,
+		outputDir:    environment.OutputDir(),
+		httpEndpoint: environment.HTTPEndpoint(),
+		grpcEndpoint: environment.GRPCEndpoint(),
+		baseEndpoint: environment.BaseEndpoint(),
 	}
-
-	outputDir := t.TempDir()
-	if err := os.Chmod(outputDir, 0o777); err != nil {
-		t.Fatalf("make Collector output directory writable: %v", err)
-	}
-	configPath := otelCollectorConfigPath(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        otelCollectorImage,
-			ExposedPorts: []string{"4317/tcp", "4318/tcp", "4328/tcp", "13133/tcp"},
-			Cmd:          []string{"--config=/etc/otelcol-contrib/config.yaml"},
-			Files: []testcontainers.ContainerFile{{
-				HostFilePath:      configPath,
-				ContainerFilePath: "/etc/otelcol-contrib/config.yaml",
-				FileMode:          0o444,
-			}},
-			HostConfigModifier: func(hostConfig *container.HostConfig) {
-				hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
-					Type:   mount.TypeBind,
-					Source: outputDir,
-					Target: "/output",
-				})
-			},
-			WaitingFor: wait.ForHTTP("/").WithPort("13133/tcp").WithStartupTimeout(30 * time.Second),
-		},
-		Started: true,
-	})
-	if err != nil {
-		t.Fatalf("start pinned OpenTelemetry Collector: %v", err)
-	}
-
-	collector := &otelCollector{t: t, container: container, outputDir: outputDir}
-	t.Cleanup(func() {
-		closeCtx, closeCancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer closeCancel()
-		if err := container.Terminate(closeCtx); err != nil {
-			t.Errorf("terminate OpenTelemetry Collector: %v", err)
-		}
-	})
-	collector.httpEndpoint = collector.endpoint(t, "http", "4318/tcp", "")
-	collector.grpcEndpoint = collector.endpoint(t, "http", "4317/tcp", "")
-	collector.baseEndpoint = collector.endpoint(t, "http", "4328/tcp", "/collector")
 	t.Cleanup(func() {
 		if t.Failed() {
 			collector.reportFailureArtifacts()
 		}
 	})
 	return collector
-}
-
-func (c *otelCollector) endpoint(t *testing.T, scheme, port, path string) string {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	host, err := c.container.Host(ctx)
-	if err != nil {
-		t.Fatalf("resolve Collector host: %v", err)
-	}
-	mapped, err := c.container.MappedPort(ctx, port)
-	if err != nil {
-		t.Fatalf("resolve Collector port %s: %v", port, err)
-	}
-	return scheme + "://" + net.JoinHostPort(host, mapped.Port()) + path
-}
-
-func otelCollectorConfigPath(t *testing.T) string {
-	t.Helper()
-	_, source, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locate Collector integration helper source")
-	}
-	return filepath.Join(filepath.Dir(source), "testdata", "otel-collector.yaml")
 }
 
 func uniqueTelemetryIdentity(t *testing.T, purpose string) service.Identity {
@@ -176,13 +108,7 @@ func uniqueTelemetryIdentity(t *testing.T, purpose string) service.Identity {
 }
 
 func clearOTELTestEnvironment(t *testing.T) {
-	t.Helper()
-	for _, entry := range os.Environ() {
-		key, _, ok := strings.Cut(entry, "=")
-		if ok && strings.HasPrefix(key, "OTEL_") {
-			t.Setenv(key, "")
-		}
-	}
+	testenv.ClearOTEL(t)
 }
 
 func (c *otelCollector) waitForServiceSignals(t *testing.T, serviceName string, want telemetrySignalSet) telemetrySignalSet {
@@ -466,7 +392,7 @@ func (c *otelCollector) reportFailureArtifacts() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	logs, err := c.container.Logs(ctx)
+	logs, err := c.environment.Logs(ctx)
 	if err == nil {
 		defer func() { _ = logs.Close() }()
 		content, readErr := io.ReadAll(io.LimitReader(logs, maximumArtifactBytes+1))

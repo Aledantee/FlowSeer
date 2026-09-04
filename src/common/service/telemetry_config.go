@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"io"
 	"log/slog"
+	"math"
 	"net/url"
 	"os"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 
 const (
 	defaultTelemetryTimeout = 5 * time.Second
+	defaultTraceSampleRatio = 0.1
 	maxTelemetryTimeout     = 30 * time.Second
 	maxTelemetryTLSFileSize = 1 << 20
 )
@@ -56,8 +58,9 @@ type TelemetryPolicy struct {
 }
 
 // TelemetryConfig configures one managed OTLP destination and the service root
-// signal policy. Non-zero Go fields override their common OTLP environment
-// counterparts. Callers must not mutate Headers while a Run using it is active.
+// signal policy. Explicitly set Go fields override their common OTLP
+// environment counterparts. Callers must not mutate Headers while a Run using
+// it is active.
 type TelemetryConfig struct {
 	// Endpoint is the common absolute HTTP or HTTPS collector URL. Empty uses
 	// OTEL_EXPORTER_OTLP_ENDPOINT and leaves managed export off when that is empty.
@@ -83,6 +86,10 @@ type TelemetryConfig struct {
 	// ClientKeyFile names a PEM file containing the client private key and must be set
 	// together with ClientCertificateFile.
 	ClientKeyFile string
+	// TraceSampleRatio samples this fraction of new root traces. Nil selects 0.1.
+	// Values must be finite and between zero and one, inclusive. Parent sampling
+	// decisions always take precedence.
+	TraceSampleRatio *float64
 	// Signals declares the service root emission policy.
 	Signals TelemetryPolicy
 }
@@ -119,6 +126,7 @@ type normalizedOTLPConnection struct {
 	insecure          bool
 	rootCAs           *x509.CertPool
 	clientCertificate *tls.Certificate
+	traceSampleRatio  float64
 }
 
 type resolvedTelemetryPolicy struct {
@@ -139,11 +147,15 @@ type normalizedTelemetryConfig struct {
 	rootPolicy       resolvedTelemetryPolicy
 }
 
+// telemetrySetting retains a resolved string and the setting name used for
+// error attribution. Unset values retain the Go field name.
 type telemetrySetting struct {
 	value   string
 	setting string
 }
 
+// telemetryBoolSetting retains a resolved boolean and whether configuration
+// supplied it explicitly instead of relying on endpoint-scheme inference.
 type telemetryBoolSetting struct {
 	value    bool
 	explicit bool
@@ -244,7 +256,7 @@ func normalizeOTLPConnection(config TelemetryConfig, lookup envLookup) (normaliz
 	}
 	normalized.compression = compression.value
 
-	headers, err := normalizeTelemetryHeaders(config.Headers, lookup)
+	headers, err := normalizeTelemetryHeaders(config.Headers, protocol.value, lookup)
 	if err != nil {
 		return normalizedOTLPConnection{}, false, err
 	}
@@ -292,9 +304,20 @@ func normalizeOTLPConnection(config TelemetryConfig, lookup envLookup) (normaliz
 	normalized.rootCAs = rootCAs
 	normalized.clientCertificate = clientTLS
 
+	traceSampleRatio := defaultTraceSampleRatio
+	if config.TraceSampleRatio != nil {
+		traceSampleRatio = *config.TraceSampleRatio
+	}
+	if math.IsNaN(traceSampleRatio) || math.IsInf(traceSampleRatio, 0) || traceSampleRatio < 0 || traceSampleRatio > 1 {
+		return normalizedOTLPConnection{}, false, telemetryConfigError("Telemetry.TraceSampleRatio", "out_of_range")
+	}
+	normalized.traceSampleRatio = traceSampleRatio
+
 	return normalized, normalized.endpoint != nil, nil
 }
 
+// telemetryStringSetting selects a non-empty Go value before its environment
+// fallback and retains the selected setting name.
 func telemetryStringSetting(goValue, goSetting, environmentSetting string, lookup envLookup) telemetrySetting {
 	if goValue != "" {
 		return telemetrySetting{value: goValue, setting: goSetting}
@@ -305,7 +328,7 @@ func telemetryStringSetting(goValue, goSetting, environmentSetting string, looku
 	return telemetrySetting{setting: goSetting}
 }
 
-func normalizeTelemetryHeaders(configured map[string]string, lookup envLookup) (map[string]string, error) {
+func normalizeTelemetryHeaders(configured map[string]string, protocol string, lookup envLookup) (map[string]string, error) {
 	setting := "Telemetry.Headers"
 	values := configured
 	if configured == nil {
@@ -335,8 +358,11 @@ func normalizeTelemetryHeaders(configured map[string]string, lookup envLookup) (
 	headers := make(map[string]string, len(values))
 	for key, value := range values {
 		key = strings.ToLower(key)
-		if !validTelemetryHeaderName(key) || !validTelemetryHeaderValue(value) {
+		if !validTelemetryHeaderName(key, protocol) || !validTelemetryHeaderValue(value, protocol) {
 			return nil, telemetryConfigError(setting, "malformed")
+		}
+		if reservedTelemetryHeaderName(key, protocol) {
+			return nil, telemetryConfigError(setting, "unsupported")
 		}
 		if _, duplicate := headers[key]; duplicate {
 			return nil, telemetryConfigError(setting, "malformed")
@@ -346,28 +372,39 @@ func normalizeTelemetryHeaders(configured map[string]string, lookup envLookup) (
 	return headers, nil
 }
 
-func validTelemetryHeaderName(value string) bool {
+func validTelemetryHeaderName(value, protocol string) bool {
 	if value == "" {
 		return false
 	}
+	allowed := "!#$%&'*+-.^_`|~0123456789abcdefghijklmnopqrstuvwxyz"
+	if protocol == "grpc" {
+		allowed = "-_.0123456789abcdefghijklmnopqrstuvwxyz"
+	}
 	for _, r := range value {
-		if r > unicode.MaxASCII || !strings.ContainsRune("!#$%&'*+-.^_`|~0123456789abcdefghijklmnopqrstuvwxyz", r) {
+		if r > unicode.MaxASCII || !strings.ContainsRune(allowed, r) {
 			return false
 		}
 	}
 	return true
 }
 
-func validTelemetryHeaderValue(value string) bool {
+func validTelemetryHeaderValue(value, protocol string) bool {
 	for _, r := range value {
-		if r == '\t' {
+		if protocol == "http/protobuf" && r == '\t' {
 			continue
 		}
-		if r < ' ' || r == unicode.MaxASCII {
+		if r < ' ' || r >= unicode.MaxASCII {
 			return false
 		}
 	}
 	return true
+}
+
+func reservedTelemetryHeaderName(value, protocol string) bool {
+	if value == "content-type" || value == "content-encoding" {
+		return true
+	}
+	return protocol == "grpc" && strings.HasPrefix(value, "grpc-")
 }
 
 func normalizeTelemetryTimeout(configured time.Duration, lookup envLookup) (time.Duration, error) {
@@ -454,7 +491,7 @@ func normalizeTelemetryTLS(certificate, clientCertificate, clientKey telemetrySe
 		if category != "" {
 			return nil, nil, telemetryConfigError(clientKey.setting, category)
 		}
-		if _, ok := parseTelemetryCertificates(certificatePEM); !ok || !validTelemetryPrivateKeyPEM(keyPEM) {
+		if _, ok := parseTelemetryCertificates(certificatePEM); !ok || !hasSingleSupportedPrivateKeyPEMBlock(keyPEM) {
 			return nil, nil, telemetryConfigError("Telemetry.ClientTLS", "malformed")
 		}
 		pair, err := tls.X509KeyPair(certificatePEM, keyPEM)
@@ -491,7 +528,7 @@ func parseTelemetryCertificates(content []byte) (*x509.CertPool, bool) {
 	return pool, parsed
 }
 
-func validTelemetryPrivateKeyPEM(content []byte) bool {
+func hasSingleSupportedPrivateKeyPEMBlock(content []byte) bool {
 	remaining := bytes.TrimSpace(content)
 	if !bytes.HasPrefix(remaining, []byte("-----BEGIN ")) {
 		return false
@@ -508,6 +545,8 @@ func validTelemetryPrivateKeyPEM(content []byte) bool {
 	}
 }
 
+// readTelemetryTLSFile reads one bounded TLS file. Its error category never
+// includes file contents.
 func readTelemetryTLSFile(path string) ([]byte, string) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -647,11 +686,11 @@ func resolveTelemetrySignal(
 }
 
 func telemetryEnvironmentBase(envPrefix string) string {
-	return strings.TrimSuffix(envPrefix, "_") + "_"
+	return strings.TrimSuffix(envPrefix, "_") + "_TELEMETRY_"
 }
 
 func telemetryModuleEnvironmentBase(gateEnvironmentKey string) string {
-	return strings.TrimSuffix(gateEnvironmentKey, "ENABLED")
+	return strings.TrimSuffix(gateEnvironmentKey, "ENABLED") + "TELEMETRY_"
 }
 
 func lookupTelemetryEnvironment(lookup envLookup, key string) (string, bool) {

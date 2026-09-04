@@ -80,6 +80,28 @@ func TestHTTPOTLPTransportDoesNotRetryOtherClientErrors(t *testing.T) {
 	}
 }
 
+func TestHTTPOTLPTransportPreservesFramingHeaders(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		if got := request.Header.Get("Content-Type"); got != "application/x-protobuf" {
+			t.Errorf("Content-Type = %q, want application/x-protobuf", got)
+		}
+		if got := request.Header.Get("Content-Encoding"); got != "gzip" {
+			t.Errorf("Content-Encoding = %q, want gzip", got)
+		}
+	}))
+	defer server.Close()
+
+	transport := newTestHTTPOTLPTransport(t, server.URL, func(context.Context, time.Duration) error { return nil })
+	transport.compression = true
+	transport.headers = map[string]string{
+		"content-type":     "text/plain",
+		"content-encoding": "br",
+	}
+	if err := transport.uploadLogs(context.Background(), &collectorlogspb.ExportLogsServiceRequest{}); err != nil {
+		t.Fatalf("uploadLogs() error: %v", err)
+	}
+}
+
 func TestHTTPOTLPTransportHonorsRetryAfterWithoutJitter(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	tests := []struct {
