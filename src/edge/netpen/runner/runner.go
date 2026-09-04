@@ -81,6 +81,8 @@ type Runner struct {
 	// interruptOnce guards the interrupt entry point so a second
 	// signal during teardown does not re-enter [Runner.Interrupt].
 	interruptOnce sync.Once
+	interrupting  atomic.Bool
+	interruptDone chan struct{}
 
 	// runDone closes when the dispatch loop (Run) returns, so a host
 	// that starts Run in a goroutine can synchronize on completion via
@@ -101,11 +103,12 @@ type Runner struct {
 func NewRunner(opts Options) *Runner {
 	stopCtx, stopCancel := context.WithCancel(context.Background())
 	r := &Runner{
-		opts:       opts,
-		stream:     newStream(context.Background()),
-		stopCtx:    stopCtx,
-		stopCancel: stopCancel,
-		runDone:    make(chan struct{}),
+		opts:          opts,
+		stream:        newStream(context.Background()),
+		interruptDone: make(chan struct{}),
+		stopCtx:       stopCtx,
+		stopCancel:    stopCancel,
+		runDone:       make(chan struct{}),
 	}
 	r.stream.closeHook = r.close
 	return r
@@ -374,6 +377,15 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 		r.activeCancel = nil
 		r.teardownMu.Unlock()
 
+		// An interrupt may race the completion path for the one-shot
+		// teardown. Wait for the interrupt path to publish its result
+		// before classifying the behavior's expected cancellation or
+		// starting another behavior.
+		if r.interrupting.Load() {
+			<-r.interruptDone
+			break
+		}
+
 		if runCtx.Err() != nil {
 			break
 		}
@@ -468,6 +480,9 @@ func (r *Runner) runTeardown(ctx context.Context, t *Teardown, budget time.Durat
 // any goroutine.
 func (r *Runner) Interrupt(forceExit <-chan struct{}) {
 	r.interruptOnce.Do(func() {
+		r.interrupting.Store(true)
+		defer close(r.interruptDone)
+
 		r.teardownMu.Lock()
 		td := r.activeTeardown
 		ac := r.activeCancel
