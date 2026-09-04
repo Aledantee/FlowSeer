@@ -471,6 +471,7 @@ func TestCancellationDuringBackoffPreservesCallerCause(t *testing.T) {
 	clock := newBlockingSupervisorClock()
 	cause := errors.New("caller stopped service")
 	peerCause := make(chan error, 1)
+	peerRunning := make(chan struct{})
 	ctx, cancel := context.WithCancelCause(context.Background())
 	done := make(chan error, 1)
 	go func() {
@@ -482,6 +483,7 @@ func TestCancellationDuringBackoffPreservesCallerCause(t *testing.T) {
 				}}},
 				{Name: "peer", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
 					return Attempt{Runner: func(ctx context.Context) error {
+						close(peerRunning)
 						<-ctx.Done()
 						peerCause <- context.Cause(ctx)
 						return ctx.Err()
@@ -490,6 +492,10 @@ func TestCancellationDuringBackoffPreservesCallerCause(t *testing.T) {
 			},
 		}, supervisorOptions{clock: clock, jitter: func(limit time.Duration) time.Duration { return limit }})
 	}()
+	// Siblings start concurrently, so wait for the peer runner as well as the
+	// failing module's backoff. Canceling before the peer runs would skip its
+	// runner entirely and leave nothing to observe the cause.
+	<-peerRunning
 	<-clock.waiting
 	cancel(cause)
 	if err := <-done; err != nil {
