@@ -130,18 +130,18 @@ or a table shared across two loosely related device families).
 `DecodeIndexInto` returns `false` on that row. The generated walker still
 yields it with `KeyValid() == false`, `walkIfMIB` skips it, and every other
 interface in the same GETBULK response is unaffected. Nothing in this chain
-needed a special case for "vendor sends a bad suffix" — the same fallback
+needed a special case for "vendor sends a bad suffix": the same fallback
 that handles resolver and codegen gaps handles a bad wire value too.
 
 ## When to Apply
 
 Any change to:
 
-- `src/protocol/smi/resolve.go` — `resolveIndexPart`, `linkAugments`,
+- `src/protocol/smi/resolve.go`: `resolveIndexPart`, `linkAugments`,
   `augmentedTable`, or the diagnostics they raise.
-- `src/protocol/snmp/cmd/mibgen/emit_key.go` — `keyPartFor`,
+- `src/protocol/snmp/cmd/mibgen/emit_key.go`: `keyPartFor`,
   `conventionKeyBase`, `recordDegraded`, or the `degradedRef` type.
-- `src/protocol/snmp/index.go` — `DecodeIndex`, `DecodeIndexInto`,
+- `src/protocol/snmp/index.go`: `DecodeIndex`, `DecodeIndexInto`,
   `decodeIndexPart`.
 - A generated table's `Key`/`KeyValid` shape (see
   `src/protocol/snmp/cmd/mibgen/emit_table.go` for the emitter, or any
@@ -174,6 +174,6 @@ end-to-end proof that degraded keys don't fail a generation run.
 ## Related
 
 - [A Decoder's Decline Costs the Whole Table, Not the Field](decode-failure-blast-radius-in-generated-walks.md)
-  — the same principle for column values rather than row identity; that doc
+  states the same principle for column values rather than row identity; that doc
   covers the runtime decode layer this one extends to resolution and
   generation.
