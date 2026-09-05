@@ -135,6 +135,31 @@ func TestProviderRefusesVersionMismatch(t *testing.T) {
 	wantCode(t, err, ErrCodeVersionMismatch)
 }
 
+// TestProviderRefusesRotationBetweenMaterialAndMetadata proves that a
+// rotation landing between the material read and the metadata read is
+// caught, rather than pairing stale material with the new metadata's
+// version: it replaces the material file with a new version's content
+// inside the afterMaterialRead hook, so the recheck at the end of Get
+// observes a different file than the one it already read.
+func TestProviderRefusesRotationBetweenMaterialAndMetadata(t *testing.T) {
+	dir := t.TempDir()
+	writeCredential(t, dir, []byte("original-secret"), 0o600, 1)
+	p := openProvider(t, dir)
+
+	p.afterMaterialRead = func() {
+		credPath := filepath.Join(dir, testKey)
+		if err := os.Remove(credPath); err != nil {
+			t.Fatalf("remove credential file during rotation: %v", err)
+		}
+		if err := os.WriteFile(credPath, []byte("rotated-secret"), 0o600); err != nil {
+			t.Fatalf("write rotated credential file: %v", err)
+		}
+	}
+
+	_, err := p.Get(testKey, 1)
+	wantCode(t, err, ErrCodeRotatedDuringRead)
+}
+
 // TestProviderRefusesReplacementRace proves that once a credential file
 // has been read, replacing it with a symlink never lets a later Get follow
 // it: the swap is refused at the open syscall itself, not raced between a
@@ -223,7 +248,7 @@ func TestProviderConcurrentSwapNeverLeaksTheReplacedTarget(t *testing.T) {
 			t.Fatalf("Get returned %q, must never return the swapped-in target's content", got)
 		}
 		if err != nil {
-			if code, ok := errs.CodeOf(err); !ok || (code != ErrCodeSymlinkRefused && code != ErrCodeNotFound) {
+			if code, ok := errs.CodeOf(err); !ok || (code != ErrCodeSymlinkRefused && code != ErrCodeNotFound && code != ErrCodeRotatedDuringRead) {
 				stop.Store(true)
 				wg.Wait()
 				t.Fatalf("unexpected error: %v", err)

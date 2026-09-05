@@ -16,14 +16,15 @@ import (
 
 // Error codes, one per refused read.
 var (
-	ErrCodeInvalidKey      = errs.NewCode("credential/invalid-key")
-	ErrCodeNotFound        = errs.NewCode("credential/not-found")
-	ErrCodeSymlinkRefused  = errs.NewCode("credential/symlink-refused")
-	ErrCodeNotRegular      = errs.NewCode("credential/not-regular")
-	ErrCodeInsecureMode    = errs.NewCode("credential/insecure-mode")
-	ErrCodeReadFailed      = errs.NewCode("credential/read-failed")
-	ErrCodeInvalidMetadata = errs.NewCode("credential/invalid-metadata")
-	ErrCodeVersionMismatch = errs.NewCode("credential/version-mismatch")
+	ErrCodeInvalidKey        = errs.NewCode("credential/invalid-key")
+	ErrCodeNotFound          = errs.NewCode("credential/not-found")
+	ErrCodeSymlinkRefused    = errs.NewCode("credential/symlink-refused")
+	ErrCodeNotRegular        = errs.NewCode("credential/not-regular")
+	ErrCodeInsecureMode      = errs.NewCode("credential/insecure-mode")
+	ErrCodeReadFailed        = errs.NewCode("credential/read-failed")
+	ErrCodeInvalidMetadata   = errs.NewCode("credential/invalid-metadata")
+	ErrCodeVersionMismatch   = errs.NewCode("credential/version-mismatch")
+	ErrCodeRotatedDuringRead = errs.NewCode("credential/rotated-during-read")
 )
 
 // keyPattern is the same one-path-segment shape
@@ -40,9 +41,17 @@ type credentialMeta struct {
 }
 
 // Provider reads device credentials from files under one mounted root,
-// opened once and held for the Provider's lifetime.
+// opened once and held for the Provider's lifetime. Get is safe to call
+// concurrently with other calls to Get; it is not safe to call Close
+// concurrently with an in-flight Get, which may then race the descriptor
+// Close releases.
 type Provider struct {
 	root *os.File
+
+	// afterMaterialRead, when non-nil, runs immediately after the material
+	// file's content is read and before the metadata file opens. Tests use
+	// it to inject a rotation into that window; production leaves it nil.
+	afterMaterialRead func()
 }
 
 // Open opens rootPath as the credential mount root. The caller must Close
@@ -84,12 +93,16 @@ func (p *Provider) Get(key string, wantVersion uint64) ([]byte, error) {
 		return nil, err
 	}
 	defer func() { _ = material.Close() }()
-	if err := checkSecure(material, key); err != nil {
+	materialInfo, err := checkSecure(material, key)
+	if err != nil {
 		return nil, err
 	}
 	data, err := io.ReadAll(material)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeReadFailed).Attr("key", key).Msg("read credential material")
+	}
+	if p.afterMaterialRead != nil {
+		p.afterMaterialRead()
 	}
 
 	metaFile, err := p.openNoFollow(key + metaSuffix)
@@ -97,7 +110,7 @@ func (p *Provider) Get(key string, wantVersion uint64) ([]byte, error) {
 		return nil, err
 	}
 	defer func() { _ = metaFile.Close() }()
-	if err := checkSecure(metaFile, key); err != nil {
+	if _, err := checkSecure(metaFile, key); err != nil {
 		return nil, err
 	}
 	var meta credentialMeta
@@ -110,6 +123,23 @@ func (p *Provider) Get(key string, wantVersion uint64) ([]byte, error) {
 			Attr("want_version", wantVersion).
 			Attr("got_version", meta.Version).
 			Msg("credential metadata version does not match")
+	}
+
+	// The material and the metadata were read through two independent
+	// opens; a rotation landing between them could otherwise pair stale
+	// material with the new metadata's version. Re-resolve the material
+	// entry and refuse if it no longer identifies the file already read.
+	recheck, err := p.openNoFollow(key)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = recheck.Close() }()
+	recheckInfo, err := checkSecure(recheck, key)
+	if err != nil {
+		return nil, err
+	}
+	if !os.SameFile(materialInfo, recheckInfo) {
+		return nil, errs.New().Code(ErrCodeRotatedDuringRead).Attr("key", key).Msg("credential material rotated while its metadata was being read")
 	}
 
 	return data, nil
@@ -128,10 +158,14 @@ func validateKey(key string) error {
 func (p *Provider) openNoFollow(name string) (*os.File, error) {
 	fd, err := unix.Openat(int(p.root.Fd()), name, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
-		if errors.Is(err, unix.ELOOP) {
+		switch {
+		case errors.Is(err, unix.ELOOP):
 			return nil, errs.From(err).Code(ErrCodeSymlinkRefused).Attr("key", name).Msg("credential path is a symlink")
+		case errors.Is(err, unix.ENOENT):
+			return nil, errs.From(err).Code(ErrCodeNotFound).Attr("key", name).Msg("credential file does not exist")
+		default:
+			return nil, errs.From(err).Code(ErrCodeReadFailed).Attr("key", name).Msg("open credential file")
 		}
-		return nil, errs.From(err).Code(ErrCodeNotFound).Attr("key", name).Msg("open credential file")
 	}
 	return os.NewFile(uintptr(fd), name), nil
 }
@@ -139,17 +173,18 @@ func (p *Provider) openNoFollow(name string) (*os.File, error) {
 // checkSecure validates the already-open file's metadata: it is a regular
 // file, and its mode grants no group or world access. It runs on the open
 // file descriptor, so nothing it observes can be changed by a later swap
-// of the directory entry.
-func checkSecure(f *os.File, key string) error {
+// of the directory entry, and it returns that descriptor's os.FileInfo so
+// a caller can later confirm a re-opened path still names the same file.
+func checkSecure(f *os.File, key string) (os.FileInfo, error) {
 	fi, err := f.Stat()
 	if err != nil {
-		return errs.From(err).Code(ErrCodeReadFailed).Attr("key", key).Msg("stat open credential file")
+		return nil, errs.From(err).Code(ErrCodeReadFailed).Attr("key", key).Msg("stat open credential file")
 	}
 	if !fi.Mode().IsRegular() {
-		return errs.New().Code(ErrCodeNotRegular).Attr("key", key).Msg("credential path did not resolve to a regular file")
+		return nil, errs.New().Code(ErrCodeNotRegular).Attr("key", key).Msg("credential path did not resolve to a regular file")
 	}
 	if fi.Mode().Perm()&0o077 != 0 {
-		return errs.New().Code(ErrCodeInsecureMode).Attr("key", key).Msg("credential file grants group or world access")
+		return nil, errs.New().Code(ErrCodeInsecureMode).Attr("key", key).Msg("credential file grants group or world access")
 	}
-	return nil
+	return fi, nil
 }

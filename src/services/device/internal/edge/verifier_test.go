@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"testing"
 	"time"
 
@@ -74,6 +75,40 @@ func lookupReturning(publicKey ed25519.PublicKey, lifecycle edgev1.EdgeLifecycle
 	}
 }
 
+func lookupFailing(err error) KeyLookup {
+	return func(_ context.Context, _ string) (ed25519.PublicKey, edgev1.EdgeLifecycle, error) {
+		return nil, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_UNSPECIFIED, err
+	}
+}
+
+// signHeaderTamperedPayload signs a validly, then flips a byte inside the
+// wire's payload after signing, so the envelope carries a signature that no
+// longer matches the payload it travels with — the shape
+// docs/solutions/conventions/sign-protobuf-payload-bytes-never-fields.md
+// exists to make the verifier catch.
+func signHeaderTamperedPayload(t *testing.T, private ed25519.PrivateKey, a *edgev1.EdgeAssertion) string {
+	t.Helper()
+	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(a)
+	if err != nil {
+		t.Fatalf("marshal assertion: %v", err)
+	}
+	signature := ed25519.Sign(private, payload)
+	// Flip the last byte, inside body_sha256's content, so the message
+	// still parses and only the signed bytes themselves differ from what
+	// was signed.
+	tampered := append([]byte(nil), payload...)
+	tampered[len(tampered)-1] ^= 0xff
+	signed := edgev1.SignedEdgeAssertion_builder{
+		Payload:   tampered,
+		Signature: signature,
+	}.Build()
+	wire, err := proto.Marshal(signed)
+	if err != nil {
+		t.Fatalf("marshal signed assertion: %v", err)
+	}
+	return HeaderScheme + " " + base64.RawStdEncoding.EncodeToString(wire)
+}
+
 func testVerifier(at time.Time, skew time.Duration, lookup KeyLookup) *Verifier {
 	v := NewVerifier(testAudience, skew, lookup)
 	v.now = func() time.Time { return at }
@@ -141,6 +176,37 @@ func TestVerifierRejectsEachStep(t *testing.T) {
 			wantCode:  ErrCodeBadSignature,
 		},
 		{
+			name:      "signature over tampered payload bytes",
+			header:    func() string { return signHeaderTamperedPayload(t, private, testAssertion(nil)) },
+			procedure: testProcedure,
+			lookup:    lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED),
+			at:        testIssuedAt.Add(3 * time.Second),
+			skew:      5 * time.Second,
+			wantCode:  ErrCodeBadSignature,
+		},
+		{
+			name:      "key lookup fails",
+			header:    func() string { return signHeader(t, private, testAssertion(nil)) },
+			procedure: testProcedure,
+			lookup:    lookupFailing(errors.New("store unavailable")),
+			at:        testIssuedAt.Add(3 * time.Second),
+			skew:      5 * time.Second,
+			wantCode:  ErrCodeKeyLookupFailed,
+		},
+		{
+			// Wrong procedure (step 5) and a retired edge (step 7) are
+			// both true here; the earlier step's code must win.
+			name: "wrong procedure wins over a later, also-invalid step",
+			header: func() string {
+				return signHeader(t, private, testAssertion(nil))
+			},
+			procedure: "/flowseer.api.edge.v1.EdgeService/Rekey",
+			lookup:    lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_RETIRED),
+			at:        testIssuedAt.Add(3 * time.Second),
+			skew:      5 * time.Second,
+			wantCode:  ErrCodeWrongProcedure,
+		},
+		{
 			name: "empty procedure fails the assertion's own validation",
 			header: func() string {
 				return signHeader(t, private, testAssertion(func(a *edgev1.EdgeAssertion) { a.SetProcedure("") }))
@@ -197,7 +263,7 @@ func TestVerifierRejectsEachStep(t *testing.T) {
 			lookup:    lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED),
 			at:        testIssuedAt.Add(-time.Hour),
 			skew:      5 * time.Second,
-			wantCode:  ErrCodeExpired,
+			wantCode:  ErrCodeClockSkew,
 		},
 		{
 			name:      "assertion has expired",

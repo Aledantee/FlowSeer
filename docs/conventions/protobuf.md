@@ -147,11 +147,12 @@ Three boundaries keep it from eroding the typed refs:
   The Edge in `api/edge/v1` is the opposite exception: a landed, UUID-keyed
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
-  nothing may name an edge through an `EntityRef`. The `AccessPolicyHandle`
-  in `device/policy/v1` is the second deliberate non-entity: an opaque key
-  and version into the device service's store, with no ref pair, no triad,
-  and no place in the enum, because nothing else points at a policy and the
-  store that would answer an existence check lands with that service.
+  nothing may name an edge through an `EntityRef`. `AccessPolicyHandle`,
+  `CredentialHandle`, and `HostTrustHandle` in `device/policy/v1` are the
+  second deliberate class of non-entity: each an opaque key and version into
+  the device service's store, with no ref pair, no triad, and no place in
+  the enum, because nothing else points at one and the store that would
+  answer an existence check lands with that service.
 - **A ref with the tenant kind is data, not scoping.** Tenancy stays ambient:
   the ref is content on the pointing entity and never stands in for the
   request's tenant context.

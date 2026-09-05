@@ -26,11 +26,13 @@ const HeaderScheme = "FlowSeer-Edge"
 var (
 	ErrCodeBadHeader          = errs.NewCode("edge/bad-header")
 	ErrCodeBadSignature       = errs.NewCode("edge/bad-signature")
+	ErrCodeKeyLookupFailed    = errs.NewCode("edge/key-lookup-failed")
 	ErrCodeMalformedAssertion = errs.NewCode("edge/malformed-assertion")
 	ErrCodeWrongProcedure     = errs.NewCode("edge/wrong-procedure")
 	ErrCodeWrongBodyHash      = errs.NewCode("edge/wrong-body-hash")
 	ErrCodeRetiredEdge        = errs.NewCode("edge/retired-edge")
 	ErrCodeWrongAudience      = errs.NewCode("edge/wrong-audience")
+	ErrCodeClockSkew          = errs.NewCode("edge/clock-skew")
 	ErrCodeExpired            = errs.NewCode("edge/expired")
 	ErrCodeReplayedNonce      = errs.NewCode("edge/replayed-nonce")
 )
@@ -103,7 +105,7 @@ func (v *Verifier) Verify(ctx context.Context, header, procedure string, body []
 	publicKey, lifecycle, lookupErr := v.lookup(ctx, edgeID)
 	switch {
 	case lookupErr != nil:
-		return nil, errs.From(lookupErr).Code(ErrCodeBadSignature).Attr("edge_id", edgeID).Msg("look up edge key")
+		return nil, errs.From(lookupErr).Code(ErrCodeKeyLookupFailed).Retryable().Attr("edge_id", edgeID).Msg("look up edge key")
 	case len(publicKey) != ed25519.PublicKeySize:
 		return nil, errs.New().Code(ErrCodeBadSignature).Attr("edge_id", edgeID).Msg("no key registered for edge")
 	case !ed25519.Verify(publicKey, signed.GetPayload(), signed.GetSignature()):
@@ -136,11 +138,14 @@ func (v *Verifier) Verify(ctx context.Context, header, procedure string, body []
 		return nil, errs.New().Code(ErrCodeWrongAudience).Attr("edge_id", edgeID).Msg("assertion audience does not match this deployment")
 	}
 
-	// Steps 9 and 10: the assertion sits inside its clock window.
+	// Steps 9 and 10: the assertion sits inside its clock window. A skewed
+	// issued_at and a genuinely expired assertion get different codes,
+	// because the remedy differs: the edge adopts server_time for the
+	// first and mints a fresh assertion for the second.
 	now := v.now()
 	issuedAt := assertion.GetIssuedAt().AsTime()
 	if skew := now.Sub(issuedAt); skew > v.skew || skew < -v.skew {
-		return nil, errs.New().Code(ErrCodeExpired).Attr("edge_id", edgeID).Msg("assertion issued_at is outside the clock skew window")
+		return nil, errs.New().Code(ErrCodeClockSkew).Attr("edge_id", edgeID).Msg("assertion issued_at is outside the clock skew window")
 	}
 	if !now.Before(assertion.GetExpiresAt().AsTime()) {
 		return nil, errs.New().Code(ErrCodeExpired).Attr("edge_id", edgeID).Msg("assertion has expired")

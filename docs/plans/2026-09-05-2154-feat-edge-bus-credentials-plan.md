@@ -4,11 +4,24 @@ type: feat
 date: 2026-09-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
+status: implemented
 execution: mixed
 amends: none
 ---
 
 # Edge Bus Attachment and Credential Delivery - Plan
+
+> Implemented. U6's credential provider ended up using
+> `golang.org/x/sys/unix.Openat` with `O_NOFOLLOW` rather than
+> `os.OpenRoot`/`os.OpenInRoot`: `os.Root` follows a symlink that stays
+> inside the root, which is the right rule for a directory tree in
+> general but not for a single credential file, where the requirement is
+> that the leaf itself is never a symlink. `O_NOFOLLOW` gives that
+> refusal atomically at the open call. The trade-off, recorded in the
+> package doc comment, is that a Kubernetes secret volume's native layout
+> (each key published as a symlink through a rotated `..data` directory)
+> needs its own adapter in front of this package rather than being read
+> directly.
 
 ## Goal
 
@@ -82,10 +95,11 @@ for this plan found no such code.
   and a handler. Unconfirmed: which future plan wires them; flagged under
   Open questions.
 - The mounted-file credential provider treats the mount root as untrusted
-  down to the last path segment: it opens the root directory once, resolves
-  every credential key with an `O_NOFOLLOW`-equivalent relative open (Go's
-  `os.OpenInRoot` under the resolved root, available since Go 1.24) so a
-  symlink swapped in after the check cannot redirect the read, and refuses
+  down to the last path segment: it opens the root directory once and
+  resolves every credential key with a true `O_NOFOLLOW` openat relative
+  to that held descriptor (`golang.org/x/sys/unix.Openat`, since Go's own
+  `os.Root` follows an in-root symlink rather than refusing it) so a
+  symlink at that exact path is refused by the kernel call itself, and refuses
   any file whose mode grants group or world access. Why: no existing
   pattern in this repo does mounted-secret reads (confirmed by search), and
   a Kubernetes-style secret mount is exactly the symlink-race shape
@@ -249,12 +263,17 @@ of the eleven steps failed. It holds an injected key lookup
 (`func(edgeID string) (ed25519.PublicKey, EdgeLifecycle, error)`) and a
 nonce-replay cache scoped to the validity window, so the package carries no
 storage dependency. Error codes are declared with `errs.NewCode` per
-rejected step (bad header, bad signature, expired, wrong audience, wrong
-procedure, wrong body hash, replayed nonce, retired edge), never one
-generic code, so a caller can tell a stale clock from a replay.
-Tests: one table-test case per step in `verifier_test.go`, each built by
-mutating exactly one field of an otherwise-valid signed assertion and
-asserting the specific `errs.Code` and that verification stops there
+rejected reason (bad header, bad signature, key-lookup failure, malformed
+assertion, wrong procedure, wrong body hash, retired edge, wrong audience,
+clock skew, expired, replayed nonce), never one generic code, so a caller
+can tell a stale clock from a replay or a transient key-store outage from
+an authentication failure; a key-lookup failure is additionally marked
+`Retryable()`.
+Tests: one table-test case per rejected reason in `verifier_test.go`, each
+built by mutating exactly one field of an otherwise-valid signed assertion
+(or, for the signature case, tampering the signed payload bytes directly)
+and asserting the specific `errs.Code`; one case combines two invalid
+fields to prove the earlier step's code wins.
 (a later, also-invalid field in the same case is not checked). A
 happy-path case using the README's own worked vector confirms the verifier
 accepts what the README claims is valid.
@@ -265,22 +284,26 @@ Files: `src/services/device/internal/credential/provider.go`,
 `src/services/device/internal/credential/provider_test.go`,
 `src/services/device/internal/credential/doc.go`
 After: none
-Change: a `Provider` over a root directory, opened once with
-`os.OpenRoot` (Go 1.24; confines every later open beneath it even across a
-later rename of the root). `Get(key string)` validates `key` against the
-same one-path-segment pattern `device/policy/v1` uses for a handle's `key`
-field, opens `key` and `key.meta.json` relative to the held root via
-`root.Open`/`root.OpenFile` (which refuse to follow a symlink out of the
-root and re-resolve on every call, closing the stat-then-open race), reads
-the file's `os.FileInfo` after open and refuses `Mode()&0077 != 0` (any
-group or world bit), and refuses a `.meta.json` that fails to parse or
-whose declared version does not match the handle passed by the caller.
+Change: a `Provider` over a root directory, opened once with `os.Open` and
+held for the Provider's lifetime. `Get(key string, wantVersion uint64)`
+validates `key` against the same one-path-segment pattern `device/policy/v1`
+uses for a handle's `key` field, opens `key` and `key.meta.json` relative
+to the held root descriptor with `unix.Openat(..., O_NOFOLLOW)` (a symlink
+at that exact path fails the open call itself with `ELOOP`, never followed),
+reads each open file's `os.FileInfo` and refuses `Mode()&0077 != 0` (any
+group or world bit), refuses a `.meta.json` that fails to parse or whose
+declared version does not match the handle passed by the caller, and
+re-resolves the material's path once more after reading the metadata,
+refusing if it no longer names the same file, so a rotation landing
+between the two independent opens cannot pair stale material with the new
+metadata's version.
 Tests: valid read; key with `/` refused before any open; key `..` refused;
 symlinked credential file refused; a race case that replaces the file with
 a symlink after the provider's `Get` starts (using a slow-open hook or a
 goroutine racing the read, tolerant of scheduling — asserts the read never
 follows the swapped-in target's content by using a canary payload only the
-original file has, not on precise timing); mode 0640 refused; mode 0600
+original file has, not on precise timing); a deterministic rotation-between-
+opens case using an injected test hook; mode 0640 refused; mode 0600
 accepted; unparsable metadata refused; version mismatch refused. No test
 opens a real mount or a lab path.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/credential`
