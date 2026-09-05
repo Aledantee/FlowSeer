@@ -5,12 +5,26 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
+	"google.golang.org/protobuf/proto"
+
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 )
+
+// mustValid holds a message to its own schema rules — the capability may
+// not hand a caller a message the CEL rules in
+// spec/proto/flowseer/device/access/v1/interface.proto would reject.
+func mustValid(t *testing.T, m proto.Message) {
+	t.Helper()
+
+	if err := protovalidate.Validate(m); err != nil {
+		t.Fatalf("message is invalid: %v", err)
+	}
+}
 
 func testProvenanceInputs() interfaces.ProvenanceInputs {
 	binding := &inventoryv1.BindingGlobalRef{}
@@ -24,8 +38,8 @@ func testProvenanceInputs() interfaces.ProvenanceInputs {
 	return interfaces.ProvenanceInputs{Binding: binding, Edge: edge, FirmwareFingerprint: "SPS10010g"}
 }
 
-// fakeShellAdapter is a scripted interfaces.ShellAdapter for U6's tests,
-// independent of any real firmware adapter.
+// fakeShellAdapter is a scripted ShellAdapter, independent of any real
+// firmware adapter.
 type fakeShellAdapter struct {
 	description string
 	admin       interfacev1.AdminStatus
@@ -38,7 +52,15 @@ func (f *fakeShellAdapter) ReadInterface(context.Context, string) (string, inter
 	return f.description, f.admin, f.oper, f.readErr
 }
 
-func (f *fakeShellAdapter) SetPortName(context.Context, string, string) error { return f.setErr }
+func (f *fakeShellAdapter) SetPortName(_ context.Context, _, text string) error {
+	if f.setErr != nil {
+		return f.setErr
+	}
+
+	f.description = text
+
+	return nil
+}
 
 func TestRead_SNMPCompleteNeverCallsShell(t *testing.T) {
 	vbs := append(ifRow(1, "ethernet 1/1/1"), stringVar(ifXEntry, 18, 1, []byte("uplink to core")))
@@ -64,6 +86,8 @@ func TestRead_SNMPCompleteNeverCallsShell(t *testing.T) {
 	if got := obs.GetProvenance().GetProtocol(); got != inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP {
 		t.Errorf("provenance protocol = %v, want SNMP", got)
 	}
+
+	mustValid(t, obs)
 }
 
 func TestRead_SNMPPartialFallsThroughToSSH(t *testing.T) {
@@ -87,6 +111,8 @@ func TestRead_SNMPPartialFallsThroughToSSH(t *testing.T) {
 	if got := obs.GetProvenance().GetProtocol(); got != inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH {
 		t.Errorf("provenance protocol = %v, want SSH", got)
 	}
+
+	mustValid(t, obs)
 }
 
 func TestRead_CachedFreshObservationSkipsBothRoutes(t *testing.T) {
@@ -113,6 +139,44 @@ func TestRead_CachedFreshObservationSkipsBothRoutes(t *testing.T) {
 	if got != cached {
 		t.Error("Read did not return the cached observation")
 	}
+}
+
+func TestSetDescriptionChange(t *testing.T) {
+	intent := &accessv1.InterfaceDescriptionChange{}
+	intent.SetInterfaceName("ethernet 1/1/1")
+	intent.SetDescription("uplink to core")
+
+	now := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+	effect := interfaces.DelayedEffect{Horizon: 10 * time.Second}
+
+	t.Run("applies immediately", func(t *testing.T) {
+		shell := &fakeShellAdapter{
+			description: "old description",
+			admin:       interfacev1.AdminStatus_ADMIN_STATUS_UP,
+			oper:        interfacev1.OperStatus_OPER_STATUS_UP,
+		}
+
+		obs, disposition, err := interfaces.SetDescriptionChange(
+			context.Background(), &fakeSession{}, shell, intent, testProvenanceInputs(), effect, now)
+		if err != nil {
+			t.Fatalf("SetDescriptionChange: %v", err)
+		}
+
+		if disposition != interfaces.VerificationVerified {
+			t.Errorf("disposition = %v, want VerificationVerified", disposition)
+		}
+
+		mustValid(t, obs)
+	})
+
+	t.Run("set fails before any verification", func(t *testing.T) {
+		shell := &fakeShellAdapter{setErr: errBoom}
+
+		if _, _, err := interfaces.SetDescriptionChange(
+			context.Background(), &fakeSession{}, shell, intent, testProvenanceInputs(), effect, now); err == nil {
+			t.Fatal("SetDescriptionChange did not error when SetPortName failed")
+		}
+	})
 }
 
 func TestVerifyDescriptionChange(t *testing.T) {
@@ -178,8 +242,8 @@ func TestVerifyDescriptionChange(t *testing.T) {
 	})
 }
 
-// shellSpy wraps a ShellAdapter and records whether either of its methods
-// was invoked.
+// shellSpyAdapter wraps a ShellAdapter and records whether ReadInterface
+// was invoked; SetPortName is unmonitored, since no test here needs it.
 type shellSpyAdapter struct {
 	interfaces.ShellAdapter
 	called *bool
@@ -197,8 +261,4 @@ func shellSpy(inner interfaces.ShellAdapter, called *bool) interfaces.ShellAdapt
 
 // errBoom is a sentinel error for tests that must not reach the shell
 // route.
-var errBoom = boomErr("shell adapter should not have been called")
-
-type boomErr string
-
-func (e boomErr) Error() string { return string(e) }
+const errBoom = sentinelErr("shell adapter should not have been called")

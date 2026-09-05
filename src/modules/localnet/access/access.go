@@ -77,3 +77,22 @@ func VerifyInterfaceDescriptionChange(
 ) (*accessv1.InterfaceObservation, InterfaceVerificationDisposition, error) {
 	return interfaces.VerifyDescriptionChange(ctx, sess, shell, intent, prov, effect, since, now)
 }
+
+// SetInterfaceDescription issues intent over shell and verifies it once,
+// per the direction record's decision 2: a write capability is advertised
+// only together with its own verification. now is the mutation's own
+// timestamp, so a mismatch on this first check is always
+// InterfaceVerificationNotYet; a caller polls
+// VerifyInterfaceDescriptionChange for later checks within effect's
+// horizon.
+func SetInterfaceDescription(
+	ctx context.Context,
+	sess snmp.Session,
+	shell InterfaceShellAdapter,
+	intent *accessv1.InterfaceDescriptionChange,
+	prov InterfaceProvenanceInputs,
+	effect InterfaceDelayedEffect,
+	now time.Time,
+) (*accessv1.InterfaceObservation, InterfaceVerificationDisposition, error) {
+	return interfaces.SetDescriptionChange(ctx, sess, shell, intent, prov, effect, now)
+}

@@ -27,6 +27,11 @@ func ifRow(idx uint32, descr string) []vbFixture {
 }
 
 func TestReadSNMP_Complete(t *testing.T) {
+	// ReadSNMP's own return is not yet schema-valid when complete: Provenance
+	// is filled in by Read (adapter.go), not here, and the schema requires
+	// Provenance present whenever completeness is COMPLETE. This test checks
+	// ReadSNMP's contract directly instead of calling mustValid; Read's own
+	// tests (adapter_test.go) validate the finished observation.
 	vbs := append(ifRow(1, "ethernet 1/1/1"), stringVar(ifXEntry, 18, 1, []byte("uplink to core")))
 
 	obs, err := interfaces.ReadSNMP(context.Background(), &fakeSession{vbs: vbs}, "ethernet 1/1/1")
@@ -66,6 +71,8 @@ func TestReadSNMP_UnobservedDescriptionIsPartial(t *testing.T) {
 	if obs.HasDescription() {
 		t.Error("a PARTIAL observation from an unobserved ifAlias should not set description")
 	}
+
+	mustValid(t, obs)
 }
 
 func TestReadSNMP_ObservedEmptyDescriptionIsComplete(t *testing.T) {

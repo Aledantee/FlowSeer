@@ -110,8 +110,14 @@ func SelectRoute(
 // partial observation is evidence for routing only, never something to
 // compare (the direction record's device/access/v1/README.md states this
 // directly), so this function reports no conflict rather than a caller
-// having to filter partial inputs itself.
+// having to filter partial inputs itself. Two observations naming
+// different interfaces are never compared either: they have nothing to
+// conflict about.
 func ConflictingReads(a, b *accessv1.InterfaceObservation) (conflict bool, field string) {
+	if a.GetInterfaceName() != b.GetInterfaceName() {
+		return false, ""
+	}
+
 	if a.GetCompleteness() != accessv1.Completeness_COMPLETENESS_COMPLETE ||
 		b.GetCompleteness() != accessv1.Completeness_COMPLETENESS_COMPLETE {
 		return false, ""

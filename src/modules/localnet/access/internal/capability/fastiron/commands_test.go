@@ -1,6 +1,7 @@
 package fastiron_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestSelectInterfaceCommand(t *testing.T) {
 	}
 
 	wantNames := []string{fastiron.PromptConfigIf, fastiron.PromptConfig}
-	if got := promptNames(cmd.Prompts); !slicesEqual(got, wantNames) {
+	if got := promptNames(cmd.Prompts); !slices.Equal(got, wantNames) {
 		t.Errorf("Prompts = %v, want %v", got, wantNames)
 	}
 }
@@ -91,18 +92,4 @@ func promptNames(prompts []ssh.Prompt) []string {
 	}
 
 	return names
-}
-
-func slicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
 }

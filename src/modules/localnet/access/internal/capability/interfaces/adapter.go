@@ -92,20 +92,23 @@ func Read(
 		primary = nil
 	}
 
-	fallback := func() (*accessv1.InterfaceObservation, error) {
-		description, admin, oper, err := shell.ReadInterface(ctx, name)
-		if err != nil {
-			return nil, errs.Wrap(err, "read over ssh")
+	var fallback func() (*accessv1.InterfaceObservation, error)
+	if shell != nil {
+		fallback = func() (*accessv1.InterfaceObservation, error) {
+			description, admin, oper, err := shell.ReadInterface(ctx, name)
+			if err != nil {
+				return nil, errs.Wrap(err, "read over ssh")
+			}
+
+			obs := &accessv1.InterfaceObservation{}
+			obs.SetInterfaceName(name)
+			obs.SetDescription(description)
+			obs.SetAdminStatus(admin)
+			obs.SetOperStatus(oper)
+			obs.SetCompleteness(accessv1.Completeness_COMPLETENESS_COMPLETE)
+
+			return obs, nil
 		}
-
-		obs := &accessv1.InterfaceObservation{}
-		obs.SetInterfaceName(name)
-		obs.SetDescription(description)
-		obs.SetAdminStatus(admin)
-		obs.SetOperStatus(oper)
-		obs.SetCompleteness(accessv1.Completeness_COMPLETENESS_COMPLETE)
-
-		return obs, nil
 	}
 
 	obs, route, err := SelectRoute(primary, fallback)
@@ -188,4 +191,28 @@ func VerifyDescriptionChange(
 	}
 
 	return obs, VerificationFailed, nil
+}
+
+// SetDescriptionChange issues intent's description over shell and verifies
+// it once: the direction record's decision 2 requires a write capability
+// to carry its own verification, so this is the only way this package
+// mutates a description. now is submitted (the mutation's own timestamp)
+// and is passed to VerifyDescriptionChange as both since and now, so the
+// first check always reports VerificationNotYetVerified on a mismatch —
+// the caller polls VerifyDescriptionChange itself for later checks within
+// the delayed-effect horizon.
+func SetDescriptionChange(
+	ctx context.Context,
+	sess snmp.Session,
+	shell ShellAdapter,
+	intent *accessv1.InterfaceDescriptionChange,
+	prov ProvenanceInputs,
+	effect DelayedEffect,
+	now time.Time,
+) (*accessv1.InterfaceObservation, VerificationDisposition, error) {
+	if err := shell.SetPortName(ctx, intent.GetInterfaceName(), intent.GetDescription()); err != nil {
+		return nil, VerificationUnspecified, errs.Wrap(err, "set port name")
+	}
+
+	return VerifyDescriptionChange(ctx, sess, shell, intent, prov, effect, now, now)
 }

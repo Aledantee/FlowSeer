@@ -5,9 +5,9 @@
 //
 // Each capability lives under access/internal/capability in its own
 // directory (interfaces/ for the interface capability), pairing a
-// protocol-agnostic handler with one shell adapter per firmware
-// (interfaces/fastiron/ is the first) — kept internal so a firmware
-// adapter's types never leak past this package's facade. This package
+// protocol-agnostic handler with one shell adapter per firmware as a
+// sibling directory (capability/fastiron/ is the first) — kept internal so
+// a firmware adapter's types never leak past this package's facade. This package
 // itself carries no mutation-intent submission, journal, or per-device
 // lane: those belong to the central and edge processes that will call the
 // facade (see

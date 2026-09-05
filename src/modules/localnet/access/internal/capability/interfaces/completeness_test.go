@@ -203,9 +203,13 @@ func TestDelayedEffect_WithinHorizon(t *testing.T) {
 	}
 }
 
-// errFallback is a sentinel error for TestSelectRoute_FallbackErrorPropagates.
+// sentinelErr is a comparable error type this package's tests use for
+// sentinel values (errFallback here, errBoom in adapter_test.go): a plain
+// string type satisfies error and compares by value, so a test can assert
+// errors.Is against the exact value it injected.
 type sentinelErr string
 
 func (e sentinelErr) Error() string { return string(e) }
 
+// errFallback is a sentinel error for TestSelectRoute_FallbackErrorPropagates.
 const errFallback = sentinelErr("fallback failed")

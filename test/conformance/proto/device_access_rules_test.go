@@ -170,9 +170,19 @@ func TestInterfaceObservationRules(t *testing.T) {
 	incomplete.Binding = nil
 	badProvenance.Provenance = incomplete.Build()
 
+	emptyPartial := accessv1.InterfaceObservation_builder{
+		InterfaceName: proto.String("ethernet 1/1/1"),
+		Completeness:  accessv1.Completeness_COMPLETENESS_PARTIAL.Enum(),
+	}
+
 	tests := []validationCase{
 		{name: "complete observation is valid", message: interfaceObservation().Build(), wantValid: true},
 		{name: "partial observation is valid", message: partial.Build(), wantValid: true},
+		{
+			name:      "partial observation with no compared field set is valid",
+			message:   emptyPartial.Build(),
+			wantValid: true,
+		},
 		{name: "provenance is required", message: noProvenance.Build()},
 		{name: "completeness is required", message: noCompleteness.Build()},
 		{name: "admin status is required", message: noAdmin.Build()},
@@ -317,5 +327,15 @@ func TestMutationStatePhaseNumbersMatchDocs(t *testing.T) {
 		if int32(phase) != number {
 			t.Errorf("%s is %d, a CEL rule expects %d", phase, int32(phase), number)
 		}
+	}
+}
+
+// TestCompletenessNumberMatchesDocs pins the ordinal
+// interface_observation.complete_sets_every_compared_field compares
+// against, so renumbering Completeness cannot silently invert which value
+// requires description, admin_status, oper_status, and provenance.
+func TestCompletenessNumberMatchesDocs(t *testing.T) {
+	if got := int32(accessv1.Completeness_COMPLETENESS_COMPLETE); got != 1 {
+		t.Errorf("Completeness_COMPLETENESS_COMPLETE is %d, a CEL rule expects 1", got)
 	}
 }

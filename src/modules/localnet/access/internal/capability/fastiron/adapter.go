@@ -93,7 +93,7 @@ func (a *Adapter) SetPortName(ctx context.Context, name, text string) error {
 	if res.MatchedPrompt != PromptConfigIf {
 		return errs.New().Code(ErrCodeAmbiguousSubmission).
 			Attr("interface_name", name).
-			Msgf("device did not accept interface %q: %s", name, res.Output)
+			Msgf("device did not accept interface %q: %s", name, truncateForLog(res.Output))
 	}
 
 	res, err = a.Session.Run(ctx, PortNameCommand(text))
@@ -104,7 +104,7 @@ func (a *Adapter) SetPortName(ctx context.Context, name, text string) error {
 	if res.MatchedPrompt != PromptConfigIf {
 		return errs.New().Code(ErrCodeAmbiguousSubmission).
 			Attr("interface_name", name).
-			Msgf("device rejected the port-name command: %s", res.Output)
+			Msgf("device rejected the port-name command: %s", truncateForLog(res.Output))
 	}
 
 	if _, err := a.Session.Run(ctx, EndCommand()); err != nil {
@@ -112,4 +112,19 @@ func (a *Adapter) SetPortName(ctx context.Context, name, text string) error {
 	}
 
 	return nil
+}
+
+// maxLoggedOutputBytes bounds how much device output an error message
+// carries: Result.Output can hold up to the session's MaxOutput (1 MiB by
+// default), and a rejected command's error is not the place for that much
+// of it.
+const maxLoggedOutputBytes = 256
+
+// truncateForLog bounds output for inclusion in an error message.
+func truncateForLog(output []byte) []byte {
+	if len(output) <= maxLoggedOutputBytes {
+		return output
+	}
+
+	return output[:maxLoggedOutputBytes]
 }
