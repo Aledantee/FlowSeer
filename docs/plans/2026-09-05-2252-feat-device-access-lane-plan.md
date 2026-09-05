@@ -4,11 +4,21 @@ type: feat
 date: 2026-09-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Device Access Lane, Routing, and Recovery - Plan
+
+> Outcome: all eleven units landed. `Lane.Submit` (U10) drives the
+> ordinary phase-by-phase path automatically; an ambiguous or failed step
+> is reported as `Submit`'s own error rather than being retried through
+> `internal/recovery` or resolved through `internal/drift` automatically —
+> both packages are complete and independently tested, but wiring their
+> retry/resolution loop into the synchronous facade needs a real
+> clock-driven poll only a host with a live transport can run. See
+> `src/modules/localnet/access/README.md`'s "Scope of Lane.Submit's
+> automatic handling" section.
 
 ## Goal
 
