@@ -4,10 +4,23 @@ type: feat
 date: 2026-09-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 ---
 
 # Execution and Audit Contracts, and the Error Wire - Plan
+
+> Outcome (2026-09-05): all nine requirements landed and verified. Every unit
+> shipped as planned; the two Open questions' recommended answers held
+> through independent review with no correction needed. Review found and this
+> plan's implementation fixed four real defects beyond the plan's own scope
+> (the layering test's `orderedRoots` never walking the three new packages,
+> `Encode` dropping a coded error beneath a plain wrapper, `Encode` exceeding
+> the schema's stack bound under frame-expanding inlining, and a missing
+> `not_in: [0]` on `PhaseTransitioned.from`) — see commit
+> "fix(review): close the review findings on the execution and audit
+> contracts" for detail. `buf lint`, `buf generate`, and
+> `go test -race ./test/conformance/proto/... ./src/common/errs/...` all
+> pass; `.claude/skills/verify-change/scripts/verify-change.sh --full` passes.
 
 ## Goal
 

@@ -485,7 +485,42 @@ unnoticed.
 **Implementing the deferred wire layer.** Four pieces were deferred: the proto
 message and `Encode`/`Decode`, the Connect boundary interceptor, the
 internal-code→RPC-code mapping table with message sanitization, and broker
-envelope integration.
+envelope integration. The first piece landed in
+`spec/proto/flowseer/errs/v1/error.proto` and `src/common/errs/wire.go`
+(`Encode`, `EncodeForClient`, `Decode`), and two mistakes surfaced only when
+review pushed on the total-decode and never-drop-a-code guarantees the design
+record states:
+
+- **A captured stack's PC count is not its symbolized frame count.**
+  `capture()` bounds `maxStackDepth` program counters
+  (`src/common/errs/stack.go:10`), but `stack.frames()` symbolizes them
+  through `runtime.CallersFrames`, which expands one PC into several frames
+  across an inlined call. `encodeNode` copying `e.stack.frames()` straight
+  onto the wire's `stack` field, itself bounded at 32 items
+  (`spec/proto/flowseer/errs/v1/error.proto:47`), could therefore emit an
+  invalid payload from a legal capture — caught by review, not by a test that
+  existed at the time. `boundStackFrames` (`src/common/errs/wire.go:127-134`)
+  truncates before assignment, pinned by
+  `TestBoundStackFramesEnforcesTheSchemaLimit`
+  (`src/common/errs/wire_test.go`). Any field the codec copies from an
+  unbounded Go slice onto a bounded wire field needs the same truncation, not
+  just this one.
+- **`Encode`'s non-`*Error` branch must unwrap, or a coded error one level
+  under a plain wrapper vanishes.** `docs/code-style.md` blesses
+  `fmt.Errorf("...: %w", err)` "where nothing structured is needed", so a
+  `*Error` commonly sits one level below a plain wrapper that carries no code
+  or attributes of its own. The first version of `encodeNode` rendered that
+  wrapper as a single leaf carrying only `err.Error()`, silently dropping the
+  `*Error`'s code and its own causes — the opposite of the design record's
+  "an unrecognized cause degrades to a generic opaque leaf that **preserves
+  its message, code, and safe attributes**." The fix mirrors `attr.go`'s
+  `walk`: the non-`*Error` branch also checks `interface{ Unwrap() error }`
+  and `interface{ Unwrap() []error }` and recurses into what it finds
+  (`src/common/errs/wire.go:100-113`), pinned by
+  `TestEncodeUnwrapsForeignWrapperOverCodedError`. Any future encoder or
+  extractor added to this package that walks the error tree by hand, rather
+  than through `walk`, needs to unwrap through foreign types the same way or
+  it will silently stop at the first one.
 
 ## Examples
 
