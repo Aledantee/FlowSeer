@@ -37,6 +37,11 @@ const generatedGoVersion = "go1.26"
 // package). cfg must have been validated and set must be the resolved
 // model [LoadModules] returned for it.
 //
+// The returned references are the ones emitted in their base type
+// because the module declaring their key type is not configured; the
+// output compiles either way, and the caller decides whether to report
+// them.
+//
 // Emit is reentrant in the sense that subsequent calls overwrite the
 // per-module mib.go in-place. Existing files outside of mib.go are
 // preserved (so hand-maintained helpers can live next to generated
@@ -45,15 +50,15 @@ const generatedGoVersion = "go1.26"
 // On any module-level failure Emit returns a wrapped error and stops
 // — output files written before the failure remain on disk; the
 // caller is responsible for deciding whether to roll those back.
-func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
+func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) ([]degradedRef, error) {
 	if cfg == nil {
-		return errs.Msg("Emit called with nil config")
+		return nil, errs.Msg("Emit called with nil config")
 	}
 	if set == nil {
-		return errs.Msg("Emit called with nil module set")
+		return nil, errs.Msg("Emit called with nil module set")
 	}
 	if outDir == "" {
-		return errs.Msg("Emit called with empty outDir")
+		return nil, errs.Msg("Emit called with empty outDir")
 	}
 
 	// Build a name → Module map so EmitModule can look up overrides
@@ -63,21 +68,25 @@ func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 		cfgByName[m.Name] = m
 	}
 
+	var degraded []degradedRef
 	for _, cm := range cfg.Modules {
 		mod, ok := set.Module(cm.Name)
 		if !ok {
-			return errs.Msgf("emit: module %q is not in the resolved set", cm.Name)
+			return nil, errs.Msgf("emit: module %q is not in the resolved set", cm.Name)
 		}
-		if err := EmitModule(mod, set, cm, cfgByName, outDir, pkgPrefix); err != nil {
-			return errs.Wrapf(err, "emit: module %q", cm.Name)
+		refs, err := EmitModule(mod, set, cm, cfgByName, outDir, pkgPrefix)
+		if err != nil {
+			return nil, errs.Wrapf(err, "emit: module %q", cm.Name)
 		}
+		degraded = append(degraded, refs...)
 	}
-	return nil
+	return degraded, nil
 }
 
 // EmitModule generates the mib.go for a single resolved module and writes it
 // under outDir/<package>/mib.go. It is exposed so tests can drive a
 // single fixture module without round-tripping through the full config.
+// The returned references are the module's degraded ones, see [Emit].
 //
 // cfgByName supplies the configured Module entries for every module
 // loaded — EmitModule consults it to resolve cross-MIB references to
@@ -86,32 +95,33 @@ func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 // lowercased name.
 func EmitModule(
 	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, outDir, pkgPrefix string,
-) error {
+) ([]degradedRef, error) {
 	pkgDir := filepath.Join(outDir, cm.Package)
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
-		return errs.Wrapf(err, "create package dir %s", pkgDir)
+		return nil, errs.Wrapf(err, "create package dir %s", pkgDir)
 	}
 
-	out, err := renderModule(mod, set, cm, cfgByName, pkgPrefix)
+	out, degraded, err := renderModule(mod, set, cm, cfgByName, pkgPrefix)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	target := filepath.Join(pkgDir, "mib.go")
 	if err := os.WriteFile(target, out, 0o644); err != nil {
-		return errs.Wrapf(err, "write %s", target)
+		return nil, errs.Wrapf(err, "write %s", target)
 	}
-	return nil
+	return degraded, nil
 }
 
-// renderModule produces repository-format-clean source for a single module.
-// It does not touch the filesystem; callers compose write or diff behavior
-// on top.
+// renderModule produces repository-format-clean source for a single module
+// and the references it emitted in their base type, see [Emit]. It does
+// not touch the filesystem; callers compose write or diff behavior on
+// top.
 func renderModule(
 	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, pkgPrefix string,
-) ([]byte, error) {
+) ([]byte, []degradedRef, error) {
 	if err := checkSourceNames(mod); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ec := newEmitCtx(mod, set, cm, cfgByName, pkgPrefix)
@@ -139,6 +149,7 @@ func renderModule(
 
 	// Resolve enum names before scalars and columns reference their types.
 	emitEnums(f, ec, mod, nodes)
+	emitKeyTypes(f, ec)
 	emitBitsConsts(f, mod)
 
 	for _, n := range nodes {
@@ -165,7 +176,7 @@ func renderModule(
 	// repository's stricter source normalization.
 	var buf bytes.Buffer
 	if err := f.Render(&buf); err != nil {
-		return nil, errs.Wrap(err, "render")
+		return nil, nil, errs.Wrap(err, "render")
 	}
 	withImports, err := imports.Process(cm.Package+"/mib.go", buf.Bytes(), &imports.Options{
 		Comments:   true,
@@ -174,16 +185,16 @@ func renderModule(
 		FormatOnly: true,
 	})
 	if err != nil {
-		return nil, errs.Wrap(err, "format imports")
+		return nil, nil, errs.Wrap(err, "format imports")
 	}
 	formatted, err := format.Source(withImports, format.Options{
 		LangVersion: generatedGoVersion,
 		ModulePath:  "go.aledante.io/FlowSeer",
 	})
 	if err != nil {
-		return nil, errs.Wrap(err, "format source")
+		return nil, nil, errs.Wrap(err, "format source")
 	}
-	return formatted, nil
+	return formatted, ec.degraded, nil
 }
 
 // writeHeader writes the file's leading `Code generated by` banner. The banner names the source MIB, its on-disk path (relative
@@ -277,7 +288,7 @@ func runCheck(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	if err := Emit(cfg, set, tmp, pkgPrefix); err != nil {
+	if _, err := Emit(cfg, set, tmp, pkgPrefix); err != nil {
 		return err
 	}
 

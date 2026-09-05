@@ -118,10 +118,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		if err := Emit(cfg, set, *outDir, *pkgPrefix); err != nil {
+		degraded, err := Emit(cfg, set, *outDir, *pkgPrefix)
+		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
+		reportDegraded(stdout, degraded)
 		fmt.Fprintf(stdout, "OK: %d module(s) regenerated under %s\n", len(cfg.Modules), *outDir)
 		return 0
 	default:
@@ -129,12 +131,23 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		if err := Emit(cfg, set, *outDir, *pkgPrefix); err != nil {
+		degraded, err := Emit(cfg, set, *outDir, *pkgPrefix)
+		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
+		reportDegraded(stdout, degraded)
 		fmt.Fprintf(stdout, "OK: emitted %d module(s) to %s\n", len(cfg.Modules), *outDir)
 		return 0
+	}
+}
+
+// reportDegraded prints one line per reference emitted in its base
+// type, so a configuration that leaves a key type's module out is
+// visible in the run rather than only in the diff.
+func reportDegraded(stdout io.Writer, degraded []degradedRef) {
+	for _, d := range degraded {
+		fmt.Fprintln(stdout, d)
 	}
 }
 

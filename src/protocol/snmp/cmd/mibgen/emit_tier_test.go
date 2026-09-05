@@ -289,7 +289,7 @@ func TestTierMap_GatedOnIndicator(t *testing.T) {
 	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	got, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden")
+	got, _, err := renderModule(mod, set, cm, nil, goldenPkgPrefix)
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}

@@ -18,6 +18,16 @@
 //   - BITS-valued objects decode to [snmp.BitSet], the set of positions
 //     the agent reported, and the module gets one [snmp.BitPos] constant
 //     per named bit (see emit_bits.go for how positions are recovered).
+//   - Each row type carries its decoded INDEX as a comparable key struct
+//     with one field per part, decoded through [snmp.DecodeIndex]; a
+//     suffix that does not match the declared shape leaves the key zero
+//     and KeyValid false without ending the walk. A textual convention
+//     that solely indexes a table of its own module becomes a named key
+//     type in that module's package, with a HomeTable method naming the
+//     table, and every column of that type is a reference to a row of it
+//     (see emit_key.go for the keyed-convention rule and the home-table
+//     tiebreak). A reference to a key type whose module is not
+//     configured is emitted in its base type and listed on stdout.
 //
 // Invoke from the repository root:
 //
@@ -44,14 +54,18 @@
 // intact. See baseline.go for the file's shape and the two-tier gate.
 //
 // The emitter lives in emit.go (and per-shape companions emit_scalar.go,
-// emit_table.go, emit_enum.go, emit_bits.go, emit_tc.go,
+// emit_table.go, emit_key.go, emit_enum.go, emit_bits.go, emit_tc.go,
 // emit_dispatch.go); the CLI
 // entrypoint is in main.go.
 //
 // # Refreshing golden test fixtures
 //
 // After an intentional emitter change, refresh the committed golden
-// fixture under testdata/golden/ with:
+// fixtures under testdata/golden/ with:
 //
 //	go test ./src/protocol/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden
+//
+// The goldentest package compiles those fixtures and walks them against
+// a scripted session, so run `go test ./src/protocol/snmp/cmd/mibgen/...`
+// after refreshing.
 package main

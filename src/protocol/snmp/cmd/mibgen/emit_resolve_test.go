@@ -46,7 +46,7 @@ func renderConfigured(t *testing.T, name string) string {
 		t.Fatalf("module %q missing from the resolved set", name)
 	}
 
-	out, err := renderModule(mod, set, cm, cfgByName, defaultPkgPrefix)
+	out, _, err := renderModule(mod, set, cm, cfgByName, defaultPkgPrefix)
 	if err != nil {
 		t.Fatalf("renderModule %s: %v", name, err)
 	}
@@ -183,7 +183,7 @@ func TestEnumKey_InlineEnumKeysByDeclaringObject(t *testing.T) {
 func TestEmit_InlineEnumTypeName(t *testing.T) {
 	mod, set := loadFakeMIB(t)
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	out, err := renderModule(mod, set, cm, nil, defaultPkgPrefix)
+	out, _, err := renderModule(mod, set, cm, nil, defaultPkgPrefix)
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestEmit_DescriptionWithGoLiteralHazards(t *testing.T) {
 	}
 
 	cm := Module{Name: "ESCAPE-MIB", Package: "escapemib"}
-	out, err := renderModule(mod, set, cm, nil, defaultPkgPrefix)
+	out, _, err := renderModule(mod, set, cm, nil, defaultPkgPrefix)
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}

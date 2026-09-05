@@ -2,7 +2,6 @@ package main
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/dave/jennifer/jen"
 
@@ -14,8 +13,12 @@ import (
 //   - `var <Column> = snmp.NewColumn[T](...)` for every accessible
 //     column. The column is registered with [emitCtx.dispatch]
 //     so emitDispatch can later wire the per-package OID map.
-//   - `type <Table>Row struct { Index snmp.OID; … }` with one field
-//     per column (named after the column).
+//   - `type <Table>Key struct { … }` with one field per INDEX part,
+//     plus the shapes and decode helper that read it from the instance
+//     suffix (see [emitTableKey]).
+//   - `type <Table>Row struct { Key <Table>Key; … }` with one field
+//     per column (named after the column). A table whose key does not
+//     resolve carries the raw suffix as `Index snmp.OID` instead.
 //   - `type <Table>Walker struct{...}` and its `Iter` / `Err` methods.
 //   - `type <table>T struct{}` plus `var <Table> <table>T` and a
 //     `Walk(ctx, sess, cols ...snmp.AnyColumn) *<Table>Walker` method.
@@ -42,7 +45,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	tableName := camelCase(table.Name)
 	rowTypeName := tableName + "Row"
 	walkerTypeName := tableName + "Walker"
-	descriptorTypeName := strings.ToLower(tableName[:1]) + tableName[1:] + "T"
+	descriptorTypeName := unexported(tableName) + "T"
 
 	// Per-column data: name, OID, resolved type. Built up here so
 	// the column-var pass and the row-struct pass agree on every
@@ -105,21 +108,34 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		})
 	}
 
+	key := emitTableKey(f, ec, t, tableName)
+
 	// 2) Row struct plus its per-column observation set. A field left
 	// at zero is ambiguous on its own — the agent may have reported a
 	// genuine zero or may not have reported the column at all — so the
 	// row carries one bit per column recording which ones actually
 	// landed, read back through the Observed method.
 	observedWords := (len(cols) + 63) / 64
-	f.Comment(rowTypeName + " is one row of " + table.Name + ". Index carries the OID")
-	f.Comment("suffix beyond the table-entry prefix; the remaining fields are")
+	if key.raw() {
+		f.Comment(rowTypeName + " is one row of " + table.Name + ". Index carries the OID")
+		f.Comment("suffix beyond the table-entry prefix; the remaining fields are")
+	} else {
+		f.Comment(rowTypeName + " is one row of " + table.Name + ". Key is the decoded INDEX; a")
+		f.Comment("suffix that does not match the declared INDEX leaves it zero, and")
+		f.Comment("[" + rowTypeName + ".KeyValid] reports which. The remaining fields are")
+	}
 	f.Comment("populated only for columns the caller passed to Walk(). Use")
 	f.Comment("[" + rowTypeName + ".Observed] to tell a reported zero from a column the")
 	f.Comment("agent never answered.")
 	f.Comment("The zero value has no observed columns. Concurrent reads are safe;")
 	f.Comment("callers must synchronize mutation of the row or its referenced data.")
 	f.Type().Id(rowTypeName).StructFunc(func(g *jen.Group) {
-		g.Id("Index").Qual(snmpImport, "OID")
+		if key.raw() {
+			g.Id("Index").Qual(snmpImport, "OID")
+		} else {
+			g.Id("Key").Add(key.Type.Clone())
+			g.Id("keyValid").Bool()
+		}
 		for _, c := range cols {
 			g.Id(c.FieldName).Add(c.Res.GoType.Clone())
 		}
@@ -129,6 +145,15 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		g.Comment("that column on this row.")
 		g.Id("observed").Index(jen.Lit(observedWords)).Uint64()
 	})
+
+	if !key.raw() {
+		f.Comment("KeyValid reports whether the row's instance suffix decoded as the declared")
+		f.Comment("INDEX. A false result means Key is zero and the agent's suffix did not")
+		f.Comment("have the declared shape; the row's columns are still populated.")
+		f.Func().Params(jen.Id("r").Id(rowTypeName)).Id("KeyValid").Params().Bool().Block(
+			jen.Return(jen.Id("r").Dot("keyValid")),
+		)
+	}
 
 	f.Comment("Observed reports whether col returned a value for this row. A column")
 	f.Comment("the agent answered reads true even when the answer was zero or empty;")
@@ -164,7 +189,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	for i, c := range cols {
 		iterCols[i] = colInfoLike{GoName: c.GoName, FieldName: c.FieldName, Sub: c.Sub, Bit: c.Bit, RawFuse: c.Res.RawFuse, GoType: c.Res.GoType}
 	}
-	emitTableIter(f, walkerTypeName, rowTypeName, iterCols)
+	emitTableIter(f, walkerTypeName, rowTypeName, key, iterCols)
 
 	// 5) Err passthrough.
 	f.Comment("Err returns the underlying walker's terminal error, or nil if")
@@ -234,6 +259,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		TableOID:    tablePrefix,
 		EntryPrefix: entryPrefix,
 		RowTypeName: rowTypeName,
+		Key:         key,
 		Cols:        make([]watchColInfo, 0, len(cols)),
 	}
 	for _, c := range cols {
@@ -251,17 +277,21 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 
 // emitTableIter leaves protocol ordering and buffering to the runtime. Decoding
 // happens only for the row about to be delivered, preserving the error prefix.
-func emitTableIter(f *jen.File, walkerTypeName, rowTypeName string, cols []colInfoLike) {
+func emitTableIter(f *jen.File, walkerTypeName, rowTypeName string, key rowKey, cols []colInfoLike) {
 	sortedCols := append([]colInfoLike(nil), cols...)
 	sort.Slice(sortedCols, func(i, j int) bool { return sortedCols[i].Sub < sortedCols[j].Sub })
 	f.Comment("Iter yields complete selected-column rows in numeric OID suffix order")
 	f.Comment("(192.168.0.2 precedes 192.168.0.10). It retains one batch per selected")
 	f.Comment("column. Breaking iteration stops retrieval. A decode error omits the")
 	f.Comment("failing row and later rows; already delivered rows remain valid. Check Err.")
+	if !key.raw() {
+		f.Comment("A row whose suffix does not decode as the declared INDEX is still yielded,")
+		f.Comment("with a zero Key and KeyValid false; the yielded OID is its raw suffix.")
+	}
 	f.Func().Params(jen.Id("tw").Op("*").Id(walkerTypeName)).Id("Iter").Params().Qual("iter", "Seq2").Types(jen.Qual(snmpImport, "OID"), jen.Id(rowTypeName)).Block(
 		jen.Return(jen.Func().Params(jen.Id("yield").Func().Params(jen.Qual(snmpImport, "OID"), jen.Id(rowTypeName)).Bool()).BlockFunc(func(g *jen.Group) {
 			g.For(jen.List(jen.Id("idx"), jen.Id("cells")).Op(":=").Range().Id("tw").Dot("rw").Dot("Iter").Call()).BlockFunc(func(rg *jen.Group) {
-				rg.Id("row").Op(":=").Id(rowTypeName).Values(jen.Dict{jen.Id("Index"): jen.Id("idx")})
+				key.declareRow(rg, rowTypeName)
 				rg.For(jen.List(jen.Id("_"), jen.Id("cell")).Op(":=").Range().Id("cells")).BlockFunc(func(lg *jen.Group) {
 					lg.Id("rv").Op(":=").Id("cell").Dot("Value")
 					lg.Var().Id("derr").Error()

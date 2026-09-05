@@ -63,6 +63,7 @@ type tableWalkContext struct {
 	TableOID    string // dotted-decimal table OID, e.g. "1.3.6.1.2.1.2.2"
 	EntryPrefix string // dotted-decimal entry OID, e.g. "1.3.6.1.2.1.2.2.1"
 	RowTypeName string // generated Row struct name, e.g. "IfTableRow"
+	Key         rowKey
 	Cols        []watchColInfo
 }
 
@@ -102,8 +103,7 @@ func emitWatchDecodeFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName stri
 		jen.Id("idx").Qual(snmpImport, "OID"),
 		jen.Id("vbs").Index().Qual(snmpImport, "VarBind"),
 	).Params(jen.Id(tw.RowTypeName), jen.Error()).BlockFunc(func(g *jen.Group) {
-		g.Var().Id("row").Id(tw.RowTypeName)
-		g.Id("row").Dot("Index").Op("=").Id("idx")
+		tw.Key.declareRow(g, tw.RowTypeName)
 
 		sortedCols := make([]watchColInfo, len(tw.Cols))
 		copy(sortedCols, tw.Cols)
@@ -200,10 +200,10 @@ func emitWatchEqualFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName strin
 		jen.Id("a").Id(tw.RowTypeName),
 		jen.Id("b").Id(tw.RowTypeName),
 	).Bool().BlockFunc(func(g *jen.Group) {
-		// Begin the boolean expression with the Index comparison so
+		// Begin the boolean expression with the key comparison so
 		// the && chain stays one-per-line readable.
 		exprs := make([]*jen.Statement, 0, len(tw.Cols)+2)
-		exprs = append(exprs, jen.Id("a").Dot("Index").Dot("Equal").Call(jen.Id("b").Dot("Index")))
+		exprs = append(exprs, tw.Key.equalExpr())
 		// An absent value becoming a reported zero changes the row
 		// even though every data field still compares equal.
 		exprs = append(exprs, jen.Id("a").Dot("observed").Op("==").Id("b").Dot("observed"))
@@ -318,7 +318,7 @@ func emitWatcherType(f *jen.File, _ *emitCtx, tw tableWalkContext, watcherTypeNa
 // snmp.NewWatcher with the package's emitted <Table>Indicator,
 // decode function, equal function, and merge function.
 func emitWatchMethod(f *jen.File, _ *emitCtx, tw tableWalkContext, watcherTypeName, decodeFn, equalFn, mergeFn string) {
-	descriptorTypeName := strings.ToLower(tw.TableName[:1]) + tw.TableName[1:] + "T"
+	descriptorTypeName := unexported(tw.TableName) + "T"
 	indicatorVarName := tw.TableName + "Indicator"
 
 	f.Comment("Watch opens a long-lived watch on " + tw.TableName + ".")
