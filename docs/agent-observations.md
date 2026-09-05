@@ -88,3 +88,23 @@ Suggested change: when the branch changed no plan of its own, accept the commit 
 Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, the `buf breaking` step (around line 346).
 What happened: running `verify-change.sh -- <new proto files>` for schema landing entirely new packages (`spec/proto/flowseer/errs/v1/`, `integration/device/v1/`, `event/device/v1/`) made `buf breaking --against .git#branch=master --path <new file>` exit 1 with "no .proto files were targeted", because the ref being compared against (`master`) does not contain the file the `--path` names, so `buf breaking` has nothing to check and reports failure rather than a no-op success. The script's `set -e` then aborts the whole run before the later `buf generate` diff, hook tests, and OTel tier ever execute — with no output naming which step failed if the invocation is only skimmed for its final line. `verify-change.sh --full` does not hit this: it never passes `--path` to `buf breaking` (`full == false` guards `proto_path_args`), so it correctly diffed the whole tree against `master` and passed.
 Suggested change: either have the doc/skill text call out that a brand-new schema package's first verification pass needs `--full` (or `--base master`) rather than the targeted `-- <paths>` form, or have the script itself detect the "no .proto files were targeted" case and treat it as success (a new package has nothing to break against, by definition) instead of letting `buf breaking`'s own exit code fail the run.
+## 2026-09-05 plan: a plan's Prompt.Pattern and prompt-collision decisions need a discriminating-transcript check before implementation
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 4 ("Review the plan").
+What happened: planning the FastIron interface capability, the plan
+specified four `src/protocol/ssh.Prompt.Pattern` regexes (unprivileged,
+privileged, config, config-if) by their apparent English shape ("ends
+in `#`"). The independent-reviewer dispatch (already triggered, since
+the plan had 6 units) caught that the patterns lacked `(?m)` and could
+collide with each other, but only because the review happened to trace
+`scanPrompt`'s actual matching rule against a multi-line buffer rather
+than reading the patterns' intent — nothing in step 4's question ("what
+would block or mislead an implementer") specifically asks a reviewer to
+drive a caller-supplied regex against the package it targets before any
+code exists. See
+`docs/solutions/architecture-patterns/ssh-prompt-patterns-need-multiline-anchors-and-must-exclude-siblings.md`.
+Suggested change: when a plan specifies a caller-supplied pattern
+against an existing scanning/matching primitive (a prompt regex, a
+header parser, a routing predicate), step 4's review question could add:
+trace the primitive's actual matching semantics (anchor scope, tie-break
+rule) against the pattern, not just its apparent intent, and check it
+against every sibling value it must not also match.
