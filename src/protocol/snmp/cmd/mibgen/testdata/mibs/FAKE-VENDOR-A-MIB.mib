@@ -1,0 +1,48 @@
+FAKE-VENDOR-A-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    MODULE-IDENTITY, OBJECT-IDENTITY, enterprises, mib-2
+        FROM SNMPv2-SMI;
+
+-- Naming-node-only vendor module for the sysObjectID identity golden.
+-- It declares a product subtree under its own enterprise number, one
+-- node at an OID FAKE-VENDOR-B-MIB also claims, and one node outside
+-- the enterprises subtree that the identity table must leave out.
+
+fakeVendorA MODULE-IDENTITY
+    LAST-UPDATED "202609050000Z"
+    ORGANIZATION "FlowSeer Test"
+    CONTACT-INFO "test"
+    DESCRIPTION  "Root of the Fake Vendor A registration subtree."
+    ::= { enterprises 99998 }
+
+fakeVendorAProducts OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION "Registration point for every Fake Vendor A product. A
+                 sysObjectID under this node names one product model,
+                 and a model that is not listed here still resolves to
+                 the family node above it, so a firmware release that
+                 registers a new model ahead of this module is still
+                 recognized as a Fake Vendor A device of that family.
+
+                 This second paragraph explains history that the
+                 identity table does not need and must not carry."
+    ::= { fakeVendorA 1 }
+
+fakeVendorASwitchFamily OBJECT IDENTIFIER ::= { fakeVendorAProducts 1 }
+
+fakeVendorASwitch24 OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION "The 24-port switch.
+
+                 Superseded by the 48-port model."
+    ::= { fakeVendorASwitchFamily 1 }
+
+fakeVendorASwitch48 OBJECT IDENTIFIER ::= { fakeVendorASwitchFamily 2 }
+
+fakeVendorARouterFamily OBJECT IDENTIFIER ::= { fakeVendorAProducts 2 }
+
+fakeSharedByA OBJECT IDENTIFIER ::= { enterprises 99996 1 }
+
+fakeVendorAExperimental OBJECT IDENTIFIER ::= { mib-2 99999 }
+
+END

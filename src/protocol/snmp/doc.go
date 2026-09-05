@@ -97,6 +97,25 @@
 // separate full-table assembly and persistent snapshot; this bound applies to
 // Walk, not Watch.
 //
+// # Row keys, table descriptors, and OID sets
+//
+// [DecodeIndex] reads the index suffix a walker yields against the row's
+// INDEX shapes ([IndexShape]) and returns typed parts. A malformed suffix
+// reports ok=false with zero parts rather than an error, because a decode
+// error inside a generated walk ends the whole table; generated rows keep
+// a key-valid flag and are still delivered.
+//
+// [TableDescriptor] names a table by root OID, optional [ChangeIndicator],
+// and key type, without its row or walker types, so a collector can hold
+// tables from many generated packages in one slice.
+// [TableDescriptor.Present] issues one GetNext and reports whether the
+// agent holds an instance under the root; an implemented but empty table
+// reads as absent.
+//
+// [OIDSet] is a sorted set with [OIDSet.Longest], the longest-prefix
+// lookup a sysObjectID identity table needs. It is a sorted slice with
+// binary search, sized for once-per-device lookups.
+//
 // # Watcher iteration
 //
 // [Watcher][Row] is the long-lived counterpart to Walker: it

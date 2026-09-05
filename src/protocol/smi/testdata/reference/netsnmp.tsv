@@ -99,3 +99,5 @@ none	smi/overlapping-range	net-snmp does not compare range alternatives against 
 none	smi/range-not-ascending	net-snmp does not compare a range's two bounds
 none	smi/range-outside-base-type	net-snmp does not compare a subtype's range against the base type's
 none	smi/trailing-hyphen-identifier	net-snmp reads a descriptor ending in one hyphen as the name, the same way this parser does, and grades nothing
+none	smi/unresolved-index-part	net-snmp keeps INDEX parts as labels and never looks them up, so a part nothing declares is not wrong to it
+none	smi/unresolved-augments	net-snmp keeps the AUGMENTS target as a label and never looks it up, so a row nothing declares is not wrong to it

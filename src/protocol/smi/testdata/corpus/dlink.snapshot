@@ -5,7 +5,7 @@ unresolved-declarations 5
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 11
+severity error 12
 severity minor 45
 severity change 0
 severity warning 3
@@ -17,3 +17,4 @@ diagnostic smi/hyphen-separator warning 3
 diagnostic smi/module-not-found error 2
 diagnostic smi/underscore-in-descriptor minor 44
 diagnostic smi/unresolved-declaration error 5
+diagnostic smi/unresolved-index-part error 1

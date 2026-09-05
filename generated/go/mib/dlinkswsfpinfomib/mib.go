@@ -13,6 +13,7 @@ import (
 	"context"
 	"iter"
 
+	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -184,15 +185,35 @@ var DPortSfpInfoCopperTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3
 	return snmp.DecodeInt32(vb)
 })
 
-// DPortSfpInfoTableRow is one row of dPortSfpInfoTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// DPortSfpInfoTableKey is the decoded INDEX of one dPortSfpInfoTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type DPortSfpInfoTableKey struct {
+	IfIndex ifmib.InterfaceIndex
+}
+
+var dPortSfpInfoTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeDPortSfpInfoTableKey decodes the instance suffix of one dPortSfpInfoTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDPortSfpInfoTableKey(idx snmp.OID) (DPortSfpInfoTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dPortSfpInfoTableIndexShapes) {
+		return DPortSfpInfoTableKey{}, false
+	}
+	return DPortSfpInfoTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// DPortSfpInfoTableRow is one row of dPortSfpInfoTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [DPortSfpInfoTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [DPortSfpInfoTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type DPortSfpInfoTableRow struct {
-	Index                              snmp.OID
+	Key                                DPortSfpInfoTableKey
+	keyValid                           bool
 	DPortSfpInfoInterfaceType          string
 	DPortSfpInfoLaserIdentifier        string
 	DPortSfpInfoExtLaserIdentifier     string
@@ -220,6 +241,13 @@ type DPortSfpInfoTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r DPortSfpInfoTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -289,10 +317,13 @@ type DPortSfpInfoTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableRow] {
 	return func(yield func(snmp.OID, DPortSfpInfoTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := DPortSfpInfoTableRow{Index: idx}
+			var row DPortSfpInfoTableRow
+			row.Key, row.keyValid = decodeDPortSfpInfoTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -659,6 +690,17 @@ func (tw *DPortSfpInfoTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dPortSfpInfoTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *DPortSfpInfoTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dPortSfpInfoTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "DPortSfpInfoTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

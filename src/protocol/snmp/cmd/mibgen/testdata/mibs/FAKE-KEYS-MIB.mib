@@ -1,0 +1,57 @@
+FAKE-KEYS-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    OBJECT-TYPE, MODULE-IDENTITY, Integer32
+        FROM SNMPv2-SMI
+    DisplayString, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC;
+
+fakeKeysMIB MODULE-IDENTITY
+    LAST-UPDATED "202609050000Z"
+    ORGANIZATION "FlowSeer Test"
+    CONTACT-INFO "test"
+    DESCRIPTION  "Declares a keyed textual convention and its home table
+                  so FAKE-MIB can reference it across packages."
+    ::= { 1 3 6 1 4 1 99999 2 }
+
+FakeKeyIndex ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d"
+    STATUS      current
+    DESCRIPTION "A unique value identifying one row of fakeKeyTable. A
+                 column of this type elsewhere refers to that row."
+    SYNTAX      Integer32 (1..2147483647)
+
+fakeKeyTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeKeyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The home table of FakeKeyIndex."
+    ::= { fakeKeysMIB 1 }
+
+fakeKeyEntry OBJECT-TYPE
+    SYNTAX      FakeKeyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeKeyTable."
+    INDEX { fakeKeyIndex }
+    ::= { fakeKeyTable 1 }
+
+FakeKeyEntry ::= SEQUENCE {
+    fakeKeyIndex    FakeKeyIndex,
+    fakeKeyName     DisplayString
+}
+
+fakeKeyIndex OBJECT-TYPE
+    SYNTAX      FakeKeyIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row index."
+    ::= { fakeKeyEntry 1 }
+
+fakeKeyName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Name."
+    ::= { fakeKeyEntry 2 }
+
+END

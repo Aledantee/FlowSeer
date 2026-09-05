@@ -62,7 +62,7 @@ func Load(modules []string, opts Options) (*ModuleSet, error) {
 
 	paths := make([]string, 0, len(modules))
 	for _, name := range modules {
-		path, ok := findModule(name, opts.SearchPaths)
+		path, ok := FindModule(name, opts.SearchPaths)
 		if !ok {
 			return nil, errs.New().Attr("module", name).Attr("search_paths", opts.SearchPaths).
 				Msg("smi: module not found on any search path")

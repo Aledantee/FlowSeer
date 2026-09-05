@@ -45,8 +45,8 @@ func TestGeneratedWalkSelectionAndLifecycle(t *testing.T) {
 			rows := 0
 			for idx, row := range w.Iter() {
 				rows++
-				if !row.Index.Equal(idx) {
-					t.Fatal("row index mismatch")
+				if !row.KeyValid() || uint32(row.Key.IfIndex) != idx.At(0) {
+					t.Fatal("row key mismatch")
 				}
 				if stop == "break" {
 					break

@@ -1,0 +1,5 @@
+# RFC 2578 section 7.8.1 makes an AUGMENTS clause name a conceptual row
+# that carries an INDEX clause of its own. No loaded module declares
+# "ifEntry", so there is no row and no table to inherit a key from; the
+# augmenting table stays in the model with no augmented link.
+code smi/unresolved-augments

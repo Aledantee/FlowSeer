@@ -26,7 +26,13 @@ import (
 // the test asserts equality against the committed file.
 var updateGolden = flag.Bool("update-golden", false, "rewrite testdata/golden/* with the current emitter output")
 
-// loadFakeMIB resolves FAKE-MIB from the testdata mibs directory.
+// goldenPkgPrefix is the import-path prefix the golden packages are
+// rendered under, so a cross-package reference between them resolves to
+// the committed golden directory.
+const goldenPkgPrefix = "go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden"
+
+// loadFakeMIB resolves FAKE-MIB and FAKE-KEYS-MIB from the testdata mibs
+// directory and returns FAKE-MIB with the set holding both.
 //
 // There is nothing to clean up: a load holds no process-wide state, so
 // two tests may hold their own sets and neither can observe the other.
@@ -46,7 +52,7 @@ func loadFakeMIB(t *testing.T) (*smi.Module, *smi.ModuleSet) {
 		t.Skipf("spec/mib/ietf not available: %v", err)
 	}
 
-	set, err := smi.Load([]string{"FAKE-MIB"}, smi.Options{SearchPaths: []string{mibDir, ietfDir}})
+	set, err := smi.Load([]string{"FAKE-MIB", "FAKE-KEYS-MIB"}, smi.Options{SearchPaths: []string{mibDir, ietfDir}})
 	if err != nil {
 		t.Fatalf("load FAKE-MIB: %v", err)
 	}
@@ -58,43 +64,51 @@ func loadFakeMIB(t *testing.T) (*smi.Module, *smi.ModuleSet) {
 	return mod, set
 }
 
-// TestEmit_FakeMIB_Golden renders FAKE-MIB through the emitter and
-// compares against the committed golden under testdata/golden/fakemib/.
+// TestEmit_FakeMIB_Golden renders FAKE-MIB and FAKE-KEYS-MIB through the
+// emitter, both configured so the cross-package key reference resolves,
+// and compares each against its committed golden under testdata/golden/.
 // Use -update-golden after any intentional emitter change.
 func TestEmit_FakeMIB_Golden(t *testing.T) {
-	mod, set := loadFakeMIB(t)
+	_, set := loadFakeMIB(t)
 
-	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	cfgByName := map[string]Module{cm.Name: cm}
-
-	got, err := renderModule(mod, set, cm, cfgByName, "go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden")
-	if err != nil {
-		t.Fatalf("renderModule: %v", err)
-	}
-
-	goldenPath := filepath.Join("testdata", "golden", "fakemib", "mib.go")
-	if *updateGolden {
-		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
-			t.Fatalf("mkdir: %v", err)
+	for _, name := range []string{"FAKE-MIB", "FAKE-KEYS-MIB"} {
+		cm := fakeModules[name]
+		mod, ok := set.Module(name)
+		if !ok {
+			t.Fatalf("%s missing from the resolved set", name)
 		}
-		if err := os.WriteFile(goldenPath, got, 0o644); err != nil {
-			t.Fatalf("write golden: %v", err)
+		got, degraded, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+		if err != nil {
+			t.Fatalf("renderModule %s: %v", name, err)
 		}
-		t.Logf("updated %s (%d bytes)", goldenPath, len(got))
-		return
-	}
+		if len(degraded) != 0 {
+			t.Errorf("%s: degraded references = %v; want none", name, degraded)
+		}
 
-	want, err := os.ReadFile(goldenPath)
-	if err != nil {
-		t.Fatalf("read golden (rerun with -update-golden if first time): %v", err)
-	}
-	if string(want) != string(got) {
-		t.Errorf("golden mismatch: %s; rerun with -update-golden after auditing the diff", goldenPath)
-		// Write the candidate next to the golden so devs can diff
-		// without re-running with the update flag.
-		candidatePath := goldenPath + ".got"
-		_ = os.WriteFile(candidatePath, got, 0o644)
-		t.Logf("wrote candidate to %s", candidatePath)
+		goldenPath := filepath.Join("testdata", "golden", cm.Package, "mib.go")
+		if *updateGolden {
+			if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			if err := os.WriteFile(goldenPath, got, 0o644); err != nil {
+				t.Fatalf("write golden: %v", err)
+			}
+			t.Logf("updated %s (%d bytes)", goldenPath, len(got))
+			continue
+		}
+
+		want, err := os.ReadFile(goldenPath)
+		if err != nil {
+			t.Fatalf("read golden (rerun with -update-golden if first time): %v", err)
+		}
+		if string(want) != string(got) {
+			t.Errorf("golden mismatch: %s; rerun with -update-golden after auditing the diff", goldenPath)
+			// Write the candidate next to the golden so devs can diff
+			// without re-running with the update flag.
+			candidatePath := goldenPath + ".got"
+			_ = os.WriteFile(candidatePath, got, 0o644)
+			t.Logf("wrote candidate to %s", candidatePath)
+		}
 	}
 }
 
@@ -106,7 +120,7 @@ func TestEmit_GeneratedParses(t *testing.T) {
 	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	out, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden")
+	out, _, err := renderModule(mod, set, cm, nil, goldenPkgPrefix)
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}
@@ -155,7 +169,7 @@ func TestEmit_GeneratedFormatting(t *testing.T) {
 	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	out, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden")
+	out, _, err := renderModule(mod, set, cm, nil, goldenPkgPrefix)
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}
@@ -188,7 +202,7 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 	mod, set := loadFakeMIB(t)
 
 	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
-	out, err := renderModule(mod, set, cm, nil, "go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden")
+	out, _, err := renderModule(mod, set, cm, nil, goldenPkgPrefix)
 	if err != nil {
 		t.Fatalf("renderModule: %v", err)
 	}

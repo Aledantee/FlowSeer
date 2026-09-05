@@ -326,6 +326,22 @@ var entries = []Entry{
 		Arity:       2,
 		Description: "one module name defined by two files, where the first in canonical order wins because a module name has to mean one thing",
 	},
+	{
+		Severity:    2,
+		Code:        "smi/unresolved-index-part",
+		Tag:         "UnresolvedIndexPart",
+		Format:      "index part %s does not resolve to a typed column",
+		Arity:       1,
+		Description: "an INDEX part naming a column that no loaded module declares or whose type did not resolve, so the table keeps the part flagged and nothing may decode a row key from it",
+	},
+	{
+		Severity:    2,
+		Code:        "smi/unresolved-augments",
+		Tag:         "UnresolvedAugments",
+		Format:      "AUGMENTS target %s does not resolve to a row",
+		Arity:       1,
+		Description: "an AUGMENTS clause naming a row that no loaded module declares, so the augmenting table carries no augmented link and no inherited key",
+	},
 }
 
 // Entries returns the table sorted by code. The result is a fresh slice,

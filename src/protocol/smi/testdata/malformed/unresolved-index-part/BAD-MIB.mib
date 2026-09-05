@@ -1,0 +1,31 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+slotTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SlotEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A list of slots."
+    ::= { acme 1 }
+
+slotEntry OBJECT-TYPE
+    SYNTAX      SlotEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One slot, keyed by a column nothing declares."
+    INDEX       { nowhere }
+    ::= { slotTable 1 }
+
+SlotEntry ::= SEQUENCE {
+    slotName OCTET STRING
+}
+
+slotName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The slot's name."
+    ::= { slotEntry 1 }
+
+END

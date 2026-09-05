@@ -9,7 +9,7 @@ fixture asserts the exact set of codes its load produces. A code with no
 fixture, and a fixture naming a code the catalog does not carry, both fail
 the build.
 
-**35 codes, 36 fixtures.**
+**37 codes, 38 fixtures.**
 
 | code | severity | fixture | asserted by |
 |---|---|---|---|
@@ -45,7 +45,9 @@ the build.
 | `smi/unexpected-token` | 2 | `testdata/malformed/unexpected-token` | `TestMalformedFixtures/unexpected-token` |
 | `smi/unknown-clause` | 2 | `testdata/malformed/unknown-clause` | `TestMalformedFixtures/unknown-clause` |
 | `smi/unrecognized-declaration` | 2 | `testdata/malformed/unrecognized-declaration` | `TestMalformedFixtures/unrecognized-declaration` |
+| `smi/unresolved-augments` | 2 | `testdata/malformed/unresolved-augments` | `TestMalformedFixtures/unresolved-augments` |
 | `smi/unresolved-declaration` | 2 | `testdata/malformed/unresolved-declaration` | `TestMalformedFixtures/unresolved-declaration` |
+| `smi/unresolved-index-part` | 2 | `testdata/malformed/unresolved-index-part` | `TestMalformedFixtures/unresolved-index-part` |
 | `smi/unterminated-comment` | 1 | `testdata/malformed/unterminated-comment` | `TestMalformedFixtures/unterminated-comment` |
 | `smi/unterminated-string` | 1 | `testdata/malformed/unterminated-string` | `TestMalformedFixtures/unterminated-string` |
 

@@ -1,0 +1,5 @@
+# RFC 2578 section 7.7 names each INDEX part by a column of some
+# conceptual row. Nothing anywhere declares "nowhere", so the part has
+# no node and no type to resolve to; the table stays in the model with
+# the part flagged, and nothing may decode a row key from it.
+code smi/unresolved-index-part

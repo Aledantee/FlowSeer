@@ -56,13 +56,15 @@ spec/proto/flowseer/
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
   api/
     inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
+    edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
   service/v1/           process-local runtime messages and durable mailbox contracts
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
 families beyond those present in the repository remain reserved locations.
-Separate central integration, ConnectRPC service, and event-envelope packages
-remain part of the system direction, but their protobuf paths are not settled. In particular,
+Separate central integration and event-envelope packages remain part of the
+system direction, but their protobuf paths are not settled; the first
+ConnectRPC service package is settled at `api/edge/v1`. In particular,
 `flowseer.service.v1` now names the process-local service runtime contract; it
 must not be treated as the future ConnectRPC API package by inference.
 
@@ -80,6 +82,7 @@ net/packet ← net/switching
 {net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
 net/interface ← {net/protocol/*, net/wlan}
 {net/interface, net/protocol/*, net/wlan} ← api/inventory
+api/edge ← api/inventory
 ```
 
 `net/*` never imports `api/` or another entity or boundary package. Layers
@@ -87,10 +90,13 @@ never import a protocol.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
 packages; `net/switching` imports address and packet values, while `net/ip`
 imports address values. Future integration, service API, and event packages
-consume the entity model without introducing a downward import. Their exact
-paths need an accepted amendment before the first schema lands. The service API
-and event envelope remain sibling boundary consumers and must not import one
-another. The order's home for automated checking is
+consume the entity model without introducing a downward import. `api/edge`
+is the Edge's entity package and, as the first Connect service package, also
+holds the Edge's services; it imports no FlowSeer package, and
+`api/inventory` imports it because an integration names its hosting edge.
+The service API and event envelope remain sibling boundary
+consumers and must not import one another, so the event envelope never
+imports `api/edge`. The order's home for automated checking is
 `test/conformance/proto/`; `spec/proto/` holds only `.proto` and `README.md`
 files, so no test can sit beside the schemas.
 

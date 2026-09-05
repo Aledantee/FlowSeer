@@ -57,8 +57,8 @@ func TestIfTableRow_ObservedDistinguishesZeroFromAbsent(t *testing.T) {
 		if idx.Len() == 0 {
 			t.Fatal("row yielded with an empty index")
 		}
-		if !row.Index.Equal(idx) {
-			t.Errorf("Row.Index = %v, want iterator index %v", row.Index, idx)
+		if !row.KeyValid() || uint32(row.Key.IfIndex) != idx.At(0) {
+			t.Errorf("Row.Key = %+v (valid %t), want iterator index %v", row.Key, row.KeyValid(), idx)
 		}
 		rows[idx.At(idx.Len()-1)] = row
 	}
@@ -185,8 +185,8 @@ func TestLldpRemTable_CapabilitiesDecodeAsBitSet(t *testing.T) {
 	n := 0
 	for idx, row := range tw.Iter() {
 		n++
-		if !row.Index.Equal(idx) || idx.Len() != 3 {
-			t.Errorf("composite Row.Index = %v, iterator index = %v; want matching three-arc indexes", row.Index, idx)
+		if !row.KeyValid() || idx.Len() != 3 || uint32(row.Key.LldpRemLocalPortNum) != idx.At(1) || uint32(row.Key.LldpRemIndex) != idx.At(2) {
+			t.Errorf("composite Row.Key = %+v (valid %t), iterator index = %v; want a key decoded from the three arcs", row.Key, row.KeyValid(), idx)
 		}
 		if !row.LldpRemSysCapSupported.Has(lldpmib.LldpSystemCapabilitiesMapBridge) {
 			t.Error("supported: bridge bit not set")

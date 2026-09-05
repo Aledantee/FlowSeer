@@ -5,7 +5,7 @@ unresolved-declarations 34
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 39
+severity error 40
 severity minor 1
 severity change 0
 severity warning 0
@@ -14,4 +14,5 @@ diagnostic smi/clause-out-of-order minor 1
 diagnostic smi/duplicate-oid error 4
 diagnostic smi/missing-clause error 28
 diagnostic smi/module-not-found error 1
+diagnostic smi/unresolved-augments error 1
 diagnostic smi/unresolved-declaration error 6

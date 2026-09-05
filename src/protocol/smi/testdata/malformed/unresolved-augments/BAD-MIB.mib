@@ -1,0 +1,31 @@
+BAD-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso org(3) dod(6) internet(1) private(4) enterprises(1) 47100 }
+
+slotXTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SlotXEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Extra columns for a row nothing loaded declares."
+    ::= { acme 2 }
+
+slotXEntry OBJECT-TYPE
+    SYNTAX      SlotXEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One extended slot."
+    AUGMENTS    { ifEntry }
+    ::= { slotXTable 1 }
+
+SlotXEntry ::= SEQUENCE {
+    slotXAlias OCTET STRING
+}
+
+slotXAlias OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The slot's alias."
+    ::= { slotXEntry 1 }
+
+END

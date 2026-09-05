@@ -39,13 +39,15 @@ func TestLoadConfig_Minimal(t *testing.T) {
 
 // TestLoadConfig_FullSchema loads the committed default mibgen.yaml
 // (at the repository root) and confirms the bundled module set is
-// twenty-four modules with unique names/packages.
+// twenty-eight modules with unique names/packages: the modules with
+// tables and scalars, the three identity-only vendor product MIBs, and
+// the pinned LCOS-MIB.
 func TestLoadConfig_FullSchema(t *testing.T) {
 	cfg, err := LoadConfig(filepath.Join("..", "..", "..", "..", "..", "mibgen.yaml"))
 	if err != nil {
 		t.Fatalf("LoadConfig(mibgen.yaml): %v", err)
 	}
-	if got, want := len(cfg.Modules), 24; got != want {
+	if got, want := len(cfg.Modules), 28; got != want {
 		t.Fatalf("mibgen.yaml modules: got %d, want %d", got, want)
 	}
 	seen := make(map[string]bool, len(cfg.Modules))
@@ -62,8 +64,36 @@ func TestLoadConfig_FullSchema(t *testing.T) {
 	if cfg.Modules[0].Name != "SNMPv2-SMI" {
 		t.Errorf("first module = %q; want SNMPv2-SMI", cfg.Modules[0].Name)
 	}
-	if cfg.Modules[len(cfg.Modules)-1].Name != "HH3C-TRANSCEIVER-INFO-MIB" {
-		t.Errorf("last module = %q; want HH3C-TRANSCEIVER-INFO-MIB", cfg.Modules[len(cfg.Modules)-1].Name)
+	if cfg.Modules[len(cfg.Modules)-1].Name != "LCOS-MIB" {
+		t.Errorf("last module = %q; want LCOS-MIB", cfg.Modules[len(cfg.Modules)-1].Name)
+	}
+}
+
+// TestLoadConfigBytes_FilePinResolvesAgainstConfigDir: a relative file
+// pin is anchored at the YAML's directory the way search_paths are, and
+// an absolute one is left alone.
+func TestLoadConfigBytes_FilePinResolvesAgainstConfigDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "mibs"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	abs := filepath.Join(dir, "elsewhere", "OTHER-MIB")
+	src := "search_paths:\n  - mibs\nmodules:\n" +
+		"  - { name: PINNED-MIB, package: pinned, file: mibs/PINNED-1-0.mib }\n" +
+		"  - { name: OTHER-MIB, package: other, file: " + abs + " }\n" +
+		"  - { name: FREE-MIB, package: free }\n"
+	cfg, err := LoadConfigBytes([]byte(src), filepath.Join(dir, "mibgen.yaml"))
+	if err != nil {
+		t.Fatalf("LoadConfigBytes: %v", err)
+	}
+	if got, want := cfg.Modules[0].File, filepath.Join(dir, "mibs", "PINNED-1-0.mib"); got != want {
+		t.Errorf("relative file pin = %q; want %q", got, want)
+	}
+	if got := cfg.Modules[1].File; got != abs {
+		t.Errorf("absolute file pin = %q; want %q", got, abs)
+	}
+	if got := cfg.Modules[2].File; got != "" {
+		t.Errorf("unpinned module has file %q; want none", got)
 	}
 }
 

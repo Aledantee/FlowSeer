@@ -18,6 +18,23 @@
 //   - BITS-valued objects decode to [snmp.BitSet], the set of positions
 //     the agent reported, and the module gets one [snmp.BitPos] constant
 //     per named bit (see emit_bits.go for how positions are recovered).
+//   - Each row type carries its decoded INDEX as a comparable key struct
+//     with one field per part, decoded through [snmp.DecodeIndexInto]; a
+//     suffix that does not match the declared shape leaves the key zero
+//     and KeyValid false without ending the walk. A textual convention
+//     that solely indexes a table of its own module becomes a named key
+//     type in that module's package, with a HomeTable method naming the
+//     table, and every column of that type is a reference to a row of it
+//     (see emit_key.go for the keyed-convention rule and the home-table
+//     tiebreak). A reference to a key type whose module is not
+//     configured is emitted in its base type and listed on stdout.
+//
+// One package is not per module: -out/sysobjectid/ holds every naming
+// node the configured modules declare under the enterprises subtree,
+// sorted by OID with one entry per OID, and a Lookup that resolves a
+// sysObjectID to the deepest of them. It imports only the SNMP library,
+// so a consumer that wants device identity alone links no per-module
+// package (see emit_identity.go for the collection and trimming rules).
 //
 // Invoke from the repository root:
 //
@@ -29,7 +46,10 @@
 //
 // The configuration file (default mibgen.yaml, at the repository root)
 // declares MIB search paths, the module list with optional cross-authority
-// depends_on edges, and per-OID Go-type overrides. The repository-root
+// depends_on edges, and per-OID Go-type overrides. A module is looked up
+// by name on the search paths unless its entry carries a file pin, which
+// names the source file directly for a vendor that ships several
+// revisions of one module name side by side. The repository-root
 // generate.go carries the go:generate directive, so `go generate .` at
 // the root regenerates the committed bindings.
 //
@@ -45,15 +65,21 @@
 //
 // The emitter lives in emit.go, which drives the passes in order: type
 // resolution (emit_tc.go), enums and BITS constants (emit_enum.go,
-// emit_bits.go), scalars (emit_scalar.go), tables and their Walkers
-// (emit_table.go), the per-table Watch machinery (emit_discovery.go,
-// emit_watch.go, emit_tier.go, emit_indicator.go) and the per-package
-// dispatch map (emit_dispatch.go). The CLI entrypoint is in main.go.
+// emit_bits.go), scalars (emit_scalar.go), tables with their row keys
+// and Walkers (emit_table.go, emit_key.go), the per-table Watch
+// machinery (emit_discovery.go, emit_watch.go, emit_tier.go,
+// emit_indicator.go) and the per-package dispatch map
+// (emit_dispatch.go). The cross-module identity pass is
+// emit_identity.go; the CLI entrypoint is in main.go.
 //
 // # Refreshing golden test fixtures
 //
 // After an intentional emitter change, refresh the committed golden
-// fixture under testdata/golden/ with:
+// fixtures under testdata/golden/ with:
 //
-//	go test ./src/protocol/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden
+//	go test ./src/protocol/snmp/cmd/mibgen -run 'TestEmit_FakeMIB_Golden|TestEmit_Identity_Golden' -update-golden
+//
+// The goldentest package compiles those fixtures and walks them against
+// a scripted session, so run `go test ./src/protocol/snmp/cmd/mibgen/...`
+// after refreshing.
 package main

@@ -1,0 +1,32 @@
+edition = "2024";
+
+package flowseer.api.edge.v1;
+
+import option "buf/validate/validate.proto";
+
+// What ships with an edge before its first boot: where central is, how to
+// trust it, and the one-time key that lets the edge join. The operator
+// receives it once at issue time and never again.
+message EdgeProvisioning {
+  // Base URL of the central deployment's edge service. Must be present.
+  string central_url = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The setup key string, fse1_ followed by a 26-character identifier and
+  // a 52-character secret, both lowercase base32 without padding. Must be
+  // present.
+  string setup_key = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^fse1_[a-z2-7]{26}_[a-z2-7]{52}$"
+  ];
+  // SHA-256 digests of the subject public key info the edge accepts on the
+  // central TLS chain, 32 bytes each. At least one is required, and the
+  // edge refuses a chain that matches none.
+  repeated bytes trust_anchors = 3 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 8,
+    (buf.validate.field).repeated.items.bytes.len = 32
+  ];
+}

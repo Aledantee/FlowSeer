@@ -88,7 +88,8 @@ Entity's own content.
 refs package: a package holding every ref would have to know every Entity above
 it, which is exactly the upward-import the layering forbids. An eventual
 `InterfaceRef` lives with the Interface *entity*, not in `net/interface/v1`;
-the landed Device ref lives in `api/inventory/v1`. The Interface entity package
+the landed Device ref lives in `api/inventory/v1` and the Edge ref in
+`api/edge/v1`, beside the services that take it. The Interface entity package
 is intentionally undecided. Do not add the entity or infer an `api/interface`
 package until an accepted direction record chooses that boundary.
 
@@ -143,6 +144,10 @@ Three boundaries keep it from eroding the typed refs:
   until the Tenant identity and store land, and the inventory service rejects
   it during semantic existence checks in the meantime. The enum value reserves
   the future contract; it is not permission to invent a tenant identifier.
+  The Edge in `api/edge/v1` is the opposite exception: a landed, UUID-keyed
+  entity that has not joined the enum, because the cascade and the existence
+  check need the edge store, which lands with the first host. Until it joins,
+  nothing may name an edge through an `EntityRef`.
 - **A ref with the tenant kind is data, not scoping.** Tenancy stays ambient:
   the ref is content on the pointing entity and never stands in for the
   request's tenant context.

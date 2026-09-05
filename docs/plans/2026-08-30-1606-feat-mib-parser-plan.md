@@ -11,7 +11,9 @@ execution: code
 
 > Implemented. The parser and SNMP packages later moved from
 > `src/common/{smi,snmp}` to `src/protocol/{smi,snmp}`. Commands and paths below
-> preserve the implementation-time layout.
+> preserve the implementation-time layout. The index-resolution exclusion (KTD9
+> and the scope line below) was later reversed once a consumer existed; see
+> `docs/plans/2026-09-05-0055-feat-mibgen-key-resolution-and-identity-plan.md`.
 
 ## Goal Capsule
 

@@ -75,6 +75,12 @@ type emitCtx struct {
 	// table. Set by [discoverIndicators] running before the table
 	// emission pass so tier-map emission can gate cleanly.
 	hasIndicator bool
+
+	// keyed is every keyed convention of the loaded set, see
+	// [keyedConventions]; degraded collects the references to them the
+	// module could not render in the key type.
+	keyed    map[typeKey]keyedConvention
+	degraded []degradedRef
 }
 
 // dispatchEntry binds one column's OID string to its emitted Go
@@ -122,6 +128,7 @@ func newEmitCtx(
 		pkgPrefix: pkgPrefix,
 		overrides: ovs,
 		enumNames: make(map[string]string),
+		keyed:     keyedConventions(set),
 	}
 }
 
@@ -194,6 +201,14 @@ func naturalResolved(ec *emitCtx, nodeName string, t *smi.Type) resolved {
 	if t == nil || !ec.typeAvailable(t) {
 		// Nothing usable to render from — fall back to
 		// OctetString-ish bytes rather than guessing a numeric width.
+		// A keyed convention lost this way is a reference the module
+		// meant to make, so it goes on the degraded report like one
+		// lost to configuration.
+		if t != nil {
+			if _, keyed := ec.keyed[typeKey{Module: t.Module, Name: t.Name}]; keyed {
+				ec.recordDegraded(nodeName, t.Name, t.Module, degradedNotImported)
+			}
+		}
 		return resolvedBytes()
 	}
 
@@ -201,6 +216,15 @@ func naturalResolved(ec *emitCtx, nodeName string, t *smi.Type) resolved {
 	// by name (case-sensitive — RFC 2579 spells them as below).
 	if dec, ok := wellKnownTC(t.Name); ok {
 		return dec
+	}
+
+	// A keyed convention is the row key of its home table, so a column
+	// of that type is a reference and carries the key type. Without the
+	// declaring package the reference degrades to the base type below.
+	if kc, ok := ec.keyedFor(t); ok {
+		if goType := ec.keyTypeRef(kc.Type, nodeName); goType != nil {
+			return keyedResolved(goType, kc.Base)
+		}
 	}
 
 	// A textual convention retains its base's wire encoding. TimeStamp
@@ -324,19 +348,23 @@ func (ec *emitCtx) crossModuleQual(typeName string) *jen.Statement {
 	if !ok {
 		return nil
 	}
-	if t.Module == "" || t.Module == ec.mod.Name {
+
+	return ec.moduleQual(t.Module, camelCase(typeName))
+}
+
+// moduleQual builds a jen.Qual for the Go identifier name in the
+// generated package of module, or nil when module is the one being
+// emitted or is not configured.
+func (ec *emitCtx) moduleQual(module, name string) *jen.Statement {
+	if module == "" || module == ec.mod.Name || ec.cfgByName == nil {
 		return nil
 	}
-	if ec.cfgByName == nil {
-		return nil
-	}
-	cm, ok := ec.cfgByName[t.Module]
+	cm, ok := ec.cfgByName[module]
 	if !ok || cm.Package == "" {
 		return nil
 	}
-	importPath := ec.pkgPrefix + "/" + cm.Package
 
-	return jen.Qual(importPath, camelCase(typeName))
+	return jen.Qual(ec.pkgPrefix+"/"+cm.Package, name)
 }
 
 // applicationType maps the SMI application types onto their generated
@@ -686,14 +714,20 @@ func decodeNatural(variant string, goType *jen.Statement) *jen.Statement {
 // columns and reject the agent's natural Gauge32 emission as a type
 // mismatch.
 func decodeIntCast(variant string, target *jen.Statement) *jen.Statement {
+	return decodeCast(variant, target, target.Clone().Call(jen.Lit(0)))
+}
+
+// decodeCast is decodeIntCast with the zero value spelled by the
+// caller, for a target whose base is not numeric.
+func decodeCast(variant string, target, zero *jen.Statement) *jen.Statement {
 	helper, ok := decoderHelperFor(variant)
 	if !ok {
-		panic("decodeIntCast: no leniency helper registered for variant " + variant)
+		panic("decodeCast: no leniency helper registered for variant " + variant)
 	}
 	return jen.Func().Params(jen.Id("vb").Qual(snmpImport, "VarBind")).Params(target.Clone(), jen.Error()).Block(
 		jen.List(jen.Id("v"), jen.Id("err")).Op(":=").Qual(snmpImport, helper).Call(jen.Id("vb")),
 		jen.If(jen.Id("err").Op("!=").Nil()).Block(
-			jen.Return(target.Clone().Call(jen.Lit(0)), jen.Id("err")),
+			jen.Return(zero.Clone(), jen.Id("err")),
 		),
 		jen.Return(target.Clone().Call(jen.Id("v")), jen.Nil()),
 	)

@@ -34,13 +34,22 @@ type Config struct {
 // Module is a single MIB module entry in the config.
 type Module struct {
 	// Name is the canonical MIB module name (e.g. "IF-MIB"). It must
-	// match the MODULE-IDENTITY name declared inside the MIB file and
-	// (for the bundled IETF MIBs) the filename on disk.
+	// match the MODULE-IDENTITY name declared inside the MIB file and,
+	// unless File pins the module, the filename on disk.
 	Name string `yaml:"name"`
 
 	// Package is the Go package name for the emitted bindings. Must be
 	// a valid lowercase Go identifier and unique across the config.
 	Package string `yaml:"package"`
+
+	// File pins the module to one source file instead of looking Name
+	// up on the search paths. Some vendors ship one full copy of a
+	// module per firmware release under versioned file names that all
+	// declare the same module name, and name-based lookup would pick
+	// whichever file happens to be spelled after the module. A relative
+	// path resolves against the directory that contained the YAML file,
+	// like search_paths. The file must declare Name, or loading fails.
+	File string `yaml:"file,omitempty"`
 
 	// DependsOn lists other module names this module depends on across
 	// search-path / authority boundaries. It is a statement about the
@@ -196,6 +205,16 @@ func LoadConfigBytes(b []byte, basePath string) (*Config, error) {
 		} else {
 			cfg.SearchPaths[i] = filepath.Clean(p)
 		}
+	}
+	for i := range cfg.Modules {
+		f := cfg.Modules[i].File
+		if f == "" {
+			continue
+		}
+		if !filepath.IsAbs(f) {
+			f = filepath.Join(baseDir, f)
+		}
+		cfg.Modules[i].File = filepath.Clean(f)
 	}
 
 	if err := validateConfig(&cfg, displayPath); err != nil {

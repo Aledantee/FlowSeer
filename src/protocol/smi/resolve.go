@@ -91,6 +91,7 @@ func resolve(sources []source) *ModuleSet {
 	set.order = r.dependencyOrder()
 	r.placeNodes(set)
 	r.classify(set)
+	r.resolveIndexes(set)
 
 	for _, s := range sources {
 		set.lines[s.path] = s.parsed.Lines
@@ -1458,7 +1459,9 @@ func buildTable(table *Node) *Table {
 		return t
 	}
 
-	t.Index = t.Row.Index
+	// The table gets its own copy of the parts so that resolving them
+	// leaves the row's clause exactly as written.
+	t.Index = slices.Clone(t.Row.Index)
 	t.Augments = t.Row.Augments
 	for _, col := range t.Row.Children {
 		if col.Kind == NodeColumn {
@@ -1467,6 +1470,137 @@ func buildTable(table *Node) *Table {
 	}
 
 	return t
+}
+
+// resolveIndexes fills in every table's key: each INDEX part gets the
+// column and type it names, and each AUGMENTS clause gets the table it
+// augments together with that table's parts.
+//
+// It runs after classify has assembled every module's tables, because an
+// AUGMENTS clause may name a row in another module and the table over
+// that row has to exist before it can be linked. INDEX parts are
+// resolved for every table first, so that an augmenting table always
+// copies parts that are already resolved whatever order the modules
+// come in.
+func (r *resolver) resolveIndexes(set *ModuleSet) {
+	byRow := make(map[*Node]*Table)
+	for _, m := range set.modules {
+		for _, t := range m.Tables {
+			if t.Row != nil {
+				byRow[t.Row] = t
+			}
+		}
+	}
+
+	for _, m := range set.modules {
+		b := r.byName[m.Name]
+		for _, t := range m.Tables {
+			if t.Row == nil {
+				continue
+			}
+			for i := range t.Index {
+				r.resolveIndexPart(b, t.Row, &t.Index[i])
+			}
+		}
+	}
+
+	linked := make(map[*Table]bool)
+	for _, m := range set.modules {
+		b := r.byName[m.Name]
+		for _, t := range m.Tables {
+			if t.Row != nil && t.Augments != "" {
+				r.linkAugments(set, b, t, byRow, linked)
+			}
+		}
+	}
+}
+
+// augmentedTable finds the table over the row an AUGMENTS clause names.
+//
+// The row is looked up by name first. When that declaration lost an OID
+// collision, RMON-MIB's etherStatsEntry beside RFC1271-MIB's for one,
+// no table owns it, and the table over the node that kept the OID is
+// the one the wire agrees with, so that is the second try.
+func (r *resolver) augmentedTable(set *ModuleSet, b *modBuild, name string, byRow map[*Node]*Table) (*Table, bool) {
+	row := r.lookupNode(b, name)
+	if row == nil {
+		return nil, false
+	}
+	if t, ok := byRow[row]; ok {
+		return t, true
+	}
+
+	placed, ok := set.byOID[row.OID.String()]
+	if !ok || placed.Kind != NodeRow {
+		return nil, false
+	}
+	t, ok := byRow[placed]
+
+	return t, ok
+}
+
+// resolveIndexPart resolves one INDEX part of row to the column it
+// names, with the same precedence a parent OID gets: the row's own
+// module, then the modules its IMPORTS name, then any loaded module.
+//
+// The diagnostic is raised on the row, which is the declaration that
+// wrote the clause; the part itself has no position of its own.
+func (r *resolver) resolveIndexPart(b *modBuild, row *Node, part *IndexPart) {
+	part.Node = r.lookupNode(b, part.Name)
+	if part.Node != nil && part.Node.Type != nil && !part.Node.Type.Unresolved {
+		part.Type = part.Node.Type
+
+		return
+	}
+
+	part.Unresolved = true
+	file, offset := r.declPosition(row)
+	r.raise(file, offset, ErrCodeUnresolvedIndexPart, ArgString(part.Name))
+}
+
+// linkAugments resolves a table's AUGMENTS clause to the table over the
+// row it names and copies that table's resolved parts.
+//
+// RFC 2578 §7.8.1 requires the augmented row to carry an INDEX clause,
+// but a vendor row may augment a row that itself augments another, so
+// the augmented table is linked first and a chain that closes on itself
+// stops where it started rather than recursing.
+func (r *resolver) linkAugments(set *ModuleSet, b *modBuild, t *Table, byRow map[*Node]*Table, linked map[*Table]bool) {
+	if linked[t] {
+		return
+	}
+	linked[t] = true
+
+	base, ok := r.augmentedTable(set, b, t.Augments, byRow)
+	if !ok || base == t {
+		file, offset := r.declPosition(t.Row)
+		r.raise(file, offset, ErrCodeUnresolvedAugments, ArgString(t.Augments))
+
+		return
+	}
+
+	if base.Augments != "" {
+		r.linkAugments(set, r.byName[base.Node.Module], base, byRow, linked)
+	}
+
+	t.AugmentsTable = base
+	t.Index = slices.Clone(base.Index)
+}
+
+// lookupNode finds the node name resolves to as module b sees it, or nil
+// when no loaded module declares one under that name.
+func (r *resolver) lookupNode(b *modBuild, name string) *Node {
+	target, ok := r.lookupDecl(b, name)
+	if !ok {
+		return nil
+	}
+
+	n, ok := target.out.Node(name)
+	if !ok {
+		return nil
+	}
+
+	return n
 }
 
 // builtinTypes are the SMI base types under the spellings RFC 2578 §7.1

@@ -375,15 +375,31 @@ func (t *Type) Enumerated() bool {
 	}
 }
 
-// IndexPart is one column of an INDEX clause, held exactly as the source
-// wrote it.
+// IndexPart is one column of an INDEX clause: the name the source wrote,
+// and on a [Table] the column and type that name resolved to.
 //
-// Nothing resolves it, and that is settled rather than pending: index
-// decoding is generic at runtime and no consumer reads index structure,
-// so turning a column name into a type would buy a pass nobody reads.
+// A part on a [Node] is held as written and never resolved; a part on a
+// Table is resolved after every module's tables exist, so a part that
+// names a column of another loaded module resolves the same way a
+// parent OID does. A consumer decoding or joining row keys reads the
+// Table's parts.
 type IndexPart struct {
 	Name    string
 	Implied bool
+
+	// Node is the column the part names, or nil when nothing loaded
+	// declares it. Type is that column's resolved SYNTAX, and is the
+	// textual convention where the column wrote one rather than the base
+	// type under it, because a key type is identified by that name.
+	Node *Node
+	Type *Type
+
+	// Unresolved reports that the part cannot key a row: no loaded module
+	// declares the column, or the column's type did not resolve. Node
+	// may still be set when only the type fell. A table with an
+	// unresolved part keeps its raw key and must not have a typed key
+	// derived from it.
+	Unresolved bool
 }
 
 // DefaultKind is which of RFC 2578 §7.9's value shapes a DEFVAL
@@ -491,6 +507,7 @@ type Node struct {
 	Type *Type
 
 	// Index and Augments are the INDEX and AUGMENTS clauses as written.
+	// The resolved key lives on the [Table] the row belongs to.
 	Index    []IndexPart
 	Augments string
 
@@ -529,14 +546,21 @@ type Import struct {
 // columns under the row.
 //
 // Columns holds every column in OID order, index columns included, each
-// with the access its declaration gave it. Index is the row's INDEX
-// clause as written and is not resolved into a structure.
+// with the access its declaration gave it.
+//
+// Index is the row's key, resolved: each part carries the column and
+// type it names. An augmenting table has no INDEX clause of its own and
+// carries the augmented table's resolved parts instead, so a consumer
+// reads one field for either shape. Augments is the AUGMENTS clause as
+// written and AugmentsTable is the table it resolved to, nil when the
+// row augments nothing or names a row no loaded module declares.
 type Table struct {
-	Node     *Node
-	Row      *Node
-	Columns  []*Node
-	Index    []IndexPart
-	Augments string
+	Node          *Node
+	Row           *Node
+	Columns       []*Node
+	Index         []IndexPart
+	Augments      string
+	AugmentsTable *Table
 }
 
 // Module is one resolved MIB module.

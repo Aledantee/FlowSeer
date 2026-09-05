@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"iter"
 
+	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -311,18 +312,22 @@ func DDdmNotifyEnableGet(ctx context.Context, sess snmp.Session) (snmp.BitSet, e
 // This object is used by dDdmAlarmTrap and dDdmWarningTrap to indicate the
 // ifIndex on which the monitoring value rises above or falls below the
 // corresponding threshold.
-func DDdmNotifyInfoIfIndexGet(ctx context.Context, sess snmp.Session) (int32, error) {
+func DDdmNotifyInfoIfIndexGet(ctx context.Context, sess snmp.Session) (ifmib.InterfaceIndex, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 5, 1, 0)})
 	if err != nil {
-		return 0, err
+		return ifmib.InterfaceIndex(0), err
 	}
 
 	if len(vbs) == 0 {
-		return 0, errs.Msg("empty Get response for dDdmNotifyInfoIfIndex")
+		return ifmib.InterfaceIndex(0), errs.Msg("empty Get response for dDdmNotifyInfoIfIndex")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
+	return func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
+		v, err := snmp.DecodeInt32(vb)
+		if err != nil {
+			return ifmib.InterfaceIndex(0), err
+		}
+		return ifmib.InterfaceIndex(v), nil
 	}(vbs[0])
 }
 
@@ -420,15 +425,35 @@ var DDdmShutdownLevel = snmp.NewColumn[DDdmShutdownLevelValue](snmp.MustOID(1, 3
 	return DDdmShutdownLevelValue(v), nil
 })
 
-// DDdmIfCfgTableRow is one row of dDdmIfCfgTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// DDdmIfCfgTableKey is the decoded INDEX of one dDdmIfCfgTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type DDdmIfCfgTableKey struct {
+	IfIndex ifmib.InterfaceIndex
+}
+
+var dDdmIfCfgTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeDDdmIfCfgTableKey decodes the instance suffix of one dDdmIfCfgTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDDdmIfCfgTableKey(idx snmp.OID) (DDdmIfCfgTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dDdmIfCfgTableIndexShapes) {
+		return DDdmIfCfgTableKey{}, false
+	}
+	return DDdmIfCfgTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// DDdmIfCfgTableRow is one row of dDdmIfCfgTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [DDdmIfCfgTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [DDdmIfCfgTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type DDdmIfCfgTableRow struct {
-	Index             snmp.OID
+	Key               DDdmIfCfgTableKey
+	keyValid          bool
 	DDdmIfCfgEnabled  bool
 	DDdmShutdownLevel DDdmShutdownLevelValue
 
@@ -436,6 +461,13 @@ type DDdmIfCfgTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r DDdmIfCfgTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -465,10 +497,13 @@ type DDdmIfCfgTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *DDdmIfCfgTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfCfgTableRow] {
 	return func(yield func(snmp.OID, DDdmIfCfgTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := DDdmIfCfgTableRow{Index: idx}
+			var row DDdmIfCfgTableRow
+			row.Key, row.keyValid = decodeDDdmIfCfgTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -542,6 +577,17 @@ func (t dDdmIfCfgTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dDdmIfCfgTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "DDdmIfCfgTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 2, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (dDdmIfCfgTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *DDdmIfCfgTableWalker {
@@ -590,15 +636,37 @@ var DDdmThresholdCfgRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3
 	return snmp.DecodeRowStatus(vb)
 })
 
-// DDdmThresholdCfgTableRow is one row of dDdmThresholdCfgTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// DDdmThresholdCfgTableKey is the decoded INDEX of one dDdmThresholdCfgTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type DDdmThresholdCfgTableKey struct {
+	IfIndex                   ifmib.InterfaceIndex
+	DDdmThresholdComponent    int32
+	DDmThresholdAbnormalLevel int32
+}
+
+var dDdmThresholdCfgTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeDDdmThresholdCfgTableKey decodes the instance suffix of one dDdmThresholdCfgTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDDdmThresholdCfgTableKey(idx snmp.OID) (DDdmThresholdCfgTableKey, bool) {
+	var parts [3]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dDdmThresholdCfgTableIndexShapes) {
+		return DDdmThresholdCfgTableKey{}, false
+	}
+	return DDdmThresholdCfgTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer), DDdmThresholdComponent: int32(parts[1].Integer), DDmThresholdAbnormalLevel: int32(parts[2].Integer)}, true
+}
+
+// DDdmThresholdCfgTableRow is one row of dDdmThresholdCfgTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [DDdmThresholdCfgTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [DDdmThresholdCfgTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type DDdmThresholdCfgTableRow struct {
-	Index                     snmp.OID
+	Key                       DDdmThresholdCfgTableKey
+	keyValid                  bool
 	DDdmThresholdCfgValue     int32
 	DDdmThresholdCfgRowStatus snmp.RowStatus
 
@@ -606,6 +674,13 @@ type DDdmThresholdCfgTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r DDdmThresholdCfgTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -635,10 +710,13 @@ type DDdmThresholdCfgTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *DDdmThresholdCfgTableWalker) Iter() iter.Seq2[snmp.OID, DDdmThresholdCfgTableRow] {
 	return func(yield func(snmp.OID, DDdmThresholdCfgTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := DDdmThresholdCfgTableRow{Index: idx}
+			var row DDdmThresholdCfgTableRow
+			row.Key, row.keyValid = decodeDDdmThresholdCfgTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -710,6 +788,17 @@ func (tw *DDdmThresholdCfgTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dDdmThresholdCfgTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *DDdmThresholdCfgTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dDdmThresholdCfgTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "DDdmThresholdCfgTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
@@ -1077,15 +1166,35 @@ var DDdmIfInfoLowAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1
 	return snmp.DecodeInt32(vb)
 })
 
-// DDdmIfInfoTableRow is one row of dDdmIfInfoTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// DDdmIfInfoTableKey is the decoded INDEX of one dDdmIfInfoTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type DDdmIfInfoTableKey struct {
+	IfIndex ifmib.InterfaceIndex
+}
+
+var dDdmIfInfoTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeDDdmIfInfoTableKey decodes the instance suffix of one dDdmIfInfoTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDDdmIfInfoTableKey(idx snmp.OID) (DDdmIfInfoTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dDdmIfInfoTableIndexShapes) {
+		return DDdmIfInfoTableKey{}, false
+	}
+	return DDdmIfInfoTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// DDdmIfInfoTableRow is one row of dDdmIfInfoTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [DDdmIfInfoTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [DDdmIfInfoTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type DDdmIfInfoTableRow struct {
-	Index                          snmp.OID
+	Key                            DDdmIfInfoTableKey
+	keyValid                       bool
 	DDdmIfInfoCurrentTemperature   int32
 	DDdmIfInfoTemperatureState     DlinkThresholdState
 	DDdmIfInfoHighAlarmTemperature int32
@@ -1131,6 +1240,13 @@ type DDdmIfInfoTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r DDdmIfInfoTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1236,10 +1352,13 @@ type DDdmIfInfoTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] {
 	return func(yield func(snmp.OID, DDdmIfInfoTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := DDdmIfInfoTableRow{Index: idx}
+			var row DDdmIfInfoTableRow
+			row.Key, row.keyValid = decodeDDdmIfInfoTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2000,6 +2119,17 @@ func (tw *DDdmIfInfoTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dDdmIfInfoTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *DDdmIfInfoTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dDdmIfInfoTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "DDdmIfInfoTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

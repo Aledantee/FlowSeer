@@ -10,6 +10,9 @@ search_paths:
   - spec/mib/dlink
   - spec/mib/hp/procurve
   - spec/mib/hp/hh3c
+  # Vendor product trees listed only for the sysobjectid identity table.
+  - spec/mib/ruckus/icx
+  - spec/mib/lancom/lcos
 
 modules:
   - name: SNMPv2-SMI
@@ -69,3 +72,25 @@ modules:
   - { name: DLINKSW-SFPINFO-MIB,       package: dlinkswsfpinfomib }
   - { name: HP-ICF-TRANSCEIVER-MIB,    package: hpicftransceivermib }
   - { name: HH3C-TRANSCEIVER-INFO-MIB, package: hh3ctransceiverinfomib }
+  # Identity only: the three modules below declare product naming nodes
+  # and no tables, so their packages are near-empty and their whole value
+  # is the entries they add to the sysobjectid table.
+  #
+  # FOUNDRY-SN-ROOT-MIB carries the Ruckus ICX (ex-Brocade, ex-Foundry)
+  # product families and models under enterprises 1991.
+  - { name: FOUNDRY-SN-ROOT-MIB, package: foundrysnroot }
+  # HH3C-OID-MIB carries the Comware enterprise and product-family roots
+  # (enterprises 25506) that HH3C-PRODUCT-ID-MIB hangs its models off;
+  # without it those parents are absent from the identity table.
+  - { name: HH3C-OID-MIB,        package: hh3coid }
+  - { name: HH3C-PRODUCT-ID-MIB, package: hh3cproductid }
+  # LCOS-MIB carries the LANCOM product nodes (enterprises 2356) together
+  # with the whole LCOS status and setup tree, so unlike the identity-only
+  # modules above it costs a full package. LANCOM ships one full copy per
+  # firmware release under a versioned file name, all declaring the same
+  # module name, so the file is pinned to the newest release. A device on
+  # older firmware may report a product OID the newest file dropped, which
+  # then resolves to the nearest LANCOM ancestor.
+  - name: LCOS-MIB
+    package: lcosmib
+    file: spec/mib/lancom/lcos/LC-UNIFIED-LCOS-10-94-REL-OIDS.mib

@@ -16,7 +16,11 @@ Lifecycle and reachability are separate axes: reachability is per Binding and he
 
 ### Integration
 
-A configured adapter instance — the cloud tenant, controller, or edge agent through which FlowSeer reaches devices. Kinds are code, instances are data: each first-party kind carries its own typed configuration, while all third-party kinds share one descriptor-typed configuration told apart by the kind's announced name.
+A configured adapter instance — the cloud tenant, controller, or site-local network through which FlowSeer reaches devices. Kinds are code, instances are data: each first-party kind carries its own typed configuration, while all third-party kinds share one descriptor-typed configuration told apart by the kind's announced name. An Integration that runs at a site names the Edge that hosts it.
+
+### Edge
+
+An enrolled process at a site that hosts Integrations. It is the process, not an adapter: it holds a self-generated key registered at enrollment, signs every call to central with it, and keeps that standing through any length of silence until an operator retires it. Lifecycle (pending, enrolled, retired) and contact (active, stale, dormant) are separate axes, as for a Device. A setup key shipped with the box is consumed by its one enrollment.
 
 ### Binding
 
@@ -123,6 +127,15 @@ A decoder answering "this value is not mine to read" rather than failing. What a
 ### Fatal walk
 
 A collection walk whose failure voids the whole answer, as against one that degrades and returns what it gathered. Only the table a set of facts is keyed on is fatal; a walk that merely enriches those facts reports its failure alongside the rows already collected rather than in place of them. A caller therefore cannot read an error as "no data" — it must inspect the result too.
+
+### Collector
+
+One collection cycle against one device: read sysObjectID once, decide which mappers apply, walk every table those mappers read exactly once with the union of their columns, and hand the rows to each mapper as a snapshot. A walk failure is recorded per table, and the mapper decides whether it declines (a required table) or degrades (an optional one). Mappers never touch the session.
+
+### Mapper detection
+
+Whether a mapper applies to a device on this cycle: every table it requires answers a presence probe, and, when the mapper is vendor-specific, the device's sysObjectID has one of its declared prefixes. Presence is an instance probe, so a required table with no rows reads as absent and the mapper is skipped until rows appear. sysDescr text is never consulted.
+
 ## MIB Parsing
 
 ### MIB Module
@@ -136,6 +149,14 @@ One macro invocation or value assignment inside a module — an `OBJECT-TYPE`, a
 ### Node
 
 A declaration placed in the OID tree, with the clauses that survived resolution. A node that lost something a renderer needs — a required clause, a parent nothing defines, a contradictory syntax — stays in the tree marked unresolved rather than disappearing, so a reader can see what fell and its subtree stays placed. Unresolved nodes are never rendered as if they were whole.
+
+### Naming Node
+
+A node that names a place in the OID tree and carries no value: a plain OID assignment or an `OBJECT-IDENTITY`. Under a vendor's enterprise subtree these are the product identities a device reports as its sysObjectID, so the generator collects them into one identity table with longest-prefix lookup instead of anyone declaring device families by hand.
+
+### Key Convention
+
+A textual convention that keys at least one table, such as `InterfaceIndex` for `ifTable` or `PhysicalIndex` for `entPhysicalTable`. It is emitted as one Go key type in its declaring module's package, and every index part or column using it shares that type, which is how a column becomes a typed reference to the table the convention keys without any hand-written join.
 
 ### Diagnostic
 

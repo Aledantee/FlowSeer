@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"iter"
 
+	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -1324,15 +1325,35 @@ var HpicfXcvrManufacDate = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1,
 	return snmp.DecodeBytes(vb)
 })
 
-// HpicfXcvrInfoTableRow is one row of hpicfXcvrInfoTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HpicfXcvrInfoTableKey is the decoded INDEX of one hpicfXcvrInfoTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HpicfXcvrInfoTableKey struct {
+	IfIndex ifmib.InterfaceIndex
+}
+
+var hpicfXcvrInfoTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHpicfXcvrInfoTableKey decodes the instance suffix of one hpicfXcvrInfoTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHpicfXcvrInfoTableKey(idx snmp.OID) (HpicfXcvrInfoTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hpicfXcvrInfoTableIndexShapes) {
+		return HpicfXcvrInfoTableKey{}, false
+	}
+	return HpicfXcvrInfoTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// HpicfXcvrInfoTableRow is one row of hpicfXcvrInfoTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HpicfXcvrInfoTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HpicfXcvrInfoTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HpicfXcvrInfoTableRow struct {
-	Index                            snmp.OID
+	Key                              HpicfXcvrInfoTableKey
+	keyValid                         bool
 	HpicfXcvrPortIndex               int32
 	HpicfXcvrPortDesc                []byte
 	HpicfXcvrModel                   []byte
@@ -1403,6 +1424,13 @@ type HpicfXcvrInfoTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [2]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HpicfXcvrInfoTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1558,10 +1586,13 @@ type HpicfXcvrInfoTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTableRow] {
 	return func(yield func(snmp.OID, HpicfXcvrInfoTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HpicfXcvrInfoTableRow{Index: idx}
+			var row HpicfXcvrInfoTableRow
+			row.Key, row.keyValid = decodeHpicfXcvrInfoTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2714,6 +2745,17 @@ func (t hpicfXcvrInfoTableT) Walk(ctx context.Context, sess snmp.Session, cols .
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hpicfXcvrInfoTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HpicfXcvrInfoTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hpicfXcvrInfoTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HpicfXcvrInfoTableWalker {
@@ -2786,15 +2828,36 @@ var HpicfXcvrChannelErrors = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1
 	return snmp.DecodeBitSet(vb)
 })
 
-// HpicfXcvrChannelInfoTableRow is one row of hpicfXcvrChannelInfoTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HpicfXcvrChannelInfoTableKey is the decoded INDEX of one hpicfXcvrChannelInfoTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HpicfXcvrChannelInfoTableKey struct {
+	IfIndex          ifmib.InterfaceIndex
+	HpicfXcvrChannel uint32
+}
+
+var hpicfXcvrChannelInfoTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeHpicfXcvrChannelInfoTableKey decodes the instance suffix of one hpicfXcvrChannelInfoTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHpicfXcvrChannelInfoTableKey(idx snmp.OID) (HpicfXcvrChannelInfoTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hpicfXcvrChannelInfoTableIndexShapes) {
+		return HpicfXcvrChannelInfoTableKey{}, false
+	}
+	return HpicfXcvrChannelInfoTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer), HpicfXcvrChannel: parts[1].Integer}, true
+}
+
+// HpicfXcvrChannelInfoTableRow is one row of hpicfXcvrChannelInfoTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HpicfXcvrChannelInfoTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HpicfXcvrChannelInfoTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HpicfXcvrChannelInfoTableRow struct {
-	Index                   snmp.OID
+	Key                     HpicfXcvrChannelInfoTableKey
+	keyValid                bool
 	HpicfXcvrChannelTxBias  uint32
 	HpicfXcvrChannelTxPower int32
 	HpicfXcvrChannelRxPower int32
@@ -2805,6 +2868,13 @@ type HpicfXcvrChannelInfoTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HpicfXcvrChannelInfoTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2840,10 +2910,13 @@ type HpicfXcvrChannelInfoTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HpicfXcvrChannelInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrChannelInfoTableRow] {
 	return func(yield func(snmp.OID, HpicfXcvrChannelInfoTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HpicfXcvrChannelInfoTableRow{Index: idx}
+			var row HpicfXcvrChannelInfoTableRow
+			row.Key, row.keyValid = decodeHpicfXcvrChannelInfoTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2964,6 +3037,17 @@ func (tw *HpicfXcvrChannelInfoTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t hpicfXcvrChannelInfoTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HpicfXcvrChannelInfoTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hpicfXcvrChannelInfoTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HpicfXcvrChannelInfoTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

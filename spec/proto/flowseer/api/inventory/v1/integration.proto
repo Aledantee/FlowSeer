@@ -1,12 +1,13 @@
 edition = "2024";
 
 // The integration family — a configured adapter instance: the cloud
-// tenant, controller, or edge agent through which FlowSeer reaches
+// tenant, controller, or site-local network through which FlowSeer reaches
 // devices. Kind-configuration messages such as LocalNetworkConfig and
 // ThirdPartyConfig are arms of IntegrationConfig's kind oneof, not entity
 // families; no State or Event exists for them.
 package flowseer.api.inventory.v1;
 
+import "flowseer/api/edge/v1/edge.proto";
 import "flowseer/net/addr/v1/ip.proto";
 import option "buf/validate/validate.proto";
 
@@ -44,8 +45,8 @@ enum IntegrationLifecycle {
   INTEGRATION_LIFECYCLE_RETIRED = 5;
 }
 
-// Configuration of the local-network kind: an edge agent managing the
-// devices on its own network.
+// Configuration of the local-network kind: the devices on the network the
+// hosting edge sits in.
 message LocalNetworkConfig {
   // Ranges active discovery may sweep. Each entry is an explicit opt-in;
   // empty means passive discovery only.
@@ -90,6 +91,12 @@ message ThirdPartyConfig {
 // The intended definition of one integration: what the operator entered
 // to attach it.
 message IntegrationConfig {
+  option (buf.validate.message).cel = {
+    id: "integration_config.local_network_names_edge"
+    message: "a local-network integration names its hosting edge"
+    expression: "!has(this.local_network) || has(this.edge)"
+  };
+
   // The ref to this integration. Must be present.
   IntegrationGlobalRef ref = 1 [(buf.validate.field).required = true];
   // Operator-assigned display name. Unset means none was assigned;
@@ -117,6 +124,9 @@ message IntegrationConfig {
   // poller traffic, in requests per second. Unset means the kind's default
   // applies.
   uint32 requests_per_second = 5 [(buf.validate.field).uint32.gt = 0];
+  // The edge that hosts this integration. Unset means it runs centrally;
+  // must be present for the local-network kind.
+  flowseer.api.edge.v1.EdgeGlobalRef edge = 6;
 
   // The kind-specific configuration; the arm identifies the kind.
   // First-party kinds occupy 10 through 18; every third-party kind shares

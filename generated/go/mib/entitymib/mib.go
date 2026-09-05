@@ -132,6 +132,19 @@ func (v PhysicalClass) String() string {
 	return fmt.Sprintf("PhysicalClass(%d)", v)
 }
 
+// PhysicalIndex is the textual convention PhysicalIndex. A value identifies one row of
+// entPhysicalTable, and a column of this type in any table refers to that row.
+// An arbitrary value that uniquely identifies the physical entity. The
+// value should be a small positive integer. Index values for different
+// physical entities are not necessarily contiguous.
+type PhysicalIndex int32
+
+// HomeTable returns the descriptor of entPhysicalTable, the table a PhysicalIndex value
+// identifies a row of.
+func (PhysicalIndex) HomeTable() snmp.TableDescriptor {
+	return EntPhysicalTable.Descriptor()
+}
+
 // EntLastChangeTimeGet reads the SMIv2 scalar entLastChangeTime.
 // It returns the session or decode error, or an error if the response is empty.
 //
@@ -428,15 +441,35 @@ var EntPhysicalUUID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 
 	return snmp.DecodeBytes(vb)
 })
 
-// EntPhysicalTableRow is one row of entPhysicalTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// EntPhysicalTableKey is the decoded INDEX of one entPhysicalTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type EntPhysicalTableKey struct {
+	EntPhysicalIndex PhysicalIndex
+}
+
+var entPhysicalTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeEntPhysicalTableKey decodes the instance suffix of one entPhysicalTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeEntPhysicalTableKey(idx snmp.OID) (EntPhysicalTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entPhysicalTableIndexShapes) {
+		return EntPhysicalTableKey{}, false
+	}
+	return EntPhysicalTableKey{EntPhysicalIndex: PhysicalIndex(parts[0].Integer)}, true
+}
+
+// EntPhysicalTableRow is one row of entPhysicalTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [EntPhysicalTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [EntPhysicalTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type EntPhysicalTableRow struct {
-	Index                   snmp.OID
+	Key                     EntPhysicalTableKey
+	keyValid                bool
 	EntPhysicalDescr        []byte
 	EntPhysicalVendorType   snmp.OID
 	EntPhysicalContainedIn  int32
@@ -460,6 +493,13 @@ type EntPhysicalTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r EntPhysicalTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -521,10 +561,13 @@ type EntPhysicalTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow] {
 	return func(yield func(snmp.OID, EntPhysicalTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := EntPhysicalTableRow{Index: idx}
+			var row EntPhysicalTableRow
+			row.Key, row.keyValid = decodeEntPhysicalTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -816,6 +859,18 @@ func (t entPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (entPhysicalTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: EntPhysicalTableIndicator,
+		KeyType:   "EntPhysicalTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (entPhysicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntPhysicalTableWalker {
@@ -849,7 +904,7 @@ func (entPhysicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 // ignored. Absent columns leave their field at its zero value.
 func decodeEntPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhysicalTableRow, error) {
 	var row EntPhysicalTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeEntPhysicalTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -999,7 +1054,7 @@ func decodeEntPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhysicalTab
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntPhysicalTableRow(a EntPhysicalTableRow, b EntPhysicalTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && bytes.Equal(a.EntPhysicalDescr, b.EntPhysicalDescr) && a.EntPhysicalVendorType.Equal(b.EntPhysicalVendorType) && a.EntPhysicalContainedIn == b.EntPhysicalContainedIn && a.EntPhysicalClass == b.EntPhysicalClass && a.EntPhysicalParentRelPos == b.EntPhysicalParentRelPos && bytes.Equal(a.EntPhysicalName, b.EntPhysicalName) && bytes.Equal(a.EntPhysicalHardwareRev, b.EntPhysicalHardwareRev) && bytes.Equal(a.EntPhysicalFirmwareRev, b.EntPhysicalFirmwareRev) && bytes.Equal(a.EntPhysicalSoftwareRev, b.EntPhysicalSoftwareRev) && bytes.Equal(a.EntPhysicalSerialNum, b.EntPhysicalSerialNum) && bytes.Equal(a.EntPhysicalMfgName, b.EntPhysicalMfgName) && bytes.Equal(a.EntPhysicalModelName, b.EntPhysicalModelName) && bytes.Equal(a.EntPhysicalAlias, b.EntPhysicalAlias) && bytes.Equal(a.EntPhysicalAssetID, b.EntPhysicalAssetID) && a.EntPhysicalIsFRU == b.EntPhysicalIsFRU && a.EntPhysicalMfgDate.Equal(b.EntPhysicalMfgDate) && bytes.Equal(a.EntPhysicalUris, b.EntPhysicalUris) && bytes.Equal(a.EntPhysicalUUID, b.EntPhysicalUUID)
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && bytes.Equal(a.EntPhysicalDescr, b.EntPhysicalDescr) && a.EntPhysicalVendorType.Equal(b.EntPhysicalVendorType) && a.EntPhysicalContainedIn == b.EntPhysicalContainedIn && a.EntPhysicalClass == b.EntPhysicalClass && a.EntPhysicalParentRelPos == b.EntPhysicalParentRelPos && bytes.Equal(a.EntPhysicalName, b.EntPhysicalName) && bytes.Equal(a.EntPhysicalHardwareRev, b.EntPhysicalHardwareRev) && bytes.Equal(a.EntPhysicalFirmwareRev, b.EntPhysicalFirmwareRev) && bytes.Equal(a.EntPhysicalSoftwareRev, b.EntPhysicalSoftwareRev) && bytes.Equal(a.EntPhysicalSerialNum, b.EntPhysicalSerialNum) && bytes.Equal(a.EntPhysicalMfgName, b.EntPhysicalMfgName) && bytes.Equal(a.EntPhysicalModelName, b.EntPhysicalModelName) && bytes.Equal(a.EntPhysicalAlias, b.EntPhysicalAlias) && bytes.Equal(a.EntPhysicalAssetID, b.EntPhysicalAssetID) && a.EntPhysicalIsFRU == b.EntPhysicalIsFRU && a.EntPhysicalMfgDate.Equal(b.EntPhysicalMfgDate) && bytes.Equal(a.EntPhysicalUris, b.EntPhysicalUris) && bytes.Equal(a.EntPhysicalUUID, b.EntPhysicalUUID)
 }
 
 // mergeEntPhysicalTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1308,15 +1363,35 @@ var EntLogicalContextName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1
 	return snmp.DecodeBytes(vb)
 })
 
-// EntLogicalTableRow is one row of entLogicalTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// EntLogicalTableKey is the decoded INDEX of one entLogicalTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type EntLogicalTableKey struct {
+	EntLogicalIndex int32
+}
+
+var entLogicalTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeEntLogicalTableKey decodes the instance suffix of one entLogicalTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeEntLogicalTableKey(idx snmp.OID) (EntLogicalTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entLogicalTableIndexShapes) {
+		return EntLogicalTableKey{}, false
+	}
+	return EntLogicalTableKey{EntLogicalIndex: int32(parts[0].Integer)}, true
+}
+
+// EntLogicalTableRow is one row of entLogicalTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [EntLogicalTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [EntLogicalTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type EntLogicalTableRow struct {
-	Index                     snmp.OID
+	Key                       EntLogicalTableKey
+	keyValid                  bool
 	EntLogicalDescr           []byte
 	EntLogicalType            snmp.OID
 	EntLogicalCommunity       []byte
@@ -1329,6 +1404,13 @@ type EntLogicalTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r EntLogicalTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1368,10 +1450,13 @@ type EntLogicalTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *EntLogicalTableWalker) Iter() iter.Seq2[snmp.OID, EntLogicalTableRow] {
 	return func(yield func(snmp.OID, EntLogicalTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := EntLogicalTableRow{Index: idx}
+			var row EntLogicalTableRow
+			row.Key, row.keyValid = decodeEntLogicalTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1505,6 +1590,18 @@ func (t entLogicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...s
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (entLogicalTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: EntLogicalTableIndicator,
+		KeyType:   "EntLogicalTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (entLogicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntLogicalTableWalker {
@@ -1538,7 +1635,7 @@ func (entLogicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 // ignored. Absent columns leave their field at its zero value.
 func decodeEntLogicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLogicalTableRow, error) {
 	var row EntLogicalTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeEntLogicalTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -1611,7 +1708,7 @@ func decodeEntLogicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLogicalTable
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntLogicalTableRow(a EntLogicalTableRow, b EntLogicalTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && bytes.Equal(a.EntLogicalDescr, b.EntLogicalDescr) && a.EntLogicalType.Equal(b.EntLogicalType) && bytes.Equal(a.EntLogicalCommunity, b.EntLogicalCommunity) && bytes.Equal(a.EntLogicalTAddress, b.EntLogicalTAddress) && a.EntLogicalTDomain.Equal(b.EntLogicalTDomain) && bytes.Equal(a.EntLogicalContextEngineID, b.EntLogicalContextEngineID) && bytes.Equal(a.EntLogicalContextName, b.EntLogicalContextName)
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && bytes.Equal(a.EntLogicalDescr, b.EntLogicalDescr) && a.EntLogicalType.Equal(b.EntLogicalType) && bytes.Equal(a.EntLogicalCommunity, b.EntLogicalCommunity) && bytes.Equal(a.EntLogicalTAddress, b.EntLogicalTAddress) && a.EntLogicalTDomain.Equal(b.EntLogicalTDomain) && bytes.Equal(a.EntLogicalContextEngineID, b.EntLogicalContextEngineID) && bytes.Equal(a.EntLogicalContextName, b.EntLogicalContextName)
 }
 
 // mergeEntLogicalTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1756,25 +1853,57 @@ func (entLogicalTableT) Watch(ctx context.Context, sess snmp.Session, cols []snm
 // EntLPPhysicalIndex is the column entLPPhysicalIndex of table entLPMappingTable.
 // The value of this object identifies the index value of a particular
 // entPhysicalEntry associated with the indicated entLogicalEntity.
-var EntLPPhysicalIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
+var EntLPPhysicalIndex = snmp.NewColumn[PhysicalIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (PhysicalIndex, error) {
+	v, err := snmp.DecodeInt32(vb)
+	if err != nil {
+		return PhysicalIndex(0), err
+	}
+	return PhysicalIndex(v), nil
 })
 
-// EntLPMappingTableRow is one row of entLPMappingTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// EntLPMappingTableKey is the decoded INDEX of one entLPMappingTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type EntLPMappingTableKey struct {
+	EntLogicalIndex    int32
+	EntLPPhysicalIndex PhysicalIndex
+}
+
+var entLPMappingTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeEntLPMappingTableKey decodes the instance suffix of one entLPMappingTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeEntLPMappingTableKey(idx snmp.OID) (EntLPMappingTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entLPMappingTableIndexShapes) {
+		return EntLPMappingTableKey{}, false
+	}
+	return EntLPMappingTableKey{EntLogicalIndex: int32(parts[0].Integer), EntLPPhysicalIndex: PhysicalIndex(parts[1].Integer)}, true
+}
+
+// EntLPMappingTableRow is one row of entLPMappingTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [EntLPMappingTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [EntLPMappingTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type EntLPMappingTableRow struct {
-	Index              snmp.OID
-	EntLPPhysicalIndex int32
+	Key                EntLPMappingTableKey
+	keyValid           bool
+	EntLPPhysicalIndex PhysicalIndex
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r EntLPMappingTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1802,17 +1931,20 @@ type EntLPMappingTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *EntLPMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntLPMappingTableRow] {
 	return func(yield func(snmp.OID, EntLPMappingTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := EntLPMappingTableRow{Index: idx}
+			var row EntLPMappingTableRow
+			row.Key, row.keyValid = decodeEntLPMappingTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
 				case EntLPPhysicalIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntLPPhysicalIndex = int32(v)
+						row.EntLPPhysicalIndex = PhysicalIndex(v)
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1866,6 +1998,18 @@ func (t entLPMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols ..
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (entLPMappingTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: EntLPMappingTableIndicator,
+		KeyType:   "EntLPMappingTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (entLPMappingTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntLPMappingTableWalker {
@@ -1899,7 +2043,7 @@ func (entLPMappingTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 // ignored. Absent columns leave their field at its zero value.
 func decodeEntLPMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLPMappingTableRow, error) {
 	var row EntLPMappingTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeEntLPMappingTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -1930,7 +2074,7 @@ func decodeEntLPMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLPMappingT
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntLPMappingTableRow(a EntLPMappingTableRow, b EntLPMappingTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntLPPhysicalIndex == b.EntLPPhysicalIndex
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.EntLPPhysicalIndex == b.EntLPPhysicalIndex
 }
 
 // mergeEntLPMappingTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2057,21 +2201,49 @@ var EntAliasMappingIdentifier = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1
 	return snmp.DecodeOID(vb)
 })
 
-// EntAliasMappingTableRow is one row of entAliasMappingTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// EntAliasMappingTableKey is the decoded INDEX of one entAliasMappingTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type EntAliasMappingTableKey struct {
+	EntPhysicalIndex           PhysicalIndex
+	EntAliasLogicalIndexOrZero int32
+}
+
+var entAliasMappingTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeEntAliasMappingTableKey decodes the instance suffix of one entAliasMappingTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeEntAliasMappingTableKey(idx snmp.OID) (EntAliasMappingTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entAliasMappingTableIndexShapes) {
+		return EntAliasMappingTableKey{}, false
+	}
+	return EntAliasMappingTableKey{EntPhysicalIndex: PhysicalIndex(parts[0].Integer), EntAliasLogicalIndexOrZero: int32(parts[1].Integer)}, true
+}
+
+// EntAliasMappingTableRow is one row of entAliasMappingTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [EntAliasMappingTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [EntAliasMappingTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type EntAliasMappingTableRow struct {
-	Index                     snmp.OID
+	Key                       EntAliasMappingTableKey
+	keyValid                  bool
 	EntAliasMappingIdentifier snmp.OID
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r EntAliasMappingTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2099,10 +2271,13 @@ type EntAliasMappingTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *EntAliasMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntAliasMappingTableRow] {
 	return func(yield func(snmp.OID, EntAliasMappingTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := EntAliasMappingTableRow{Index: idx}
+			var row EntAliasMappingTableRow
+			row.Key, row.keyValid = decodeEntAliasMappingTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2158,6 +2333,18 @@ func (t entAliasMappingTableT) Walk(ctx context.Context, sess snmp.Session, cols
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (entAliasMappingTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: EntAliasMappingTableIndicator,
+		KeyType:   "EntAliasMappingTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (entAliasMappingTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntAliasMappingTableWalker {
@@ -2191,7 +2378,7 @@ func (entAliasMappingTableT) WalkWithOptions(ctx context.Context, sess snmp.Sess
 // ignored. Absent columns leave their field at its zero value.
 func decodeEntAliasMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntAliasMappingTableRow, error) {
 	var row EntAliasMappingTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeEntAliasMappingTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -2222,7 +2409,7 @@ func decodeEntAliasMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntAliasMa
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntAliasMappingTableRow(a EntAliasMappingTableRow, b EntAliasMappingTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntAliasMappingIdentifier.Equal(b.EntAliasMappingIdentifier)
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.EntAliasMappingIdentifier.Equal(b.EntAliasMappingIdentifier)
 }
 
 // mergeEntAliasMappingTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2330,25 +2517,57 @@ func (entAliasMappingTableT) Watch(ctx context.Context, sess snmp.Session, cols 
 
 // EntPhysicalChildIndex is the column entPhysicalChildIndex of table entPhysicalContainsTable.
 // The value of entPhysicalIndex for the contained physical entity.
-var EntPhysicalChildIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
+var EntPhysicalChildIndex = snmp.NewColumn[PhysicalIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (PhysicalIndex, error) {
+	v, err := snmp.DecodeInt32(vb)
+	if err != nil {
+		return PhysicalIndex(0), err
+	}
+	return PhysicalIndex(v), nil
 })
 
-// EntPhysicalContainsTableRow is one row of entPhysicalContainsTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// EntPhysicalContainsTableKey is the decoded INDEX of one entPhysicalContainsTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type EntPhysicalContainsTableKey struct {
+	EntPhysicalIndex      PhysicalIndex
+	EntPhysicalChildIndex PhysicalIndex
+}
+
+var entPhysicalContainsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeEntPhysicalContainsTableKey decodes the instance suffix of one entPhysicalContainsTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeEntPhysicalContainsTableKey(idx snmp.OID) (EntPhysicalContainsTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entPhysicalContainsTableIndexShapes) {
+		return EntPhysicalContainsTableKey{}, false
+	}
+	return EntPhysicalContainsTableKey{EntPhysicalIndex: PhysicalIndex(parts[0].Integer), EntPhysicalChildIndex: PhysicalIndex(parts[1].Integer)}, true
+}
+
+// EntPhysicalContainsTableRow is one row of entPhysicalContainsTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [EntPhysicalContainsTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [EntPhysicalContainsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type EntPhysicalContainsTableRow struct {
-	Index                 snmp.OID
-	EntPhysicalChildIndex int32
+	Key                   EntPhysicalContainsTableKey
+	keyValid              bool
+	EntPhysicalChildIndex PhysicalIndex
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r EntPhysicalContainsTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2376,17 +2595,20 @@ type EntPhysicalContainsTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *EntPhysicalContainsTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalContainsTableRow] {
 	return func(yield func(snmp.OID, EntPhysicalContainsTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := EntPhysicalContainsTableRow{Index: idx}
+			var row EntPhysicalContainsTableRow
+			row.Key, row.keyValid = decodeEntPhysicalContainsTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
 				case EntPhysicalChildIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhysicalChildIndex = int32(v)
+						row.EntPhysicalChildIndex = PhysicalIndex(v)
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2440,6 +2662,18 @@ func (t entPhysicalContainsTableT) Walk(ctx context.Context, sess snmp.Session, 
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (entPhysicalContainsTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: EntPhysicalContainsTableIndicator,
+		KeyType:   "EntPhysicalContainsTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (entPhysicalContainsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntPhysicalContainsTableWalker {
@@ -2473,7 +2707,7 @@ func (entPhysicalContainsTableT) WalkWithOptions(ctx context.Context, sess snmp.
 // ignored. Absent columns leave their field at its zero value.
 func decodeEntPhysicalContainsTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhysicalContainsTableRow, error) {
 	var row EntPhysicalContainsTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeEntPhysicalContainsTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -2504,7 +2738,7 @@ func decodeEntPhysicalContainsTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhy
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntPhysicalContainsTableRow(a EntPhysicalContainsTableRow, b EntPhysicalContainsTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntPhysicalChildIndex == b.EntPhysicalChildIndex
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.EntPhysicalChildIndex == b.EntPhysicalChildIndex
 }
 
 // mergeEntPhysicalContainsTableRow merges the values decoded from vbs into dst, leaving fields

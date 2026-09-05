@@ -5,7 +5,7 @@ unresolved-declarations 25
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 124
+severity error 126
 severity minor 308
 severity change 0
 severity warning 0
@@ -22,3 +22,4 @@ diagnostic smi/range-outside-base-type error 5
 diagnostic smi/trailing-hyphen-identifier minor 9
 diagnostic smi/underscore-in-descriptor minor 9
 diagnostic smi/unresolved-declaration error 18
+diagnostic smi/unresolved-index-part error 2

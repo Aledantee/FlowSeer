@@ -175,6 +175,102 @@ func TestLoadModules_Real(t *testing.T) {
 	}
 }
 
+// writeMIB writes a minimal module declaring name under dir at file and
+// returns the path.
+func writeMIB(t *testing.T, dir, file, name string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, file)
+	src := name + " DEFINITIONS ::= BEGIN\n" +
+		"IMPORTS enterprises FROM SNMPv2-SMI;\n" +
+		strings.ToLower(strings.ReplaceAll(name, "-", "")) + " OBJECT IDENTIFIER ::= { enterprises 4711 }\n" +
+		"END\n"
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	return path
+}
+
+// TestLoadModules_FilePin: a pinned module is read from its file even
+// though a sibling file spelled after the module name sits on the search
+// path, and an unpinned module in the same config still resolves by
+// name.
+func TestLoadModules_FilePin(t *testing.T) {
+	dir := t.TempDir()
+	// The decoy is what name-based lookup would pick.
+	writeMIB(t, dir, "PINNED-MIB", "PINNED-MIB")
+	pinnedFile := writeMIB(t, dir, "PINNED-10-94.mib", "PINNED-MIB")
+	freeFile := writeMIB(t, dir, "FREE-MIB", "FREE-MIB")
+
+	cfg := &Config{
+		SearchPaths: []string{dir},
+		Modules: []Module{
+			{Name: "PINNED-MIB", Package: "pinned", File: pinnedFile},
+			{Name: "FREE-MIB", Package: "free"},
+		},
+	}
+	set, err := LoadModules(cfg)
+	if err != nil {
+		t.Fatalf("LoadModules: %v", err)
+	}
+	if mod, ok := set.Module("PINNED-MIB"); !ok || mod.File != pinnedFile {
+		t.Errorf("PINNED-MIB came from %q; want the pinned %q", mod.File, pinnedFile)
+	}
+	if mod, ok := set.Module("FREE-MIB"); !ok || mod.File != freeFile {
+		t.Errorf("FREE-MIB came from %q; want %q by name", mod.File, freeFile)
+	}
+}
+
+// TestLoadModules_FilePinWrongModule: a pin to a file that declares some
+// other module fails, naming the pin and where the name actually came
+// from, rather than quietly loading the search-path copy.
+func TestLoadModules_FilePinWrongModule(t *testing.T) {
+	dir := t.TempDir()
+	byName := writeMIB(t, dir, "PINNED-MIB", "PINNED-MIB")
+	wrong := writeMIB(t, dir, "SOMETHING-ELSE.mib", "SOMETHING-ELSE-MIB")
+
+	cfg := &Config{
+		SearchPaths: []string{dir},
+		Modules: []Module{
+			// The importer is what drags PINNED-MIB in from the search
+			// path, which is the case the post-load check exists for.
+			{Name: "IMPORTER-MIB", Package: "importer"},
+			{Name: "PINNED-MIB", Package: "pinned", File: wrong},
+		},
+	}
+	importer := "IMPORTER-MIB DEFINITIONS ::= BEGIN\n" +
+		"IMPORTS pinnedmib FROM PINNED-MIB;\n" +
+		"importermib OBJECT IDENTIFIER ::= { pinnedmib 1 }\n" +
+		"END\n"
+	if err := os.WriteFile(filepath.Join(dir, "IMPORTER-MIB"), []byte(importer), 0o644); err != nil {
+		t.Fatalf("write importer: %v", err)
+	}
+
+	_, err := LoadModules(cfg)
+	if err == nil {
+		t.Fatal("LoadModules succeeded; want a wrong-file error")
+	}
+	for _, want := range []string{"PINNED-MIB", "is pinned to " + wrong, "it came from " + byName} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err.Error(), want)
+		}
+	}
+}
+
+// TestLoadModules_FilePinMissingFile: a pin to a file that is not there
+// fails the load like a missing named module does.
+func TestLoadModules_FilePinMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{
+		SearchPaths: []string{dir},
+		Modules:     []Module{{Name: "GONE-MIB", Package: "gone", File: filepath.Join(dir, "GONE.mib")}},
+	}
+	if _, err := LoadModules(cfg); err == nil {
+		t.Fatal("LoadModules succeeded; want an error for the missing pinned file")
+	}
+}
+
 // TestLoadModules_NilConfig is a contract guard.
 func TestLoadModules_NilConfig(t *testing.T) {
 	_, err := LoadModules(nil)

@@ -47,13 +47,16 @@
 //
 // # What resolution refuses to invent
 //
-// INDEX, AUGMENTS and IMPLIED come back as the names the source wrote
-// and are not resolved into an index structure. That is settled rather
-// than pending: index decoding is generic at runtime and nothing
-// downstream reads the structure, so computing it would buy a pass
-// nobody reads.
+// INDEX, AUGMENTS and IMPLIED come back on a [Node] as the names the
+// source wrote. The [Table] built over the row resolves them: each
+// [IndexPart] carries the column it names and that column's type, and
+// [Table.AugmentsTable] is the augmented table, whose parts the
+// augmenting table inherits. A part or target nothing loaded declares
+// is graded and left flagged, and the table stays in the model with its
+// raw key, because a consumer that can see the table is better off than
+// one that cannot.
 //
-// [Node.Default] draws the same line one clause over. A DEFVAL comes
+// [Node.Default] draws a line one clause over. A DEFVAL comes
 // back as the value it names — a number, octets, an OID, a set of bit
 // names — and a descriptor comes back as the descriptor, because which
 // enumeration member or which registered node it stands for is a lookup

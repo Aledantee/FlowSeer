@@ -15,6 +15,7 @@ import (
 	"iter"
 	"time"
 
+	entitymib "go.aledante.io/FlowSeer/generated/go/mib/entitymib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -320,15 +321,35 @@ var EntStateStandby = snmp.NewColumn[EntityStandbyStatus](snmp.MustOID(1, 3, 6, 
 	return EntityStandbyStatus(v), nil
 })
 
-// EntStateTableRow is one row of entStateTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// EntStateTableKey is the decoded INDEX of one entStateTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type EntStateTableKey struct {
+	EntPhysicalIndex entitymib.PhysicalIndex
+}
+
+var entStateTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeEntStateTableKey decodes the instance suffix of one entStateTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeEntStateTableKey(idx snmp.OID) (EntStateTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entStateTableIndexShapes) {
+		return EntStateTableKey{}, false
+	}
+	return EntStateTableKey{EntPhysicalIndex: entitymib.PhysicalIndex(parts[0].Integer)}, true
+}
+
+// EntStateTableRow is one row of entStateTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [EntStateTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [EntStateTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type EntStateTableRow struct {
-	Index               snmp.OID
+	Key                 EntStateTableKey
+	keyValid            bool
 	EntStateLastChanged time.Time
 	EntStateAdmin       EntityAdminState
 	EntStateOper        EntityOperState
@@ -340,6 +361,13 @@ type EntStateTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r EntStateTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -377,10 +405,13 @@ type EntStateTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
 	return func(yield func(snmp.OID, EntStateTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := EntStateTableRow{Index: idx}
+			var row EntStateTableRow
+			row.Key, row.keyValid = decodeEntStateTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -521,6 +552,18 @@ func (t entStateTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snm
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (entStateTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: EntStateTableIndicator,
+		KeyType:   "EntStateTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (entStateTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntStateTableWalker {
@@ -554,7 +597,7 @@ func (entStateTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, op
 // ignored. Absent columns leave their field at its zero value.
 func decodeEntStateTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntStateTableRow, error) {
 	var row EntStateTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeEntStateTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -620,7 +663,7 @@ func decodeEntStateTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntStateTableRow,
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalEntStateTableRow(a EntStateTableRow, b EntStateTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm.Equal(b.EntStateAlarm) && a.EntStateStandby == b.EntStateStandby
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.EntStateLastChanged.Equal(b.EntStateLastChanged) && a.EntStateAdmin == b.EntStateAdmin && a.EntStateOper == b.EntStateOper && a.EntStateUsage == b.EntStateUsage && a.EntStateAlarm.Equal(b.EntStateAlarm) && a.EntStateStandby == b.EntStateStandby
 }
 
 // mergeEntStateTableRow merges the values decoded from vbs into dst, leaving fields

@@ -15,6 +15,7 @@ import (
 	"iter"
 	"time"
 
+	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -558,15 +559,35 @@ var Hh3cTransceiverRelySlotMfgDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3
 	return snmp.DecodeDateAndTime(vb)
 })
 
-// Hh3cTransceiverInfoTableRow is one row of hh3cTransceiverInfoTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Hh3cTransceiverInfoTableKey is the decoded INDEX of one hh3cTransceiverInfoTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Hh3cTransceiverInfoTableKey struct {
+	IfIndex ifmib.InterfaceIndex
+}
+
+var hh3cTransceiverInfoTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHh3cTransceiverInfoTableKey decodes the instance suffix of one hh3cTransceiverInfoTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHh3cTransceiverInfoTableKey(idx snmp.OID) (Hh3cTransceiverInfoTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hh3cTransceiverInfoTableIndexShapes) {
+		return Hh3cTransceiverInfoTableKey{}, false
+	}
+	return Hh3cTransceiverInfoTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// Hh3cTransceiverInfoTableRow is one row of hh3cTransceiverInfoTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Hh3cTransceiverInfoTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Hh3cTransceiverInfoTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Hh3cTransceiverInfoTableRow struct {
-	Index                            snmp.OID
+	Key                              Hh3cTransceiverInfoTableKey
+	keyValid                         bool
 	Hh3cTransceiverHardwareType      []byte
 	Hh3cTransceiverType              []byte
 	Hh3cTransceiverWaveLength        int32
@@ -633,6 +654,13 @@ type Hh3cTransceiverInfoTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Hh3cTransceiverInfoTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -780,10 +808,13 @@ type Hh3cTransceiverInfoTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransceiverInfoTableRow] {
 	return func(yield func(snmp.OID, Hh3cTransceiverInfoTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Hh3cTransceiverInfoTableRow{Index: idx}
+			var row Hh3cTransceiverInfoTableRow
+			row.Key, row.keyValid = decodeHh3cTransceiverInfoTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1859,6 +1890,17 @@ func (t hh3cTransceiverInfoTableT) Walk(ctx context.Context, sess snmp.Session, 
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hh3cTransceiverInfoTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Hh3cTransceiverInfoTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hh3cTransceiverInfoTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Hh3cTransceiverInfoTableWalker {
@@ -1948,15 +1990,36 @@ var Hh3cTransceiverChanTXPwrLoAmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6
 	return snmp.DecodeInt32(vb)
 })
 
-// Hh3cTransceiverChannelTableRow is one row of hh3cTransceiverChannelTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Hh3cTransceiverChannelTableKey is the decoded INDEX of one hh3cTransceiverChannelTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Hh3cTransceiverChannelTableKey struct {
+	IfIndex                     ifmib.InterfaceIndex
+	Hh3cTransceiverChannelIndex int32
+}
+
+var hh3cTransceiverChannelTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeHh3cTransceiverChannelTableKey decodes the instance suffix of one hh3cTransceiverChannelTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHh3cTransceiverChannelTableKey(idx snmp.OID) (Hh3cTransceiverChannelTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hh3cTransceiverChannelTableIndexShapes) {
+		return Hh3cTransceiverChannelTableKey{}, false
+	}
+	return Hh3cTransceiverChannelTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer), Hh3cTransceiverChannelIndex: int32(parts[1].Integer)}, true
+}
+
+// Hh3cTransceiverChannelTableRow is one row of hh3cTransceiverChannelTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Hh3cTransceiverChannelTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Hh3cTransceiverChannelTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Hh3cTransceiverChannelTableRow struct {
-	Index                             snmp.OID
+	Key                               Hh3cTransceiverChannelTableKey
+	keyValid                          bool
 	Hh3cTransceiverChannelCurTXPower  int32
 	Hh3cTransceiverChannelCurRXPower  int32
 	Hh3cTransceiverChannelTemperature int32
@@ -1972,6 +2035,13 @@ type Hh3cTransceiverChannelTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Hh3cTransceiverChannelTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2017,10 +2087,13 @@ type Hh3cTransceiverChannelTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransceiverChannelTableRow] {
 	return func(yield func(snmp.OID, Hh3cTransceiverChannelTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Hh3cTransceiverChannelTableRow{Index: idx}
+			var row Hh3cTransceiverChannelTableRow
+			row.Key, row.keyValid = decodeHh3cTransceiverChannelTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2243,6 +2316,17 @@ func (t hh3cTransceiverChannelTableT) Walk(ctx context.Context, sess snmp.Sessio
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hh3cTransceiverChannelTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Hh3cTransceiverChannelTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hh3cTransceiverChannelTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Hh3cTransceiverChannelTableWalker {
@@ -2284,15 +2368,36 @@ var Hh3cTransceiverITUChanWaveLth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 
 	return snmp.DecodeInt32(vb)
 })
 
-// Hh3cTransceiverITUChanTableRow is one row of hh3cTransceiverITUChanTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Hh3cTransceiverITUChanTableKey is the decoded INDEX of one hh3cTransceiverITUChanTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Hh3cTransceiverITUChanTableKey struct {
+	IfIndex                   ifmib.InterfaceIndex
+	Hh3cTransceiverITUChanIdx uint32
+}
+
+var hh3cTransceiverITUChanTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeHh3cTransceiverITUChanTableKey decodes the instance suffix of one hh3cTransceiverITUChanTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHh3cTransceiverITUChanTableKey(idx snmp.OID) (Hh3cTransceiverITUChanTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hh3cTransceiverITUChanTableIndexShapes) {
+		return Hh3cTransceiverITUChanTableKey{}, false
+	}
+	return Hh3cTransceiverITUChanTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer), Hh3cTransceiverITUChanIdx: parts[1].Integer}, true
+}
+
+// Hh3cTransceiverITUChanTableRow is one row of hh3cTransceiverITUChanTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Hh3cTransceiverITUChanTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Hh3cTransceiverITUChanTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Hh3cTransceiverITUChanTableRow struct {
-	Index                         snmp.OID
+	Key                           Hh3cTransceiverITUChanTableKey
+	keyValid                      bool
 	Hh3cTransceiverITUChanFreq    int32
 	Hh3cTransceiverITUChanWaveLth int32
 
@@ -2300,6 +2405,13 @@ type Hh3cTransceiverITUChanTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Hh3cTransceiverITUChanTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2329,10 +2441,13 @@ type Hh3cTransceiverITUChanTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Hh3cTransceiverITUChanTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransceiverITUChanTableRow] {
 	return func(yield func(snmp.OID, Hh3cTransceiverITUChanTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Hh3cTransceiverITUChanTableRow{Index: idx}
+			var row Hh3cTransceiverITUChanTableRow
+			row.Key, row.keyValid = decodeHh3cTransceiverITUChanTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2411,6 +2526,17 @@ func (t hh3cTransceiverITUChanTableT) Walk(ctx context.Context, sess snmp.Sessio
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hh3cTransceiverITUChanTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Hh3cTransceiverITUChanTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hh3cTransceiverITUChanTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Hh3cTransceiverITUChanTableWalker {
@@ -2458,15 +2584,35 @@ var Hh3cTransceiverLaneBiasCurrent = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6
 	return snmp.DecodeBytes(vb)
 })
 
-// Hh3cTransceiverLaneTableRow is one row of hh3cTransceiverLaneTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Hh3cTransceiverLaneTableKey is the decoded INDEX of one hh3cTransceiverLaneTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Hh3cTransceiverLaneTableKey struct {
+	IfIndex ifmib.InterfaceIndex
+}
+
+var hh3cTransceiverLaneTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHh3cTransceiverLaneTableKey decodes the instance suffix of one hh3cTransceiverLaneTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHh3cTransceiverLaneTableKey(idx snmp.OID) (Hh3cTransceiverLaneTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hh3cTransceiverLaneTableIndexShapes) {
+		return Hh3cTransceiverLaneTableKey{}, false
+	}
+	return Hh3cTransceiverLaneTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// Hh3cTransceiverLaneTableRow is one row of hh3cTransceiverLaneTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Hh3cTransceiverLaneTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Hh3cTransceiverLaneTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Hh3cTransceiverLaneTableRow struct {
-	Index                          snmp.OID
+	Key                            Hh3cTransceiverLaneTableKey
+	keyValid                       bool
 	Hh3cTransceiverLaneCurTxPower  []byte
 	Hh3cTransceiverLaneCurRxPower  []byte
 	Hh3cTransceiverLaneBiasCurrent []byte
@@ -2475,6 +2621,13 @@ type Hh3cTransceiverLaneTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Hh3cTransceiverLaneTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2506,10 +2659,13 @@ type Hh3cTransceiverLaneTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Hh3cTransceiverLaneTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransceiverLaneTableRow] {
 	return func(yield func(snmp.OID, Hh3cTransceiverLaneTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Hh3cTransceiverLaneTableRow{Index: idx}
+			var row Hh3cTransceiverLaneTableRow
+			row.Key, row.keyValid = decodeHh3cTransceiverLaneTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2589,6 +2745,17 @@ func (tw *Hh3cTransceiverLaneTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t hh3cTransceiverLaneTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Hh3cTransceiverLaneTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hh3cTransceiverLaneTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Hh3cTransceiverLaneTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 4),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

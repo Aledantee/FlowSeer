@@ -1,0 +1,45 @@
+edition = "2024";
+
+// The proof of possession an edge gives when it registers a key, at
+// enrollment and at rekey. Same shape as the assertion envelope: the
+// verifier checks the signature over the payload bytes as received.
+package flowseer.api.edge.v1;
+
+import option "buf/validate/validate.proto";
+
+// What the new key signs: itself, bound to the enrollment or the call that
+// registers it.
+message KeyProofPayload {
+  // The Ed25519 public key being registered, 32 bytes. Must be present.
+  bytes public_key = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 32
+  ];
+
+  // What the registration is bound to. Must be present.
+  oneof binding {
+    option (buf.validate.oneof).required = true;
+
+    // At enrollment: the identifier segment of the setup key being consumed.
+    string setup_key_id = 2 [(buf.validate.field).string.pattern = "^[a-z2-7]{26}$"];
+    // At rekey: the nonce of the assertion carried on the same call.
+    bytes assertion_nonce = 3 [(buf.validate.field).bytes.len = 16];
+  }
+}
+
+// A serialized KeyProofPayload and the signature by the key it names.
+message KeyProof {
+  // The serialized KeyProofPayload, signed as these exact bytes. Must be
+  // present.
+  bytes payload = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.min_len = 1,
+    (buf.validate.field).bytes.max_len = 1024
+  ];
+  // Ed25519 signature over payload by the public key inside it, 64 bytes.
+  // Must be present.
+  bytes signature = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 64
+  ];
+}

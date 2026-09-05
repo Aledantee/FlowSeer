@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"iter"
 
+	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -197,8 +198,12 @@ const (
 // An index value that uniquely identifies an interface to an ethernet-like
 // medium. The interface identified by a particular value of this index is
 // the same interface as identified by the same value of ifIndex.
-var Dot3StatsIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
+var Dot3StatsIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
+	v, err := snmp.DecodeInt32(vb)
+	if err != nil {
+		return ifmib.InterfaceIndex(0), err
+	}
+	return ifmib.InterfaceIndex(v), nil
 })
 
 // Dot3StatsAlignmentErrors is the column dot3StatsAlignmentErrors of table dot3StatsTable.
@@ -500,16 +505,36 @@ var Dot3StatsRateControlStatus = snmp.NewColumn[Dot3StatsRateControlStatusValue]
 	return Dot3StatsRateControlStatusValue(v), nil
 })
 
-// Dot3StatsTableRow is one row of dot3StatsTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Dot3StatsTableKey is the decoded INDEX of one dot3StatsTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Dot3StatsTableKey struct {
+	Dot3StatsIndex ifmib.InterfaceIndex
+}
+
+var dot3StatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeDot3StatsTableKey decodes the instance suffix of one dot3StatsTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDot3StatsTableKey(idx snmp.OID) (Dot3StatsTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot3StatsTableIndexShapes) {
+		return Dot3StatsTableKey{}, false
+	}
+	return Dot3StatsTableKey{Dot3StatsIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// Dot3StatsTableRow is one row of dot3StatsTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Dot3StatsTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Dot3StatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Dot3StatsTableRow struct {
-	Index                              snmp.OID
-	Dot3StatsIndex                     int32
+	Key                                Dot3StatsTableKey
+	keyValid                           bool
+	Dot3StatsIndex                     ifmib.InterfaceIndex
 	Dot3StatsAlignmentErrors           uint32
 	Dot3StatsFCSErrors                 uint32
 	Dot3StatsSingleCollisionFrames     uint32
@@ -532,6 +557,13 @@ type Dot3StatsTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Dot3StatsTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -593,17 +625,20 @@ type Dot3StatsTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 	return func(yield func(snmp.OID, Dot3StatsTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Dot3StatsTableRow{Index: idx}
+			var row Dot3StatsTableRow
+			row.Key, row.keyValid = decodeDot3StatsTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
 				case Dot3StatsIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot3StatsIndex = int32(v)
+						row.Dot3StatsIndex = ifmib.InterfaceIndex(v)
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -953,6 +988,17 @@ func (t dot3StatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dot3StatsTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Dot3StatsTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (dot3StatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot3StatsTableWalker {
@@ -996,21 +1042,49 @@ var Dot3CollFrequencies = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 	return snmp.DecodeUint32(vb)
 })
 
-// Dot3CollTableRow is one row of dot3CollTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Dot3CollTableKey is the decoded INDEX of one dot3CollTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Dot3CollTableKey struct {
+	IfIndex       ifmib.InterfaceIndex
+	Dot3CollCount int32
+}
+
+var dot3CollTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeDot3CollTableKey decodes the instance suffix of one dot3CollTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDot3CollTableKey(idx snmp.OID) (Dot3CollTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot3CollTableIndexShapes) {
+		return Dot3CollTableKey{}, false
+	}
+	return Dot3CollTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer), Dot3CollCount: int32(parts[1].Integer)}, true
+}
+
+// Dot3CollTableRow is one row of dot3CollTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Dot3CollTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Dot3CollTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Dot3CollTableRow struct {
-	Index               snmp.OID
+	Key                 Dot3CollTableKey
+	keyValid            bool
 	Dot3CollFrequencies uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Dot3CollTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1038,10 +1112,13 @@ type Dot3CollTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Dot3CollTableWalker) Iter() iter.Seq2[snmp.OID, Dot3CollTableRow] {
 	return func(yield func(snmp.OID, Dot3CollTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Dot3CollTableRow{Index: idx}
+			var row Dot3CollTableRow
+			row.Key, row.keyValid = decodeDot3CollTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1100,6 +1177,17 @@ func (tw *Dot3CollTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot3CollTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot3CollTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dot3CollTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Dot3CollTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 5),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
@@ -1162,15 +1250,35 @@ var Dot3HCControlInUnknownOpcodes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6,
 	return snmp.DecodeUint64(vb)
 })
 
-// Dot3ControlTableRow is one row of dot3ControlTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Dot3ControlTableKey is the decoded INDEX of one dot3ControlTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Dot3ControlTableKey struct {
+	Dot3StatsIndex ifmib.InterfaceIndex
+}
+
+var dot3ControlTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeDot3ControlTableKey decodes the instance suffix of one dot3ControlTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDot3ControlTableKey(idx snmp.OID) (Dot3ControlTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot3ControlTableIndexShapes) {
+		return Dot3ControlTableKey{}, false
+	}
+	return Dot3ControlTableKey{Dot3StatsIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// Dot3ControlTableRow is one row of dot3ControlTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Dot3ControlTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Dot3ControlTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Dot3ControlTableRow struct {
-	Index                         snmp.OID
+	Key                           Dot3ControlTableKey
+	keyValid                      bool
 	Dot3ControlFunctionsSupported snmp.BitSet
 	Dot3ControlInUnknownOpcodes   uint32
 	Dot3HCControlInUnknownOpcodes uint64
@@ -1179,6 +1287,13 @@ type Dot3ControlTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Dot3ControlTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1210,10 +1325,13 @@ type Dot3ControlTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Dot3ControlTableWalker) Iter() iter.Seq2[snmp.OID, Dot3ControlTableRow] {
 	return func(yield func(snmp.OID, Dot3ControlTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Dot3ControlTableRow{Index: idx}
+			var row Dot3ControlTableRow
+			row.Key, row.keyValid = decodeDot3ControlTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1303,6 +1421,17 @@ func (tw *Dot3ControlTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot3ControlTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot3ControlTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dot3ControlTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Dot3ControlTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 9),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
@@ -1433,15 +1562,35 @@ var Dot3HCOutPauseFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1,
 	return snmp.DecodeUint64(vb)
 })
 
-// Dot3PauseTableRow is one row of dot3PauseTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Dot3PauseTableKey is the decoded INDEX of one dot3PauseTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Dot3PauseTableKey struct {
+	Dot3StatsIndex ifmib.InterfaceIndex
+}
+
+var dot3PauseTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeDot3PauseTableKey decodes the instance suffix of one dot3PauseTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDot3PauseTableKey(idx snmp.OID) (Dot3PauseTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot3PauseTableIndexShapes) {
+		return Dot3PauseTableKey{}, false
+	}
+	return Dot3PauseTableKey{Dot3StatsIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// Dot3PauseTableRow is one row of dot3PauseTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Dot3PauseTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Dot3PauseTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Dot3PauseTableRow struct {
-	Index                snmp.OID
+	Key                  Dot3PauseTableKey
+	keyValid             bool
 	Dot3PauseAdminMode   Dot3PauseAdminModeValue
 	Dot3PauseOperMode    Dot3PauseOperModeValue
 	Dot3InPauseFrames    uint32
@@ -1453,6 +1602,13 @@ type Dot3PauseTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Dot3PauseTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1490,10 +1646,13 @@ type Dot3PauseTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Dot3PauseTableWalker) Iter() iter.Seq2[snmp.OID, Dot3PauseTableRow] {
 	return func(yield func(snmp.OID, Dot3PauseTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Dot3PauseTableRow{Index: idx}
+			var row Dot3PauseTableRow
+			row.Key, row.keyValid = decodeDot3PauseTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1644,6 +1803,17 @@ func (t dot3PauseTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dot3PauseTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Dot3PauseTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (dot3PauseTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot3PauseTableWalker {
@@ -1790,15 +1960,35 @@ var Dot3HCStatsSymbolErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2,
 	return snmp.DecodeUint64(vb)
 })
 
-// Dot3HCStatsTableRow is one row of dot3HCStatsTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// Dot3HCStatsTableKey is the decoded INDEX of one dot3HCStatsTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type Dot3HCStatsTableKey struct {
+	Dot3StatsIndex ifmib.InterfaceIndex
+}
+
+var dot3HCStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeDot3HCStatsTableKey decodes the instance suffix of one dot3HCStatsTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeDot3HCStatsTableKey(idx snmp.OID) (Dot3HCStatsTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot3HCStatsTableIndexShapes) {
+		return Dot3HCStatsTableKey{}, false
+	}
+	return Dot3HCStatsTableKey{Dot3StatsIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+}
+
+// Dot3HCStatsTableRow is one row of dot3HCStatsTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [Dot3HCStatsTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [Dot3HCStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type Dot3HCStatsTableRow struct {
-	Index                                snmp.OID
+	Key                                  Dot3HCStatsTableKey
+	keyValid                             bool
 	Dot3HCStatsAlignmentErrors           uint64
 	Dot3HCStatsFCSErrors                 uint64
 	Dot3HCStatsInternalMacTransmitErrors uint64
@@ -1810,6 +2000,13 @@ type Dot3HCStatsTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r Dot3HCStatsTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1847,10 +2044,13 @@ type Dot3HCStatsTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *Dot3HCStatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3HCStatsTableRow] {
 	return func(yield func(snmp.OID, Dot3HCStatsTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := Dot3HCStatsTableRow{Index: idx}
+			var row Dot3HCStatsTableRow
+			row.Key, row.keyValid = decodeDot3HCStatsTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1999,6 +2199,17 @@ func (tw *Dot3HCStatsTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t dot3HCStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot3HCStatsTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (dot3HCStatsTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "Dot3HCStatsTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

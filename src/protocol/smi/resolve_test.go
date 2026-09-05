@@ -445,11 +445,11 @@ ifDescr OBJECT-TYPE
 END
 `
 
-// A table's shape is read off the OID tree. Index structure is not
-// computed at all: index decoding is generic at runtime, so the columns
-// come back with the access their declarations gave them and the INDEX
-// clause comes back as the names the source wrote.
-func TestTableAssemblesWithoutComputingIndexStructure(t *testing.T) {
+// A table's shape is read off the OID tree: the columns come back with
+// the access their declarations gave them, and each INDEX part comes
+// back as the name the source wrote together with the column and type
+// it resolved to.
+func TestTableAssemblesAndResolvesItsIndex(t *testing.T) {
 	dir := t.TempDir()
 	writeMIB(t, dir, "TABLE-MIB", tableMIB)
 
@@ -483,10 +483,277 @@ func TestTableAssemblesWithoutComputingIndexStructure(t *testing.T) {
 		t.Errorf("ifIndex access = %s, want not-accessible", got)
 	}
 	if len(tbl.Index) != 1 || tbl.Index[0].Name != "ifIndex" || tbl.Index[0].Implied {
-		t.Errorf("index = %+v, want the single name ifIndex with no IMPLIED", tbl.Index)
+		t.Fatalf("index = %+v, want the single name ifIndex with no IMPLIED", tbl.Index)
+	}
+	part := tbl.Index[0]
+	if part.Unresolved || part.Node != node(t, set, "TABLE-MIB", "ifIndex") {
+		t.Errorf("index part = %+v, want it resolved to the ifIndex column", part)
+	}
+	if part.Type == nil || part.Type.Base != smi.BaseInteger32 {
+		t.Errorf("index part type = %+v, want the column's Integer32", part.Type)
 	}
 	if got := node(t, set, "TABLE-MIB", "ifDescr").OID.String(); got != "1.3.6.1.2.1.2.2.1.2" {
 		t.Errorf("ifDescr = %s, want 1.3.6.1.2.1.2.2.1.2", got)
+	}
+}
+
+// table returns the named table of a module, failing when the module
+// does not assemble one under that name.
+func table(t *testing.T, set *smi.ModuleSet, module, name string) *smi.Table {
+	t.Helper()
+
+	m, ok := set.Module(module)
+	if !ok {
+		t.Fatalf("module %s is not in the set", module)
+	}
+	for _, tbl := range m.Tables {
+		if tbl.Node.Name == name {
+			return tbl
+		}
+	}
+	t.Fatalf("%s assembles no table named %s", module, name)
+
+	return nil
+}
+
+// indexNames renders resolved index parts the way an assertion reads
+// them: the name, the node and type it resolved to, and the flags. A
+// type is named by its convention where the column wrote one and by its
+// base type otherwise, since a refined base type carries no name.
+func indexNames(parts []smi.IndexPart) string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		nodeName, typeName := "-", "-"
+		if p.Node != nil {
+			nodeName = p.Node.Module + "." + p.Node.Name
+		}
+		if p.Type != nil {
+			typeName = p.Type.Name
+			if typeName == "" {
+				typeName = p.Type.Base.String()
+			}
+		}
+		out = append(out, fmt.Sprintf("%s=%s:%s/implied=%t/unresolved=%t",
+			p.Name, nodeName, typeName, p.Implied, p.Unresolved))
+	}
+
+	return strings.Join(out, " ")
+}
+
+// loadIETF loads the named IETF modules out of the vendored corpus, with
+// the whole corpus on the search path the way the corpus tests do.
+func loadIETF(t *testing.T, modules ...string) *smi.ModuleSet {
+	t.Helper()
+
+	set, err := smi.Load(modules, smi.Options{SearchPaths: corpusSearchPaths(t)})
+	if err != nil {
+		t.Fatalf("loading %v: %v", modules, err)
+	}
+
+	return set
+}
+
+// RFC 2863's ifTable is the reference shape for a single-part index: the
+// part names a column whose SYNTAX is a textual convention, and the
+// resolved type is that convention rather than the Integer32 under it,
+// because a consumer joining tables on InterfaceIndex needs the name.
+func TestIFMIBIndexResolvesToTheInterfaceIndexConvention(t *testing.T) {
+	set := loadIETF(t, "IF-MIB")
+
+	tbl := table(t, set, "IF-MIB", "ifTable")
+	want := "ifIndex=IF-MIB.ifIndex:InterfaceIndex/implied=false/unresolved=false"
+	if got := indexNames(tbl.Index); got != want {
+		t.Errorf("ifTable index = %s, want %s", got, want)
+	}
+	if tbl.AugmentsTable != nil {
+		t.Errorf("ifTable augments %s, want nothing", tbl.AugmentsTable.Node.Name)
+	}
+}
+
+// RFC 2578 section 7.8.1 gives an augmenting row the augmented row's
+// index, so ifXTable links to ifTable and carries ifTable's resolved
+// parts rather than an empty list a consumer would have to chase.
+func TestAugmentingTableInheritsTheAugmentedIndex(t *testing.T) {
+	set := loadIETF(t, "IF-MIB")
+
+	base := table(t, set, "IF-MIB", "ifTable")
+	tbl := table(t, set, "IF-MIB", "ifXTable")
+	if tbl.Augments != "ifEntry" || tbl.AugmentsTable != base {
+		t.Fatalf("ifXTable augments %q -> %v, want ifEntry -> ifTable", tbl.Augments, tbl.AugmentsTable)
+	}
+	if got, want := indexNames(tbl.Index), indexNames(base.Index); got != want {
+		t.Errorf("ifXTable index = %s, want ifTable's %s", got, want)
+	}
+	if len(tbl.Row.Index) != 0 {
+		t.Errorf("ifXEntry INDEX as written = %+v, want none", tbl.Row.Index)
+	}
+}
+
+// Q-BRIDGE-MIB's dot1qTpFdbTable keys on two columns in a fixed order,
+// and the order is the wire order of the index suffix, so the parts come
+// back exactly as declared.
+func TestMultiPartIndexResolvesInDeclaredOrder(t *testing.T) {
+	set := loadIETF(t, "Q-BRIDGE-MIB")
+
+	tbl := table(t, set, "Q-BRIDGE-MIB", "dot1qTpFdbTable")
+	want := "dot1qFdbId=Q-BRIDGE-MIB.dot1qFdbId:Unsigned32/implied=false/unresolved=false " +
+		"dot1qTpFdbAddress=Q-BRIDGE-MIB.dot1qTpFdbAddress:MacAddress/implied=false/unresolved=false"
+	if got := indexNames(tbl.Index); got != want {
+		t.Errorf("dot1qTpFdbTable index = %s, want %s", got, want)
+	}
+}
+
+const impliedMIB = `IMPLIED-MIB DEFINITIONS ::= BEGIN
+
+acme OBJECT IDENTIFIER ::= { iso 3 6 1 4 1 47100 }
+
+nameTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF NameEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Rows keyed by a name."
+    ::= { acme 1 }
+
+nameEntry OBJECT-TYPE
+    SYNTAX      NameEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One named row."
+    INDEX       { nameSlot, IMPLIED nameLabel }
+    ::= { nameTable 1 }
+
+NameEntry ::= SEQUENCE {
+    nameSlot  Integer32,
+    nameLabel OCTET STRING
+}
+
+nameSlot OBJECT-TYPE
+    SYNTAX      Integer32 (1..16)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The slot."
+    ::= { nameEntry 1 }
+
+nameLabel OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (1..32))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The label."
+    ::= { nameEntry 2 }
+
+END
+`
+
+// RFC 2578 section 7.7 lets the last index part be IMPLIED, which
+// changes how its length is carried on the wire and nothing about which
+// column it is, so the flag and the resolution come back together.
+func TestImpliedIndexPartResolvesWithTheFlag(t *testing.T) {
+	dir := t.TempDir()
+	writeMIB(t, dir, "IMPLIED-MIB", impliedMIB)
+
+	set := loadIn(t, dir, "IMPLIED-MIB")
+
+	tbl := table(t, set, "IMPLIED-MIB", "nameTable")
+	want := "nameSlot=IMPLIED-MIB.nameSlot:Integer32/implied=false/unresolved=false " +
+		"nameLabel=IMPLIED-MIB.nameLabel:OCTET STRING/implied=true/unresolved=false"
+	if got := indexNames(tbl.Index); got != want {
+		t.Errorf("nameTable index = %s, want %s", got, want)
+	}
+}
+
+const keyedByImportMIB = `KEYED-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    ifIndex
+        FROM TABLE-MIB;
+
+acme OBJECT IDENTIFIER ::= { iso 3 6 1 4 1 47100 }
+
+ifColorTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF IfColorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A color per interface."
+    ::= { acme 1 }
+
+ifColorEntry OBJECT-TYPE
+    SYNTAX      IfColorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "One interface's color, keyed by the imported ifIndex."
+    INDEX       { ifIndex }
+    ::= { ifColorTable 1 }
+
+IfColorEntry ::= SEQUENCE {
+    ifColor OCTET STRING
+}
+
+ifColor OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The color."
+    ::= { ifColorEntry 1 }
+
+END
+`
+
+// An INDEX part may name a column another module declares, which is how
+// a vendor table keys on ifIndex. The part follows the IMPORTS clause to
+// the module that declares it, the same way an OID parent does.
+func TestIndexPartResolvesThroughImports(t *testing.T) {
+	dir := t.TempDir()
+	writeMIB(t, dir, "TABLE-MIB", tableMIB)
+	writeMIB(t, dir, "KEYED-MIB", keyedByImportMIB)
+
+	set := loadIn(t, dir, "KEYED-MIB")
+	if hasCode(set, smi.ErrCodeMissingImport) {
+		t.Error("the part is imported, and the load graded it as used without an import")
+	}
+
+	tbl := table(t, set, "KEYED-MIB", "ifColorTable")
+	want := "ifIndex=TABLE-MIB.ifIndex:Integer32/implied=false/unresolved=false"
+	if got := indexNames(tbl.Index); got != want {
+		t.Errorf("ifColorTable index = %s, want %s", got, want)
+	}
+}
+
+// A part nothing declares cannot be resolved, and the table has to stay
+// in the model with the part flagged: a consumer that can see the table
+// and its raw key is better off than one that cannot.
+func TestUnknownIndexPartStaysFlagged(t *testing.T) {
+	set := loadFixtureDir(t, filepath.Join(malformedDir, "unresolved-index-part"))
+
+	if n := codeCount(set, smi.ErrCodeUnresolvedIndexPart); n != 1 {
+		t.Errorf("unresolved-index-part raised %d times, want once", n)
+	}
+
+	tbl := table(t, set, "BAD-MIB", "slotTable")
+	want := "nowhere=-:-/implied=false/unresolved=true"
+	if got := indexNames(tbl.Index); got != want {
+		t.Errorf("slotTable index = %s, want %s", got, want)
+	}
+	if tbl.Row.Unresolved {
+		t.Error("the row fell with its index part, though the declaration itself is whole")
+	}
+}
+
+// An AUGMENTS target in a module that is not loaded leaves the table in
+// the model with the raw target name and no link, so a consumer can see
+// what it augments even though the key cannot be inherited.
+func TestAugmentsOfAnUnloadedRowStaysUnlinked(t *testing.T) {
+	set := loadFixtureDir(t, filepath.Join(malformedDir, "unresolved-augments"))
+
+	if n := codeCount(set, smi.ErrCodeUnresolvedAugments); n != 1 {
+		t.Errorf("unresolved-augments raised %d times, want once", n)
+	}
+
+	tbl := table(t, set, "BAD-MIB", "slotXTable")
+	if tbl.Augments != "ifEntry" || tbl.AugmentsTable != nil {
+		t.Errorf("slotXTable augments %q -> %v, want ifEntry -> nil", tbl.Augments, tbl.AugmentsTable)
+	}
+	if len(tbl.Index) != 0 {
+		t.Errorf("slotXTable index = %+v, want none", tbl.Index)
 	}
 }
 
@@ -758,7 +1025,8 @@ func digest(set *smi.ModuleSet) string {
 			fmt.Fprintf(&b, "  type %s %s %q\n", ty.Name, ty.Base, ty.DisplayHint)
 		}
 		for _, tbl := range m.Tables {
-			fmt.Fprintf(&b, "  table %s row %v\n", tbl.Node.Name, tbl.Row != nil)
+			fmt.Fprintf(&b, "  table %s row %v augments %v index %s\n",
+				tbl.Node.Name, tbl.Row != nil, tbl.AugmentsTable != nil, indexNames(tbl.Index))
 			for _, c := range tbl.Columns {
 				fmt.Fprintf(&b, "    column %s %s\n", c.Name, c.OID)
 			}

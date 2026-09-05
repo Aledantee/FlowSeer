@@ -1,0 +1,92 @@
+FAKE-NOIMPORT-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    OBJECT-TYPE, MODULE-IDENTITY, Integer32
+        FROM SNMPv2-SMI
+    DisplayString
+        FROM SNMPv2-TC
+    fakeKeyIndex
+        FROM FAKE-KEYS-MIB;
+
+-- FakeKeyIndex is used below without being imported from FAKE-KEYS-MIB.
+-- The resolver still finds it once that module is loaded; the generator
+-- must not, so both the key field and the column render without it.
+-- fakeKeyIndex, the column, is imported: a table indexed by it names
+-- the row it extends the way ENTITY-SENSOR-MIB names entPhysicalIndex,
+-- and that import is the edge that lets its key field carry the type.
+
+fakeNoImportMIB MODULE-IDENTITY
+    LAST-UPDATED "202609050000Z"
+    ORGANIZATION "FlowSeer Test"
+    CONTACT-INFO "test"
+    DESCRIPTION  "Uses a keyed convention it never imports."
+    ::= { 1 3 6 1 4 1 99999 3 }
+
+fakeNoImportTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeNoImportEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table keyed and referenced by an unimported convention."
+    ::= { fakeNoImportMIB 1 }
+
+fakeNoImportEntry OBJECT-TYPE
+    SYNTAX      FakeNoImportEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeNoImportTable."
+    INDEX { fakeNoImportIndex }
+    ::= { fakeNoImportTable 1 }
+
+FakeNoImportEntry ::= SEQUENCE {
+    fakeNoImportIndex   FakeKeyIndex,
+    fakeNoImportName    DisplayString,
+    fakeNoImportRef     FakeKeyIndex
+}
+
+fakeNoImportIndex OBJECT-TYPE
+    SYNTAX      FakeKeyIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row index typed by the unimported convention."
+    ::= { fakeNoImportEntry 1 }
+
+fakeNoImportName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Name."
+    ::= { fakeNoImportEntry 2 }
+
+fakeNoImportRef OBJECT-TYPE
+    SYNTAX      FakeKeyIndex
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A reference typed by the unimported convention."
+    ::= { fakeNoImportEntry 3 }
+
+fakeNoImportByKeyTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeNoImportByKeyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table indexed by the imported column of fakeKeyTable."
+    ::= { fakeNoImportMIB 2 }
+
+fakeNoImportByKeyEntry OBJECT-TYPE
+    SYNTAX      FakeNoImportByKeyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeNoImportByKeyTable, one per fakeKeyTable row."
+    INDEX { fakeKeyIndex }
+    ::= { fakeNoImportByKeyTable 1 }
+
+FakeNoImportByKeyEntry ::= SEQUENCE {
+    fakeNoImportByKeyValue  Integer32
+}
+
+fakeNoImportByKeyValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Value."
+    ::= { fakeNoImportByKeyEntry 1 }
+
+END

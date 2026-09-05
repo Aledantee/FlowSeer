@@ -280,21 +280,37 @@ func TestPanickingModuleIsRecordedAndTheRunContinues(t *testing.T) {
 	}
 }
 
-// TestConfiguredModulesFitGosmiBitsReconstruction checks which configured
-// modules' BITS positions can be reconstructed from gosmi's member lists.
+// gappedBitsModules lists the configured modules whose BITS positions are
+// known not to be reconstructible from gosmi's member lists. Each entry is
+// a deliberate decision to leave those declarations outside the oracle's
+// reach; LCOS-MIB declares its WLAN capability masks from the top bit
+// down. A module here that stops declaring gapped BITS fails the test, so
+// the list cannot outlive the reason for an entry.
+var gappedBitsModules = map[string]bool{
+	"LCOS-MIB": true,
+}
+
+// TestConfiguredModulesFitGosmiBitsReconstruction checks that every
+// configured module's BITS positions can be reconstructed from gosmi's
+// member lists, except in the modules [gappedBitsModules] allows.
 //
 // gosmi discards the numbers, so consecutive positions from zero are a
 // prerequisite for reconstructing them. This bounds comparisons with the
-// reference parser. mibgen emits the numbers retained by smi and supports gaps.
+// reference parser: a gapped declaration is one the differential suite
+// cannot check against gosmi. mibgen emits the numbers retained by smi and
+// supports gaps, so a gap is a fact about the oracle's reach, not a
+// defect. The test fails on a gap in a module not on the allowlist so that
+// configuring a new module with gapped BITS is a visible decision, not a
+// log line.
 func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
-	modules, searchPaths := mibgenModules(t)
+	modules, paths, searchPaths := mibgenModules(t)
 
-	set, err := smi.Load(modules, smi.Options{SearchPaths: searchPaths})
+	set, err := smi.LoadFiles(paths, smi.Options{SearchPaths: searchPaths})
 	if err != nil {
 		t.Fatalf("loading the configured modules: %v", err)
 	}
 
-	checked := 0
+	checked, uncovered := 0, 0
 	for _, name := range modules {
 		mod, ok := set.Module(name)
 		if !ok {
@@ -303,14 +319,26 @@ func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
 			continue
 		}
 
+		report := func(decl, gap string) {
+			uncovered++
+			msg := "%s.%s: %s; gosmi's member list cannot reconstruct these declared positions"
+			if gappedBitsModules[name] {
+				t.Logf(msg, name, decl, gap)
+			} else {
+				t.Errorf(msg+" (add the module to gappedBitsModules to accept that)", name, decl, gap)
+			}
+		}
+
+		gapped := false
+
 		for _, ty := range mod.Types {
 			if ty.Base != smi.BaseBits {
 				continue
 			}
 			checked++
 			if gap := numberingGap(ty.Members); gap != "" {
-				t.Errorf("%s.%s: %s; gosmi's member list cannot reconstruct these declared positions",
-					name, ty.Name, gap)
+				gapped = true
+				report(ty.Name, gap)
 			}
 		}
 
@@ -320,13 +348,24 @@ func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
 			}
 			checked++
 			if gap := numberingGap(n.Type.Members); gap != "" {
-				t.Errorf("%s.%s: %s; gosmi's member list cannot reconstruct these declared positions",
-					name, n.Name, gap)
+				gapped = true
+				report(n.Name, gap)
 			}
+		}
+
+		if gappedBitsModules[name] && !gapped {
+			t.Errorf("%s is listed in gappedBitsModules but declares no gapped BITS; remove the entry", name)
 		}
 	}
 
-	t.Logf("checked %d BITS types across %d configured modules", checked, len(modules))
+	for name := range gappedBitsModules {
+		if !slices.Contains(modules, name) {
+			t.Errorf("%s is listed in gappedBitsModules but is not configured; remove the entry", name)
+		}
+	}
+
+	t.Logf("checked %d BITS types across %d configured modules, %d beyond gosmi's reach",
+		checked, len(modules), uncovered)
 	if checked == 0 {
 		t.Error("no BITS type was checked, so the check proves nothing")
 	}
@@ -538,7 +577,7 @@ func largestPerVendor(files []differential.CorpusFile) []differential.CorpusFile
 // mibgenModules reads the generator's configuration and returns the
 // module names it is configured for together with its search paths,
 // resolved from this package.
-func mibgenModules(t *testing.T) ([]string, []string) {
+func mibgenModules(t *testing.T) (modules, files, searchPaths []string) {
 	t.Helper()
 
 	raw, err := os.ReadFile(mibgenConfig)
@@ -550,21 +589,36 @@ func mibgenModules(t *testing.T) ([]string, []string) {
 		SearchPaths []string `yaml:"search_paths"`
 		Modules     []struct {
 			Name string `yaml:"name"`
+			File string `yaml:"file"`
 		} `yaml:"modules"`
 	}
 	if err := yaml.Unmarshal(raw, &cfg); err != nil {
 		t.Fatalf("parsing %s: %v", mibgenConfig, err)
 	}
 
-	modules := make([]string, 0, len(cfg.Modules))
+	searchPaths = make([]string, 0, len(cfg.SearchPaths))
+	for _, p := range cfg.SearchPaths {
+		searchPaths = append(searchPaths, filepath.Join(repoRoot, p))
+	}
+
+	// A module pinned to a file is read from that file, the way the
+	// generator reads it, so the oracle sees the same release; the rest
+	// resolve by name on the search paths.
+	modules = make([]string, 0, len(cfg.Modules))
+	files = make([]string, 0, len(cfg.Modules))
 	for _, m := range cfg.Modules {
 		modules = append(modules, m.Name)
+		if m.File != "" {
+			files = append(files, filepath.Join(repoRoot, m.File))
+
+			continue
+		}
+		path, ok := smi.FindModule(m.Name, searchPaths)
+		if !ok {
+			t.Fatalf("%s is configured but not found on the search paths", m.Name)
+		}
+		files = append(files, path)
 	}
 
-	paths := make([]string, 0, len(cfg.SearchPaths))
-	for _, p := range cfg.SearchPaths {
-		paths = append(paths, filepath.Join(repoRoot, p))
-	}
-
-	return modules, paths
+	return modules, files, searchPaths
 }

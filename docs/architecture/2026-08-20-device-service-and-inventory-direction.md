@@ -24,13 +24,15 @@ FlowSeer-owned, typed protobuf definitions — that abstracts *devices and their
 capabilities*, not protocols, and serves **live, request/response
 interactions** (reads-now and configuration writes). Everything that reaches a
 device does so through an **integration**: an adapter *kind* (code) configured
-as an *instance* (data) — "this Meraki org", "this vSZ", **"this site's edge
-agent"**. The edge agent is itself an integration of kind *local network*,
-running the protocol libraries (SNMP, NETCONF, RESTCONF, gNMI) and discovering
-devices locally. Integrations attach over one contract — announce, execute,
-events — carried by **NATS** as the integration fabric (edge agents connect
-directly via an embedded leaf node), with Connect kept for web↔central,
-enrollment, and an optional HTTPS attach. **Discovery** and **async ingestion**
+as an *instance* (data) — "this Meraki org", "this vSZ", **"the local network
+at this site"**. The local-network kind runs on an **edge**: an enrolled
+process at the site, its own entity in `api/edge/v1`, that hosts the
+protocol libraries (SNMP, NETCONF, RESTCONF, gNMI) and whatever on-prem
+adapters the site needs. Integrations attach over one contract — announce,
+execute, events — carried by **NATS** as the integration fabric (edge agents
+connect directly via an embedded leaf node), with Connect kept for
+web↔central, the edge's own enrollment, heartbeat, and administration, and
+an optional HTTPS attach. **Discovery** and **async ingestion**
 (traps, webhooks, pollers) are separate planes that feed a central
 **inventory** modelled as four entities with one lifecycle each: Device,
 Integration, Binding, Placement.
@@ -119,12 +121,13 @@ or edge) or shipped as a separate process. Kinds ship with FlowSeer for
 Meraki, RUCKUS One, SmartZone/vSZ, UniFi, LANCOM LMC, and the local network;
 adding a kind is development work and is never pretended otherwise. An
 **integration** (instance) is a runtime row an operator creates: this Meraki
-org with this API key in the EU region for tenant X; this edge agent at site
-Y with these seed ranges.
+org with this API key in the EU region for tenant X; the local network at
+site Y, hosted on edge Z, with these seed ranges.
 
 Kinds **describe themselves at runtime**. Each answers `ListIntegrationKinds`
 with: display name, the typed config message it takes, credential shape (API
-key / OAuth client / user+password+TLS / enrollment token), where it can run
+key / OAuth client / user+password+TLS / none, for a kind whose access is the
+hosting edge's own), where it can run
 (cloud API → central by default; on-prem controller or local network → an edge
 process inside the network), webhook support, and capability *hints*. Actual
 capabilities are still discovered per binding.
@@ -184,7 +187,8 @@ never embedding.
 | Entity | Means | Changes when |
 |---|---|---|
 | **Device** | This physical box. Identity = serial (+ base MAC). | The box changes. |
-| **Integration** | A configured adapter instance: cloud tenant, controller, or a site's edge agent. Kind, config, credential ref, region, request budget, host process. | Added/verified/retired; host moves. Independent of any device. |
+| **Integration** | A configured adapter instance: cloud tenant, controller, or a site's local network. Kind, config, credential ref, region, request budget, and the edge that hosts it where one does. | Added/verified/retired; host moves. Independent of any device. |
+| **Edge** | An enrolled process at a site that hosts integrations. Its own entity in `api/edge/v1`: registered key, setup key record, lifecycle, contact. | Enrolled, rekeyed, or retired by an operator. Independent of the integrations it hosts. |
 | **Binding** | "Device X is reachable via integration Y at integration-local address Z" (platform id, or IP:port+protocol for the local kind). Many per device. Status CANDIDATE / VERIFIED / DEGRADED / RETIRED, verified capabilities, last success. | Reachability changes; moves between controllers. |
 | **Placement** | "Device X belongs to tenant/site/zone Z" from a point in time. Source OPERATOR or DERIVED_FROM_SCOPE; operator wins. | Moves between sites. Append-only. |
 
@@ -192,9 +196,11 @@ Supporting rows: **IntegrationScope** `(integration, platform_scope_id,
 kind-specific type label, name, parent)` — the platform's own hierarchy,
 modelled generically; Placement can derive from a scope, and scope-level
 capabilities (an SSID on a Meraki *network*) target a `ScopeRef` rather than a
-device. The **host process** (an edge agent process, or the central
-adapter host) is routing/health metadata on the integration, not an entity of
-its own.
+device. An integration that runs on an edge names it by `EdgeGlobalRef`; one
+that runs centrally names no host. The edge is the entity, the integration
+carries the pointer, so one edge hosts a local-network integration and an
+on-prem controller adapter side by side, and a site with only the latter
+needs no hollow local-network integration to stand in for its edge.
 
 Every binding is mediated by an integration; "direct" vs "mediated" is a
 property of the kind, not a second binding shape. Routing is therefore
@@ -213,9 +219,10 @@ What the expected churn becomes:
 - *Move between sites:* new Placement row; old one closes.
 - *Add a new platform kind:* new `oneof` arm (or an advertised descriptor) plus
   an adapter; no change to Device, Binding, or Placement.
-- *Enroll an edge agent:* create a local-network Integration — same lifecycle
-  as a Meraki org, with seeds/ranges as its config and an enrollment token as
-  its credential.
+- *Enroll an edge:* create the Edge, ship its provisioning, and let it
+  enroll on first boot (`api/edge/v1`). Then create a local-network
+  Integration that names the edge as its host — same lifecycle as a Meraki
+  org, with seeds/ranges as its config.
 
 Identity correlation: a new sighting is a *candidate* until an identity read
 through it yields a serial that matches (merge) or does not (new device). IP,
@@ -327,10 +334,14 @@ NATS cluster (per-tenant accounts, JetStream)  ◄── wss/TLS on 443 ──  
 - **Events** — JetStream on `events.<tenant>.<integration>.>`; multiple
   consumers (state store, alerting, time-series, replay), durable, buffered
   when central is down.
-- **Connect** keeps three jobs: web↔central; enrollment/bootstrap over HTTPS;
-  an optional HTTPS attach for integrations that cannot speak NATS, which
-  central bridges onto the same subjects (bidirectional Connect streams
-  require HTTP/2 end to end; unary and one-way streams do not).
+- **Connect** keeps three jobs: web↔central; the edge's own channel over
+  HTTPS (enrollment, rekey, heartbeat, and the operator's edge
+  administration, all in `api/edge/v1`); an optional HTTPS attach for
+  integrations that cannot speak NATS, which central bridges onto the same
+  subjects (bidirectional Connect streams require HTTP/2 end to end; unary
+  and one-way streams do not). Until the bus lands, the Connect heartbeat is
+  the liveness source; the bus plan decides whether announce replaces or
+  feeds it.
 
 Load shape at ~5 000 devices, for calibration: announce is a few hundred
 integrations at one message per few seconds; execute is tens to low hundreds of
@@ -368,13 +379,23 @@ snapshots.
   publish into another tenant's subjects. Revocation is a per-user JWT
   revocation pushed to the account; auth callout is available if credential
   issuance should be delegated to Zitadel.
-- **Enrollment**: operator creates the edge in the web app → one-time,
-  short-TTL, revocable token (the Teleport join-token / Tailscale auth-key
-  shape; outbound-only like Auvik/Datadog agents) → edge calls central
-  `Enroll` over Connect/HTTPS → receives its NATS account, JWT/NKey seed,
-  subject map, and cluster URLs → connects. Credentials never leave the secret
+- **Enrollment** is Connect's job, and NATS is handed over it later. The
+  operator creates the edge in the web app and receives a provisioning
+  message once: central URL, certificate pins, and a single-use setup key
+  that can sit in a shipped box for months (operator-set expiry, 180 days
+  by default, revocable at any time). The edge generates an Ed25519 key
+  pair, persists it, and calls `Enroll` over Connect/HTTPS with the setup
+  key and a proof of possession; central stores the public key and never
+  holds the private half. Every later call carries a signed, single-use
+  assertion of at most 60 seconds in the Authorization header, verified
+  against the stored key; there is no access token. Nothing the edge holds
+  expires, so an edge silent for a year reattaches on its own, and only an
+  operator's retire ends its standing. When the fabric lands, an
+  authenticated `EdgeService` RPC returns the NATS account, user credential,
+  subject map, and cluster URLs. Device credentials never leave the secret
   store except to the host running the integration, per request or as a
-  scoped lease.
+  scoped lease. The contracts and the verifier's check order are in
+  `spec/proto/flowseer/api/edge/v1/README.md`.
 - **Exposing NATS** (even over wss/443) is a **second public surface** next to
   the web app's. Accepted deliberately: TLS + per-edge JWTs + accounts is how
   NATS is designed to be run on the internet; it is recorded here so it is a

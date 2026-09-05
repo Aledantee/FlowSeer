@@ -5,7 +5,7 @@ unresolved-declarations 376
 files-with-fatal 0
 severity internal 0
 severity fatal 0
-severity error 423
+severity error 442
 severity minor 198
 severity change 0
 severity warning 0
@@ -15,4 +15,6 @@ diagnostic smi/default-not-permitted error 5
 diagnostic smi/duplicate-oid error 15
 diagnostic smi/missing-import minor 1
 diagnostic smi/module-not-found error 27
+diagnostic smi/unresolved-augments error 3
 diagnostic smi/unresolved-declaration error 376
+diagnostic smi/unresolved-index-part error 16

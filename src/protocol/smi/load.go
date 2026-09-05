@@ -21,7 +21,11 @@ import (
 // them and several use more than one in the same directory.
 var moduleFileExtensions = []string{"", ".mib", ".txt", ".MIB", ".my"}
 
-// findModule returns the path a module's source is at.
+// FindModule returns the path a module's source is at, looked for under
+// each of searchPaths in turn and under each spelling in
+// moduleFileExtensions. It is the lookup [Load] applies, exported so a
+// caller that pins some modules to explicit files can resolve the rest
+// the same way and hand the whole list to [LoadFiles].
 //
 // A module name is text lifted out of a vendor MIB nobody here wrote,
 // and adopting vendor MIBs unedited is the whole point of this loader,
@@ -29,7 +33,7 @@ var moduleFileExtensions = []string{"", ".mib", ".txt", ".MIB", ".my"}
 // away rather than refusing it, which would let a name like
 // "../../etc/passwd" resolve outside the search path it was joined to;
 // the containment check below is what actually holds the search root.
-func findModule(name string, searchPaths []string) (string, bool) {
+func FindModule(name string, searchPaths []string) (string, bool) {
 	if name == "" {
 		return "", false
 	}
@@ -209,7 +213,7 @@ func nextWave(wanted []string, seenModule, seenPath map[string]bool, searchPaths
 		// looked for once per importer.
 		seenModule[name] = true
 
-		path, ok := findModule(name, searchPaths)
+		path, ok := FindModule(name, searchPaths)
 		if !ok {
 			continue
 		}

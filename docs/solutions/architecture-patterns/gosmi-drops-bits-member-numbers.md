@@ -75,10 +75,15 @@ member numbers but dropped them during conversion, so its model reported zero
 for each member. The differential suite keeps that divergence explicit. The
 current parser retains the numbers, and `emit_bits.go` reads them.
 
-`TestConfiguredModulesFitGosmiBitsReconstruction` still passes. That result is
-narrow: the modules configured for `mibgen` currently use BITS shapes that the
-gosmi member list can reconstruct. It says nothing about the wider corpus or a
-future module.
+`TestConfiguredModulesFitGosmiBitsReconstruction` checks how far that
+reconstruction reaches across the modules configured for `mibgen`. Most use
+BITS shapes the gosmi member list can reconstruct; LCOS-MIB does not, since it
+numbers its WLAN capability masks from the top bit down, so the differential
+suite cannot check those declarations against gosmi. Such a module is accepted
+by adding it to the test's `gappedBitsModules` allowlist; a gap in any other
+module fails the test, and a listed module that stops declaring gapped BITS
+fails it too, so configuring a new module with gapped BITS is a visible
+decision rather than a log line. The test says nothing about the wider corpus.
 
 ## When to Apply
 

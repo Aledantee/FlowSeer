@@ -273,3 +273,40 @@ func TestRun_RefreshBaselineWritesAReviewableFile(t *testing.T) {
 		}
 	}
 }
+
+// TestRun_ReportsDegradedReferences: FAKE-MIB references a keyed
+// convention from FAKE-KEYS-MIB, which this config leaves out. The run
+// still succeeds and names the reference it emitted in its base type.
+func TestRun_ReportsDegradedReferences(t *testing.T) {
+	ietfDir, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "..", "spec", "mib", "ietf"))
+	if err != nil {
+		t.Fatalf("abs: %v", err)
+	}
+	if _, statErr := os.Stat(ietfDir); statErr != nil {
+		t.Skipf("spec/mib/ietf not available: %v", statErr)
+	}
+	fakeDir, err := filepath.Abs(filepath.Join("testdata", "mibs"))
+	if err != nil {
+		t.Fatalf("abs: %v", err)
+	}
+
+	yaml := "" +
+		"search_paths:\n" +
+		"  - " + fakeDir + "\n" +
+		"  - " + ietfDir + "\n" +
+		"modules:\n" +
+		"  - { name: FAKE-MIB, package: fakemib }\n"
+	cfgPath := writeTempConfig(t, yaml)
+	seedBaseline(t, cfgPath)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"-config", cfgPath, "-out", t.TempDir()}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d; want 0\nstdout=%q\nstderr=%q", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"OK: emitted 1 module", "fakeRef", "FakeKeyIndex", "FAKE-KEYS-MIB"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout = %q; want it to contain %q", stdout.String(), want)
+		}
+	}
+}

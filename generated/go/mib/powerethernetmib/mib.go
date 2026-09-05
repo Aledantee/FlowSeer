@@ -334,15 +334,36 @@ var PethPsePortShortCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2,
 	return snmp.DecodeUint32(vb)
 })
 
-// PethPsePortTableRow is one row of pethPsePortTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// PethPsePortTableKey is the decoded INDEX of one pethPsePortTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type PethPsePortTableKey struct {
+	PethPsePortGroupIndex int32
+	PethPsePortIndex      int32
+}
+
+var pethPsePortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodePethPsePortTableKey decodes the instance suffix of one pethPsePortTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodePethPsePortTableKey(idx snmp.OID) (PethPsePortTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, pethPsePortTableIndexShapes) {
+		return PethPsePortTableKey{}, false
+	}
+	return PethPsePortTableKey{PethPsePortGroupIndex: int32(parts[0].Integer), PethPsePortIndex: int32(parts[1].Integer)}, true
+}
+
+// PethPsePortTableRow is one row of pethPsePortTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [PethPsePortTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [PethPsePortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type PethPsePortTableRow struct {
-	Index                               snmp.OID
+	Key                                 PethPsePortTableKey
+	keyValid                            bool
 	PethPsePortAdminEnable              bool
 	PethPsePortPowerPairsControlAbility bool
 	PethPsePortPowerPairs               PethPsePortPowerPairsValue
@@ -360,6 +381,13 @@ type PethPsePortTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r PethPsePortTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -409,10 +437,13 @@ type PethPsePortTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *PethPsePortTableWalker) Iter() iter.Seq2[snmp.OID, PethPsePortTableRow] {
 	return func(yield func(snmp.OID, PethPsePortTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := PethPsePortTableRow{Index: idx}
+			var row PethPsePortTableRow
+			row.Key, row.keyValid = decodePethPsePortTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -656,6 +687,17 @@ func (t pethPsePortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (pethPsePortTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "PethPsePortTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (pethPsePortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *PethPsePortTableWalker {
@@ -712,15 +754,35 @@ var PethMainPseUsageThreshold = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2
 	return snmp.DecodeInt32(vb)
 })
 
-// PethMainPseTableRow is one row of pethMainPseTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// PethMainPseTableKey is the decoded INDEX of one pethMainPseTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type PethMainPseTableKey struct {
+	PethMainPseGroupIndex int32
+}
+
+var pethMainPseTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodePethMainPseTableKey decodes the instance suffix of one pethMainPseTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodePethMainPseTableKey(idx snmp.OID) (PethMainPseTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, pethMainPseTableIndexShapes) {
+		return PethMainPseTableKey{}, false
+	}
+	return PethMainPseTableKey{PethMainPseGroupIndex: int32(parts[0].Integer)}, true
+}
+
+// PethMainPseTableRow is one row of pethMainPseTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [PethMainPseTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [PethMainPseTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type PethMainPseTableRow struct {
-	Index                       snmp.OID
+	Key                         PethMainPseTableKey
+	keyValid                    bool
 	PethMainPsePower            uint32
 	PethMainPseOperStatus       PethMainPseOperStatusValue
 	PethMainPseConsumptionPower uint32
@@ -730,6 +792,13 @@ type PethMainPseTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r PethMainPseTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -763,10 +832,13 @@ type PethMainPseTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *PethMainPseTableWalker) Iter() iter.Seq2[snmp.OID, PethMainPseTableRow] {
 	return func(yield func(snmp.OID, PethMainPseTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := PethMainPseTableRow{Index: idx}
+			var row PethMainPseTableRow
+			row.Key, row.keyValid = decodePethMainPseTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -881,6 +953,17 @@ func (t pethMainPseTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (pethMainPseTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "PethMainPseTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 3, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (pethMainPseTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *PethMainPseTableWalker {
@@ -916,21 +999,48 @@ var PethNotificationControlEnable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1
 	return snmp.DecodeTruthValue(vb)
 })
 
-// PethNotificationControlTableRow is one row of pethNotificationControlTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// PethNotificationControlTableKey is the decoded INDEX of one pethNotificationControlTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type PethNotificationControlTableKey struct {
+	PethNotificationControlGroupIndex int32
+}
+
+var pethNotificationControlTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodePethNotificationControlTableKey decodes the instance suffix of one pethNotificationControlTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodePethNotificationControlTableKey(idx snmp.OID) (PethNotificationControlTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, pethNotificationControlTableIndexShapes) {
+		return PethNotificationControlTableKey{}, false
+	}
+	return PethNotificationControlTableKey{PethNotificationControlGroupIndex: int32(parts[0].Integer)}, true
+}
+
+// PethNotificationControlTableRow is one row of pethNotificationControlTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [PethNotificationControlTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [PethNotificationControlTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type PethNotificationControlTableRow struct {
-	Index                         snmp.OID
+	Key                           PethNotificationControlTableKey
+	keyValid                      bool
 	PethNotificationControlEnable bool
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r PethNotificationControlTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -958,10 +1068,13 @@ type PethNotificationControlTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *PethNotificationControlTableWalker) Iter() iter.Seq2[snmp.OID, PethNotificationControlTableRow] {
 	return func(yield func(snmp.OID, PethNotificationControlTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := PethNotificationControlTableRow{Index: idx}
+			var row PethNotificationControlTableRow
+			row.Key, row.keyValid = decodePethNotificationControlTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1015,6 +1128,17 @@ func (tw *PethNotificationControlTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t pethNotificationControlTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *PethNotificationControlTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (pethNotificationControlTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "PethNotificationControlTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 4, 1),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

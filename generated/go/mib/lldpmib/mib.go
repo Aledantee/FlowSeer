@@ -232,6 +232,27 @@ func (v LldpPortIdSubtype) String() string {
 	return fmt.Sprintf("LldpPortIdSubtype(%d)", v)
 }
 
+// LldpPortNumber is the textual convention LldpPortNumber. A value identifies one row of
+// lldpLocPortTable, and a column of this type in any table refers to that row.
+// Each port contained in the chassis (that is known to the LLDP agent) is
+// uniquely identified by a port number. A port number has no mandatory
+// relationship to an InterfaceIndex object (of the interfaces MIB, IETF
+// RFC 2863). If the LLDP agent is a IEEE 802.1D, IEEE 802.1Q bridge, the
+// LldpPortNumber will have the same value as the dot1dBasePort object
+// (defined in IETF RFC 1493) associated corresponding bridge port. If the
+// system hosting LLDP agent is not an IEEE 802.1D or an IEEE 802.1Q
+// bridge, the LldpPortNumber will have the same value as the corresponding
+// interface's InterfaceIndex object. Port numbers should be in the range
+// of 1 and 4096 since a particular port is also represented by the
+// corresponding port number bit in LldpPortList.
+type LldpPortNumber int32
+
+// HomeTable returns the descriptor of lldpLocPortTable, the table a LldpPortNumber value
+// identifies a row of.
+func (LldpPortNumber) HomeTable() snmp.TableDescriptor {
+	return LldpLocPortTable.Descriptor()
+}
+
 // LldpPortConfigTLVsTxEnableBit names the bit positions of the SMI BITS type lldpPortConfigTLVsTxEnable (inline).
 // Pass one to [snmp.BitSet.Has] on a value of this type.
 // The lldpPortConfigTLVsTxEnable, defined as a bitmap, includes the basic
@@ -740,15 +761,35 @@ var LldpPortConfigTLVsTxEnable = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 0, 
 	return snmp.DecodeBitSet(vb)
 })
 
-// LldpPortConfigTableRow is one row of lldpPortConfigTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpPortConfigTableKey is the decoded INDEX of one lldpPortConfigTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpPortConfigTableKey struct {
+	LldpPortConfigPortNum LldpPortNumber
+}
+
+var lldpPortConfigTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeLldpPortConfigTableKey decodes the instance suffix of one lldpPortConfigTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpPortConfigTableKey(idx snmp.OID) (LldpPortConfigTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpPortConfigTableIndexShapes) {
+		return LldpPortConfigTableKey{}, false
+	}
+	return LldpPortConfigTableKey{LldpPortConfigPortNum: LldpPortNumber(parts[0].Integer)}, true
+}
+
+// LldpPortConfigTableRow is one row of lldpPortConfigTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpPortConfigTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpPortConfigTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpPortConfigTableRow struct {
-	Index                            snmp.OID
+	Key                              LldpPortConfigTableKey
+	keyValid                         bool
 	LldpPortConfigAdminStatus        LldpPortConfigAdminStatusValue
 	LldpPortConfigNotificationEnable bool
 	LldpPortConfigTLVsTxEnable       snmp.BitSet
@@ -757,6 +798,13 @@ type LldpPortConfigTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpPortConfigTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -788,10 +836,13 @@ type LldpPortConfigTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpPortConfigTableWalker) Iter() iter.Seq2[snmp.OID, LldpPortConfigTableRow] {
 	return func(yield func(snmp.OID, LldpPortConfigTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpPortConfigTableRow{Index: idx}
+			var row LldpPortConfigTableRow
+			row.Key, row.keyValid = decodeLldpPortConfigTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -878,6 +929,17 @@ func (t lldpPortConfigTableT) Walk(ctx context.Context, sess snmp.Session, cols 
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpPortConfigTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpPortConfigTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 6),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpPortConfigTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpPortConfigTableWalker {
@@ -916,22 +978,42 @@ func (lldpPortConfigTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessi
 var LldpConfigManAddrPortsTxEnable = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 7, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
 	return snmp.DecodeBytes(vb)
 })
+var lldpConfigManAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}}
 
-// LldpConfigManAddrTableRow is one row of lldpConfigManAddrTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// decodeLldpConfigManAddrTableKey decodes the instance suffix of one lldpConfigManAddrTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpConfigManAddrTableKey(idx snmp.OID) (LldpLocManAddrTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpConfigManAddrTableIndexShapes) {
+		return LldpLocManAddrTableKey{}, false
+	}
+	return LldpLocManAddrTableKey{LldpLocManAddrSubtype: int32(parts[0].Integer), LldpLocManAddr: string(parts[1].Octets)}, true
+}
+
+// LldpConfigManAddrTableRow is one row of lldpConfigManAddrTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpConfigManAddrTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpConfigManAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpConfigManAddrTableRow struct {
-	Index                          snmp.OID
+	Key                            LldpLocManAddrTableKey
+	keyValid                       bool
 	LldpConfigManAddrPortsTxEnable []byte
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpConfigManAddrTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -959,10 +1041,13 @@ type LldpConfigManAddrTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpConfigManAddrTableWalker) Iter() iter.Seq2[snmp.OID, LldpConfigManAddrTableRow] {
 	return func(yield func(snmp.OID, LldpConfigManAddrTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpConfigManAddrTableRow{Index: idx}
+			var row LldpConfigManAddrTableRow
+			row.Key, row.keyValid = decodeLldpConfigManAddrTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1018,6 +1103,17 @@ func (t lldpConfigManAddrTableT) Walk(ctx context.Context, sess snmp.Session, co
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpConfigManAddrTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpLocManAddrTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 1, 7),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpConfigManAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpConfigManAddrTableWalker {
@@ -1052,21 +1148,48 @@ var LldpStatsTxPortFramesTotal = snmp.NewColumn[uint32](snmp.MustOID(1, 0, 8802,
 	return snmp.DecodeUint32(vb)
 })
 
-// LldpStatsTxPortTableRow is one row of lldpStatsTxPortTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpStatsTxPortTableKey is the decoded INDEX of one lldpStatsTxPortTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpStatsTxPortTableKey struct {
+	LldpStatsTxPortNum LldpPortNumber
+}
+
+var lldpStatsTxPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeLldpStatsTxPortTableKey decodes the instance suffix of one lldpStatsTxPortTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpStatsTxPortTableKey(idx snmp.OID) (LldpStatsTxPortTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpStatsTxPortTableIndexShapes) {
+		return LldpStatsTxPortTableKey{}, false
+	}
+	return LldpStatsTxPortTableKey{LldpStatsTxPortNum: LldpPortNumber(parts[0].Integer)}, true
+}
+
+// LldpStatsTxPortTableRow is one row of lldpStatsTxPortTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpStatsTxPortTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpStatsTxPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpStatsTxPortTableRow struct {
-	Index                      snmp.OID
+	Key                        LldpStatsTxPortTableKey
+	keyValid                   bool
 	LldpStatsTxPortFramesTotal uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpStatsTxPortTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1094,10 +1217,13 @@ type LldpStatsTxPortTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpStatsTxPortTableWalker) Iter() iter.Seq2[snmp.OID, LldpStatsTxPortTableRow] {
 	return func(yield func(snmp.OID, LldpStatsTxPortTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpStatsTxPortTableRow{Index: idx}
+			var row LldpStatsTxPortTableRow
+			row.Key, row.keyValid = decodeLldpStatsTxPortTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1156,6 +1282,17 @@ func (tw *LldpStatsTxPortTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t lldpStatsTxPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpStatsTxPortTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpStatsTxPortTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpStatsTxPortTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 6),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
@@ -1250,15 +1387,35 @@ var LldpStatsRxPortAgeoutsTotal = snmp.NewColumn[uint32](snmp.MustOID(1, 0, 8802
 	return snmp.DecodeUint32(vb)
 })
 
-// LldpStatsRxPortTableRow is one row of lldpStatsRxPortTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpStatsRxPortTableKey is the decoded INDEX of one lldpStatsRxPortTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpStatsRxPortTableKey struct {
+	LldpStatsRxPortNum LldpPortNumber
+}
+
+var lldpStatsRxPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeLldpStatsRxPortTableKey decodes the instance suffix of one lldpStatsRxPortTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpStatsRxPortTableKey(idx snmp.OID) (LldpStatsRxPortTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpStatsRxPortTableIndexShapes) {
+		return LldpStatsRxPortTableKey{}, false
+	}
+	return LldpStatsRxPortTableKey{LldpStatsRxPortNum: LldpPortNumber(parts[0].Integer)}, true
+}
+
+// LldpStatsRxPortTableRow is one row of lldpStatsRxPortTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpStatsRxPortTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpStatsRxPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpStatsRxPortTableRow struct {
-	Index                                snmp.OID
+	Key                                  LldpStatsRxPortTableKey
+	keyValid                             bool
 	LldpStatsRxPortFramesDiscardedTotal  uint32
 	LldpStatsRxPortFramesErrors          uint32
 	LldpStatsRxPortFramesTotal           uint32
@@ -1270,6 +1427,13 @@ type LldpStatsRxPortTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpStatsRxPortTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1307,10 +1471,13 @@ type LldpStatsRxPortTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpStatsRxPortTableWalker) Iter() iter.Seq2[snmp.OID, LldpStatsRxPortTableRow] {
 	return func(yield func(snmp.OID, LldpStatsRxPortTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpStatsRxPortTableRow{Index: idx}
+			var row LldpStatsRxPortTableRow
+			row.Key, row.keyValid = decodeLldpStatsRxPortTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1461,6 +1628,17 @@ func (t lldpStatsRxPortTableT) Walk(ctx context.Context, sess snmp.Session, cols
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpStatsRxPortTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpStatsRxPortTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 2, 7),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpStatsRxPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpStatsRxPortTableWalker {
@@ -1515,15 +1693,35 @@ var LldpLocPortDesc = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8802, 1, 1, 2, 1
 	return snmp.DecodeBytes(vb)
 })
 
-// LldpLocPortTableRow is one row of lldpLocPortTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpLocPortTableKey is the decoded INDEX of one lldpLocPortTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpLocPortTableKey struct {
+	LldpLocPortNum LldpPortNumber
+}
+
+var lldpLocPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeLldpLocPortTableKey decodes the instance suffix of one lldpLocPortTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpLocPortTableKey(idx snmp.OID) (LldpLocPortTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpLocPortTableIndexShapes) {
+		return LldpLocPortTableKey{}, false
+	}
+	return LldpLocPortTableKey{LldpLocPortNum: LldpPortNumber(parts[0].Integer)}, true
+}
+
+// LldpLocPortTableRow is one row of lldpLocPortTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpLocPortTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpLocPortTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpLocPortTableRow struct {
-	Index                snmp.OID
+	Key                  LldpLocPortTableKey
+	keyValid             bool
 	LldpLocPortIdSubtype LldpPortIdSubtype
 	LldpLocPortId        []byte
 	LldpLocPortDesc      []byte
@@ -1532,6 +1730,13 @@ type LldpLocPortTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpLocPortTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1563,10 +1768,13 @@ type LldpLocPortTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpLocPortTableWalker) Iter() iter.Seq2[snmp.OID, LldpLocPortTableRow] {
 	return func(yield func(snmp.OID, LldpLocPortTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpLocPortTableRow{Index: idx}
+			var row LldpLocPortTableRow
+			row.Key, row.keyValid = decodeLldpLocPortTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1653,6 +1861,17 @@ func (t lldpLocPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpLocPortTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpLocPortTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 7),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpLocPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpLocPortTableWalker {
@@ -1718,15 +1937,36 @@ var LldpLocManAddrOID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 0, 8802, 1, 1, 
 	return snmp.DecodeOID(vb)
 })
 
-// LldpLocManAddrTableRow is one row of lldpLocManAddrTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpLocManAddrTableKey is the decoded INDEX of one lldpLocManAddrTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpLocManAddrTableKey struct {
+	LldpLocManAddrSubtype int32
+	LldpLocManAddr        string
+}
+
+var lldpLocManAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}}
+
+// decodeLldpLocManAddrTableKey decodes the instance suffix of one lldpLocManAddrTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpLocManAddrTableKey(idx snmp.OID) (LldpLocManAddrTableKey, bool) {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpLocManAddrTableIndexShapes) {
+		return LldpLocManAddrTableKey{}, false
+	}
+	return LldpLocManAddrTableKey{LldpLocManAddrSubtype: int32(parts[0].Integer), LldpLocManAddr: string(parts[1].Octets)}, true
+}
+
+// LldpLocManAddrTableRow is one row of lldpLocManAddrTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpLocManAddrTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpLocManAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpLocManAddrTableRow struct {
-	Index                   snmp.OID
+	Key                     LldpLocManAddrTableKey
+	keyValid                bool
 	LldpLocManAddrLen       int32
 	LldpLocManAddrIfSubtype LldpManAddrIfSubtype
 	LldpLocManAddrIfId      int32
@@ -1736,6 +1976,13 @@ type LldpLocManAddrTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpLocManAddrTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1769,10 +2016,13 @@ type LldpLocManAddrTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpLocManAddrTableWalker) Iter() iter.Seq2[snmp.OID, LldpLocManAddrTableRow] {
 	return func(yield func(snmp.OID, LldpLocManAddrTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpLocManAddrTableRow{Index: idx}
+			var row LldpLocManAddrTableRow
+			row.Key, row.keyValid = decodeLldpLocManAddrTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1882,6 +2132,17 @@ func (t lldpLocManAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols 
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpLocManAddrTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpLocManAddrTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 3, 8),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpLocManAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpLocManAddrTableWalker {
@@ -1979,15 +2240,37 @@ var LldpRemSysCapEnabled = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 0, 8802, 
 	return snmp.DecodeBitSet(vb)
 })
 
-// LldpRemTableRow is one row of lldpRemTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpRemTableKey is the decoded INDEX of one lldpRemTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpRemTableKey struct {
+	LldpRemTimeMark     uint32
+	LldpRemLocalPortNum LldpPortNumber
+	LldpRemIndex        int32
+}
+
+var lldpRemTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeLldpRemTableKey decodes the instance suffix of one lldpRemTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpRemTableKey(idx snmp.OID) (LldpRemTableKey, bool) {
+	var parts [3]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemTableIndexShapes) {
+		return LldpRemTableKey{}, false
+	}
+	return LldpRemTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer)}, true
+}
+
+// LldpRemTableRow is one row of lldpRemTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpRemTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpRemTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpRemTableRow struct {
-	Index                   snmp.OID
+	Key                     LldpRemTableKey
+	keyValid                bool
 	LldpRemChassisIdSubtype LldpChassisIdSubtype
 	LldpRemChassisId        []byte
 	LldpRemPortIdSubtype    LldpPortIdSubtype
@@ -2002,6 +2285,13 @@ type LldpRemTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpRemTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2045,10 +2335,13 @@ type LldpRemTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpRemTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemTableRow] {
 	return func(yield func(snmp.OID, LldpRemTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpRemTableRow{Index: idx}
+			var row LldpRemTableRow
+			row.Key, row.keyValid = decodeLldpRemTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2218,6 +2511,17 @@ func (t lldpRemTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpRemTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpRemTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpRemTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpRemTableWalker {
@@ -2272,15 +2576,39 @@ var LldpRemManAddrOID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 0, 8802, 1, 1, 
 	return snmp.DecodeOID(vb)
 })
 
-// LldpRemManAddrTableRow is one row of lldpRemManAddrTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpRemManAddrTableKey is the decoded INDEX of one lldpRemManAddrTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpRemManAddrTableKey struct {
+	LldpRemTimeMark       uint32
+	LldpRemLocalPortNum   LldpPortNumber
+	LldpRemIndex          int32
+	LldpRemManAddrSubtype int32
+	LldpRemManAddr        string
+}
+
+var lldpRemManAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}}
+
+// decodeLldpRemManAddrTableKey decodes the instance suffix of one lldpRemManAddrTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpRemManAddrTableKey(idx snmp.OID) (LldpRemManAddrTableKey, bool) {
+	var parts [5]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemManAddrTableIndexShapes) {
+		return LldpRemManAddrTableKey{}, false
+	}
+	return LldpRemManAddrTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer), LldpRemManAddrSubtype: int32(parts[3].Integer), LldpRemManAddr: string(parts[4].Octets)}, true
+}
+
+// LldpRemManAddrTableRow is one row of lldpRemManAddrTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpRemManAddrTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpRemManAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpRemManAddrTableRow struct {
-	Index                   snmp.OID
+	Key                     LldpRemManAddrTableKey
+	keyValid                bool
 	LldpRemManAddrIfSubtype LldpManAddrIfSubtype
 	LldpRemManAddrIfId      int32
 	LldpRemManAddrOID       snmp.OID
@@ -2289,6 +2617,13 @@ type LldpRemManAddrTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpRemManAddrTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2320,10 +2655,13 @@ type LldpRemManAddrTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpRemManAddrTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemManAddrTableRow] {
 	return func(yield func(snmp.OID, LldpRemManAddrTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpRemManAddrTableRow{Index: idx}
+			var row LldpRemManAddrTableRow
+			row.Key, row.keyValid = decodeLldpRemManAddrTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2415,6 +2753,17 @@ func (t lldpRemManAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols 
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpRemManAddrTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpRemManAddrTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpRemManAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpRemManAddrTableWalker {
@@ -2449,21 +2798,51 @@ var LldpRemUnknownTLVInfo = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8802, 1, 1
 	return snmp.DecodeBytes(vb)
 })
 
-// LldpRemUnknownTLVTableRow is one row of lldpRemUnknownTLVTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpRemUnknownTLVTableKey is the decoded INDEX of one lldpRemUnknownTLVTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpRemUnknownTLVTableKey struct {
+	LldpRemTimeMark       uint32
+	LldpRemLocalPortNum   LldpPortNumber
+	LldpRemIndex          int32
+	LldpRemUnknownTLVType int32
+}
+
+var lldpRemUnknownTLVTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeLldpRemUnknownTLVTableKey decodes the instance suffix of one lldpRemUnknownTLVTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpRemUnknownTLVTableKey(idx snmp.OID) (LldpRemUnknownTLVTableKey, bool) {
+	var parts [4]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemUnknownTLVTableIndexShapes) {
+		return LldpRemUnknownTLVTableKey{}, false
+	}
+	return LldpRemUnknownTLVTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer), LldpRemUnknownTLVType: int32(parts[3].Integer)}, true
+}
+
+// LldpRemUnknownTLVTableRow is one row of lldpRemUnknownTLVTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpRemUnknownTLVTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpRemUnknownTLVTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpRemUnknownTLVTableRow struct {
-	Index                 snmp.OID
+	Key                   LldpRemUnknownTLVTableKey
+	keyValid              bool
 	LldpRemUnknownTLVInfo []byte
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpRemUnknownTLVTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2491,10 +2870,13 @@ type LldpRemUnknownTLVTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpRemUnknownTLVTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemUnknownTLVTableRow] {
 	return func(yield func(snmp.OID, LldpRemUnknownTLVTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpRemUnknownTLVTableRow{Index: idx}
+			var row LldpRemUnknownTLVTableRow
+			row.Key, row.keyValid = decodeLldpRemUnknownTLVTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2550,6 +2932,17 @@ func (t lldpRemUnknownTLVTableT) Walk(ctx context.Context, sess snmp.Session, co
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpRemUnknownTLVTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpRemUnknownTLVTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (lldpRemUnknownTLVTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *LldpRemUnknownTLVTableWalker {
@@ -2585,21 +2978,56 @@ var LldpRemOrgDefInfo = snmp.NewColumn[[]byte](snmp.MustOID(1, 0, 8802, 1, 1, 2,
 	return snmp.DecodeBytes(vb)
 })
 
-// LldpRemOrgDefInfoTableRow is one row of lldpRemOrgDefInfoTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// LldpRemOrgDefInfoTableKey is the decoded INDEX of one lldpRemOrgDefInfoTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type LldpRemOrgDefInfoTableKey struct {
+	LldpRemTimeMark          uint32
+	LldpRemLocalPortNum      LldpPortNumber
+	LldpRemIndex             int32
+	LldpRemOrgDefInfoOUI     string
+	LldpRemOrgDefInfoSubtype int32
+	LldpRemOrgDefInfoIndex   int32
+}
+
+var lldpRemOrgDefInfoTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {
+	Kind:   snmp.IndexFixedOctets,
+	Length: 3,
+}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeLldpRemOrgDefInfoTableKey decodes the instance suffix of one lldpRemOrgDefInfoTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeLldpRemOrgDefInfoTableKey(idx snmp.OID) (LldpRemOrgDefInfoTableKey, bool) {
+	var parts [6]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemOrgDefInfoTableIndexShapes) {
+		return LldpRemOrgDefInfoTableKey{}, false
+	}
+	return LldpRemOrgDefInfoTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer), LldpRemOrgDefInfoOUI: string(parts[3].Octets), LldpRemOrgDefInfoSubtype: int32(parts[4].Integer), LldpRemOrgDefInfoIndex: int32(parts[5].Integer)}, true
+}
+
+// LldpRemOrgDefInfoTableRow is one row of lldpRemOrgDefInfoTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [LldpRemOrgDefInfoTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [LldpRemOrgDefInfoTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type LldpRemOrgDefInfoTableRow struct {
-	Index             snmp.OID
+	Key               LldpRemOrgDefInfoTableKey
+	keyValid          bool
 	LldpRemOrgDefInfo []byte
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r LldpRemOrgDefInfoTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2627,10 +3055,13 @@ type LldpRemOrgDefInfoTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *LldpRemOrgDefInfoTableWalker) Iter() iter.Seq2[snmp.OID, LldpRemOrgDefInfoTableRow] {
 	return func(yield func(snmp.OID, LldpRemOrgDefInfoTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := LldpRemOrgDefInfoTableRow{Index: idx}
+			var row LldpRemOrgDefInfoTableRow
+			row.Key, row.keyValid = decodeLldpRemOrgDefInfoTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2684,6 +3115,17 @@ func (tw *LldpRemOrgDefInfoTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t lldpRemOrgDefInfoTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *LldpRemOrgDefInfoTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (lldpRemOrgDefInfoTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "LldpRemOrgDefInfoTableKey",
+		Root:    snmp.MustOID(1, 0, 8802, 1, 1, 2, 1, 4, 4),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

@@ -30,8 +30,19 @@ const errsImport = "go.aledante.io/FlowSeer/src/common/errs"
 
 const generatedGoVersion = "go1.26"
 
+// emitReport is what one [Emit] run produced beyond the files on disk.
+type emitReport struct {
+	// Degraded lists the references emitted in their base type because
+	// the module declaring their key type is not configured; the output
+	// compiles either way, and the caller decides whether to report them.
+	Degraded []degradedRef
+	// Identity summarizes the sysObjectID identity package.
+	Identity identityReport
+}
+
 // Emit generates Go bindings for every module in cfg and writes one
-// `mib.go` per module under outDir/<package>/. pkgPrefix is the Go
+// `mib.go` per module under outDir/<package>/, then the cross-module
+// identity package under outDir/sysobjectid/. pkgPrefix is the Go
 // import-path prefix used for cross-package qualified references (e.g.
 // when one MIB's emitted enum is referenced from another generated
 // package). cfg must have been validated and set must be the resolved
@@ -45,15 +56,15 @@ const generatedGoVersion = "go1.26"
 // On any module-level failure Emit returns a wrapped error and stops
 // — output files written before the failure remain on disk; the
 // caller is responsible for deciding whether to roll those back.
-func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
+func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) (emitReport, error) {
 	if cfg == nil {
-		return errs.Msg("Emit called with nil config")
+		return emitReport{}, errs.Msg("Emit called with nil config")
 	}
 	if set == nil {
-		return errs.Msg("Emit called with nil module set")
+		return emitReport{}, errs.Msg("Emit called with nil module set")
 	}
 	if outDir == "" {
-		return errs.Msg("Emit called with empty outDir")
+		return emitReport{}, errs.Msg("Emit called with empty outDir")
 	}
 
 	// Build a name → Module map so EmitModule can look up overrides
@@ -63,21 +74,32 @@ func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 		cfgByName[m.Name] = m
 	}
 
+	var report emitReport
 	for _, cm := range cfg.Modules {
 		mod, ok := set.Module(cm.Name)
 		if !ok {
-			return errs.Msgf("emit: module %q is not in the resolved set", cm.Name)
+			return emitReport{}, errs.Msgf("emit: module %q is not in the resolved set", cm.Name)
 		}
-		if err := EmitModule(mod, set, cm, cfgByName, outDir, pkgPrefix); err != nil {
-			return errs.Wrapf(err, "emit: module %q", cm.Name)
+		refs, err := EmitModule(mod, set, cm, cfgByName, outDir, pkgPrefix)
+		if err != nil {
+			return emitReport{}, errs.Wrapf(err, "emit: module %q", cm.Name)
 		}
+		report.Degraded = append(report.Degraded, refs...)
 	}
-	return nil
+
+	identity, err := emitIdentity(cfg, set, outDir, pkgPrefix)
+	if err != nil {
+		return emitReport{}, errs.Wrap(err, "emit: identity package")
+	}
+	report.Identity = identity
+
+	return report, nil
 }
 
 // EmitModule generates the mib.go for a single resolved module and writes it
 // under outDir/<package>/mib.go. It is exposed so tests can drive a
 // single fixture module without round-tripping through the full config.
+// The returned references are the module's degraded ones, see [Emit].
 //
 // cfgByName supplies the configured Module entries for every module
 // loaded — EmitModule consults it to resolve cross-MIB references to
@@ -86,17 +108,32 @@ func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 // lowercased name.
 func EmitModule(
 	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, outDir, pkgPrefix string,
-) error {
-	pkgDir := filepath.Join(outDir, cm.Package)
+) ([]degradedRef, error) {
+	out, degraded, err := renderModule(mod, set, cm, cfgByName, pkgPrefix)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeGeneratedPackage(outDir, cm.Package, out); err != nil {
+		return nil, err
+	}
+	return degraded, nil
+}
+
+// checkedPackage pairs a configured module, or the identity package,
+// with the output directory the drift check compares.
+type checkedPackage struct {
+	name, pkg string
+}
+
+// writeGeneratedPackage writes one rendered package as outDir/pkg/mib.go,
+// creating the package directory when it is missing. Every generated
+// package, per-module or cross-module, lands through here so the layout
+// and permissions cannot drift between emitters.
+func writeGeneratedPackage(outDir, pkg string, out []byte) error {
+	pkgDir := filepath.Join(outDir, pkg)
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 		return errs.Wrapf(err, "create package dir %s", pkgDir)
 	}
-
-	out, err := renderModule(mod, set, cm, cfgByName, pkgPrefix)
-	if err != nil {
-		return err
-	}
-
 	target := filepath.Join(pkgDir, "mib.go")
 	if err := os.WriteFile(target, out, 0o644); err != nil {
 		return errs.Wrapf(err, "write %s", target)
@@ -104,14 +141,15 @@ func EmitModule(
 	return nil
 }
 
-// renderModule produces repository-format-clean source for a single module.
-// It does not touch the filesystem; callers compose write or diff behavior
-// on top.
+// renderModule produces repository-format-clean source for a single module
+// and the references it emitted in their base type, see [Emit]. It does
+// not touch the filesystem; callers compose write or diff behavior on
+// top.
 func renderModule(
 	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, pkgPrefix string,
-) ([]byte, error) {
+) ([]byte, []degradedRef, error) {
 	if err := checkSourceNames(mod); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ec := newEmitCtx(mod, set, cm, cfgByName, pkgPrefix)
@@ -121,7 +159,7 @@ func renderModule(
 	// emit-time gating for ColumnTiers and the indicator-var emission.
 	tableIndicators, err := discoverIndicators(ec, mod)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ec.tableIndicators = tableIndicators
 	ec.hasIndicator = len(ec.tableIndicators) > 0
@@ -143,6 +181,7 @@ func renderModule(
 
 	// Resolve enum names before scalars and columns reference their types.
 	emitEnums(f, ec, mod, nodes)
+	emitKeyTypes(f, ec)
 	emitBitsConsts(f, mod)
 
 	for _, n := range nodes {
@@ -150,7 +189,7 @@ func renderModule(
 			continue
 		}
 		if err := emitScalar(f, ec, n); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -159,25 +198,34 @@ func renderModule(
 			continue
 		}
 		if err := emitTable(f, ec, n); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	emitDispatch(f, ec)
 	emitTierMap(f, ec)
 	if err := emitIndicators(f, ec); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// Render to a buffer, then apply the same formatters enforced by the
-	// repository. Jennifer owns import discovery but only guarantees gofmt-
-	// equivalent output; goimports groups imports and gofumpt applies the
-	// repository's stricter source normalization.
 	var buf bytes.Buffer
 	if err := f.Render(&buf); err != nil {
-		return nil, errs.Wrap(err, "render")
+		return nil, nil, errs.Wrap(err, "render")
 	}
-	withImports, err := imports.Process(cm.Package+"/mib.go", buf.Bytes(), &imports.Options{
+	formatted, err := formatGenerated(cm.Package+"/mib.go", buf.Bytes())
+	if err != nil {
+		return nil, nil, err
+	}
+	return formatted, ec.degraded, nil
+}
+
+// formatGenerated applies the formatters the repository enforces to
+// rendered source. Jennifer owns import discovery but only guarantees
+// gofmt-equivalent output; goimports groups imports and gofumpt applies
+// the repository's stricter source normalization. filename only steers
+// goimports' grouping heuristics; nothing is read from disk.
+func formatGenerated(filename string, src []byte) ([]byte, error) {
+	withImports, err := imports.Process(filename, src, &imports.Options{
 		Comments:   true,
 		TabIndent:  true,
 		TabWidth:   8,
@@ -276,10 +324,10 @@ func newOIDCall(oidStr string) *jen.Statement {
 	return jen.Qual(snmpImport, "MustOID").Call(args...)
 }
 
-// runCheck regenerates every module into a tmpdir and compares each
-// `mib.go` byte-for-byte to the committed file under outDir. Returns
-// a non-nil error on any drift. The caller is expected to map that
-// error to a non-zero exit code.
+// runCheck regenerates every module and the identity package into a
+// tmpdir and compares each `mib.go` byte-for-byte to the committed file
+// under outDir. Returns a non-nil error on any drift. The caller is
+// expected to map that error to a non-zero exit code.
 func runCheck(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 	tmp, err := os.MkdirTemp("", "mibgen-check-*")
 	if err != nil {
@@ -287,27 +335,33 @@ func runCheck(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	if err := Emit(cfg, set, tmp, pkgPrefix); err != nil {
+	if _, err := Emit(cfg, set, tmp, pkgPrefix); err != nil {
 		return err
 	}
 
-	var drift []string
+	packages := make([]checkedPackage, 0, len(cfg.Modules)+1)
 	for _, m := range cfg.Modules {
-		got, err := os.ReadFile(filepath.Join(tmp, m.Package, "mib.go"))
+		packages = append(packages, checkedPackage{name: m.Name, pkg: m.Package})
+	}
+	packages = append(packages, checkedPackage{name: identityPackage, pkg: identityPackage})
+
+	var drift []string
+	for _, p := range packages {
+		got, err := os.ReadFile(filepath.Join(tmp, p.pkg, "mib.go"))
 		if err != nil {
-			return errs.Wrapf(err, "read regenerated module %q", m.Name)
+			return errs.Wrapf(err, "read regenerated package %q", p.name)
 		}
-		want, err := os.ReadFile(filepath.Join(outDir, m.Package, "mib.go"))
+		want, err := os.ReadFile(filepath.Join(outDir, p.pkg, "mib.go"))
 		if err != nil {
-			drift = append(drift, fmt.Sprintf("%s: %v", m.Name, err))
+			drift = append(drift, fmt.Sprintf("%s: %v", p.name, err))
 			continue
 		}
 		if !bytes.Equal(got, want) {
-			drift = append(drift, fmt.Sprintf("%s: drift", m.Name))
+			drift = append(drift, fmt.Sprintf("%s: drift", p.name))
 		}
 	}
 	if len(drift) > 0 {
-		return errs.Msgf("check: drift in %d module(s):\n  %s", len(drift), strings.Join(drift, "\n  "))
+		return errs.Msgf("check: drift in %d package(s):\n  %s", len(drift), strings.Join(drift, "\n  "))
 	}
 	return nil
 }
