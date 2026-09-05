@@ -16,7 +16,11 @@ Lifecycle and reachability are separate axes: reachability is per Binding and he
 
 ### Integration
 
-A configured adapter instance — the cloud tenant, controller, or edge agent through which FlowSeer reaches devices. Kinds are code, instances are data: each first-party kind carries its own typed configuration, while all third-party kinds share one descriptor-typed configuration told apart by the kind's announced name.
+A configured adapter instance — the cloud tenant, controller, or site-local network through which FlowSeer reaches devices. Kinds are code, instances are data: each first-party kind carries its own typed configuration, while all third-party kinds share one descriptor-typed configuration told apart by the kind's announced name. An Integration that runs at a site names the Edge that hosts it.
+
+### Edge
+
+An enrolled process at a site that hosts Integrations. It is the process, not an adapter: it holds a self-generated key registered at enrollment, signs every call to central with it, and keeps that standing through any length of silence until an operator retires it. Lifecycle (pending, enrolled, retired) and contact (active, stale, dormant) are separate axes, as for a Device. A setup key shipped with the box is consumed by its one enrollment.
 
 ### Binding
 

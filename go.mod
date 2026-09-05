@@ -5,6 +5,7 @@ go 1.27
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2
 	buf.build/go/protovalidate v1.4.0
+	connectrpc.com/connect v1.20.0
 	github.com/dave/jennifer v1.7.1
 	github.com/moby/moby/api v1.56.0
 	github.com/nats-io/nats-server/v2 v2.14.6

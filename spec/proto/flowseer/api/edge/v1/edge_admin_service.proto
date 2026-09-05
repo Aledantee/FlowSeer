@@ -1,0 +1,127 @@
+edition = "2024";
+
+// The service an operator calls to create, provision, and retire edges.
+// Authorized as the operator; an edge never calls it.
+package flowseer.api.edge.v1;
+
+import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/api/edge/v1/provisioning.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+service EdgeAdminService {
+  // Creates a pending edge and issues its first setup key.
+  rpc CreateEdge(CreateEdgeRequest) returns (CreateEdgeResponse);
+  // Issues a fresh setup key to a pending or retired edge, replacing any
+  // unused one. A retired edge returns to pending.
+  rpc IssueSetupKey(IssueSetupKeyRequest) returns (IssueSetupKeyResponse);
+  // Revokes an unused setup key.
+  rpc RevokeSetupKey(RevokeSetupKeyRequest) returns (RevokeSetupKeyResponse);
+  // Retires an edge. Its key is refused from the next call on.
+  rpc RetireEdge(RetireEdgeRequest) returns (RetireEdgeResponse);
+  rpc GetEdge(GetEdgeRequest) returns (GetEdgeResponse);
+  rpc ListEdges(ListEdgesRequest) returns (ListEdgesResponse);
+}
+
+// One edge as the admin service returns it: intent and observation
+// together.
+message EdgeRecord {
+  // Must be present.
+  EdgeConfig config = 1 [(buf.validate.field).required = true];
+  // Must be present.
+  EdgeState state = 2 [(buf.validate.field).required = true];
+}
+
+message CreateEdgeRequest {
+  // Operator-assigned display name. Unset means none. When set, must not
+  // be empty.
+  string name = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description. Unset means none. When set, must not be empty.
+  string description = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // When the first setup key stops being accepted; must lie in the future.
+  // Unset means 180 days from issue.
+  google.protobuf.Timestamp setup_key_expires_at = 3 [(buf.validate.field).timestamp.gt_now = true];
+}
+
+message CreateEdgeResponse {
+  // The created edge. Must be present.
+  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  // What to ship with the edge. Shown once; the setup key is not
+  // retrievable afterwards. Must be present.
+  EdgeProvisioning provisioning = 2 [(buf.validate.field).required = true];
+}
+
+message IssueSetupKeyRequest {
+  // The edge to issue a key to. Must be present.
+  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  // When the key stops being accepted; must lie in the future. Unset means
+  // 180 days from issue.
+  google.protobuf.Timestamp expires_at = 2 [(buf.validate.field).timestamp.gt_now = true];
+}
+
+message IssueSetupKeyResponse {
+  // The edge after issue. Must be present.
+  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  // What to ship with the edge. Shown once. Must be present.
+  EdgeProvisioning provisioning = 2 [(buf.validate.field).required = true];
+}
+
+message RevokeSetupKeyRequest {
+  // The edge whose unused setup key to revoke. Must be present.
+  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+}
+
+message RevokeSetupKeyResponse {
+  // The edge after revocation. Must be present.
+  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+}
+
+message RetireEdgeRequest {
+  // The edge to retire. Must be present.
+  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+}
+
+message RetireEdgeResponse {
+  // The edge after retirement. Must be present.
+  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+}
+
+message GetEdgeRequest {
+  // Must be present.
+  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+}
+
+message GetEdgeResponse {
+  // Must be present.
+  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+}
+
+message ListEdgesRequest {
+  // Edges per page. Unset means the service default; never more than 500.
+  uint32 page_size = 1 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 500
+  ];
+  // Opaque token from the previous page. Unset means the first page.
+  string page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListEdgesResponse {
+  // The page of edges in the service's stable order. Empty means the
+  // listing is exhausted.
+  repeated EdgeRecord edges = 1;
+  // Token for the next page. Unset means this was the last page.
+  string next_page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}

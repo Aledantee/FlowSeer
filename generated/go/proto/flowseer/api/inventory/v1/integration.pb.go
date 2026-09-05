@@ -5,7 +5,7 @@
 // source: flowseer/api/inventory/v1/integration.proto
 
 // The integration family — a configured adapter instance: the cloud
-// tenant, controller, or edge agent through which FlowSeer reaches
+// tenant, controller, or site-local network through which FlowSeer reaches
 // devices. Kind-configuration messages such as LocalNetworkConfig and
 // ThirdPartyConfig are arms of IntegrationConfig's kind oneof, not entity
 // families; no State or Event exists for them.
@@ -13,6 +13,7 @@
 package inventoryv1
 
 import (
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -240,8 +241,8 @@ func (b0 IntegrationGlobalRef_builder) Build() *IntegrationGlobalRef {
 	return m0
 }
 
-// Configuration of the local-network kind: an edge agent managing the
-// devices on its own network.
+// Configuration of the local-network kind: the devices on the network the
+// hosting edge sits in.
 type LocalNetworkConfig struct {
 	state                 protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_SeedRanges *[]*v1.IpPrefix        `protobuf:"bytes,1,rep,name=seed_ranges,json=seedRanges"`
@@ -505,6 +506,7 @@ type IntegrationConfig struct {
 	xxx_hidden_Description       *string                  `protobuf:"bytes,3,opt,name=description"`
 	xxx_hidden_CredentialRef     *string                  `protobuf:"bytes,4,opt,name=credential_ref,json=credentialRef"`
 	xxx_hidden_RequestsPerSecond uint32                   `protobuf:"varint,5,opt,name=requests_per_second,json=requestsPerSecond"`
+	xxx_hidden_Edge              *v11.EdgeGlobalRef       `protobuf:"bytes,6,opt,name=edge"`
 	xxx_hidden_Kind              isIntegrationConfig_Kind `protobuf_oneof:"kind"`
 	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
 	XXX_presence                 [1]uint32
@@ -581,6 +583,13 @@ func (x *IntegrationConfig) GetRequestsPerSecond() uint32 {
 	return 0
 }
 
+func (x *IntegrationConfig) GetEdge() *v11.EdgeGlobalRef {
+	if x != nil {
+		return x.xxx_hidden_Edge
+	}
+	return nil
+}
+
 func (x *IntegrationConfig) GetLocalNetwork() *LocalNetworkConfig {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Kind.(*integrationConfig_LocalNetwork); ok {
@@ -605,22 +614,26 @@ func (x *IntegrationConfig) SetRef(v *IntegrationGlobalRef) {
 
 func (x *IntegrationConfig) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
 }
 
 func (x *IntegrationConfig) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
 }
 
 func (x *IntegrationConfig) SetCredentialRef(v string) {
 	x.xxx_hidden_CredentialRef = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
 }
 
 func (x *IntegrationConfig) SetRequestsPerSecond(v uint32) {
 	x.xxx_hidden_RequestsPerSecond = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
+}
+
+func (x *IntegrationConfig) SetEdge(v *v11.EdgeGlobalRef) {
+	x.xxx_hidden_Edge = v
 }
 
 func (x *IntegrationConfig) SetLocalNetwork(v *LocalNetworkConfig) {
@@ -674,6 +687,13 @@ func (x *IntegrationConfig) HasRequestsPerSecond() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *IntegrationConfig) HasEdge() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Edge != nil
+}
+
 func (x *IntegrationConfig) HasKind() bool {
 	if x == nil {
 		return false
@@ -719,6 +739,10 @@ func (x *IntegrationConfig) ClearCredentialRef() {
 func (x *IntegrationConfig) ClearRequestsPerSecond() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
 	x.xxx_hidden_RequestsPerSecond = 0
+}
+
+func (x *IntegrationConfig) ClearEdge() {
+	x.xxx_hidden_Edge = nil
 }
 
 func (x *IntegrationConfig) ClearKind() {
@@ -775,6 +799,9 @@ type IntegrationConfig_builder struct {
 	// poller traffic, in requests per second. Unset means the kind's default
 	// applies.
 	RequestsPerSecond *uint32
+	// The edge that hosts this integration. Unset means it runs centrally;
+	// must be present for the local-network kind.
+	Edge *v11.EdgeGlobalRef
 	// The kind-specific configuration; the arm identifies the kind.
 	// First-party kinds occupy 10 through 18; every third-party kind shares
 	// the third_party arm and is told apart by its kind_name.
@@ -791,21 +818,22 @@ func (b0 IntegrationConfig_builder) Build() *IntegrationConfig {
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
 		x.xxx_hidden_Description = b.Description
 	}
 	if b.CredentialRef != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
 		x.xxx_hidden_CredentialRef = b.CredentialRef
 	}
 	if b.RequestsPerSecond != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
 		x.xxx_hidden_RequestsPerSecond = *b.RequestsPerSecond
 	}
+	x.xxx_hidden_Edge = b.Edge
 	if b.LocalNetwork != nil {
 		x.xxx_hidden_Kind = &integrationConfig_LocalNetwork{b.LocalNetwork}
 	}
@@ -1198,7 +1226,7 @@ var File_flowseer_api_inventory_v1_integration_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/api/inventory/v1/integration.proto\x12\x19flowseer.api.inventory.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\"2\n" +
+	"+flowseer/api/inventory/v1/integration.proto\x12\x19flowseer.api.inventory.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\"2\n" +
 	"\x13IntegrationLocalRef\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"p\n" +
 	"\x14IntegrationGlobalRef\x12X\n" +
@@ -1212,7 +1240,7 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\ttype_name\x18\x02 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\btypeName\x12\x1c\n" +
 	"\x05value\x18\x03 \x01(\fB\x06\xbaH\x03\xc8\x01\x01R\x05value\x12>\n" +
 	"\x13descriptor_revision\x18\x04 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x12descriptorRevision\"\xd0\x03\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x12descriptorRevision\"\xa0\x05\n" +
 	"\x11IntegrationConfig\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -1221,11 +1249,13 @@ const file_flowseer_api_inventory_v1_integration_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x124\n" +
 	"\x0ecredential_ref\x18\x04 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\rcredentialRef\x127\n" +
-	"\x13requests_per_second\x18\x05 \x01(\rB\a\xbaH\x04*\x02 \x00R\x11requestsPerSecond\x12T\n" +
+	"\x13requests_per_second\x18\x05 \x01(\rB\a\xbaH\x04*\x02 \x00R\x11requestsPerSecond\x127\n" +
+	"\x04edge\x18\x06 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefR\x04edge\x12T\n" +
 	"\rlocal_network\x18\n" +
 	" \x01(\v2-.flowseer.api.inventory.v1.LocalNetworkConfigH\x00R\flocalNetwork\x12N\n" +
 	"\vthird_party\x18\x13 \x01(\v2+.flowseer.api.inventory.v1.ThirdPartyConfigH\x00R\n" +
-	"thirdPartyB\r\n" +
+	"thirdParty:\x94\x01\xbaH\x90\x01\x1a\x8d\x01\n" +
+	"+integration_config.local_network_names_edge\x122a local-network integration names its hosting edge\x1a*!has(this.local_network) || has(this.edge)B\r\n" +
 	"\x04kind\x12\x05\xbaH\x02\b\x01\"\xe1\x03\n" +
 	"\x10IntegrationState\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\\\n" +
@@ -1267,23 +1297,25 @@ var file_flowseer_api_inventory_v1_integration_proto_goTypes = []any{
 	(*IntegrationState)(nil),     // 6: flowseer.api.inventory.v1.IntegrationState
 	(*IntegrationEvent)(nil),     // 7: flowseer.api.inventory.v1.IntegrationEvent
 	(*v1.IpPrefix)(nil),          // 8: flowseer.net.addr.v1.IpPrefix
+	(*v11.EdgeGlobalRef)(nil),    // 9: flowseer.api.edge.v1.EdgeGlobalRef
 }
 var file_flowseer_api_inventory_v1_integration_proto_depIdxs = []int32{
 	1,  // 0: flowseer.api.inventory.v1.IntegrationGlobalRef.integration:type_name -> flowseer.api.inventory.v1.IntegrationLocalRef
 	8,  // 1: flowseer.api.inventory.v1.LocalNetworkConfig.seed_ranges:type_name -> flowseer.net.addr.v1.IpPrefix
 	2,  // 2: flowseer.api.inventory.v1.IntegrationConfig.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
-	3,  // 3: flowseer.api.inventory.v1.IntegrationConfig.local_network:type_name -> flowseer.api.inventory.v1.LocalNetworkConfig
-	4,  // 4: flowseer.api.inventory.v1.IntegrationConfig.third_party:type_name -> flowseer.api.inventory.v1.ThirdPartyConfig
-	2,  // 5: flowseer.api.inventory.v1.IntegrationState.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
-	0,  // 6: flowseer.api.inventory.v1.IntegrationState.lifecycle:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
-	2,  // 7: flowseer.api.inventory.v1.IntegrationEvent.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
-	0,  // 8: flowseer.api.inventory.v1.IntegrationEvent.from:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
-	0,  // 9: flowseer.api.inventory.v1.IntegrationEvent.to:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	9,  // 3: flowseer.api.inventory.v1.IntegrationConfig.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	3,  // 4: flowseer.api.inventory.v1.IntegrationConfig.local_network:type_name -> flowseer.api.inventory.v1.LocalNetworkConfig
+	4,  // 5: flowseer.api.inventory.v1.IntegrationConfig.third_party:type_name -> flowseer.api.inventory.v1.ThirdPartyConfig
+	2,  // 6: flowseer.api.inventory.v1.IntegrationState.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
+	0,  // 7: flowseer.api.inventory.v1.IntegrationState.lifecycle:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
+	2,  // 8: flowseer.api.inventory.v1.IntegrationEvent.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
+	0,  // 9: flowseer.api.inventory.v1.IntegrationEvent.from:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
+	0,  // 10: flowseer.api.inventory.v1.IntegrationEvent.to:type_name -> flowseer.api.inventory.v1.IntegrationLifecycle
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_integration_proto_init() }

@@ -107,10 +107,14 @@ messages and live in the inventory service, per the
 ## Integrations
 
 An integration is a configured adapter instance: the cloud tenant,
-controller, or edge agent through which FlowSeer reaches devices. Kinds are
-code, instances are data — `IntegrationConfig` carries the operator's
-intent (name, credential ref, request budget) plus a `kind` oneof whose arm
-both identifies the kind and holds its typed configuration. Only the
+controller, or site-local network through which FlowSeer reaches devices.
+Kinds are code, instances are data — `IntegrationConfig` carries the
+operator's intent (name, credential ref, request budget, and for an
+integration that runs at a site the [edge](../../edge/v1/README.md) that
+hosts it) plus a `kind` oneof whose arm both identifies the kind and holds
+its typed configuration. The edge is its own entity, so a site that hosts
+only an on-prem controller adapter needs no local-network integration to
+stand in for its process, and a local-network integration must name one. Only the
 local-network arm exists so far; each further first-party kind lands as a
 new arm with its adapter, per the
 [device-service direction record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md).
