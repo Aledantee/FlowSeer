@@ -46,8 +46,8 @@ var fakeKeyTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeFakeKeyTableKey decodes the instance suffix of one fakeKeyTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakeKeyTableKey(idx snmp.OID) (FakeKeyTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakeKeyTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeKeyTableIndexShapes) {
 		return FakeKeyTableKey{}, false
 	}
 	return FakeKeyTableKey{FakeKeyIndex: FakeKeyIndex(parts[0].Integer)}, true

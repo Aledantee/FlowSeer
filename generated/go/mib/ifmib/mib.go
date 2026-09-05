@@ -602,8 +602,8 @@ var ifTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeIfTableKey decodes the instance suffix of one ifTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIfTableKey(idx snmp.OID) (IfTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ifTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ifTableIndexShapes) {
 		return IfTableKey{}, false
 	}
 	return IfTableKey{IfIndex: InterfaceIndex(parts[0].Integer)}, true
@@ -1843,8 +1843,8 @@ var ifXTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeIfXTableKey decodes the instance suffix of one ifXTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIfXTableKey(idx snmp.OID) (IfTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ifXTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ifXTableIndexShapes) {
 		return IfTableKey{}, false
 	}
 	return IfTableKey{IfIndex: InterfaceIndex(parts[0].Integer)}, true
@@ -2387,8 +2387,8 @@ var ifStackTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind
 // decodeIfStackTableKey decodes the instance suffix of one ifStackTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIfStackTableKey(idx snmp.OID) (IfStackTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ifStackTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ifStackTableIndexShapes) {
 		return IfStackTableKey{}, false
 	}
 	return IfStackTableKey{IfStackHigherLayer: int32(parts[0].Integer), IfStackLowerLayer: int32(parts[1].Integer)}, true
@@ -2764,8 +2764,8 @@ var ifTestTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeIfTestTableKey decodes the instance suffix of one ifTestTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIfTestTableKey(idx snmp.OID) (IfTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ifTestTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ifTestTableIndexShapes) {
 		return IfTableKey{}, false
 	}
 	return IfTableKey{IfIndex: InterfaceIndex(parts[0].Integer)}, true
@@ -3051,8 +3051,8 @@ var ifRcvAddressTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, 
 // decodeIfRcvAddressTableKey decodes the instance suffix of one ifRcvAddressTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIfRcvAddressTableKey(idx snmp.OID) (IfRcvAddressTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ifRcvAddressTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ifRcvAddressTableIndexShapes) {
 		return IfRcvAddressTableKey{}, false
 	}
 	return IfRcvAddressTableKey{IfIndex: InterfaceIndex(parts[0].Integer), IfRcvAddressAddress: string(parts[1].Octets)}, true

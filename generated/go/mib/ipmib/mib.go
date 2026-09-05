@@ -1837,8 +1837,8 @@ var ipAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexIPv4}}
 // decodeIpAddrTableKey decodes the instance suffix of one ipAddrTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpAddrTableKey(idx snmp.OID) (IpAddrTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipAddrTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipAddrTableIndexShapes) {
 		return IpAddrTableKey{}, false
 	}
 	return IpAddrTableKey{IpAdEntAddr: parts[0].Addr}, true
@@ -2137,8 +2137,8 @@ var ipNetToMediaTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, 
 // decodeIpNetToMediaTableKey decodes the instance suffix of one ipNetToMediaTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpNetToMediaTableKey(idx snmp.OID) (IpNetToMediaTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipNetToMediaTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipNetToMediaTableIndexShapes) {
 		return IpNetToMediaTableKey{}, false
 	}
 	return IpNetToMediaTableKey{IpNetToMediaIfIndex: parts[0].Integer, IpNetToMediaNetAddress: parts[1].Addr}, true
@@ -2391,8 +2391,8 @@ var ipv4InterfaceTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeIpv4InterfaceTableKey decodes the instance suffix of one ipv4InterfaceTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpv4InterfaceTableKey(idx snmp.OID) (Ipv4InterfaceTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipv4InterfaceTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipv4InterfaceTableIndexShapes) {
 		return Ipv4InterfaceTableKey{}, false
 	}
 	return Ipv4InterfaceTableKey{Ipv4InterfaceIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
@@ -2845,8 +2845,8 @@ var ipv6InterfaceTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeIpv6InterfaceTableKey decodes the instance suffix of one ipv6InterfaceTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpv6InterfaceTableKey(idx snmp.OID) (Ipv6InterfaceTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipv6InterfaceTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipv6InterfaceTableIndexShapes) {
 		return Ipv6InterfaceTableKey{}, false
 	}
 	return Ipv6InterfaceTableKey{Ipv6InterfaceIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
@@ -3823,8 +3823,8 @@ var ipSystemStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeIpSystemStatsTableKey decodes the instance suffix of one ipSystemStatsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpSystemStatsTableKey(idx snmp.OID) (IpSystemStatsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipSystemStatsTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipSystemStatsTableIndexShapes) {
 		return IpSystemStatsTableKey{}, false
 	}
 	return IpSystemStatsTableKey{IpSystemStatsIPVersion: int32(parts[0].Integer)}, true
@@ -5406,8 +5406,8 @@ var ipIfStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Ki
 // decodeIpIfStatsTableKey decodes the instance suffix of one ipIfStatsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpIfStatsTableKey(idx snmp.OID) (IpIfStatsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipIfStatsTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipIfStatsTableIndexShapes) {
 		return IpIfStatsTableKey{}, false
 	}
 	return IpIfStatsTableKey{IpIfStatsIPVersion: int32(parts[0].Integer), IpIfStatsIfIndex: ifmib.InterfaceIndex(parts[1].Integer)}, true
@@ -7238,8 +7238,8 @@ var ipAddressPrefixTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeIpAddressPrefixTableKey decodes the instance suffix of one ipAddressPrefixTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpAddressPrefixTableKey(idx snmp.OID) (IpAddressPrefixTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipAddressPrefixTableIndexShapes)
-	if !ok {
+	var parts [4]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipAddressPrefixTableIndexShapes) {
 		return IpAddressPrefixTableKey{}, false
 	}
 	return IpAddressPrefixTableKey{IpAddressPrefixIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IpAddressPrefixType: int32(parts[1].Integer), IpAddressPrefixPrefix: string(parts[2].Octets), IpAddressPrefixLength: parts[3].Integer}, true
@@ -7579,8 +7579,8 @@ var ipAddressTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Ki
 // decodeIpAddressTableKey decodes the instance suffix of one ipAddressTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpAddressTableKey(idx snmp.OID) (IpAddressTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipAddressTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipAddressTableIndexShapes) {
 		return IpAddressTableKey{}, false
 	}
 	return IpAddressTableKey{IpAddressAddrType: int32(parts[0].Integer), IpAddressAddr: string(parts[1].Octets)}, true
@@ -8230,8 +8230,8 @@ var ipNetToPhysicalTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeIpNetToPhysicalTableKey decodes the instance suffix of one ipNetToPhysicalTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpNetToPhysicalTableKey(idx snmp.OID) (IpNetToPhysicalTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipNetToPhysicalTableIndexShapes)
-	if !ok {
+	var parts [3]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipNetToPhysicalTableIndexShapes) {
 		return IpNetToPhysicalTableKey{}, false
 	}
 	return IpNetToPhysicalTableKey{IpNetToPhysicalIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IpNetToPhysicalNetAddressType: int32(parts[1].Integer), IpNetToPhysicalNetAddress: string(parts[2].Octets)}, true
@@ -8746,8 +8746,8 @@ var ipv6ScopeZoneIndexTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInte
 // decodeIpv6ScopeZoneIndexTableKey decodes the instance suffix of one ipv6ScopeZoneIndexTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpv6ScopeZoneIndexTableKey(idx snmp.OID) (Ipv6ScopeZoneIndexTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipv6ScopeZoneIndexTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipv6ScopeZoneIndexTableIndexShapes) {
 		return Ipv6ScopeZoneIndexTableKey{}, false
 	}
 	return Ipv6ScopeZoneIndexTableKey{Ipv6ScopeZoneIndexIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
@@ -9178,8 +9178,8 @@ var ipDefaultRouterTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeIpDefaultRouterTableKey decodes the instance suffix of one ipDefaultRouterTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpDefaultRouterTableKey(idx snmp.OID) (IpDefaultRouterTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipDefaultRouterTableIndexShapes)
-	if !ok {
+	var parts [3]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipDefaultRouterTableIndexShapes) {
 		return IpDefaultRouterTableKey{}, false
 	}
 	return IpDefaultRouterTableKey{IpDefaultRouterAddressType: int32(parts[0].Integer), IpDefaultRouterAddress: string(parts[1].Octets), IpDefaultRouterIfIndex: ifmib.InterfaceIndex(parts[2].Integer)}, true
@@ -9470,8 +9470,8 @@ var ipv6RouterAdvertTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexIntege
 // decodeIpv6RouterAdvertTableKey decodes the instance suffix of one ipv6RouterAdvertTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIpv6RouterAdvertTableKey(idx snmp.OID) (Ipv6RouterAdvertTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, ipv6RouterAdvertTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, ipv6RouterAdvertTableIndexShapes) {
 		return Ipv6RouterAdvertTableKey{}, false
 	}
 	return Ipv6RouterAdvertTableKey{Ipv6RouterAdvertIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
@@ -9866,8 +9866,8 @@ var icmpStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeIcmpStatsTableKey decodes the instance suffix of one icmpStatsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIcmpStatsTableKey(idx snmp.OID) (IcmpStatsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, icmpStatsTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, icmpStatsTableIndexShapes) {
 		return IcmpStatsTableKey{}, false
 	}
 	return IcmpStatsTableKey{IcmpStatsIPVersion: int32(parts[0].Integer)}, true
@@ -10116,8 +10116,8 @@ var icmpMsgStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, 
 // decodeIcmpMsgStatsTableKey decodes the instance suffix of one icmpMsgStatsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeIcmpMsgStatsTableKey(idx snmp.OID) (IcmpMsgStatsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, icmpMsgStatsTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, icmpMsgStatsTableIndexShapes) {
 		return IcmpMsgStatsTableKey{}, false
 	}
 	return IcmpMsgStatsTableKey{IcmpMsgStatsIPVersion: int32(parts[0].Integer), IcmpMsgStatsType: int32(parts[1].Integer)}, true

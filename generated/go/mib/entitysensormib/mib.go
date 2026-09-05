@@ -316,8 +316,8 @@ var entPhySensorTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeEntPhySensorTableKey decodes the instance suffix of one entPhySensorTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeEntPhySensorTableKey(idx snmp.OID) (EntPhySensorTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, entPhySensorTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entPhySensorTableIndexShapes) {
 		return EntPhySensorTableKey{}, false
 	}
 	return EntPhySensorTableKey{EntPhysicalIndex: int32(parts[0].Integer)}, true

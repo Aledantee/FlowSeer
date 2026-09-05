@@ -227,8 +227,8 @@ var dot1dTpHCPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeDot1dTpHCPortTableKey decodes the instance suffix of one dot1dTpHCPortTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dTpHCPortTableKey(idx snmp.OID) (Dot1dTpHCPortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dTpHCPortTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dTpHCPortTableIndexShapes) {
 		return Dot1dTpHCPortTableKey{}, false
 	}
 	return Dot1dTpHCPortTableKey{Dot1dTpPort: int32(parts[0].Integer)}, true
@@ -464,8 +464,8 @@ var dot1dTpPortOverflowTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInt
 // decodeDot1dTpPortOverflowTableKey decodes the instance suffix of one dot1dTpPortOverflowTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dTpPortOverflowTableKey(idx snmp.OID) (Dot1dTpPortOverflowTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dTpPortOverflowTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dTpPortOverflowTableIndexShapes) {
 		return Dot1dTpPortOverflowTableKey{}, false
 	}
 	return Dot1dTpPortOverflowTableKey{Dot1dTpPort: int32(parts[0].Integer)}, true
@@ -686,8 +686,8 @@ var dot1dPortCapabilitiesTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexI
 // decodeDot1dPortCapabilitiesTableKey decodes the instance suffix of one dot1dPortCapabilitiesTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dPortCapabilitiesTableKey(idx snmp.OID) (bridgemib.Dot1dBasePortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dPortCapabilitiesTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dPortCapabilitiesTableIndexShapes) {
 		return bridgemib.Dot1dBasePortTableKey{}, false
 	}
 	return bridgemib.Dot1dBasePortTableKey{Dot1dBasePort: int32(parts[0].Integer)}, true
@@ -865,8 +865,8 @@ var dot1dPortPriorityTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteg
 // decodeDot1dPortPriorityTableKey decodes the instance suffix of one dot1dPortPriorityTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dPortPriorityTableKey(idx snmp.OID) (bridgemib.Dot1dBasePortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dPortPriorityTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dPortPriorityTableIndexShapes) {
 		return bridgemib.Dot1dBasePortTableKey{}, false
 	}
 	return bridgemib.Dot1dBasePortTableKey{Dot1dBasePort: int32(parts[0].Integer)}, true
@@ -1069,8 +1069,8 @@ var dot1dUserPriorityRegenTableIndexShapes = []snmp.IndexShape{{Kind: snmp.Index
 // decodeDot1dUserPriorityRegenTableKey decodes the instance suffix of one dot1dUserPriorityRegenTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dUserPriorityRegenTableKey(idx snmp.OID) (Dot1dUserPriorityRegenTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dUserPriorityRegenTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dUserPriorityRegenTableIndexShapes) {
 		return Dot1dUserPriorityRegenTableKey{}, false
 	}
 	return Dot1dUserPriorityRegenTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1dUserPriority: int32(parts[1].Integer)}, true
@@ -1252,8 +1252,8 @@ var dot1dTrafficClassTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteg
 // decodeDot1dTrafficClassTableKey decodes the instance suffix of one dot1dTrafficClassTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dTrafficClassTableKey(idx snmp.OID) (Dot1dTrafficClassTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dTrafficClassTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dTrafficClassTableIndexShapes) {
 		return Dot1dTrafficClassTableKey{}, false
 	}
 	return Dot1dTrafficClassTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1dTrafficClassPriority: int32(parts[1].Integer)}, true
@@ -1433,8 +1433,8 @@ var dot1dPortOutboundAccessPriorityTableIndexShapes = []snmp.IndexShape{{Kind: s
 // decodeDot1dPortOutboundAccessPriorityTableKey decodes the instance suffix of one dot1dPortOutboundAccessPriorityTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dPortOutboundAccessPriorityTableKey(idx snmp.OID) (Dot1dPortOutboundAccessPriorityTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dPortOutboundAccessPriorityTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dPortOutboundAccessPriorityTableIndexShapes) {
 		return Dot1dPortOutboundAccessPriorityTableKey{}, false
 	}
 	return Dot1dPortOutboundAccessPriorityTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1dRegenUserPriority: int32(parts[1].Integer)}, true
@@ -1621,8 +1621,8 @@ var dot1dPortGarpTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeDot1dPortGarpTableKey decodes the instance suffix of one dot1dPortGarpTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dPortGarpTableKey(idx snmp.OID) (bridgemib.Dot1dBasePortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dPortGarpTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dPortGarpTableIndexShapes) {
 		return bridgemib.Dot1dBasePortTableKey{}, false
 	}
 	return bridgemib.Dot1dBasePortTableKey{Dot1dBasePort: int32(parts[0].Integer)}, true
@@ -1876,8 +1876,8 @@ var dot1dPortGmrpTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeDot1dPortGmrpTableKey decodes the instance suffix of one dot1dPortGmrpTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1dPortGmrpTableKey(idx snmp.OID) (bridgemib.Dot1dBasePortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1dPortGmrpTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1dPortGmrpTableIndexShapes) {
 		return bridgemib.Dot1dBasePortTableKey{}, false
 	}
 	return bridgemib.Dot1dBasePortTableKey{Dot1dBasePort: int32(parts[0].Integer)}, true

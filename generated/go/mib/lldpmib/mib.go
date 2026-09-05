@@ -772,8 +772,8 @@ var lldpPortConfigTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}
 // decodeLldpPortConfigTableKey decodes the instance suffix of one lldpPortConfigTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpPortConfigTableKey(idx snmp.OID) (LldpPortConfigTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpPortConfigTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpPortConfigTableIndexShapes) {
 		return LldpPortConfigTableKey{}, false
 	}
 	return LldpPortConfigTableKey{LldpPortConfigPortNum: LldpPortNumber(parts[0].Integer)}, true
@@ -983,8 +983,8 @@ var lldpConfigManAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteg
 // decodeLldpConfigManAddrTableKey decodes the instance suffix of one lldpConfigManAddrTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpConfigManAddrTableKey(idx snmp.OID) (LldpLocManAddrTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpConfigManAddrTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpConfigManAddrTableIndexShapes) {
 		return LldpLocManAddrTableKey{}, false
 	}
 	return LldpLocManAddrTableKey{LldpLocManAddrSubtype: int32(parts[0].Integer), LldpLocManAddr: string(parts[1].Octets)}, true
@@ -1159,8 +1159,8 @@ var lldpStatsTxPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeLldpStatsTxPortTableKey decodes the instance suffix of one lldpStatsTxPortTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpStatsTxPortTableKey(idx snmp.OID) (LldpStatsTxPortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpStatsTxPortTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpStatsTxPortTableIndexShapes) {
 		return LldpStatsTxPortTableKey{}, false
 	}
 	return LldpStatsTxPortTableKey{LldpStatsTxPortNum: LldpPortNumber(parts[0].Integer)}, true
@@ -1398,8 +1398,8 @@ var lldpStatsRxPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeLldpStatsRxPortTableKey decodes the instance suffix of one lldpStatsRxPortTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpStatsRxPortTableKey(idx snmp.OID) (LldpStatsRxPortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpStatsRxPortTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpStatsRxPortTableIndexShapes) {
 		return LldpStatsRxPortTableKey{}, false
 	}
 	return LldpStatsRxPortTableKey{LldpStatsRxPortNum: LldpPortNumber(parts[0].Integer)}, true
@@ -1704,8 +1704,8 @@ var lldpLocPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeLldpLocPortTableKey decodes the instance suffix of one lldpLocPortTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpLocPortTableKey(idx snmp.OID) (LldpLocPortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpLocPortTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpLocPortTableIndexShapes) {
 		return LldpLocPortTableKey{}, false
 	}
 	return LldpLocPortTableKey{LldpLocPortNum: LldpPortNumber(parts[0].Integer)}, true
@@ -1949,8 +1949,8 @@ var lldpLocManAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}
 // decodeLldpLocManAddrTableKey decodes the instance suffix of one lldpLocManAddrTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpLocManAddrTableKey(idx snmp.OID) (LldpLocManAddrTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpLocManAddrTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpLocManAddrTableIndexShapes) {
 		return LldpLocManAddrTableKey{}, false
 	}
 	return LldpLocManAddrTableKey{LldpLocManAddrSubtype: int32(parts[0].Integer), LldpLocManAddr: string(parts[1].Octets)}, true
@@ -2253,8 +2253,8 @@ var lldpRemTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind
 // decodeLldpRemTableKey decodes the instance suffix of one lldpRemTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpRemTableKey(idx snmp.OID) (LldpRemTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpRemTableIndexShapes)
-	if !ok {
+	var parts [3]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemTableIndexShapes) {
 		return LldpRemTableKey{}, false
 	}
 	return LldpRemTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer)}, true
@@ -2591,8 +2591,8 @@ var lldpRemManAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}
 // decodeLldpRemManAddrTableKey decodes the instance suffix of one lldpRemManAddrTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpRemManAddrTableKey(idx snmp.OID) (LldpRemManAddrTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpRemManAddrTableIndexShapes)
-	if !ok {
+	var parts [5]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemManAddrTableIndexShapes) {
 		return LldpRemManAddrTableKey{}, false
 	}
 	return LldpRemManAddrTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer), LldpRemManAddrSubtype: int32(parts[3].Integer), LldpRemManAddr: string(parts[4].Octets)}, true
@@ -2812,8 +2812,8 @@ var lldpRemUnknownTLVTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteg
 // decodeLldpRemUnknownTLVTableKey decodes the instance suffix of one lldpRemUnknownTLVTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpRemUnknownTLVTableKey(idx snmp.OID) (LldpRemUnknownTLVTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpRemUnknownTLVTableIndexShapes)
-	if !ok {
+	var parts [4]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemUnknownTLVTableIndexShapes) {
 		return LldpRemUnknownTLVTableKey{}, false
 	}
 	return LldpRemUnknownTLVTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer), LldpRemUnknownTLVType: int32(parts[3].Integer)}, true
@@ -2997,8 +2997,8 @@ var lldpRemOrgDefInfoTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteg
 // decodeLldpRemOrgDefInfoTableKey decodes the instance suffix of one lldpRemOrgDefInfoTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeLldpRemOrgDefInfoTableKey(idx snmp.OID) (LldpRemOrgDefInfoTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, lldpRemOrgDefInfoTableIndexShapes)
-	if !ok {
+	var parts [6]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, lldpRemOrgDefInfoTableIndexShapes) {
 		return LldpRemOrgDefInfoTableKey{}, false
 	}
 	return LldpRemOrgDefInfoTableKey{LldpRemTimeMark: parts[0].Integer, LldpRemLocalPortNum: LldpPortNumber(parts[1].Integer), LldpRemIndex: int32(parts[2].Integer), LldpRemOrgDefInfoOUI: string(parts[3].Octets), LldpRemOrgDefInfoSubtype: int32(parts[4].Integer), LldpRemOrgDefInfoIndex: int32(parts[5].Integer)}, true

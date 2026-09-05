@@ -969,8 +969,8 @@ var sysORTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeSysORTableKey decodes the instance suffix of one sysORTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeSysORTableKey(idx snmp.OID) (SysORTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, sysORTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, sysORTableIndexShapes) {
 		return SysORTableKey{}, false
 	}
 	return SysORTableKey{SysORIndex: parts[0].Integer}, true

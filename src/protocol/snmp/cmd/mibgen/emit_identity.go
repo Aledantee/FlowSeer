@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -126,13 +124,8 @@ func emitIdentity(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) (id
 		return identityReport{}, err
 	}
 
-	pkgDir := filepath.Join(outDir, identityPackage)
-	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
-		return identityReport{}, errs.Wrapf(err, "create package dir %s", pkgDir)
-	}
-	target := filepath.Join(pkgDir, "mib.go")
-	if err := os.WriteFile(target, out, 0o644); err != nil {
-		return identityReport{}, errs.Wrapf(err, "write %s", target)
+	if err := writeGeneratedPackage(outDir, identityPackage, out); err != nil {
+		return identityReport{}, err
 	}
 
 	return report, nil

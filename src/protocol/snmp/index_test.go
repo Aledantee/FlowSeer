@@ -145,3 +145,28 @@ func FuzzDecodeIndex(f *testing.F) {
 		}
 	})
 }
+
+func TestDecodeIndexInto_ReusesBufferAndLeavesTailUntouched(t *testing.T) {
+	dst := make([]IndexValue, 3)
+	dst[2] = IndexValue{Kind: IndexIPv4, Integer: 99}
+	shapes := []IndexShape{{Kind: IndexInteger}, {Kind: IndexInteger}}
+
+	if !DecodeIndexInto(dst, suffix(4, 5), shapes) {
+		t.Fatal("DecodeIndexInto = false, want true")
+	}
+	if dst[0].Integer != 4 || dst[1].Integer != 5 {
+		t.Fatalf("parts = %+v, want 4 and 5", dst[:2])
+	}
+	if dst[2].Integer != 99 {
+		t.Fatalf("entry beyond the shapes changed: %+v", dst[2])
+	}
+
+	// A second decode into the same buffer starts from zero for every
+	// shaped entry, so a short suffix cannot leak the previous row's key.
+	if DecodeIndexInto(dst, suffix(6), shapes) {
+		t.Fatal("DecodeIndexInto = true for a short suffix, want false")
+	}
+	if dst[0].Integer != 6 || dst[1].Integer != 0 || dst[1].Kind != IndexInteger {
+		t.Fatalf("parts after short suffix = %+v, want 6 and zero", dst[:2])
+	}
+}

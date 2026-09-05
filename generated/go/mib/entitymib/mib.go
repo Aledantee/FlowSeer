@@ -452,8 +452,8 @@ var entPhysicalTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeEntPhysicalTableKey decodes the instance suffix of one entPhysicalTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeEntPhysicalTableKey(idx snmp.OID) (EntPhysicalTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, entPhysicalTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entPhysicalTableIndexShapes) {
 		return EntPhysicalTableKey{}, false
 	}
 	return EntPhysicalTableKey{EntPhysicalIndex: PhysicalIndex(parts[0].Integer)}, true
@@ -1374,8 +1374,8 @@ var entLogicalTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeEntLogicalTableKey decodes the instance suffix of one entLogicalTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeEntLogicalTableKey(idx snmp.OID) (EntLogicalTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, entLogicalTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entLogicalTableIndexShapes) {
 		return EntLogicalTableKey{}, false
 	}
 	return EntLogicalTableKey{EntLogicalIndex: int32(parts[0].Integer)}, true
@@ -1873,8 +1873,8 @@ var entLPMappingTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, 
 // decodeEntLPMappingTableKey decodes the instance suffix of one entLPMappingTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeEntLPMappingTableKey(idx snmp.OID) (EntLPMappingTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, entLPMappingTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entLPMappingTableIndexShapes) {
 		return EntLPMappingTableKey{}, false
 	}
 	return EntLPMappingTableKey{EntLogicalIndex: int32(parts[0].Integer), EntLPPhysicalIndex: PhysicalIndex(parts[1].Integer)}, true
@@ -2213,8 +2213,8 @@ var entAliasMappingTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeEntAliasMappingTableKey decodes the instance suffix of one entAliasMappingTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeEntAliasMappingTableKey(idx snmp.OID) (EntAliasMappingTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, entAliasMappingTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entAliasMappingTableIndexShapes) {
 		return EntAliasMappingTableKey{}, false
 	}
 	return EntAliasMappingTableKey{EntPhysicalIndex: PhysicalIndex(parts[0].Integer), EntAliasLogicalIndexOrZero: int32(parts[1].Integer)}, true
@@ -2537,8 +2537,8 @@ var entPhysicalContainsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInt
 // decodeEntPhysicalContainsTableKey decodes the instance suffix of one entPhysicalContainsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeEntPhysicalContainsTableKey(idx snmp.OID) (EntPhysicalContainsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, entPhysicalContainsTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, entPhysicalContainsTableIndexShapes) {
 		return EntPhysicalContainsTableKey{}, false
 	}
 	return EntPhysicalContainsTableKey{EntPhysicalIndex: PhysicalIndex(parts[0].Integer), EntPhysicalChildIndex: PhysicalIndex(parts[1].Integer)}, true

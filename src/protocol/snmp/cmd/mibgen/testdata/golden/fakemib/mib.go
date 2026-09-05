@@ -203,8 +203,8 @@ var fakeTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeFakeTableKey decodes the instance suffix of one fakeTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakeTableKey(idx snmp.OID) (FakeTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakeTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeTableIndexShapes) {
 		return FakeTableKey{}, false
 	}
 	return FakeTableKey{FakeIndex: int32(parts[0].Integer)}, true
@@ -682,8 +682,8 @@ var fakeStackTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeFakeStackTableKey decodes the instance suffix of one fakeStackTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakeStackTableKey(idx snmp.OID) (FakeStackTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakeStackTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeStackTableIndexShapes) {
 		return FakeStackTableKey{}, false
 	}
 	return FakeStackTableKey{FakeStackIndex: int32(parts[0].Integer)}, true
@@ -1002,8 +1002,8 @@ var fakePairTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kin
 // decodeFakePairTableKey decodes the instance suffix of one fakePairTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakePairTableKey(idx snmp.OID) (FakePairTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakePairTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakePairTableIndexShapes) {
 		return FakePairTableKey{}, false
 	}
 	return FakePairTableKey{FakePairSlot: int32(parts[0].Integer), FakePairName: string(parts[1].Octets)}, true
@@ -1182,8 +1182,8 @@ var fakeImpliedTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexImpliedOcte
 // decodeFakeImpliedTableKey decodes the instance suffix of one fakeImpliedTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakeImpliedTableKey(idx snmp.OID) (FakeImpliedTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakeImpliedTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeImpliedTableIndexShapes) {
 		return FakeImpliedTableKey{}, false
 	}
 	return FakeImpliedTableKey{FakeImpliedName: string(parts[0].Octets)}, true
@@ -1362,8 +1362,8 @@ var fakeAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexIPv4}}
 // decodeFakeAddrTableKey decodes the instance suffix of one fakeAddrTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakeAddrTableKey(idx snmp.OID) (FakeAddrTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakeAddrTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeAddrTableIndexShapes) {
 		return FakeAddrTableKey{}, false
 	}
 	return FakeAddrTableKey{FakeAddrIp: parts[0].Addr}, true
@@ -1537,8 +1537,8 @@ var fakeOidTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexLengthPrefixedO
 // decodeFakeOidTableKey decodes the instance suffix of one fakeOidTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakeOidTableKey(idx snmp.OID) (FakeOidTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakeOidTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeOidTableIndexShapes) {
 		return FakeOidTableKey{}, false
 	}
 	return FakeOidTableKey{FakeOidPath: parts[0].OID.String()}, true
@@ -1705,8 +1705,8 @@ var fakeAugTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeFakeAugTableKey decodes the instance suffix of one fakeAugTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeFakeAugTableKey(idx snmp.OID) (FakeTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, fakeAugTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeAugTableIndexShapes) {
 		return FakeTableKey{}, false
 	}
 	return FakeTableKey{FakeIndex: int32(parts[0].Integer)}, true

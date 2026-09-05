@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/dave/jennifer/jen"
 
@@ -455,8 +454,10 @@ func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowK
 	f.Comment(key.DecodeFn + " decodes the instance suffix of one " + t.Node.Name + " row. ok is false")
 	f.Comment("when the suffix does not match the declared INDEX; the key is then zero.")
 	f.Func().Id(key.DecodeFn).Params(jen.Id("idx").Qual(snmpImport, "OID")).Params(key.Type.Clone(), jen.Bool()).Block(
-		jen.List(jen.Id("parts"), jen.Id("ok")).Op(":=").Qual(snmpImport, "DecodeIndex").Call(jen.Id("idx"), jen.Id(shapesName)),
-		jen.If(jen.Op("!").Id("ok")).Block(
+		// A fixed-size array keeps the per-row decode off the heap; the
+		// walker calls this once for every row it yields.
+		jen.Var().Id("parts").Index(jen.Lit(len(parts))).Qual(snmpImport, "IndexValue"),
+		jen.If(jen.Op("!").Qual(snmpImport, "DecodeIndexInto").Call(jen.Id("parts").Index(jen.Op(":")), jen.Id("idx"), jen.Id(shapesName))).Block(
 			jen.Return(key.Type.Clone().Values(), jen.False()),
 		),
 		jen.Return(key.Type.Clone().ValuesFunc(func(g *jen.Group) {
@@ -472,5 +473,11 @@ func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowK
 // unexported turns an emitted UpperCamelCase name into the
 // package-private spelling of its companion identifier.
 func unexported(s string) string {
-	return strings.ToLower(s[:1]) + s[1:]
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return s
+	}
+	runes[0] = lowerFirst(runes[0])
+
+	return string(runes)
 }

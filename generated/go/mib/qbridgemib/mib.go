@@ -603,8 +603,8 @@ var dot1qFdbTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeDot1qFdbTableKey decodes the instance suffix of one dot1qFdbTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qFdbTableKey(idx snmp.OID) (Dot1qFdbTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qFdbTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qFdbTableIndexShapes) {
 		return Dot1qFdbTableKey{}, false
 	}
 	return Dot1qFdbTableKey{Dot1qFdbId: parts[0].Integer}, true
@@ -817,8 +817,8 @@ var dot1qTpFdbTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {
 // decodeDot1qTpFdbTableKey decodes the instance suffix of one dot1qTpFdbTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qTpFdbTableKey(idx snmp.OID) (Dot1qTpFdbTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qTpFdbTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qTpFdbTableIndexShapes) {
 		return Dot1qTpFdbTableKey{}, false
 	}
 	return Dot1qTpFdbTableKey{Dot1qFdbId: parts[0].Integer, Dot1qTpFdbAddress: string(parts[1].Octets)}, true
@@ -1032,8 +1032,8 @@ var dot1qTpGroupTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, 
 // decodeDot1qTpGroupTableKey decodes the instance suffix of one dot1qTpGroupTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qTpGroupTableKey(idx snmp.OID) (Dot1qTpGroupTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qTpGroupTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qTpGroupTableIndexShapes) {
 		return Dot1qTpGroupTableKey{}, false
 	}
 	return Dot1qTpGroupTableKey{Dot1qVlanIndex: VlanIndex(parts[0].Integer), Dot1qTpGroupAddress: string(parts[1].Octets)}, true
@@ -1256,8 +1256,8 @@ var dot1qForwardAllTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeDot1qForwardAllTableKey decodes the instance suffix of one dot1qForwardAllTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qForwardAllTableKey(idx snmp.OID) (Dot1qForwardAllTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qForwardAllTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qForwardAllTableIndexShapes) {
 		return Dot1qForwardAllTableKey{}, false
 	}
 	return Dot1qForwardAllTableKey{Dot1qVlanIndex: VlanIndex(parts[0].Integer)}, true
@@ -1496,8 +1496,8 @@ var dot1qForwardUnregisteredTableIndexShapes = []snmp.IndexShape{{Kind: snmp.Ind
 // decodeDot1qForwardUnregisteredTableKey decodes the instance suffix of one dot1qForwardUnregisteredTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qForwardUnregisteredTableKey(idx snmp.OID) (Dot1qForwardUnregisteredTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qForwardUnregisteredTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qForwardUnregisteredTableIndexShapes) {
 		return Dot1qForwardUnregisteredTableKey{}, false
 	}
 	return Dot1qForwardUnregisteredTableKey{Dot1qVlanIndex: VlanIndex(parts[0].Integer)}, true
@@ -1736,8 +1736,8 @@ var dot1qStaticUnicastTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInte
 // decodeDot1qStaticUnicastTableKey decodes the instance suffix of one dot1qStaticUnicastTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qStaticUnicastTableKey(idx snmp.OID) (Dot1qStaticUnicastTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qStaticUnicastTableIndexShapes)
-	if !ok {
+	var parts [3]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qStaticUnicastTableIndexShapes) {
 		return Dot1qStaticUnicastTableKey{}, false
 	}
 	return Dot1qStaticUnicastTableKey{Dot1qFdbId: parts[0].Integer, Dot1qStaticUnicastAddress: string(parts[1].Octets), Dot1qStaticUnicastReceivePort: int32(parts[2].Integer)}, true
@@ -1976,8 +1976,8 @@ var dot1qStaticMulticastTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexIn
 // decodeDot1qStaticMulticastTableKey decodes the instance suffix of one dot1qStaticMulticastTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qStaticMulticastTableKey(idx snmp.OID) (Dot1qStaticMulticastTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qStaticMulticastTableIndexShapes)
-	if !ok {
+	var parts [3]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qStaticMulticastTableIndexShapes) {
 		return Dot1qStaticMulticastTableKey{}, false
 	}
 	return Dot1qStaticMulticastTableKey{Dot1qVlanIndex: VlanIndex(parts[0].Integer), Dot1qStaticMulticastAddress: string(parts[1].Octets), Dot1qStaticMulticastReceivePort: int32(parts[2].Integer)}, true
@@ -2233,8 +2233,8 @@ var dot1qVlanCurrentTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexIntege
 // decodeDot1qVlanCurrentTableKey decodes the instance suffix of one dot1qVlanCurrentTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qVlanCurrentTableKey(idx snmp.OID) (Dot1qVlanCurrentTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qVlanCurrentTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qVlanCurrentTableIndexShapes) {
 		return Dot1qVlanCurrentTableKey{}, false
 	}
 	return Dot1qVlanCurrentTableKey{Dot1qVlanTimeMark: parts[0].Integer, Dot1qVlanIndex: VlanIndex(parts[1].Integer)}, true
@@ -2532,8 +2532,8 @@ var dot1qVlanStaticTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeDot1qVlanStaticTableKey decodes the instance suffix of one dot1qVlanStaticTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qVlanStaticTableKey(idx snmp.OID) (Dot1qVlanStaticTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qVlanStaticTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qVlanStaticTableIndexShapes) {
 		return Dot1qVlanStaticTableKey{}, false
 	}
 	return Dot1qVlanStaticTableKey{Dot1qVlanIndex: VlanIndex(parts[0].Integer)}, true
@@ -2842,8 +2842,8 @@ var dot1qPortVlanTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeDot1qPortVlanTableKey decodes the instance suffix of one dot1qPortVlanTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qPortVlanTableKey(idx snmp.OID) (bridgemib.Dot1dBasePortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qPortVlanTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qPortVlanTableIndexShapes) {
 		return bridgemib.Dot1dBasePortTableKey{}, false
 	}
 	return bridgemib.Dot1dBasePortTableKey{Dot1dBasePort: int32(parts[0].Integer)}, true
@@ -3178,8 +3178,8 @@ var dot1qPortVlanStatisticsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.Inde
 // decodeDot1qPortVlanStatisticsTableKey decodes the instance suffix of one dot1qPortVlanStatisticsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qPortVlanStatisticsTableKey(idx snmp.OID) (Dot1qPortVlanStatisticsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qPortVlanStatisticsTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qPortVlanStatisticsTableIndexShapes) {
 		return Dot1qPortVlanStatisticsTableKey{}, false
 	}
 	return Dot1qPortVlanStatisticsTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1qVlanIndex: VlanIndex(parts[1].Integer)}, true
@@ -3487,8 +3487,8 @@ var dot1qPortVlanHCStatisticsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.In
 // decodeDot1qPortVlanHCStatisticsTableKey decodes the instance suffix of one dot1qPortVlanHCStatisticsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qPortVlanHCStatisticsTableKey(idx snmp.OID) (Dot1qPortVlanHCStatisticsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qPortVlanHCStatisticsTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qPortVlanHCStatisticsTableIndexShapes) {
 		return Dot1qPortVlanHCStatisticsTableKey{}, false
 	}
 	return Dot1qPortVlanHCStatisticsTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1qVlanIndex: VlanIndex(parts[1].Integer)}, true
@@ -3724,8 +3724,8 @@ var dot1qLearningConstraintsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.Ind
 // decodeDot1qLearningConstraintsTableKey decodes the instance suffix of one dot1qLearningConstraintsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1qLearningConstraintsTableKey(idx snmp.OID) (Dot1qLearningConstraintsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1qLearningConstraintsTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1qLearningConstraintsTableIndexShapes) {
 		return Dot1qLearningConstraintsTableKey{}, false
 	}
 	return Dot1qLearningConstraintsTableKey{Dot1qConstraintVlan: VlanIndex(parts[0].Integer), Dot1qConstraintSet: int32(parts[1].Integer)}, true
@@ -3928,8 +3928,8 @@ var dot1vProtocolGroupTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInte
 // decodeDot1vProtocolGroupTableKey decodes the instance suffix of one dot1vProtocolGroupTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1vProtocolGroupTableKey(idx snmp.OID) (Dot1vProtocolGroupTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1vProtocolGroupTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1vProtocolGroupTableIndexShapes) {
 		return Dot1vProtocolGroupTableKey{}, false
 	}
 	return Dot1vProtocolGroupTableKey{Dot1vProtocolTemplateFrameType: int32(parts[0].Integer), Dot1vProtocolTemplateProtocolValue: string(parts[1].Octets)}, true
@@ -4131,8 +4131,8 @@ var dot1vProtocolPortTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteg
 // decodeDot1vProtocolPortTableKey decodes the instance suffix of one dot1vProtocolPortTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeDot1vProtocolPortTableKey(idx snmp.OID) (Dot1vProtocolPortTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, dot1vProtocolPortTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, dot1vProtocolPortTableIndexShapes) {
 		return Dot1vProtocolPortTableKey{}, false
 	}
 	return Dot1vProtocolPortTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1vProtocolPortGroupId: int32(parts[1].Integer)}, true

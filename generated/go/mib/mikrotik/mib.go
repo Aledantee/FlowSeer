@@ -2245,8 +2245,8 @@ var mtxrWlStatTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrWlStatTableKey decodes the instance suffix of one mtxrWlStatTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWlStatTableKey(idx snmp.OID) (MtxrWlStatTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWlStatTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWlStatTableIndexShapes) {
 		return MtxrWlStatTableKey{}, false
 	}
 	return MtxrWlStatTableKey{MtxrWlStatIndex: ObjectIndex(parts[0].Integer)}, true
@@ -2672,8 +2672,8 @@ var mtxrWlRtabTableIndexShapes = []snmp.IndexShape{{
 // decodeMtxrWlRtabTableKey decodes the instance suffix of one mtxrWlRtabTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWlRtabTableKey(idx snmp.OID) (MtxrWlRtabTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWlRtabTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWlRtabTableIndexShapes) {
 		return MtxrWlRtabTableKey{}, false
 	}
 	return MtxrWlRtabTableKey{MtxrWlRtabAddr: string(parts[0].Octets), MtxrWlRtabIface: ObjectIndex(parts[1].Integer)}, true
@@ -3246,8 +3246,8 @@ var mtxrWlApTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrWlApTableKey decodes the instance suffix of one mtxrWlApTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWlApTableKey(idx snmp.OID) (MtxrWlApTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWlApTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWlApTableIndexShapes) {
 		return MtxrWlApTableKey{}, false
 	}
 	return MtxrWlApTableKey{MtxrWlApIndex: ObjectIndex(parts[0].Integer)}, true
@@ -3661,8 +3661,8 @@ var mtxrWlCMRtabTableIndexShapes = []snmp.IndexShape{{
 // decodeMtxrWlCMRtabTableKey decodes the instance suffix of one mtxrWlCMRtabTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWlCMRtabTableKey(idx snmp.OID) (MtxrWlCMRtabTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWlCMRtabTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWlCMRtabTableIndexShapes) {
 		return MtxrWlCMRtabTableKey{}, false
 	}
 	return MtxrWlCMRtabTableKey{MtxrWlCMRtabAddr: string(parts[0].Octets), MtxrWlCMRtabIface: ObjectIndex(parts[1].Integer)}, true
@@ -4072,8 +4072,8 @@ var mtxrWlCMTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrWlCMTableKey decodes the instance suffix of one mtxrWlCMTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWlCMTableKey(idx snmp.OID) (MtxrWlCMTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWlCMTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWlCMTableIndexShapes) {
 		return MtxrWlCMTableKey{}, false
 	}
 	return MtxrWlCMTableKey{MtxrWlCMIndex: ObjectIndex(parts[0].Integer)}, true
@@ -4363,8 +4363,8 @@ var mtxrWl60GTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrWl60GTableKey decodes the instance suffix of one mtxrWl60GTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWl60GTableKey(idx snmp.OID) (MtxrWl60GTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWl60GTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWl60GTableIndexShapes) {
 		return MtxrWl60GTableKey{}, false
 	}
 	return MtxrWl60GTableKey{MtxrWl60GIndex: ObjectIndex(parts[0].Integer)}, true
@@ -4778,8 +4778,8 @@ var mtxrWl60GStaTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrWl60GStaTableKey decodes the instance suffix of one mtxrWl60GStaTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWl60GStaTableKey(idx snmp.OID) (MtxrWl60GStaTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWl60GStaTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWl60GStaTableIndexShapes) {
 		return MtxrWl60GStaTableKey{}, false
 	}
 	return MtxrWl60GStaTableKey{MtxrWl60GStaIndex: ObjectIndex(parts[0].Integer)}, true
@@ -5114,8 +5114,8 @@ var mtxrWlCMRemoteTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}
 // decodeMtxrWlCMRemoteTableKey decodes the instance suffix of one mtxrWlCMRemoteTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWlCMRemoteTableKey(idx snmp.OID) (MtxrWlCMRemoteTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWlCMRemoteTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWlCMRemoteTableIndexShapes) {
 		return MtxrWlCMRemoteTableKey{}, false
 	}
 	return MtxrWlCMRemoteTableKey{MtxrWlCMRemoteIndex: ObjectIndex(parts[0].Integer)}, true
@@ -5411,8 +5411,8 @@ var mtxrQueueSimpleTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger
 // decodeMtxrQueueSimpleTableKey decodes the instance suffix of one mtxrQueueSimpleTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrQueueSimpleTableKey(idx snmp.OID) (MtxrQueueSimpleTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrQueueSimpleTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrQueueSimpleTableIndexShapes) {
 		return MtxrQueueSimpleTableKey{}, false
 	}
 	return MtxrQueueSimpleTableKey{MtxrQueueSimpleIndex: ObjectIndex(parts[0].Integer)}, true
@@ -5879,8 +5879,8 @@ var mtxrQueueTreeTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrQueueTreeTableKey decodes the instance suffix of one mtxrQueueTreeTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrQueueTreeTableKey(idx snmp.OID) (MtxrQueueTreeTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrQueueTreeTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrQueueTreeTableIndexShapes) {
 		return MtxrQueueTreeTableKey{}, false
 	}
 	return MtxrQueueTreeTableKey{MtxrQueueTreeIndex: ObjectIndex(parts[0].Integer)}, true
@@ -6210,8 +6210,8 @@ var mtxrGaugeTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrGaugeTableKey decodes the instance suffix of one mtxrGaugeTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrGaugeTableKey(idx snmp.OID) (MtxrGaugeTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrGaugeTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrGaugeTableIndexShapes) {
 		return MtxrGaugeTableKey{}, false
 	}
 	return MtxrGaugeTableKey{MtxrGaugeIndex: ObjectIndex(parts[0].Integer)}, true
@@ -6516,8 +6516,8 @@ var mtxrHotspotActiveUsersTableIndexShapes = []snmp.IndexShape{{Kind: snmp.Index
 // decodeMtxrHotspotActiveUsersTableKey decodes the instance suffix of one mtxrHotspotActiveUsersTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrHotspotActiveUsersTableKey(idx snmp.OID) (MtxrHotspotActiveUsersTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrHotspotActiveUsersTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrHotspotActiveUsersTableIndexShapes) {
 		return MtxrHotspotActiveUsersTableKey{}, false
 	}
 	return MtxrHotspotActiveUsersTableKey{MtxrHotspotActiveUserIndex: ObjectIndex(parts[0].Integer)}, true
@@ -7059,8 +7059,8 @@ var mtxrScriptTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrScriptTableKey decodes the instance suffix of one mtxrScriptTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrScriptTableKey(idx snmp.OID) (MtxrScriptTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrScriptTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrScriptTableIndexShapes) {
 		return MtxrScriptTableKey{}, false
 	}
 	return MtxrScriptTableKey{MtxrScriptIndex: ObjectIndex(parts[0].Integer)}, true
@@ -7279,8 +7279,8 @@ var mtxrDnStatTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrDnStatTableKey decodes the instance suffix of one mtxrDnStatTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrDnStatTableKey(idx snmp.OID) (MtxrDnStatTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrDnStatTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrDnStatTableIndexShapes) {
 		return MtxrDnStatTableKey{}, false
 	}
 	return MtxrDnStatTableKey{MtxrDnStatIndex: ObjectIndex(parts[0].Integer)}, true
@@ -7576,8 +7576,8 @@ var mtxrNeighborTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrNeighborTableKey decodes the instance suffix of one mtxrNeighborTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrNeighborTableKey(idx snmp.OID) (MtxrNeighborTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrNeighborTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrNeighborTableIndexShapes) {
 		return MtxrNeighborTableKey{}, false
 	}
 	return MtxrNeighborTableKey{MtxrNeighborIndex: ObjectIndex(parts[0].Integer)}, true
@@ -8186,8 +8186,8 @@ var mtxrInterfaceStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInte
 // decodeMtxrInterfaceStatsTableKey decodes the instance suffix of one mtxrInterfaceStatsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrInterfaceStatsTableKey(idx snmp.OID) (MtxrInterfaceStatsTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrInterfaceStatsTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrInterfaceStatsTableIndexShapes) {
 		return MtxrInterfaceStatsTableKey{}, false
 	}
 	return MtxrInterfaceStatsTableKey{MtxrInterfaceStatsIndex: ObjectIndex(parts[0].Integer)}, true
@@ -9794,8 +9794,8 @@ var mtxrPOETableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrPOETableKey decodes the instance suffix of one mtxrPOETable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrPOETableKey(idx snmp.OID) (MtxrPOETableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrPOETableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrPOETableIndexShapes) {
 		return MtxrPOETableKey{}, false
 	}
 	return MtxrPOETableKey{MtxrPOEInterfaceIndex: ObjectIndex(parts[0].Integer)}, true
@@ -10177,8 +10177,8 @@ var mtxrLTEModemTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrLTEModemTableKey decodes the instance suffix of one mtxrLTEModemTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrLTEModemTableKey(idx snmp.OID) (MtxrLTEModemTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrLTEModemTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrLTEModemTableIndexShapes) {
 		return MtxrLTEModemTableKey{}, false
 	}
 	return MtxrLTEModemTableKey{MtxrLTEModemInterfaceIndex: ObjectIndex(parts[0].Integer)}, true
@@ -10851,8 +10851,8 @@ var mtxrLTECarrierAggTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteg
 // decodeMtxrLTECarrierAggTableKey decodes the instance suffix of one mtxrLTECarrierAggTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrLTECarrierAggTableKey(idx snmp.OID) (MtxrLTECarrierAggTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrLTECarrierAggTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrLTECarrierAggTableIndexShapes) {
 		return MtxrLTECarrierAggTableKey{}, false
 	}
 	return MtxrLTECarrierAggTableKey{MtxrLTECarrierAggInterfaceIndex: ObjectIndex(parts[0].Integer), MtxrLTECarrierAggIndex: ObjectIndex(parts[1].Integer)}, true
@@ -11259,8 +11259,8 @@ var mtxrPartitionTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrPartitionTableKey decodes the instance suffix of one mtxrPartitionTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrPartitionTableKey(idx snmp.OID) (MtxrPartitionTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrPartitionTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrPartitionTableIndexShapes) {
 		return MtxrPartitionTableKey{}, false
 	}
 	return MtxrPartitionTableKey{MtxrPartitionIndex: ObjectIndex(parts[0].Integer)}, true
@@ -11513,8 +11513,8 @@ var mtxrScriptRunTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrScriptRunTableKey decodes the instance suffix of one mtxrScriptRunTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrScriptRunTableKey(idx snmp.OID) (MtxrScriptRunTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrScriptRunTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrScriptRunTableIndexShapes) {
 		return MtxrScriptRunTableKey{}, false
 	}
 	return MtxrScriptRunTableKey{MtxrScriptRunIndex: ObjectIndex(parts[0].Integer)}, true
@@ -11793,8 +11793,8 @@ var mtxrOpticalTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrOpticalTableKey decodes the instance suffix of one mtxrOpticalTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrOpticalTableKey(idx snmp.OID) (MtxrOpticalTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrOpticalTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrOpticalTableIndexShapes) {
 		return MtxrOpticalTableKey{}, false
 	}
 	return MtxrOpticalTableKey{MtxrOpticalIndex: ObjectIndex(parts[0].Integer)}, true
@@ -12413,8 +12413,8 @@ var mtxrIkeSATableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrIkeSATableKey decodes the instance suffix of one mtxrIkeSATable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrIkeSATableKey(idx snmp.OID) (MtxrIkeSATableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrIkeSATableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrIkeSATableIndexShapes) {
 		return MtxrIkeSATableKey{}, false
 	}
 	return MtxrIkeSATableKey{MtxrIkeSAIndex: ObjectIndex(parts[0].Integer)}, true
@@ -13046,8 +13046,8 @@ var mtxrRemoteCapTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrRemoteCapTableKey decodes the instance suffix of one mtxrRemoteCapTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrRemoteCapTableKey(idx snmp.OID) (MtxrRemoteCapTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrRemoteCapTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrRemoteCapTableIndexShapes) {
 		return MtxrRemoteCapTableKey{}, false
 	}
 	return MtxrRemoteCapTableKey{MtxrRemoteCapId: ObjectIndex(parts[0].Integer)}, true
@@ -13433,8 +13433,8 @@ var mtxrWifiRegistrationTableIndexShapes = []snmp.IndexShape{{
 // decodeMtxrWifiRegistrationTableKey decodes the instance suffix of one mtxrWifiRegistrationTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWifiRegistrationTableKey(idx snmp.OID) (MtxrWifiRegistrationTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWifiRegistrationTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWifiRegistrationTableIndexShapes) {
 		return MtxrWifiRegistrationTableKey{}, false
 	}
 	return MtxrWifiRegistrationTableKey{MtxrWifiRegistrationMacAddress: string(parts[0].Octets), MtxrWifiRegistrationInterface: ObjectIndex(parts[1].Integer)}, true
@@ -13943,8 +13943,8 @@ var mtxrWifiInterfacesIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeMtxrWifiInterfacesKey decodes the instance suffix of one mtxrWifiInterfaces row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeMtxrWifiInterfacesKey(idx snmp.OID) (MtxrWifiInterfacesKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, mtxrWifiInterfacesIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWifiInterfacesIndexShapes) {
 		return MtxrWifiInterfacesKey{}, false
 	}
 	return MtxrWifiInterfacesKey{MtxrWifiInterfacesId: ObjectIndex(parts[0].Integer)}, true

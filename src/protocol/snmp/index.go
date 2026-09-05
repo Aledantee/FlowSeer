@@ -72,8 +72,26 @@ type IndexValue struct {
 // index is a fact about one row, so the caller keeps delivering the row
 // with a zero key instead of ending the walk; an error here would cost
 // every later row of the table.
+//
+// DecodeIndex allocates the returned slice. A generated walker decodes a
+// key for every row it yields, so it uses [DecodeIndexInto] with a
+// fixed-size array instead.
 func DecodeIndex(suffix OID, shapes []IndexShape) (parts []IndexValue, ok bool) {
 	parts = make([]IndexValue, len(shapes))
+
+	return parts, DecodeIndexInto(parts, suffix, shapes)
+}
+
+// DecodeIndexInto is [DecodeIndex] writing into dst, which must hold at
+// least len(shapes) entries. Entries beyond the last shape are left
+// untouched; the entries for the shapes decode exactly as DecodeIndex
+// describes, including zeroing the failing part and every later one on a
+// false result.
+func DecodeIndexInto(dst []IndexValue, suffix OID, shapes []IndexShape) (ok bool) {
+	parts := dst[:len(shapes)]
+	for i := range parts {
+		parts[i] = IndexValue{}
+	}
 	arcs := suffix.subs
 	for i, shape := range shapes {
 		var n int
@@ -86,26 +104,26 @@ func DecodeIndex(suffix OID, shapes []IndexShape) (parts []IndexValue, ok bool) 
 			n = shape.Length
 		case IndexLengthPrefixedOctets, IndexLengthPrefixedOID:
 			if len(arcs) == 0 || uint64(arcs[0]) > uint64(len(arcs)-1) {
-				return parts, false
+				return false
 			}
 			n = int(arcs[0])
 			arcs = arcs[1:]
 		case IndexImpliedOctets, IndexImpliedOID:
 			n = len(arcs)
 		default:
-			return parts, false
+			return false
 		}
 		if n < 0 || n > len(arcs) {
-			return parts, false
+			return false
 		}
 		part, valid := decodeIndexPart(shape.Kind, arcs[:n])
 		if !valid {
-			return parts, false
+			return false
 		}
 		parts[i] = part
 		arcs = arcs[n:]
 	}
-	return parts, len(arcs) == 0
+	return len(arcs) == 0
 }
 
 func decodeIndexPart(kind IndexKind, arcs []uint32) (IndexValue, bool) {

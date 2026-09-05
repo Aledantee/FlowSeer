@@ -623,8 +623,8 @@ var hrStorageTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrStorageTableKey decodes the instance suffix of one hrStorageTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrStorageTableKey(idx snmp.OID) (HrStorageTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrStorageTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrStorageTableIndexShapes) {
 		return HrStorageTableKey{}, false
 	}
 	return HrStorageTableKey{HrStorageIndex: int32(parts[0].Integer)}, true
@@ -978,8 +978,8 @@ var hrDeviceTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrDeviceTableKey decodes the instance suffix of one hrDeviceTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrDeviceTableKey(idx snmp.OID) (HrDeviceTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrDeviceTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrDeviceTableIndexShapes) {
 		return HrDeviceTableKey{}, false
 	}
 	return HrDeviceTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
@@ -1256,8 +1256,8 @@ var hrProcessorTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrProcessorTableKey decodes the instance suffix of one hrProcessorTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrProcessorTableKey(idx snmp.OID) (HrProcessorTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrProcessorTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrProcessorTableIndexShapes) {
 		return HrProcessorTableKey{}, false
 	}
 	return HrProcessorTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
@@ -1453,8 +1453,8 @@ var hrNetworkTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrNetworkTableKey decodes the instance suffix of one hrNetworkTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrNetworkTableKey(idx snmp.OID) (HrNetworkTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrNetworkTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrNetworkTableIndexShapes) {
 		return HrNetworkTableKey{}, false
 	}
 	return HrNetworkTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
@@ -1655,8 +1655,8 @@ var hrPrinterTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrPrinterTableKey decodes the instance suffix of one hrPrinterTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrPrinterTableKey(idx snmp.OID) (HrPrinterTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrPrinterTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrPrinterTableIndexShapes) {
 		return HrPrinterTableKey{}, false
 	}
 	return HrPrinterTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
@@ -1881,8 +1881,8 @@ var hrDiskStorageTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrDiskStorageTableKey decodes the instance suffix of one hrDiskStorageTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrDiskStorageTableKey(idx snmp.OID) (HrDiskStorageTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrDiskStorageTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrDiskStorageTableIndexShapes) {
 		return HrDiskStorageTableKey{}, false
 	}
 	return HrDiskStorageTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
@@ -2152,8 +2152,8 @@ var hrPartitionTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {
 // decodeHrPartitionTableKey decodes the instance suffix of one hrPartitionTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrPartitionTableKey(idx snmp.OID) (HrPartitionTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrPartitionTableIndexShapes)
-	if !ok {
+	var parts [2]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrPartitionTableIndexShapes) {
 		return HrPartitionTableKey{}, false
 	}
 	return HrPartitionTableKey{HrDeviceIndex: int32(parts[0].Integer), HrPartitionIndex: int32(parts[1].Integer)}, true
@@ -2479,8 +2479,8 @@ var hrFSTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrFSTableKey decodes the instance suffix of one hrFSTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrFSTableKey(idx snmp.OID) (HrFSTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrFSTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrFSTableIndexShapes) {
 		return HrFSTableKey{}, false
 	}
 	return HrFSTableKey{HrFSIndex: int32(parts[0].Integer)}, true
@@ -2850,8 +2850,8 @@ var hrSWRunTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrSWRunTableKey decodes the instance suffix of one hrSWRunTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrSWRunTableKey(idx snmp.OID) (HrSWRunTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrSWRunTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrSWRunTableIndexShapes) {
 		return HrSWRunTableKey{}, false
 	}
 	return HrSWRunTableKey{HrSWRunIndex: int32(parts[0].Integer)}, true
@@ -3138,8 +3138,8 @@ var hrSWRunPerfTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrSWRunPerfTableKey decodes the instance suffix of one hrSWRunPerfTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrSWRunPerfTableKey(idx snmp.OID) (HrSWRunTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrSWRunPerfTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrSWRunPerfTableIndexShapes) {
 		return HrSWRunTableKey{}, false
 	}
 	return HrSWRunTableKey{HrSWRunIndex: int32(parts[0].Integer)}, true
@@ -3374,8 +3374,8 @@ var hrSWInstalledTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 // decodeHrSWInstalledTableKey decodes the instance suffix of one hrSWInstalledTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
 func decodeHrSWInstalledTableKey(idx snmp.OID) (HrSWInstalledTableKey, bool) {
-	parts, ok := snmp.DecodeIndex(idx, hrSWInstalledTableIndexShapes)
-	if !ok {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, hrSWInstalledTableIndexShapes) {
 		return HrSWInstalledTableKey{}, false
 	}
 	return HrSWInstalledTableKey{HrSWInstalledIndex: int32(parts[0].Integer)}, true

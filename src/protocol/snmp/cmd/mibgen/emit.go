@@ -109,21 +109,36 @@ func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) (emitReport
 func EmitModule(
 	mod *smi.Module, set *smi.ModuleSet, cm Module, cfgByName map[string]Module, outDir, pkgPrefix string,
 ) ([]degradedRef, error) {
-	pkgDir := filepath.Join(outDir, cm.Package)
-	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
-		return nil, errs.Wrapf(err, "create package dir %s", pkgDir)
-	}
-
 	out, degraded, err := renderModule(mod, set, cm, cfgByName, pkgPrefix)
 	if err != nil {
 		return nil, err
 	}
-
-	target := filepath.Join(pkgDir, "mib.go")
-	if err := os.WriteFile(target, out, 0o644); err != nil {
-		return nil, errs.Wrapf(err, "write %s", target)
+	if err := writeGeneratedPackage(outDir, cm.Package, out); err != nil {
+		return nil, err
 	}
 	return degraded, nil
+}
+
+// checkedPackage pairs a configured module, or the identity package,
+// with the output directory the drift check compares.
+type checkedPackage struct {
+	name, pkg string
+}
+
+// writeGeneratedPackage writes one rendered package as outDir/pkg/mib.go,
+// creating the package directory when it is missing. Every generated
+// package, per-module or cross-module, lands through here so the layout
+// and permissions cannot drift between emitters.
+func writeGeneratedPackage(outDir, pkg string, out []byte) error {
+	pkgDir := filepath.Join(outDir, pkg)
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		return errs.Wrapf(err, "create package dir %s", pkgDir)
+	}
+	target := filepath.Join(pkgDir, "mib.go")
+	if err := os.WriteFile(target, out, 0o644); err != nil {
+		return errs.Wrapf(err, "write %s", target)
+	}
+	return nil
 }
 
 // renderModule produces repository-format-clean source for a single module
@@ -314,11 +329,11 @@ func runCheck(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 		return err
 	}
 
-	packages := make([]struct{ name, pkg string }, 0, len(cfg.Modules)+1)
+	packages := make([]checkedPackage, 0, len(cfg.Modules)+1)
 	for _, m := range cfg.Modules {
-		packages = append(packages, struct{ name, pkg string }{m.Name, m.Package})
+		packages = append(packages, checkedPackage{name: m.Name, pkg: m.Package})
 	}
-	packages = append(packages, struct{ name, pkg string }{identityPackage, identityPackage})
+	packages = append(packages, checkedPackage{name: identityPackage, pkg: identityPackage})
 
 	var drift []string
 	for _, p := range packages {
